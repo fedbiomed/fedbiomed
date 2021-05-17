@@ -35,3 +35,10 @@ $ source ./scripts/fedbiomed_environment network
 ```
 
 * the script will setup up all environment variables to start the network part
+
+* deploy the docker containers
+
+```
+$ cd envs/development/network
+$ ./deploy.sh --local
+```

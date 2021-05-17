@@ -25,10 +25,18 @@ else
     # initialize development environment for....
     case $1 in
 
+        reset)
+            echo "Deactivating all environment"
+            conda deactivate
+            conda deactivate
+            unset PYTHONPATH
+            ;;
+
         network)
             echo "Activating fedbiomed-network environment (conda)"
             conda activate fedbiomed
             conda activate fedbiomed-network
+            #echo "PYTHONPATH=${PYTHONPATH}"
             ;;
 
         node)
@@ -36,17 +44,20 @@ else
             conda activate fedbiomed
             conda activate fedbiomed-node
             export PYTHONPATH=$basedir/fedbiomed-node
+            echo "PYTHONPATH=${PYTHONPATH}"
             ;;
 
         researcher)
             echo "Activating fedbiomed-researcher environment (conda & PYTHONPATH)"
             conda activate fedbiomed
             conda activate fedbiomed-researcher
+            echo "PYTHONPATH=${PYTHONPATH}"
             export PYTHONPATH=$basedir/fedbiomed-researcher:$basedir/fedbiomed-node
             ;;
 
         *)
-            echo "Please specify an environment: network, node, researcher"
+            echo "Please specify an environment to activate: network, node, researcher"
+            echo "                      or reset to deactivate the current environment"
             ;;
     esac
 fi
