@@ -1,0 +1,26 @@
+#
+# cumulative environment (on top of fedbiomed) for fedbiomed-node
+#
+#
+#
+name: fedbiomed-node
+
+channels:
+  - conda-forge
+
+dependencies:
+  - pip
+  - torchvision
+  - paho-mqtt
+  - requests
+  - GitPython
+  - validators
+  - tinydb
+  - pandas
+  - tabulate
+  - tqdm
+  - pip:
+      - monai
+      - torch
+      - persist-queue
+      - pytorch-ignite

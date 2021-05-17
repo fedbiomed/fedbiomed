@@ -1,0 +1,14 @@
+#
+# cumulative environment (on top of fedbiomed) for fedbiomed-researcher
+#
+#
+#
+name: fedbiomed-researcher
+
+channels:
+  - conda-forge
+
+dependencies:
+  - pytest
+  - jupyter
+  - tensorboard

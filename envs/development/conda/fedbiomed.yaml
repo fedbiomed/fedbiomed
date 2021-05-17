@@ -1,0 +1,11 @@
+#
+# global conda environment
+#
+name: fedbiomed
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python>=3.9
+  - pip

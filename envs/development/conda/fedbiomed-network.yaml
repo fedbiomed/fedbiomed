@@ -1,0 +1,15 @@
+#
+# cumulative environment (on top of fedbiomed) for fedbiomed-network
+#
+#
+#
+name: fedbiomed-network
+
+channels:
+  - conda-forge
+
+dependencies:
+  - django
+  - djangorestframework
+  - django-cleanup
+  - gunicorn

@@ -1,0 +1,52 @@
+#!/bin/bash
+#
+# configure a development environment for each component (network, node, researcher)
+#
+
+#Activate conda with any of the next commands
+#source ~/miniconda3/bin/activate
+#source ~/.bashrc
+eval "$(conda shell.bash hook)"
+
+#
+# find the directory containing all sources
+#
+# this works then source this file !!!!
+#
+if [ "$0" != "-bash" ]
+then
+    echo "This file MUST be sourced (and not executed) to benefit from the environment"
+
+else
+
+    script=${BASH_SOURCE[0]}
+    basedir=$(cd $(dirname $script)/../.. || exit ; pwd)
+
+    # initialize development environment for....
+    case $1 in
+
+        network)
+            echo "Activating fedbiomed-network environment (conda)"
+            conda activate fedbiomed
+            conda activate fedbiomed-network
+            ;;
+
+        node)
+            echo "Activating fedbiomed-node environment (conda & PYTHONPATH)"
+            conda activate fedbiomed
+            conda activate fedbiomed-node
+            export PYTHONPATH=$basedir/fedbiomed-node
+            ;;
+
+        researcher)
+            echo "Activating fedbiomed-researcher environment (conda & PYTHONPATH)"
+            conda activate fedbiomed
+            conda activate fedbiomed-researcher
+            export PYTHONPATH=$basedir/fedbiomed-researcher:$basedir/fedbiomed-node
+            ;;
+
+        *)
+            echo "Please specify an environment: network, node, researcher"
+            ;;
+    esac
+fi
