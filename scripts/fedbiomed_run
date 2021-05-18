@@ -1,0 +1,43 @@
+#!/bin/bash
+#
+# run a specific component of fedbiomed
+#
+
+#Activate conda with any of the next commands
+#source ~/miniconda3/bin/activate
+#source ~/.bashrc
+if [ "$0" == "-bash" ]
+then
+    echo "This file MUST NOT be sourced"
+    return
+fi
+eval "$(conda shell.bash hook)"
+
+#
+# find the directory containing all sources
+#
+#
+basedir=$(cd $(dirname $0)/../.. || exit ; pwd)
+cd $basedir || exit
+
+#
+case $1 in
+
+    network)
+        cd ./fedbiomed-network/envs/development/network
+        ./deploy.sh --local
+        ;;
+
+    node)
+        echo "Not yet implemented"
+        ;;
+
+    researcher)
+        echo "Not yet implemented"
+        ;;
+
+    *)
+        echo "Please specify the component you want to run between: network, client researcher"
+        exit -1
+        ;;
+esac
