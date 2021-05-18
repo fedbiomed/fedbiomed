@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Pull repo
-git pull
+#
+# start docker containers for HTTP/MQTT servers
+#
 
 # Stop and remove previous containers
 docker-compose down && docker-compose rm
@@ -8,17 +9,18 @@ docker-compose down && docker-compose rm
 export FORCE_SCRIPT_NAME=/fedbiomed
 for arg in $*
 do
-  case $arg in
-  --build)
-    docker-compose build
-    ;;
-  --local)
-    unset FORCE_SCRIPT_NAME
-    ;;
-  *)
-    echo -e "\nUsage: $0 [--build] [--local]"
-    exit 1;;
-  esac
+    case $arg in
+        --build)
+            docker-compose build
+            ;;
+        --local)
+            rm -fr db.sqlite3
+            unset FORCE_SCRIPT_NAME
+            ;;
+        *)
+            echo -e "\nUsage: $0 [--build] [--local]"
+            exit 1;;
+    esac
 done
 
 # Start the new one
