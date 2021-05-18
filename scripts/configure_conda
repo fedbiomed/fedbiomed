@@ -3,6 +3,12 @@
 # create all necessary environments
 #
 
+if [ "$0" == "-bash" ]
+then
+    echo "This file MUST NOT be sourced"
+    return
+fi
+
 #Activate conda with any of the next commands
 #source ~/miniconda3/bin/activate
 #source ~/.bashrc
