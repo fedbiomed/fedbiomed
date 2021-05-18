@@ -28,20 +28,20 @@ else
         reset)
             echo "Deactivating all environment"
             conda deactivate
-            conda deactivate
+            #conda deactivate
             unset PYTHONPATH
             ;;
 
         network)
             echo "Activating fedbiomed-network environment (conda)"
-            conda activate fedbiomed
+            #conda activate fedbiomed
             conda activate fedbiomed-network
             #echo "PYTHONPATH=${PYTHONPATH}"
             ;;
 
         node)
             echo "Activating fedbiomed-node environment (conda & PYTHONPATH)"
-            conda activate fedbiomed
+            #conda activate fedbiomed
             conda activate fedbiomed-node
             export PYTHONPATH=$basedir/fedbiomed-node
             echo "PYTHONPATH=${PYTHONPATH}"
@@ -49,7 +49,7 @@ else
 
         researcher)
             echo "Activating fedbiomed-researcher environment (conda & PYTHONPATH)"
-            conda activate fedbiomed
+            #conda activate fedbiomed
             conda activate fedbiomed-researcher
             echo "PYTHONPATH=${PYTHONPATH}"
             export PYTHONPATH=$basedir/fedbiomed-researcher:$basedir/fedbiomed-node

@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# create all necessary environments
+#
 
 #Activate conda with any of the next commands
 #source ~/miniconda3/bin/activate
@@ -24,25 +27,23 @@ basedir=$(cd $(dirname $0)/../.. || exit ; pwd)
 cd $basedir || exit
 
 # prerequisite, these repo must be present in development mode
-fed1=fedbiomed-network
-fed2=fedbiomed-node
-fed3=fedbiomed-researcher
+fed_envs=(network node researcher)
 
-for i in $fed1 $fed2 $fed3
+for i in ${fed_envs[@]}
 do
-    if [ ! -d $basedir/$i ]
+    if [ ! -d $basedir/fedbiomed-$i ]
     then
-        echo "Directory $basedir/$i is missing"
+        echo "Directory $basedir/fedbiomed-$i is missing"
         exit
     fi
 done
 
 # configure all conda environements
-activate_environment fedbiomed
+#activate_environment fedbiomed
 
-for i in $fed1 $fed2 $fed3
+for i in ${fed_envs[@]}
 do
-    activate_environment $i
+    activate_environment fedbiomed-$i
     conda deactivate
 done
-conda deactivate
+#conda deactivate

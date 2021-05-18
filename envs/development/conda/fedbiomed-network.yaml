@@ -1,5 +1,5 @@
 #
-# cumulative environment (on top of fedbiomed) for fedbiomed-network
+# environment for fedbiomed-network
 #
 #
 #
@@ -9,7 +9,14 @@ channels:
   - conda-forge
 
 dependencies:
+  # common
+  - python
+  - pip
+  # http server
   - django
   - djangorestframework
   - django-cleanup
   - gunicorn
+  # for utilities
+  - pip:
+      - persist-queue
