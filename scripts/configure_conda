@@ -3,7 +3,9 @@
 # create all necessary environments
 #
 
-if [ "$0" == "-bash" ]
+# detect how the file is run
+(return 0 2>/dev/null) && sourced=1 || sourced=0
+if [ "${sourced}" == "1" ]
 then
     echo "This file MUST NOT be sourced"
     return

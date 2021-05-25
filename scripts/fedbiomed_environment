@@ -3,61 +3,66 @@
 # configure a development environment for each component (network, node, researcher)
 #
 
+#
+# find the directory containing all sources
+#
+# this works then source this file !!!!
+#
+# detect how the file is run
+(return 0 2>/dev/null) && sourced=1 || sourced=0
+if [ "${sourced}" == "0" ]
+then
+    echo "This file MUST be sourced (and not executed) to benefit from the environment"
+    exit -1
+fi
+
 #Activate conda with any of the next commands
 #source ~/miniconda3/bin/activate
 #source ~/.bashrc
 eval "$(conda shell.bash hook)"
 
 #
-# find the directory containing all sources
 #
-# this works then source this file !!!!
 #
-if [ "$0" != "-bash" ]
-then
-    echo "This file MUST be sourced (and not executed) to benefit from the environment"
 
-else
+script=${BASH_SOURCE[0]}
+basedir=$(cd $(dirname $script)/../.. || exit ; pwd)
 
-    script=${BASH_SOURCE[0]}
-    basedir=$(cd $(dirname $script)/../.. || exit ; pwd)
+# initialize development environment for....
+case $1 in
 
-    # initialize development environment for....
-    case $1 in
+    reset)
+        echo "Deactivating all environment"
+        conda deactivate
+        #conda deactivate
+        unset PYTHONPATH
+        ;;
 
-        reset)
-            echo "Deactivating all environment"
-            conda deactivate
-            #conda deactivate
-            unset PYTHONPATH
-            ;;
+    network)
+        echo "Activating fedbiomed-network environment (conda)"
+        #conda activate fedbiomed
+        conda activate fedbiomed-network
+        #echo "PYTHONPATH=${PYTHONPATH}"
+        ;;
 
-        network)
-            echo "Activating fedbiomed-network environment (conda)"
-            #conda activate fedbiomed
-            conda activate fedbiomed-network
-            #echo "PYTHONPATH=${PYTHONPATH}"
-            ;;
+    node)
+        echo "Activating fedbiomed-node environment (conda & PYTHONPATH)"
+        #conda activate fedbiomed
+        conda activate fedbiomed-node
+        export PYTHONPATH=$basedir/fedbiomed-node
+        echo "PYTHONPATH=${PYTHONPATH}"
+        ;;
 
-        node)
-            echo "Activating fedbiomed-node environment (conda & PYTHONPATH)"
-            #conda activate fedbiomed
-            conda activate fedbiomed-node
-            export PYTHONPATH=$basedir/fedbiomed-node
-            echo "PYTHONPATH=${PYTHONPATH}"
-            ;;
+    researcher)
+        echo "Activating fedbiomed-researcher environment (conda & PYTHONPATH)"
+        #conda activate fedbiomed
+        conda activate fedbiomed-researcher
+        export PYTHONPATH=$basedir/fedbiomed-researcher:$basedir/fedbiomed-node
+        echo "PYTHONPATH=${PYTHONPATH}"
+        ;;
 
-        researcher)
-            echo "Activating fedbiomed-researcher environment (conda & PYTHONPATH)"
-            #conda activate fedbiomed
-            conda activate fedbiomed-researcher
-            export PYTHONPATH=$basedir/fedbiomed-researcher:$basedir/fedbiomed-node
-            echo "PYTHONPATH=${PYTHONPATH}"
-            ;;
-
-        *)
-            echo "Please specify an environment to activate: network, node, researcher"
-            echo "                      or reset to deactivate the current environment"
-            ;;
-    esac
-fi
+    *)
+        echo "Please specify an environment to activate: network, node, researcher"
+        echo "                      or reset to deactivate the current environment"
+        ;;
+esac

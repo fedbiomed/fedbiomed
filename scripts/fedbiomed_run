@@ -3,14 +3,18 @@
 # run a specific component of fedbiomed
 #
 
-#Activate conda with any of the next commands
-#source ~/miniconda3/bin/activate
-#source ~/.bashrc
-if [ "$0" == "-bash" ]
+# detect how the file is run
+(return 0 2>/dev/null) && sourced=1 || sourced=0
+if [ "${sourced}" == "1" ]
 then
     echo "This file MUST NOT be sourced"
     return
 fi
+
+#Activate conda with any of the next commands
+#source ~/miniconda3/bin/activate
+#source ~/.bashrc
+
 eval "$(conda shell.bash hook)"
 
 #
@@ -29,7 +33,25 @@ case $1 in
         ;;
 
     node)
-        echo "Not yet implemented"
+
+        source ./fedbiomed-network/scripts/fedbiomed_environment reset
+        source ./fedbiomed-network/scripts/fedbiomed_environment node
+        case $2 in
+            add|--add)
+                python -m fedbiomed_cli.utils.cli --add
+                ;;
+
+            start|--start)
+                export MQTT_BROKER=localhost
+                export MQTT_BROKER_PORT=1883
+                export UPLOADS_URL='http://localhost:8844/upload'
+                python -m fedbiomed_cli.utils.cli --start
+                ;;
+            *)
+                echo "please run node with add or start option"
+                exit -1
+                ;;
+        esac
         ;;
 
     researcher)
@@ -37,7 +59,7 @@ case $1 in
         ;;
 
     *)
-        echo "Please specify the component you want to run between: network, client researcher"
+        echo "Please specify the component you want to run between: network, node, researcher"
         exit -1
         ;;
 esac
