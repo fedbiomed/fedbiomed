@@ -58,7 +58,7 @@ case $1 in
         echo "Not yet implemented"
         ;;
 
-    help|-h)
+    help|-h|--help)
         cat <<EOF
 usage: fedbiomed_run network
        fedbiomed_run researcher notebook.ipynb
