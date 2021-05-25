@@ -9,6 +9,15 @@ channels:
   - conda-forge
 
 dependencies:
+  - python
+  - pip
   - pytest
   - jupyter
   - tensorboard
+  - requests
+  - paho-mqtt
+  - pandas
+  - validators
+  - pip:
+      - torch
+      - persist-queue
