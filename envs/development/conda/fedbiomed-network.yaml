@@ -10,11 +10,11 @@ channels:
 
 dependencies:
   # common
-  - python
+  - python >=3.9,<4.0
   - pip
   # http server
-  - django
-  - djangorestframework
+  - django = 3.1.7
+  - djangorestframework = 3.12.2
   - django-cleanup
   - gunicorn
   # for utilities
