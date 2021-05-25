@@ -58,6 +58,29 @@ case $1 in
         echo "Not yet implemented"
         ;;
 
+    help|-h)
+        cat <<EOF
+usage: fedbiomed_run network
+       fedbiomed_run researcher notebook.ipynb
+       fedbiomed_run node       add   (config_name.ini)
+       fedbiomed_run node       start (config_name.ini)
+
+Runs the fedbiomed components after properly initializing the environments.
+The component name is mandatory.
+
+network   : run the necessary docker containers (in development mode)
+
+researcher: launch a researcher notebook, the notebook file must be provided
+
+node      : launch a new node.
+            add/start is mandatory and specify if new data must be added
+            or is the node is ran on known data
+
+            if a config_name.ini file is given, it is used instead of the
+            default one (config.ini)
+EOF
+        ;;
+
     *)
         echo "Please specify the component you want to run between: network, node, researcher"
         exit -1
