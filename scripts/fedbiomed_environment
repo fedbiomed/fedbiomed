@@ -51,8 +51,8 @@ else
             echo "Activating fedbiomed-researcher environment (conda & PYTHONPATH)"
             #conda activate fedbiomed
             conda activate fedbiomed-researcher
-            echo "PYTHONPATH=${PYTHONPATH}"
             export PYTHONPATH=$basedir/fedbiomed-researcher:$basedir/fedbiomed-node
+            echo "PYTHONPATH=${PYTHONPATH}"
             ;;
 
         *)
