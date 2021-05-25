@@ -2,7 +2,7 @@
 
 version 3 implementation of the Fed-BioMed project - network infrastructure component
 
-## development environemnt
+## development environment
 
 ### conda environments for development
 
@@ -20,20 +20,62 @@ $ ./scripts/configure_conda
   * fedbiomed-researcher : provides the researcher part
   * fedbiomed-node : provides the client part
 
+### tool to setup the environment
+
+In a terminal, you can setup environments to work interactively inside a specific repository, with the right conda environment and the right PYTHONPATH environement.
+
+```
+./scripts/fedbiomed_environment ENV
+```
+
+where ENV chosen between:
+
+* network (work inside fedbiomed-network)
+* node (work inside fedbiomed-node)
+* researcher (work inside fedbiomed-researcher)
+
+
 
 ### run the network part
 
-* run the following script in a terminal:
+
+* in a new terminal:
 
 ```
-$ source ./scripts/fedbiomed_environment network
+$ ./scripts/fedbiomed_run network
 ```
 
-* the script will setup up all environment variables to start the network part
+* this will start the necessary docker container (file repository and mqtt)
 
-* deploy the docker containers
+### run the node part
+
+* in a new terminal:
 
 ```
-$ cd envs/development/network
-$ ./deploy.sh --local
+$ ./scripts/fedbiomed_run node start
 ```
+
+* this will launch a new node
+
+* you may also upload new data on this client with:
+
+```
+$ ./scripts/fedbiomed_run node add
+```
+
+* you may also specify a new config file for the node (usefull then running multiple test nodes on the same host)
+
+```
+$ ./scripts/fedbiomed_run node start another_config.ini
+```
+
+
+### run a researcher notebook
+
+* in a new terminal:
+
+```
+$ ./scripts/fedbiomed_run researcher
+```
+
+* this will launch a new jupyter notebook
