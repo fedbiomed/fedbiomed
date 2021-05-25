@@ -28,16 +28,18 @@ cd $basedir || exit
 case $1 in
 
     network)
+        source ./fedbiomed-network/scripts/fedbiomed_environment reset
+        source ./fedbiomed-network/scripts/fedbiomed_environment network
         cd ./fedbiomed-network/envs/development/network
         ./deploy.sh --local
         ;;
 
     node)
 
-        source ./fedbiomed-network/scripts/fedbiomed_environment reset
-        source ./fedbiomed-network/scripts/fedbiomed_environment node
         case $2 in
             add|--add)
+                source ./fedbiomed-network/scripts/fedbiomed_environment reset
+                source ./fedbiomed-network/scripts/fedbiomed_environment node
                 python -m fedbiomed_cli.utils.cli --add
                 ;;
 
@@ -45,6 +47,14 @@ case $1 in
                 export MQTT_BROKER=localhost
                 export MQTT_BROKER_PORT=1883
                 export UPLOADS_URL='http://localhost:8844/upload'
+                if [ -z "$3"]
+                then
+                    unset CONFIG_FILE
+                else
+                    export CONFILE_FILE=$3
+                fi
+                source ./fedbiomed-network/scripts/fedbiomed_environment reset
+                source ./fedbiomed-network/scripts/fedbiomed_environment node
                 python -m fedbiomed_cli.utils.cli --start
                 ;;
             *)
@@ -55,13 +65,16 @@ case $1 in
         ;;
 
     researcher)
-        echo "Not yet implemented"
+        source ./fedbiomed-network/scripts/fedbiomed_environment reset
+        source ./fedbiomed-network/scripts/fedbiomed_environment researcher
+        cd fedbiomed-researcher/notebooks
+        jupyter notebook
         ;;
 
     help|-h|--help)
         cat <<EOF
 usage: fedbiomed_run network
-       fedbiomed_run researcher notebook.ipynb
+       fedbiomed_run researcher
        fedbiomed_run node       add   (config_name.ini)
        fedbiomed_run node       start (config_name.ini)
 
@@ -70,7 +83,7 @@ The component name is mandatory.
 
 network   : run the necessary docker containers (in development mode)
 
-researcher: launch a researcher notebook, the notebook file must be provided
+researcher: launch a researcher notebook
 
 node      : launch a new node.
             add/start is mandatory and specify if new data must be added
