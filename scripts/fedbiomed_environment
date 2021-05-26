@@ -59,24 +59,27 @@ environment_reset() {
 }
 
 activate_network() {
-    echo "** Activating fedbiomed-network environment"
+    verbose=$1
+    [[ ! -z "$verbose" ]] && echo "** Activating fedbiomed-network environment"
     conda activate fedbiomed-network
     unset PYTHONPATH
-    environment_info
+    [[ ! -z "$verbose" ]] && environment_info
 }
 
 activate_node() {
-    echo "** Activating fedbiomed-node environment"
+    verbose=$1
+    [[ ! -z "$verbose" ]] && echo "** Activating fedbiomed-node environment"
     conda activate fedbiomed-node
     export PYTHONPATH=$basedir/fedbiomed-node
-    environment_info
+    [[ ! -z "$verbose" ]] && environment_info
 }
 
 activate_researcher() {
-    echo "** Activating fedbiomed-researcher environment"
+    verbose=$1
+    [[ ! -z "$verbose" ]] && echo "** Activating fedbiomed-researcher environment"
     conda activate fedbiomed-researcher
     export PYTHONPATH=$basedir/fedbiomed-researcher:$basedir/fedbiomed-node
-    environment_info
+    [[ ! -z "$verbose" ]] && environment_info
 }
 
 
@@ -91,17 +94,22 @@ case $1 in
 
     clean)
         environment_reset
+        activate_network
         echo "** Cleaning all caches / temporary files"
         # docker containers
         (cd ${basedir}/fedbiomed-network/envs/development/network/ &&  echo " * Docker cleaning" )
 
         # node/researcher cleaners
+        environment_reset
+        activate_node
         if [ -f ${basedir}/fedbiomed-node/scripts/clean.py ]
         then
             echo " * Node cleaning"
             python ${basedir}/fedbiomed-node/scripts/clean.py
         fi
 
+        environment_reset
+        activate_researcher
         if [ -f ${basedir}/fedbiomed-researcher/scripts/clean.py ]
         then
             echo " * Researcher cleaning"
@@ -117,21 +125,21 @@ case $1 in
     network)
         conda deactivate
         environment_reset
-        activate_network
+        activate_network verbose
         ;;
 
     node)
         conda deactivate
         environment_reset
         development_env
-        activate_node
+        activate_node verbose
         ;;
 
     researcher)
         conda deactivate
         environment_reset
         development_env
-        activate_researcher
+        activate_researcher verbose
         ;;
 
     *)
