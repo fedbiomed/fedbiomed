@@ -4,39 +4,40 @@ version 3 implementation of the Fed-BioMed project - network infrastructure comp
 
 ## development environment
 
-### conda environments for development
+### setup conda environments
 
-* to setup or update the environments, you use the **configure_conda** script:
+* to create or update the environments, you use the **configure_conda** script:
 
 ```
 $ ./scripts/configure_conda
 ```
 
-* this script will setup the environments, or update them if the conda.yaml files have been modified
+* this script will create the environments, or update them if the conda.yaml files have been modified
 
-* there is one specific environemnt for each component:
+* there is one specific environment for each component:
 
   * fedbiomed-network :  provides HTTP upload/download server and MQQT daemon
   * fedbiomed-researcher : provides the researcher part
   * fedbiomed-node : provides the client part
 
-### tool to setup the environment
+### activate the environments
 
-In a terminal, you can setup environments to work interactively inside a specific repository, with the right conda environment and the right PYTHONPATH environement.
+In a terminal, you can configure environments to work interactively inside a specific repository, with the right conda environment and the right PYTHONPATH environment.
 
 ```
 ./scripts/fedbiomed_environment ENV
 ```
 
-where ENV chosen between:
+where ENV chosen from:
 
 * network (work inside fedbiomed-network)
 * node (work inside fedbiomed-node)
 * researcher (work inside fedbiomed-researcher)
 
 
+### run the software
 
-### run the network part
+#### run the network part
 
 
 * in a new terminal:
@@ -47,7 +48,7 @@ $ ./scripts/fedbiomed_run network
 
 * this will start the necessary docker container (file repository and mqtt)
 
-### run the node part
+#### run the node part
 
 * in a new terminal:
 
@@ -70,7 +71,7 @@ $ ./scripts/fedbiomed_run node start another_config.ini
 ```
 
 
-### run a researcher notebook
+#### run a researcher notebook
 
 * in a new terminal:
 
@@ -81,7 +82,7 @@ $ ./scripts/fedbiomed_run researcher
 * this will launch a new jupyter notebook
 
 
-### run a researcher script
+#### run a researcher script
 
 * in a new terminal:
 
@@ -93,4 +94,11 @@ $ source ./scripts/fedbiomed_environment researcher
 
 ```
 $ python ../fedbiomed-researcher/notebooks/getting-started-localhost.py
+```
+
+### clean state (restore environments back to new)
+
+De-configure environments, remove all configuration files and caches
+```
+./scripts/fedbiomed_environment clean
 ```

@@ -90,7 +90,9 @@ basedir=$(cd $(dirname $script)/../.. || exit ; pwd)
 case $1 in
 
     clean)
+        conda deactivate
         environment_reset
+
         echo "** Cleaning all caches / temporary files"
         # docker containers
         (cd ${basedir}/fedbiomed-network/envs/development/network/ &&  echo " * Docker cleaning" )
@@ -99,14 +101,23 @@ case $1 in
         if [ -f ${basedir}/fedbiomed-node/scripts/clean.py ]
         then
             echo " * Node cleaning"
+            conda deactivate
+            environment_reset
+            activate_node
             python ${basedir}/fedbiomed-node/scripts/clean.py
         fi
 
         if [ -f ${basedir}/fedbiomed-researcher/scripts/clean.py ]
         then
             echo " * Researcher cleaning"
+            conda deactivate
+            environment_reset
+            activate_researcher
             python ${basedir}/fedbiomed-researcher/scripts/clean.py
         fi
+
+        conda deactivate
+        environment_reset
         ;;
 
     reset)
