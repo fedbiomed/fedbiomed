@@ -46,7 +46,7 @@ case $1 in
             start|--start)
                 export MQTT_BROKER=localhost
                 export MQTT_BROKER_PORT=1883
-                export UPLOADS_URL='http://localhost:8844/upload'
+                export UPLOADS_URL='http://localhost:8844/upload/'
                 if [ -z "$3"]
                 then
                     unset CONFIG_FILE
@@ -67,7 +67,7 @@ case $1 in
     researcher)
         export MQTT_BROKER=localhost
         export MQTT_BROKER_PORT=1883
-        export UPLOADS_URL='http://localhost:8844/upload'
+        export UPLOADS_URL='http://localhost:8844/upload/'
         source ./fedbiomed-network/scripts/fedbiomed_environment reset
         source ./fedbiomed-network/scripts/fedbiomed_environment researcher
         cd fedbiomed-researcher/notebooks
