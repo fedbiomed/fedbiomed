@@ -36,12 +36,23 @@ case $1 in
     node)
 
         case $2 in
-            add|--add)
+
+            list|--list|-l)
+                source ./fedbiomed-network/scripts/fedbiomed_environment node
+                python -m fedbiomed_cli.utils.cli --list
+                ;;
+
+            del|delete|--del|--delete|-d)
+                source ./fedbiomed-network/scripts/fedbiomed_environment node
+                python -m fedbiomed_cli.utils.cli --delete
+                ;;
+
+            add|--add|-a)
                 source ./fedbiomed-network/scripts/fedbiomed_environment node
                 python -m fedbiomed_cli.utils.cli --add
                 ;;
 
-            start|--start)
+            start|--start|-s)
                 #export MQTT_BROKER=localhost
                 #export MQTT_BROKER_PORT=1883
                 #export UPLOADS_URL='http://localhost:8844/upload/'
@@ -74,8 +85,10 @@ case $1 in
         cat <<EOF
 usage: fedbiomed_run network
        fedbiomed_run researcher
-       fedbiomed_run node       add   (config_name.ini)
-       fedbiomed_run node       start (config_name.ini)
+       fedbiomed_run node       add    (config_name.ini)
+       fedbiomed_run node       start  (config_name.ini)
+       fedbiomed_run node       delete (config_name.ini)
+       fedbiomed_run node       list   (config_name.ini)
 
 Runs the fedbiomed components after properly initializing the environments.
 The component name is mandatory.
@@ -84,12 +97,12 @@ network   : run the necessary docker containers (in development mode)
 
 researcher: launch a researcher notebook
 
-node      : launch a new node.
-            add/start is mandatory and specify if new data must be added
-            or is the node is ran on known data
+node      : a second arguement is mandatory
+            start : launch a new node
+            add/list/delete deals with dataset
 
-            if a config_name.ini file is given, it is used instead of the
-            default one (config.ini)
+            if a config_name.ini file is given as third argeument,
+            it will be used instead of the default one (config.ini)
 EOF
         ;;
 
