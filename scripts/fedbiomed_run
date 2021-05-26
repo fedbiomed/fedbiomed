@@ -28,7 +28,6 @@ cd $basedir || exit
 case $1 in
 
     network)
-        source ./fedbiomed-network/scripts/fedbiomed_environment reset
         source ./fedbiomed-network/scripts/fedbiomed_environment network
         cd ./fedbiomed-network/envs/development/network
         ./deploy.sh --local
@@ -38,7 +37,6 @@ case $1 in
 
         case $2 in
             add|--add)
-                source ./fedbiomed-network/scripts/fedbiomed_environment reset
                 source ./fedbiomed-network/scripts/fedbiomed_environment node
                 python -m fedbiomed_cli.utils.cli --add
                 ;;
@@ -53,7 +51,6 @@ case $1 in
                 else
                     export CONFILE_FILE=$3
                 fi
-                source ./fedbiomed-network/scripts/fedbiomed_environment reset
                 source ./fedbiomed-network/scripts/fedbiomed_environment node
                 python -m fedbiomed_cli.utils.cli --start
                 ;;
@@ -68,7 +65,6 @@ case $1 in
         export MQTT_BROKER=localhost
         export MQTT_BROKER_PORT=1883
         export UPLOADS_URL='http://localhost:8844/upload/'
-        source ./fedbiomed-network/scripts/fedbiomed_environment reset
         source ./fedbiomed-network/scripts/fedbiomed_environment researcher
         cd fedbiomed-researcher/notebooks
         jupyter notebook
