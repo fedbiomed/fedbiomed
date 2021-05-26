@@ -24,48 +24,56 @@ eval "$(conda shell.bash hook)"
 #
 # helpers
 #
+environment_printvar() {
+    if [ -z "$2" ]
+    then
+        echo "$1: None"
+    else
+        echo "$1: $2"
+    fi
+}
+
 environment_info() {
-    if [ -z "$CONDA_DEFAULT_ENV" ]
-    then
-        echo "Current env: None"
-    else
-        echo "Current env:" $CONDA_DEFAULT_ENV
-    fi
-    if [ -z "$PYTHONPATH" ]
-    then
-        echo "Python  env: None"
-    else
-        echo "Python  env:" $PYTHONPATH
-    fi
+    environment_printvar "Conda   env" "${CONDA_DEFAULT_ENV}"
+    environment_printvar "Python  env" "${PYTHONPATH}"
+    environment_printvar "MQTT   host" "${MQTT_BROKER}"
+    environment_printvar "MQTT   port" "${MQTT_BROKER_PORT}"
+    environment_printvar "UPLOADS url" "${UPLOADS_URL}"
+}
+
+development_env() {
+    export MQTT_BROKER=localhost
+    export MQTT_BROKER_PORT=1883
+    export UPLOADS_URL='http://localhost:8844/upload/'
 }
 
 environment_reset() {
     verbose=$1
-    [[ ! -z "$verbose" ]] && echo "Deactivating all environment"
+    [[ ! -z "$verbose" ]] && echo "** Deactivating all environment"
     conda deactivate
     unset PYTHONPATH
+    unset MQTT_BROKER
+    unset MQTT_BROKER_PORT
+    unset UPLOADS_URL
     [[ ! -z "$verbose" ]] && environment_info
 }
 
 activate_network() {
-    environment_reset
-    echo "Activating fedbiomed-network environment (conda)"
+    echo "** Activating fedbiomed-network environment"
     conda activate fedbiomed-network
     unset PYTHONPATH
     environment_info
 }
 
 activate_node() {
-    environment_reset
-    echo "Activating fedbiomed-node environment (conda & PYTHONPATH)"
+    echo "** Activating fedbiomed-node environment"
     conda activate fedbiomed-node
     export PYTHONPATH=$basedir/fedbiomed-node
     environment_info
 }
 
 activate_researcher() {
-    environment_reset
-    echo "Activating fedbiomed-researcher environment (conda & PYTHONPATH)"
+    echo "** Activating fedbiomed-researcher environment"
     conda activate fedbiomed-researcher
     export PYTHONPATH=$basedir/fedbiomed-researcher:$basedir/fedbiomed-node
     environment_info
@@ -82,37 +90,47 @@ basedir=$(cd $(dirname $script)/../.. || exit ; pwd)
 case $1 in
 
     clean)
-        echo "Cleaning all caches / temporary files"
+        environment_reset
+        echo "** Cleaning all caches / temporary files"
         # docker containers
-        (cd ${basedir}/fedbiomed-network/envs/development/network/ &&  echo "Docker cleaning" )
+        (cd ${basedir}/fedbiomed-network/envs/development/network/ &&  echo " * Docker cleaning" )
 
         # node/researcher cleaners
         if [ -f ${basedir}/fedbiomed-node/scripts/clean.py ]
         then
-            echo "Node cleaning"
+            echo " * Node cleaning"
             python ${basedir}/fedbiomed-node/scripts/clean.py
         fi
 
         if [ -f ${basedir}/fedbiomed-researcher/scripts/clean.py ]
         then
-            echo "Researcher cleaning"
+            echo " * Researcher cleaning"
             python ${basedir}/fedbiomed-researcher/scripts/clean.py
         fi
         ;;
 
     reset)
+        conda deactivate
         environment_reset verbose
         ;;
 
     network)
+        conda deactivate
+        environment_reset
         activate_network
         ;;
 
     node)
+        conda deactivate
+        environment_reset
+        development_env
         activate_node
         ;;
 
     researcher)
+        conda deactivate
+        environment_reset
+        development_env
         activate_researcher
         ;;
 
