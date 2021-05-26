@@ -22,47 +22,108 @@ fi
 eval "$(conda shell.bash hook)"
 
 #
+# helpers
 #
-#
+environment_info() {
+    if [ -z "$CONDA_DEFAULT_ENV" ]
+    then
+        echo "Current env: None"
+    else
+        echo "Current env:" $CONDA_DEFAULT_ENV
+    fi
+    if [ -z "$PYTHONPATH" ]
+    then
+        echo "Python  env: None"
+    else
+        echo "Python  env:" $PYTHONPATH
+    fi
+}
 
+environment_reset() {
+    verbose=$1
+    [[ ! -z "$verbose" ]] && echo "Deactivating all environment"
+    conda deactivate
+    unset PYTHONPATH
+    [[ ! -z "$verbose" ]] && environment_info
+}
+
+activate_network() {
+    environment_reset
+    echo "Activating fedbiomed-network environment (conda)"
+    conda activate fedbiomed-network
+    unset PYTHONPATH
+    environment_info
+}
+
+activate_node() {
+    environment_reset
+    echo "Activating fedbiomed-node environment (conda & PYTHONPATH)"
+    conda activate fedbiomed-node
+    export PYTHONPATH=$basedir/fedbiomed-node
+    environment_info
+}
+
+activate_researcher() {
+    environment_reset
+    echo "Activating fedbiomed-researcher environment (conda & PYTHONPATH)"
+    conda activate fedbiomed-researcher
+    export PYTHONPATH=$basedir/fedbiomed-researcher:$basedir/fedbiomed-node
+    environment_info
+}
+
+
+#
+# main
+#
 script=${BASH_SOURCE[0]}
 basedir=$(cd $(dirname $script)/../.. || exit ; pwd)
 
 # initialize development environment for....
 case $1 in
 
+    clean)
+        echo "Cleaning all caches / temporary files"
+        # docker containers
+        (cd ${basedir}/fedbiomed-network/envs/development/network/ &&  echo "Docker cleaning" )
+
+        # node/researcher cleaners
+        if [ -f ${basedir}/fedbiomed-node/scripts/clean.py ]
+        then
+            echo "Node cleaning"
+            python ${basedir}/fedbiomed-node/scripts/clean.py
+        fi
+
+        if [ -f ${basedir}/fedbiomed-researcher/scripts/clean.py ]
+        then
+            echo "Researcher cleaning"
+            python ${basedir}/fedbiomed-researcher/scripts/clean.py
+        fi
+        ;;
+
     reset)
-        echo "Deactivating all environment"
-        conda deactivate
-        #conda deactivate
-        unset PYTHONPATH
+        environment_reset verbose
         ;;
 
     network)
-        echo "Activating fedbiomed-network environment (conda)"
-        #conda activate fedbiomed
-        conda activate fedbiomed-network
-        #echo "PYTHONPATH=${PYTHONPATH}"
+        activate_network
         ;;
 
     node)
-        echo "Activating fedbiomed-node environment (conda & PYTHONPATH)"
-        #conda activate fedbiomed
-        conda activate fedbiomed-node
-        export PYTHONPATH=$basedir/fedbiomed-node
-        echo "PYTHONPATH=${PYTHONPATH}"
+        activate_node
         ;;
 
     researcher)
-        echo "Activating fedbiomed-researcher environment (conda & PYTHONPATH)"
-        #conda activate fedbiomed
-        conda activate fedbiomed-researcher
-        export PYTHONPATH=$basedir/fedbiomed-researcher:$basedir/fedbiomed-node
-        echo "PYTHONPATH=${PYTHONPATH}"
+        activate_researcher
         ;;
 
     *)
-        echo "Please specify an environment to activate: network, node, researcher"
-        echo "                      or reset to deactivate the current environment"
+        cat <<EOF
+Usage: fedbiomed_environment network|node|researcher|reset|clean
+
+Please specify:
+- network, node, researcher : to activate an environment
+- reset                     : to leave the current environment
+- clean                     : to clean all caches, tempo files,...
+EOF
         ;;
 esac
