@@ -79,3 +79,18 @@ $ ./scripts/fedbiomed_run researcher
 ```
 
 * this will launch a new jupyter notebook
+
+
+### run a researcher script
+
+* in a new terminal:
+
+```
+$ source ./scripts/fedbiomed_environment researcher
+```
+
+* then you can use any researcher script
+
+```
+$ python ../fedbiomed-researcher/notebooks/getting-started-localhost.py
+```
