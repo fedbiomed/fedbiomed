@@ -11,7 +11,7 @@ transfert through
 """
 
 
-def transfer(initial_class):
+def add_send(initial_class):
     """
     Decorator: use on classes only
     """
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     #
     # define my own class (Test) and decorate it with the decorator
     #
-    @transfer
+    @add_send
     class Test:
         """
         Test class to validate the previous decorator
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     # acces to decorated class method
     t.send()
 
-    @transfer
+    @add_send
     class Toto:
         """
         second test - this one already contains send()
