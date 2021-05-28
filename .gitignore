@@ -353,3 +353,4 @@ fabric.properties
 # End of https://www.toptal.com/developers/gitignore/api/django,python,pycharm,jupyternotebooks,visualstudiocode
 .idea
 uploads
+my_model.p*
