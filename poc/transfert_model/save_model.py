@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 poc on how to transfer a full NN torch model between to processes
 """
@@ -42,17 +43,13 @@ if __name__ == "__main__":
     # declare the model
     net = Net()
     print(net)
-
     print("=" * 60)
-    for p in net.parameters():
-        print(type(p.data), p.size())
-
 
     # initialize the model
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-    print("=" * 60)
-    for p in net.parameters():
-        print(type(p.data), p.size())
+    #print("=" * 60)
+    #for p in net.parameters():
+    #    print(type(p.data), p.size())
 
     # save class in .py file
     s  = "import torch\n"
@@ -62,7 +59,7 @@ if __name__ == "__main__":
 
     file = open("my_model.py", "w")
     print(s)
-    print(s.__class__)
+
     file.write(s)
     file.close()
 
