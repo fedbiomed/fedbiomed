@@ -102,3 +102,15 @@ De-configure environments, remove all configuration files and caches
 ```
 ./scripts/fedbiomed_environment clean
 ```
+
+
+
+## some tools to help debugging
+
+### lqueue
+
+list the content of a message queue (as used in fedbiomed_cli and fedbiomed_researcher)
+
+usage:  lqueue directory
+   or
+        lqueue dir1 dir2 dir3 ...
