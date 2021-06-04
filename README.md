@@ -39,6 +39,7 @@ where ENV chosen from:
 
 #### run the network part
 
+* prerequesite: **docker** must be installed and running before running the network part !!!!
 
 * in a new terminal:
 
