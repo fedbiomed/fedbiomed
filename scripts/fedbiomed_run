@@ -56,11 +56,11 @@ case $1 in
                 #export MQTT_BROKER=localhost
                 #export MQTT_BROKER_PORT=1883
                 #export UPLOADS_URL='http://localhost:8844/upload/'
-                if [ -z "$3"]
+                if [ -z "$3" ]
                 then
                     unset CONFIG_FILE
                 else
-                    export CONFILE_FILE=$3
+                    export CONFIG_FILE=$3
                 fi
                 source ./fedbiomed-network/scripts/fedbiomed_environment node
                 python -m fedbiomed_cli.utils.cli --start
