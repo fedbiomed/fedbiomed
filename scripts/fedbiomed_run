@@ -35,6 +35,14 @@ case $1 in
 
     node)
 
+        # deal with alternative config file
+        if [ -z "$3" ]
+        then
+            unset CONFIG_FILE
+        else
+            export CONFIG_FILE=$3
+        fi
+
         case $2 in
 
             list|--list|-l)
@@ -56,12 +64,6 @@ case $1 in
                 #export MQTT_BROKER=localhost
                 #export MQTT_BROKER_PORT=1883
                 #export UPLOADS_URL='http://localhost:8844/upload/'
-                if [ -z "$3" ]
-                then
-                    unset CONFIG_FILE
-                else
-                    export CONFIG_FILE=$3
-                fi
                 source ./fedbiomed-network/scripts/fedbiomed_environment node
                 python -m fedbiomed_cli.utils.cli --start
                 ;;
