@@ -24,6 +24,8 @@ $ ./scripts/configure_conda
 
 In a terminal, you can configure environments to work interactively inside a specific repository, with the right conda environment and the right PYTHONPATH environment.
 
+**WARNING**: this script only work for **bash** and **zsh**. It is not compliant with ksh/csh/tcsh/etcsh/...
+
 ```
 ./scripts/fedbiomed_environment ENV
 ```
