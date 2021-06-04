@@ -9,12 +9,15 @@
 # this works then source this file !!!!
 #
 # detect how the file is run
-(return 0 2>/dev/null) && sourced=1 || sourced=0
-if [ "${sourced}" == "0" ]
-then
-    echo "This file MUST be sourced (and not executed) to benefit from the environment"
-    exit -1
-fi
+([[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
+ [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
+    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
+ [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)) && sourced=1 || sourced=0
+
+[[ "${sourced}" == "0" ]] &&
+    echo "This file MUST be sourced from a BASH shell (and not executed) to benefit from the environment" && exit -1
+
+[[ "$ZSH_NAME" ]] && echo "This script only works from a BASH shell - You may still use the fedbiomed_run command" && return
 
 #Activate conda with any of the next commands
 #source ~/miniconda3/bin/activate

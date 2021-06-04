@@ -4,12 +4,12 @@
 #
 
 # detect how the file is run
-(return 0 2>/dev/null) && sourced=1 || sourced=0
-if [ "${sourced}" == "1" ]
-then
-    echo "This file MUST NOT be sourced"
-    return
-fi
+([[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
+ [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
+    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
+ [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)) && sourced=1 || sourced=0
+
+[[ "${sourced}" == "1" ]] && echo "This file MUST NOT be sourced" && return
 
 #Activate conda with any of the next commands
 #source ~/miniconda3/bin/activate
