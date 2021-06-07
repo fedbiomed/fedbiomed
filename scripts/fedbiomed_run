@@ -47,17 +47,17 @@ case $1 in
 
             list|--list|-l)
                 source ./fedbiomed-network/scripts/fedbiomed_environment node
-                python -m fedbiomed_cli.utils.cli --list
+                python -m fedbiomed.node.cli --list
                 ;;
 
             del|delete|--del|--delete|-d)
                 source ./fedbiomed-network/scripts/fedbiomed_environment node
-                python -m fedbiomed_cli.utils.cli --delete
+                python -m fedbiomed.node.cli --delete
                 ;;
 
             add|--add|-a)
                 source ./fedbiomed-network/scripts/fedbiomed_environment node
-                python -m fedbiomed_cli.utils.cli --add
+                python -m fedbiomed.node.cli --add
                 ;;
 
             start|--start|-s)
@@ -65,7 +65,7 @@ case $1 in
                 #export MQTT_BROKER_PORT=1883
                 #export UPLOADS_URL='http://localhost:8844/upload/'
                 source ./fedbiomed-network/scripts/fedbiomed_environment node
-                python -m fedbiomed_cli.utils.cli --start
+                python -m fedbiomed.node.cli --start
                 ;;
             *)
                 echo "please run node with add or start option (full help with -h)"
