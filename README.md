@@ -112,7 +112,7 @@ De-configure environments, remove all configuration files and caches
 
 ### lqueue
 
-list the content of a message queue (as used in fedbiomed_cli and fedbiomed_researcher)
+list the content of a message queue (as used in fedbiomed.node and fedbiomed.researcher)
 
 usage:  lqueue directory
    or
