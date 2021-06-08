@@ -35,6 +35,12 @@ class Net(nn.Module):
         return x
 
 
+    def save(self, filename):
+        return torch.save(self.state_dict(), filename)
+
+    def load(self, filename):
+        return self.load_state_dict(torch.load(filename))
+
 #
 # validate the code
 #
@@ -64,4 +70,5 @@ if __name__ == "__main__":
     file.close()
 
     # save state with torch
-    torch.save(net.state_dict(), "my_model.pt")
+    #torch.save(net.state_dict(), "my_model.pt")
+    net.save("my_model.pt")

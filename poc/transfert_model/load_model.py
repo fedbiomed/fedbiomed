@@ -27,5 +27,5 @@ if __name__ == "__main__":
         print("Cannot load model: ", e)
         sys.exit(-1)
 
-    net.load_state_dict(torch.load("my_model.pt"))
+    net.load("my_model.pt")
     net.eval()
