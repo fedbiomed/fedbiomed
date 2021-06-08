@@ -27,7 +27,7 @@ In a terminal, you can configure environments to work interactively inside a spe
 **WARNING**: this script only work for **bash** and **zsh**. It is not compliant with ksh/csh/tcsh/etcsh/...
 
 ```
-./scripts/fedbiomed_environment ENV
+source ./scripts/fedbiomed_environment ENV
 ```
 
 where ENV chosen from:
