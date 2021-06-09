@@ -8,7 +8,7 @@ import inspect
 #
 # declare a local model
 #
-#import fedbiomed.common.torch.nn as nn  // SHOULD BE PROVIDED
+#import fedbiomed.torch.nn as nn  // SHOULD BE PROVIDED
 
 # dependencies for the model
 import torch
@@ -33,7 +33,6 @@ class Net(nn.Module):
         ############################################################
         # conventional design // can be hidden in the super() call
         self.optimizer = torch.optim.Adam(self.parameters(), lr = 1e-3)
-        self.loss_function = torch.nn.functional.nll_loss
 
         # data loading // should ne moved to another class
         self.batch_size = 100
@@ -57,7 +56,7 @@ class Net(nn.Module):
     # provided by the researcher / can change
     def training_step(self, data, target):
         output = self.forward(data)
-        loss = self.loss_function(output, target)
+        loss   = torch.nn.functional.nll_loss(output, target)
         return loss
 
     #################################################
@@ -151,7 +150,7 @@ if __name__ == "__main__":
     print("=" * 60)
 
     # initialize the model
-    optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    #optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
     #print("=" * 60)
     #for p in net.parameters():
     #    print(type(p.data), p.size())
