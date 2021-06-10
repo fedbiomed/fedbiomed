@@ -38,14 +38,14 @@ if __name__ == "__main__":
 
     # payload on the model here
 
-    # end : clean the namespace 
+    # end : clean the namespace
     del net
     del importModule
     try:
         print(type(net))
     except:
-        print("No object 'net' defined")
+        print("No object 'net' defined -> this is OK !!!")
     try:
         print(eval(importModule))
     except:
-        print("No module 'importModule' defined")
+        print("No module 'importModule' defined -> this is OK !!!")
