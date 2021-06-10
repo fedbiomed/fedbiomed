@@ -82,7 +82,7 @@ class Net(nn.Module):
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
                         batch_idx * len(data),
-                        len(training_data.dataset)
+                        len(training_data.dataset),
                         100 * batch_idx / len(training_data),
                         loss.item()))
                     #

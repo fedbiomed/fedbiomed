@@ -49,9 +49,7 @@ if __name__ == "__main__":
     # save class in .py file
     #net.add_dependency("import torch")
     #net.add_dependency("import torch.nn as nn")
-    net.save_code("my_model.py")
-
-    Net.save_code("prout.py")
+    net.save_code()
 
     # save state with torch
     net.save("my_model.pt")
