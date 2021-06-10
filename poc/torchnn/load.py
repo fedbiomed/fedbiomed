@@ -11,14 +11,23 @@ import sys
 #
 if __name__ == "__main__":
 
+    importClass = 'Net'
+    importModule = 'my_model'
+
     #
     try:
         sys.path.insert(0, ".")
-        from my_model import Net
+        exec('import ' + importModule)
         sys.path.pop(0)
+        trainClass = eval(importModule + '.' + importClass)
+    except:
+        e = sys.exc_info()
+        print("Cannot import class ", importClass, " from module ", importModule, " - Error: ", e)
+        sys.exit(-1)
 
-        # declare the model
-        net = Net()
+    # declare the model
+    try:
+        net = trainClass()
         print(net)
     except:
         e = sys.exc_info()
