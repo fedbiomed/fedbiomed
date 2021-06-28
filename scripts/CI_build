@@ -1,0 +1,55 @@
+#!/bin/bash
+
+#
+# Continuous integration build script
+# for fedbiomed-v3-linux job on ci.inria.fr/fedbiomed
+#
+
+
+# Set variables for the build
+set_variables() {
+
+    TRIGGER_REPO=$(basename "$gitlabSourceRepoHomepage")
+    echo "INFO: trigger repo for merge $TRIGGER_REPO"   
+
+    SRC_BRANCH=$gitlabBranch
+    echo "INFO: source branch for merge $SRC_BRANCH"    
+
+    TARGET_BRANCH=$gitlabTargetBranch
+    echo "INFO: target branch for merge $TARGET_BRANCH" 
+
+    BASE_REPO=fedbiomed-network
+    echo "INFO: base repository for build $BASE_REPO"   
+
+    OTHER_REPOS='fedbiomed-node fedbiomed-researcher'
+    echo "INFO: other repositories for build $OTHER_REPOS"  
+
+    BASEPATH=$PWD
+    echo "INFO: basepath for repo clones $PWD"  
+}
+
+do_clones() {
+
+    # should have cloned fedbiomed-network
+    if [ "$(basename ${GIT_URL%%.git})" != "$BASE_REPO" ] ; then
+        echo "ERROR: expect cloned repo $BASE_REPO not $(basename ${GIT_URL%%.git})"
+        exit 1
+    fi
+
+    # clone / update
+    for r in $OTHER_REPOS ; do
+        if [ ! -d "" ] ; then
+            url=${GIT_URL%%${BASE_REPO}.git}${r}.git
+            echo "git clone $url"
+        fi
+    done
+
+    cd $BASEPATH
+}
+
+
+set_variables
+do_clones
+
+echo "INFO: successful dummy CI build"
+exit 0
