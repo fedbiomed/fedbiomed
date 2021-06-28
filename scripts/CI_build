@@ -38,7 +38,7 @@ do_clean() {
         # remove clones of non-default repos
         for r in $OTHER_REPOS ; do
             [ -d "$r" ] && rm -rf $r
-        fi
+        done
     fi
 }
 
@@ -62,7 +62,6 @@ do_clones() {
         git fetch -p
         cd $BASEPATH
     done
-
 
 }
 
