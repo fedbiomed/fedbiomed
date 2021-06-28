@@ -5,6 +5,13 @@
 # for fedbiomed-v3-linux job on ci.inria.fr/fedbiomed
 #
 
+# Prerequisites on the CI build VM :
+# - ssh configuration and key to git clone fedbiomed-* repos
+# - conda (installed and setup)
+# - docker (installed and started https://docs.docker.com/engine/install/fedora/)
+# - account used for build in docker /etc/group
+# - docker-compose
+
 
 # Set variables for the build
 set_variables() {
@@ -28,13 +35,13 @@ set_variables() {
     echo "INFO: basepath for repo clones $BASE_PATH"  
 }
 
-# Do some cleaning
-do_clean() {
+# Do some cleaning before cloning/update
+do_clean_clones() {
     LEVEL=$1
     [ -n "$LEVEL" ] || LEVEL=1
 
     cd $BASE_PATH
-    if [ "$LEVEL" -ge 0 ] ; then
+    if [ "$LEVEL" -ge 1 ] ; then
         # remove clones of non-default repos
         for r in $OTHER_REPOS ; do
             if [ -d "$r" ] ; then
@@ -42,6 +49,40 @@ do_clean() {
             fi
         done
     fi
+    
+}
+
+# Do some cleaning in envs/condas
+do_clean_envs() {
+    LEVEL=$1
+    [ -n "$LEVEL" ] || LEVEL=1
+
+    if [ "$LEVEL" -ge 1 ] ; then
+    	# clean fedbiomed environment, including remove containers
+        set +e # script uses test syntax that causes non-0 error codes
+    	source $BASE_PATH/$BASE_REPO/scripts/fedbiomed_environment clean
+        set -e
+        
+        # delete from cache docker images not used by any container
+        docker image prune -f
+	fi
+
+    if [ "$LEVEL" -ge 2 ] ; then
+        # remove conda envs of non-default repos
+        for condaenv in $BASE_REPO $OTHER_REPOS ; do
+			conda remove --name $condaenv --all -y
+        done
+    fi
+    
+    if [ "$LEVEL" -ge 3 ] ; then
+    	# remove all stopped docker container
+    	docker container prune -f
+        
+    	# delete from cache docker images not used by existing container
+        # as all containers should be stopped, all docker images will need to be downloaded/rebuilt
+        docker image prune -f -a
+    fi
+    
 }
 
 # Do or update local clone of repos not managed by jenkins
@@ -94,7 +135,8 @@ set_clones_branch() {
             branch=$SRC_BRANCH
     	elif [ -n "$(git branch -r --list origin/$TARGET_BRANCH)" ] ; then
         	# second choice for build is target branch of merge
-            # - should exists on every repo (develop, master) unless specific merge
+            # - should exists on every repo (develop, master) for a merge
+            # - will not exist when tracking pushes in feature/test_ci branch
             branch=$TARGET_BRANCH
         else
         	branch=develop 
@@ -112,11 +154,18 @@ set_clones_branch() {
 
 
 set_variables
-do_clean 1
+do_clean_clones
 do_clones
 set_clones_branch
 
+do_clean_envs 1
+
+
+# TODO : execute CI script here
+$BASE_PATH/$BASE_REPO/scripts/configure_conda
+
+
+
 echo "INFO: successful dummy CI build"
 exit 0
-
 
