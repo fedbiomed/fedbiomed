@@ -103,7 +103,7 @@ $ python ../fedbiomed-researcher/notebooks/getting-started-localhost.py
 
 De-configure environments, remove all configuration files and caches
 ```
-./scripts/fedbiomed_environment clean
+source ./scripts/fedbiomed_environment clean
 ```
 
 
