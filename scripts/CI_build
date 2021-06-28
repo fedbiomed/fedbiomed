@@ -24,8 +24,8 @@ set_variables() {
     OTHER_REPOS='fedbiomed-node fedbiomed-researcher'
     echo "INFO: other repositories for build $OTHER_REPOS"  
 
-    BASEPATH=$PWD
-    echo "INFO: basepath for repo clones $PWD"  
+    BASE_PATH=$PWD
+    echo "INFO: basepath for repo clones $BASE_PATH"  
 }
 
 # Do some cleaning
@@ -33,11 +33,13 @@ do_clean() {
     LEVEL=$1
     [ -n "$LEVEL" ] || LEVEL=1
 
-    cd $BASEPATH
+    cd $BASE_PATH
     if [ "$LEVEL" -ge 0 ] ; then
         # remove clones of non-default repos
         for r in $OTHER_REPOS ; do
-            [ -d "$r" ] && rm -rf $r
+            if [ -d "$r" ] ; then
+            	rm -rf $r
+            fi
         done
     fi
 }
@@ -52,23 +54,69 @@ do_clones() {
     fi
 
     # clone / update
-    cd $BASEPATH
-    for r in $OTHER_REPOS ; do
-        if [ ! -d "$r" ] ; then
-            url=${GIT_URL%%${BASE_REPO}.git}${r}.git
+    cd $BASE_PATH
+    for repo in $OTHER_REPOS ; do
+        if [ ! -d "$repo" ] ; then
+            url=${GIT_URL%%${BASE_REPO}.git}${repo}.git
             git clone $url
+            if [ "$?" -ne 0 ] ; then
+                echo "ERROR: error code $? when cloning $url"
+                exit 1
+            fi
         fi
-        cd $r
+        cd $repo
         git fetch -p
-        cd $BASEPATH
+        cd $BASE_PATH
     done
 
+}
+
+set_clones_branch() {
+
+	cd $BASE_PATH/$BASE_REPO
+
+    
+    for repo in $BASE_REPO $OTHER_REPOS ; do
+    	if [ "$repo" = "$BASE_REPO" -a "$BASE_REPO" = "$TRIGGER_REPO" ] ; then
+        	# when merging in a clone managed by jenkins, do not change branch
+            # redundant + sometimes causes build to fail
+            echo "INFO: branch in $repo is $(git branch)"
+            continue
+        fi
+        
+    	cd $BASE_PATH/$repo
+        # we cannot count on source branch existing in all three repos
+        # try reasonable choice of branches for merge
+        if [ -n "$(git branch -r --list origin/$SRC_BRANCH)" ] ; then
+    		# prefered branch for build is source branch of merge
+            # - exists for triggering repo
+            # - may exist or not for other repos
+            branch=$SRC_BRANCH
+    	elif [ -n "$(git branch -r --list origin/$TARGET_BRANCH)" ] ; then
+        	# second choice for build is target branch of merge
+            # - should exists on every repo (develop, master) unless specific merge
+            branch=$TARGET_BRANCH
+        else
+        	branch=develop 
+        fi
+        
+        git config pull.rebase false
+        git checkout $branch
+        git pull
+        
+        echo "INFO: branch in $repo is $(git branch --show-current)"
+    done
+
+	cd $BASE_PATH
 }
 
 
 set_variables
 do_clean 1
 do_clones
+set_clones_branch
 
 echo "INFO: successful dummy CI build"
 exit 0
+
+
