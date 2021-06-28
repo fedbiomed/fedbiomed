@@ -28,6 +28,21 @@ set_variables() {
     echo "INFO: basepath for repo clones $PWD"  
 }
 
+# Do some cleaning
+do_clean() {
+    LEVEL=$1
+    [ -n "$LEVEL" ] || LEVEL=1
+
+    cd $BASEPATH
+    if [ "$LEVEL" -ge 0 ] ; then
+        # remove clones of non-default repos
+        for r in $OTHER_REPOS ; do
+            [ -d "$r" ] && rm -rf $r
+        fi
+    fi
+}
+
+# Do or update local clone of repos not managed by jenkins
 do_clones() {
 
     # should have cloned fedbiomed-network
@@ -37,18 +52,23 @@ do_clones() {
     fi
 
     # clone / update
+    cd $BASEPATH
     for r in $OTHER_REPOS ; do
-        if [ ! -d "" ] ; then
+        if [ ! -d "$r" ] ; then
             url=${GIT_URL%%${BASE_REPO}.git}${r}.git
-            echo "git clone $url"
+            git clone $url
         fi
+        cd $r
+        git fetch -p
+        cd $BASEPATH
     done
 
-    cd $BASEPATH
+
 }
 
 
 set_variables
+do_clean 1
 do_clones
 
 echo "INFO: successful dummy CI build"
