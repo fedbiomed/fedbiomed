@@ -165,7 +165,5 @@ do_clean_envs 1
 $BASE_PATH/$BASE_REPO/scripts/configure_conda
 
 
-
 echo "INFO: successful dummy CI build"
 exit 0
-
