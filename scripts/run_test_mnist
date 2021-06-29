@@ -1,0 +1,61 @@
+#!/bin/bash
+
+base_dir=$(cd $(dirname $0)/.. || exit ; pwd)
+cd $base_dir || exit
+
+c=$(which conda)
+if [ -z "$c" ]
+then
+    echo "Please install conda first !!!"
+    exit -1
+fi
+eval "$(conda shell.bash hook)"
+
+mpid= # PIDs monitored (used only as an intermediate variable here)
+kpids= # PIDs to be killed
+
+# launch network
+echo "INFO: launching fedbiomed network"
+source $base_dir/scripts/fedbiomed_environment network
+$base_dir/scripts/fedbiomed_run network
+conda deactivate
+sleep 3
+
+# launch node
+echo "INFO: launching fedbiomed node"
+source $base_dir/scripts/fedbiomed_environment node
+#python -m fedbiomed.node.cli --start &
+$base_dir/scripts/fedbiomed_run node start &
+apids=$!
+conda deactivate
+sleep 3
+apids=$(pstree -p $apids | grep -o '([0-9]\+)' | grep -o '[0-9]\+' | tr '\n' ' ')
+echo "INFO : apids=$apids"
+kpids="${kpids:+$kpids }$apids"
+mpid="($mpid|$!)"
+
+
+
+# TODO : populate node
+
+# launch test and wait for completion
+echo "INFO: launching fedbiomed researcher"
+source $base_dir/scripts/fedbiomed_environment researcher
+$base_dir/../fedbiomed-researcher/notebooks/getting-started-localhost.py
+status=$?
+conda deactivate
+
+#clean running processes
+echo "INFO: killing kpids=$kpids"
+kill -9 $kpids
+( cd $base_dir/envs/development/network ; docker-compose down )
+
+## exit code
+if [ $status -eq 0 ]
+then
+    echo "Success"
+    exit 0
+else
+    echo "Failure with status $status"
+    exit 1
+fi
