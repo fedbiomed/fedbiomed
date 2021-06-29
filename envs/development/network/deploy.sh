@@ -3,6 +3,10 @@
 # start docker containers for HTTP/MQTT servers
 #
 
+# use same id for django container
+export CONTAINER_UID=$(id -un)
+export CONTAINER_GID=$(id -gn) 
+
 # Stop and remove previous containers
 docker-compose down && docker-compose rm
 
@@ -24,7 +28,7 @@ do
 done
 
 # Start the new one
-CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose up --force-recreate -d
+docker-compose up --force-recreate -d
 
 # Create Admin user
 docker exec -it fedbiomed-network sh -c "python manage.py migrate"
