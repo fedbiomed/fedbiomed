@@ -24,7 +24,7 @@ do
 done
 
 # Start the new one
-docker-compose up --force-recreate -d
+CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose up --force-recreate -d
 
 # Create Admin user
 docker exec -it fedbiomed-network sh -c "python manage.py migrate"
