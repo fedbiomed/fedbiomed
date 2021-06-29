@@ -163,8 +163,8 @@ do_clean_envs 1
 # configure conda environments
 $base_path/$base_repo/scripts/configure_conda
 
-# TODO : execute CI script here
-#$base_path/$base_repo/scripts/run_test_mnist
+# execute CI script
+$base_path/$base_repo/scripts/run_test_mnist $base_path/../..
 
 do_clean_envs 1
 
