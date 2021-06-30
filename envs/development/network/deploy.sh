@@ -4,8 +4,8 @@
 #
 
 # use same id for django container
-export CONTAINER_UID=$(id -un)
-export CONTAINER_GID=$(id -gn) 
+export CONTAINER_UID=$(id -u)
+export CONTAINER_GID=$(id -g) 
 
 # Stop and remove previous containers
 docker-compose down && docker-compose rm
