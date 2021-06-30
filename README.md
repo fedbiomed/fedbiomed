@@ -70,7 +70,7 @@ $ ./scripts/fedbiomed_run node add
 * you may also specify a new config file for the node (usefull then running multiple test nodes on the same host)
 
 ```
-$ ./scripts/fedbiomed_run node start another_config.ini
+$ ./scripts/fedbiomed_run node start config another_config.ini
 ```
 
 
