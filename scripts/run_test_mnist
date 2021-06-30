@@ -29,7 +29,7 @@ sleep 3
 # populate node
 echo "INFO: populating fedbiomed node"
 source $base_dir/scripts/fedbiomed_environment node
-python -m fedbiomed.node.cli --add-mnist $path_mnist
+$base_dir/scripts/fedbiomed_run node --add-mnist $path_mnist
 
 # launch node
 echo "INFO: launching fedbiomed node"
@@ -54,7 +54,8 @@ echo "INFO: killing kpids=$kpids"
 kill -9 $kpids
 ( cd $base_dir/envs/development/network ; CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose down )
 source $base_dir/scripts/fedbiomed_environment node
-python -m fedbiomed.node.cli --delete-mnist
+$base_dir/scripts/fedbiomed_run node --delete-mnist
+
 conda deactivate
 
 ## exit code
