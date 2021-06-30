@@ -49,12 +49,12 @@ $base_dir/../fedbiomed-researcher/notebooks/getting-started-localhost.py
 status=$?
 conda deactivate
 
-#clean running processes and datasets
-echo "INFO: killing kpids=$kpids"
-kill -9 $kpids
-( cd $base_dir/envs/development/network ; docker-compose down )
-source $base_dir/scripts/fedbiomed_environment node
-python -m fedbiomed.node.cli --delete-mnist
+##clean running processes and datasets
+#echo "INFO: killing kpids=$kpids"
+#kill -9 $kpids
+#( cd $base_dir/envs/development/network ; CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose down )
+#source $base_dir/scripts/fedbiomed_environment node
+#python -m fedbiomed.node.cli --delete-mnist
 conda deactivate
 
 ## exit code
