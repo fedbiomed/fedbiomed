@@ -166,7 +166,7 @@ $base_path/$base_repo/scripts/configure_conda
 # execute CI script
 ci_script=$base_path/$base_repo/scripts/run_test_mnist
 if [ -x $ci_script -a -f $ci_script ] ; then
-    $ci_script $base_path/../..
+    bash -x $ci_script $base_path/../..
 else
     echo "WARNING: script $ci_script notfound, skipping"
 fi
