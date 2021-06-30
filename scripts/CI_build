@@ -38,7 +38,7 @@ set_variables() {
 # Do some cleaning before cloning/update
 do_clean_clones() {
     clean_level=$1
-    [ -n "$clean_level" ] || clean_clean_level=1
+    [ -n "$clean_level" ] || clean_level=1
 
     cd $base_path
     if [ "$clean_level" -ge 1 ] ; then
