@@ -4,7 +4,7 @@ services:
   api:
     container_name: fedbiomed-network
     build: .
-    command: sh -c "gunicorn -w 4 -b 0.0.0.0:8000 fedbiomed.wsgi"
+    command: sh -c "gunicorn -w 4 -b 0.0.0.0:8000 --log-level debug fedbiomed.wsgi"
     user: "${CONTAINER_UID}:${CONTAINER_GID}"
     environment:
       - FORCE_SCRIPT_NAME
