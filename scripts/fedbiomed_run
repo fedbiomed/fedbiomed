@@ -50,45 +50,51 @@ case $1 in
             fi
         fi
 
-        case $2 in
-
-            list|--list|-l)
-                source ./fedbiomed-network/scripts/fedbiomed_environment node
-                python -m fedbiomed.node.cli --list $PARAMS
-                ;;
-
-            del|delete|--del|--delete|-d)
-                source ./fedbiomed-network/scripts/fedbiomed_environment node
-                python -m fedbiomed.node.cli --delete $PARAMS
-                ;;
-
-            --delete-mnist|-dm)
-                source ./fedbiomed-network/scripts/fedbiomed_environment node
-                python -m fedbiomed.node.cli --delete-mnist $PARAMS
-                ;;
-
-            add|--add|-a)
-                source ./fedbiomed-network/scripts/fedbiomed_environment node
-                python -m fedbiomed.node.cli --add $PARAMS
-                ;;
-
-            --add-mnist|-am)
-                source ./fedbiomed-network/scripts/fedbiomed_environment node
-                python -m fedbiomed.node.cli --add-mnist $PARAMS
-                ;;
-
-            start|--start|-s)
-                #export MQTT_BROKER=localhost
-                #export MQTT_BROKER_PORT=1883
-                #export UPLOADS_URL='http://localhost:8844/upload/'
-                source ./fedbiomed-network/scripts/fedbiomed_environment node
-                python -m fedbiomed.node.cli --start $PARAMS
-                ;;
-            *)
-                echo "please run node with add or start option (full help with -h)"
-                exit -1
-                ;;
-        esac
+        # TODO : better test with python module loading attempt and try/except
+        if [ -f "./fedbiomed-node/fedbiomed/node/cli.py" ]
+        then
+            case $2 in
+    
+                list|--list|-l)
+                    source ./fedbiomed-network/scripts/fedbiomed_environment node
+                    python -m fedbiomed.node.cli --list $PARAMS
+                    ;;
+    
+                del|delete|--del|--delete|-d)
+                    source ./fedbiomed-network/scripts/fedbiomed_environment node
+                    python -m fedbiomed.node.cli --delete $PARAMS
+                    ;;
+    
+                --delete-mnist|-dm)
+                    source ./fedbiomed-network/scripts/fedbiomed_environment node
+                    python -m fedbiomed.node.cli --delete-mnist $PARAMS
+                    ;;
+    
+                add|--add|-a)
+                    source ./fedbiomed-network/scripts/fedbiomed_environment node
+                    python -m fedbiomed.node.cli --add $PARAMS
+                    ;;
+    
+                --add-mnist|-am)
+                    source ./fedbiomed-network/scripts/fedbiomed_environment node
+                    python -m fedbiomed.node.cli --add-mnist $PARAMS
+                    ;;
+    
+                start|--start|-s)
+                    #export MQTT_BROKER=localhost
+                    #export MQTT_BROKER_PORT=1883
+                    #export UPLOADS_URL='http://localhost:8844/upload/'
+                    source ./fedbiomed-network/scripts/fedbiomed_environment node
+                    python -m fedbiomed.node.cli --start $PARAMS
+                    ;;
+                *)
+                    echo "please run node with add or start option (full help with -h)"
+                    exit -1
+                    ;;
+            esac
+        else
+            echo "INFO: no fedbiomed.node.cli yet in this version, skipping command"
+        fi
         ;;
 
     researcher)
