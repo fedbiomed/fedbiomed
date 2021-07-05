@@ -1,0 +1,132 @@
+#!/bin/bash
+#
+# run a specific component of fedbiomed
+#
+
+# detect how the file is run
+([[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
+ [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
+    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
+ [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)) && sourced=1 || sourced=0
+
+[[ "${sourced}" == "1" ]] && echo "This file MUST NOT be sourced" && return
+
+#Activate conda with any of the next commands
+#source ~/miniconda3/bin/activate
+#source ~/.bashrc
+
+eval "$(conda shell.bash hook)"
+
+#
+# find the directory containing all sources
+#
+#
+basedir=$(cd $(dirname $0)/../.. || exit ; pwd)
+cd $basedir || exit
+
+#
+case $1 in
+
+    network)
+        source ./fedbiomed-network/scripts/fedbiomed_environment network
+        cd ./fedbiomed-network/envs/development/network
+        ./deploy.sh --local
+        ;;
+
+    node)
+
+        # deal with alternative config file
+        if [ $# -ge 4 -a "${@:$#-1:1}" = 'config' ]
+        then
+            export CONFIG_FILE=${@:$#}
+            export PARAMS=${@:3:$#-4}
+        else
+            unset CONFIG_FILE
+            if [ $# -ge 3 ]
+            then
+                export PARAMS=${@:3:$#-2}
+            else
+                export PARAMS=
+            fi
+        fi
+
+        case $2 in
+
+            list|--list|-l)
+                source ./fedbiomed-network/scripts/fedbiomed_environment node
+                python -m fedbiomed.node.cli --list $PARAMS
+                ;;
+
+            del|delete|--del|--delete|-d)
+                source ./fedbiomed-network/scripts/fedbiomed_environment node
+                python -m fedbiomed.node.cli --delete $PARAMS
+                ;;
+
+            --delete-mnist|-dm)
+                source ./fedbiomed-network/scripts/fedbiomed_environment node
+                python -m fedbiomed.node.cli --delete-mnist $PARAMS
+                ;;
+
+            add|--add|-a)
+                source ./fedbiomed-network/scripts/fedbiomed_environment node
+                python -m fedbiomed.node.cli --add $PARAMS
+                ;;
+
+            --add-mnist|-am)
+                source ./fedbiomed-network/scripts/fedbiomed_environment node
+                python -m fedbiomed.node.cli --add-mnist $PARAMS
+                ;;
+
+            start|--start|-s)
+                #export MQTT_BROKER=localhost
+                #export MQTT_BROKER_PORT=1883
+                #export UPLOADS_URL='http://localhost:8844/upload/'
+                source ./fedbiomed-network/scripts/fedbiomed_environment node
+                python -m fedbiomed.node.cli --start $PARAMS
+                ;;
+            *)
+                echo "please run node with add or start option (full help with -h)"
+                exit -1
+                ;;
+        esac
+        ;;
+
+    researcher)
+        #export MQTT_BROKER=localhost
+        #export MQTT_BROKER_PORT=1883
+        #export UPLOADS_URL='http://localhost:8844/upload/'
+        source ./fedbiomed-network/scripts/fedbiomed_environment researcher
+        cd fedbiomed-researcher/notebooks
+        jupyter notebook
+        ;;
+
+    help|-h|--help)
+        cat <<EOF
+usage: fedbiomed_run network
+       fedbiomed_run researcher
+       fedbiomed_run node       add    (config_name.ini)
+       fedbiomed_run node       start  (config_name.ini)
+       fedbiomed_run node       delete (config_name.ini)
+       fedbiomed_run node       list   (config_name.ini)
+
+Runs the fedbiomed components after properly initializing the environments.
+The component name is mandatory.
+
+network   : run the necessary docker containers (in development mode)
+
+researcher: launch a researcher notebook
+
+node      : a second arguement is mandatory
+            start : launch a new node
+            add/list/delete deals with dataset
+
+            if a config_name.ini file is given as third argeument,
+            it will be used instead of the default one (config.ini)
+EOF
+        ;;
+
+    *)
+        echo "Please specify the component you want to run between: network, node, researcher"
+        exit -1
+        ;;
+esac

@@ -1,0 +1,57 @@
+#!/bin/bash
+#
+# create all necessary environments
+#
+
+# detect how the file is run
+([[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
+ [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
+    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
+ [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)) && sourced=1 || sourced=0
+
+[[ "${sourced}" == "1" ]] && echo "This file MUST NOT be sourced" && return
+
+#Activate conda with any of the next commands
+#source ~/miniconda3/bin/activate
+#source ~/.bashrc
+c=$(which conda)
+if [ -z "$c" ]
+then
+    echo "Please install conda first !!!"
+    exit -1
+fi
+eval "$(conda shell.bash hook)"
+
+#update conda environment after installing modules with pip may result into inconsistencies
+function activate_environment() {
+    echo "* Verifying/installing conda environment: $1"
+    conda env update --file $basedir/fedbiomed-network/envs/development/conda/$1.yaml 2>/dev/null;
+}
+
+#
+# find the directory containing all sources
+#
+basedir=$(cd $(dirname $0)/../.. || exit ; pwd)
+cd $basedir || exit
+
+# prerequisite, these repo must be present in development mode
+fed_envs=(network node researcher)
+
+for i in ${fed_envs[@]}
+do
+    if [ ! -d $basedir/fedbiomed-$i ]
+    then
+        echo "Directory $basedir/fedbiomed-$i is missing"
+        exit
+    fi
+done
+
+# configure all conda environements
+#activate_environment fedbiomed
+
+for i in ${fed_envs[@]}
+do
+    activate_environment fedbiomed-$i
+    conda deactivate
+done
+#conda deactivate

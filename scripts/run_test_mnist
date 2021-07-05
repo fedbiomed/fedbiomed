@@ -1,0 +1,69 @@
+#!/bin/bash
+
+base_dir=$(cd $(dirname $0)/.. || exit ; pwd)
+cd $base_dir || exit
+
+# arguments ? optional path to MNIST dataset
+path_mnist=$1
+
+
+# conda initialization
+c=$(which conda)
+if [ -z "$c" ]
+then
+    echo "Please install conda first !!!"
+    exit -1
+fi
+eval "$(conda shell.bash hook)"
+
+mpid= # PIDs monitored (used only as an intermediate variable here)
+kpids= # PIDs to be killed
+
+# launch network
+echo "INFO: launching fedbiomed network"
+#source $base_dir/scripts/fedbiomed_environment network
+$base_dir/scripts/fedbiomed_run network
+conda deactivate
+sleep 3
+
+# populate node
+echo "INFO: populating fedbiomed node"
+source $base_dir/scripts/fedbiomed_environment node
+$base_dir/scripts/fedbiomed_run node --add-mnist $path_mnist
+
+# launch node
+echo "INFO: launching fedbiomed node"
+$base_dir/scripts/fedbiomed_run node start &
+apids=$!
+conda deactivate
+sleep 3
+apids=$(pstree -p $apids | grep -o '([0-9]\+)' | grep -o '[0-9]\+' | tr '\n' ' ')
+echo "INFO : apids=$apids"
+kpids="${kpids:+$kpids }$apids"
+mpid="($mpid|$!)"
+
+# launch test and wait for completion
+echo "INFO: launching fedbiomed researcher"
+source $base_dir/scripts/fedbiomed_environment researcher
+$base_dir/../fedbiomed-researcher/notebooks/getting-started-localhost.py
+status=$?
+conda deactivate
+
+##clean running processes and datasets
+echo "INFO: killing kpids=$kpids"
+kill -9 $kpids
+( cd $base_dir/envs/development/network ; CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose down )
+source $base_dir/scripts/fedbiomed_environment node
+$base_dir/scripts/fedbiomed_run node --delete-mnist
+
+conda deactivate
+
+## exit code
+if [ $status -eq 0 ]
+then
+    echo "Success"
+    exit 0
+else
+    echo "Failure with status $status"
+    exit 1
+fi

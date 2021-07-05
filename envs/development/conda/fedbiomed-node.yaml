@@ -1,0 +1,37 @@
+#
+# environment for fedbiomed-node
+#
+#
+#
+name: fedbiomed-node
+
+channels:
+  - conda-forge
+
+dependencies:
+  # minimal environment
+  - python >=3.9,<4.0
+  - pip
+  - jupyter
+  - ipython
+  # tests
+  - pytest >6.2.2
+  - tinydb >=4.4.0,<5.0.0
+  - tabulate >=0.8.9,<0.9.0
+  # code
+  - GitPython >=3.1.14,<4.0.0
+  - requests >=2.25.1,<3.0.0
+  - paho-mqtt >=1.5.1,<2.0.0
+  - validators >=0.18.2,<0.19.0
+  - tqdm >=4.59.0,<5.0.0
+  - git
+  # git notebook striper
+  - nbstripout
+  # nn
+  - pip:
+      - monai >=0.4.0,<0.5.0
+      - torch >=1.8.0,<2.0.0
+      - persist-queue >=0.5.1,<0.6.0
+      - pytorch-ignite >=0.4.4,<0.5.0
+      - torchvision >=0.9.0,<0.10.0
+      - pandas >=1.2.3,<2.0.0
