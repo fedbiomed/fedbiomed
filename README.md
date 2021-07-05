@@ -94,6 +94,8 @@ $ ./scripts/fedbiomed_run researcher
 ```
 
 * this will launch a new jupyter notebook
+  - `getting-started.ipynb` : training a simplenet + federated average on MNIST data
+  - `local_training.ipynb` : comparing the simplenet + federated average on MNIST data with its local training equivalent
 
 
 #### run a researcher script
