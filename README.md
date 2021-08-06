@@ -154,11 +154,10 @@ CI pipeline currently contains :
 To view CI test output and logs :
 * view the merge request in gitlab (select `Merge requests` in left bar, then select your merge request)
 * click on the `Pipeline` number (eg: #1289345) in the merge request, then click on the `Jobs` tab, then click on the job number (eg: #1294521)
-* connect with your account on `ci.inria.fr`. To get an account on `ci.inria.fr` you need to be approved by one member of the Fed-BioMed CI project or to be a member of Inria
 * select `Console output` in the left pane
 
 To configure CI test :
-* connect with your account on `ci.inria.fr`
+* connect with your account on `ci.inria.fr`. To get an account on `ci.inria.fr` you need to be approved by one member of the Fed-BioMed CI project or to be a member of Inria
 * request the Fed-BioMed team to become a member of the Fed-BioMed CI project
 
 Note: using branch `feature/test_ci` can be useful when testing/debugging the CI setup (triggers CI on every push, not only on merge request).
