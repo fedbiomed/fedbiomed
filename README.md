@@ -109,7 +109,7 @@ $ source ./scripts/fedbiomed_environment researcher
 * then you can use any researcher script
 
 ```
-$ python ../fedbiomed-researcher/notebooks/getting-started-localhost.py
+$ python ../fedbiomed-researcher/notebooks/getting-started.py
 ```
 
 ### clean state (restore environments back to new)
@@ -147,7 +147,7 @@ CI pipeline currently contains :
 * running a simplenet + federated average training, on a few batches of a MNIST dataset, with 1 node. For that, CI launches `./scripts/CI_build` (wrapping for running on CI server) which itself calls `./scripts/run_test_mnist` (payload, can also be launched on localhost)
   - clone the Fed-BioMed repositories, set up condas and environment, launch network and node. 
   - choose an existing git branch for running the test for each of the repos, by decreasing preference order : source branch of the merge, target branch of the merge, `develop`
-  - launch the `fedbiomed-researcher` script `./scripts/getting-started-localhost.py`
+  - launch the `fedbiomed-researcher` script `./scripts/getting-started.py`
   - test succeeds if the script completes without failure.
 
 

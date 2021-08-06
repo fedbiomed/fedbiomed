@@ -45,7 +45,7 @@ mpid="($mpid|$!)"
 # launch test and wait for completion
 echo "INFO: launching fedbiomed researcher"
 source $base_dir/scripts/fedbiomed_environment researcher
-EXEC_TEST=$base_dir/../fedbiomed-researcher/notebooks/getting-started-localhost.py
+EXEC_TEST=$base_dir/../fedbiomed-researcher/notebooks/getting-started.py
 if [ -x "$EXEC_TEST" ]
 then
     $EXEC_TEST
