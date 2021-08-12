@@ -17,22 +17,22 @@
 set_variables() {
 
     trigger_repo=$(basename "$gitlabSourceRepoHomepage")
-    echo "INFO: trigger repo for merge $trigger_repo"   
+    echo "INFO: trigger repo for merge $trigger_repo"
 
     src_branch=$gitlabBranch
-    echo "INFO: source branch for merge $src_branch"    
+    echo "INFO: source branch for merge $src_branch"
 
     target_branch=$gitlabTargetBranch
-    echo "INFO: target branch for merge $target_branch" 
+    echo "INFO: target branch for merge $target_branch"
 
-    base_repo=fedbiomed-network
-    echo "INFO: base repository for build $base_repo"   
+    base_repo=fedbiomed
+    echo "INFO: base repository for build $base_repo"
 
     other_repos='fedbiomed-node fedbiomed-researcher'
-    echo "INFO: other repositories for build $other_repos"  
+    echo "INFO: other repositories for build $other_repos"
 
     base_path=$PWD
-    echo "INFO: basepath for repo clones $base_path"  
+    echo "INFO: basepath for repo clones $base_path"
 }
 
 # Do some cleaning before cloning/update
@@ -45,11 +45,11 @@ do_clean_clones() {
         # remove clones of non-default repos
         for r in $other_repos ; do
             if [ -d "$r" ] ; then
-            	rm -rf $r
+                rm -rf $r
             fi
         done
     fi
-    
+
 }
 
 # Do some cleaning in envs/condas
@@ -58,31 +58,31 @@ do_clean_envs() {
     [ -n "$clean_level" ] || clean_level=1
 
     if [ "$clean_level" -ge 1 ] ; then
-    	# clean fedbiomed environment, including remove containers
+        # clean fedbiomed environment, including remove containers
         set +e # script uses test syntax that causes non-0 error codes
-    	source $base_path/$base_repo/scripts/fedbiomed_environment clean
+        source $base_path/$base_repo/scripts/fedbiomed_environment clean
         set -e
-        
+
         # delete from cache docker images not used by any container
         docker image prune -f
-	fi
+    fi
 
     if [ "$clean_level" -ge 2 ] ; then
         # remove conda envs of non-default repos
         for condaenv in $base_repo $other_repos ; do
-			conda remove --name $condaenv --all -y
+            conda remove --name $condaenv --all -y
         done
     fi
-    
+
     if [ "$clean_level" -ge 3 ] ; then
-    	# remove all stopped docker container
-    	docker container prune -f
-        
-    	# delete from cache docker images not used by existing container
+        # remove all stopped docker container
+        docker container prune -f
+
+        # delete from cache docker images not used by existing container
         # as all containers should be stopped, all docker images will need to be downloaded/rebuilt
         docker image prune -f -a
     fi
-    
+
 }
 
 # Do or update local clone of repos not managed by jenkins
@@ -114,59 +114,62 @@ do_clones() {
 
 set_clones_branch() {
 
-	cd $base_path/$base_repo
+    cd $base_path/$base_repo
 
-    
+
     for repo in $base_repo $other_repos ; do
-    	if [ "$repo" = "$base_repo" -a "$base_repo" = "$trigger_repo" ] ; then
-        	# when merging in a clone managed by jenkins, do not change branch
+        if [ "$repo" = "$base_repo" -a "$base_repo" = "$trigger_repo" ] ; then
+            # when merging in a clone managed by jenkins, do not change branch
             # redundant + sometimes causes build to fail
             echo "INFO: branch in $repo is $(git branch)"
             continue
         fi
-        
-    	cd $base_path/$repo
+
+        cd $base_path/$repo
         # we cannot count on source branch existing in all three repos
         # try reasonable choice of branches for merge
         if [ -n "$(git branch -r --list origin/$src_branch)" ] ; then
-    		# prefered branch for build is source branch of merge
+            # prefered branch for build is source branch of merge
             # - exists for triggering repo
             # - may exist or not for other repos
             branch=$src_branch
-    	elif [ -n "$(git branch -r --list origin/$target_branch)" ] ; then
-        	# second choice for build is target branch of merge
+        elif [ -n "$(git branch -r --list origin/$target_branch)" ] ; then
+            # second choice for build is target branch of merge
             # - should exists on every repo (develop, master) for a merge
             # - will not exist when tracking pushes in feature/test_ci branch
             branch=$target_branch
         else
-        	branch=develop 
+            branch=develop
         fi
-        
+
         git config pull.rebase false
         git checkout $branch
         git pull
-        
+
         echo "INFO: branch in $repo is $(git branch --show-current)"
     done
 
-	cd $base_path
+    cd $base_path
 }
 
 
 set_variables
-do_clean_clones
-do_clones
-set_clones_branch
+#do_clean_clones
+#do_clones
+#set_clones_branch
 
 do_clean_envs 1
 
 # configure conda environments
-$base_path/$base_repo/scripts/configure_conda
+#$base_path/$base_repo/scripts/configure_conda
+./scripts/configure_conda
 
 # execute CI script
-ci_script=$base_path/$base_repo/scripts/run_test_mnist
+#ci_script=$base_path/$base_repo/scripts/run_test_mnist
+ci_script=./scripts/run_test_mnist
 if [ -x $ci_script -a -f $ci_script ] ; then
     #bash -x $ci_script $base_path/../..
+    # arg1 of the script is installed (manually) in ../.. on ci slave
     $ci_script $base_path/../..
 else
     echo "WARNING: script $ci_script notfound, skipping"
