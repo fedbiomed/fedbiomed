@@ -8,26 +8,28 @@ import inspect
 import torch
 import torch.nn as nn
 
-class Torchnn(nn.Module):
+class TorchTrainingPlan(nn.Module):
     def __init__(self):
-        super(Torchnn, self).__init__()
+        super(TorchTrainingPlan, self).__init__()
 
         # cannot use it here !!!! FIXED in training_routine
         #self.optimizer = torch.optim.Adam(self.parameters(), lr = 1e-3)
         self.optimizer = None
 
         # data loading // should ne moved to another class
-        # self.batch_size = 100
-        # self.shuffle    = True
+        self.batch_size = 100
+        self.shuffle    = True
 
         # training // may be changed in training_routine ??
         self.device = "cpu"
 
         # list dependencies of the model
-        self.dependencies = [ "from fedbiomed.common.torchnn import Torchnn",
+        self.dependencies = [ "from fedbiomed.common.torchnn import TorchTrainingPlan",
                               "import torch",
                               "import torch.nn as nn",
                               "import torch.nn.functional as F",
+                              "from torch.utils.data import DataLoader",
+                              "from torchvision import datasets, transforms"
                              ]
 
         # to be configured by setters

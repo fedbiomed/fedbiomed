@@ -51,7 +51,7 @@ case $1 in
         fi
 
         # TODO : better test with python module loading attempt and try/except
-        if [ -f "./fedbiomed-node/fedbiomed/node/cli.py" ]
+        if [ -f "./fedbiomed/node/cli.py" ]
         then
             case $2 in
 
@@ -102,7 +102,7 @@ case $1 in
         #export MQTT_BROKER_PORT=1883
         #export UPLOADS_URL='http://localhost:8844/upload/'
         source ./scripts/fedbiomed_environment researcher
-        cd fedbiomed-researcher/notebooks
+        cd notebooks
         jupyter notebook
         ;;
 

@@ -12,7 +12,7 @@ except NameError:
 # python imports should handle this,  but avoid eventual weird cases
 if not defined_node_env:
     def init_client_config(client_id=None):
-        """ This method: reads the config file if exists, otherwise it creates 
+        """ This method: reads the config file if exists, otherwise it creates
                 it with the NODE config params
 
 
@@ -22,7 +22,7 @@ if not defined_node_env:
 
         Returns:
             cfg: content of the config file
-        """    
+        """
         cfg = configparser.ConfigParser()
 
         if os.path.isfile(CONFIG_FILE):
@@ -69,7 +69,7 @@ if not defined_node_env:
         if not CONFIG_FILE.startswith("/") :
             CONFIG_FILE = os.path.join(CONFIG_DIR,os.getenv('CONFIG_FILE'))
     else:
-        CONFIG_FILE = os.path.join(CONFIG_DIR, 'config.ini')
+        CONFIG_FILE = os.path.join(CONFIG_DIR, 'config_node.ini')
 
     cfg = init_client_config()
     CLIENT_ID = os.getenv('CLIENT_ID', cfg.get('default', 'client_id'))
