@@ -6,13 +6,11 @@ version 3 implementation of the Fed-BioMed project
 
 Fed-BioMed is developped under Linux Fedora, should be easily ported to other Linux distributions.
 
-### clone repos
+### clone repo
 
-Clone the repositories for the Fed-BioMed components under the same base directory :
+Clone the FedBiomed repository
 ```
-git clone git@gitlab.inria.fr:fedbiomed/fedbiomed-network.git # this one
-git clone git@gitlab.inria.fr:fedbiomed/fedbiomed-node.git
-git clone git@gitlab.inria.fr:fedbiomed/fedbiomed-researcher.git
+git clone git@gitlab.inria.fr:fedbiomed/fedbiomed.git
 ```
 
 ### setup conda environments
@@ -27,9 +25,9 @@ $ ./scripts/configure_conda
 
 * there is one specific environment for each component:
 
-  * fedbiomed-network :  provides HTTP upload/download server and MQQT daemon
-  * fedbiomed-researcher : provides the researcher part
-  * fedbiomed-node : provides the client part
+  * fedbiomed-network    : provides environement for HTTP upload/download server and MQQT daemon
+  * fedbiomed-researcher : provides environement for the researcher part
+  * fedbiomed-node       : provides environement for the client part
 
 ### activate the environments
 
@@ -43,9 +41,9 @@ source ./scripts/fedbiomed_environment ENV
 
 where ENV chosen from:
 
-* network (work inside fedbiomed-network)
-* node (work inside fedbiomed-node)
-* researcher (work inside fedbiomed-researcher)
+* network
+* node
+* researcher
 
 
 ### run the software
@@ -93,7 +91,8 @@ $ ./scripts/fedbiomed_run node start config another_config.ini
 $ ./scripts/fedbiomed_run researcher
 ```
 
-* this will launch a new jupyter notebook
+* this will launch a new jupyter notebook working in the **notebooks** repository. Some notebooks are available:
+
   - `getting-started.ipynb` : training a simplenet + federated average on MNIST data
   - `local_training.ipynb` : comparing the simplenet + federated average on MNIST data with its local training equivalent
 
@@ -109,7 +108,7 @@ $ source ./scripts/fedbiomed_environment researcher
 * then you can use any researcher script
 
 ```
-$ python ../fedbiomed-researcher/notebooks/getting-started.py
+$ python ./notebooks/getting-started.py
 ```
 
 ### clean state (restore environments back to new)
@@ -130,4 +129,3 @@ list the content of a message queue (as used in fedbiomed.node and fedbiomed.res
 usage:  lqueue directory
    or
         lqueue dir1 dir2 dir3 ...
-
