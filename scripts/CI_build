@@ -60,7 +60,7 @@ do_clean_envs() {
     if [ "$clean_level" -ge 1 ] ; then
         # clean fedbiomed environment, including remove containers
         set +e # script uses test syntax that causes non-0 error codes
-        source $base_path/$base_repo/scripts/fedbiomed_environment clean
+        source ./scripts/fedbiomed_environment clean
         set -e
 
         # delete from cache docker images not used by any container
