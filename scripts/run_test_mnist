@@ -1,7 +1,10 @@
 #!/bin/bash
+#
+# used by ci.inria.fr to run a local (developement) validation test
+#
 
-base_dir=$(cd $(dirname $0)/.. || exit ; pwd)
-cd $base_dir || exit
+basedir=$(cd $(dirname $0)/.. || exit ; pwd)
+cd $basedir || exit
 
 # arguments ? optional path to MNIST dataset
 path_mnist=$1
@@ -21,19 +24,19 @@ kpids= # PIDs to be killed
 
 # launch network
 echo "INFO: launching fedbiomed network"
-#source $base_dir/scripts/fedbiomed_environment network
-$base_dir/scripts/fedbiomed_run network
+#source $basedir/scripts/fedbiomed_environment network
+$basedir/scripts/fedbiomed_run network
 conda deactivate
 sleep 3
 
 # populate node
 echo "INFO: populating fedbiomed node"
-source $base_dir/scripts/fedbiomed_environment node
-$base_dir/scripts/fedbiomed_run node --add-mnist $path_mnist
+source $basedir/scripts/fedbiomed_environment node
+$basedir/scripts/fedbiomed_run node --add-mnist $path_mnist
 
 # launch node
 echo "INFO: launching fedbiomed node"
-$base_dir/scripts/fedbiomed_run node start &
+$basedir/scripts/fedbiomed_run node start &
 apids=$!
 conda deactivate
 sleep 3
@@ -44,8 +47,8 @@ mpid="($mpid|$!)"
 
 # launch test and wait for completion
 echo "INFO: launching fedbiomed researcher"
-source $base_dir/scripts/fedbiomed_environment researcher
-EXEC_TEST=$base_dir/../fedbiomed-researcher/notebooks/getting-started.py
+source $basedir/scripts/fedbiomed_environment researcher
+EXEC_TEST=$basedir/notebooks/getting-started.py
 if [ -x "$EXEC_TEST" ]
 then
     $EXEC_TEST
@@ -58,9 +61,9 @@ conda deactivate
 ##clean running processes and datasets
 echo "INFO: killing kpids=$kpids"
 kill -9 $kpids
-( cd $base_dir/envs/development/network ; CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose down )
-source $base_dir/scripts/fedbiomed_environment node
-$base_dir/scripts/fedbiomed_run node --delete-mnist
+( cd $basedir/envs/development/network ; CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose down )
+source $basedir/scripts/fedbiomed_environment node
+$basedir/scripts/fedbiomed_run node --delete-mnist
 
 conda deactivate
 
