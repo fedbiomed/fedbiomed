@@ -1,0 +1,2 @@
+class DefaultStrategyException(Exception):
+    pass
