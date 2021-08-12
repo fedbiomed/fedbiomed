@@ -73,7 +73,7 @@ activate_node() {
     verbose=$1
     [[ ! -z "$verbose" ]] && echo "** Activating fedbiomed-node environment"
     conda activate fedbiomed-node
-    export PYTHONPATH=$basedir/fedbiomed-node
+    export PYTHONPATH=$basedir
     [[ ! -z "$verbose" ]] && environment_info
 }
 
@@ -81,7 +81,7 @@ activate_researcher() {
     verbose=$1
     [[ ! -z "$verbose" ]] && echo "** Activating fedbiomed-researcher environment"
     conda activate fedbiomed-researcher
-    export PYTHONPATH=$basedir/fedbiomed-researcher:$basedir/fedbiomed-node
+    export PYTHONPATH=$basedir
     [[ ! -z "$verbose" ]] && environment_info
 }
 
@@ -93,7 +93,7 @@ activate_researcher() {
 # detect my own name (then sourced)
 [[ -n "$ZSH_NAME" ]] || myname=${BASH_SOURCE[0]}
 [[ -n "$ZSH_NAME" ]] && myname=${(%):-%x}
-basedir=$(cd $(dirname $myname)/../.. || exit ; pwd)
+basedir=$(cd $(dirname $myname)/.. || exit ; pwd)
 
 # initialize development environment for....
 case $1 in
@@ -104,29 +104,29 @@ case $1 in
         activate_network
         echo "** Cleaning all caches / temporary files"
         # docker containers
-        (cd ${basedir}/fedbiomed-network/envs/development/network/ && docker-compose rm -sf &&  echo " * Docker cleaning" )
+        (cd ${basedir}/envs/development/network/ && docker-compose rm -sf &&  echo " * Docker cleaning" )
 
         # node/researcher cleaners
         environment_reset
         activate_node
-        if [ -f ${basedir}/fedbiomed-node/scripts/clean.py ]
+        if [ -f ${basedir}/scripts/clean_node.py ]
         then
             echo " * Node cleaning"
             conda deactivate
             environment_reset
             activate_node
-            python ${basedir}/fedbiomed-node/scripts/clean.py
+            python ${basedir}/scripts/clean_node.py
         fi
 
         environment_reset
         activate_researcher
-        if [ -f ${basedir}/fedbiomed-researcher/scripts/clean.py ]
+        if [ -f ${basedir}/scripts/clean_researcher.py ]
         then
             echo " * Researcher cleaning"
             conda deactivate
             environment_reset
             activate_researcher
-            python ${basedir}/fedbiomed-researcher/scripts/clean.py
+            python ${basedir}/scripts/clean_researcher.py
         fi
 
         conda deactivate
