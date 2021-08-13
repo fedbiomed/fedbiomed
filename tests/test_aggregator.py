@@ -40,5 +40,5 @@ class TestAggregator(unittest.TestCase):
             # results is a normalized list of values
             self.assertEqual( sum , 1.0)
 
-if __name__ == '__main__':
+if __name__ == '__main__': # pragma: no cover
     unittest.main()

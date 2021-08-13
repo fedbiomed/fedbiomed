@@ -18,6 +18,6 @@ class Aggregator:
 
         return weights
 
-    def aggregate(self,  model_params: list, weights: list) -> Dict:
+    def aggregate(self,  model_params: list, weights: list) -> Dict: # pragma: no cover
         """Strategy to aggregate models"""
         pass

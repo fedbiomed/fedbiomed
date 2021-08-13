@@ -83,5 +83,5 @@ class TestResponses(unittest.TestCase):
         self.assertEqual( r2.get_data() , data2 )
 
 
-if __name__ == '__main__':
+if __name__ == '__main__': # pragma: no cover
     unittest.main()
