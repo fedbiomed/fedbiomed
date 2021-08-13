@@ -21,15 +21,15 @@ eval "$(conda shell.bash hook)"
 # find the directory containing all sources
 #
 #
-basedir=$(cd $(dirname $0)/../.. || exit ; pwd)
+basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit
 
 #
 case $1 in
 
     network)
-        source ./fedbiomed-network/scripts/fedbiomed_environment network
-        cd ./fedbiomed-network/envs/development/network
+        source ./scripts/fedbiomed_environment network
+        cd ./envs/development/network
         ./deploy.sh --local
         ;;
 
@@ -51,40 +51,40 @@ case $1 in
         fi
 
         # TODO : better test with python module loading attempt and try/except
-        if [ -f "./fedbiomed-node/fedbiomed/node/cli.py" ]
+        if [ -f "./fedbiomed/node/cli.py" ]
         then
             case $2 in
-    
+
                 list|--list|-l)
-                    source ./fedbiomed-network/scripts/fedbiomed_environment node
+                    source ./scripts/fedbiomed_environment node
                     python -m fedbiomed.node.cli --list $PARAMS
                     ;;
-    
+
                 del|delete|--del|--delete|-d)
-                    source ./fedbiomed-network/scripts/fedbiomed_environment node
+                    source ./scripts/fedbiomed_environment node
                     python -m fedbiomed.node.cli --delete $PARAMS
                     ;;
-    
+
                 --delete-mnist|-dm)
-                    source ./fedbiomed-network/scripts/fedbiomed_environment node
+                    source ./scripts/fedbiomed_environment node
                     python -m fedbiomed.node.cli --delete-mnist $PARAMS
                     ;;
-    
+
                 add|--add|-a)
-                    source ./fedbiomed-network/scripts/fedbiomed_environment node
+                    source ./scripts/fedbiomed_environment node
                     python -m fedbiomed.node.cli --add $PARAMS
                     ;;
-    
+
                 --add-mnist|-am)
-                    source ./fedbiomed-network/scripts/fedbiomed_environment node
+                    source ./scripts/fedbiomed_environment node
                     python -m fedbiomed.node.cli --add-mnist $PARAMS
                     ;;
-    
+
                 start|--start|-s)
                     #export MQTT_BROKER=localhost
                     #export MQTT_BROKER_PORT=1883
                     #export UPLOADS_URL='http://localhost:8844/upload/'
-                    source ./fedbiomed-network/scripts/fedbiomed_environment node
+                    source ./scripts/fedbiomed_environment node
                     python -m fedbiomed.node.cli --start $PARAMS
                     ;;
                 *)
@@ -101,8 +101,8 @@ case $1 in
         #export MQTT_BROKER=localhost
         #export MQTT_BROKER_PORT=1883
         #export UPLOADS_URL='http://localhost:8844/upload/'
-        source ./fedbiomed-network/scripts/fedbiomed_environment researcher
-        cd fedbiomed-researcher/notebooks
+        source ./scripts/fedbiomed_environment researcher
+        cd notebooks
         jupyter notebook
         ;;
 

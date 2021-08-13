@@ -151,7 +151,7 @@ dmypy.json
 .pytype/
 
 # operating system-related files
-*.DS_Store #file properties cache/storage on macOS
+**/.DS_Store #file properties cache/storage on macOS
 Thumbs.db #thumbnail cache on Windows
 
 # profiling data
@@ -352,5 +352,17 @@ fabric.properties
 
 # End of https://www.toptal.com/developers/gitignore/api/django,python,pycharm,jupyternotebooks,visualstudiocode
 .idea
+
+# temproary files
 uploads
 my_model.p*
+etc/
+runs/
+var/
+config.ini
+*queue*/
+db.json
+queue_manager/
+*.ini
+db_client_*.json
+queue_manager_client_*
