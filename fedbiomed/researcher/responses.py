@@ -33,6 +33,8 @@ class Responses:
     def append(self, other):
         if isinstance(other, list):
             self._data = self._data + other
+        elif isinstance(other, dict):
+            self._data = self._data + [other]
         else:
             self._data = self._data + other.data  # what if other has no data member ?
 
