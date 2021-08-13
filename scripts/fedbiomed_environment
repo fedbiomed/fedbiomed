@@ -21,7 +21,7 @@
 
 #Activate conda with any of the next commands
 #source ~/miniconda3/bin/activate
-#source ~/.bashrc
+#source ~/.bashrcx
 eval "$(conda shell.bash hook)"
 
 #
