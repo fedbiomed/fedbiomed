@@ -1,13 +1,23 @@
 #!/bin/bash
 #
-# used by ci.inria.fr to run a local (developement) validation test
+#
+# Continuous integration payload script
+# for fedbiomed-v3-linux job on ci.inria.fr/fedbiomed
+#
+# Used by ci.inria.fr to run a local (developement) validation test
+# Called from CI_build
 #
 
 basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit
 
-# arguments ? optional path to MNIST dataset
+# arguments : path to MNIST dataset
 path_mnist=$1
+if [ ! -d "$path_mnist" ]
+then
+    echo "ERROR: MNIST dataset path $path_mnist is not a valid directory"
+    exit -1
+fi
 
 
 # conda initialization
@@ -24,6 +34,7 @@ kpids= # PIDs to be killed
 
 # launch network
 echo "INFO: launching fedbiomed network"
+# this is done by `fedbiomed_run network`
 #source $basedir/scripts/fedbiomed_environment network
 $basedir/scripts/fedbiomed_run network
 conda deactivate
