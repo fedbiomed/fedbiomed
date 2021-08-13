@@ -21,7 +21,7 @@
 
 #Activate conda with any of the next commands
 #source ~/miniconda3/bin/activate
-#source ~/.bashrc
+#source ~/.bashrcx
 eval "$(conda shell.bash hook)"
 
 #
@@ -154,6 +154,7 @@ case $1 in
     researcher)
         conda deactivate
         environment_reset
+        echo "DEBUG: HERE WE GO"
         development_env
         activate_researcher verbose
         ;;
