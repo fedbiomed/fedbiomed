@@ -13,6 +13,13 @@ cd tests
 python -m unittest -v
 ```
 
+or
+```
+cd tests
+nosetests -v
+```
+
+
 * run a specific test
 
 ```
@@ -27,3 +34,20 @@ have a coverage output, xml output for ci, etc...
 ### doc on unittest
 
 https://docs.python.org/3/library/unittest.html
+
+* test coverage
+
+If you want to check the est coverge, you should use:
+
+```
+cd tests
+nosetests  --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed
+```
+
+a wysiwyg way of reading the tests is to convert the tests results in html
+
+```
+coverage html
+```
+
+and then open the **htmlcov/index.html** file
