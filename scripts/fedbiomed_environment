@@ -153,8 +153,7 @@ case $1 in
 
     researcher)
         conda deactivate
-        environment_reset 1
-        echo "DEBUG: HERE WE GO"
+        environment_reset
         development_env
         activate_researcher verbose
         ;;
