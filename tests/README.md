@@ -37,7 +37,7 @@ https://docs.python.org/3/library/unittest.html
 
 * test coverage
 
-If you want to check the est coverge, you should use:
+If you want to check the test coverge, you should use:
 
 ```
 cd tests
@@ -50,4 +50,4 @@ a wysiwyg way of reading the tests is to convert the tests results in html
 coverage html
 ```
 
-and then open the **htmlcov/index.html** file
+and open the **htmlcov/index.html** file in your favorite browser.
