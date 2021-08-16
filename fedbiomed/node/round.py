@@ -6,6 +6,7 @@ from fedbiomed.common.repository import Repository
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.node.environ import CACHE_DIR, CLIENT_ID, TMP_DIR, UPLOADS_URL
 
+import traceback
 
 class Round:
     """ This class repesents the training part execute by a node in a given round
@@ -113,7 +114,7 @@ class Round:
             # Upload results
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
-            results['model_params'] = model.state_dict()
+            results['model_params'] = model.after_training_params()
             results['history'] = self.logger.history
             results['client_id'] = CLIENT_ID
             try:
