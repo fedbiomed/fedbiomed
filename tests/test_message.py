@@ -51,6 +51,19 @@ class TestMessage(unittest.TestCase):
     def test_searchreply(self):
 
         # verify necessary arguments
+
+        # this one should be good
+        self.check_searchreply_args(
+            expected_result = True,
+
+            researcher_id = 'toto',
+            success = True,
+            databases = [1, 2, 3],
+            count = 666,
+            client_id = 'titi',
+            command = 'do_it')
+
+
         # all these test should fail (not enough arguments)
         self.check_searchreply_args( expected_result = False, researcher_id = 'toto')
         self.check_searchreply_args( expected_result = False, count = 666 )
@@ -59,21 +72,47 @@ class TestMessage(unittest.TestCase):
         self.check_searchreply_args( expected_result = False, client_id = 'toto')
         self.check_searchreply_args( expected_result = False, command = "toto" )
 
-        # this one should be good
-        self.check_searchreply_args( expected_result = True,
+        # too much arguments
+        self.check_searchreply_args(
+            expected_result = False,
+
             researcher_id = 'toto',
             success = True,
             databases = [1, 2, 3],
             count = 666,
             client_id = 'titi',
-            command = 'do_it')
+            command = 'do_it',
+            extra_arg = "not_allowed"
+        )
 
-        # the following should be bad (bad argument type)
-        self.check_searchreply_args( expected_result = False,
+        # all the following should be bad (bad argument type)
+        self.check_searchreply_args(
+            expected_result = False,
+
             researcher_id = 'toto',
             success = True,
             databases = [1, 2, 3],
             count = "not_an_integer",
+            client_id = 'titi',
+            command = 'do_it')
+
+        self.check_searchreply_args(
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success = True,
+            databases = "not a list",
+            count = 666,
+            client_id = 'titi',
+            command = 'do_it')
+
+        self.check_searchreply_args(
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success = "not_a_boolean",
+            databases = [],
+            count = 666,
             client_id = 'titi',
             command = 'do_it')
 
