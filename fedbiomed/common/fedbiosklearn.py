@@ -20,7 +20,6 @@ class SkLearnModel():
                          logger=None):
         print('SGD Regressor training batch size ', batch_size)
         (data, target) = self.training_data(batch_size=batch_size)
-        print('data is ', data , 'target is ' , target)
         for r in range(epochs):
             self.training_step(data,target)
 
@@ -37,6 +36,8 @@ class SkLearnModel():
                              ]
         self.dataset_path = None
         self.reg = SGDRegressor(max_iter=kwargs['max_iter'], tol=kwargs['tol'])
+        self.reg.coef_ =  np.zeros(5)
+        self.reg.intercept_ = [0.]
 
     # provided by fedbiomed // necessary to save the model code into a file
     def add_dependency(self, dep):
@@ -60,40 +61,40 @@ class SkLearnModel():
 
     # provided by fedbiomed
     def save(self, filename, params: dict=None):
+        '''
+        Save can be called from Job or Round.
+            From round is always called with params.
+            From job is called with no params in constructor and
+            with params in update_parameters.
+
+            Torch state_dict has a model_params object. model_params tag
+            is used in the code. This is why this tag is
+            used in sklearn case.
+        '''
         if params is None:
             dump(self.reg, open(filename, "wb"))
         else:
-            if params.get('model_params') is not None:
+            if params.get('model_params') is not None: # called in the Round
                 self.reg.coef_ = params['model_params']['coef_']
                 self.reg.intercept_ = params['model_params']['intercept_']
             else:
                 self.reg.coef_ = params['coef_']
                 self.reg.intercept_ = params['intercept_']
             dump(self.reg, open(filename, "wb"))
-        if hasattr(self.reg, 'coef_') and hasattr(self.reg, 'intercept_'):
-            print('Saving file ', filename, ' with parameters coef ', self.reg.coef_, ' intercept_ ',self.reg.intercept_)
-        else:
-            print('saving without any params ')
-
-
 
     # provided by fedbiomed
     def load(self, filename, to_params: bool = False):
-        print('filename is ', filename)
+        '''
+        Load can be called from Job or Round.
+            From round is called with no params
+            From job is called with  params
+        '''
         di = {}
         if not to_params:
             self.reg = load(open( filename , "rb"))
-            if hasattr(self.reg, 'coef_') and hasattr(self.reg, 'intercept_'):
-                print('Loaded coef - no parms COEF (ROUND)',  ' with parameters coef ', self.reg.coef_,' intercept_ ',self.reg.intercept_)
-            else:
-                print('Loaded coef - no parms COEF (ROUND) with no attrs')
             return self.reg
         else:
             self.reg =  load(open(filename, "rb"))
-            if hasattr(self.reg, 'coef_') and hasattr(self.reg, 'intercept_'):
-                print('Loaded coef - parms COEF (JOB) ', ' with parameters coef ', self.reg.coef_,' intercept_ ',self.reg.intercept_)
-            else:
-                print('Loaded coef - no parms COEF (ROUND) with no attrs')
             di['model_params'] = {'coef_': self.reg.coef_,'intercept_':self.reg.intercept_}
             return di
 
