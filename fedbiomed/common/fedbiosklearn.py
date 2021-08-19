@@ -6,22 +6,34 @@ from sklearn.linear_model import SGDRegressor
 import json
 class SkLearnModel():
 
+    ''' Provide partial fit method of scikit learning model here. '''
     def partial_fit(self,X,y):
         pass
 
-    # provided by the fedbiomed // should be moved in a DATA manipulation module
-    def training_data(self, batch_size=48):
+    '''Perform in this method all data reading and data transformations you need.
+    At the end you should provide a couple (X,y) as indicated in the partial_fit
+    method of the scikit learn class.'''
+    def training_data(self, batch_size=None):
         pass
 
+    ''' Provide a dictionnary with the parameters you need to be fitted, refer to
+     scikit documentation for a detail of parameters '''
     def after_training_params(self):
         pass
 
+    '''
+    Method training_routine called in Round, to change only if you know what you are doing.
+    '''
     def training_routine(self, epochs=1, log_interval=10, lr=1e-3, batch_size=50, batch_maxnum=0, dry_run=False,
                          logger=None):
         print('SGD Regressor training batch size ', batch_size)
         (data, target) = self.training_data(batch_size=batch_size)
         for r in range(epochs):
-            self.training_step(data,target)
+            # do not take into account more than batch_maxnum batches from the dataset
+            if batch_maxnum == 0 :
+                self.training_step(data,target)
+            else:
+                print('Not yet implemented batch_maxnum != 0')
 
     def __init__(self,kwargs):
         self.batch_size = 100
@@ -32,7 +44,6 @@ class SkLearnModel():
                                 "import pandas as pd",
                                 "from sklearn.linear_model import SGDRegressor",
                                 "from torchvision import datasets, transforms",
-
                              ]
         self.dataset_path = None
         self.reg = SGDRegressor(max_iter=kwargs['max_iter'], tol=kwargs['tol'])
@@ -44,7 +55,7 @@ class SkLearnModel():
         self.dependencies.extend(dep)
         pass
 
-    # provider by fedbiomed
+    '''Save the code to send to nodes '''
     def save_code(self):
 
         content = ""
@@ -59,7 +70,8 @@ class SkLearnModel():
         file.write(content)
         file.close()
 
-    # provided by fedbiomed
+    ''' Save method for parameter communication, internally is used
+    dump and load joblib library methods '''
     def save(self, filename, params: dict=None):
         '''
         Save can be called from Job or Round.
@@ -71,8 +83,9 @@ class SkLearnModel():
             is used in the code. This is why this tag is
             used in sklearn case.
         '''
+        file = open(filename, "wb")
         if params is None:
-            dump(self.reg, open(filename, "wb"))
+            dump(self.reg, file)
         else:
             if params.get('model_params') is not None: # called in the Round
                 self.reg.coef_ = params['model_params']['coef_']
@@ -80,23 +93,27 @@ class SkLearnModel():
             else:
                 self.reg.coef_ = params['coef_']
                 self.reg.intercept_ = params['intercept_']
-            dump(self.reg, open(filename, "wb"))
+            dump(self.reg, file)
+        file.close()
 
-    # provided by fedbiomed
+    ''' Save method for parameter communication, internally is used
+        dump and load joblib library methods '''
     def load(self, filename, to_params: bool = False):
         '''
         Load can be called from Job or Round.
             From round is called with no params
             From job is called with  params
         '''
-        di = {}
+        di_ret = {}
+        file = open( filename , "rb")
         if not to_params:
-            self.reg = load(open( filename , "rb"))
-            return self.reg
+            self.reg = load(file)
+            di_ret =  self.reg
         else:
-            self.reg =  load(open(filename, "rb"))
-            di['model_params'] = {'coef_': self.reg.coef_,'intercept_':self.reg.intercept_}
-            return di
+            self.reg =  load(file)
+            di_ret['model_params'] = {'coef_': self.reg.coef_,'intercept_':self.reg.intercept_}
+        file.close()
+        return di_ret
 
     # provided by the fedbiomed / can be overloaded // need WORK
     def logger(self, msg, batch_index, log_interval = 10):

@@ -41,7 +41,6 @@ class TestFedaverage(unittest.TestCase):
         weights = [0.2, 0.2, 0.6]
         aggregator = FedAverage()
         aggregated_params = aggregator.aggregate(model_params, weights)
-        print(' Coef ', aggregated_params['coef_'] , ' Intercept ', aggregated_params['intercept_'] )
         self.assertTrue( np.allclose( aggregated_params['coef_'] , np.array( [1.88 , 4.92 , 5. , 2.6 , 0.82] ) ) )
         self.assertTrue( np.allclose(aggregated_params['intercept_'], np.array( [4.6] )))
 
@@ -54,7 +53,6 @@ class TestFedaverage(unittest.TestCase):
 
         aggregator = FedAverage()
         aggregated_params = aggregator.aggregate(model_params, weights)
-        print(' T2 Coef ', aggregated_params['coef_'], ' Intercept ', aggregated_params['intercept_'])
         self.assertTrue(np.allclose(aggregated_params['coef_'], np.array([-0.02739925,  0.0234013,  -0.01150177, -0.00410545 , 0.41344659] )))
         self.assertTrue(np.allclose(aggregated_params['intercept_'], np.array( [0.04178598] )))
 
