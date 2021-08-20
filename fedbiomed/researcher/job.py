@@ -90,19 +90,20 @@ class Job:
                 print(e)
                 return
 
-            # upload my_model.py on HTTP server
+            # upload my_model_xxx.py on HTTP server
             repo_response = self.repo.upload_file(model_file)
             self._repository_args['model_url'] = repo_response['file']
 
+            params_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.pt'
             try:
-                self.model_instance.save('my_model.pt')
+                self.model_instance.save(params_file)
             except Exception as e:
                 print("Cannot save parameters of the model to a local tmp dir")
                 print(e)
                 return
 
-            # upload my_model.pt on HTTP server
-            repo_response = self.repo.upload_file('my_model.pt')
+            # upload my_model_xxx.pt on HTTP server
+            repo_response = self.repo.upload_file(params_file)
             self._repository_args['params_url'] = repo_response['file']
 
         self._repository_args['model_class'] = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)

@@ -81,16 +81,18 @@ class TorchTrainingPlan(nn.Module):
         self.dependencies.extend(dep)
         pass
 
-    # provider by fedbiomed
+    # provided by fedbiomed
     def save_code(self, filename: str):
-        """
-        Save the class code for this training plan to a file
+        """Save the class code for this training plan to a file
 
-        Arguments :
-            filename (string): path to the file for saving
+        Args:
+            filename (string): path to the destination file
 
-        Returns :
-            currently none
+        Returns:
+            None
+
+        Exceptions: 
+            none
         """
 
         content = ""
@@ -107,6 +109,18 @@ class TorchTrainingPlan(nn.Module):
 
     # provided by fedbiomed
     def save(self, filename, params: dict=None):
+        """Save the torch training parameters from this training plan or from given `params` to a file
+
+        Args:
+            filename (string): path to the destination file
+            params (dict, optional): parameters to save to a file, should be structured as a torch state_dict() 
+
+        Returns:
+            torch.save() return code (documentation ?), probably None
+
+        Exceptions: 
+            none
+        """
         if params is not None:
             return(torch.save(params, filename))
         else:
@@ -114,6 +128,20 @@ class TorchTrainingPlan(nn.Module):
 
     # provided by fedbiomed
     def load(self, filename, to_params: bool=False):
+        """Load the torch training parameters to this training plan or to a data structure from a file
+
+        Args:
+            filename (string): path to the source file
+            to_params (bool, optional): if False, load params to this object; if True load params to a data structure
+
+        Returns:
+            if to_params is False : torch.load() return code (documentation ?), probably None
+            if to_params is True : dict containing parameters
+
+        Exceptions: 
+            none
+        """
+
         if to_params is True:
             return torch.load(filename)
         else:
