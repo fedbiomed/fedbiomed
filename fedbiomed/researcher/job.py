@@ -33,7 +33,7 @@ class Job:
         Args:
             clients (dict, optional): a dict of client_id containing the clients used for training
             model (string, optional): name of the model class to use for training
-            model_path (string, optional) : path to file containing model code
+            model_path (string, optional) : path to file containing model class code
             training_args (dict, optional): contains training parameters: lr, epochs, batch_size...
                                             Defaults to None.
             model_args (dict, optional): contains output and input feature dimension. 
@@ -68,28 +68,30 @@ class Job:
                 print("Cannot import class ", model, " from path ", model_path, " - Error: ", e)
                 sys.exit(-1)
 
-            # create/save model instance
+        # create/save model instance
         if inspect.isclass(model):
             if self._model_args is None or len(self._model_args)==0:
                 self.model_instance = model()
             else:
                 self.model_instance = model(self._model_args)
         else:
+            # also handle case where model is an instance of a class
             self.model_instance = model
 
 
 
         self.repo = Repository(UPLOADS_URL, TMP_DIR, CACHE_DIR)
         with tempfile.TemporaryDirectory(dir=TMP_DIR) as tmpdirname:
+            model_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.py'
             try:
-                self.model_instance.save_code()
+                self.model_instance.save_code(model_file)
             except Exception as e:
                 print("Cannot save the model to a local tmp dir")
                 print(e)
                 return
 
             # upload my_model.py on HTTP server
-            repo_response = self.repo.upload_file('my_model.py')
+            repo_response = self.repo.upload_file(model_file)
             self._repository_args['model_url'] = repo_response['file']
 
             try:

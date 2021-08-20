@@ -82,7 +82,16 @@ class TorchTrainingPlan(nn.Module):
         pass
 
     # provider by fedbiomed
-    def save_code(self):
+    def save_code(self, filename: str):
+        """
+        Save the class code for this training plan to a file
+
+        Arguments :
+            filename (string): path to the file for saving
+
+        Returns :
+            currently none
+        """
 
         content = ""
         for s in self.dependencies:
@@ -92,7 +101,7 @@ class TorchTrainingPlan(nn.Module):
         content += inspect.getsource(self.__class__)
 
         # try/except todo
-        file = open("my_model.py", "w")
+        file = open(filename, "w")
         file.write(content)
         file.close()
 
