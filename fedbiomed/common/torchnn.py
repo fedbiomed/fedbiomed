@@ -135,17 +135,16 @@ class TorchTrainingPlan(nn.Module):
             to_params (bool, optional): if False, load params to this object; if True load params to a data structure
 
         Returns:
-            if to_params is False : torch.load() return code (documentation ?), probably None
-            if to_params is True : dict containing parameters
+            dict containing parameters
 
         Exceptions: 
             none
         """
 
-        if to_params is True:
-            return torch.load(filename)
-        else:
-            return self.load_state_dict(torch.load(filename))
+        params = torch.load(filename)
+        if to_params is False:
+            self.load_state_dict(params)
+        return params    
 
     # provided by the fedbiomed / can be overloaded // need WORK
     def logger(self, msg, batch_index, log_interval = 10):
