@@ -80,91 +80,135 @@ class TestMessage(unittest.TestCase):
         # verify necessary arguments of all message creation
 
         # well formatted message
-        self.check_class_args( message.SearchReply,
+        self.check_class_args(
+            message.SearchReply,
             expected_result = True,
 
             researcher_id = 'toto',
-            success = True,
-            databases = [1, 2, 3],
-            count = 666,
-            client_id = 'titi',
-            command = 'do_it')
+            success       = True,
+            databases     = [1, 2, 3],
+            count         = 666,
+            client_id     = 'titi',
+            command       = 'do_it')
 
 
         # all these test should fail (not enough arguments)
-        self.check_class_args( message.SearchReply,
-                               expected_result = False,
+        self.check_class_args(
+            message.SearchReply,
+            expected_result = False,
 
-                               researcher_id = 'toto')
+            researcher_id = 'toto')
 
-        self.check_class_args( message.SearchReply,
-                               expected_result = False,
+        self.check_class_args(
+            message.SearchReply,
+            expected_result = False,
 
-                               count = 666 )
+            count = 666 )
 
-        self.check_class_args( message.SearchReply,
-                               expected_result = False,
+        self.check_class_args(
+            message.SearchReply,
+            expected_result = False,
 
-                               success = True)
+            success = True)
 
-        self.check_class_args( message.SearchReply,
-                               expected_result = False,
+        self.check_class_args(
+            message.SearchReply,
+            expected_result = False,
 
-                               databases = [1, 2, 3] )
+            databases = [1, 2, 3] )
 
-        self.check_class_args( message.SearchReply,
-                               expected_result = False,
+        self.check_class_args(
+            message.SearchReply,
+            expected_result = False,
 
-                               client_id = 'toto')
+            client_id = 'toto')
 
-        self.check_class_args( message.SearchReply,
-                               expected_result = False,
+        self.check_class_args(
+            message.SearchReply,
+            expected_result = False,
 
-                               command = "toto" )
+            command = "toto" )
 
         # too much arguments
-        self.check_class_args( message.SearchReply,
-                               expected_result = False,
+        self.check_class_args(
+            message.SearchReply,
+            expected_result = False,
 
-                               researcher_id = 'toto',
-                               success = True,
-                               databases = [1, 2, 3],
-                               count = 666,
-                               client_id = 'titi',
-                               command = 'do_it',
-                               extra_arg = "not_allowed"
-                              )
+            researcher_id = 'toto',
+            success       = True,
+            databases     = [1, 2, 3],
+            count         = 666,
+            client_id     = 'titi',
+            command       = 'do_it',
+            extra_arg     = "not_allowed"
+        )
 
         # all the following should be bad (bad argument type)
-        self.check_class_args( message.SearchReply,
-                               expected_result = False,
+        self.check_class_args(
+            message.SearchReply,
+            expected_result = False,
 
-                               researcher_id = 'toto',
-                               success = True,
-                               databases = [1, 2, 3],
-                               count = "not_an_integer",
-                               client_id = 'titi',
-                               command = 'do_it')
+            researcher_id = 'toto',
+            success       = True,
+            databases     = [1, 2, 3],
+            count         = "not_an_integer",
+            client_id     = 'titi',
+            command       = 'do_it')
 
-        self.check_class_args( message.SearchReply,
-                               expected_result = False,
+        self.check_class_args(
+            message.SearchReply,
+            expected_result = False,
 
-                               researcher_id = 'toto',
-                               success = True,
-                               databases = "not a list",
-                               count = 666,
-                               client_id = 'titi',
-                               command = 'do_it')
+            researcher_id = True,
+            success       = True,
+            databases     = [1, 2, 3],
+            count         = 666,
+            client_id     = 'titi',
+            command       = 'do_it')
 
-        self.check_class_args( message.SearchReply,
-                               expected_result = False,
+        self.check_class_args(
+            message.SearchReply,
+            expected_result = False,
 
-                               researcher_id = 'toto',
-                               success = "not_a_boolean",
-                               databases = [],
-                               count = 666,
-                               client_id = 'titi',
-                               command = 'do_it')
+            researcher_id = 'toto',
+            success       = True,
+            databases     = [1, 2, 3],
+            count         = 666,
+            client_id     = True,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.SearchReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            databases     = [1, 2, 3],
+            count         = 666,
+            client_id     = 'titi',
+            command       = True)
+
+        self.check_class_args(
+            message.SearchReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            databases     = "not a list",
+            count         = 666,
+            client_id     = 'titi',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.SearchReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = "not_a_boolean",
+            databases     = [],
+            count         = 666,
+            client_id     = 'titi',
+            command       = 'do_it')
 
         pass
 
@@ -173,16 +217,18 @@ class TestMessage(unittest.TestCase):
         # verify necessary arguments of all message creation
 
         # well formatted message
-        self.check_class_args( message.PingReply,
+        self.check_class_args(
+            message.PingReply,
             expected_result = True,
 
             researcher_id = 'toto',
-            client_id = 'titi',
-            success = True,
-            command = 'do_it')
+            client_id     = 'titi',
+            success       = True,
+            command       = 'do_it')
 
         # bad formetted messages
-        self.check_class_args( message.PingReply,
+        self.check_class_args(
+            message.PingReply,
             expected_result = False,
 
             researcher_id = 'toto')
@@ -221,41 +267,57 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = True,
-            client_id = 'titi',
-            success = True,
-            command = 'do_it')
+            client_id     = 'titi',
+            success       = True,
+            command       = 'do_it')
 
         self.check_class_args(
             message.PingReply,
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id = True,
-            success = True,
-            command = 'do_it')
+            client_id     = True,
+            success       = True,
+            command       = 'do_it')
 
         self.check_class_args(
             message.PingReply,
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id = 'titi',
-            success = 'not_a_bool',
-            command = 'do_it')
+            client_id     = 'titi',
+            success       = 'not_a_bool',
+            command       = 'do_it')
 
         self.check_class_args(
             message.PingReply,
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id = 'titi',
-            success = True,
-            command = True)
+            client_id     = 'titi',
+            success       = True,
+            command       = True)
 
         pass
 
 
     def test_trainreply(self):
+
+        # well formatted message
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = True,
+
+            researcher_id = 'toto',
+            job_id        = 'job',
+            success       = True,
+            client_id     = 'titi',
+            dataset_id    = 'my_data',
+            params_url    = 'string_param',
+            timing        = { "t0": 0.0, "t1": 1.0},
+            msg           = 'message_in_a_bottle',
+            command       = 'do_it')
+
         pass
 
 
