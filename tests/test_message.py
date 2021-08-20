@@ -318,34 +318,281 @@ class TestMessage(unittest.TestCase):
             msg           = 'message_in_a_bottle',
             command       = 'do_it')
 
+        # bad param number
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            job_id        = 'job')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            success       = True)
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            client_id     = 'titi')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            dataset_id    = 'my_data')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            params_url    = 'string_param')
+
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            params_url    = 'string_param')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            timing        = { "t0": 0.0, "t1": 1.0})
+
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            msg           = 'message_in_a_bottle')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job',
+            success       = True,
+            client_id     = 'titi',
+            dataset_id    = 'my_data',
+            params_url    = 'string_param',
+            timing        = { "t0": 0.0, "t1": 1.0},
+            msg           = 'message_in_a_bottle',
+            command       = 'do_it',
+            extra_param   = 'dont_know_what_to_do_with_you')
+
+        # bad param type
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            researcher_id = True,
+            job_id        = 'job',
+            success       = True,
+            client_id     = 'titi',
+            dataset_id    = 'my_data',
+            params_url    = 'string_param',
+            timing        = { "t0": 0.0, "t1": 1.0},
+            msg           = 'message_in_a_bottle',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = True,
+            success       = True,
+            client_id     = 'titi',
+            dataset_id    = 'my_data',
+            params_url    = 'string_param',
+            timing        = { "t0": 0.0, "t1": 1.0},
+            msg           = 'message_in_a_bottle',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job',
+            success       = 'not_a_bool',
+            client_id     = 'titi',
+            dataset_id    = 'my_data',
+            params_url    = 'string_param',
+            timing        = { "t0": 0.0, "t1": 1.0},
+            msg           = 'message_in_a_bottle',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job',
+            success       = True,
+            client_id     = True,
+            dataset_id    = 'my_data',
+            params_url    = 'string_param',
+            timing        = { "t0": 0.0, "t1": 1.0},
+            msg           = 'message_in_a_bottle',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job',
+            success       = True,
+            client_id     = 'titi',
+            dataset_id    = True,
+            params_url    = 'string_param',
+            timing        = { "t0": 0.0, "t1": 1.0},
+            msg           = 'message_in_a_bottle',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job',
+            success       = True,
+            client_id     = 'titi',
+            dataset_id    = 'my_data',
+            params_url    = True,
+            timing        = { "t0": 0.0, "t1": 1.0},
+            msg           = 'message_in_a_bottle',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job',
+            success       = True,
+            client_id     = 'titi',
+            dataset_id    = 'my_data',
+            params_url    = 'string_param',
+            timing        = "not_a_dict",
+            msg           = 'message_in_a_bottle',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job',
+            success       = True,
+            client_id     = 'titi',
+            dataset_id    = 'my_data',
+            params_url    = 'string_param',
+            timing        = { "t0": 0.0, "t1": 1.0},
+            msg           = True,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job',
+            success       = True,
+            client_id     = 'titi',
+            dataset_id    = 'my_data',
+            params_url    = 'string_param',
+            timing        = { "t0": 0.0, "t1": 1.0},
+            msg           = 'message_in_a_bottle',
+            command       = True)
+
         pass
 
 
     def test_addScalarreply(self):
+        # well formatted message
+
+        # bad param number
+
+        # bad param type
+
         pass
 
 
     def test_errormessage(self):
+        # well formatted message
+
+        # bad param number
+
+        # bad param type
+
         pass
 
 
     def test_searchrequest(self):
+        # well formatted message
+
+        # bad param number
+
+        # bad param type
+
         pass
 
 
     def test_pingrequest(self):
+        # well formatted message
+
+        # bad param number
+
+        # bad param type
+
         pass
 
 
     def test_trainrequest(self):
+        # well formatted message
+
+        # bad param number
+
+        # bad param type
+
         pass
 
 
     def test_researchermessages(self):
+        # well formatted message
+
+        # bad param number
+
+        # bad param type
+
         pass
 
 
     def test_nodemessages(self):
+        # well formatted message
+
+        # bad param number
+
+        # bad parma type
+
         pass
 
 
