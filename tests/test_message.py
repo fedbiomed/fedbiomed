@@ -14,38 +14,9 @@ class TestMessage(unittest.TestCase):
     def tearDown(self):
         pass
 
-    # # helper function to check failures
-    # def check_searchreply_args(self,  expected_result = True, **kwargs ):
-
-    #     result = True
-    #     try:
-    #         # test minimal python, to check exactly what we want
-    #         m = message.SearchReply(**kwargs)
-
-    #     except:
-    #         result = False
-
-    #     #
-    #     #if expected_result is True:
-    #     #    print("DEBUG [should be OK]:", kwargs)
-    #     #else:
-    #     #    print("DEBUG [should be KO]:", kwargs)
-
-    #     # decode all cases
-    #     if expected_result is True and result is True:
-    #         self.assertTrue( True, "SearchReply good params detected")
-
-    #     if expected_result is True and result is False:
-    #         self.fail( "SearchReply (good) params detected as bad")
-
-    #     if expected_result is False and result is True:
-    #         self.fail( "SearchReply (bad) params detected as good")
-
-    #     if expected_result is False and result is False:
-    #         self.assertTrue( True, "SearchReply bad params correclty detected")
-
-
+    #
     # helper function to check failures for all Message classes
+    # ---------------------------------------------------------
     def check_class_args(self,  cls, expected_result = True, **kwargs ):
 
         result = True
@@ -65,17 +36,17 @@ class TestMessage(unittest.TestCase):
         # test minimal python (only affectation) to insure
         # that the exception will be trapped only on object affectation
         try:
+            valid_class = False
             for c in all_classes:
                 if cls == c:
                     #print("DEBUG: detected class:", c)
                     m = c(**kwargs)
+                    valid_class = True
+                    break
 
-#            if cls == message.SearchReply:
-#                print("DEBUG: SearchReply detected")
-#                m = message.SearchReply(**kwargs)
-#
-#            elif cls == :
-
+            # the tester passed a bad class name to check_class_args()
+            if not valid_class:
+                self.fail("check_class_args: bad class name")
 
         except:
             result = False
@@ -88,17 +59,18 @@ class TestMessage(unittest.TestCase):
 
         # decode all cases
         if expected_result is True and result is True:
-            self.assertTrue( True, "SearchReply good params detected")
+            self.assertTrue( True, "check_class_args: good params detected")
 
         if expected_result is True and result is False:
-            self.fail( "SearchReply (good) params detected as bad")
+            self.fail( "check_class_args: good params detected as bad")
 
         if expected_result is False and result is True:
-            self.fail( "SearchReply (bad) params detected as good")
+            self.fail( "check_class_args: bad params detected as good")
 
         if expected_result is False and result is False:
-            self.assertTrue( True, "SearchReply bad params correclty detected")
+            self.assertTrue( True, "check_class_args: bad params correclty detected")
 
+        pass
 
     def test_message(self):
         pass
@@ -106,10 +78,6 @@ class TestMessage(unittest.TestCase):
     def test_searchreply(self):
 
         # verify necessary arguments of all message creation
-
-        #
-        # SearchReply
-        # -----------
 
         # well formatted message
         self.check_class_args( message.SearchReply,
@@ -198,9 +166,92 @@ class TestMessage(unittest.TestCase):
                                client_id = 'titi',
                                command = 'do_it')
 
-
+        pass
 
     def test_pingreply(self):
+
+        # verify necessary arguments of all message creation
+
+        # well formatted message
+        self.check_class_args( message.PingReply,
+            expected_result = True,
+
+            researcher_id = 'toto',
+            client_id = 'titi',
+            success = True,
+            command = 'do_it')
+
+        # bad formetted messages
+        self.check_class_args( message.PingReply,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
+        self.check_class_args(
+            message.PingReply,
+            expected_result = False,
+
+            client_id = 'titi')
+
+        self.check_class_args(
+            message.PingReply,
+            expected_result = False,
+
+            success = False)
+
+        self.check_class_args(
+            message.PingReply,
+            expected_result = False,
+
+            command = 'do_it')
+
+        self.check_class_args(
+            message.PingReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id = 'titi',
+            success = True,
+            command = 'do_it',
+            extra_arg = 'foobar')
+
+        # bad argument type
+        self.check_class_args(
+            message.PingReply,
+            expected_result = False,
+
+            researcher_id = True,
+            client_id = 'titi',
+            success = True,
+            command = 'do_it')
+
+        self.check_class_args(
+            message.PingReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id = True,
+            success = True,
+            command = 'do_it')
+
+        self.check_class_args(
+            message.PingReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id = 'titi',
+            success = 'not_a_bool',
+            command = 'do_it')
+
+        self.check_class_args(
+            message.PingReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id = 'titi',
+            success = True,
+            command = True)
+
         pass
 
 
