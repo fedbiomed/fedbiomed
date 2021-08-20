@@ -1,3 +1,12 @@
+#
+# nosetests and cobertura results do not show real test coverage
+# but only coverage figures off imported files
+#
+# by including here all .py files of fedbiomed, we force nosetests
+# to do the right test coverage calculations
+#
+# TODO: this file may be automatically crafted on ci plateform
+#
 import fedbiomed.common.tasks_queue
 import fedbiomed.common.torchnn
 import fedbiomed.common.message
