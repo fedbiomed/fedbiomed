@@ -56,8 +56,17 @@ class SkLearnModel():
         pass
 
     '''Save the code to send to nodes '''
-    def save_code(self):
+    def save_code(self, filename: str):
+        """Save the class code for this training plan to a file
+                Args:
+                    filename (string): path to the destination file
 
+                Returns:
+                    None
+
+                Exceptions:
+                    none
+        """
         content = ""
         for s in self.dependencies:
             content += s + "\n"
@@ -66,7 +75,7 @@ class SkLearnModel():
         content += inspect.getsource(self.__class__)
 
         # try/except todo
-        file = open("my_model.py", "w")
+        file = open(filename, "w")
         file.write(content)
         file.close()
 
