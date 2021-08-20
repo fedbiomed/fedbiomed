@@ -57,12 +57,14 @@ class Round:
 
         # Download model, training routine, execute it and return model results
         try:
-            status, _ = self.repository.download_file(self.model_url, "my_model.py")
+            # module name cannot contain dashes
+            import_module = 'my_model_' + str(uuid.uuid4().hex)
+            status, _ = self.repository.download_file(self.model_url, import_module + '.py')
             if (status != 200):
                 is_failed = True
                 error_message = "Cannot download model file: " + self.model_url
             else:
-                status, params_path = self.repository.download_file(self.params_url, "my_model.pt")
+                status, params_path = self.repository.download_file(self.params_url, 'my_model_' + str(uuid.uuid4()) + '.pt')
                 if (status != 200) or params_path is None:
                     is_failed = True
                     error_message = "Cannot download param file: " + self.params_url
@@ -74,7 +76,6 @@ class Round:
         if not is_failed:
             try:
                 sys.path.insert(0, TMP_DIR)
-                import_module = "my_model"
                 exec('import ' + import_module,  globals())
                 sys.path.pop(0)
                 train_class = eval(import_module + '.' + self.model_class)
