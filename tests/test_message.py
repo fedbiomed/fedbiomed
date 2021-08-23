@@ -783,10 +783,61 @@ class TestMessage(unittest.TestCase):
 
     def test_searchrequest(self):
         # well formatted message
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
 
         # bad param number
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result = False,
+
+            tags          = [ "data", "doto" ])
+
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result = False,
+
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            tags          = [ "data", "doto" ],
+            command       = 'do_it',
+            extra_args    = '???' )
+
 
         # bad param type
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result = False,
+
+            researcher_id = False,
+            tags          = [ "data", "doto" ],
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            tags          = "not_a_list",
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            tags          = [ "data", "doto" ],
+            command       = False)
+
 
         pass
 
