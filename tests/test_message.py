@@ -670,11 +670,113 @@ class TestMessage(unittest.TestCase):
 
 
     def test_errormessage(self):
+
         # well formatted message
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = True,
+
+            researcher_id = 'toto',
+            success       = True,
+            client_id     = 'titi',
+            msg           = 'this is an error message',
+            command       = 'do_it')
+
 
         # bad param number
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            success       = True)
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            client_id     = 'titi')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            msg           = 'this is an error message')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            client_id     = 'titi',
+            msg           = 'this is an error message',
+            command       = 'do_it',
+            extra_arg     = '???' )
+
 
         # bad param type
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = False,
+            success       = True,
+            client_id     = 'titi',
+            msg           = 'this is an error message',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = "not_a_bool",
+            client_id     = 'titi',
+            msg           = 'this is an error message',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            client_id     = False,
+            msg           = 'this is an error message',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            client_id     = 'titi',
+            msg           = [ 1 , 2 ],
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            client_id     = 'titi',
+            msg           = 'this is an error message',
+            command       = False)
+
 
         pass
 
