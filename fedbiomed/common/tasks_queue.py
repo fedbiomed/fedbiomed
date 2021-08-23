@@ -1,9 +1,16 @@
-import persistqueue
+from typing import Optional, Any
+
+import persistqueue  # used for persisiting queue on disk
 
 
 exceptionsEmpty = persistqueue.exceptions.Empty
 
 class TasksQueue:
+    """
+    A disk-persistant Queue object, ensuring queue will remain on
+    disk even if program crashes. Relies on `persistqueue` package.
+    
+    """
     def __init__(self, messages_queue_dir, tmp_dir):
         self.queue = persistqueue.Queue(messages_queue_dir, tempdir=tmp_dir)
 
@@ -15,19 +22,19 @@ class TasksQueue:
         """        
         self.queue.put(task)
 
-    def get(self, block=True):
+    def get(self, block:Optional[bool]=True) -> dict:
         """this method gets the current task in the queue
 
         Args:
             block (bool, optional): if True, block if necessary until an item is available. Defaults to True.
 
         Returns:
-            [type]: [description]
+            [dict]: dictionary object stored in queue
         """        
         return self.queue.get(block)
 
     def qsize(self):
-        """this methods returns the size of the queue
+        """this method returns the size of the queue
 
         Returns:
             int: size of the queue
@@ -35,7 +42,7 @@ class TasksQueue:
         return self.queue.qsize()
 
     def task_done(self):
-        """Indicate that a formerly enqueued task is complete
+        """Indicates whether a formerly enqueued task is complete
 
         Returns:
             'bool': True if task is complete

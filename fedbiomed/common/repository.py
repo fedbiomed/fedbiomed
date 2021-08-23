@@ -27,7 +27,7 @@ class Repository:
         download a file from a HTTP file repository
         """
         wait_time = random.randint(1,5)
-        time.sleep(wait_time)
+        time.sleep(wait_time)   # why?
         res = requests.get(url)
         filepath = os.path.join(self.tmp_dir, filename)
         open(filepath, 'wb').write(res.content)

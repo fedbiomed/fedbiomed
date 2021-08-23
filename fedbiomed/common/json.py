@@ -12,7 +12,7 @@ def deserialize_msg(msg: Union[str, bytes]) -> dict:
     return json.loads(msg)
 
 
-def serialize_msg(msg: dict):
+def serialize_msg(msg: dict) -> str:
     """
     Serialize an object as a JSON message (applies for dict-like objects)
     :param msg: dict-like object containing the message to send.

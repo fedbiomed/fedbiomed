@@ -58,6 +58,7 @@ class ChromeProcess(Process):
 
 
 def launch_tensorboard():
+    tb_sup = None
     try:
         print('Starting tensorboard for client monitoring...')
         tb_sup = TensorboardSupervisor(TENSORBOARD_RESULTS_DIR)

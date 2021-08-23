@@ -19,7 +19,9 @@ class TorchTrainingPlan(nn.Module):
         # data loading // should ne moved to another class
         self.batch_size = 100
         self.shuffle    = True
-
+        # TODO : add random seed init
+        # self.random_seed = None
+        
         # training // may be changed in training_routine ??
         self.device = "cpu"
 

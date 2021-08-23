@@ -1,28 +1,42 @@
 from enum import Enum
+from typing import Callable, Union
+
 import paho.mqtt.client as mqtt
 
 from fedbiomed.common import json
 
+
 class MessagingType(Enum):
+    """Enumeration class, that charactierizes
+    nature of a message (whether it is coming from 
+    a researcher instance or a node instance)
+
+    """
     RESEARCHER = 1
     NODE = 2
 
 class Messaging:
-    """ This class represents the MQTT messaging."""
+    """ This class represents the MQTT messaging facility."""
 
-    def __init__(self, on_message, messaging_type: MessagingType, messaging_id, \
-            mqtt_broker='localhost', mqtt_broker_port=80):
+    def __init__(self,
+                 on_message: Callable[[], None],
+                 messaging_type: MessagingType,
+                 messaging_id: int, 
+                 mqtt_broker:str='localhost',
+                 mqtt_broker_port:int=80):
         """ Constructor of the messaging class
 
         Args:
-            on_message ([function]): function that should be executed when a message is received
-            messaging_type (MessagingType): 1 for researcher, 2 for researcher
+            on_message (Callable): function that should be executed when a message is received
+            messaging_type (MessagingType): describes incoming message sender.
+            1 for researcher, 2 for node
             messaging_id ([int]): messaging id
-            mqtt_broker_port (int, optional): Defaults to 80.
+            mqtt_broker (str, optional): IP address / URL. Defaults to "localhost".
+            mqtt_broker_port (int, optional): Defaults to 80 (http default port).
         """        
         self.messaging_type = messaging_type
         self.messaging_id = str(messaging_id)
-        self.mqtt = mqtt.Client(client_id=messaging_id)
+        self.mqtt = mqtt.Client(client_id=messaging_id) # defining a client.
         self.mqtt.on_connect = self.on_connect
         self.mqtt.on_message = self.on_message
         self.mqtt.connect(mqtt_broker, mqtt_broker_port, keepalive=60)
@@ -38,14 +52,14 @@ class Messaging:
 
         self.is_connected = False
 
-    def on_message(self, client, userdata, msg):
-        """called then a new MQTT message is received
-        the msg is processes and forwarded to the node/researcher
+    def on_message(self, client, userdata, msg: Union[str, bytes]):
+        """callback called when a new MQTT message is received
+        the msg is processed and forwarded to the node/researcher
         to be treated/stored/whatever
 
         Args:
-            client: mqtt on_message arg
-            userdata: mqtt on_message arg
+            client: mqtt on_message arg (unused)
+            userdata: mqtt on_message arg (unused)
             msg: mqtt on_message arg
         """        
         message = json.deserialize_msg(msg.payload)
@@ -53,13 +67,13 @@ class Messaging:
 
 
     def on_connect(self, client, userdata, flags, rc):
-        """[summary]
+        """callback for when the client receives a CONNACK response from the server.
 
         Args:
-            client: mqtt on_message arg
-            userdata: mqtt on_message arg
-            flags: mqtt on_message arg
-            rc: mqtt on_message arg
+            client: mqtt on_message arg (unused)
+            userdata: mqtt on_message arg (unused)
+            flags: mqtt on_message arg (unused)
+            rc: mqtt on_message arg 
         """        
         print("Messaging " + self.messaging_id + " connected with result code " + str(rc))
         if self.messaging_type is MessagingType.RESEARCHER:
@@ -86,12 +100,12 @@ class Messaging:
 
     def stop(self):
         """
-        this method stops the loop 
+        this method stops the loop (and thus communications I suppose)
         """        
         self.mqtt.loop_stop()
 
     def send_message(self, msg: dict, client=None):
-        """This method sends a message to a given client
+        """This method sends a message to a given client (here the network is the client I suppose)
 
         Args:
             msg (dict): the content of a message

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-
+from typing import Dict, Any
 
 class Message(object):
 
@@ -8,7 +8,7 @@ class Message(object):
         """        
         pass
 
-    def set_param(self, param, param_value):
+    def set_param(self, param: str, param_value: Any):
         """This method allows to modify the value of a given param
 
         Args:
@@ -17,7 +17,7 @@ class Message(object):
         """        
         setattr(self, param, param_value)
 
-    def get_param(self, param):
+    def get_param(self, param: str):
         """This method allows to get the value of a given param
 
         Args:
@@ -25,10 +25,24 @@ class Message(object):
         """        
         return(getattr(self, param))
 
-    def get_dict(self):
+    def get_dict(self) -> Dict[str, Any]:
+        """Returns pairs (Message class attributes, values)
+        as a dictionary
+        
+        """
         return(self.__dict__)
     
-    def validate(self, fields):
+    def validate(self, fields:Dict[str, Any]) -> bool:
+        """whether incoming field types match with attributes
+            class type. 
+
+        Args:
+            fields (Dict[str, Any]): incoming fields
+
+        Returns:
+            bool: If validated, ie everything matches,
+            returns True, else returns False.
+        """
         ret = True
         for field_name, field_def in fields:
             actual_type = type(getattr(self, field_name))
@@ -176,7 +190,7 @@ class ResearcherMessages():
     a received/ sent message by the researcher
     """    
     @classmethod
-    def reply_create(cls, params):
+    def reply_create(cls, params: Dict[str, Any]):
         """this method is used on message reception.
         It validates:
         - the legacy of the message
@@ -203,16 +217,19 @@ class ResearcherMessages():
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
     @classmethod
-    def request_create(cls, params):
+    def request_create(cls, params:Dict[str, Any]):
 
         """This method creates the adequate message:
         It validates:
         - the legagy of the message
         - the structure of the created message
 
+        Args:
+        params (dict):
+        
         Raises:
             ValueError: if the message is not allowed te be sent by the researcher
-
+            KeyError ?
         Returns:
             An instance of the corresponding class
         """

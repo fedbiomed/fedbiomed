@@ -77,6 +77,17 @@ class Experiment:
         return self._job.model
 
     def run(self, sync=True):
+        """Runs an experiment, ie trains a model on nodes for a 
+        given number of rounds. 
+
+        Args:
+            sync (bool, optional): whether synchronous execution is required or not.
+            Defaults to True.
+
+        Raises:
+            NotImplementedError: [description]
+        """
+        # FIXME what is sync for?
         if self._client_selection_strategy is None or self._sampled is None:
             # Default sample_clients: train all clients
             # Default refine: Raise error with any failure and stop the experiment

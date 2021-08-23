@@ -5,7 +5,12 @@ import sys
 
 
 def main():
-    """Run administrative tasks."""
+    """Run Django's administrative tasks, such as `migration`, `staticfiles`,
+    `superuser`.
+    
+    Raises:
+        ImportError: triggered if django module cannot be imported 
+    """
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'fedbiomed.settings')
     try:
         from django.core.management import execute_from_command_line
