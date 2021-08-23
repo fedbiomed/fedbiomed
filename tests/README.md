@@ -42,12 +42,11 @@ If you want to check the test coverge, you should use:
 ```
 cd tests
 nosetests  --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed
-```
-
-a wysiwyg way of reading the tests is to convert the tests results in html
-
-```
 coverage html
 ```
 
-and open the **htmlcov/index.html** file in your favorite browser.
+and open the **cover/index.html** file in your favorite browser.
+
+Remark: then using --cover-html instead of --cover-xml, the HTML report does not
+contains files which have not been tested, which leads to a over-estimation of
+test coverage....

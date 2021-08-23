@@ -79,7 +79,7 @@ class Round:
         if not is_failed:
             try:
                 sys.path.insert(0, TMP_DIR)
-                import_module = "my_model"
+
                 exec('import ' + import_module,  globals())
                 sys.path.pop(0)
                 train_class = eval(import_module + '.' + self.model_class)

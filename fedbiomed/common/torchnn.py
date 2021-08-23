@@ -83,8 +83,19 @@ class TorchTrainingPlan(nn.Module):
         self.dependencies.extend(dep)
         pass
 
-    # provider by fedbiomed
-    def save_code(self):
+    # provided by fedbiomed
+    def save_code(self, filename: str):
+        """Save the class code for this training plan to a file
+
+        Args:
+            filename (string): path to the destination file
+
+        Returns:
+            None
+
+        Exceptions: 
+            none
+        """
 
         content = ""
         for s in self.dependencies:
@@ -94,12 +105,24 @@ class TorchTrainingPlan(nn.Module):
         content += inspect.getsource(self.__class__)
 
         # try/except todo
-        file = open("my_model.py", "w")
+        file = open(filename, "w")
         file.write(content)
         file.close()
 
     # provided by fedbiomed
     def save(self, filename, params: dict=None):
+        """Save the torch training parameters from this training plan or from given `params` to a file
+
+        Args:
+            filename (string): path to the destination file
+            params (dict, optional): parameters to save to a file, should be structured as a torch state_dict() 
+
+        Returns:
+            torch.save() return code (documentation ?), probably None
+
+        Exceptions: 
+            none
+        """
         if params is not None:
             return(torch.save(params, filename))
         else:
@@ -107,10 +130,23 @@ class TorchTrainingPlan(nn.Module):
 
     # provided by fedbiomed
     def load(self, filename, to_params: bool=False):
-        if to_params is True:
-            return torch.load(filename)
-        else:
-            return self.load_state_dict(torch.load(filename))
+        """Load the torch training parameters to this training plan or to a data structure from a file
+
+        Args:
+            filename (string): path to the source file
+            to_params (bool, optional): if False, load params to this object; if True load params to a data structure
+
+        Returns:
+            dict containing parameters
+
+        Exceptions: 
+            none
+        """
+
+        params = torch.load(filename)
+        if to_params is False:
+            self.load_state_dict(params)
+        return params    
 
     # provided by the fedbiomed / can be overloaded // need WORK
     def logger(self, msg, batch_index, log_interval = 10):
