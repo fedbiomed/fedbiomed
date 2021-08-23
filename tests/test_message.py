@@ -844,10 +844,52 @@ class TestMessage(unittest.TestCase):
 
     def test_pingrequest(self):
         # well formatted message
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = True,
+
+            researcher_id = 'toto',
+            command       = 'do_it')
+
+
 
         # bad param number
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = False,
+
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            command       = 'do_it',
+            extra_arg     = '???')
+
 
         # bad param type
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = False,
+
+            researcher_id = False,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            command       = False)
+
 
         pass
 
