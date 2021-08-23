@@ -2,10 +2,11 @@
 
 To be converted to updates for main README.md + additions to install scripts
 
-## building base image
+## building images
 
 ```bash
-docker image build -t fedbiomed/base ./envs/vpn/docker/base
+cd ./envs/vpn/docker
+docker-compose build
 ```
 
 

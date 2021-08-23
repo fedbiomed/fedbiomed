@@ -1,0 +1,14 @@
+version: "3.7"
+services:
+  builder:
+    container_name: fedbiomed-builder
+    build:
+      context: ./base
+      target: builder
+    image: fedbiomed/builder
+  base:
+    container_name: fedbiomed-base
+    build:
+      context: ./base
+    image: fedbiomed/base
+
