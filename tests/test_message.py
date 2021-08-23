@@ -562,7 +562,7 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_addScalarReply(self):
+    def test_addscalarreply(self):
         # well formatted message
 
         self.check_class_args(
@@ -1151,21 +1151,89 @@ class TestMessage(unittest.TestCase):
 
 
     def test_researchermessages(self):
-        # well formatted message
 
-        # bad param number
+        # test messages received by the researcher
 
-        # bad param type
+        # train
+        params = {
+            "researcher_id" : 'toto',
+            "job_id"        : 'job',
+            "success"       : True,
+            "client_id"     : 'titi',
+            "dataset_id"    : 'my_data',
+            "params_url"    : 'string_param',
+            "timing"        : { "t0": 0.0, "t1": 1.0},
+            "msg"           : 'message_in_a_bottle',
+            "command"       : 'train' }
+
+        r = message.ResearcherMessages.reply_create( params )
+        self.assertIsInstance( r, message.TrainReply )
+
+        # search
+        params = {
+            "researcher_id" : 'toto',
+            "success"       : True,
+            "databases"     : [ "one", "two" ],
+            "count"         : 666,
+            "client_id"     : 'titi',
+            "command"       : 'search' }
+
+        r = message.ResearcherMessages.reply_create( params )
+        self.assertIsInstance( r, message.SearchReply )
+
+
+        # ping
+        params = {
+            "researcher_id" : 'toto' ,
+            "client_id"     : 'titi' ,
+            "success"       : True,
+            "command"       : 'ping'
+        }
+        r = message.ResearcherMessages.reply_create( params )
+        self.assertIsInstance( r, message.PingReply )
+
+        # error
+        params = {
+            "researcher_id" : 'toto' ,
+            "success"       : True ,
+            "client_id"     : 'titi' ,
+            "msg"           : 'bim boum badaboum',
+            "command"       : 'error'
+        }
+        r = message.ResearcherMessages.reply_create( params )
+        self.assertIsInstance( r, message.ErrorMessage )
+
+        # addScalar
+        params = {
+            "researcher_id" : 'toto' ,
+            "client_id"     : 'titi' ,
+            "job_id"        : 'job_id',
+            "key"           : 3.14,
+            "iteration"     : 666,
+            "command"       : 'add_scalar'
+        }
+        r = message.ResearcherMessages.reply_create( params )
+        self.assertIsInstance( r, message.AddScalarReply )
+
+        # we only test one error (to get 100% coverage)
+        # all test have been made above
+
+        params = { 'command' : 'unknown'}
+
+        try:
+            r = message.ResearcherMessages.reply_create( params )
+            # should not reach this line
+            self.fail("unknown message type for researcher not detected")
+
+        except:
+            # should be reached
+            self.assertTrue( True, "unknown message type for researcher detected")
 
         pass
 
 
     def test_nodemessages(self):
-        # well formatted message
-
-        # bad param number
-
-        # bad parma type
+        #
 
         pass
 
