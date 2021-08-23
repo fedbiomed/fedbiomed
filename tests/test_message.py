@@ -526,12 +526,145 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_addScalarreply(self):
+    def test_addScalarReply(self):
         # well formatted message
 
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = True,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            job_id        = 'tutu',
+            key           = 3.14,
+            iteration     = 666,
+            command       = 'do_it')
+
+
         # bad param number
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            client_id     = 'titi')
+
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            job_id        = 'tutu')
+
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            key           = 3.14)
+
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            iteration     = 666)
+
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            command       = 'do_it')
+
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            job_id        = 'tutu',
+            key           = 3.14,
+            iteration     = 666,
+            command       = 'do_it',
+            extra_arg     = '???')
+
+
 
         # bad param type
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = False,
+            client_id     = 'titi',
+            job_id        = 'tutu',
+            key           = 3.14,
+            iteration     = 666,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = False,
+            job_id        = 'tutu',
+            key           = 3.14,
+            iteration     = 666,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            job_id        = False,
+            key           = 3.14,
+            iteration     = 666,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            job_id        = 'tutu',
+            key           = "not_a_float",
+            iteration     = 666,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            job_id        = 'tutu',
+            key           = 3.14,
+            iteration     = "no_an_int",
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            job_id        = 'tutu',
+            key           = 3.14,
+            iteration     = 666,
+            command       = False)
+
 
         pass
 
