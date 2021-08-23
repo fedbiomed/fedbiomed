@@ -68,12 +68,13 @@ class Node:
         except TypeError:  # Message was not serializable
             resid = 'researcher_id' in msg.keys() and msg['researcher_id'] or 'unknown_researcher_id'
             self.messaging.send_message(NodeMessages.reply_create({'success':False, 'command':"error", 'client_id':CLIENT_ID, 'researcher_id':resid, 'msg':'Message was not serializable'}).get_dict())
-#
+
     def parser_task(self, msg: Union[bytes, str, Dict[str, Any]]):
         """ This method parses a given task message to create a round instance
 
         Args:
-            msg ([json]): serialized Message object to parse (or that have been parsed)
+            msg (Union[bytes, str, Dict[str, Any]]): serialized Message object
+            to parse (or that have been parsed)
         """        
         if isinstance(msg, str) or isinstance(msg, bytes):
             msg = json.deserialize_msg(msg)

@@ -1,3 +1,5 @@
+import uuid
+from typing import List, Tuple
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.exceptions import DefaultStrategyException
@@ -5,14 +7,27 @@ from fedbiomed.researcher.strategies.strategy import Strategy
 
 
 class DefaultStrategy(Strategy):
+	"""Default strategy to be used when sampling/selecting nodes
+	and checking whether nodes have responded or not
+	"""
 	def __init__(self, data: FederatedDataSet):
 		super().__init__(data)
 
-	def sample_clients(self, round_i):
+	def sample_clients(self, round_i: int) -> List[uuid.UUID]:
+		"""Samples and selects clients/nodes on which to train local model.
+			In this strategy we will consider all existing clients
+
+		Args:
+			round_i (int): number of round.
+
+		Returns:
+			client_ids: list of all client ids considered for training during 
+			this round `round_i.
+		"""
 		self._sampling_client_history[round_i] = self._fds.client_ids
 		return self._fds.client_ids
 
-	def refine(self, training_replies, round_i) :
+	def refine(self, training_replies, round_i) -> Tuple[List,List]:
 		models_params = []
 		weights = []
 		try:
@@ -34,6 +49,8 @@ class DefaultStrategy(Strategy):
 		except DefaultStrategyException as ex:
 			print(ex)
 
+		# FIXME: should we seperate node response checking (above) from the computation
+		# of weighs (below) ? 
 		totalrows = sum([ val[0]["shape"][0] for (key,val) in self._fds.data().items() ] )
 		weights = [ val[0]["shape"][0] / totalrows for (key,val) in self._fds.data().items() ]
 		print ('Clients that successfully reply in round ' , round_i,' ' , self._success_client_history[round_i] )

@@ -87,7 +87,6 @@ class Experiment:
         Raises:
             NotImplementedError: [description]
         """
-        # FIXME what is sync for?
         if self._client_selection_strategy is None or self._sampled is None:
             # Default sample_clients: train all clients
             # Default refine: Raise error with any failure and stop the experiment

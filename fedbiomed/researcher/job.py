@@ -4,9 +4,10 @@ import sys
 import tempfile
 from typing import Union
 import uuid
-import validators
 import re
 import time
+
+import validators
 
 from fedbiomed.common.repository import Repository
 from fedbiomed.researcher.environ import RESEARCHER_ID, TMP_DIR, CACHE_DIR, UPLOADS_URL
@@ -20,17 +21,18 @@ class Job:
     This class represents the entity that manage the training part at the clients level
     """    
     def __init__(self,
-                reqs: Requests=None, \
-                clients: dict=None, \
-                model: str = None, \
-                model_path: str = None, \
-                training_args: dict=None, \
+                reqs: Requests=None,
+                clients: dict=None,
+                model: str = None,
+                model_path: str = None,
+                training_args: dict=None,
                 model_args: dict=None,
                 data: FederatedDataSet=None):
 
         """ Constructor of the class
 
         Args:
+            reqs (Requests, optional): . Defaults to None.
             clients (dict, optional): a dict of client_id containing the clients used for training
             model (string, optional): name of the model class to use for training
             model_path (string, optional) : path to file containing model class code
@@ -38,6 +40,8 @@ class Job:
                                             Defaults to None.
             model_args (dict, optional): contains output and input feature dimension. 
                                             Defaults to None.
+            data (FederatedDataset, optional): . Defaults to None.
+        
         """        
         self._id = str(uuid.uuid4())
         self._repository_args = {}
@@ -108,9 +112,9 @@ class Job:
 
         self._repository_args['model_class'] = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
 
-        # Validate fields in each of the arguments
+        # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args, ['model_url', 'model_class', 'params_url'])
-        # FIXME: the constructor of a class mustnot have a method in its definition
+        # FIXME: the constructor of a class mustnot call one of the method class in its definition
         
     @staticmethod
     def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
@@ -219,7 +223,17 @@ class Job:
                     'timing': timing })
                 self._training_replies[round].append(r)
 
-    def update_parameters(self, params: dict):
+    def update_parameters(self, params: dict) -> str:
+        """Updates global model parameters after aggregation, by specifying in a 
+        temporary file (TMP_DIR + '/researcher_params_<id>.pt', where <id> is a
+        unique and random id)
+
+        Args:
+            params (dict): [description]
+
+        Returns:
+            str: [description]
+        """
         try:
             # FIXME: should we specify file extension as a local/global variable ?
             # eg: 

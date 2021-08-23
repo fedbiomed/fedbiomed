@@ -4,6 +4,7 @@ import time
 
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.message import NodeMessages
+from fedbiomed.node.history_logger import HistoryLogger
 from fedbiomed.node.environ import CACHE_DIR, CLIENT_ID, TMP_DIR, UPLOADS_URL
 
 
@@ -19,7 +20,7 @@ class Round:
                  params_url: str = None, 
                  job_id: str = None, 
                  researcher_id: str = None, 
-                 logger = None):
+                 logger: HistoryLogger = None):
         """Constructor of the class
 
         Args:
@@ -60,14 +61,16 @@ class Round:
 
         # Download model, training routine, execute it and return model results
         try:
-            status, _ = self.repository.download_file(self.model_url, "my_model.py")
-            # FIXME: should ` my_model.py` be defined in a global variable defined above?
+            # module name cannot contain dashes
+            import_module = 'my_model_' + str(uuid.uuid4().hex)
+            status, _ = self.repository.download_file(self.model_url, import_module + '.py')
+            
             if (status != 200):
                 is_failed = True
                 error_message = "Cannot download model file: " + self.model_url
             else:
-                status, params_path = self.repository.download_file(self.params_url, "my_model.pt")
-                # FIXME: same issue here with ` my_model.pt`
+                status, params_path = self.repository.download_file(self.params_url,
+                                                                    'my_model_' + str(uuid.uuid4()) + '.pt')
                 if (status != 200) or params_path is None:
                     is_failed = True
                     error_message = "Cannot download param file: " + self.params_url
@@ -79,13 +82,16 @@ class Round:
         if not is_failed:
             try:
                 sys.path.insert(0, TMP_DIR)
-
+                # import modules required by Researcher (I guess)
                 exec('import ' + import_module,  globals())
                 sys.path.pop(0)
+                # evaluate expression sent by researcher
                 train_class = eval(import_module + '.' + self.model_class)
                 if self.model_kwargs is None or len(self.model_kwargs)==0:
+                    # case where no args have been found (default)
                     model = train_class()
-                else:    
+                else:  
+                    # case where args have been found  (and passed)
                     model = train_class(self.model_kwargs)
             except Exception as e:
                 is_failed = True

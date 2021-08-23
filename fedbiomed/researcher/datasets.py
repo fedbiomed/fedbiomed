@@ -1,5 +1,5 @@
+import uuid
 from typing import List, Dict
-
 
 class FederatedDataSet:
     def __init__(self, data: dict):
@@ -9,17 +9,17 @@ class FederatedDataSet:
         return self._data
 
     @property
-    def client_ids(self) -> List:
+    def client_ids(self) -> List[uuid.UUID]:
         """Returns a list with client ids"""
         return list(self._data.keys())
 
     @property
-    def sample_sizes(self) -> List:
+    def sample_sizes(self) -> List[int]:
         """Returns a list with data sample sizes"""
         pass
 
     @property
-    def shapes(self) -> Dict:
+    def shapes(self) -> Dict[uuid.UUID, int]:
         shapes_dict = {}
         for client_id, client_data_size in zip(self.client_ids, self.sample_sizes):
             shapes_dict[client_id] = client_data_size
