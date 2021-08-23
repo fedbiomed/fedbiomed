@@ -50,6 +50,12 @@ def validated_data_type_input():
 
 
 def pick_with_tkinter(mode='file'):
+    """
+    Opens a tkinter graphical user interface to select dataset
+    
+    Args:
+        mode (str, optional)
+    """
     try:
         # root = TK()
         # root.withdraw()
@@ -60,6 +66,7 @@ def pick_with_tkinter(mode='file'):
             return tkinter.filedialog.askdirectory()
 
     except ModuleNotFoundError:
+        # handling case where tkinter package cannot be found on system
         if mode == 'file':
             return input('Insert the path of the CSV file: ')
         else:
@@ -140,6 +147,10 @@ def add_database(interactive=True, path=''):
     data_manager.list_my_data(verbose=True)
 
 def manage_node():
+    """
+    Instanciates a node and data manager objects. Then, node starts
+    messaging with the Network 
+    """
     print('Launching node...')
 
     data_manager = Data_manager()
@@ -148,9 +159,13 @@ def manage_node():
     node.start_messaging(block=False)
 
     print('\t - Starting task manager...\n')
-    node.task_manager()
+    node.task_manager()  # handling training tasks in queue
 
 def launch_node():
+    """
+    Launches node in a process. Process ends when user triggers
+    a KeyboardInterrupt exception (CTRL+C).
+    """
     #p = Process(target=manage_node, name='node-' + CLIENT_ID, args=(data_manager,))
     p = Process(target=manage_node, name='node-' + CLIENT_ID)
     p.daemon = True
@@ -164,10 +179,10 @@ def launch_node():
         while(p.is_alive()):
             print("Terminating process " + str(p.pid))
             time.sleep(1)
-        print('Exited with code ' + str(p.exitcode))
+        print('Exited with code ' + str(p.exitcode))   # p.exitcode returns None if not finished yet
         exit()
 
-def delete_database(interactive=True):
+def delete_database(interactive: bool=True):
     my_data = data_manager.list_my_data(verbose=False)
     if not my_data:
         print('No dataset to delete')

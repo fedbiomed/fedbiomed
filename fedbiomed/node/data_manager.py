@@ -1,11 +1,11 @@
+import csv
 import os.path
 from typing import Union
-import csv
 import uuid
 
 from tinydb import TinyDB, Query
 import pandas as pd
-from tabulate import tabulate
+from tabulate import tabulate  # only used for printing
 import torch
 from torchvision import datasets
 from torchvision import transforms
@@ -13,7 +13,7 @@ from torchvision import transforms
 from fedbiomed.node.environ import DB_PATH
 
 
-class Data_manager: 
+class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
     def __init__(self):
         """ The constrcutor of the class
@@ -21,31 +21,31 @@ class Data_manager:
         self.db = TinyDB(DB_PATH)
         self.database = Query()
 
-    def search_by_id(self, dataset_id: str):
-        """this method search for data with given dataset_id
+    def search_by_id(self, dataset_id: str) -> list:
+        """this method searches for data with given dataset_id
 
         Args:
             dataset_id (str):  dataset id
 
         Returns:
-            [list]: list og matching datasets
+            [list]: list of matching datasets
         """ 
         self.db.clear_cache() 
         return self.db.search(self.database.dataset_id.all(dataset_id))
 
-    def search_by_tags(self, tags: Union[tuple, list]):
-        """this method search for data with given tags
+    def search_by_tags(self, tags: Union[tuple, list]) -> list:
+        """this method searches for data with given tags
 
         Args:
             tags (Union[tuple, list]):  list of tags
 
         Returns:
-            [list]: list og matching datasets
+            [list]: list of matching datasets
         """     
         self.db.clear_cache()  
         return self.db.search(self.database.tags.all(tags))
 
-    def read_csv(self, csv_file: str, index_col=0):
+    def read_csv(self, csv_file: str, index_col:int=0) -> pd.DataFrame:
         """[summary]
 
         Args:
@@ -53,7 +53,7 @@ class Data_manager:
             index_col (int, optional): [description]. Defaults to 0.
 
         Returns:
-            [type]: [description]
+            pd.DataFrame: [description]
         """        
 
         # Automatically identify separator
@@ -77,7 +77,8 @@ class Data_manager:
         return [len(dataset)] + list(dataset[0][0].shape)
 
 
-    def load_default_database(self, name: str, path, as_dataset=False):
+    def load_default_database(self, name: str, path: str,
+                              as_dataset: bool=False):
         """[summary]
 
         Args:
@@ -91,14 +92,14 @@ class Data_manager:
         Returns:
             [type]: [description]
         """        
-
         kwargs = dict(root=path, download=True, transform=transforms.ToTensor())
 
         if 'mnist' in name.lower():
             dataset = datasets.MNIST(**kwargs)
         else:
             raise NotImplementedError(f'Default dataset `{name}` has not been implemented.')
-
+        # FIXME: ` NotImplementedError` should not be raised for that (dataset not found)
+        # FIXES: create a custom error for that purpose
         if as_dataset:
             return dataset
         else:
@@ -123,7 +124,7 @@ class Data_manager:
             return self.get_torch_dataset_shape(dataset)
 
 
-    def load_csv_dataset(self, path):
+    def load_csv_dataset(self, path) -> pd.DataFrame:
         """[summary]
 
         Args:
@@ -135,8 +136,13 @@ class Data_manager:
         return self.read_csv(path).shape
 
 
-    def add_database(self, name: str, data_type: str, tags: Union[tuple, list],
-                    description: str, path: str, dataset_id: str=None):
+    def add_database(self,
+                     name: str,
+                     data_type: str,
+                     tags: Union[tuple, list],
+                    description: str,
+                    path: str,
+                    dataset_id: str=None):
         # Accept tilde as home folder
         path = os.path.expanduser(path)
 

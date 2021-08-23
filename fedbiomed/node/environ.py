@@ -1,8 +1,9 @@
+import configparser
 import os
 import uuid
 
 from six.moves import urllib
-import configparser
+from typing import Optional
 
 try:
     defined_node_env
@@ -10,8 +11,10 @@ except NameError:
     defined_node_env = False
 
 # python imports should handle this,  but avoid eventual weird cases
+
+# FIXME: what if ` defined_node_env` is set to True ? 
 if not defined_node_env:
-    def init_client_config(client_id=None):
+    def init_client_config(client_id:Optional[str] = None):
         """ This method: reads the config file if exists, otherwise it creates
                 it with the NODE config params
 

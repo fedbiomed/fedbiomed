@@ -26,9 +26,13 @@ class Round:
             model_kwargs ([dict]): contains model args
             training_kwargs ([dict]): contains model args
             dataset ([dict]): dataset to use in this round
-            repository_url ([str]): repository url where the hub function is stored
-            hub_function ([str]): hub function
-            init_params ([str]): url of init params file
+            model_url ([str])
+            model_class ([str])
+            params_url ([str])
+            
+            #repository_url ([str]): repository url where the hub function is stored
+            #hub_function ([str]): hub function
+            #init_params ([str]): url of init params file
             job_id ([str]): job id
             researcher_id ([str]): researcher id
             logger ([HistoryLogger])
@@ -57,11 +61,13 @@ class Round:
         # Download model, training routine, execute it and return model results
         try:
             status, _ = self.repository.download_file(self.model_url, "my_model.py")
+            # FIXME: should ` my_model.py` be defined in a global variable defined above?
             if (status != 200):
                 is_failed = True
                 error_message = "Cannot download model file: " + self.model_url
             else:
                 status, params_path = self.repository.download_file(self.params_url, "my_model.pt")
+                # FIXME: same issue here with ` my_model.pt`
                 if (status != 200) or params_path is None:
                     is_failed = True
                     error_message = "Cannot download param file: " + self.params_url

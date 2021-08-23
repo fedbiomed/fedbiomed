@@ -107,7 +107,8 @@ class Job:
 
         # Validate fields in each of the arguments
         self.validate_minimal_arguments(self._repository_args, ['model_url', 'model_class', 'params_url'])
-
+        # FIXME: the constructor of a class mustnot have a method in its definition
+        
     @staticmethod
     def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
         """this method validates a given dictionary
@@ -150,8 +151,8 @@ class Job:
         self._training_args = training_args
 
     """ This method should change in sprint8 or as soon as we implement other kind of strategies different than DefaultStrategy"""
-    def waiting_for_clients(self, responses: Responses):
-        """ this method verify if all clients involved in the job are present Responses
+    def waiting_for_clients(self, responses: Responses) -> bool:
+        """ this method verifies if all clients involved in the job are present and Responding
 
         Args:
             responses (Responses): contains message answers
@@ -168,10 +169,10 @@ class Job:
 
     def start_clients_training_round(self, round: int):
         """
-        this method send training task to clients and waits for the responses
+        this method sends training task to clients and waits for the responses
         Args:
             round (int): round of the training
-            initial_params (str): url of the init file params
+            
         """    
 
         headers = {
@@ -217,6 +218,11 @@ class Job:
 
     def update_parameters(self, params: dict):
         try:
+            # FIXME: should we specify file extension as a local/global variable ?
+            # eg: 
+            # extension = 'pt'
+            # filename = TMP_DIR + '/researcher_params_' + str(uuid.uuid4()) + extension
+            
             filename = TMP_DIR + '/researcher_params_' + str(uuid.uuid4()) + '.pt'
             self.model_instance.save(filename, params)
             repo_response = self.repo.upload_file(filename)
@@ -232,13 +238,19 @@ class localJob:
     """
     This class represents the entity that manage the training part
     """    
-    def __init__(self, dataset_path = None, model_class = 'MyTrainingPlan', model_path = None, training_args: dict=None, model_args: dict=None):
+    def __init__(self, dataset_path = None,
+                 model_class: str='MyTrainingPlan',
+                 model_path: str=None,
+                 training_args: dict=None,
+                 model_args: dict=None):
 
         """ Constructor of the class
 
         Args:
-            model_class (string, optional): name of the model class to use for training
-            model_path (string, optional) : path to file containing model code
+            dataset_path (): . Defaults to None.
+            model_class (string, optional): name of the model class to use for training. Defaults to 
+            'MyTrainingPlan'.
+            model_path (string, optional) : path to file containing model code. Defaults to None.
             training_args (dict, optional): contains training parameters: lr, epochs, batch_size...
                                             Defaults to None.
             model_args (dict, optional): contains output and input feature dimension. 
@@ -249,6 +261,7 @@ class localJob:
         self._id = str(uuid.uuid4())
         self._repository_args = {}
         self.__training_args = training_args
+        # FIXME : should it be ` _training_args`
         self._model_args = model_args
         self.dataset_path = dataset_path
 

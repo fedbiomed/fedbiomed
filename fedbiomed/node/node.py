@@ -1,6 +1,6 @@
-from json import decoder
 
-import validators
+from json import decoder
+from typing import Optional, Union, Dict, Any
 
 from fedbiomed.common import json
 from fedbiomed.common.tasks_queue import TasksQueue
@@ -9,10 +9,15 @@ from fedbiomed.common.message import NodeMessages
 from fedbiomed.node.environ import CLIENT_ID, MESSAGES_QUEUE_DIR, TMP_DIR, MQTT_BROKER, MQTT_BROKER_PORT
 from fedbiomed.node.history_logger import HistoryLogger
 from fedbiomed.node.round import Round
+from fedbiomed.node.data_manager import Data_manager
+
+import validators  # should we keep this import (third party package)? There is a risk "validators" package will be no
+# longer maintained in the future. Plus, there are no test coverage available on github page
+# (here `validators` is only used for assertion errors)
 
 class Node:
 
-    def __init__(self, data_manager):
+    def __init__(self, data_manager: Data_manager):
 
         self.tasks_queue = TasksQueue(MESSAGES_QUEUE_DIR, TMP_DIR)
         self.messaging = Messaging(self.on_message, MessagingType.NODE, \
@@ -29,6 +34,7 @@ class Node:
         self.tasks_queue.add(task)
 
     def on_message(self, msg):
+        # TODO: describe all exceptions defined in this method
         print('[CLIENT] Message received: ', msg)
         try:
             command = msg['command']
@@ -39,7 +45,7 @@ class Node:
                 self.messaging.send_message(NodeMessages.reply_create({'success':True, 'client_id':CLIENT_ID,
                     'researcher_id':msg['researcher_id'], 'command':'ping'}).get_dict())
             elif command == 'search':
-                # Look for databases corresponding with tags
+                # Look for databases corresponNotImplementedErrording with tags
                 databases = self.data_manager.search_by_tags(msg['tags'])
                 if len(databases) != 0:
                     # remove path from search to avoid privacy issues
@@ -63,11 +69,11 @@ class Node:
             resid = 'researcher_id' in msg.keys() and msg['researcher_id'] or 'unknown_researcher_id'
             self.messaging.send_message(NodeMessages.reply_create({'success':False, 'command':"error", 'client_id':CLIENT_ID, 'researcher_id':resid, 'msg':'Message was not serializable'}).get_dict())
 #
-    def parser_task(self, msg):
+    def parser_task(self, msg: Union[bytes, str, Dict[str, Any]]):
         """ This method parses a given task message to create a round instance
 
         Args:
-            msg ([json]): serialized Message object to parse
+            msg ([json]): serialized Message object to parse (or that have been parsed)
         """        
         if isinstance(msg, str) or isinstance(msg, bytes):
             msg = json.deserialize_msg(msg)
@@ -99,7 +105,7 @@ class Node:
                                          model_class, params_url, job_id, researcher_id, logger))
 
     def task_manager(self):
-        """ This method manage training tasks in the queue
+        """ This method manages training tasks in the queue
         """        
 
         while True:
@@ -108,19 +114,20 @@ class Node:
             try:
                 print('[TASKS QUEUE] Item:', item)
                 self.parser_task(item)
-
+                # once task is out of queue, initiate training rounds
                 for round in self.rounds:
                     msg = round.run_model_training()
                     self.messaging.send_message(msg)
 
                 self.tasks_queue.task_done()
             except Exception as e:
+                # send an error message back to network if something wrong occured
                 self.messaging.send_message(NodeMessages.reply_create({'success':False,  "command":"error",
                         'msg':str(e), 'client_id':CLIENT_ID }).get_dict())
 
 
-    def start_messaging(self, block=False):
-        """This method call the start method of messaging class
+    def start_messaging(self, block:Optional[bool]=False):
+        """This method calls the start method of messaging class
 
         Args:
             block (bool, optional): Defaults to False.
