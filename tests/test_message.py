@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import dataclass
 
 import fedbiomed.common.message as message
 
@@ -72,7 +73,42 @@ class TestMessage(unittest.TestCase):
 
         pass
 
+    @dataclass
+    class dummyMessage(message.Message):
+        """
+        dummy class to fully test the Message class
+        """
+        a: int
+        b: str
+
+
     def test_message(self):
+
+        m1 = message.Message()
+
+        # initial dictionnary is empty
+        self.assertEqual( m1.get_dict(), {} )
+
+        # get/set tester
+        m1.set_param( "a", 1);
+        self.assertEqual( m1.get_dict(), { "a" : 1} )
+        self.assertEqual( m1.get_param( "a") , 1)
+
+        #
+        m1.set_param( "a", 2);
+        m1.set_param( "b", "this_is_a_string");
+        self.assertEqual( m1.get_param( "a") , 2)
+        self.assertEqual( m1.get_param( "b") , "this_is_a_string")
+
+        # this constructor is not validated until validate() is
+        # effectively called
+        m2 = self.dummyMessage( a = 1 , b = "oh my god !")
+        self.assertEqual( m2.get_param( "a") , 1)
+        self.assertEqual( m2.get_param( "b") , "oh my god !")
+
+        # too difficult to test validate directly
+        # it is indirectly tested by the other test_*() calls
+
         pass
 
     def test_searchreply(self):
