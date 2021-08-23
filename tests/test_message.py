@@ -896,10 +896,220 @@ class TestMessage(unittest.TestCase):
 
     def test_trainrequest(self):
         # well formatted message
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = True,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+
 
         # bad param number
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            job_id        = 'job_number')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            params_url    = 'this_is_an_url')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            training_args = { "a": 1, "b": 2})
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            training_data = { "data" : "MNIS"})
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            model_args    = { "c": 3, "d": 4})
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            model_url     = "http://dev.null")
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            model_class   = 'my_model')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it',
+            extra_arg     = '???')
+
 
         # bad param type
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = False,
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = False,
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = False,
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = "not_a_dict",
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = "not_a_dict",
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = "not_a_dict",
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = False,
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = False,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = "my_model",
+            command       = False)
+
 
         pass
 
