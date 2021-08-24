@@ -46,14 +46,16 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         return self.db.search(self.database.tags.all(tags))
 
     def read_csv(self, csv_file: str, index_col:int=0) -> pd.DataFrame:
-        """[summary]
+        """Reads a *.csv file and ouptuts its data into a pandas DataFrame.
+        Finds automatically the csv delimiter by parsing the first line.
 
         Args:
-            csv_file (str): [description]
-            index_col (int, optional): [description]. Defaults to 0.
+            csv_file (str): file name / path
+            index_col (int, optional): column that contains csv file index.
+            Set to None if not present. Defaults to 0.
 
         Returns:
-            pd.DataFrame: [description]
+            pd.DataFrame: data contained in csv file.
         """        
 
         # Automatically identify separator
@@ -61,11 +63,11 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         sniffer = csv.Sniffer()
         delimiter = sniffer.sniff(first_line).delimiter
-
+        # TODO: add headers parameter
         return pd.read_csv(csv_file, index_col=index_col, sep=delimiter)
 
 
-    def get_torch_dataset_shape(self, dataset):
+    def get_torch_dataset_shape(self, dataset) -> list:
         """[summary]
 
         Args:

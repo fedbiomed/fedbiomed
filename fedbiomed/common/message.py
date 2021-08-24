@@ -1,8 +1,13 @@
 from dataclasses import dataclass
 from typing import Dict, Any
 
-class Message(object):
 
+class Message(object):
+    """
+    This class defines the structure of a 
+    message sent/recieved via MQTT
+
+    """
     def __init__(self):
         """ Constructor of the class
         """        
@@ -252,7 +257,7 @@ class NodeMessages():
     a received/sent message by the Node
     """
     @classmethod
-    def request_create(cls, params):
+    def request_create(cls, params: dict):
         """
         This method create the adequate message:
         It validates:
@@ -278,7 +283,7 @@ class NodeMessages():
 
 
     @classmethod
-    def reply_create(cls, params):
+    def reply_create(cls, params: dict):
         """this method is used on message reception.
         It validates:
         - the legacy of the message

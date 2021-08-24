@@ -57,7 +57,7 @@ class Messaging:
         the msg is processed and forwarded to the node/researcher
         to be treated/stored/whatever
 
-        Args:
+        Args:block
             client: mqtt on_message arg (unused)
             userdata: mqtt on_message arg (unused)
             msg: mqtt on_message arg
@@ -88,8 +88,11 @@ class Messaging:
         """ this method calls the loop function of mqtt
 
         Args:
-            block (bool, optional): if True: calls the loop_forever method 
-                                    else, calls the loop_start method
+            block (bool, optional): if True: calls the loop_forever method in MQTT 
+                                    else, calls the loop_start method. See 
+                                    Paho MQTT documentation 
+                                    (https://github.com/eclipse/paho.mqtt.python)
+                                    for further information. Defaults to False.
         """        
         if block:
             self.mqtt.loop_forever()
@@ -104,8 +107,8 @@ class Messaging:
         """        
         self.mqtt.loop_stop()
 
-    def send_message(self, msg: dict, client=None):
-        """This method sends a message to a given client (here the network is the client I suppose)
+    def send_message(self, msg: dict, client: str=None):
+        """This method sends a message to a given client 
 
         Args:
             msg (dict): the content of a message
