@@ -6,6 +6,12 @@ version 3 implementation of the Fed-BioMed project
 
 Fed-BioMed is developped under Linux Fedora, should be easily ported to other Linux distributions.
 
+### Prerequisites :
+
+To ensure fedbiomed will work fine, you need to install before :
+* Docker.
+* MQTT.
+
 ### clone repo
 
 Clone the FedBiomed repository
