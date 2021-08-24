@@ -1150,11 +1150,10 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_researchermessages(self):
+    # test ResearcherMessage and NodeMessagess classes
+    # (next 9 tests)
+    def test_trainmessages(self):
 
-        # test messages received by the researcher
-
-        # train
         params = {
             "researcher_id" : 'toto',
             "job_id"        : 'job',
@@ -1169,7 +1168,29 @@ class TestMessage(unittest.TestCase):
         r = message.ResearcherMessages.reply_create( params )
         self.assertIsInstance( r, message.TrainReply )
 
-        # search
+        r = message.NodeMessages.reply_create( params )
+        self.assertIsInstance( r, message.TrainReply )
+
+        params = {
+            "researcher_id" : 'toto',
+            "job_id"        : 'job',
+            "params_url"    : "https://dev.null",
+            "training_args" : { } ,
+            "training_data" : { } ,
+            "model_args"    : { } ,
+            "model_url"     : "https://dev.null",
+            "model_class"   : "my_model",
+            "command"       : 'train' }
+
+        r = message.ResearcherMessages.request_create( params )
+        self.assertIsInstance( r, message.TrainRequest )
+
+        r = message.NodeMessages.request_create( params )
+        self.assertIsInstance( r, message.TrainRequest )
+
+
+    def test_searchmessages(self):
+
         params = {
             "researcher_id" : 'toto',
             "success"       : True,
@@ -1181,6 +1202,22 @@ class TestMessage(unittest.TestCase):
         r = message.ResearcherMessages.reply_create( params )
         self.assertIsInstance( r, message.SearchReply )
 
+        r = message.NodeMessages.reply_create( params )
+        self.assertIsInstance( r, message.SearchReply )
+
+
+        params = {
+            "researcher_id" : 'toto',
+            "tags"          : [],
+            "command"       : 'search' }
+        r = message.ResearcherMessages.request_create( params )
+        self.assertIsInstance( r, message.SearchRequest )
+
+        r = message.NodeMessages.request_create( params )
+        self.assertIsInstance( r, message.SearchRequest )
+
+
+    def test_pingmessages(self):
 
         # ping
         params = {
@@ -1192,6 +1229,22 @@ class TestMessage(unittest.TestCase):
         r = message.ResearcherMessages.reply_create( params )
         self.assertIsInstance( r, message.PingReply )
 
+        r = message.NodeMessages.reply_create( params )
+        self.assertIsInstance( r, message.PingReply )
+
+        params = {
+            "researcher_id" : 'toto' ,
+            "command"       : 'ping'
+        }
+        r = message.ResearcherMessages.request_create( params )
+        self.assertIsInstance( r, message.PingRequest )
+
+        r = message.NodeMessages.request_create( params )
+        self.assertIsInstance( r, message.PingRequest )
+
+
+    def test_errormessages(self):
+
         # error
         params = {
             "researcher_id" : 'toto' ,
@@ -1202,6 +1255,11 @@ class TestMessage(unittest.TestCase):
         }
         r = message.ResearcherMessages.reply_create( params )
         self.assertIsInstance( r, message.ErrorMessage )
+
+        r = message.NodeMessages.reply_create( params )
+        self.assertIsInstance( r, message.ErrorMessage )
+
+    def test_addscalaremessages(self):
 
         # addScalar
         params = {
@@ -1215,6 +1273,10 @@ class TestMessage(unittest.TestCase):
         r = message.ResearcherMessages.reply_create( params )
         self.assertIsInstance( r, message.AddScalarReply )
 
+        r = message.NodeMessages.reply_create( params )
+        self.assertIsInstance( r, message.AddScalarReply )
+
+    def test_unknowmessages(self):
         # we only test one error (to get 100% coverage)
         # all test have been made above
 
@@ -1223,18 +1285,39 @@ class TestMessage(unittest.TestCase):
         try:
             r = message.ResearcherMessages.reply_create( params )
             # should not reach this line
-            self.fail("unknown message type for researcher not detected")
+            self.fail("unknown reply message type for researcher not detected")
 
         except:
             # should be reached
-            self.assertTrue( True, "unknown message type for researcher detected")
+            self.assertTrue( True, "unknown reply message type for researcher detected")
 
+        try:
+            r = message.ResearcherMessages.request_create( params )
+            # should not reach this line
+            self.fail("unknown request message type for researcher not detected")
+
+        except:
+            # should be reached
+            self.assertTrue( True, "unknown request message type for researcher detected")
         pass
 
+        try:
+            r = message.NodeMessages.reply_create( params )
+            # should not reach this line
+            self.fail("unknown reply message type for node not detected")
 
-    def test_nodemessages(self):
-        #
+        except:
+            # should be reached
+            self.assertTrue( True, "unknown reply message type for node detected")
 
+        try:
+            r = message.NodeMessages.request_create( params )
+            # should not reach this line
+            self.fail("unknown request message type for node not detected")
+
+        except:
+            # should be reached
+            self.assertTrue( True, "unknown request message type for node detected")
         pass
 
 
