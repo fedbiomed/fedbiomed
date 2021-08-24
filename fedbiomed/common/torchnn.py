@@ -161,4 +161,4 @@ class TorchTrainingPlan(nn.Module):
         pass
 
     def after_training_params(self):
-        pass
+        return self.state_dict()
