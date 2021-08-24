@@ -5,6 +5,13 @@ import pandas as pd
 
 class Responses:
     def __init__(self, data: Union[list, dict]):
+        """Constructor of `Responses` class. Reconfigures 
+        input data into whether a dictionary in a list (List[dict]), or
+        a list with unique values
+
+        Args:
+            data (Union[list, dict]): input data
+        """
         if isinstance(data, dict):
             self._data = [data]
         elif isinstance(data, list):
@@ -12,13 +19,19 @@ class Responses:
             for d in data:
                 if d not in self._data:
                     self._data.append(d)
+                    # FIXME: would using ` set()` function be a better idea?
 
     @property
-    def data(self):
+    def data(self)-> list:
+        """setter
+
+        Returns:
+            list:  data of the class `Responses`
+        """
         return(self._data)
 
     @property
-    def dataframe(self):
+    def dataframe(self) -> pd.DataFrame:
         return pd.DataFrame(self._data)
 
     def get_data(self):

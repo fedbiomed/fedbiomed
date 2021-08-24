@@ -1,5 +1,6 @@
 from time import sleep
 from datetime import datetime
+from typing import Any, Dict, Union
 
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
@@ -9,13 +10,13 @@ from fedbiomed.researcher.responses import Responses
 
 
 class Requests:
-    """This class represents the
+    """This class represents the requests addressed to the node
     """    
-    def __init__(self, mess=None):
-        """[summary]
+    def __init__(self, mess: Any=None):
+        """reconfigures incoming message into a `Messaging` object.
 
         Args:
-            mess ([type], optional): [description]. Defaults to None.
+            mess (Any, optional): message to be sent. Defaults to None.
         """        
         self.queue = TasksQueue(MESSAGES_QUEUE_DIR + '_' + RESEARCHER_ID, TMP_DIR)
 
@@ -26,12 +27,12 @@ class Requests:
         else:
             self.messaging = mess
 
-    def get_messaging(self):
+    def get_messaging(self) -> Messaging:
         """returns the messaging object
         """        
         return(self.messaging)
 
-    def on_message(self, msg):
+    def on_message(self, msg: Dict[str, Any]):
         """
         This handler is called by the Messaging class, then a message is received
         Args: 
@@ -41,18 +42,18 @@ class Requests:
         self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
 
 
-    def send_message(self, msg: dict, client=None):      
+    def send_message(self, msg: dict, client: str=None):      
         """
-        ask the messaging class to send a new message (receivers are deduced from the message content)
+        asks the messaging class to send a new message (receivers are deduced from the message content)
         """
         print(RESEARCHER_ID)
         self.messaging.send_message(msg, client=client)
 
 
-    def get_messages(self, command=None, time=0):
-        """ This method go through the queue and gets messages with the specific command
+    def get_messages(self, command: str = None, time: Union[int, float]=0) -> Responses:
+        """ This method goes through the queue and gets messages with the specific command
 
-        returns Reponses : Dataframe containing the corresponding answers
+        returns Reponses : `Responses` object containing the corresponding answers
 
         """
         sleep(time)
@@ -74,7 +75,10 @@ class Requests:
         return Responses(answers)
 
 
-    def get_responses(self, look_for_command, timeout=None, only_successful=True):
+    def get_responses(self,
+                      look_for_command: str,
+                      timeout:Union[int, float]=None,
+                      only_successful: bool=True) -> Responses:
         """
         wait for answers for all clients, regarding a specific command
         returns the list of all clients answers
@@ -101,17 +105,18 @@ class Requests:
         return Responses(responses)
 
 
-    def ping_clients(self):
+    def ping_clients(self) -> list:
         """
         Pings online nodes
         :return: list of client_id
         """
         self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':RESEARCHER_ID, 'command':'ping'}).get_dict())
+        # TODO: (below) handle KeyError exception or use `.get()` method
         clients_online = [resp['client_id'] for resp in self.get_responses(look_for_command='ping')]
         return clients_online
 
 
-    def search(self, tags: tuple, clients: list=None):
+    def search(self, tags: tuple, clients: list=None) -> dict:
         """
         Searches available data by tags
         :param tags: Tuple containing tags associated to the data researchir is looking for.
@@ -123,6 +128,7 @@ class Requests:
         print(f'Searching for clients with data tags: {tags} ...')
         data_found = {}
         for resp in self.get_responses(look_for_command='search'):
+            # TODO: (below) handle KeyError exception or use `.get()` method
             if not clients or resp['client_id'] in clients:
                 data_found[resp['client_id']] = resp['databases']
         return data_found
