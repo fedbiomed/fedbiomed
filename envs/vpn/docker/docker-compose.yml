@@ -1,14 +1,44 @@
 version: "3.7"
 services:
+  #
+  # intermediate step : image for building wireguard for base image
   builder:
     container_name: fedbiomed-builder
     build:
-      context: ./base
+      context: ./base/build_root
       target: builder
     image: fedbiomed/builder
+    entrypoint: /bin/true
+    # profiles will handle not-launched-by-default services when 
+    # >=1.28 becomes common https://docs.docker.com/compose/profiles/
+    # 
+    # profiles:
+    #  - debug # not started by `docker-compose up` except if `--profile debug`
+  #
+  # intermediate step : base image for building vpn, node and researcher containers
   base:
     container_name: fedbiomed-base
     build:
-      context: ./base
+      context: ./base/build_root
     image: fedbiomed/base
-
+    entrypoint: /bin/true
+    # profiles:
+    #  - debug
+  #
+  # vpn server component
+  vpnserver:
+    container_name: fedbiomed-vpnserver
+    build:
+      context: ./vpnserver/build_root
+    image: fedbiomed/vpnserver
+    env_file:
+      - ./vpnserver/config/config.env
+    cap_add:
+      - net_admin # handle wireguard interface
+      - sys_module # remove wireguard kernel module
+    devices:
+      - /dev/net/tun # handle wireguard interface
+    volumes:
+      - ./vpnserver/config:/config
+    ports:
+      - 51820:51820/udp
