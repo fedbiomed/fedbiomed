@@ -367,3 +367,8 @@ queue_manager/
 db_client_*.json
 queue_manager_client_*
 cover/
+
+# vpn configurations
+**/config/config_peers
+**/config/ip_assign
+**/config/wireguard

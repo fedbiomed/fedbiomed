@@ -5,7 +5,7 @@ import os
 import ipaddress as ip
 from pathlib import Path
 
-TEMPLATE_FILE="/config/config_templates/config_%s.env"
+TEMPLATE_FILE="/fedbiomed/vpn/config_templates/config_%s.env"
 ASSIGN_CONFIG_FILE="/config/ip_assign/last_ip_assign_%s"
 PEER_CONFIG_FOLDER="/config/config_peers"
 
