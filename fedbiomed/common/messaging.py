@@ -37,11 +37,12 @@ class Messaging:
         self.messaging_type = messaging_type
         self.messaging_id = str(messaging_id)
         self.mqtt = mqtt.Client(client_id=messaging_id) # defining a client.
+        # defining MQTT 's `on_connect` and `on_message` handlers
         self.mqtt.on_connect = self.on_connect
-        self.mqtt.on_message = self.on_message
+        self.mqtt.on_message = self.on_message  # refering to the method: not to `on_message` arg
         self.mqtt.connect(mqtt_broker, mqtt_broker_port, keepalive=60)
 
-        self.on_message_handler = on_message # store the caller's mesg handler
+        self.on_message_handler = on_message # store the caller's message handler
 
         if self.messaging_type is MessagingType.RESEARCHER:
             self.default_send_topic = 'general/clients'

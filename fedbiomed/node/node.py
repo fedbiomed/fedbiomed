@@ -38,12 +38,21 @@ class Node:
         self.tasks_queue.add(task)
 
     def on_message(self, msg):
+        """Handler to be used with `Messaging` class (ie with MQTT)
+
+        Args:
+            msg ([type]): [description]
+
+        Raises:
+            NotImplementedError: [description]
+        """
         # TODO: describe all exceptions defined in this method
         print('[CLIENT] Message received: ', msg)
         try:
             command = msg['command']
             request = NodeMessages.request_create(msg).get_dict()
             if command == 'train':
+                # add task to queue
                 self.add_task(request)
             elif command == 'ping':
                 self.messaging.send_message(NodeMessages.reply_create({'success': True, 'client_id': CLIENT_ID,
@@ -91,6 +100,7 @@ class Node:
         if isinstance(msg, str) or isinstance(msg, bytes):
             msg = json.deserialize_msg(msg)
         msg = NodeMessages.request_create(msg)
+        # msg becomes a TrainRequest object
         logger = HistoryLogger(job_id=msg.get_param(
             'job_id'), researcher_id=msg.get_param('researcher_id'),
                                client=self.messaging)
@@ -114,6 +124,9 @@ class Node:
             for dataset_id in msg.get_param('training_data')[CLIENT_ID]:
                 alldata = self.data_manager.search_by_id(dataset_id)
                 if len(alldata) != 1 or not 'path' in alldata[0].keys():
+                    # TODO: create a data structure for messaging
+                    # FIXME: 'the confdition above depends on database model
+                    # if database model changes; condition above will be false 
                     self.messaging.send_message(NodeMessages.reply_create({'success': False,
                                                                            'command': "error",
                                                                            'client_id': CLIENT_ID,
@@ -136,6 +149,8 @@ class Node:
                 self.parser_task(item)
                 # once task is out of queue, initiate training rounds
                 for round in self.rounds:
+                    # `len(self.rounds)=1` always, right? 
+                    # so there is only one iteration?
                     msg = round.run_model_training()
                     self.messaging.send_message(msg)
 

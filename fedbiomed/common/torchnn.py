@@ -16,7 +16,7 @@ class TorchTrainingPlan(nn.Module):
         #self.optimizer = torch.optim.Adam(self.parameters(), lr = 1e-3)
         self.optimizer = None
 
-        # data loading // should ne moved to another class
+        # data loading // should be moved to another class
         self.batch_size = 100
         self.shuffle    = True
         # TODO : add random seed init
@@ -104,8 +104,9 @@ class TorchTrainingPlan(nn.Module):
         content += "\n"
         content += inspect.getsource(self.__class__)
 
-        # try/except todo
-        file = open(filename, "w")
+        # TODO: try/except 
+        file = open(filename, "w") 
+        # (above) should we write it in binary (for the sake of space optimization)
         file.write(content)
         file.close()
 

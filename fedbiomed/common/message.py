@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 
 class Message(object):
@@ -161,6 +161,9 @@ class SearchRequest(Message):
 class PingRequest(Message):
     """
     This class describes a ping message sent by the researcher
+    
+    Raises:
+        ValueError: triggered if case type validation failed
     """
     researcher_id: str
     command: str
@@ -174,6 +177,9 @@ class PingRequest(Message):
 class TrainRequest(Message):
     """
     This class describes a train message sent by the researcher
+    
+    Raises:
+        ValueError: triggered if case validation failed
     """
     researcher_id: str
     job_id: str
@@ -257,20 +263,23 @@ class NodeMessages():
     a received/sent message by the Node
     """
     @classmethod
-    def request_create(cls, params: dict):
+    def request_create(cls, params: dict) -> Union[TrainRequest, SearchRequest, PingRequest]:
         """
-        This method create the adequate message:
+        This method create the adequate message, it maps an instruction (given the key "command" in
+        the input dictionary `params`) to a Message object
+        
         It validates:
         - the legagy of the message
         - the structure of the created message
-
+        
         Raises:
-            ValueError: if the message is not allowed te be sent by the node
+            ValueError: triggered if the message is not allowed te be sent by the node
 
         Returns:
-            An instance of the corresponding class
+            An instance of the corresponding class (TrainRequest, SearchRequest, PingRequest)
         """
-        message_type = params['command']
+        message_type = params['command'] # can be "train", "search", or "ping"
+        # mapping message type to an object
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainRequest,
                                     'search': SearchRequest,
                                     'ping': PingRequest,
@@ -278,12 +287,16 @@ class NodeMessages():
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
             raise ValueError('Bad message type {}'.format(message_type))
-
+        #import remote_pdb; remote_pdb.set_trace()
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
     @classmethod
-    def reply_create(cls, params: dict):
+    def reply_create(cls, params: dict) -> Union[TrainReply,
+                                                 SearchReply,
+                                                 PingReply,
+                                                 ErrorMessage,
+                                                 AddScalarReply]:
         """this method is used on message reception.
         It validates:
         - the legacy of the message

@@ -1,6 +1,6 @@
 import csv
 import os.path
-from typing import Union
+from typing import Union, List
 import uuid
 
 from tinydb import TinyDB, Query
@@ -14,21 +14,24 @@ from fedbiomed.node.environ import DB_PATH
 
 
 class Data_manager: # should this be in camelcase (smthg like DataManager)?
-
+    """Facility to store, retrieve data and get data info
+    from TinyDB database. 
+    """
     def __init__(self):
         """ The constrcutor of the class
         """        
         self.db = TinyDB(DB_PATH)
         self.database = Query()
 
-    def search_by_id(self, dataset_id: str) -> list:
+    def search_by_id(self, dataset_id: str) -> List[dict]:
         """this method searches for data with given dataset_id
 
         Args:
             dataset_id (str):  dataset id
 
         Returns:
-            [list]: list of matching datasets
+            [List[dict]]: list of dict of matching datasets, each dict containing
+            with all the field from Tiny database
         """ 
         self.db.clear_cache() 
         return self.db.search(self.database.dataset_id.all(dataset_id))
@@ -58,9 +61,9 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             pd.DataFrame: data contained in csv file.
         """        
 
-        # Automatically identify separator
         first_line = open(csv_file, 'r').readline()
-
+        
+        # Automatically identify separator (by parsing first line)
         sniffer = csv.Sniffer()
         delimiter = sniffer.sniff(first_line).delimiter
         # TODO: add headers parameter
@@ -214,7 +217,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         elif name == 'images':
             return self.load_images_dataset(folder_path=dataset['path'], as_dataset=True)
 
-
+    #seems unused
     def load_data(self, tags: Union[tuple, list], mode: str):
         """[summary]
 
