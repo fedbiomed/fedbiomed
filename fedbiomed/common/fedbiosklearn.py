@@ -4,6 +4,7 @@ import torch
 import numpy as np
 from sklearn.linear_model import SGDRegressor
 import json
+
 class SkLearnModel():
 
     ''' Provide partial fit method of scikit learning model here. '''
@@ -31,7 +32,7 @@ class SkLearnModel():
         for r in range(epochs):
             # do not take into account more than batch_maxnum batches from the dataset
             if batch_maxnum == 0 :
-                self.training_step(data,target)
+                self.reg.partial_fit(data,target)
             else:
                 print('Not yet implemented batch_maxnum != 0')
 
@@ -42,12 +43,16 @@ class SkLearnModel():
                                 "import pickle",
                                 "import numpy as np",
                                 "import pandas as pd",
-                                "from sklearn.linear_model import SGDRegressor",
+
                                 "from torchvision import datasets, transforms",
                              ]
         self.dataset_path = None
-        self.reg = SGDRegressor(max_iter=kwargs['max_iter'], tol=kwargs['tol'])
-        self.reg.coef_ =  np.zeros(5)
+        params_sgd = SGDRegressor().get_params()
+        from_kwargs_sgd_proper_pars = {key: kwargs[key] for key in kwargs if key in params_sgd}
+        params_sgd.update(from_kwargs_sgd_proper_pars)
+        self.reg = SGDRegressor()
+        self.reg.set_params(**params_sgd)
+        self.reg.coef_ =  np.zeros(kwargs['number_columns'])
         self.reg.intercept_ = [0.]
 
     # provided by fedbiomed // necessary to save the model code into a file
@@ -132,3 +137,10 @@ class SkLearnModel():
     def set_dataset(self, dataset_path):
         self.dataset_path = dataset_path
         print('Dataset_path',self.dataset_path)
+
+    def add_dependency(self, dep):
+        self.dependencies.extend(dep)
+        pass
+
+    def get_model(self):
+        return self.reg
