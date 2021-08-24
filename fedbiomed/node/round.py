@@ -109,7 +109,7 @@ class Round:
                 ptime_after = time.process_time()
             except Exception as e:
                 is_failed = True
-                error_message = "Cannot train model: " + str(e)
+                error_message = "Cannot train model in round: " + str(e)
 
         if not is_failed:
             # Upload results

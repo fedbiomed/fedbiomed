@@ -313,7 +313,7 @@ class localJob:
                 self.model_instance.training_routine(**self.__training_args)
             except Exception as e:
                 is_failed = True
-                error_message = "Cannot train model: " + str(e)
+                error_message = "Cannot train model in job : " + str(e)
 
 
         if not is_failed:
