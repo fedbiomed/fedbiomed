@@ -30,9 +30,15 @@ services:
     container_name: fedbiomed-vpnserver
     build:
       context: ./vpnserver/build_root
+      args:
+        - CONTAINER_UID
+        - CONTAINER_GID
     image: fedbiomed/vpnserver
     env_file:
       - ./vpnserver/config/config.env
+    environment:
+      - CONTAINER_UID
+      - CONTAINER_GID
     cap_add:
       - net_admin # handle wireguard interface
       - sys_module # remove wireguard kernel module

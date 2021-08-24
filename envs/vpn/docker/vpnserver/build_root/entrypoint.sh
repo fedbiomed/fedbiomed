@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# set identity when we would like to drop privileges
+CONTAINER_UID=${CONTAINER_UID:-root}
+
+
 [ -z "$USE_WG_KERNEL_MOD" ] && USE_WG_KERNEL_MOD=false
 RUNNING_KERNELWG=false
 RUNNING_BORINGTUN=false
@@ -22,9 +26,9 @@ fi
 "$RUNNING_KERNELWG" || "$RUNNING_BORINGTUN" || { echo "ERROR: Could not start wireguard" ; exit 1 ; }
 
 CONFIG_DIR=/config
-mkdir -p $CONFIG_DIR/wireguard
-mkdir -p $CONFIG_DIR/ip_assign
-mkdir -p $CONFIG_DIR/config_peers
+su -c "mkdir -p $CONFIG_DIR/wireguard" $CONTAINER_UID
+su -c "mkdir -p $CONFIG_DIR/ip_assign" $CONTAINER_UID
+su -c "mkdir -p $CONFIG_DIR/config_peers" $CONTAINER_UID
 
 if [ -s "$CONFIG_DIR/wireguard/wg0.conf" ]
 then
@@ -33,7 +37,7 @@ then
 else
     echo "Generating Wireguard config..."
     wg set wg0 private-key <(wg genkey)
-    (umask 0077; wg showconf wg0 > $CONFIG_DIR/wireguard/wg0.conf)
+    ( umask 0077; wg showconf wg0 | su -c "cat - > $CONFIG_DIR/wireguard/wg0.conf" $CONTAINER_UID )
 fi
 
 wg set wg0 listen-port $VPN_SERVER_PORT
@@ -45,7 +49,7 @@ echo "Wireguard started"
 finish () {
 
     echo "Saving Wireguard config"
-    (umask 0077; wg showconf wg0 > $CONFIG_DIR/wireguard/wg0.conf)
+    ( umask 0077; wg showconf wg0 | su -c "cat - > $CONFIG_DIR/wireguard/wg0.conf" $CONTAINER_UID )
 
     echo "Stopping Wireguard"
     [ -z "$RUNNING_BORINGTUN" ] && ip link delete dev wg0 || pkill boringtun

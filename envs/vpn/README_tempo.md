@@ -6,7 +6,15 @@ To be converted to updates for main README.md + additions to install scripts
 
 ```bash
 cd ./envs/vpn/docker
-docker-compose build
+CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build
+```
+
+## launching containers
+
+* on the vpn server
+```bash
+cd ./envs/vpn/docker
+CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose up -d vpnserver
 ```
 
 
