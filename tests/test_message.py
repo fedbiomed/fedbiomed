@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import dataclass
 
 import fedbiomed.common.message as message
 
@@ -72,7 +73,42 @@ class TestMessage(unittest.TestCase):
 
         pass
 
+    @dataclass
+    class dummyMessage(message.Message):
+        """
+        dummy class to fully test the Message class
+        """
+        a: int
+        b: str
+
+
     def test_message(self):
+
+        m1 = message.Message()
+
+        # initial dictionnary is empty
+        self.assertEqual( m1.get_dict(), {} )
+
+        # get/set tester
+        m1.set_param( "a", 1);
+        self.assertEqual( m1.get_dict(), { "a" : 1} )
+        self.assertEqual( m1.get_param( "a") , 1)
+
+        #
+        m1.set_param( "a", 2);
+        m1.set_param( "b", "this_is_a_string");
+        self.assertEqual( m1.get_param( "a") , 2)
+        self.assertEqual( m1.get_param( "b") , "this_is_a_string")
+
+        # this constructor is not validated until validate() is
+        # effectively called
+        m2 = self.dummyMessage( a = 1 , b = "oh my god !")
+        self.assertEqual( m2.get_param( "a") , 1)
+        self.assertEqual( m2.get_param( "b") , "oh my god !")
+
+        # too difficult to test validate directly
+        # it is indirectly tested by the other test_*() calls
+
         pass
 
     def test_searchreply(self):
@@ -526,73 +562,762 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_addScalarreply(self):
+    def test_addscalarreply(self):
         # well formatted message
 
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = True,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            job_id        = 'tutu',
+            key           = 3.14,
+            iteration     = 666,
+            command       = 'do_it')
+
+
         # bad param number
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            client_id     = 'titi')
+
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            job_id        = 'tutu')
+
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            key           = 3.14)
+
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            iteration     = 666)
+
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            command       = 'do_it')
+
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            job_id        = 'tutu',
+            key           = 3.14,
+            iteration     = 666,
+            command       = 'do_it',
+            extra_arg     = '???')
+
+
 
         # bad param type
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = False,
+            client_id     = 'titi',
+            job_id        = 'tutu',
+            key           = 3.14,
+            iteration     = 666,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = False,
+            job_id        = 'tutu',
+            key           = 3.14,
+            iteration     = 666,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            job_id        = False,
+            key           = 3.14,
+            iteration     = 666,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            job_id        = 'tutu',
+            key           = "not_a_float",
+            iteration     = 666,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            job_id        = 'tutu',
+            key           = 3.14,
+            iteration     = "no_an_int",
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.AddScalarReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            job_id        = 'tutu',
+            key           = 3.14,
+            iteration     = 666,
+            command       = False)
+
 
         pass
 
 
     def test_errormessage(self):
+
         # well formatted message
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = True,
+
+            researcher_id = 'toto',
+            success       = True,
+            client_id     = 'titi',
+            msg           = 'this is an error message',
+            command       = 'do_it')
+
 
         # bad param number
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            success       = True)
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            client_id     = 'titi')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            msg           = 'this is an error message')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            client_id     = 'titi',
+            msg           = 'this is an error message',
+            command       = 'do_it',
+            extra_arg     = '???' )
+
 
         # bad param type
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = False,
+            success       = True,
+            client_id     = 'titi',
+            msg           = 'this is an error message',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = "not_a_bool",
+            client_id     = 'titi',
+            msg           = 'this is an error message',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            client_id     = False,
+            msg           = 'this is an error message',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            client_id     = 'titi',
+            msg           = [ 1 , 2 ],
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            client_id     = 'titi',
+            msg           = 'this is an error message',
+            command       = False)
+
 
         pass
 
 
     def test_searchrequest(self):
         # well formatted message
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
 
         # bad param number
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result = False,
+
+            tags          = [ "data", "doto" ])
+
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result = False,
+
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            tags          = [ "data", "doto" ],
+            command       = 'do_it',
+            extra_args    = '???' )
+
 
         # bad param type
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result = False,
+
+            researcher_id = False,
+            tags          = [ "data", "doto" ],
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            tags          = "not_a_list",
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            tags          = [ "data", "doto" ],
+            command       = False)
+
 
         pass
 
 
     def test_pingrequest(self):
         # well formatted message
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = True,
+
+            researcher_id = 'toto',
+            command       = 'do_it')
+
+
 
         # bad param number
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = False,
+
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            command       = 'do_it',
+            extra_arg     = '???')
+
 
         # bad param type
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = False,
+
+            researcher_id = False,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            command       = False)
+
 
         pass
 
 
     def test_trainrequest(self):
         # well formatted message
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = True,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+
 
         # bad param number
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            job_id        = 'job_number')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            params_url    = 'this_is_an_url')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            training_args = { "a": 1, "b": 2})
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            training_data = { "data" : "MNIS"})
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            model_args    = { "c": 3, "d": 4})
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            model_url     = "http://dev.null")
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            model_class   = 'my_model')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it',
+            extra_arg     = '???')
+
 
         # bad param type
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = False,
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = False,
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = False,
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = "not_a_dict",
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = "not_a_dict",
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = "not_a_dict",
+            model_url     = "http://dev.null",
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = False,
+            model_class   = 'my_model',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = False,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.TrainRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            job_id        = 'job_number',
+            params_url    = 'this_is_an_url',
+            training_args = { "a": 1, "b": 2},
+            training_data = { "data" : "MNIS"},
+            model_args    = { "c": 3, "d": 4},
+            model_url     = "http://dev.null",
+            model_class   = "my_model",
+            command       = False)
+
 
         pass
 
 
-    def test_researchermessages(self):
-        # well formatted message
+    # test ResearcherMessage and NodeMessagess classes
+    # (next 9 tests)
+    def test_trainmessages(self):
 
-        # bad param number
+        params = {
+            "researcher_id" : 'toto',
+            "job_id"        : 'job',
+            "success"       : True,
+            "client_id"     : 'titi',
+            "dataset_id"    : 'my_data',
+            "params_url"    : 'string_param',
+            "timing"        : { "t0": 0.0, "t1": 1.0},
+            "msg"           : 'message_in_a_bottle',
+            "command"       : 'train' }
 
-        # bad param type
+        r = message.ResearcherMessages.reply_create( params )
+        self.assertIsInstance( r, message.TrainReply )
 
+        r = message.NodeMessages.reply_create( params )
+        self.assertIsInstance( r, message.TrainReply )
+
+        params = {
+            "researcher_id" : 'toto',
+            "job_id"        : 'job',
+            "params_url"    : "https://dev.null",
+            "training_args" : { } ,
+            "training_data" : { } ,
+            "model_args"    : { } ,
+            "model_url"     : "https://dev.null",
+            "model_class"   : "my_model",
+            "command"       : 'train' }
+
+        r = message.ResearcherMessages.request_create( params )
+        self.assertIsInstance( r, message.TrainRequest )
+
+        r = message.NodeMessages.request_create( params )
+        self.assertIsInstance( r, message.TrainRequest )
+
+
+    def test_searchmessages(self):
+
+        params = {
+            "researcher_id" : 'toto',
+            "success"       : True,
+            "databases"     : [ "one", "two" ],
+            "count"         : 666,
+            "client_id"     : 'titi',
+            "command"       : 'search' }
+
+        r = message.ResearcherMessages.reply_create( params )
+        self.assertIsInstance( r, message.SearchReply )
+
+        r = message.NodeMessages.reply_create( params )
+        self.assertIsInstance( r, message.SearchReply )
+
+
+        params = {
+            "researcher_id" : 'toto',
+            "tags"          : [],
+            "command"       : 'search' }
+        r = message.ResearcherMessages.request_create( params )
+        self.assertIsInstance( r, message.SearchRequest )
+
+        r = message.NodeMessages.request_create( params )
+        self.assertIsInstance( r, message.SearchRequest )
+
+
+    def test_pingmessages(self):
+
+        # ping
+        params = {
+            "researcher_id" : 'toto' ,
+            "client_id"     : 'titi' ,
+            "success"       : True,
+            "command"       : 'ping'
+        }
+        r = message.ResearcherMessages.reply_create( params )
+        self.assertIsInstance( r, message.PingReply )
+
+        r = message.NodeMessages.reply_create( params )
+        self.assertIsInstance( r, message.PingReply )
+
+        params = {
+            "researcher_id" : 'toto' ,
+            "command"       : 'ping'
+        }
+        r = message.ResearcherMessages.request_create( params )
+        self.assertIsInstance( r, message.PingRequest )
+
+        r = message.NodeMessages.request_create( params )
+        self.assertIsInstance( r, message.PingRequest )
+
+
+    def test_errormessages(self):
+
+        # error
+        params = {
+            "researcher_id" : 'toto' ,
+            "success"       : True ,
+            "client_id"     : 'titi' ,
+            "msg"           : 'bim boum badaboum',
+            "command"       : 'error'
+        }
+        r = message.ResearcherMessages.reply_create( params )
+        self.assertIsInstance( r, message.ErrorMessage )
+
+        r = message.NodeMessages.reply_create( params )
+        self.assertIsInstance( r, message.ErrorMessage )
+
+    def test_addscalaremessages(self):
+
+        # addScalar
+        params = {
+            "researcher_id" : 'toto' ,
+            "client_id"     : 'titi' ,
+            "job_id"        : 'job_id',
+            "key"           : 3.14,
+            "iteration"     : 666,
+            "command"       : 'add_scalar'
+        }
+        r = message.ResearcherMessages.reply_create( params )
+        self.assertIsInstance( r, message.AddScalarReply )
+
+        r = message.NodeMessages.reply_create( params )
+        self.assertIsInstance( r, message.AddScalarReply )
+
+    def test_unknowmessages(self):
+        # we only test one error (to get 100% coverage)
+        # all test have been made above
+
+        params = { 'command' : 'unknown'}
+
+        try:
+            r = message.ResearcherMessages.reply_create( params )
+            # should not reach this line
+            self.fail("unknown reply message type for researcher not detected")
+
+        except:
+            # should be reached
+            self.assertTrue( True, "unknown reply message type for researcher detected")
+
+        try:
+            r = message.ResearcherMessages.request_create( params )
+            # should not reach this line
+            self.fail("unknown request message type for researcher not detected")
+
+        except:
+            # should be reached
+            self.assertTrue( True, "unknown request message type for researcher detected")
         pass
 
+        try:
+            r = message.NodeMessages.reply_create( params )
+            # should not reach this line
+            self.fail("unknown reply message type for node not detected")
 
-    def test_nodemessages(self):
-        # well formatted message
+        except:
+            # should be reached
+            self.assertTrue( True, "unknown reply message type for node detected")
 
-        # bad param number
+        try:
+            r = message.NodeMessages.request_create( params )
+            # should not reach this line
+            self.fail("unknown request message type for node not detected")
 
-        # bad parma type
-
+        except:
+            # should be reached
+            self.assertTrue( True, "unknown request message type for node detected")
         pass
 
 
