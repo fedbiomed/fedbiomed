@@ -20,7 +20,7 @@ class TestFedbiosklearn(unittest.TestCase):
         pass
 
     def test_init(self):
-        kw = {'toto': 'le' , 'lelo':'la', 'max_iter':7000, 'tol': 0.3456, 'number_columns': 10 }
+        kw = {'toto': 'le' , 'lelo':'la', 'max_iter':7000, 'tol': 0.3456, 'number_columns': 10, 'model': 'Kmeans' }
         fbsk = SkLearnModel(kw)
         m = fbsk.get_model()
         p = m.get_params()
@@ -29,6 +29,7 @@ class TestFedbiosklearn(unittest.TestCase):
         self.assertTrue( np.allclose(m.coef_, np.zeros(10)) )
         self.assertIsNone(p.get('lelo'))
         self.assertIsNone(p.get('toto'))
+        self.assertIsNone(p.get('model'))
 
 
 
