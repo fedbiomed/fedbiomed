@@ -1,13 +1,18 @@
 import os
 
 import requests
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Text, Union
 import time
 import random
 
 class Repository:
-
-    def __init__(self, uploads_url, tmp_dir: str, cache_dir: str):
+    """HTTP file repository from which to upload and download files
+    """
+    def __init__(self,
+                 uploads_url: Union[Text, bytes],
+                 tmp_dir: str,
+                 cache_dir: str):
+        
         self.uploads_url = uploads_url
         self.tmp_dir = tmp_dir
         self.cache_dir = cache_dir
@@ -28,6 +33,15 @@ class Repository:
     def download_file(self, url: str, filename: str) -> Tuple[int, str]:
         """
         downloads a file from a HTTP file repository
+        
+        Args:
+            url (str): url from which to download file
+            filename (str): name of the temporary file
+            
+        Returns:
+            status (int): HTTP status code
+            filepath (str): the complete pathfile under
+            which the temporary file is saved
         """
         res = requests.get(url)
         filepath = os.path.join(self.tmp_dir, filename)

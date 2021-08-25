@@ -19,7 +19,7 @@ class Messaging:
     """ This class represents the MQTT messaging facility."""
 
     def __init__(self,
-                 on_message: Callable[[], None],
+                 on_message: Callable[[dict], None],
                  messaging_type: MessagingType,
                  messaging_id: int, 
                  mqtt_broker:str='localhost',

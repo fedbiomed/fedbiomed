@@ -25,15 +25,13 @@ class Round:
 
         Args:
             model_kwargs ([dict]): contains model args
-            training_kwargs ([dict]): contains model args
-            dataset ([dict]): dataset to use in this round
+            training_kwargs ([dict]): contains training args
+            dataset ([dict]): dataset details to use in this round. It contains 
+                            the dataset name, dataset's id, data path, its shape, its
+                            description...
             model_url ([str])
-            model_class ([str])
+            model_class ([str]): name of the training plan (eg 'MyTrainingPlan')
             params_url ([str])
-            
-            #repository_url ([str]): repository url where the hub function is stored
-            #hub_function ([str]): hub function
-            #init_params ([str]): url of init params file
             job_id ([str]): job id
             researcher_id ([str]): researcher id
             logger ([HistoryLogger])
@@ -82,7 +80,7 @@ class Round:
         if not is_failed:
             try:
                 sys.path.insert(0, TMP_DIR)
-                # import modules required by Researcher (I guess)
+                # import modules required by Researcher on node (I guess)
                 exec('import ' + import_module,  globals())
                 sys.path.pop(0)
                 # evaluate expression sent by researcher

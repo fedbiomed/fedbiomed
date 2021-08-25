@@ -78,7 +78,9 @@ class Experiment:
 
     def run(self, sync=True):
         """Runs an experiment, ie trains a model on nodes for a 
-        given number of rounds. 
+        given number of rounds.
+        It involves the following steps:
+        
 
         Args:
             sync (bool, optional): whether synchronous execution is required or not.
@@ -105,9 +107,12 @@ class Experiment:
             # Trigger training round on sampled clients
             self._job.start_clients_training_round(round=round_i)
 
+            # refining/normalizing model weigths recieved from nodes
             model_params, weights = self._client_selection_strategy.refine( self._job.training_replies[round_i], round_i)
- 
+            
+            # aggregate model from nodes to a global model
             aggregated_params = self._aggregator.aggregate(model_params, weights)
+            # write results of the aggregated model in a temp file
             aggregated_params_path = self._job.update_parameters(aggregated_params)
 
             self._aggregated_params[round_i] = { 'params': aggregated_params, 'params_path': aggregated_params_path }

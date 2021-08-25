@@ -6,7 +6,7 @@ import pandas as pd
 class Responses:
     def __init__(self, data: Union[list, dict]):
         """Constructor of `Responses` class. Reconfigures 
-        input data into whether a dictionary in a list (List[dict]), or
+        input data into either a dictionary in a list (List[dict]), or
         a list with unique values
 
         Args:

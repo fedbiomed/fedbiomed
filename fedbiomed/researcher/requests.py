@@ -10,7 +10,7 @@ from fedbiomed.researcher.responses import Responses
 
 
 class Requests:
-    """This class represents the requests addressed to the node
+    """This class represents the requests addressed from Researcher to the node
     """    
     def __init__(self, mess: Any=None):
         """reconfigures incoming message into a `Messaging` object.
@@ -34,7 +34,10 @@ class Requests:
 
     def on_message(self, msg: Dict[str, Any]):
         """
-        This handler is called by the Messaging class, then a message is received
+        This handler is called by the Messaging class (ie MQTT),
+        when a message is received on researcher side. 
+        Adds to queue a reply to this incoming message.
+        
         Args: 
             msg: serialized msg
         """
@@ -50,7 +53,7 @@ class Requests:
         self.messaging.send_message(msg, client=client)
 
 
-    def get_messages(self, command: str = None, time: Union[int, float]=0) -> Responses:
+    def get_messages(self, command: str = None, time: float=0) -> Responses:
         """ This method goes through the queue and gets messages with the specific command
 
         returns Reponses : `Responses` object containing the corresponding answers
@@ -77,14 +80,23 @@ class Requests:
 
     def get_responses(self,
                       look_for_command: str,
-                      timeout:Union[int, float]=None,
+                      timeout: float=None,
                       only_successful: bool=True) -> Responses:
         """
-        wait for answers for all clients, regarding a specific command
+        waits for answers for all clients, regarding a specific command
         returns the list of all clients answers
+        
+        Args:
+            look_for_command (str):
+            timeout (float, optional): wait for a specific duration
+                before collecting nodes messages. Defaults to None.
+            only_successful (bool, optional): deal only with messages
+                that have been tagged as successful (ie with field `success=True`).
+                Defaults to True.
         """
         timeout = timeout or TIMEOUT
         responses = []
+        # TODO: add timeout error (in case all messages havenot been recieved)
         while True:
             sleep(timeout)
             new_responses = []

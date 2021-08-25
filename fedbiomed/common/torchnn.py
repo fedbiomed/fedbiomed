@@ -4,6 +4,7 @@
 
 
 import inspect
+from typing import Union, List
 
 import torch
 import torch.nn as nn
@@ -20,7 +21,8 @@ class TorchTrainingPlan(nn.Module):
         self.batch_size = 100
         self.shuffle    = True
         # TODO : add random seed init
-        # self.random_seed = None
+        # self.random_seed_params = None
+        # self.random_seed_shuffling_data = None
         
         # training // may be changed in training_routine ??
         self.device = "cpu"
@@ -40,8 +42,28 @@ class TorchTrainingPlan(nn.Module):
 
     #################################################
     # provided by fedbiomed
-    def training_routine(self, epochs=2, log_interval = 10, lr=1e-3, batch_size=48, batch_maxnum=0, dry_run=False, logger=None):
+    # FIXME: logger unused
+    # FIXME: add betas parameters for ADAM solver + momentum for SGD
+    def training_routine(self,
+                         epochs: int=2,
+                         log_interval: int = 10,
+                         lr: Union[int, float]=1e-3,
+                         batch_size: int=48,
+                         batch_maxnum: int=0,
+                         dry_run: bool=False,
+                         logger=None):
+        """
+        Training routine procedure. 
 
+        Args:
+            epochs (int, optional): number of epochs (complete pass on data). Defaults to 2.
+            log_interval (int, optional): frequency. Defaults to 10.
+            lr (Union[int, float], optional): [description]. Defaults to 1e-3.
+            batch_size (int, optional): [description]. Defaults to 48.
+            batch_maxnum (int, optional): [description]. Defaults to 0.
+            dry_run (bool, optional): [description]. Defaults to False.
+            logger ([type], optional): [description]. Defaults to None.
+        """
         if self.optimizer == None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr = lr)
 
@@ -50,11 +72,13 @@ class TorchTrainingPlan(nn.Module):
         self.device = "cpu"
 
         for epoch in range(1, epochs + 1):
+            # (below) sampling data (with `training_data` method defined on researcher's notebook)
             training_data = self.training_data(batch_size=batch_size)
             for batch_idx, (data, target) in enumerate(training_data):
-                self.train()
+                self.train()  # model training
                 data, target = data.to(self.device), target.to(self.device)
                 self.optimizer.zero_grad()
+                # (below) calling method `training_step` defined on researcher's notebook
                 res = self.training_step(data, target)
                 res.backward()
                 self.optimizer.step()
@@ -79,7 +103,12 @@ class TorchTrainingPlan(nn.Module):
                         return
 
     # provided by fedbiomed // necessary to save the model code into a file
-    def add_dependency(self, dep):
+    def add_dependency(self, dep: List[str]):
+        """adds extra python import
+
+        Args:
+            dep (List[str]): package name import, eg: 'import torch as th'
+        """
         self.dependencies.extend(dep)
         pass
 
@@ -106,12 +135,12 @@ class TorchTrainingPlan(nn.Module):
 
         # TODO: try/except 
         file = open(filename, "w") 
-        # (above) should we write it in binary (for the sake of space optimization)
+        # (above) should we write it in binary (for the sake of space optimization)?
         file.write(content)
         file.close()
 
     # provided by fedbiomed
-    def save(self, filename, params: dict=None):
+    def save(self, filename, params: dict=None) -> None:
         """Save the torch training parameters from this training plan or from given `params` to a file
 
         Args:
@@ -119,7 +148,7 @@ class TorchTrainingPlan(nn.Module):
             params (dict, optional): parameters to save to a file, should be structured as a torch state_dict() 
 
         Returns:
-            torch.save() return code (documentation ?), probably None
+            pytorch.save() returns None
 
         Exceptions: 
             none
@@ -130,12 +159,13 @@ class TorchTrainingPlan(nn.Module):
             return torch.save(self.state_dict(), filename)
 
     # provided by fedbiomed
-    def load(self, filename, to_params: bool=False):
+    def load(self, filename: str, to_params: bool=False) -> dict:
         """Load the torch training parameters to this training plan or to a data structure from a file
 
         Args:
             filename (string): path to the source file
-            to_params (bool, optional): if False, load params to this object; if True load params to a data structure
+            to_params (bool, optional): if False, load params to this pytorch object;
+            if True load params to a data structure
 
         Returns:
             dict containing parameters

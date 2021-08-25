@@ -37,14 +37,19 @@ class Node:
         """
         self.tasks_queue.add(task)
 
-    def on_message(self, msg):
-        """Handler to be used with `Messaging` class (ie with MQTT)
+    def on_message(self, msg: dict):
+        """Handler to be used with `Messaging` class (ie with messager).
+        It is called when a messager messsage arrived
+        It reads and triggers instruction recieved by node from Researcher, mainly
+        - ping requests,
+        - train requests,
+        - search requests (for searching data in node's database).
 
         Args:
-            msg ([type]): [description]
+            msg (dict): incoming message from Researcher. Must contain
+            key named `command`
 
-        Raises:
-            NotImplementedError: [description]
+
         """
         # TODO: describe all exceptions defined in this method
         print('[CLIENT] Message received: ', msg)
@@ -125,8 +130,10 @@ class Node:
                 alldata = self.data_manager.search_by_id(dataset_id)
                 if len(alldata) != 1 or not 'path' in alldata[0].keys():
                     # TODO: create a data structure for messaging
+                    # (ie an object creating a dict with field accordingly)
                     # FIXME: 'the confdition above depends on database model
-                    # if database model changes; condition above will be false 
+                    # if database model changes (ie `path` field removed/modified);
+                    # condition above is likely to be false 
                     self.messaging.send_message(NodeMessages.reply_create({'success': False,
                                                                            'command': "error",
                                                                            'client_id': CLIENT_ID,

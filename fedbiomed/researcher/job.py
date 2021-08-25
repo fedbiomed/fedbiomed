@@ -18,7 +18,7 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 
 class Job:
     """
-    This class represents the entity that manage the training part at the clients level
+    This class represents the entity that manage the training part at the nodes level
     """    
     def __init__(self,
                 reqs: Requests=None,
@@ -32,7 +32,7 @@ class Job:
         """ Constructor of the class
 
         Args:
-            reqs (Requests, optional): . Defaults to None.
+            reqs (Requests, optional): researcher's requests assigned to nodes. Defaults to None.
             clients (dict, optional): a dict of client_id containing the clients used for training
             model (string, optional): name of the model class to use for training
             model_path (string, optional) : path to file containing model class code
@@ -43,12 +43,12 @@ class Job:
             data (FederatedDataset, optional): . Defaults to None.
         
         """        
-        self._id = str(uuid.uuid4())
+        self._id = str(uuid.uuid4())  # creating job id
         self._repository_args = {}
         self._training_args = training_args
         self._model_args = model_args
         self._clients = clients
-        self._training_replies = {}
+        self._training_replies = {}  # will contain all node replies for every round
 
         if reqs is None:
             self._reqs = Requests()
@@ -72,10 +72,11 @@ class Job:
                 print("Cannot import class ", model, " from path ", model_path, " - Error: ", e)
                 sys.exit(-1)
 
-        # create/save model instance
+        # create/save model instance (ie TrainigPlan)
         if inspect.isclass(model):
+            # case if `model` is a class
             if self._model_args is None or len(self._model_args)==0:
-                self.model_instance = model()
+                self.model_instance = model()  # contains TrainingPlan
             else:
                 self.model_instance = model(self._model_args)
         else:
@@ -109,12 +110,14 @@ class Job:
             # upload my_model_xxx.pt on HTTP server
             repo_response = self.repo.upload_file(params_file)
             self._repository_args['params_url'] = repo_response['file']
-
+            
+        # (below) regex: matches a character not present among "^", "\", "." characters 
+        # at the end of file.
         self._repository_args['model_class'] = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
 
         # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args, ['model_url', 'model_class', 'params_url'])
-        # FIXME: the constructor of a class mustnot call one of the method class in its definition
+        # FIXME: (above) the constructor of a class mustnot call one of the method class in its definition
         
     @staticmethod
     def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
@@ -160,12 +163,14 @@ class Job:
     """ This method should change in sprint8 or as soon as we implement other kind of strategies different than DefaultStrategy"""
     def waiting_for_clients(self, responses: Responses) -> bool:
         """ this method verifies if all clients involved in the job are present and Responding
-
+        Checks if 
+        
         Args:
             responses (Responses): contains message answers
 
         Returns:
-            bool: True if all clients are present in the Responses object
+            bool: False if all clients are present in the Responses object. True if 
+            waiting for at least one client.
         """        
         try:
             clients_done = set(responses.dataframe['client_id'])
@@ -178,7 +183,9 @@ class Job:
         """
         this method sends training task to clients and waits for the responses
         Args:
-            round (int): round of the training
+            round (int): current number of round the algorithm isperforming
+            (a round is considered to be all the 
+            training steps of a federated model between 2 aggregations).
             
         """    
 
@@ -198,13 +205,17 @@ class Job:
             msg['training_data'] = { cli: [ ds['dataset_id'] for ds in self._data.data()[cli] ] }
             print('[ RESEARCHER ] Send message to client ', cli, msg)
             time_start[cli] = time.perf_counter()
-            self._reqs.send_message( msg , cli)
+            self._reqs.send_message( msg , cli)  # send request to node
 
         # Recollect models trained
-        self._training_replies[round] = Responses([])
+        self._training_replies[round] = Responses([])  
         while self.waiting_for_clients(self._training_replies[round]):
-            models_done = self._reqs.get_responses('train')
-            for m in models_done.get_data():
+            # collect nodes responses from researcher request 'train'
+            # (wait for all clients with a ` while true` loop)
+            models_done = self._reqs.get_responses('train')  
+            for m in models_done.get_data():  # retrieve all models 
+                # (there should have as many models done as nodes)
+                
                 # only consider replies for our request
                 if m['researcher_id'] != RESEARCHER_ID or m['job_id'] != self._id or m['client_id'] not in list(self._clients):
                     continue
@@ -221,7 +232,7 @@ class Job:
                 r = Responses({ 'success': m['success'], 'msg': m['msg'], 'dataset_id': m['dataset_id'],
                     'client_id': m['client_id'], 'params_path': params_path, 'params': params,
                     'timing': timing })
-                self._training_replies[round].append(r)
+                self._training_replies[round].append(r)  # add new replies               
 
     def update_parameters(self, params: dict) -> str:
         """Updates global model parameters after aggregation, by specifying in a 
@@ -253,7 +264,9 @@ class Job:
 
 class localJob:
     """
-    This class represents the entity that manage the training part
+    This class represents the entity that manage the training part.
+    LocalJob is the version of Job but applied locally on a local dataset (thus not involving any network).
+    It is only used to compare results to a Federated approach, using networks.
     """    
     def __init__(self, dataset_path = None,
                  model_class: str='MyTrainingPlan',

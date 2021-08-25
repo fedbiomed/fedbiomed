@@ -201,7 +201,11 @@ class ResearcherMessages():
     a received/ sent message by the researcher
     """    
     @classmethod
-    def reply_create(cls, params: Dict[str, Any]):
+    def reply_create(cls, params: Dict[str, Any]) -> Union[TrainReply,
+                                                     SearchReply,
+                                                     PingReply,
+                                                     ErrorMessage,
+                                                     AddScalarReply]:
         """this method is used on message reception.
         It validates:
         - the legacy of the message
@@ -228,7 +232,9 @@ class ResearcherMessages():
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
     @classmethod
-    def request_create(cls, params:Dict[str, Any]):
+    def request_create(cls, params:Dict[str, Any]) -> Union[TrainRequest,
+                                                             SearchRequest,
+                                                             PingRequest]:
 
         """This method creates the adequate message:
         It validates:
@@ -263,7 +269,9 @@ class NodeMessages():
     a received/sent message by the Node
     """
     @classmethod
-    def request_create(cls, params: dict) -> Union[TrainRequest, SearchRequest, PingRequest]:
+    def request_create(cls, params: dict) -> Union[TrainRequest,
+                                                   SearchRequest,
+                                                   PingRequest]:
         """
         This method create the adequate message, it maps an instruction (given the key "command" in
         the input dictionary `params`) to a Message object
@@ -274,6 +282,8 @@ class NodeMessages():
         
         Raises:
             ValueError: triggered if the message is not allowed te be sent by the node
+            (ie if message `command` field is not either a train request, search request or
+            a ping request)
 
         Returns:
             An instance of the corresponding class (TrainRequest, SearchRequest, PingRequest)
@@ -287,7 +297,7 @@ class NodeMessages():
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
             raise ValueError('Bad message type {}'.format(message_type))
-        #import remote_pdb; remote_pdb.set_trace()
+        
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 

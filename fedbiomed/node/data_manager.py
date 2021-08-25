@@ -31,7 +31,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         Returns:
             [List[dict]]: list of dict of matching datasets, each dict containing
-            with all the field from Tiny database
+            with all the field from Tiny database model
         """ 
         self.db.clear_cache() 
         return self.db.search(self.database.dataset_id.all(dataset_id))
