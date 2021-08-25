@@ -1,14 +1,15 @@
 import inspect
 from joblib import dump, load
 import numpy as np
-from sklearn.linear_model import SGDRegressor
+from sklearn.linear_model import SGDRegressor, SGDClassifier
 import json
 
 class SGDSkLearnModel():
 
     '''Provide input model from sklearn'''
-    def set_model(self, model):
-        self.reg = model
+    def set_model(self, model: str):
+        self.model_type = model
+        self.reg = self.model_map[self.model_type]
 
     '''Initialize model parameters'''
     def set_init_params(self, init_params):
@@ -41,7 +42,10 @@ class SGDSkLearnModel():
         for r in range(epochs):
             # do not take into account more than batch_maxnum batches from the dataset
             if batch_maxnum == 0 :
-                self.reg.partial_fit(data,target)
+                if self.model_type == 'SGDRegressor':
+                    self.reg.partial_fit(data,target)
+                elif self.model_type == 'SGDClassifier':
+                    self.reg.partial_fit(data,target, classes = np.unique(target))
             else:
                 print('Not yet implemented batch_maxnum != 0')
         print('COEF ',getattr(self.reg,'coef_'))
@@ -54,14 +58,13 @@ class SGDSkLearnModel():
                                 "import numpy as np",
                                 "import pandas as pd",
                              ]
+        self.model_map = {'SGDRegressor': SGDRegressor(), 'SGDClassifier': SGDClassifier()}
         self.dataset_path = None
         self.param_list = []
         #params_sgd = self.reg.get_params()
         #from_kwargs_sgd_proper_pars = {key: kwargs[key] for key in kwargs if key in params_sgd}
         #params_sgd.update(from_kwargs_sgd_proper_pars)
         #self.reg.set_params(**params_sgd)
-        #self.reg.coef_ =  np.zeros(kwargs['number_columns'])
-        #self.reg.intercept_ = [0.]
 
     # provided by fedbiomed // necessary to save the model code into a file
     def add_dependency(self, dep):
