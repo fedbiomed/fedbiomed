@@ -6,7 +6,7 @@ import numpy as np
 def initialize(val):
     if isinstance(val, torch.Tensor):
         return ('tensor' , torch.zeros_like(val) )
-    elif isinstance(val, np.ndarray):
+    elif isinstance(val, np.ndarray) or isinstance(val, list):
         return ('array' , np.zeros(len(val)))
 
 def federated_averaging(model_params: List[Dict], weights: List) -> Dict:
@@ -19,9 +19,10 @@ def federated_averaging(model_params: List[Dict], weights: List) -> Dict:
 
     # Empty model parameter dictionary
     avg_params = copy.deepcopy(model_params[0])
+    print('before for ')
     for key, val in avg_params.items():
         (t, avg_params[key] ) = initialize(val)
-
+    print('after for ')
     if t == 'tensor':
         for model, weight in zip(model_params, proportions):
             for key in avg_params.keys():
