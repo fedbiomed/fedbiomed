@@ -29,7 +29,11 @@ class Job:
                 model_args: dict=None,
                 data: FederatedDataSet=None):
 
-        """ Constructor of the class
+        """ Constructor of the class.
+        
+        Starts a message queue, loads python model file created by researcher
+        (through `TrainingPlan`) and saves the loaded model in a temporary file
+        (under the filename '<TEMP_DIR>/my_model_<random_id>.py').
 
         Args:
             reqs (Requests, optional): researcher's requests assigned to nodes. Defaults to None.
@@ -43,7 +47,7 @@ class Job:
             data (FederatedDataset, optional): . Defaults to None.
         
         """        
-        self._id = str(uuid.uuid4())  # creating job id
+        self._id = str(uuid.uuid4())  # creating a unique job id
         self._repository_args = {}
         self._training_args = training_args
         self._model_args = model_args
@@ -61,6 +65,7 @@ class Job:
         # handle case when model is in a file
         if model_path is not None:
             try:
+                # import model from python file
                 model_module = os.path.basename(model_path)
                 model_module = re.search("(.*)\.py$", model_module).group(1)
                 sys.path.insert(0, os.path.dirname(model_path))
@@ -183,7 +188,7 @@ class Job:
         """
         this method sends training task to clients and waits for the responses
         Args:
-            round (int): current number of round the algorithm isperforming
+            round (int): current number of round the algorithm is performing
             (a round is considered to be all the 
             training steps of a federated model between 2 aggregations).
             

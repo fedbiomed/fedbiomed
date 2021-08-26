@@ -1,4 +1,4 @@
-from fedbiomed.researcher.aggregators import fedavg
+from fedbiomed.researcher.aggregators import fedavg, aggregator
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.requests import Requests
@@ -18,12 +18,13 @@ class Experiment:
                  model_path: str = None,
                  model_args: dict = {},
                  training_args: dict = None,
-                 rounds=int,
-                 aggregator=fedavg,
+                 rounds: int = 1,
+                 aggregator: aggregator.Aggregator = fedavg.FedAverage(),
                  client_selection_strategy: Strategy = None,
                  ):
 
-        """ Constructor of the class
+        """ Constructor of the class.
+        
 
         Args:
             tags (tuple): tuple of string with data tags
@@ -35,16 +36,19 @@ class Experiment:
                                             Defaults to None.
             training_args (dict, optional): contains training parameters: lr, epochs, batch_size...
                                             Defaults to None.
-            rounds (int): the number of communication rounds (clients <-> central server)
-            aggregator (class): class defining the method for aggragating local updates.
-                                Default to fedavg
-            client_selection_strategy (class): class defining how clients are sampled at each round for training,
+            rounds (int, optional): the number of communication rounds (clients <-> central server). 
+            Defaults to 1.
+            aggregator (aggregator.Aggregator): class defining the method for aggragating local updates.
+                                Default to fedavg.FedAvg().
+            client_selection_strategy (Strategy): class defining how clients are sampled at each round for training,
                                                 and how non-responding clients are managed.
-                                                Default to None
+                                                Defaults to None (ie DefaultStartegy)
         """
         self._tags = tags
         self._clients = clients
         self._reqs = Requests()
+        # (below) search for nodes either having tags that matches the tags researcher
+        # is looking for (`self_tags`) or based on client id (`self._clients`)
         self._fds = FederatedDataSet(self._reqs.search(self._tags, self._clients))
         self._client_selection_strategy = client_selection_strategy
         self._aggregator = aggregator

@@ -10,10 +10,13 @@ from fedbiomed.researcher.responses import Responses
 
 
 class Requests:
-    """This class represents the requests addressed from Researcher to the node
+    """This class represents the requests addressed from Researcher to nodes.
+    It creates a task queue storing reply to each incoming message.
     """    
     def __init__(self, mess: Any=None):
-        """reconfigures incoming message into a `Messaging` object.
+        """
+        Starts a message queue and reconfigures  message to be sent
+        into a `Messaging` object.
 
         Args:
             mess (Any, optional): message to be sent. Defaults to None.
@@ -36,7 +39,7 @@ class Requests:
         """
         This handler is called by the Messaging class (ie MQTT),
         when a message is received on researcher side. 
-        Adds to queue a reply to this incoming message.
+        Adds to queue this incoming message.
         
         Args: 
             msg: serialized msg
@@ -83,13 +86,16 @@ class Requests:
                       timeout: float=None,
                       only_successful: bool=True) -> Responses:
         """
-        waits for answers for all clients, regarding a specific command
+        waits for all clients' answers, regarding a specific command
         returns the list of all clients answers
         
         Args:
-            look_for_command (str):
+            look_for_command (str): instruction that has been sent to
+            node. Can be either ping, search or train.
             timeout (float, optional): wait for a specific duration
-                before collecting nodes messages. Defaults to None.
+                before collecting nodes messages. Defaults to None. 
+                If set to None; uses value in global variable TIMEOUT
+                instead.
             only_successful (bool, optional): deal only with messages
                 that have been tagged as successful (ie with field `success=True`).
                 Defaults to True.

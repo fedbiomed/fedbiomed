@@ -206,14 +206,17 @@ class ResearcherMessages():
                                                      PingReply,
                                                      ErrorMessage,
                                                      AddScalarReply]:
-        """this method is used on message reception.
+        """this method is used on message reception. It creates
+        the corresponding message by parsing the `command` field in
+        the messsage.
         It validates:
         - the legacy of the message
         - the structure of the received message
 
         Raises:
         ValueError: if the message is not allowed te be received by the researcher
-
+        KeyError: 
+        
         Returns:
         An instance of the corresponding class
         """
@@ -273,8 +276,9 @@ class NodeMessages():
                                                    SearchRequest,
                                                    PingRequest]:
         """
-        This method create the adequate message, it maps an instruction (given the key "command" in
-        the input dictionary `params`) to a Message object
+        This method creates the adequate message, it maps an instruction
+        (given the key "command" in the input dictionary `params`)
+        to a Message object
         
         It validates:
         - the legagy of the message

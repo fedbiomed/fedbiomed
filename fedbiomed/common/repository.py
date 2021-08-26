@@ -1,9 +1,7 @@
 import os
 
-import requests
+import requests  # Python built-in library
 from typing import Dict, Any, Tuple, Text, Union
-import time
-import random
 
 class Repository:
     """HTTP file repository from which to upload and download files
@@ -20,7 +18,8 @@ class Repository:
 
     def upload_file(self, filename: str) -> Dict[str, Any]:
         """
-        uploads a file to a HTTP file repository.
+        uploads a file to a HTTP file repository (through an
+        HTTP POST request).
         
         Returns:
             res (Dict[str, Any]): the result of the request under JSON
@@ -32,7 +31,8 @@ class Repository:
 
     def download_file(self, url: str, filename: str) -> Tuple[int, str]:
         """
-        downloads a file from a HTTP file repository
+        downloads a file from a HTTP file repository (
+            through an HTTP GET request)
         
         Args:
             url (str): url from which to download file

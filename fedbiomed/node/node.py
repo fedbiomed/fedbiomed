@@ -20,7 +20,10 @@ import validators
 
 
 class Node:
-
+    """ Defines the behaviour of the node, while communicating 
+    with researcher through MQTT, and executing / parsing task 
+    requested by researcher stored in a queue.
+    """
     def __init__(self, data_manager: Data_manager):
 
         self.tasks_queue = TasksQueue(MESSAGES_QUEUE_DIR, TMP_DIR)
@@ -30,7 +33,7 @@ class Node:
         self.rounds = []
 
     def add_task(self, task: dict):
-        """This method allows to add a task to the queue
+        """This method adds a task to the queue
 
         Args:
             task (dict): is a Message object describing a training task
@@ -42,7 +45,7 @@ class Node:
         It is called when a messager messsage arrived
         It reads and triggers instruction recieved by node from Researcher, mainly
         - ping requests,
-        - train requests,
+        - train requests (then a new task will be added on node 's task queue),
         - search requests (for searching data in node's database).
 
         Args:
@@ -54,16 +57,17 @@ class Node:
         # TODO: describe all exceptions defined in this method
         print('[CLIENT] Message received: ', msg)
         try:
+            # get the request from the received message (from researcher)
             command = msg['command']
             request = NodeMessages.request_create(msg).get_dict()
             if command == 'train':
-                # add task to queue
+                # add training task to queue
                 self.add_task(request)
             elif command == 'ping':
                 self.messaging.send_message(NodeMessages.reply_create({'success': True, 'client_id': CLIENT_ID,
                                                                        'researcher_id': msg['researcher_id'], 'command': 'ping'}).get_dict())
             elif command == 'search':
-                # Look for databases corresponNotImplementedErrording with tags
+                # Look for databases matching the tags
                 databases = self.data_manager.search_by_tags(msg['tags'])
                 if len(databases) != 0:
                     # remove path from search to avoid privacy issues
@@ -124,7 +128,10 @@ class Node:
         assert model_class is not None, 'classname for the model and training routine was not found in message.'
         assert isinstance(
             model_class, str), '`model_class` must be a string corresponding to the classname for the model and training routine in the repository'
-
+        
+        self.rounds = []  # store here rounds associated to each dataset_id
+        # (so it is possible to train model on several dataset per round)
+                
         if CLIENT_ID in msg.get_param('training_data'):
             for dataset_id in msg.get_param('training_data')[CLIENT_ID]:
                 alldata = self.data_manager.search_by_id(dataset_id)
@@ -140,7 +147,6 @@ class Node:
                                                                            'researcher_id': researcher_id,
                                                                            'msg': "Did not found proper data in local datasets"}).get_dict())
                 else:
-                    self.rounds = []
                     self.rounds.append(Round(model_kwargs, training_kwargs, alldata[0], model_url,
                                              model_class, params_url, job_id, researcher_id, logger))
 

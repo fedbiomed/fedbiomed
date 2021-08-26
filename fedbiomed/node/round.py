@@ -3,7 +3,7 @@ import uuid
 import time
 
 from fedbiomed.common.repository import Repository
-from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.message import NodeMessages, TrainReply
 from fedbiomed.node.history_logger import HistoryLogger
 from fedbiomed.node.environ import CACHE_DIR, CLIENT_ID, TMP_DIR, UPLOADS_URL
 
@@ -25,7 +25,9 @@ class Round:
 
         Args:
             model_kwargs ([dict]): contains model args
-            training_kwargs ([dict]): contains training args
+            training_kwargs ([dict]): contains model characteristics, especially 
+            input  dimension (key: 'in_features')
+            and output dimension (key: 'out_features')
             dataset ([dict]): dataset details to use in this round. It contains 
                             the dataset name, dataset's id, data path, its shape, its
                             description...
@@ -48,11 +50,13 @@ class Round:
 
         self.repository = Repository(UPLOADS_URL, TMP_DIR, CACHE_DIR)
 
-    def run_model_training(self):
-        """This method runs a model training and upload model params
+    def run_model_training(self) -> TrainReply:
+        """This method downloads model file; then runs the training of a model
+        and finally uploads model params
 
         Returns:
-            [NodeMessages]: returns the corresponding node message, trainReply instance
+            [NodeMessages]: returns the corresponding node message,
+            trainReply instance
         """        
         is_failed = False
         error_message = ''
@@ -79,11 +83,12 @@ class Round:
         # import module, declare the model, load parameters
         if not is_failed:
             try:
+                breakpoint()
                 sys.path.insert(0, TMP_DIR)
-                # import modules required by Researcher on node (I guess)
+                # (below) import TrainingPlan created by Researcher on node
                 exec('import ' + import_module,  globals())
                 sys.path.pop(0)
-                # evaluate expression sent by researcher
+                # (below) instanciate model as `train_class`
                 train_class = eval(import_module + '.' + self.model_class)
                 if self.model_kwargs is None or len(self.model_kwargs)==0:
                     # case where no args have been found (default)

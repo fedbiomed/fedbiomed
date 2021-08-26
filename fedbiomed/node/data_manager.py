@@ -14,7 +14,8 @@ from fedbiomed.node.environ import DB_PATH
 
 
 class Data_manager: # should this be in camelcase (smthg like DataManager)?
-    """Facility to store, retrieve data and get data info
+    """Interface over TinyDB database.
+    Facility to store, retrieve data and get data info
     from TinyDB database. 
     """
     def __init__(self):
@@ -88,11 +89,11 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         Args:
             name (str): [description]
-            path ([type]): [description]
+            path (str): [description]
             as_dataset (bool, optional): [description]. Defaults to False.
 
         Raises:
-            NotImplementedError: [description]
+            NotImplementedError: triggered if 
 
         Returns:
             [type]: [description]
@@ -145,9 +146,23 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
                      name: str,
                      data_type: str,
                      tags: Union[tuple, list],
-                    description: str,
-                    path: str,
-                    dataset_id: str=None):
+                     description: str,
+                     path: str,
+                     dataset_id: str=None):
+        """
+        Adds a new dataset to node
+
+        Args:
+            name (str): [description]
+            data_type (str): [description]
+            tags (Union[tuple, list]): [description]
+            description (str): [description]
+            path (str): [description]
+            dataset_id (str, optional): [description]. Defaults to None.
+
+        Raises:
+            NotImplementedError: [description]
+        """
         # Accept tilde as home folder
         path = os.path.expanduser(path)
 

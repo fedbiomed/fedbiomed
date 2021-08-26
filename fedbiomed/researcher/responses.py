@@ -4,6 +4,8 @@ import pandas as pd
 
 
 class Responses:
+    """Class parsing Nodes' responses.
+    """
     def __init__(self, data: Union[list, dict]):
         """Constructor of `Responses` class. Reconfigures 
         input data into either a dictionary in a list (List[dict]), or
@@ -16,6 +18,7 @@ class Responses:
             self._data = [data]
         elif isinstance(data, list):
             self._data = []
+            # create a list conatining unique fields
             for d in data:
                 if d not in self._data:
                     self._data.append(d)
@@ -51,7 +54,13 @@ class Responses:
         else:
             self._data = self._data + other.data  # what if other has no data member ?
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Makes Responses object representable
+        (one can use built-in `repr()` function)
+
+        Returns:
+            str: the representation of the data
+        """
         return repr(self._data)
 
     def __str__(self):

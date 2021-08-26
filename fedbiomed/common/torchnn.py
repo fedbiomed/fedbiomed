@@ -53,14 +53,22 @@ class TorchTrainingPlan(nn.Module):
                          dry_run: bool=False,
                          logger=None):
         """
-        Training routine procedure. 
+        Training routine procedure.
+        
+        Researcher should defined :
+        - a `training_data()` function defining how sampling in node's dataset is done.
+        It should return a generator able to ouput tuple 
+        (batch_idx, (data, targets)) that is iterable for each batch. 
+        - a `training_step()` function defining how cost is computed. It should
+        output model error for model backpropagation.
 
         Args:
             epochs (int, optional): number of epochs (complete pass on data). Defaults to 2.
-            log_interval (int, optional): frequency. Defaults to 10.
-            lr (Union[int, float], optional): [description]. Defaults to 1e-3.
-            batch_size (int, optional): [description]. Defaults to 48.
-            batch_maxnum (int, optional): [description]. Defaults to 0.
+            log_interval (int, optional): frequency of logging. Defaults to 10.
+            lr (Union[int, float], optional): learning rate. Defaults to 1e-3.
+            batch_size (int, optional): size of batch. Defaults to 48.
+            batch_maxnum (int, optional): equals number of data devided by batch_size,
+            and taking the closest lower integer. Defaults to 0.
             dry_run (bool, optional): [description]. Defaults to False.
             logger ([type], optional): [description]. Defaults to None.
         """
@@ -190,6 +198,14 @@ class TorchTrainingPlan(nn.Module):
 
     # provided by the fedbiomed // should be moved in a DATA manipulation module
     def training_data(self, batch_size = 48):
+        """
+        A method that describes how to parse/select/shuffle data 
+        when training model. Should be defined by researcher in its 
+        trainig plan.
+        
+        Args:
+            batch_size (int, optional): size of the batch. Defaults to 48.
+        """
 
         pass
 
