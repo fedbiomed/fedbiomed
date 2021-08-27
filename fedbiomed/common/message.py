@@ -5,7 +5,7 @@ from typing import Dict, Any, Union
 class Message(object):
     """
     This class defines the structure of a 
-    message sent/recieved via MQTT
+    message sent/recieved via Messager
 
     """
     def __init__(self):
@@ -18,8 +18,10 @@ class Message(object):
 
         Args:
             param (str): the name of the param to be modified
-            param_value: new value of the param
-        """        
+            param_value (Any): new value of the param
+        """
+        # FIXME: should we introduce a functionality 
+        # to avoid creating non existing attributes in the class? 
         setattr(self, param, param_value)
 
     def get_param(self, param: str):
@@ -31,8 +33,8 @@ class Message(object):
         return(getattr(self, param))
 
     def get_dict(self) -> Dict[str, Any]:
-        """Returns pairs (Message class attributes, values)
-        as a dictionary
+        """Returns pairs (Message class attributes name, attrbutes values)
+        into a dictionary
         
         """
         return(self.__dict__)

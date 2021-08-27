@@ -15,8 +15,9 @@ class FedAverage(Aggregator):
         a global model, following Federated Averaging strategy.
 
         Args:
-            model_params (list): [description]
-            weights (list): [description]
+            model_params (list): contains each model layers
+            weights (list): contains all weigths of a given
+            layer.
 
         Returns:
             Dict: [description]

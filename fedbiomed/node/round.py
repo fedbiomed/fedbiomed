@@ -83,7 +83,6 @@ class Round:
         # import module, declare the model, load parameters
         if not is_failed:
             try:
-                breakpoint()
                 sys.path.insert(0, TMP_DIR)
                 # (below) import TrainingPlan created by Researcher on node
                 exec('import ' + import_module,  globals())

@@ -2,7 +2,10 @@ import json
 
 from typing import Union
 
-
+"""
+This module defines message serializer and deserializer
+for sending / recieving messages through Messager.
+"""
 def deserialize_msg(msg: Union[str, bytes]) -> dict:
     """
     Deserializes a JSON string or bytes message as a dictionary.

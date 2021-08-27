@@ -21,7 +21,7 @@ import validators
 
 class Node:
     """ Defines the behaviour of the node, while communicating 
-    with researcher through MQTT, and executing / parsing task 
+    with researcher through Messager, and executing / parsing task 
     requested by researcher stored in a queue.
     """
     def __init__(self, data_manager: Data_manager):
@@ -40,17 +40,18 @@ class Node:
         """
         self.tasks_queue.add(task)
 
-    def on_message(self, msg: dict):
+    def on_message(self, msg: Dict[str, Any]):
         """Handler to be used with `Messaging` class (ie with messager).
-        It is called when a messager messsage arrived
+        It is called when a  messsage arrive through the messager
         It reads and triggers instruction recieved by node from Researcher, mainly
         - ping requests,
         - train requests (then a new task will be added on node 's task queue),
         - search requests (for searching data in node's database).
 
         Args:
-            msg (dict): incoming message from Researcher. Must contain
-            key named `command`
+            msg (Dict[str, Any]): incoming message from Researcher. Must contain
+            key named `command`, describing the nature of the command
+            (ping requests, train requests, or search requests).
 
 
         """
@@ -162,8 +163,9 @@ class Node:
                 self.parser_task(item)
                 # once task is out of queue, initiate training rounds
                 for round in self.rounds:
-                    # `len(self.rounds)=1` always, right? 
-                    # so there is only one iteration?
+                    # iterate over each dataset found  
+                    # in the current round (here round refers
+                    # to a round to be done on a specific dataset).
                     msg = round.run_model_training()
                     self.messaging.send_message(msg)
 

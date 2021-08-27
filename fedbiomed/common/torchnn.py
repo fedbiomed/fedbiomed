@@ -11,6 +11,22 @@ import torch.nn as nn
 
 class TorchTrainingPlan(nn.Module):
     def __init__(self):
+        """
+        An abstraction over pytorch module to run 
+        pytroch model on node side. 
+        
+        Researcher model will be 1) saved  on a '*.pt' 
+        file, 2) uploaded on a HTTP server (network layer),
+         3) then Downloaded from the HTTP server on node side, 
+         and 4) finally read and executed on node side.
+        
+         
+        Researcher has to define/override:
+        - a `training_data()` function
+        - a `training_step()` function
+        
+        Researcher may have to add extra dependancies.
+        """
         super(TorchTrainingPlan, self).__init__()
 
         # cannot use it here !!!! FIXED in training_routine
@@ -112,7 +128,7 @@ class TorchTrainingPlan(nn.Module):
 
     # provided by fedbiomed // necessary to save the model code into a file
     def add_dependency(self, dep: List[str]):
-        """adds extra python import
+        """adds extra python import(s)
 
         Args:
             dep (List[str]): package name import, eg: 'import torch as th'

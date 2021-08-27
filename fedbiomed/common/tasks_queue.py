@@ -11,7 +11,14 @@ class TasksQueue:
     disk even if program crashes. Relies on `persistqueue` package.
     
     """
-    def __init__(self, messages_queue_dir, tmp_dir):
+    def __init__(self, messages_queue_dir: str, tmp_dir: str):
+        """Instanciates a disk-persistant Queue.
+
+        Args:
+            messages_queue_dir (str): directory where enqueued data should be
+            persisted.
+            tmp_dir (str): indicates where temporary files should be stored.
+        """
         self.queue = persistqueue.Queue(messages_queue_dir, tempdir=tmp_dir)
 
     def add(self, task: dict):

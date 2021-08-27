@@ -16,7 +16,7 @@ from fedbiomed.node.environ import DB_PATH
 class Data_manager: # should this be in camelcase (smthg like DataManager)?
     """Interface over TinyDB database.
     Facility to store, retrieve data and get data info
-    from TinyDB database. 
+    on the data stored into TinyDB database. 
     """
     def __init__(self):
         """ The constrcutor of the class
@@ -32,7 +32,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         Returns:
             [List[dict]]: list of dict of matching datasets, each dict containing
-            with all the field from Tiny database model
+            all the fields describing the matching datasets stored in Tiny database.
         """ 
         self.db.clear_cache() 
         return self.db.search(self.database.dataset_id.all(dataset_id))
@@ -71,7 +71,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         return pd.read_csv(csv_file, index_col=index_col, sep=delimiter)
 
 
-    def get_torch_dataset_shape(self, dataset) -> list:
+    def get_torch_dataset_shape(self, dataset) -> List[int]:
         """[summary]
 
         Args:
@@ -83,20 +83,30 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         return [len(dataset)] + list(dataset[0][0].shape)
 
 
-    def load_default_database(self, name: str, path: str,
-                              as_dataset: bool=False):
-        """[summary]
+    def load_default_database(self,
+                              name: str,
+                              path: str,
+                              as_dataset: bool=False) -> Union[List[int],
+                                                               torch.utils.data.Dataset]:
+        """Loads a default dataset. Currently, only MNIST dataset
+        is used as the default dataset.
 
         Args:
-            name (str): [description]
-            path (str): [description]
-            as_dataset (bool, optional): [description]. Defaults to False.
+            name (str): name of the default dataset. Currently, 
+            only MNIST is accepted.
+            path (str): pathfile to MNIST dataset.
+            as_dataset (bool, optional): whether to return 
+            the complete dataset (True) or dataset dimensions (False).
+            Defaults to False.
 
         Raises:
-            NotImplementedError: triggered if 
+            NotImplementedError: triggered if name is not matching with
+            the name of a default dataset.
 
         Returns:
-            [type]: [description]
+            [type]: depending on the value of the parameter `as_dataset`. If set to True, 
+            returns dataset (type: torch.utils.data.Dataset), if set to False, returns 
+            the size of the dataset stored inside a list (type: List[int])
         """        
         kwargs = dict(root=path, download=True, transform=transforms.ToTensor())
 
