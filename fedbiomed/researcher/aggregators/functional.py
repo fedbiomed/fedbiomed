@@ -19,10 +19,9 @@ def federated_averaging(model_params: List[Dict], weights: List) -> Dict:
 
     # Empty model parameter dictionary
     avg_params = copy.deepcopy(model_params[0])
-    print('before for ')
+    #print('before for ',model_params)
     for key, val in avg_params.items():
         (t, avg_params[key] ) = initialize(val)
-    print('after for ')
     if t == 'tensor':
         for model, weight in zip(model_params, proportions):
             for key in avg_params.keys():
@@ -33,4 +32,5 @@ def federated_averaging(model_params: List[Dict], weights: List) -> Dict:
             matr = np.array([ d[key] for d in model_params ])
             avg_params[key] = np.average(matr,weights=np.array(weights),axis=0)
 
+    #print('after for',avg_params)
     return avg_params

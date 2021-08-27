@@ -1,14 +1,23 @@
 import inspect
 from joblib import dump, load
 import numpy as np
-from sklearn.linear_model import SGDRegressor, SGDClassifier
+from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
+from sklearn.naive_bayes import BernoulliNB, GaussianNB
 import json
 
 class SGDSkLearnModel():
     '''Initialize model parameters'''
-    def set_init_params(self, init_params):
-        for p in init_params.keys():
-            self.param_list.append(p)
+    def set_init_params(self, kwargs):
+        if self.model_type in ['SGDRegressor']:
+            self.param_list = ['intercept_','coef_']
+            init_params = {'intercept_': np.array([0.]), 
+                           'coef_':  np.array([0.]*kwargs['n_features'])}
+        elif self.model_type in ['Perceptron', 'SGDClassifier']:
+            self.param_list = ['intercept_','coef_']
+            init_params = {'intercept_': np.array([0.]) if (kwargs['n_classes'] == 2) else np.array([0.]*kwargs['n_classes']),
+                           'coef_':  np.array([0.]*kwargs['n_features']).reshape(1,kwargs['n_features']) if (kwargs['n_classes'] == 2) else np.array([0.]*kwargs['n_classes']*kwargs['n_features']).reshape(kwargs['n_classes'],kwargs['n_features'])  }
+
+        for p in self.param_list:
             setattr(self.m, p, init_params[p])
 
     ''' Provide partial fit method of scikit learning model here. '''
@@ -32,6 +41,7 @@ class SGDSkLearnModel():
     def training_routine(self, epochs=1, log_interval=10, lr=1e-3, batch_size=50, batch_maxnum=0, dry_run=False,
                          logger=None):
         print('SGD Regressor training batch size ', batch_size)
+        #print('Init parameters', self.m.coef_, self.m.intercept_)
         (data, target) = self.training_data(batch_size=batch_size)
         for r in range(epochs):
             # do not take into account more than batch_maxnum batches from the dataset
@@ -44,6 +54,8 @@ class SGDSkLearnModel():
                     self.m.partial_fit(data)
             else:
                 print('Not yet implemented batch_maxnum != 0')
+
+        #print('MODEL PARAMS:',self.m.coef_, self.m.intercept_)
 
     def __init__(self,kwargs):
         self.batch_size = 100
@@ -66,7 +78,7 @@ class SGDSkLearnModel():
             from_kwargs_sgd_proper_pars = {key: kwargs[key] for key in kwargs if key in self.params_sgd}
             self.params_sgd.update(from_kwargs_sgd_proper_pars)
             self.param_list = []
-            self.set_init_params(self.params_sgd)
+            self.set_init_params(kwargs)
             self.dataset_path = None
 
 
@@ -140,7 +152,7 @@ class SGDSkLearnModel():
             di_ret =  self.m
         else:
             self.m =  load(file)
-            di_ret['model_params'] = self.after_training_params()
+            di_ret['model_params'] = {key: getattr(self.m, key) for key in self.param_list}
         file.close()
         return di_ret
 
