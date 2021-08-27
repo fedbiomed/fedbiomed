@@ -3,10 +3,11 @@ from unittest.mock import Mock
 import os
 import sys
 
-# use mock to impersonnate the environ.py import
+# use mock to impersonnate the environ.py import from a researcher
 # must be done before the corresponding import, in this
 # file or from another imported file
 fake_researcher_env = Mock()
+
 fake_researcher_env.ROOT_DIR           = "/tmp"
 fake_researcher_env.CONFIG_DIR         = "/tmp/etc"
 fake_researcher_env.VAR_DIR            = "/tmp/var"
