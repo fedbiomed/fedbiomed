@@ -2,7 +2,8 @@
 
 '''
 This script spies the fedbiomed mqtt channels and report
-messages on the console in a readable form.
+messages on the console in a readable form more friendly
+than a bare `mosquitto_sub -t '#' -v`
 
 This allows to figure what going on an experiment.
 
