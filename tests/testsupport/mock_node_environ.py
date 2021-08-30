@@ -1,11 +1,12 @@
+# use mock to impersonnate the environ.py import from a node
+# must be imported before the corresponding import, in this
+# file or from another imported file
+
 from unittest.mock import Mock
 
 import os
 import sys
 
-# use mock to impersonnate the environ.py import from a node
-# must be done before the corresponding import, in this
-# file or from another imported file
 fake_node_env = Mock()
 
 fake_node_env.ROOT_DIR           = "/tmp"
@@ -20,6 +21,7 @@ fake_node_env.MQTT_BROKER        = "localhost"
 fake_node_env.MQTT_BROKER_PORT   = 9999
 fake_node_env.UPLOADS_URL        = "http://localhost:8888/upload/"
 
+# TODO: create random directory paths like for test_taskqueue.py
 os.makedirs(fake_node_env.ROOT_DIR          , exist_ok=True)
 os.makedirs(fake_node_env.CONFIG_DIR        , exist_ok=True)
 os.makedirs(fake_node_env.VAR_DIR           , exist_ok=True)
@@ -27,4 +29,5 @@ os.makedirs(fake_node_env.CACHE_DIR         , exist_ok=True)
 os.makedirs(fake_node_env.TMP_DIR           , exist_ok=True)
 os.makedirs(fake_node_env.MESSAGES_QUEUE_DIR, exist_ok=True)
 
+# TODO: create a .json for DB_PATH
 sys.modules['fedbiomed.node.environ'] = fake_node_env

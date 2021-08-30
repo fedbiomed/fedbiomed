@@ -1,11 +1,12 @@
+# use mock to impersonnate the environ.py import from a researcher
+# must be imported before the corresponding import, in this
+# file or from another imported file
+
 from unittest.mock import Mock
 
 import os
 import sys
 
-# use mock to impersonnate the environ.py import from a researcher
-# must be done before the corresponding import, in this
-# file or from another imported file
 fake_researcher_env = Mock()
 
 fake_researcher_env.ROOT_DIR           = "/tmp"
@@ -20,6 +21,7 @@ fake_researcher_env.MQTT_BROKER_PORT   = 9999
 fake_researcher_env.UPLOADS_URL        = "http://localhost:8888/upload/"
 fake_researcher_env.TIMEOUT            = 10
 
+# TODO: create random directory paths like for test_taskqueue.py
 os.makedirs(fake_researcher_env.ROOT_DIR          , exist_ok=True)
 os.makedirs(fake_researcher_env.CONFIG_DIR        , exist_ok=True)
 os.makedirs(fake_researcher_env.VAR_DIR           , exist_ok=True)
