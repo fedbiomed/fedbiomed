@@ -19,6 +19,9 @@ class SGDSkLearnModel():
 
         for p in self.param_list:
             setattr(self.m, p, init_params[p])
+        
+        for p in self.params_sgd:
+            setattr(self.m, p, self.params_sgd[p])
 
     ''' Provide partial fit method of scikit learning model here. '''
     def partial_fit(self,X,y):
