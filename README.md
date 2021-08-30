@@ -85,6 +85,7 @@ $ ./scripts/fedbiomed_run node config another_config.ini start
 
 ```
 $ ./scripts/fedbiomed_run node ip_address 192.168.0.100 start
+$ ./scripts/fedbiomed_run researcher ip_address 192.168
 ```
 
 (adjust the 192.168.0.100 IP address to your configuration)
