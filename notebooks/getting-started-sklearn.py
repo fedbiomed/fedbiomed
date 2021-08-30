@@ -51,21 +51,14 @@ Before running this notebook:
 
     Wait until you get Connected with result code 0. it means you are online.'''
 import numpy as np
-from fedbiomed.common.fedbiosklearn import SkLearnModel
+from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from sklearn.linear_model import SGDRegressor
 
 
-class SGDRegressorTrainingPlan(SkLearnModel):
+class SGDRegressorTrainingPlan(SGDSkLearnModel):
     def __init__(self, kwargs):
         super(SGDRegressorTrainingPlan, self).__init__(kwargs)
-
-    def after_training_params(self):
-        return {'coef_': self.reg.coef_, 'intercept_': self.reg.intercept_}
-
-    def training_step(self, X, y):
-        # print('Initial coef ',self.reg.coef_ , ' initial intercept ', self.reg.intercept_ )
-        self.reg.partial_fit(X, y.ravel())
-        # print('After training coef ', self.reg.coef_ , 'and intercept ',self.reg.intercept_ )
+        self.add_dependency(["from sklearn.linear_model import SGDRegressor"])
 
     def training_data(self, batch_size=None):
         NUMBER_COLS = 5
@@ -76,11 +69,9 @@ class SGDRegressorTrainingPlan(SkLearnModel):
         else:
             X = dataset.iloc[0:batch_size, 0:NUMBER_COLS].values
             y = dataset.iloc[0:batch_size, NUMBER_COLS]
-        # print('X type ', type(X), ' shape ', X.shape)
-        # print('Y type ', type(y.values), ' shape ', len(y.values))
         return (X, y.values)
 
-model_args = { 'max_iter':1000, 'tol': 1e-3  }
+model_args = { 'max_iter':1000, 'tol': 1e-3 , 'number_columns': 5 , 'model': 'SGDRegressor' , 'n_features': 5}
 
 training_args = {
     'batch_size': None,
@@ -125,7 +116,6 @@ def test_data():
     y_test = X_test.dot(A) + rng.randn(testing_samples).reshape([testing_samples,1])
     return X_test, y_test
 
-from sklearn.linear_model import SGDRegressor
 
 X_test, y_test = test_data()
 
