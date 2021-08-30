@@ -81,6 +81,13 @@ $ ./scripts/fedbiomed_run node add
 $ ./scripts/fedbiomed_run node config another_config.ini start
 ```
 
+* then you want to change the IP adress of the fedbiomed network component, you can also provide it at launch time:
+
+```
+$ ./scripts/fedbiomed_run node network_ip 192.168.0.100 start
+```
+
+(adjust the 192.168.0.100 IP adress to your configuration)
 
 #### run a researcher notebook
 
@@ -110,21 +117,22 @@ $ source ./scripts/fedbiomed_environment researcher
 $ python ./notebooks/getting-started.py
 ```
 
-### change IP address for network
+### change IP address for network in the current bash
 
 By default, communications between components use localhost as IP address for the network.
-To use another address activate the environment with the NETWORK_IP to use by the nodes and the researcher :
+To use another address activate the environment with the NETWORK_IP to use by the nodes and the researcher (e.g. 192.168.0.100):
 
 ```bash
 source ./scripts/fedbiomed_environment network
-source ./scripts/fedbiomed_environment node NETWORK_IP
-source ./scripts/fedbiomed_environment researcher NETWORK_IP
+source ./scripts/fedbiomed_environment node 192.168.0.100
+source ./scripts/fedbiomed_environment researcher 192.168.0.100
 ```
 
 Then launch the components with usual commands.
 
 This currently doesn't support scenario where node and researcher do not use the same IP address to contact the network (eg: NAT for one component).
 
+Warning: this option does not modify the configuration file (.ini file).
 
 ### clean state (restore environments back to new)
 
@@ -144,4 +152,3 @@ list the content of a message queue (as used in fedbiomed.node and fedbiomed.res
 usage:  lqueue directory
    or
         lqueue dir1 dir2 dir3 ...
-
