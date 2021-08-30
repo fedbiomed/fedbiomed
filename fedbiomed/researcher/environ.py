@@ -75,7 +75,7 @@ if not defined_researcher_env:
 
     if os.getenv('CONFIG_FILE') :
         CONFIG_FILE = os.getenv('CONFIG_FILE')
-        if not CONFIG_FILE.startswith("/") :
+        if not os.path.isabs(CONFIG_FILE):
             CONFIG_FILE = os.path.join(CONFIG_DIR,os.getenv('CONFIG_FILE'))
     else:
         CONFIG_FILE = os.path.join(CONFIG_DIR, 'config_researcher.ini')
