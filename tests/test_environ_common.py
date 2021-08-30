@@ -33,6 +33,9 @@ class TestEnvironCommon(unittest.TestCase):
             [ '/uncomplete/path', '/uncomplete/path/' ]
         ]
 
+        # test broker ip and names
+        self.ip_map = [ 'foo', '1.2.3.4', 'my.full.name', '1.2.3.4.5.6' ]
+
 
     # after the tests
     def tearDown(self):
@@ -123,6 +126,43 @@ class TestEnvironCommon(unittest.TestCase):
             self.assertEqual(eval(env + '.UPLOADS_URL'), 'http://' + uploads_ip + ':8844/upload/')
 
             os.remove(config_path)
+
+    def test_broker(self):
+
+        config_path = os.path.join(self.config_dir, 'config_broker')
+        os.environ['CONFIG_FILE'] = config_path
+
+        for env in self.envs:        
+            # test with unset broker ip
+            if 'MQTT_BROKER' in os.environ:
+                del os.environ['MQTT_BROKER']
+
+            if os.path.isfile(config_path):
+                 os.remove(config_path)
+            self.reload_environ(env)
+            self.assertEqual(eval(env + '.MQTT_BROKER'), 'localhost')
+
+            self.reload_environ(env)
+            self.assertEqual(eval(env + '.MQTT_BROKER'), 'localhost')
+
+
+            # test upload urls given directly
+            for ip in self.ip_map:
+                os.environ['MQTT_BROKER'] = ip
+
+                if os.path.isfile(config_path):
+                    os.remove(config_path)
+                self.reload_environ(env)
+                self.assertEqual(ip, eval(env + '.MQTT_BROKER'))
+
+                # reload the same config from existing file (not from variable)
+                del os.environ['MQTT_BROKER'] 
+
+                self.reload_environ(env)
+                self.assertEqual(ip, eval(env + '.MQTT_BROKER'))            
+
+            os.remove(config_path)
+
 
 
 if __name__ == '__main__':  # pragma: no cover
