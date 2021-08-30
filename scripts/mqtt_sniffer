@@ -11,12 +11,16 @@ the mqtt server (localhost on dev env, vpn network on
 prod env.
 '''
 
+from colorama import Fore, Style, init, deinit
 from datetime import datetime
+
+import getopt
 import json
+import paho.mqtt.client as mqtt
+import sys
 import time
 import yaml
-import paho.mqtt.client as mqtt
-from colorama import Fore, Style, init, deinit
+
 
 class MqttSpy:
 
@@ -26,7 +30,11 @@ class MqttSpy:
         self.client = mqtt.Client(client_id="MqttSpy")
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
-        self.client.connect(mqtt_broker, mqtt_broker_port, keepalive=60)
+        try:
+            self.client.connect(mqtt_broker, mqtt_broker_port, keepalive=60)
+        except:
+            print("Cannot connect to:", mqtt_broker + "/" + str(mqtt_broker_port))
+            sys.exit(-1)
 
         self.is_connected = False
         self.broker = mqtt_broker
@@ -83,11 +91,35 @@ class MqttSpy:
 
 
 if __name__ == "__main__":
+
+    server = "localhost"
+    port   = 1883
+    usage  = """mqqt_sniffer [-h] [-s server ] [-p port]
+
+monitor the fedbiomed mqqt server and display all messages.
+Subscribes itself on the fly to all clients channels.
+"""
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:],"hs:p:",["server=","port="])
+    except getopt.GetoptError:
+        print(usage)
+        sys.exit(-1)
+
+    for opt, arg in opts:
+        if opt in ("-h", "--help"):
+            print(usage)
+            sys.exit()
+        elif opt in ("-s", "--server"):
+            server = arg
+        elif opt in ("-p", "--port"):
+            port = int(arg)
+
     # colorama
     init()
 
-    spy = MqttSpy(mqtt_broker      = 'localhost',
-                  mqtt_broker_port = 1883)
+    spy = MqttSpy(mqtt_broker      = server,
+                  mqtt_broker_port = port)
 
     spy.client.loop_forever()
 
