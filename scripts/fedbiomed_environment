@@ -47,8 +47,8 @@ environment_info() {
 development_env() {
     export MQTT_BROKER=${1:-localhost}
     export MQTT_BROKER_PORT=1883
-    export NETWORK_IP=${1:-localhost}
-    export UPLOADS_URL="http://${NETWORK_IP}:8844/upload/"
+    export IP_ADDRESS=${1:-localhost}
+    export UPLOADS_URL="http://${IP_ADDRESS}:8844/upload/"
 }
 
 environment_reset() {
@@ -58,7 +58,7 @@ environment_reset() {
     unset PYTHONPATH
     unset MQTT_BROKER
     unset MQTT_BROKER_PORT
-    unset NETWORK_IP
+    unset IP_ADDRESS
     unset UPLOADS_URL
     [[ ! -z "$verbose" ]] && environment_info
 }
@@ -162,11 +162,11 @@ case $1 in
 
     *)
         cat <<EOF
-Usage: fedbiomed_environment network|node (NETWORK_IP)|researcher (NETWORK_IP)|reset|clean
+Usage: fedbiomed_environment network|node (IP_ADDRESS)|researcher (IP_ADDRESS)|reset|clean
 
 Please specify:
-- network, node (NETWORK_IP), researcher (NETWORK_IP) : to activate an environment
-        with optional NETWORK_IP for joining network components (default: localhost)
+- network, node (IP_ADDRESS), researcher (IP_ADDRESS) : to activate an environment
+        with optional IP_ADDRESS for joining network components (default: localhost)
 - reset                     : to leave the current environment
 - clean                     : to clean all caches, tempo files,...
 EOF

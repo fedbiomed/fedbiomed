@@ -81,13 +81,15 @@ $ ./scripts/fedbiomed_run node add
 $ ./scripts/fedbiomed_run node config another_config.ini start
 ```
 
-* then you want to change the IP adress of the fedbiomed network component, you can also provide it at launch time:
+* if you want to change the default IP address used to join the fedbiomed network component (localhost), you can provide it at launch time:
 
 ```
-$ ./scripts/fedbiomed_run node network_ip 192.168.0.100 start
+$ ./scripts/fedbiomed_run node ip_address 192.168.0.100 start
 ```
 
-(adjust the 192.168.0.100 IP adress to your configuration)
+(adjust the 192.168.0.100 IP address to your configuration)
+
+If this option is given at the first launch or after a clean, it is saved in the configuration file and becomes the default for subsequent launches. If this option is given at a subsequent launch, it only affects this launch.
 
 #### run a researcher notebook
 
@@ -119,8 +121,8 @@ $ python ./notebooks/getting-started.py
 
 ### change IP address for network in the current bash
 
-By default, communications between components use localhost as IP address for the network.
-To use another address activate the environment with the NETWORK_IP to use by the nodes and the researcher (e.g. 192.168.0.100):
+By default, fedbiomed-{node,researcher} contact fedbiomed-network on `localhost`.
+To configure your current shell to use another IP address for joining fedbiomed-network (e.g. 192.168.0.100):
 
 ```bash
 source ./scripts/fedbiomed_environment network
@@ -128,11 +130,13 @@ source ./scripts/fedbiomed_environment node 192.168.0.100
 source ./scripts/fedbiomed_environment researcher 192.168.0.100
 ```
 
-Then launch the components with usual commands.
+Then launch the components with usual commands while you are in the current shell.
+
+Warning: this option does not modify the existing configuration file (.ini file).
+
 
 This currently doesn't support scenario where node and researcher do not use the same IP address to contact the network (eg: NAT for one component).
 
-Warning: this option does not modify the configuration file (.ini file).
 
 ### clean state (restore environments back to new)
 

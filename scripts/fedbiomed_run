@@ -47,12 +47,12 @@ case $1 in
                     shift
                     shift
                 ;;
-                network_ip)
+                ip_address)
                     if [ $# -lt 3 ] ; then
                         echo "ERROR: missing network ip"
                         exit 1
                     fi
-                    NETWORK_IP=$3
+                    IP_ADDRESS=$3
                     shift
                     shift
                 ;;
@@ -76,27 +76,27 @@ case $1 in
             case $2 in
 
                 list|--list|-l)
-                    source ./scripts/fedbiomed_environment node $NETWORK_IP
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --list $PARAMS
                     ;;
 
                 del|delete|--del|--delete|-d)
-                    source ./scripts/fedbiomed_environment node $NETWORK_IP
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --delete $PARAMS
                     ;;
 
                 delete-mnist|--delete-mnist|-dm)
-                    source ./scripts/fedbiomed_environment node $NETWORK_IP
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --delete-mnist $PARAMS
                     ;;
 
                 add|--add|-a)
-                    source ./scripts/fedbiomed_environment node $NETWORK_IP
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --add $PARAMS
                     ;;
 
                 add-mnist|--add-mnist|-am)
-                    source ./scripts/fedbiomed_environment node $NETWORK_IP
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --add-mnist $PARAMS
                     ;;
 
@@ -104,7 +104,7 @@ case $1 in
                     #export MQTT_BROKER=localhost
                     #export MQTT_BROKER_PORT=1883
                     #export UPLOADS_URL='http://localhost:8844/upload/'
-                    source ./scripts/fedbiomed_environment node $NETWORK_IP
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --start $PARAMS
                     ;;
                 *)
@@ -124,12 +124,12 @@ case $1 in
 
         while true ; do
             case $2 in
-                network_ip)
+                ip_address)
                     if [ $# -lt 3 ] ; then
                         echo "ERROR: missing network ip"
                         exit 1
                     fi
-                    NETWORK_IP=$3
+                    IP_ADDRESS=$3
                     shift
                     shift
                 ;;
@@ -139,7 +139,7 @@ case $1 in
             esac
         done
 
-        source ./scripts/fedbiomed_environment researcher $NETWORK_IP
+        source ./scripts/fedbiomed_environment researcher $IP_ADDRESS
         cd notebooks
         jupyter notebook
         ;;
@@ -147,8 +147,8 @@ case $1 in
     help|-h|--help)
         cat <<EOF
 usage: fedbiomed_run network
-       fedbiomed_run researcher (network_ip NETWORK_IP))
-       fedbiomed_run node (config CONFIG_NAME | network_ip NETWORK_IP)
+       fedbiomed_run researcher (ip_address IP_ADDRESS))
+       fedbiomed_run node (config CONFIG_NAME | ip_address IP_ADDRESS)
                          [start | add | list | delete | add-mnist | delete-mnist] PARAMS
 
 
@@ -159,7 +159,7 @@ network   : run the necessary docker containers (in development mode)
 
 researcher: launch a researcher notebook
 
-            an optional NETWORK_IP can be used to join the network component instead of
+            an optional IP_ADDRESS can be used to join the network component instead of
                 the default localhost
 
 node      : a second arguement is mandatory
@@ -170,7 +170,7 @@ node      : a second arguement is mandatory
 
             an optional config file CONFIG_NAME can be given it will be used instead of the default one (config.ini)
 
-            an optional NETWORK_IP can be used to join the network component instead of
+            an optional IP_ADDRESS can be used to join the network component instead of
                 the default localhost
 
 EOF
