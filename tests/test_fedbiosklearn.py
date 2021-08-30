@@ -8,7 +8,7 @@ from torch.nn import Linear
 import numpy as np
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from sklearn.linear_model import SGDRegressor
-from fedbiomed.common.fedbiosklearn import SkLearnModel
+from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 import os
 class TestFedbiosklearn(unittest.TestCase):
 
@@ -20,8 +20,8 @@ class TestFedbiosklearn(unittest.TestCase):
         pass
 
     def test_init(self):
-        kw = {'toto': 'le' , 'lelo':'la', 'max_iter':7000, 'tol': 0.3456, 'number_columns': 10, 'model': 'Kmeans' }
-        fbsk = SkLearnModel(kw)
+        kw = {'toto': 'le' , 'lelo':'la', 'max_iter':7000, 'tol': 0.3456, 'n_features': 10, 'model': 'SGDRegressor' }
+        fbsk = SGDSkLearnModel(kw)
         m = fbsk.get_model()
         p = m.get_params()
         self.assertEqual(p['max_iter'] , 7000)
@@ -36,7 +36,7 @@ class TestFedbiosklearn(unittest.TestCase):
     def test_save_and_load(self):
         CURRENTDIR =  os.getcwd()
         print('curdir ',CURRENTDIR)
-        skm = SkLearnModel({'max_iter': 1000, 'tol':1e-3, 'number_columns': 5})
+        skm = SGDSkLearnModel({'max_iter': 1000, 'tol':1e-3, 'n_features': 5, 'model': 'SGDRegressor'})
         skm.save(CURRENTDIR + '/tests/data/sgd.sav')
 
         self.assertTrue(os.path.exists(CURRENTDIR + '/tests/data/sgd.sav') and os.path.getsize(CURRENTDIR + '/tests/data/sgd.sav') > 0  )
