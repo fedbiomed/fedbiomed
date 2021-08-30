@@ -32,14 +32,22 @@ if not defined_node_env:
         # Create client ID
         client_id = os.getenv('CLIENT_ID', 'client_' + str(uuid.uuid4()))
 
+        uploads_url = os.getenv('UPLOADS_URL', "http://localhost:8844/upload/")
+        uploads_ip = os.getenv('UPLOADS_IP')
+        if uploads_ip:
+            uploads_url = "http://" + uploads_ip + ":8844/upload/"
+
         cfg['default'] = {
             'client_id': client_id,
-            'uploads_url': 'http://localhost:8844/upload/',
+            'uploads_url': uploads_url,
         }
 
+        mqtt_broker = os.getenv('MQTT_BROKER', 'localhost')
+        mqtt_broker_port = int(os.getenv('MQTT_BROKER_PORT', 80))
+
         cfg['mqtt'] = {
-            'broker_url': 'localhost',
-            'port': 80,
+            'broker_ip': mqtt_broker,
+            'port': mqtt_broker_port,
             'keep_alive': 60
         }
 
@@ -77,10 +85,14 @@ if not defined_node_env:
     MESSAGES_QUEUE_DIR = os.path.join(VAR_DIR, f'queue_manager_{CLIENT_ID}')
     DB_PATH = os.path.join(VAR_DIR, f'db_{CLIENT_ID}.json')
 
-    MQTT_BROKER = os.getenv('MQTT_BROKER', cfg.get('mqtt', 'broker_url'))
+    MQTT_BROKER = os.getenv('MQTT_BROKER', cfg.get('mqtt', 'broker_ip'))
     MQTT_BROKER_PORT = int(os.getenv('MQTT_BROKER_PORT', cfg.get('mqtt', 'port')))
-
+    
     UPLOADS_URL = os.getenv('UPLOADS_URL', cfg.get('default', 'uploads_url'))
+    uploads_ip = os.getenv('UPLOADS_IP')
+    if uploads_ip:
+        UPLOADS_URL = "http://" + uploads_ip + ":8844/upload/"
+    # trailing slash is needed for repo url
     if not UPLOADS_URL.endswith('/') :
         UPLOADS_URL += '/'
 

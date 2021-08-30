@@ -45,7 +45,6 @@ where ENV chosen from:
 * node
 * researcher
 
-
 ### run the software
 
 #### run the network part
@@ -79,7 +78,7 @@ $ ./scripts/fedbiomed_run node add
 * you may also specify a new config file for the node (usefull then running multiple test nodes on the same host)
 
 ```
-$ ./scripts/fedbiomed_run node start config another_config.ini
+$ ./scripts/fedbiomed_run node config another_config.ini start
 ```
 
 
@@ -110,6 +109,22 @@ $ source ./scripts/fedbiomed_environment researcher
 ```
 $ python ./notebooks/getting-started.py
 ```
+
+### change IP address for network
+
+By default, communications between components use localhost as IP address for the network.
+To use another address activate the environment with the NETWORK_IP to use by the nodes and the researcher :
+
+```bash
+source ./scripts/fedbiomed_environment network
+source ./scripts/fedbiomed_environment node NETWORK_IP
+source ./scripts/fedbiomed_environment researcher NETWORK_IP
+```
+
+Then launch the components with usual commands.
+
+This currently doesn't support scenario where node and researcher do not use the same IP address to contact the network (eg: NAT for one component).
+
 
 ### clean state (restore environments back to new)
 
