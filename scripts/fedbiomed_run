@@ -43,7 +43,7 @@ case $1 in
                         echo "ERROR: missing config file name"
                         exit 1
                     fi
-                    CONFIG_FILE=$3
+                    export CONFIG_FILE=$3
                     shift
                     shift
                 ;;
