@@ -16,8 +16,6 @@ class Repository:
         """
         upload a file to a HTTP file repository
         """
-        wait_time = random.randint(1,5)
-        time.sleep(wait_time)
         files = {'file': open(filename, 'rb')}
         res = requests.post(self.uploads_url, files=files)
         return res.json()
@@ -26,8 +24,6 @@ class Repository:
         """
         download a file from a HTTP file repository
         """
-        wait_time = random.randint(1,5)
-        time.sleep(wait_time)
         res = requests.get(url)
         filepath = os.path.join(self.tmp_dir, filename)
         open(filepath, 'wb').write(res.content)
