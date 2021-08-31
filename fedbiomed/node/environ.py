@@ -37,6 +37,12 @@ if not defined_node_env:
         if uploads_ip:
             uploads_url = "http://" + uploads_ip + ":8844/upload/"
 
+        uploads_url = "http://localhost:8844/upload/"
+        uploads_ip = os.getenv('UPLOADS_IP')
+        if uploads_ip:
+            uploads_url = "http://" + uploads_ip + ":8844/upload/"
+        uploads_url = os.getenv('UPLOADS_URL', uploads_url)
+
         cfg['default'] = {
             'client_id': client_id,
             'uploads_url': uploads_url,
@@ -88,10 +94,12 @@ if not defined_node_env:
     MQTT_BROKER = os.getenv('MQTT_BROKER', cfg.get('mqtt', 'broker_ip'))
     MQTT_BROKER_PORT = int(os.getenv('MQTT_BROKER_PORT', cfg.get('mqtt', 'port')))
     
-    UPLOADS_URL = os.getenv('UPLOADS_URL', cfg.get('default', 'uploads_url'))
+    UPLOADS_URL = cfg.get('default', 'uploads_url')
     uploads_ip = os.getenv('UPLOADS_IP')
     if uploads_ip:
         UPLOADS_URL = "http://" + uploads_ip + ":8844/upload/"
+    UPLOADS_URL = os.getenv('UPLOADS_URL', UPLOADS_URL)
+
     # trailing slash is needed for repo url
     if not UPLOADS_URL.endswith('/') :
         UPLOADS_URL += '/'
