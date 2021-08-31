@@ -18,7 +18,8 @@ class TestEnvironCommon(unittest.TestCase):
         # need a temp config dir inside ./etc to be able to test relative path CONFIG_FILE
         self.config_subdir = next(tempfile._get_candidate_names())
         self.config_dir = os.path.join(os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../etc')), self.config_subdir)
-        os.mkdir(self.config_dir)
+        # needed if etc does not exists (fresh install)
+        os.makedirs(self.config_dir)
 
         # test config file names
         self.files = [
