@@ -147,9 +147,9 @@ case $1 in
     help|-h|--help)
         cat <<EOF
 usage: fedbiomed_run network
-       fedbiomed_run researcher (ip_address IP_ADDRESS))
-       fedbiomed_run node (config CONFIG_NAME | ip_address IP_ADDRESS)
-                         [start | add | list | delete | add-mnist | delete-mnist] PARAMS
+       fedbiomed_run researcher [ip_address IP_ADDRESS]
+       fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS]
+                         (start | add | list | delete | add-mnist | delete-mnist) PARAMS
 
 
 Runs the fedbiomed components after properly initializing the environments.
@@ -159,8 +159,8 @@ network   : run the necessary docker containers (in development mode)
 
 researcher: launch a researcher notebook
 
-            an optional IP_ADDRESS can be used to join the network component instead of
-                the default localhost
+            an optional IP_ADDRESS (eg 10.1.2.3 or host.foo) can be used to join the network
+                component instead of the default localhost
 
 node      : a second arguement is mandatory
             - start : launch a new node
