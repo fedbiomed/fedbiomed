@@ -1,7 +1,8 @@
 import unittest
 import os
 import sys
-import importlib
+import tempfile
+import shutil
 
 # dont import fedbiomed.*.environ here
 
@@ -11,14 +12,19 @@ class TestEnvironCommon(unittest.TestCase):
     '''
     # before the tests
     def setUp(self):
+
         self.envs = [ 'fedbiomed.node.environ', 'fedbiomed.researcher.environ' ]
 
-        self.config_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../etc'))
-        
+        # need a temp config dir inside ./etc to be able to test relative path CONFIG_FILE
+        self.config_subdir = next(tempfile._get_candidate_names())
+        self.config_dir = os.path.join(os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../etc')), self.config_subdir)
+        os.mkdir(self.config_dir)
+
         # test config file names
         self.files = [
-            'config_node.ini',      # default file name for node
-            'config_bis.ini',       # alternate file names
+            # Cannot test with relative
+            'config_node.ini', 
+            'config_bis.ini',
             'config_ter',
             'node2_name',
             os.path.join(self.config_dir, 'config_node.ini'),
@@ -29,8 +35,14 @@ class TestEnvironCommon(unittest.TestCase):
 
         # test upload urls
         self.url_map = [
-            [ '/arbitrary/path/', '/arbitrary/path/' ],
-            [ '/uncomplete/path', '/uncomplete/path/' ]
+            [ 
+                os.path.join(os.path.sep,'arbitrary','path', ''), # /arbitrary/path/ on Linux
+                os.path.join(os.path.sep,'arbitrary','path', '')  # /arbitrary/path/ on Linux
+            ],
+            [ 
+                os.path.join(os.path.sep,'uncomplete','path'),    # /uncomplete/path on Linux
+                os.path.join(os.path.sep,'uncomplete','path', '') # /uncomplete/path/ on Linux
+            ]
         ]
 
         # test broker ip and names
@@ -39,7 +51,7 @@ class TestEnvironCommon(unittest.TestCase):
 
     # after the tests
     def tearDown(self):
-        pass
+        shutil.rmtree(self.config_dir)
 
     def reload_environ(self, module: str):
         if module in sys.modules:
@@ -60,13 +72,15 @@ class TestEnvironCommon(unittest.TestCase):
 
                 if not os.path.isabs(config_file):
                     config_path = os.path.join(self.config_dir, config_file)
+                    config_var = os.path.join(self.config_subdir, config_file)
                 else:
                     config_path = config_file
+                    config_var = config_file
                 # clean file if exists
                 if os.path.isfile(config_path):
                     os.remove(config_path)
 
-                os.environ['CONFIG_FILE'] = str(config_file)
+                os.environ['CONFIG_FILE'] = str(config_var)
                 # environment initialization done at module import
                 self.reload_environ(env)
 
