@@ -1,17 +1,20 @@
+import uuid
 from enum import Enum
 import paho.mqtt.client as mqtt
 
 from fedbiomed.common import json
 
+
 class MessagingType(Enum):
     RESEARCHER = 1
     NODE = 2
 
+
 class Messaging:
     """ This class represents the MQTT messaging."""
 
-    def __init__(self, on_message, messaging_type: MessagingType, messaging_id, \
-            mqtt_broker='localhost', mqtt_broker_port=80):
+    def __init__(self, on_message, messaging_type: MessagingType, messaging_id,
+                 mqtt_broker='localhost', mqtt_broker_port=80):
         """ Constructor of the messaging class
 
         Args:
@@ -19,21 +22,21 @@ class Messaging:
             messaging_type (MessagingType): 1 for researcher, 2 for researcher
             messaging_id ([int]): messaging id
             mqtt_broker_port (int, optional): Defaults to 80.
-        """        
+        """
         self.messaging_type = messaging_type
-        self.messaging_id = str(messaging_id)
-        self.mqtt = mqtt.Client(client_id=messaging_id)
+        self.messaging_id = str(uuid.uuid4()) if messaging_type == MessagingType.RESEARCHER else str(messaging_id)
+        self.mqtt = mqtt.Client(client_id=self.messaging_id)
         self.mqtt.on_connect = self.on_connect
         self.mqtt.on_message = self.on_message
         self.mqtt.connect(mqtt_broker, mqtt_broker_port, keepalive=60)
 
-        self.on_message_handler = on_message # store the caller's mesg handler
+        self.on_message_handler = on_message  # store the caller's mesg handler
 
         if self.messaging_type is MessagingType.RESEARCHER:
             self.default_send_topic = 'general/clients'
         elif self.messaging_type is MessagingType.NODE:
             self.default_send_topic = 'general/server'
-        else: # should not occur
+        else:  # should not occur
             self.default_send_topic = None
 
         self.is_connected = False
@@ -47,10 +50,9 @@ class Messaging:
             client: mqtt on_message arg
             userdata: mqtt on_message arg
             msg: mqtt on_message arg
-        """        
+        """
         message = json.deserialize_msg(msg.payload)
         self.on_message_handler(message)
-
 
     def on_connect(self, client, userdata, flags, rc):
         """[summary]
@@ -60,7 +62,7 @@ class Messaging:
             userdata: mqtt on_message arg
             flags: mqtt on_message arg
             rc: mqtt on_message arg
-        """        
+        """
         print("Messaging " + self.messaging_id + " connected with result code " + str(rc))
         if self.messaging_type is MessagingType.RESEARCHER:
             self.mqtt.subscribe('general/server')
@@ -76,7 +78,7 @@ class Messaging:
         Args:
             block (bool, optional): if True: calls the loop_forever method 
                                     else, calls the loop_start method
-        """        
+        """
         if block:
             self.mqtt.loop_forever()
         elif not self.is_connected:
@@ -87,7 +89,7 @@ class Messaging:
     def stop(self):
         """
         this method stops the loop 
-        """        
+        """
         self.mqtt.loop_stop()
 
     def send_message(self, msg: dict, client=None):
@@ -97,7 +99,7 @@ class Messaging:
             msg (dict): the content of a message
             client ([str], optional): defines the channel to which the 
                                 message will be sent. Defaults to None(all clients)
-        """        
+        """
         if client is None:
             channel = self.default_send_topic
         else:
