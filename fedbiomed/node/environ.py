@@ -32,15 +32,14 @@ if not defined_node_env:
         # Create client ID
         client_id = os.getenv('CLIENT_ID', 'client_' + str(uuid.uuid4()))
 
-        uploads_url = os.getenv('UPLOADS_URL', "http://localhost:8844/upload/")
+        # create network csracteristics from environment or config file
         uploads_ip = os.getenv('UPLOADS_IP')
+        uploads_url = "http://localhost:8844/upload/"
+
         if uploads_ip:
             uploads_url = "http://" + uploads_ip + ":8844/upload/"
 
-        uploads_url = "http://localhost:8844/upload/"
-        uploads_ip = os.getenv('UPLOADS_IP')
-        if uploads_ip:
-            uploads_url = "http://" + uploads_ip + ":8844/upload/"
+        # is positionned UPLOADS_URL is stronger than the one deduced from UPLOADS_IP
         uploads_url = os.getenv('UPLOADS_URL', uploads_url)
 
         cfg['default'] = {
@@ -93,7 +92,7 @@ if not defined_node_env:
 
     MQTT_BROKER = os.getenv('MQTT_BROKER', cfg.get('mqtt', 'broker_ip'))
     MQTT_BROKER_PORT = int(os.getenv('MQTT_BROKER_PORT', cfg.get('mqtt', 'port')))
-    
+
     UPLOADS_URL = cfg.get('default', 'uploads_url')
     uploads_ip = os.getenv('UPLOADS_IP')
     if uploads_ip:
