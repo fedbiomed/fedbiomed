@@ -1,6 +1,6 @@
 to setup this folder with celeba:
 
-Download required files of Celeba dataset from [here](https://drive.google.com/drive/folders/0B7EVK8r0v71pWEZsZE9oNnFzTm8?resourcekey=0-5BR16BdXnb8hVj6CNHKzLg), files needed are : `img/img_align_celeba.zip` and `list_attr_celeba.txt` from the Anno folder. 
+Download required files of Celeba dataset from [here](https://drive.google.com/drive/folders/0B7EVK8r0v71pWEZsZE9oNnFzTm8?resourcekey=0-5BR16BdXnb8hVj6CNHKzLg), files needed are : `img/img_align_celeba.zip` and `Anno/list_attr_celeba.txt`. 
 extract the `img_align_celeba.zip` inside the `Celeba_raw/raw/img_align_celeba` folder
 put `list_attr_celeba.txt` inside Celeba_raw/raw
 
@@ -16,7 +16,7 @@ Celeba
 │       │   list_attr_celeba.txt
 │       │   img_align_celeba.zip
 │       └───img_align_celeba
-|           | tons of images 
+|           | lots of images 
 ```
 
 Run the `create_node_data.py script` inside `data/Celeba`

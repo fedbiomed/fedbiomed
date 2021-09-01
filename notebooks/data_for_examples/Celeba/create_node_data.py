@@ -9,10 +9,10 @@ celeba_raw_folder = "Celeba_raw/raw"
 img_dir = parent_dir + celeba_raw_folder + '/img_align_celeba/'
 out_dir = "./celeba_preprocessed"
 
-#read attribute CSV
+#read attribute CSV and only load Smilling column
 df = pd.read_csv(parent_dir + celeba_raw_folder + '/list_attr_celeba.txt', sep="\s+", skiprows=1, usecols=['Smiling'])
 
-#only get smiling col to only have a single output
+# data is on the form : 1 if the person is smiling, -1 otherwise. we set all -1 to 0 for the model to train faster
 df.loc[df['Smiling'] == -1, 'Smiling'] = 0
 
 #split csv in 3 part
