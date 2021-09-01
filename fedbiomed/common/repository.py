@@ -13,7 +13,7 @@ class Repository:
         
         self.uploads_url = uploads_url
         self.tmp_dir = tmp_dir
-        self.cache_dir = cache_dir
+        self.cache_dir = cache_dir  #unused
 
 
     def upload_file(self, filename: str) -> Dict[str, Any]:

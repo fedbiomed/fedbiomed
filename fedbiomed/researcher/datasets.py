@@ -2,6 +2,12 @@ import uuid
 from typing import List, Dict
 
 class FederatedDataSet:
+    """A class that allows researcher to interact with 
+    remote datasets (federated datasets).
+    It contains details about remote datasets,
+    such as client ids, data size that can be useful for 
+    aggregating or sampling strategies on researcher's side
+    """
     def __init__(self, data: dict):
         self._data = data
 

@@ -33,14 +33,14 @@ class Message(object):
         return(getattr(self, param))
 
     def get_dict(self) -> Dict[str, Any]:
-        """Returns pairs (Message class attributes name, attrbutes values)
+        """Returns pairs (Message class attributes name, attributes values)
         into a dictionary
         
         """
         return(self.__dict__)
     
     def validate(self, fields:Dict[str, Any]) -> bool:
-        """whether incoming field types match with attributes
+        """checks whether incoming field types match with attributes
             class type. 
 
         Args:
@@ -65,6 +65,9 @@ class SearchReply(Message):
 
     Args:
         Message ([type]): Parent class allows to get and set message params
+        
+    Raises:
+        ValueError: triggered if message's fields validation failed
     """ 
     researcher_id: str
     success: bool
@@ -84,6 +87,9 @@ class SearchReply(Message):
 class PingReply(Message):
     """
     This class describes a ping message sent by the node
+    
+    Raises:
+        ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
     client_id: str
@@ -98,6 +104,9 @@ class PingReply(Message):
 class TrainReply(Message):
     """
     This class describes a train message sent by the node
+    
+    Raises:
+        ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
     job_id: str
@@ -117,6 +126,9 @@ class TrainReply(Message):
 class AddScalarReply(Message):
     """
     This class describes a add_scalar message sent by the node
+    
+    Raises:
+        ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
     client_id: str
@@ -133,6 +145,9 @@ class AddScalarReply(Message):
 class ErrorMessage(Message):
     """
     This class describes an error message sent by the node
+    
+    Raises:
+        ValueError: triggered if message's fields validation failed 
     """
     researcher_id: str
     success: bool
@@ -149,6 +164,9 @@ class ErrorMessage(Message):
 class SearchRequest(Message):
     """
     This class describes a search message sent by the researcher
+    
+    Raises:
+       ValueError: triggered if message's fields validation failed 
     """
     researcher_id: str
     tags: list
@@ -165,7 +183,7 @@ class PingRequest(Message):
     This class describes a ping message sent by the researcher
     
     Raises:
-        ValueError: triggered if case type validation failed
+        ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
     command: str
@@ -181,7 +199,7 @@ class TrainRequest(Message):
     This class describes a train message sent by the researcher
     
     Raises:
-        ValueError: triggered if case validation failed
+        ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
     job_id: str
@@ -208,19 +226,22 @@ class ResearcherMessages():
                                                      PingReply,
                                                      ErrorMessage,
                                                      AddScalarReply]:
-        """this method is used on message reception. It creates
-        the corresponding message by parsing the `command` field in
-        the messsage.
+        """this method is used on message reception (as a mean to reply to
+        node requests, such as a Ping request).
+        it creates the adequate message, it maps an instruction
+        (given the key "command" in the input dictionary `params`)
+        to a Message object
         It validates:
         - the legacy of the message
         - the structure of the received message
 
         Raises:
-        ValueError: if the message is not allowed te be received by the researcher
-        KeyError: 
+        ValueError: triggered if the message is not allowed to
+        be received by the researcher
+        KeyError: triggered if 'command' field is not present in `params`
         
         Returns:
-        An instance of the corresponding class
+        An instance of the corresponding Message class
         """
         message_type = params['command']
         
@@ -241,19 +262,22 @@ class ResearcherMessages():
                                                              SearchRequest,
                                                              PingRequest]:
 
-        """This method creates the adequate message:
+        """This method creates the adequate message/request,
+        it maps an instruction (given the key "command" in
+        the input dictionary `params`) to a Message object
+        
         It validates:
         - the legagy of the message
         - the structure of the created message
 
         Args:
-        params (dict):
+        params (dict): dictionary containing the message.
         
         Raises:
-            ValueError: if the message is not allowed te be sent by the researcher
+            ValueError: if the message is not allowed to be sent by the researcher
             KeyError ?
         Returns:
-            An instance of the corresponding class
+            An instance of the corresponding Message class
         """
 
         message_type = params['command']
@@ -278,9 +302,9 @@ class NodeMessages():
                                                    SearchRequest,
                                                    PingRequest]:
         """
-        This method creates the adequate message, it maps an instruction
-        (given the key "command" in the input dictionary `params`)
-        to a Message object
+        This method creates the adequate message/ request to send to researcher,
+        it maps an instruction (given the key "command" in the
+        input dictionary `params`) to a Message object
         
         It validates:
         - the legagy of the message
@@ -313,13 +337,18 @@ class NodeMessages():
                                                  PingReply,
                                                  ErrorMessage,
                                                  AddScalarReply]:
-        """this method is used on message reception.
+        """this method is used on message reception. 
+        It creates the adequate message reply to send to the researcher,
+        it maps an instruction (given the key "command" in the
+        input dictionary `params`) to a Message object
         It validates:
         - the legacy of the message
         - the structure of the received message
 
         Raises:
             ValueError: if the message is not allowed te be received by the node
+            (ie if message `command` field is not either a train request, search request,
+            a ping request, add scalar request, or error message)
 
         Returns:
             An instance of the corresponding class

@@ -37,7 +37,7 @@ class Requests:
 
     def on_message(self, msg: Dict[str, Any]):
         """
-        This handler is called by the Messaging class (ie MQTT),
+        This handler is called by the Messaging class (Messager),
         when a message is received on researcher side. 
         Adds to queue this incoming message.
         

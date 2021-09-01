@@ -15,7 +15,7 @@ from fedbiomed.node.environ import DB_PATH
 
 class Data_manager: # should this be in camelcase (smthg like DataManager)?
     """Interface over TinyDB database.
-    Facility to store, retrieve data and get data info
+    Facility fot storing, retrieving data and get data info
     on the data stored into TinyDB database. 
     """
     def __init__(self):
@@ -71,14 +71,17 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         return pd.read_csv(csv_file, index_col=index_col, sep=delimiter)
 
 
-    def get_torch_dataset_shape(self, dataset) -> List[int]:
-        """[summary]
+    def get_torch_dataset_shape(self, dataset: torch.utils.data.Dataset) -> List[int]:
+        """Gets info about dataset shape.
 
         Args:
-            dataset ([type]): [description]
+            dataset (torch.utils.data.Dataset): a Pytorch dataset
 
         Returns:
-            [type]: [description]
+            List[int]: returns a list containing: 
+            [<nb_of_data>, <dimension_of_first_input_data>].
+            Example for MNIST: [60000, 1, 28, 28], where <nb_of_data>=60000
+            and <dimension_of_first_input_data>=1, 28, 28
         """        
         return [len(dataset)] + list(dataset[0][0].shape)
 
@@ -122,7 +125,8 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             return self.get_torch_dataset_shape(dataset)
 
 
-    def load_images_dataset(self, folder_path, as_dataset=False):
+    def load_images_dataset(self, folder_path:str, as_dataset:bool=False) -> Union[List[int],
+                                                                                    torch.utils.data.Dataset]:
         """[summary]
 
         Args:
@@ -211,7 +215,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         self.db.update(modified_dataset, self.database.tags.all(tags))
 
 
-    def list_my_data(self, verbose=True):
+    def list_my_data(self, verbose: bool=True):
         """[summary]
 
         Args:

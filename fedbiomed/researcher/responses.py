@@ -18,7 +18,7 @@ class Responses:
             self._data = [data]
         elif isinstance(data, list):
             self._data = []
-            # create a list conatining unique fields
+            # create a list containing unique fields
             for d in data:
                 if d not in self._data:
                     self._data.append(d)

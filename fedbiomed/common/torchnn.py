@@ -21,11 +21,11 @@ class TorchTrainingPlan(nn.Module):
          and 4) finally read and executed on node side.
         
          
-        Researcher has to define/override:
+        Researcher must define/override:
         - a `training_data()` function
         - a `training_step()` function
         
-        Researcher may have to add extra dependancies.
+        Researcher may have to add extra dependancies/ python imports.
         """
         super(TorchTrainingPlan, self).__init__()
 

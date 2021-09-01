@@ -47,8 +47,8 @@ class Experiment:
         self._tags = tags
         self._clients = clients
         self._reqs = Requests()
-        # (below) search for nodes either having tags that matches the tags researcher
-        # is looking for (`self_tags`) or based on client id (`self._clients`)
+        # (below) search for nodes either having tags that matches the tags the researcher
+        # is looking for (`self._tags`) or based on client id (`self._clients`)
         self._fds = FederatedDataSet(self._reqs.search(self._tags, self._clients))
         self._client_selection_strategy = client_selection_strategy
         self._aggregator = aggregator

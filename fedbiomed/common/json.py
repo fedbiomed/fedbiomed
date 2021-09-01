@@ -4,7 +4,7 @@ from typing import Union
 
 """
 This module defines message serializer and deserializer
-for sending / recieving messages through Messager.
+for sending / recieving / parsing messages through Messager.
 """
 def deserialize_msg(msg: Union[str, bytes]) -> dict:
     """
