@@ -41,7 +41,7 @@ class TestTorchnn(unittest.TestCase):
         self.assertTrue(tp1.test_method())
         
         modulename = 'tmp_model'
-        codefile = self.tmpdir + '/' + modulename + '.py'
+        codefile = self.tmpdir + os.path.sep + modulename + '.py'
         try:
             os.remove(codefile)
         except FileNotFoundError:
