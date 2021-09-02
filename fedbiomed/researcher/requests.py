@@ -42,7 +42,7 @@ class Requests:
         Adds to queue this incoming message.
         
         Args: 
-            msg: serialized msg
+            msg (Dict[str, Any]): serialized msg
         """
         print(datetime.now(), '[ RESEARCHER ] message received.', msg)
         self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
@@ -51,14 +51,26 @@ class Requests:
     def send_message(self, msg: dict, client: str=None):      
         """
         asks the messaging class to send a new message (receivers are deduced from the message content)
+        
+        Args:
+            msg (dict): the message to send to nodes
+            client ([str], optional): defines the channel to which the 
+                                message will be sent. Defaults to None(all clients)
         """
         print(RESEARCHER_ID)
         self.messaging.send_message(msg, client=client)
 
 
-    def get_messages(self, command: str = None, time: float=0) -> Responses:
+    def get_messages(self, command: str = None, time: float=.0) -> Responses:
         """ This method goes through the queue and gets messages with the specific command
 
+        Args: 
+            command (str, optional): checks if message is containing the expecting command
+            (the message  is discarded if it doesnot). Defaults to None (no command
+            message checking, meaning all incoming messages are considered).
+            time (float, optional): time to sleep in seconds before considering
+            incoming messages. Defaults to .0.
+             
         returns Reponses : `Responses` object containing the corresponding answers
 
         """

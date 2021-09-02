@@ -17,7 +17,7 @@ class MessagingType(Enum):
 
 class Messaging:
     """ This class represents the Messager,
-    that is the MQTT messaging facility."""
+    (MQTT messaging facility)."""
 
     def __init__(self,
                  on_message: Callable[[dict], None],
@@ -28,7 +28,9 @@ class Messaging:
         """ Constructor of the messaging class.
         Creates an instance of MQTT Client, and MQTT message handler.
         Creates topics on which to send messages through Messager. 
-
+        Topics in MQTT work as a channel allowing to filter shared information
+        between connected clients
+        
         Args:
             on_message (Callable): function that should be executed when a message is received
             messaging_type (MessagingType): describes incoming message sender.
@@ -101,7 +103,7 @@ class Messaging:
             block (bool, optional): if True: calls the loop_forever method in MQTT 
                                     (blocking loop)
                                     else, calls the loop_start method (non blocking loop).
-                                    `loop_start` calls a backgound thread for messaging.
+                                    `loop_start` calls a background thread for messaging.
                                     See Paho MQTT documentation 
                                     (https://github.com/eclipse/paho.mqtt.python)
                                     for further information. Defaults to False.

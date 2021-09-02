@@ -13,10 +13,10 @@ class TorchTrainingPlan(nn.Module):
     def __init__(self):
         """
         An abstraction over pytorch module to run 
-        pytroch model on node side. 
+        pytroch models and scritps on node side. 
         
-        Researcher model will be 1) saved  on a '*.pt' 
-        file, 2) uploaded on a HTTP server (network layer),
+        Researcher model (resp. params) will be 1) saved  on a '*.py'
+        (resp. '*.pt') files, 2) uploaded on a HTTP server (network layer),
          3) then Downloaded from the HTTP server on node side, 
          and 4) finally read and executed on node side.
         
@@ -25,7 +25,8 @@ class TorchTrainingPlan(nn.Module):
         - a `training_data()` function
         - a `training_step()` function
         
-        Researcher may have to add extra dependancies/ python imports.
+        Researcher may have to add extra dependancies/ python imports,
+        by using `add_dependencies` method.
         """
         super(TorchTrainingPlan, self).__init__()
 
@@ -85,7 +86,9 @@ class TorchTrainingPlan(nn.Module):
             batch_size (int, optional): size of batch. Defaults to 48.
             batch_maxnum (int, optional): equals number of data devided by batch_size,
             and taking the closest lower integer. Defaults to 0.
-            dry_run (bool, optional): [description]. Defaults to False.
+            dry_run (bool, optional): whether to stop once the first
+            batch size of the first epoch of the first round is completed.
+            Defaults to False.
             logger ([type], optional): [description]. Defaults to None.
         """
         if self.optimizer == None:

@@ -17,7 +17,7 @@ class HistoryLogger:
 
     def add_scalar(self, key: str, value: Union[int, float], iteration: int):
         """Adds a value to the logger, and sends an 'AddReply'
-        to researcher
+        response to researcher
 
         Args:
             key (str): name value in logger to keep track with

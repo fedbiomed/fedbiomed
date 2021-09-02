@@ -2,7 +2,7 @@ import inspect
 import os
 import sys
 import tempfile
-from typing import Union
+from typing import Union, Callable
 import uuid
 import re
 import time
@@ -23,7 +23,7 @@ class Job:
     def __init__(self,
                 reqs: Requests=None,
                 clients: dict=None,
-                model: str = None,
+                model: Union[str, Callable] = None,
                 model_path: str = None,
                 training_args: dict=None,
                 model_args: dict=None,
@@ -38,7 +38,7 @@ class Job:
         Args:
             reqs (Requests, optional): researcher's requests assigned to nodes. Defaults to None.
             clients (dict, optional): a dict of client_id containing the clients used for training
-            model (string, optional): name of the model class to use for training
+            model (Union[str, Callable], optional): name of the model class to use for training
             model_path (string, optional) : path to file containing model class code
             training_args (dict, optional): contains training parameters: lr, epochs, batch_size...
                                             Defaults to None.

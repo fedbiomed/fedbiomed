@@ -3,8 +3,13 @@ import os
 import requests  # Python built-in library
 from typing import Dict, Any, Tuple, Text, Union
 
+
 class Repository:
-    """HTTP file repository from which to upload and download files
+    """HTTP file repository from which to upload and download files.
+    Files are uploaded from/dowloaded to a temporary file (`temp_fir`)
+    Data uploaded should be:
+    - python code (*.py file) that describes model + data handling/preprocessing
+    - model params (under *.pt format)
     """
     def __init__(self,
                  uploads_url: Union[Text, bytes],
@@ -20,7 +25,8 @@ class Repository:
         """
         uploads a file to a HTTP file repository (through an
         HTTP POST request).
-        
+        Args:
+            filename (str): name/path of the file to upload.
         Returns:
             res (Dict[str, Any]): the result of the request under JSON
             format.

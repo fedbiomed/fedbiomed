@@ -1,3 +1,5 @@
+from typing import Callable, Union
+
 from fedbiomed.researcher.aggregators import fedavg, aggregator
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
@@ -14,7 +16,7 @@ class Experiment:
     def __init__(self,
                  tags: tuple,
                  clients: list = None,
-                 model_class: str = None,
+                 model_class: Union[str, Callable] = None,
                  model_path: str = None,
                  model_args: dict = {},
                  training_args: dict = None,
@@ -30,7 +32,7 @@ class Experiment:
             tags (tuple): tuple of string with data tags
             clients (list, optional): list of client_ids to filter the nodes to be involved in 
                                       the experiment. Defaults to None (no filtering).
-            model_class (string, optional): name of the model class to use for training
+            model_class (Union[str, Callable], optional): name of the model class to use for training
             model_path (string, optional) : path to file containing model code
             model_args (dict, optional): contains output and input feature dimension. 
                                             Defaults to None.

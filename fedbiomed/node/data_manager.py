@@ -164,11 +164,12 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
                      path: str,
                      dataset_id: str=None):
         """
-        Adds a new dataset to node
+        Adds a new dataset contained in a file to node
 
         Args:
             name (str): [description]
-            data_type (str): [description]
+            data_type (str): file extension/format of the
+            dataset (*.csv, images, ...)
             tags (Union[tuple, list]): [description]
             description (str): [description]
             path (str): [description]

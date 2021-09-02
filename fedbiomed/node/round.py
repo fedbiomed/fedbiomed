@@ -31,9 +31,9 @@ class Round:
             dataset ([dict]): dataset details to use in this round. It contains 
                             the dataset name, dataset's id, data path, its shape, its
                             description...
-            model_url ([str])
+            model_url ([str]): url from which to download model
             model_class ([str]): name of the training plan (eg 'MyTrainingPlan')
-            params_url ([str])
+            params_url ([str]): url from which to upload/dowload model params
             job_id ([str]): job id
             researcher_id ([str]): researcher id
             logger ([HistoryLogger])
