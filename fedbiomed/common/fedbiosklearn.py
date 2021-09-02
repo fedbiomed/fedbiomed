@@ -3,7 +3,6 @@ from joblib import dump, load
 import numpy as np
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
-import json
 
 class SGDSkLearnModel():
     '''Initialize model parameters'''
@@ -25,13 +24,13 @@ class SGDSkLearnModel():
 
     ''' Provide partial fit method of scikit learning model here. '''
     def partial_fit(self,X,y):
-        pass
+        return NotImplementedError('Partial fit must be implemented')
 
     '''Perform in this method all data reading and data transformations you need.
     At the end you should provide a couple (X,y) as indicated in the partial_fit
     method of the scikit learn class.'''
     def training_data(self, batch_size=None):
-        pass
+        return NotImplementedError('Training data must be implemented')
 
     ''' Provide a dictionnary with the parameters you need to be fitted, refer to
      scikit documentation for a detail of parameters '''
@@ -68,7 +67,6 @@ class SGDSkLearnModel():
 
         self.dependencies = [   "from fedbiomed.common.fedbiosklearn import SGDSkLearnModel",
                                 "import inspect",
-                                "import pickle",
                                 "import numpy as np",
                                 "import pandas as pd",
                              ]
@@ -174,6 +172,3 @@ class SGDSkLearnModel():
 
     def get_model(self):
         return self.m
-
-    def after_training_params(self):
-        pass
