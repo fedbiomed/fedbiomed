@@ -1,9 +1,10 @@
-from typing import Optional, Any
+from typing import Optional
 
 import persistqueue  # used for persisiting queue on disk
 
 
 exceptionsEmpty = persistqueue.exceptions.Empty
+
 
 class TasksQueue:
     """
@@ -26,18 +27,19 @@ class TasksQueue:
 
         Args:
             task (dict): a dict describing the task to be added
-        """        
+        """
         self.queue.put(task)
 
-    def get(self, block:Optional[bool]=True) -> dict:
+    def get(self, block: Optional[bool] = True) -> dict:
         """this method gets the current task in the queue
 
         Args:
-            block (bool, optional): if True, block if necessary until an item is available. Defaults to True.
+            block (bool, optional): if True, block if necessary until
+            an item is available. Defaults to True.
 
         Returns:
             [dict]: dictionary object stored in queue
-        """        
+        """
         return self.queue.get(block)
 
     def qsize(self):
@@ -45,7 +47,7 @@ class TasksQueue:
 
         Returns:
             int: size of the queue
-        """        
+        """
         return self.queue.qsize()
 
     def task_done(self):
@@ -53,5 +55,5 @@ class TasksQueue:
 
         Returns:
             'bool': True if task is complete
-        """        
+        """
         return self.queue.task_done()

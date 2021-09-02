@@ -8,7 +8,8 @@ class Repository:
     """HTTP file repository from which to upload and download files.
     Files are uploaded from/dowloaded to a temporary file (`temp_fir`)
     Data uploaded should be:
-    - python code (*.py file) that describes model + data handling/preprocessing
+    - python code (*.py file) that describes model +
+    data handling/preprocessing
     - model params (under *.pt format)
     """
     def __init__(self,
@@ -18,8 +19,7 @@ class Repository:
         
         self.uploads_url = uploads_url
         self.tmp_dir = tmp_dir
-        self.cache_dir = cache_dir  #unused
-
+        self.cache_dir = cache_dir  # unused
 
     def upload_file(self, filename: str) -> Dict[str, Any]:
         """

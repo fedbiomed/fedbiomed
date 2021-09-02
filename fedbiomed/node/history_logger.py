@@ -29,5 +29,11 @@ class HistoryLogger:
         except (KeyError, AttributeError):
             self.history[key] = {iteration: value}
 
-        self.messaging.send_message(NodeMessages.reply_create({'client_id':CLIENT_ID, 'job_id':self.job_id,
-            'researcher_id':self.researcher_id, 'key':value, 'iteration':iteration, "command": "add_scalar"}).get_dict())
+        self.messaging.send_message(NodeMessages.reply_create({
+                                                               'client_id': CLIENT_ID,
+                                                               'job_id': self.job_id,
+                                                               'researcher_id': self.researcher_id,
+                                                               'key': value,
+                                                               'iteration': iteration,
+                                                               "command": "add_scalar"
+                                                               }).get_dict())

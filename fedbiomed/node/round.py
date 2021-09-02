@@ -15,7 +15,7 @@ class Round:
                  model_kwargs: dict = None, 
                  training_kwargs: dict = None, 
                  dataset: dict = None, 
-                 model_url: str= None, 
+                 model_url: str = None, 
                  model_class: str = None,
                  params_url: str = None, 
                  job_id: str = None, 
@@ -25,14 +25,16 @@ class Round:
 
         Args:
             model_kwargs ([dict]): contains model args
-            training_kwargs ([dict]): contains model characteristics, especially 
-            input  dimension (key: 'in_features')
+            training_kwargs ([dict]): contains model characteristics,
+            especially input  dimension (key: 'in_features')
             and output dimension (key: 'out_features')
-            dataset ([dict]): dataset details to use in this round. It contains 
-                            the dataset name, dataset's id, data path, its shape, its
+            dataset ([dict]): dataset details to use in this round.
+                            It contains the dataset name, dataset's id,
+                            data path, its shape, its
                             description...
             model_url ([str]): url from which to download model
-            model_class ([str]): name of the training plan (eg 'MyTrainingPlan')
+            model_class ([str]): name of the training plan
+                                (eg 'MyTrainingPlan')
             params_url ([str]): url from which to upload/dowload model params
             job_id ([str]): job id
             researcher_id ([str]): researcher id
@@ -65,7 +67,8 @@ class Round:
         try:
             # module name cannot contain dashes
             import_module = 'my_model_' + str(uuid.uuid4().hex)
-            status, _ = self.repository.download_file(self.model_url, import_module + '.py')
+            status, _ = self.repository.download_file(self.model_url,
+                                                      import_module + '.py')
             
             if (status != 200):
                 is_failed = True
@@ -102,7 +105,7 @@ class Round:
         # import model params into the model instance
         if not is_failed:
             try:
-                model.load(params_path, to_params = False)
+                model.load(params_path, to_params=False)
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot initialize model parameters:" + str(e)
@@ -111,7 +114,8 @@ class Round:
         if not is_failed:
             results = {}
             try:
-                training_kwargs_with_history = dict(logger=self.logger, **self.training_kwargs)
+                training_kwargs_with_history = dict(logger=self.logger,
+                                                    **self.training_kwargs)
                 print(training_kwargs_with_history)
                 model.set_dataset(self.dataset['path'])
                 rtime_before = time.perf_counter()
@@ -137,26 +141,37 @@ class Round:
                 res = self.repository.upload_file(filename)
                 print("results uploaded successfully ")
             except Exception as e:
-                    is_failed = True
-                    error_message = "Cannot upload results: " + str(e)
+                is_failed = True
+                error_message = "Cannot upload results: " + str(e)
 
         # end : clean the namespace
         try:
             del model
             del import_module
-        except:
+        except Exception:
             pass
 
         if not is_failed:
             return NodeMessages.reply_create({'client_id': CLIENT_ID,
-                    'job_id': self.job_id, 'researcher_id': self.researcher_id,
-                    'command': 'train', 'success': True, 'dataset_id': self.dataset['dataset_id'],
-                    'params_url': res['file'], 'msg': '',
-                    'timing': { 'rtime_training': rtime_after - rtime_before, 'ptime_training': ptime_after - ptime_before } }).get_dict()
+                                              'job_id': self.job_id,
+                                              'researcher_id': self.researcher_id,
+                                              'command': 'train',
+                                              'success': True,
+                                              'dataset_id': self.dataset['dataset_id'],
+                                              'params_url': res['file'],
+                                              'msg': '',
+                                              'timing': {
+                                                  'rtime_training': rtime_after - rtime_before,
+                                                  'ptime_training': ptime_after - ptime_before }
+                                                        }).get_dict()
         else:
             print('[ERROR] ' + error_message)
             return NodeMessages.reply_create({'client_id': CLIENT_ID,
-                    'job_id': self.job_id, 'researcher_id': self.researcher_id,
-                    'command': 'train', 'success': False, 'dataset_id': '',
-                    'params_url': '', 'msg': error_message,
-                    'timing': {} }).get_dict()
+                                              'job_id': self.job_id,
+                                              'researcher_id': self.researcher_id,
+                                              'command': 'train',
+                                              'success': False,
+                                              'dataset_id': '',
+                                              'params_url': '',
+                                              'msg': error_message,
+                                              'timing': {} }).get_dict()

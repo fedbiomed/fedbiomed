@@ -31,8 +31,9 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             dataset_id (str):  dataset id
 
         Returns:
-            [List[dict]]: list of dict of matching datasets, each dict containing
-            all the fields describing the matching datasets stored in Tiny database.
+            [List[dict]]: list of dict of matching datasets, each dict
+            containing all the fields describing the matching datasets
+            stored in Tiny database.
         """ 
         self.db.clear_cache() 
         return self.db.search(self.database.dataset_id.all(dataset_id))
@@ -49,7 +50,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         self.db.clear_cache()  
         return self.db.search(self.database.tags.all(tags))
 
-    def read_csv(self, csv_file: str, index_col:int=0) -> pd.DataFrame:
+    def read_csv(self, csv_file: str, index_col: int = 0) -> pd.DataFrame:
         """Reads a *.csv file and ouptuts its data into a pandas DataFrame.
         Finds automatically the csv delimiter by parsing the first line.
 
@@ -70,8 +71,8 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         # TODO: add headers parameter
         return pd.read_csv(csv_file, index_col=index_col, sep=delimiter)
 
-
-    def get_torch_dataset_shape(self, dataset: torch.utils.data.Dataset) -> List[int]:
+    def get_torch_dataset_shape(self,
+                                dataset: torch.utils.data.Dataset) -> List[int]:
         """Gets info about dataset shape.
 
         Args:
@@ -85,12 +86,11 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         """        
         return [len(dataset)] + list(dataset[0][0].shape)
 
-
     def load_default_database(self,
                               name: str,
                               path: str,
-                              as_dataset: bool=False) -> Union[List[int],
-                                                               torch.utils.data.Dataset]:
+                              as_dataset: bool = False) -> Union[List[int],
+                                                                torch.utils.data.Dataset]:
         """Loads a default dataset. Currently, only MNIST dataset
         is used as the default dataset.
 
@@ -107,9 +107,10 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             the name of a default dataset.
 
         Returns:
-            [type]: depending on the value of the parameter `as_dataset`. If set to True, 
-            returns dataset (type: torch.utils.data.Dataset), if set to False, returns 
-            the size of the dataset stored inside a list (type: List[int])
+            [type]: depending on the value of the parameter `as_dataset`. If
+            set to True,  returns dataset (type: torch.utils.data.Dataset),
+            if set to False, returns the size of the dataset stored inside
+            a list (type: List[int])
         """        
         kwargs = dict(root=path, download=True, transform=transforms.ToTensor())
 
@@ -125,8 +126,10 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             return self.get_torch_dataset_shape(dataset)
 
 
-    def load_images_dataset(self, folder_path:str, as_dataset:bool=False) -> Union[List[int],
-                                                                                    torch.utils.data.Dataset]:
+    def load_images_dataset(self,
+                            folder_path: str,
+                            as_dataset: bool = False) -> Union[List[int],
+                                                               torch.utils.data.Dataset]:
         """[summary]
 
         Args:
@@ -137,12 +140,12 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             [type]: [description]
         """        
 
-        dataset = datasets.ImageFolder(folder_path, transform=transforms.ToTensor())
+        dataset = datasets.ImageFolder(folder_path,
+                                       transform=transforms.ToTensor())
         if as_dataset:
             return dataset
         else:
             return self.get_torch_dataset_shape(dataset)
-
 
     def load_csv_dataset(self, path) -> pd.DataFrame:
         """[summary]
@@ -152,9 +155,8 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         Returns:
             [type]: [description]
-        """        
+        """
         return self.read_csv(path).shape
-
 
     def add_database(self,
                      name: str,
@@ -162,7 +164,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
                      tags: Union[tuple, list],
                      description: str,
                      path: str,
-                     dataset_id: str=None):
+                     dataset_id: str = None):
         """
         Adds a new dataset contained in a file to node
 
@@ -186,7 +188,8 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         data_types = ['csv', 'default', 'images']
         if data_type not in data_types:
-            raise NotImplementedError(f'Data type {data_type} is not a compatible data type. '
+            raise NotImplementedError(f'Data type {data_type} is not'
+                                      ' a compatible data type. '
                                       f'Compatible data types are: {data_types}')
 
         if data_type == 'default':
@@ -203,20 +206,18 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             dataset_id = 'dataset_' + str(uuid.uuid4())
 
         new_database = dict(name=name, data_type=data_type, tags=tags,
-                        description=description, shape=shape, path=path, dataset_id=dataset_id)
+                            description=description, shape=shape,
+                            path=path, dataset_id=dataset_id)
         self.db.insert(new_database)
-
 
     def remove_database(self, tags: Union[tuple, list]):
         doc_ids = [doc.doc_id for doc in self.search_by_tags(tags)]
         self.db.remove(doc_ids=doc_ids)
 
-
     def modify_database_info(self, tags: Union[tuple, list], modified_dataset: dict):
         self.db.update(modified_dataset, self.database.tags.all(tags))
 
-
-    def list_my_data(self, verbose: bool=True):
+    def list_my_data(self, verbose: bool = True):
         """[summary]
 
         Args:
@@ -231,7 +232,6 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             print(tabulate(my_data, headers='keys'))
         return my_data
 
-
     def load_as_dataloader(self, dataset):
         """[summary]
 
@@ -243,11 +243,14 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         """        
         name = dataset['data_type']
         if name == 'default':
-            return self.load_default_database(name=dataset['name'], path=dataset['path'], as_dataset=True)
+            return self.load_default_database(name=dataset['name'],
+                                              path=dataset['path'],
+                                              as_dataset=True)
         elif name == 'images':
-            return self.load_images_dataset(folder_path=dataset['path'], as_dataset=True)
+            return self.load_images_dataset(folder_path=dataset['path'],
+                                            as_dataset=True)
 
-    #seems unused
+    #  `load_data` seems unused
     def load_data(self, tags: Union[tuple, list], mode: str):
         """[summary]
 
@@ -256,7 +259,8 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             mode (str): [description]
 
         Raises:
-            NotImplementedError: if mode is not in ['pandas', 'torch_dataset', 'torch_tensor', 'numpy']
+            NotImplementedError: if mode is not in ['pandas', 'torch_dataset',
+            'torch_tensor', 'numpy']
             NotImplementedError: [description]
             NotImplementedError: [description]
             NotImplementedError: [description]
@@ -269,7 +273,8 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         mode = mode.lower()
         modes = ['pandas', 'torch_dataset', 'torch_tensor', 'numpy']
         if mode not in modes:
-            raise NotImplementedError(f'Data mode `{mode}` was not found. Data modes available: {modes}')
+            raise NotImplementedError(f'Data mode `{mode}` was not found.'
+                                      ' Data modes available: {modes}')
 
         # Look for dataset in database
         dataset = self.search_by_tags(tags)[0]
@@ -293,9 +298,11 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             if mode == 'torch_dataset':
                 return self.load_as_dataloader(dataset)
             elif mode == 'torch_tensor':
-                raise NotImplementedError('We are working on this implementation!')
+                raise NotImplementedError('We are working on this'
+                                          ' implementation!')
             elif mode == 'numpy':
-                raise NotImplementedError('We are working on this implementation!')
+                raise NotImplementedError('We are working on this'
+                                          'implementation!')
             else:
-                raise NotImplementedError(f'Mode `{mode}` has not been implemented on this version.')
-
+                raise NotImplementedError(f'Mode `{mode}` has not been'
+                                          ' implemented on this version.')

@@ -61,7 +61,12 @@ def pick_with_tkinter(mode='file'):
         # root.withdraw()
         # root.attributes("-topmost", True)
         if mode == 'file':
-            return tkinter.filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+            return tkinter.filedialog.askopenfilename(
+                                                      filetypes=[
+                                                                ("CSV files",
+                                                                 "*.csv")
+                                                                ]
+                                                      )
         else:
             return tkinter.filedialog.askdirectory()
 
@@ -131,9 +136,11 @@ def add_database(interactive=True, path=''):
     # Add database
 
     try:
-        data_manager.add_database(name=name, tags=tags, data_type=data_type,
-                     description=description,
-                     path=path)
+        data_manager.add_database(name=name,
+                                  tags=tags,
+                                  data_type=data_type,
+                                  description=description,
+                                  path=path)
     except AssertionError as e:
         if interactive is True:
             try:
@@ -147,10 +154,11 @@ def add_database(interactive=True, path=''):
     print('\nGreat! Take a look at your data:')
     data_manager.list_my_data(verbose=True)
 
+
 def manage_node():
     """
     Instanciates a node and data manager objects. Then, node starts
-    messaging with the Network 
+    messaging with the Network
     """
     print('Launching node...')
 
@@ -161,6 +169,7 @@ def manage_node():
 
     print('\t - Starting task manager...\n')
     node.task_manager()  # handling training tasks in queue
+
 
 def launch_node():
     """
@@ -180,10 +189,12 @@ def launch_node():
         while(p.is_alive()):
             print("Terminating process " + str(p.pid))
             time.sleep(1)
-        print('Exited with code ' + str(p.exitcode))   # p.exitcode returns None if not finished yet
+        print('Exited with code ' + str(p.exitcode))
+        # (above) p.exitcode returns None if not finished yet
         exit()
 
-def delete_database(interactive: bool=True):
+
+def delete_database(interactive: bool = True):
     my_data = data_manager.list_my_data(verbose=False)
     if not my_data:
         print('No dataset to delete')
@@ -225,13 +236,25 @@ def launch_cli():
     parser = argparse.ArgumentParser(description=f'{__intro__}:A CLI app for fedbiomed researchers.',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
-    parser.add_argument('-a', '--add', help='Add and configure local dataset (interactive)', action='store_true')
-    parser.add_argument('-am', '--add-mnist', help='Add MNIST local dataset (non-interactive)', 
-        type=str, nargs='?', const='', metavar='path_mnist', action='store')
-    parser.add_argument('-d', '--delete', help='Delete existing local dataset (interactive)', action='store_true')
-    parser.add_argument('-dm', '--delete-mnist', help='Delete existing MNIST local dataset (non-interactive)', action='store_true')
-    parser.add_argument('-l', '--list', help='List my shared_data', action='store_true')
-    parser.add_argument('-s', '--start-node', help='Start fedbiomed node.', action='store_true')
+    parser.add_argument('-a', '--add',
+                        help='Add and configure local dataset (interactive)',
+                        action='store_true')
+    parser.add_argument('-am', '--add-mnist',
+                        help='Add MNIST local dataset (non-interactive)',
+                        type=str, nargs='?', const='', metavar='path_mnist',
+                        action='store')
+    parser.add_argument('-d', '--delete',
+                        help='Delete existing local dataset (interactive)',
+                        action='store_true')
+    parser.add_argument('-dm', '--delete-mnist',
+                        help='Delete existing MNIST local dataset (non-interactive)',
+                        action='store_true')
+    parser.add_argument('-l', '--list',
+                        help='List my shared_data',
+                        action='store_true')
+    parser.add_argument('-s', '--start-node',
+                        help='Start fedbiomed node.',
+                        action='store_true')
     args = parser.parse_args()
 
     if not any(args.__dict__.values()):
@@ -263,5 +286,6 @@ def main():
     except KeyboardInterrupt:
         print('Operation cancelled by user.')
 
+
 if __name__ == '__main__':
-        main()
+    main()

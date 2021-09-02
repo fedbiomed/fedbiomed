@@ -19,7 +19,8 @@ class TensorboardSupervisor:
             print('Killing Tensorboard Server')
             self.server.terminate()
             self.server.join()
-        # As a preference, we leave chrome open - but this may be amended similar to the method above
+        # As a preference, we leave chrome open -
+        # but this may be amended similar to the method above
 
 
 class TensorboardServer(Process):

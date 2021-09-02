@@ -10,7 +10,7 @@ class Message(object):
     """
     def __init__(self):
         """ Constructor of the class
-        """        
+        """
         pass
 
     def set_param(self, param: str, param_value: Any):
@@ -20,8 +20,8 @@ class Message(object):
             param (str): the name of the param to be modified
             param_value (Any): new value of the param
         """
-        # FIXME: should we introduce a functionality 
-        # to avoid creating non existing attributes in the class? 
+        # FIXME: should we introduce a functionality
+        #  to avoid creating non existing attributes in the class?
         setattr(self, param, param_value)
 
     def get_param(self, param: str):
@@ -29,17 +29,17 @@ class Message(object):
 
         Args:
             param (str): name of the param
-        """        
+        """
         return(getattr(self, param))
 
     def get_dict(self) -> Dict[str, Any]:
         """Returns pairs (Message class attributes name, attributes values)
         into a dictionary
-        
+
         """
         return(self.__dict__)
-    
-    def validate(self, fields:Dict[str, Any]) -> bool:
+
+    def validate(self, fields: Dict[str, Any]) -> bool:
         """checks whether incoming field types match with attributes
             class type. 
 
@@ -68,7 +68,7 @@ class SearchReply(Message):
         
     Raises:
         ValueError: triggered if message's fields validation failed
-    """ 
+    """
     researcher_id: str
     success: bool
     databases: list
@@ -79,8 +79,6 @@ class SearchReply(Message):
     def __post_init__(self):
         if not self.validate(self.__dataclass_fields__.items()):
             raise ValueError('Wrong types')
-
-    
 
 
 @dataclass
@@ -99,6 +97,7 @@ class PingReply(Message):
     def __post_init__(self):
         if not self.validate(self.__dataclass_fields__.items()):
             raise ValueError('Wrong types')
+
 
 @dataclass
 class TrainReply(Message):
@@ -140,6 +139,7 @@ class AddScalarReply(Message):
     def __post_init__(self):
         if not self.validate(self.__dataclass_fields__.items()):
             raise ValueError('Wrong types')
+
 
 @dataclass
 class ErrorMessage(Message):
@@ -219,13 +219,13 @@ class TrainRequest(Message):
 class ResearcherMessages():
     """This class allows to create the corresponding class instance from
     a received/ sent message by the researcher
-    """    
+    """
     @classmethod
     def reply_create(cls, params: Dict[str, Any]) -> Union[TrainReply,
-                                                     SearchReply,
-                                                     PingReply,
-                                                     ErrorMessage,
-                                                     AddScalarReply]:
+                                                           SearchReply,
+                                                           PingReply,
+                                                           ErrorMessage,
+                                                           AddScalarReply]:
         """this method is used on message reception (as a mean to reply to
         node requests, such as a Ping request).
         it creates the adequate message, it maps an instruction
@@ -246,10 +246,10 @@ class ResearcherMessages():
         message_type = params['command']
         
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
-                                    'search': SearchReply,
-                                    'ping': PingReply,
-                                    'error': ErrorMessage,
-                                    'add_scalar':AddScalarReply
+                                     'search': SearchReply,
+                                     'ping': PingReply,
+                                     'error': ErrorMessage,
+                                     'add_scalar': AddScalarReply
         }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -258,7 +258,7 @@ class ResearcherMessages():
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
     @classmethod
-    def request_create(cls, params:Dict[str, Any]) -> Union[TrainRequest,
+    def request_create(cls, params: Dict[str, Any]) -> Union[TrainRequest,
                                                              SearchRequest,
                                                              PingRequest]:
 
@@ -283,9 +283,9 @@ class ResearcherMessages():
         message_type = params['command']
 
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainRequest,
-                                    'search': SearchRequest,
-                                    'ping': PingRequest
-        }
+                                     'search': SearchRequest,
+                                     'ping': PingRequest
+                                     }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
             raise ValueError('Bad message type {}'.format(message_type))
@@ -302,8 +302,8 @@ class NodeMessages():
                                                    SearchRequest,
                                                    PingRequest]:
         """
-        This method creates the adequate message/ request to send to researcher,
-        it maps an instruction (given the key "command" in the
+        This method creates the adequate message/ request to send
+        to researcher, it maps an instruction (given the key "command" in the
         input dictionary `params`) to a Message object
         
         It validates:
@@ -311,19 +311,20 @@ class NodeMessages():
         - the structure of the created message
         
         Raises:
-            ValueError: triggered if the message is not allowed te be sent by the node
-            (ie if message `command` field is not either a train request, search request or
-            a ping request)
+            ValueError: triggered if the message is not allowed te be sent
+            by the node (ie if message `command` field is not either a
+            train request, search request or a ping request)
 
         Returns:
-            An instance of the corresponding class (TrainRequest, SearchRequest, PingRequest)
+            An instance of the corresponding class (TrainRequest,
+            SearchRequest, PingRequest)
         """
-        message_type = params['command'] # can be "train", "search", or "ping"
+        message_type = params['command']  # can be "train", "search", or "ping"
         # mapping message type to an object
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainRequest,
-                                    'search': SearchRequest,
-                                    'ping': PingRequest,
-        }
+                                     'search': SearchRequest,
+                                     'ping': PingRequest,
+                                     }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
             raise ValueError('Bad message type {}'.format(message_type))
@@ -346,23 +347,23 @@ class NodeMessages():
         - the structure of the received message
 
         Raises:
-            ValueError: if the message is not allowed te be received by the node
-            (ie if message `command` field is not either a train request, search request,
-            a ping request, add scalar request, or error message)
+            ValueError: if the message is not allowed te be received by
+            the node (ie if message `command` field is not either a
+            train request, search request, a ping request, add scalar
+            request, or error message)
 
         Returns:
             An instance of the corresponding class
         """
         message_type = params['command']
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
-                                    'search': SearchReply,
-                                    'ping': PingReply,
-                                    'error': ErrorMessage,
-                                    'add_scalar':AddScalarReply
-        }
+                                     'search': SearchReply,
+                                     'ping': PingReply,
+                                     'error': ErrorMessage,
+                                     'add_scalar': AddScalarReply
+                                     }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
             raise ValueError('Bad message type {}'.format(message_type))
 
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
-        
