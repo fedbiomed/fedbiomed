@@ -8,7 +8,7 @@ import argparse
 
 import tkinter.filedialog
 import tkinter.messagebox
-
+from tkinter import _tkinter
 
 from fedbiomed.node.environ import CLIENT_ID
 from fedbiomed.node.data_manager import Data_manager
@@ -65,8 +65,9 @@ def pick_with_tkinter(mode='file'):
         else:
             return tkinter.filedialog.askdirectory()
 
-    except ModuleNotFoundError:
+    except (ModuleNotFoundError, _tkinter.TclError):
         # handling case where tkinter package cannot be found on system
+        # or if tkinter crashes
         if mode == 'file':
             return input('Insert the path of the CSV file: ')
         else:
