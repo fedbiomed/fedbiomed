@@ -1,3 +1,4 @@
+import uuid
 from enum import Enum
 from typing import Any, Callable, Union
 
@@ -14,6 +15,7 @@ class MessagingType(Enum):
     """
     RESEARCHER = 1
     NODE = 2
+
 
 class Messaging:
     """ This class represents the Messager,
@@ -39,9 +41,11 @@ class Messaging:
             mqtt_broker (str, optional): IP address / URL. Defaults to "localhost".
             mqtt_broker_port (int, optional): Defaults to 80 (http default port).
         """        
-        self.messaging_type = messaging_type
-        self.messaging_id = str(messaging_id)
-        self.mqtt = mqtt.Client(client_id=messaging_id) # defining a client.
+        self.messaging_type = messaging_type        
+        
+        self.messaging_id = str(uuid.uuid4()) if messaging_type == MessagingType.RESEARCHER else str(messaging_id)
+        
+        self.mqtt = mqtt.Client(client_id=self.messaging_id)  # defining a client.
         # defining MQTT 's `on_connect` and `on_message` handlers
         # (see MQTT paho documentation for further information
         # _ https://github.com/eclipse/paho.mqtt.python)
@@ -49,13 +53,13 @@ class Messaging:
         self.mqtt.on_message = self.on_message  # refering to the method: not to `on_message` handler
         self.mqtt.connect(mqtt_broker, mqtt_broker_port, keepalive=60)
 
-        self.on_message_handler = on_message # store the caller's message handler
+        self.on_message_handler = on_message  # store the caller's mesg handler
 
         if self.messaging_type is MessagingType.RESEARCHER:
             self.default_send_topic = 'general/clients'
         elif self.messaging_type is MessagingType.NODE:
             self.default_send_topic = 'general/server'
-        else: # should not occur
+        else:  # should not occur
             self.default_send_topic = None
 
         self.is_connected = False
@@ -72,7 +76,7 @@ class Messaging:
             client (mqtt.Client): mqtt on_message arg, client instance (unused)
             userdata (Any): mqtt on_message arg (unused)
             msg: mqtt on_message arg
-        """        
+        """
         message = json.deserialize_msg(msg.payload)
         self.on_message_handler(message)
 
@@ -130,7 +134,7 @@ class Messaging:
             msg (dict): the content of a message
             client ([str], optional): defines the channel to which the 
                                 message will be sent. Defaults to None(all clients)
-        """        
+        """
         if client is None:
             channel = self.default_send_topic
         else:
