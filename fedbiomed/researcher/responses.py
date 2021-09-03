@@ -25,7 +25,7 @@ class Responses:
                     # FIXME: would using ` set()` function be a better idea?
 
     @property
-    def data(self)-> list:
+    def data(self) -> list:
         """setter
 
         Returns:

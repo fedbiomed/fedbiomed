@@ -7,7 +7,8 @@ from fedbiomed.researcher.aggregators.functional import federated_averaging
 
 class Aggregator:
     """
-    Defines methods for aggregating strategy (eg FedAvg, FedProx, SCAFFOLD, ...).
+    Defines methods for aggregating strategy
+    (eg FedAvg, FedProx, SCAFFOLD, ...).
     """
     def __init__(self):
         pass

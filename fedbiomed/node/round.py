@@ -74,11 +74,13 @@ class Round:
                 is_failed = True
                 error_message = "Cannot download model file: " + self.model_url
             else:
-                status, params_path = self.repository.download_file(self.params_url,
-                                                                    'my_model_' + str(uuid.uuid4()) + '.pt')
+                status, params_path = self.repository.download_file(
+                    self.params_url,
+                    'my_model_' + str(uuid.uuid4()) + '.pt')
                 if (status != 200) or params_path is None:
                     is_failed = True
-                    error_message = "Cannot download param file: " + self.params_url
+                    error_message = "Cannot download param file: "\
+                        + self.params_url
         except Exception as e:
             is_failed = True
             error_message = "Cannot download model files:" + str(e)
@@ -92,7 +94,7 @@ class Round:
                 sys.path.pop(0)
                 # (below) instanciate model as `train_class`
                 train_class = eval(import_module + '.' + self.model_class)
-                if self.model_kwargs is None or len(self.model_kwargs)==0:
+                if self.model_kwargs is None or len(self.model_kwargs) == 0:
                     # case where no args have been found (default)
                     model = train_class()
                 else:  
@@ -135,7 +137,8 @@ class Round:
             results['history'] = self.logger.history
             results['client_id'] = CLIENT_ID
             try:
-                # TODO : should test status code but not yet returned by upload_file
+                # TODO : should test status code but not yet returned
+                # by upload_file
                 filename = TMP_DIR + '/node_params_' + str(uuid.uuid4()) + '.pt'
                 model.save(filename, results)
                 res = self.repository.upload_file(filename)

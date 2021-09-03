@@ -18,16 +18,17 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 
 class Job:
     """
-    This class represents the entity that manage the training part at the nodes level
+    This class represents the entity that manage the training part at
+    the nodes level
     """    
     def __init__(self,
-                reqs: Requests=None,
-                clients: dict=None,
-                model: Union[str, Callable] = None,
-                model_path: str = None,
-                training_args: dict=None,
-                model_args: dict=None,
-                data: FederatedDataSet=None):
+                 reqs: Requests = None,
+                 clients: dict = None,
+                 model: Union[str, Callable] = None,
+                 model_path: str = None,
+                 training_args: dict = None,
+                 model_args: dict = None,
+                 data: FederatedDataSet = None):
 
         """ Constructor of the class.
         
@@ -36,14 +37,18 @@ class Job:
         (under the filename '<TEMP_DIR>/my_model_<random_id>.py').
 
         Args:
-            reqs (Requests, optional): researcher's requests assigned to nodes. Defaults to None.
-            clients (dict, optional): a dict of client_id containing the clients used for training
-            model (Union[str, Callable], optional): name of the model class to use for training
-            model_path (string, optional) : path to file containing model class code
-            training_args (dict, optional): contains training parameters: lr, epochs, batch_size...
-                                            Defaults to None.
-            model_args (dict, optional): contains output and input feature dimension. 
-                                            Defaults to None.
+            reqs (Requests, optional): researcher's requests assigned to nodes.
+            Defaults to None.
+            clients (dict, optional): a dict of client_id containing the
+            clients used for training
+            model (Union[str, Callable], optional): name of the model class
+            to use for training
+            model_path (string, optional) : path to file containing model
+            class code
+            training_args (dict, optional): contains training parameters:
+            lr, epochs, batch_size...Defaults to None.
+            model_args (dict, optional): contains output and input feature
+                                        dimension.Defaults to None.
             data (FederatedDataset, optional): . Defaults to None.
         
         """        
@@ -59,7 +64,6 @@ class Job:
         else:
             self._reqs = reqs
 
-
         self.last_msg = None
         self._data = data
         # handle case when model is in a file
@@ -72,7 +76,7 @@ class Job:
                 exec('from ' + model_module + ' import ' + model)
                 sys.path.pop(0)
                 model = eval(model)
-            except:
+            except Exception:
                 e = sys.exc_info()
                 print("Cannot import class ", model, " from path ", model_path, " - Error: ", e)
                 sys.exit(-1)
@@ -80,15 +84,13 @@ class Job:
         # create/save model instance (ie TrainigPlan)
         if inspect.isclass(model):
             # case if `model` is a class
-            if self._model_args is None or len(self._model_args)==0:
+            if self._model_args is None or len(self._model_args) == 0:
                 self.model_instance = model()  # contains TrainingPlan
             else:
                 self.model_instance = model(self._model_args)
         else:
             # also handle case where model is an instance of a class
             self.model_instance = model
-
-
 
         self.repo = Repository(UPLOADS_URL, TMP_DIR, CACHE_DIR)
         with tempfile.TemporaryDirectory(dir=TMP_DIR) as tmpdirname:
@@ -116,12 +118,13 @@ class Job:
             repo_response = self.repo.upload_file(params_file)
             self._repository_args['params_url'] = repo_response['file']
             
-        # (below) regex: matches a character not present among "^", "\", "." characters 
-        # at the end of file.
+        # (below) regex: matches a character not present among "^", "\", "."
+        # characters at the end of string.
         self._repository_args['model_class'] = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
 
         # Validate fields in each argument
-        self.validate_minimal_arguments(self._repository_args, ['model_url', 'model_class', 'params_url'])
+        self.validate_minimal_arguments(self._repository_args,
+                                        ['model_url', 'model_class', 'params_url'])
         # FIXME: (above) the constructor of a class mustnot call one of the method class in its definition
         
     @staticmethod
@@ -130,7 +133,8 @@ class Job:
 
         Args:
             obj (dict): object to be validated
-            fields (Union[tuple, list]): list of fields that should be present on the obj
+            fields (Union[tuple, list]): list of fields that should be present
+            on the obj
         """        
         for f in fields:
             assert f in obj.keys(), f'Field {f} is required in object {obj}. Was not found.'
@@ -165,17 +169,18 @@ class Job:
     def training_args(self, training_args: dict):
         self._training_args = training_args
 
-    """ This method should change in sprint8 or as soon as we implement other kind of strategies different than DefaultStrategy"""
+    """ This method should change in sprint8 or as soon as we implement other
+    kind of strategies different than DefaultStrategy"""
     def waiting_for_clients(self, responses: Responses) -> bool:
-        """ this method verifies if all clients involved in the job are present and Responding
-        Checks if 
+        """ this method verifies if all clients involved in the job are
+        present and Responding
         
         Args:
             responses (Responses): contains message answers
 
         Returns:
-            bool: False if all clients are present in the Responses object. True if 
-            waiting for at least one client.
+            bool: False if all clients are present in the Responses object.
+            True if waiting for at least one client.
         """        
         try:
             clients_done = set(responses.dataframe['client_id'])
@@ -203,22 +208,22 @@ class Job:
             'command': 'train'
         }
 
-        msg = {**headers, **self._repository_args }
+        msg = {**headers, **self._repository_args}
         time_start = {}
 
         for cli in self._clients:
-            msg['training_data'] = { cli: [ ds['dataset_id'] for ds in self._data.data()[cli] ] }
+            msg['training_data'] = {cli: [ds['dataset_id'] for ds in self._data.data()[cli]]}
             print('[ RESEARCHER ] Send message to client ', cli, msg)
             time_start[cli] = time.perf_counter()
-            self._reqs.send_message( msg , cli)  # send request to node
+            self._reqs.send_message(msg, cli)  # send request to node
 
         # Recollect models trained
-        self._training_replies[round] = Responses([])  
+        self._training_replies[round] = Responses([])
         while self.waiting_for_clients(self._training_replies[round]):
             # collect nodes responses from researcher request 'train'
             # (wait for all clients with a ` while true` loop)
-            models_done = self._reqs.get_responses('train')  
-            for m in models_done.get_data():  # retrieve all models 
+            models_done = self._reqs.get_responses('train')
+            for m in models_done.get_data():  # retrieve all models
                 # (there should have as many models done as nodes)
                 
                 # only consider replies for our request
@@ -228,15 +233,22 @@ class Job:
                 rtime_total = time.perf_counter() - time_start[m['client_id']]
 
                 # TODO : handle error depending on status
-                print("Downloading model params after training on ", m['client_id'], '\n\t- from', m['params_url'])
-                _, params_path = self.repo.download_file(m['params_url'], 'my_model_' + str(uuid.uuid4()) + '.pt')
+                print("Downloading model params after training on ",
+                      m['client_id'], '\n\t- from', m['params_url'])
+                _, params_path = self.repo.download_file(m['params_url'],
+                                                         'my_model_' + str(uuid.uuid4()) + '.pt')
                 params = self.model_instance.load(params_path, to_params=True)['model_params']
-                # TODO: could choose completely different name/structure for job-level data
+                # TODO: could choose completely different name/structure for
+                # job-level data
                 timing = m['timing']
                 timing['rtime_total'] = rtime_total
-                r = Responses({ 'success': m['success'], 'msg': m['msg'], 'dataset_id': m['dataset_id'],
-                    'client_id': m['client_id'], 'params_path': params_path, 'params': params,
-                    'timing': timing })
+                r = Responses({'success': m['success'],
+                               'msg': m['msg'],
+                               'dataset_id': m['dataset_id'],
+                               'client_id': m['client_id'],
+                               'params_path': params_path,
+                               'params': params,
+                               'timing': timing})
                 self._training_replies[round].append(r)  # add new replies               
 
     def update_parameters(self, params: dict) -> str:
@@ -341,11 +353,11 @@ class localJob:
         Args:
             round (int): round of the training
             initial_params (str): url of the init file params
-        """    
+        """
 
         for i in self.model_instance.dependencies:
-            exec(i, globals()) 
- 
+            exec(i, globals())
+
         is_failed = False
         error_message = ''
 
@@ -353,17 +365,17 @@ class localJob:
         if not is_failed:
             results = {}
             try:
-                
+             
                 self.model_instance.set_dataset(self.dataset_path)
                 self.model_instance.training_routine(**self.__training_args)
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot train model: " + str(e)
 
-
         if not is_failed:
             try:
-                # TODO : should test status code but not yet returned by upload_file
+                # TODO : should test status code but not yet returned
+                # by upload_file
                 filename = TMP_DIR + '/local_params_' + str(uuid.uuid4()) + '.pt'
                 self.model_instance.save(filename, results)
             except Exception as e:
@@ -373,7 +385,7 @@ class localJob:
         # end : clean the namespace
         try:
             del model
-        except:
+        except Exception:
             pass
 
         if error_message != '':

@@ -27,12 +27,12 @@ class DefaultStrategy(Strategy):
 		self._sampling_client_history[round_i] = self._fds.client_ids
 		return self._fds.client_ids
 
-	def refine(self, training_replies, round_i) -> Tuple[List,List]:
+	def refine(self, training_replies, round_i) -> Tuple[List, List]:
 		models_params = []
 		weights = []
 		try:
 			# check that all nodes answered
-			cl_answered = [ val['client_id'] for val in training_replies.data ]
+			cl_answered = [val['client_id'] for val in training_replies.data]
 			for cl in self.sample_clients(round_i):
 				if cl not in cl_answered:
 					raise DefaultStrategyException("At least one node didn't answer " + cl)
@@ -51,8 +51,8 @@ class DefaultStrategy(Strategy):
 
 		# FIXME: should we seperate node response checking (above) from the computation
 		# of weighs (below) ? 
-		totalrows = sum([ val[0]["shape"][0] for (key,val) in self._fds.data().items() ] )
-		weights = [ val[0]["shape"][0] / totalrows for (key,val) in self._fds.data().items() ]
-		print ('Clients that successfully reply in round ' , round_i,' ' , self._success_client_history[round_i] )
+		totalrows = sum([val[0]["shape"][0] for (key,val) in self._fds.data().items()])
+		weights = [val[0]["shape"][0] / totalrows for (key,val) in self._fds.data().items()]
+		print('Clients that successfully reply in round ', round_i, ' ', self._success_client_history[round_i])
 		return models_params, weights
 

@@ -30,28 +30,41 @@ class Experiment:
 
         Args:
             tags (tuple): tuple of string with data tags
-            clients (list, optional): list of client_ids to filter the nodes to be involved in 
-                                      the experiment. Defaults to None (no filtering).
-            model_class (Union[str, Callable], optional): name of the model class to use for training
+            clients (list, optional): list of client_ids to filter the nodes
+                                    to be involved in the experiment.
+                                    Defaults to None (no filtering).
+            model_class (Union[str, Callable], optional): name of the
+                                    model class to use for training. Should
+                                    be a str type when using jupyter notebook
+                                    or a Callable when using a simple python
+                                    script.
             model_path (string, optional) : path to file containing model code
-            model_args (dict, optional): contains output and input feature dimension. 
+            model_args (dict, optional): contains output and input feature
+                                        dimension. Defaults to None.
+            training_args (dict, optional): contains training parameters:
+                                            lr, epochs, batch_size...
                                             Defaults to None.
-            training_args (dict, optional): contains training parameters: lr, epochs, batch_size...
-                                            Defaults to None.
-            rounds (int, optional): the number of communication rounds (clients <-> central server). 
-            Defaults to 1.
-            aggregator (aggregator.Aggregator): class defining the method for aggragating local updates.
+            rounds (int, optional): the number of communication rounds
+                                    (clients <-> central server).
+                                    Defaults to 1.
+            aggregator (aggregator.Aggregator): class defining the method
+                                                for aggragating local updates.
                                 Default to fedavg.FedAvg().
-            client_selection_strategy (Strategy): class defining how clients are sampled at each round for training,
-                                                and how non-responding clients are managed.
-                                                Defaults to None (ie DefaultStartegy)
+            client_selection_strategy (Strategy): class defining how clients
+                                                  are sampled at each round
+                                                  for training, and how
+                                                  non-responding clients
+                                                  are managed. Defaults to
+                                                  None (ie DefaultStartegy)
         """
         self._tags = tags
         self._clients = clients
         self._reqs = Requests()
-        # (below) search for nodes either having tags that matches the tags the researcher
-        # is looking for (`self._tags`) or based on client id (`self._clients`)
-        self._fds = FederatedDataSet(self._reqs.search(self._tags, self._clients))
+        # (below) search for nodes either having tags that matches the tags
+        # the researcher is looking for (`self._tags`) or based on client id
+        # (`self._clients`)
+        self._fds = FederatedDataSet(self._reqs.search(self._tags,
+                                                       self._clients))
         self._client_selection_strategy = client_selection_strategy
         self._aggregator = aggregator
 
@@ -61,8 +74,11 @@ class Experiment:
         self._training_args = training_args
         self._rounds = rounds
         self._job = Job(reqs=self._reqs,
-                model=self._model_class, model_path=self._model_path, model_args=self._model_args,
-                training_args=self._training_args, data=self._fds)
+                        model=self._model_class,
+                        model_path=self._model_path,
+                        model_args=self._model_args,
+                        training_args=self._training_args,
+                        data=self._fds)
 
         # structure (dict ?) for additional parameters to the strategy
         # currently unused, to be defined when needed
@@ -89,7 +105,8 @@ class Experiment:
         
 
         Args:
-            sync (bool, optional): whether synchronous execution is required or not.
+            sync (bool, optional): whether synchronous execution is required
+            or not.
             Defaults to True.
 
         Raises:
@@ -97,7 +114,8 @@ class Experiment:
         """
         if self._client_selection_strategy is None or self._sampled is None:
             # Default sample_clients: train all clients
-            # Default refine: Raise error with any failure and stop the experiment
+            # Default refine: Raise error with any failure and stop the
+            # experiment
             self._client_selection_strategy = DefaultStrategy(self._fds)
         else:
             self._client_selection_strategy = self._client_selection_strategy(self._fds, self._sampled)
@@ -117,8 +135,10 @@ class Experiment:
             model_params, weights = self._client_selection_strategy.refine( self._job.training_replies[round_i], round_i)
             
             # aggregate model from nodes to a global model
-            aggregated_params = self._aggregator.aggregate(model_params, weights)
+            aggregated_params = self._aggregator.aggregate(model_params,
+                                                           weights)
             # write results of the aggregated model in a temp file
             aggregated_params_path = self._job.update_parameters(aggregated_params)
 
-            self._aggregated_params[round_i] = { 'params': aggregated_params, 'params_path': aggregated_params_path }
+            self._aggregated_params[round_i] = {'params': aggregated_params,
+                                                'params_path': aggregated_params_path}

@@ -5,6 +5,7 @@ import os
 
 from fedbiomed.researcher.environ import TENSORBOARD_RESULTS_DIR
 
+
 class TensorboardSupervisor:
     def __init__(self, log_dp):
         self.server = TensorboardServer(log_dp)

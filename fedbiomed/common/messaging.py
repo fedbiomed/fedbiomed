@@ -45,10 +45,10 @@ class Messaging:
             default port).
         """        
         self.messaging_type = messaging_type
-        
+
         self.messaging_id = str(uuid.uuid4()) if \
             messaging_type == MessagingType.RESEARCHER else str(messaging_id)
-        
+
         self.mqtt = mqtt.Client(client_id=self.messaging_id)
         # defining a client.
         # defining MQTT 's `on_connect` and `on_message` handlers

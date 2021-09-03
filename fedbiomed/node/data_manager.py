@@ -117,14 +117,14 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         if 'mnist' in name.lower():
             dataset = datasets.MNIST(**kwargs)
         else:
-            raise NotImplementedError(f'Default dataset `{name}` has not been implemented.')
+            raise NotImplementedError(f'Default dataset `{name}` has'
+                                      'not been implemented.')
         # FIXME: ` NotImplementedError` should not be raised for that (dataset not found)
         # FIXES: create a custom error for that purpose
         if as_dataset:
             return dataset
         else:
             return self.get_torch_dataset_shape(dataset)
-
 
     def load_images_dataset(self,
                             folder_path: str,
@@ -214,7 +214,9 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         doc_ids = [doc.doc_id for doc in self.search_by_tags(tags)]
         self.db.remove(doc_ids=doc_ids)
 
-    def modify_database_info(self, tags: Union[tuple, list], modified_dataset: dict):
+    def modify_database_info(self,
+                             tags: Union[tuple, list],
+                             modified_dataset: dict):
         self.db.update(modified_dataset, self.database.tags.all(tags))
 
     def list_my_data(self, verbose: bool = True):

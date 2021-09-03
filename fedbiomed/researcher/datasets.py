@@ -1,6 +1,7 @@
 import uuid
 from typing import List, Dict
 
+
 class FederatedDataSet:
     """A class that allows researcher to interact with 
     remote datasets (federated datasets).
@@ -27,6 +28,7 @@ class FederatedDataSet:
     @property
     def shapes(self) -> Dict[uuid.UUID, int]:
         shapes_dict = {}
-        for client_id, client_data_size in zip(self.client_ids, self.sample_sizes):
+        for client_id, client_data_size in zip(self.client_ids,
+                                               self.sample_sizes):
             shapes_dict[client_id] = client_data_size
         return shapes_dict

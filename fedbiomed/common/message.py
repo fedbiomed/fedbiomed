@@ -331,7 +331,6 @@ class NodeMessages():
         
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
-
     @classmethod
     def reply_create(cls, params: dict) -> Union[TrainReply,
                                                  SearchReply,
