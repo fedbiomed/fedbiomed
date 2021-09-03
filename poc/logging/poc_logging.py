@@ -32,3 +32,16 @@ try:
     x = 0.0 / 0.0
 except:
     logger.exception("Got the trace ? ")
+
+
+
+# adding a console handler (not a json this time)
+
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+# should log on console and file
+logger.debug('console and file ???')
