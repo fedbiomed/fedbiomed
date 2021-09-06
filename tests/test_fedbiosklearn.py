@@ -10,6 +10,13 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from sklearn.linear_model import SGDRegressor
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 import os
+
+
+class TestModel(SGDSkLearnModel):
+
+    def adhoc(self):
+        print('adhoc')
+
 class TestFedbiosklearn(unittest.TestCase):
 
     def setUp(self):
@@ -31,6 +38,10 @@ class TestFedbiosklearn(unittest.TestCase):
         self.assertIsNone(p.get('toto'))
         self.assertIsNone(p.get('model'))
 
+    def test_not_implemented_method(self):
+        kw = {'toto': 'le', 'lelo': 'la', 'max_iter': 7000, 'tol': 0.3456, 'n_features': 10, 'model': 'SGDRegressor'}
+        t = TestModel(kw)
+        self.assertRaises(NotImplementedError,lambda: t.training_data())
 
 
     def test_save_and_load(self):

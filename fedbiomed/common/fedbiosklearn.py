@@ -24,13 +24,13 @@ class SGDSkLearnModel():
 
     ''' Provide partial fit method of scikit learning model here. '''
     def partial_fit(self,X,y):
-        return NotImplementedError('Partial fit must be implemented')
+        raise NotImplementedError('Partial fit must be implemented')
 
     '''Perform in this method all data reading and data transformations you need.
     At the end you should provide a couple (X,y) as indicated in the partial_fit
     method of the scikit learn class.'''
     def training_data(self, batch_size=None):
-        return NotImplementedError('Training data must be implemented')
+        raise NotImplementedError('Training data must be implemented')
 
     ''' Provide a dictionnary with the parameters you need to be fitted, refer to
      scikit documentation for a detail of parameters '''
@@ -45,7 +45,7 @@ class SGDSkLearnModel():
         print('SGD Regressor training batch size ', batch_size)
         #print('Init parameters', self.m.coef_, self.m.intercept_)
         (data, target) = self.training_data(batch_size=batch_size)
-        for r in range(epochs):
+        for _ in range(epochs):
             # do not take into account more than batch_maxnum batches from the dataset
             if batch_maxnum == 0 :
                 if self.model_type == 'MultinomialNB' or self.model_type == 'BernoulliNB' or self.model_type == 'Perceptron' or self.model_type == 'SGDClassifier' or self.model_type == 'PassiveAggressiveClassifier' :
@@ -165,10 +165,6 @@ class SGDSkLearnModel():
     def set_dataset(self, dataset_path):
         self.dataset_path = dataset_path
         print('Dataset_path',self.dataset_path)
-
-    def add_dependency(self, dep):
-        self.dependencies.extend(dep)
-        pass
 
     def get_model(self):
         return self.m
