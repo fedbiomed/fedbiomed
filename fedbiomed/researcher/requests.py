@@ -68,6 +68,7 @@ class Requests:
                     # currently trash all other messages
                     pass
                     #self.queue.add(item)
+                self.queue.task_done()
             except exceptionsEmpty:
                 pass
 
