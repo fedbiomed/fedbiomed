@@ -1,4 +1,4 @@
-import uuid
+import sys
 from enum import Enum
 import paho.mqtt.client as mqtt
 
@@ -24,10 +24,14 @@ class Messaging:
             mqtt_broker_port (int, optional): Defaults to 80.
         """
         self.messaging_type = messaging_type
-        self.messaging_id = str(uuid.uuid4()) if messaging_type == MessagingType.RESEARCHER else str(messaging_id)
+        self.messaging_id = str(messaging_id)
+        self.is_connected = False
+
         self.mqtt = mqtt.Client(client_id=self.messaging_id)
         self.mqtt.on_connect = self.on_connect
         self.mqtt.on_message = self.on_message
+        self.mqtt.on_disconnect = self.on_disconnect
+
         self.mqtt.connect(mqtt_broker, mqtt_broker_port, keepalive=60)
 
         self.on_message_handler = on_message  # store the caller's mesg handler
@@ -39,7 +43,6 @@ class Messaging:
         else:  # should not occur
             self.default_send_topic = None
 
-        self.is_connected = False
 
     def on_message(self, client, userdata, msg):
         """called then a new MQTT message is received
@@ -63,14 +66,39 @@ class Messaging:
             flags: mqtt on_message arg
             rc: mqtt on_message arg
         """
-        print("Messaging " + self.messaging_id + " connected with result code " + str(rc))
-        if self.messaging_type is MessagingType.RESEARCHER:
-            self.mqtt.subscribe('general/server')
-        elif self.messaging_type is MessagingType.NODE:
-            self.mqtt.subscribe('general/clients')
-            self.mqtt.subscribe('general/' + self.messaging_id)
+        if rc == 0:
+            print("[INFO] Messaging ", self.messaging_id, " successfully connected to the message broker, object = ", self)
+        else:
+            print("[ERROR] Messaging ", self.messaging_id, "could not connect to the message broker, object = ", self)
+            sys.exit(-1)
 
+        if self.messaging_type is MessagingType.RESEARCHER:
+            result, _ = self.mqtt.subscribe('general/server')
+            if result != mqtt.MQTT_ERR_SUCCESS:
+                print("[ERROR] Messaging ", self.messaging_id, "failed subscribe to channel")
+                sys.exit(-1)
+        elif self.messaging_type is MessagingType.NODE:
+            result, _ = self.mqtt.subscribe('general/clients')
+            if result != mqtt.MQTT_ERR_SUCCESS:
+                print("[ERROR] Messaging ", self.messaging_id, "failed subscribe to channel")
+                sys.exit(-1)
+            result, _ = self.mqtt.subscribe('general/' + self.messaging_id)
+            if result != mqtt.MQTT_ERR_SUCCESS:
+                print("[ERROR] Messaging ", self.messaging_id, "failed subscribe to channel")
+                sys.exit(-1)
         self.is_connected = True
+
+    def on_disconnect(self, client, userdata, rc):
+        print("MESSAGING DISCONNECTED ", self, ' ', rc)
+        if rc == 0:
+            # should this ever happen ? we're not disconnecting intentionally yet
+            print("[INFO] Messaging ", self.messaging_id, " disconnected without error, object = ", self)
+        else:
+            # see MQTT specs : when another client connects with same client_id, the previous one
+            # is disconnected https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901205
+            print("[ERROR] Messaging ", self.messaging_id, " disconnected with error code rc = ", rc, " object = ", self,
+                " - Hint: check for another instance of the same component running or for communication error")
+            sys.exit(-1)
 
     def start(self, block=False):
         """ this method calls the loop function of mqtt
@@ -104,8 +132,12 @@ class Messaging:
             channel = self.default_send_topic
         else:
             channel = "general/" + client
-
         if channel is not None:
-            self.mqtt.publish(channel, json.serialize_msg(msg))
+            messinfo = self.mqtt.publish(channel, json.serialize_msg(msg))
+            if messinfo.rc != mqtt.MQTT_ERR_SUCCESS:
+                print("[ERROR] Messaging ", self.messaging_id, "failed sending message with code rc = ",
+                messinfo.rc, " object = ", self, " message = ", msg)
+                sys.exit(-1)
         else:
-            print("send_message: channel must ne specifiec (None at the moment)")
+            print("[ERROR] Messaging ", self.messaging_id, " send_message: channel must be specified (None at the moment)")
+            sys.exit(-1)
