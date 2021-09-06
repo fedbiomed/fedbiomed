@@ -8,7 +8,18 @@ from fedbiomed.researcher.environ import TIMEOUT, MESSAGES_QUEUE_DIR, RESEARCHER
 from fedbiomed.researcher.responses import Responses
 
 
-class Requests:
+class RequestMeta(type):
+
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            instance = super().__call__(*args, **kwargs)
+            cls._instances[cls] = instance
+        return cls._instances[cls]
+ 
+
+class Requests(metaclass=RequestMeta):
     """This class represents the
     """    
     def __init__(self, mess=None):

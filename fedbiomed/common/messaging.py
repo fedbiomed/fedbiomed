@@ -24,9 +24,7 @@ class Messaging:
             mqtt_broker_port (int, optional): Defaults to 80.
         """
         self.messaging_type = messaging_type
-        # CANCEL PATCH
         self.messaging_id = str(uuid.uuid4()) if messaging_type == MessagingType.RESEARCHER else str(messaging_id)
-        #self.messaging_id = str(messaging_id)
         self.mqtt = mqtt.Client(client_id=self.messaging_id)
         self.mqtt.on_connect = self.on_connect
         self.mqtt.on_message = self.on_message
@@ -53,12 +51,8 @@ class Messaging:
             userdata: mqtt on_message arg
             msg: mqtt on_message arg
         """
-
-        
         message = json.deserialize_msg(msg.payload)
-        print("DEBUG  messaage ", message, '\n',self)
         self.on_message_handler(message)
-
 
     def on_connect(self, client, userdata, flags, rc):
         """[summary]
