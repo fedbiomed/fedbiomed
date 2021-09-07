@@ -3,6 +3,8 @@ from enum import Enum
 import paho.mqtt.client as mqtt
 
 from fedbiomed.common import json
+from fedbiomed.common.logger import logger
+from fedbiomed.common.logger import DEFAULT_LOG_TOPIC
 
 
 class MessagingType(Enum):
@@ -29,6 +31,10 @@ class Messaging:
         self.mqtt.on_connect = self.on_connect
         self.mqtt.on_message = self.on_message
         self.mqtt.connect(mqtt_broker, mqtt_broker_port, keepalive=60)
+
+        # memorize mqqt parameters
+        self._broker_host = mqtt_broker
+        self._broker_port = mqtt_broker_port
 
         self.on_message_handler = on_message  # store the caller's mesg handler
 
@@ -63,12 +69,28 @@ class Messaging:
             flags: mqtt on_message arg
             rc: mqtt on_message arg
         """
+
+        # TODO/BUG: without it, there is an infinite loop (need investigation)
+        if self.is_connected:
+            return
         print("Messaging " + self.messaging_id + " connected with result code " + str(rc))
         if self.messaging_type is MessagingType.RESEARCHER:
             self.mqtt.subscribe('general/server')
+            # subscribe to general/logger topic
+            # (need more debugging and need on_message modifications)
+            # self.mqtt.subscribe(DEFAULT_LOG_TOPIC)
         elif self.messaging_type is MessagingType.NODE:
             self.mqtt.subscribe('general/clients')
             self.mqtt.subscribe('general/' + self.messaging_id)
+            # add the MQTT handler for logger
+            print("=============== ADD MQTT HANDLER")  # TODO: remove then ready
+            logger.addMqttHandler(
+                hostname  = self._broker_host,
+                port      = self._broker_port,
+                client_id = self.messaging_id
+            )
+            # to get Train/Epoch messages on console and on MQTT
+            logger.setLevel("DEBUG")
 
         self.is_connected = True
 
@@ -76,7 +98,7 @@ class Messaging:
         """ this method calls the loop function of mqtt
 
         Args:
-            block (bool, optional): if True: calls the loop_forever method 
+            block (bool, optional): if True: calls the loop_forever method
                                     else, calls the loop_start method
         """
         if block:
@@ -88,7 +110,7 @@ class Messaging:
 
     def stop(self):
         """
-        this method stops the loop 
+        this method stops the loop
         """
         self.mqtt.loop_stop()
 
@@ -97,7 +119,7 @@ class Messaging:
 
         Args:
             msg (dict): the content of a message
-            client ([str], optional): defines the channel to which the 
+            client ([str], optional): defines the channel to which the
                                 message will be sent. Defaults to None(all clients)
         """
         if client is None:
