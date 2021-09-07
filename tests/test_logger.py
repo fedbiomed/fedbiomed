@@ -3,7 +3,7 @@ import unittest
 import logging
 
 from fedbiomed.common.logger import logger
-from fedbiomed.common.logger import DEFAULT_LEVEL
+from fedbiomed.common.logger import DEFAULT_LOG_LEVEL
 
 class TestLogger(unittest.TestCase):
     '''
@@ -11,7 +11,7 @@ class TestLogger(unittest.TestCase):
     '''
     # before all tests
     def setUp(self):
-        logger.setLevel(DEFAULT_LEVEL)
+        logger.setLevel(DEFAULT_LOG_LEVEL)
 
         pass
 
@@ -38,7 +38,7 @@ class TestLogger(unittest.TestCase):
                           logging.CRITICAL)
 
         self.assertEqual( logger._internalLevelTranslator("STUPIDO"),
-                          DEFAULT_LEVEL)
+                          DEFAULT_LOG_LEVEL)
 
 
     def test_logger_internal_addhandler(self):
@@ -113,8 +113,8 @@ class TestLogger(unittest.TestCase):
 
     def test_logger_setlevel(self):
 
-        # initial DEFAULT_LEVEL
-        self.assertEqual( logger.getEffectiveLevel() , DEFAULT_LEVEL)
+        # initial DEFAULT_LOG_LEVEL
+        self.assertEqual( logger.getEffectiveLevel() , DEFAULT_LOG_LEVEL)
 
         # modify the default level of existing handlers
         logger.setLevel( "CRITICAL" )
@@ -128,7 +128,7 @@ class TestLogger(unittest.TestCase):
 
         logger._internalAddHandler( "H_1", handler)
         self.assertEqual( logger._handlers["H_1"].level,
-                          DEFAULT_LEVEL)
+                          DEFAULT_LOG_LEVEL)
 
         # change again to critical
         logger.setLevel( "CRITICAL", "H_1")
