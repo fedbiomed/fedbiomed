@@ -366,3 +366,5 @@ queue_manager/
 *.ini
 db_client_*.json
 queue_manager_client_*
+cover/
+mylog.log
