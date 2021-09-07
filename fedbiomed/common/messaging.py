@@ -36,6 +36,9 @@ class Messaging:
         self._broker_host = mqtt_broker
         self._broker_port = mqtt_broker_port
 
+        # protection for logger initialisation (mqqt handler)
+        self.logger_initialized = True
+
         self.on_message_handler = on_message  # store the caller's mesg handler
 
         if self.messaging_type is MessagingType.RESEARCHER:
@@ -71,26 +74,33 @@ class Messaging:
         """
 
         # TODO/BUG: without it, there is an infinite loop (need investigation)
+        #
+        # I guess that mqqt.publish (used by the logger.MQTTHandler)
+        # provoques a new connection to MQTT, so this handler is called !!!
         if self.is_connected:
             return
         print("Messaging " + self.messaging_id + " connected with result code " + str(rc))
         if self.messaging_type is MessagingType.RESEARCHER:
             self.mqtt.subscribe('general/server')
-            # subscribe to general/logger topic
+            # subscribe to general/logger topic here ???? (needsome investigation)
             # (need more debugging and need on_message modifications)
             # self.mqtt.subscribe(DEFAULT_LOG_TOPIC)
         elif self.messaging_type is MessagingType.NODE:
             self.mqtt.subscribe('general/clients')
             self.mqtt.subscribe('general/' + self.messaging_id)
-            # add the MQTT handler for logger
-            print("=============== ADD MQTT HANDLER")  # TODO: remove then ready
-            logger.addMqttHandler(
-                hostname  = self._broker_host,
-                port      = self._broker_port,
-                client_id = self.messaging_id
-            )
-            # to get Train/Epoch messages on console and on MQTT
-            logger.setLevel("DEBUG")
+
+            if not self.logger_initialized:
+                # add the MQTT handler for logger
+                print("=============== ADD MQTT HANDLER")  # TODO: remove then reviewed
+                logger.addMqttHandler(
+                    hostname  = self._broker_host,
+                    port      = self._broker_port,
+                    client_id = self.messaging_id
+                )
+                # to get Train/Epoch messages on console and on MQTT
+                logger.setLevel("DEBUG")
+                self.logger_initialized = True
+
 
         self.is_connected = True
 
