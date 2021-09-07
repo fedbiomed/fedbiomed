@@ -8,6 +8,8 @@ import inspect
 import torch
 import torch.nn as nn
 
+from fedbiomed.common.logger import _FedLogger
+
 class TorchTrainingPlan(nn.Module):
     def __init__(self):
         super(TorchTrainingPlan, self).__init__()
@@ -35,6 +37,9 @@ class TorchTrainingPlan(nn.Module):
         # to be configured by setters
         self.dataset_path = None
 
+        # get the logger from the _FedLogger class (thanks Mr Singleton)
+        self.system_logger = _FedLogger()
+
 
     #################################################
     # provided by fedbiomed
@@ -46,6 +51,7 @@ class TorchTrainingPlan(nn.Module):
         #use_cuda = torch.cuda.is_available()
         #device = torch.device("cuda" if use_cuda else "cpu")
         self.device = "cpu"
+
 
         for epoch in range(1, epochs + 1):
             training_data = self.training_data(batch_size=batch_size)
@@ -59,11 +65,13 @@ class TorchTrainingPlan(nn.Module):
 
                 # do not take into account more than batch_maxnum batches from the dataset
                 if (batch_maxnum > 0) and (batch_idx >= batch_maxnum):
-                    print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    #print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    self.system_logger.debug('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
                     break
 
                 if batch_idx % log_interval == 0:
-                    print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+#                    print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    self.system_logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
                         batch_idx * len(data),
                         len(training_data.dataset),
@@ -91,7 +99,7 @@ class TorchTrainingPlan(nn.Module):
         Returns:
             None
 
-        Exceptions: 
+        Exceptions:
             none
         """
 
@@ -113,12 +121,12 @@ class TorchTrainingPlan(nn.Module):
 
         Args:
             filename (string): path to the destination file
-            params (dict, optional): parameters to save to a file, should be structured as a torch state_dict() 
+            params (dict, optional): parameters to save to a file, should be structured as a torch state_dict()
 
         Returns:
             torch.save() return code (documentation ?), probably None
 
-        Exceptions: 
+        Exceptions:
             none
         """
         if params is not None:
@@ -137,14 +145,14 @@ class TorchTrainingPlan(nn.Module):
         Returns:
             dict containing parameters
 
-        Exceptions: 
+        Exceptions:
             none
         """
 
         params = torch.load(filename)
         if to_params is False:
             self.load_state_dict(params)
-        return params    
+        return params
 
     # provided by the fedbiomed / can be overloaded // need WORK
     def logger(self, msg, batch_index, log_interval = 10):
@@ -153,10 +161,9 @@ class TorchTrainingPlan(nn.Module):
     # provided by the fedbiomed // should be moved in a DATA manipulation module
     def set_dataset(self, dataset_path):
         self.dataset_path = dataset_path
-        print('Dataset_path',self.dataset_path)
+        self.system_logger.debug('Dataset_path' + self.dataset_path)
 
     # provided by the fedbiomed // should be moved in a DATA manipulation module
     def training_data(self, batch_size = 48):
 
         pass
-
