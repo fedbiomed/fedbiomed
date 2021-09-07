@@ -1,3 +1,5 @@
+import paho.mqtt.publish as publish
+
 import logging
 import logging.handlers
 
@@ -5,6 +7,37 @@ import json_log_formatter
 
 #
 LOGFILE = 'mylog.log'
+
+#
+# mqtt handler
+#
+class MqttHandler(logging.Handler):
+    """
+    A handler class to deal with MQTT
+    """
+
+    def __init__(self,
+                 client_id   = None,
+                 hostname    = None,
+                 port        = None,
+                 channel     = "logger"
+                 ):
+
+        logging.Handler.__init__(self)
+        self._client_id = client_id
+        self._hostname  = hostname
+        self._port      = port
+        self._channel   = channel
+
+    def emit(self, record):
+        msg = self.format(record)
+        #self._mqtt.publish(self._channel,msg)
+        publish.single(self._channel,
+                       msg,
+                       hostname  = self._hostname,
+                       port      = self._port,
+                       client_id = self._client_id)
+
 
 #
 # singletonizer: transforms a class to a sigleton
@@ -124,13 +157,13 @@ class _LoggerBase():
         level    : initial level of the logger (optionnal)
         """
 
-        fhandler  = logging.FileHandler(filename=filename, mode='a')
-        fhandler.setLevel( self._internalLevelTranslator(level) )
+        handler  = logging.FileHandler(filename=filename, mode='a')
+        handler.setLevel( self._internalLevelTranslator(level) )
 
         formatter = json_log_formatter.JSONFormatter()
-        fhandler.setFormatter(formatter)
+        handler.setFormatter(formatter)
 
-        self._internalAddHandler("FILE", fhandler)
+        self._internalAddHandler("FILE", handler)
         pass
 
     def addConsoleHandler(self,
@@ -146,16 +179,44 @@ class _LoggerBase():
                  if not given, the default level is set
         """
 
-        chandler = logging.StreamHandler()
+        handler = logging.StreamHandler()
 
-        if level:
-            chandler.setLevel( self._internalLevelTranslator(level) )
-        else:
-            chandler.setLevel( self._default_level )
+        handler.setLevel( self._internalLevelTranslator(level) )
 
         formatter = logging.Formatter(format)
-        chandler.setFormatter(formatter)
-        self._internalAddHandler("CONSOLE", chandler)
+        handler.setFormatter(formatter)
+        self._internalAddHandler("CONSOLE", handler)
+
+        pass
+
+    def addMqttHandler(self,
+                       client_id   = None,
+                       hostname    = None,
+                       port        = None,
+                       channel     = "logger",
+                       level       = logging.DEBUG
+                       ):
+
+        """
+        add a mqqt handler, to publish error message on a channel
+
+        parameters:
+        mqqt: mandatory mqtt connector
+        channel: channel to pubish on, defaut "error"
+        level  : initial level of the logger for this handler (optionnal)
+                 if not given, the default level is set
+        """
+        handler = MqttHandler( client_id   = client_id ,
+                               hostname    = hostname,
+                               port        = port,
+                               channel     = channel
+                              )
+
+        handler.setLevel( self._internalLevelTranslator(level) )
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
+
+        handler.setFormatter(formatter)
+        self._internalAddHandler("MQTT", handler)
 
         pass
 
