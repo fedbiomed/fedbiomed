@@ -213,7 +213,8 @@ class _LoggerBase():
                               )
 
         handler.setLevel( self._internalLevelTranslator(level) )
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
+        formatter = json_log_formatter.JSONFormatter()
+        #formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
 
         handler.setFormatter(formatter)
         self._internalAddHandler("MQTT", handler)
