@@ -122,6 +122,7 @@ class _LoggerBase():
             self._logger.debug(" adding handler: " + output)
             self._handlers[output] = handler
             self._logger.addHandler(handler)
+            self._handlers[output].setLevel( self._default_level)
         else:
             self._logger.warning(output + " handler already present - ignoring")
 

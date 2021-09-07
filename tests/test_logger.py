@@ -11,6 +11,8 @@ class TestLogger(unittest.TestCase):
     '''
     # before all tests
     def setUp(self):
+        logger.setLevel(DEFAULT_LEVEL)
+
         pass
 
     # after all tests
@@ -41,7 +43,8 @@ class TestLogger(unittest.TestCase):
 
     def test_logger_internal_addhandler(self):
         '''
-
+        should not use logger._handlers (this is internal data),
+        but no getter for this internal data is provided yet....
         '''
         # handler manager test1
         handler = logging.NullHandler()
@@ -81,8 +84,17 @@ class TestLogger(unittest.TestCase):
         logger.setLevel("DEBUG")
         over_level = logger.getEffectiveLevel()
 
-
         self.assertEqual( orig_level, over_level)
+
+
+        # try that this fails
+        try:
+            logger.this_method_does_not_exists()
+            self.fail("calling this_method_does_not_exists()")
+        except:
+            self.assertTrue( True,
+                             "calling this_method_does_not_exists() detected")
+
         pass
 
 
@@ -96,6 +108,40 @@ class TestLogger(unittest.TestCase):
         second_logger = _FedLogger()
 
         self.assertEqual( logger, second_logger)
+
+        pass
+
+    def test_logger_setlevel(self):
+
+        # initial DEFAULT_LEVEL
+        self.assertEqual( logger.getEffectiveLevel() , DEFAULT_LEVEL)
+
+        # modify the default level of existing handlers
+        logger.setLevel( "CRITICAL" )
+        self.assertEqual( logger.getEffectiveLevel() , logging.CRITICAL)
+
+        self.assertEqual( logger._handlers["CONSOLE"].level,
+                          logging.CRITICAL)
+
+        # add a new handler and verify its initial level
+        handler = logging.NullHandler()
+
+        logger._internalAddHandler( "H_1", handler)
+        self.assertEqual( logger._handlers["H_1"].level,
+                          DEFAULT_LEVEL)
+
+        # change again to critical
+        logger.setLevel( "CRITICAL", "H_1")
+        self.assertEqual( logger._handlers["H_1"].level,
+                          logging.CRITICAL)
+
+        # change all levels to DEBUG
+        logger.setLevel( "DEBUG" )
+        self.assertEqual( logger._handlers["CONSOLE"].level,
+                          logging.DEBUG)
+        self.assertEqual( logger._handlers["H_1"].level,
+                          logging.DEBUG)
+        pass
 
 
 if __name__ == '__main__':  # pragma: no cover
