@@ -1,5 +1,6 @@
 from time import sleep
 from datetime import datetime
+from threading import Lock
 
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
@@ -8,16 +9,24 @@ from fedbiomed.researcher.environ import TIMEOUT, MESSAGES_QUEUE_DIR, RESEARCHER
 from fedbiomed.researcher.responses import Responses
 
 
-# singleton, not supporting multi-threaded calls to Requests
 class RequestMeta(type):
+    """ This class is a thread safe singleton for Requests, a common design pattern
+    for ensuring only one instance of each class using this metaclass
+    is created in the process
+    """
 
-    _instances = {}
+    _objects = {}
+    _lock_instantiation = Lock()
 
     def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            instance = super().__call__(*args, **kwargs)
-            cls._instances[cls] = instance
-        return cls._instances[cls]
+        """ Replace default class creation for classes using this metaclass,
+        executed before the constructor
+        """
+        with cls._lock_instantiation:
+            if cls not in cls._objects:
+                object = super().__call__(*args, **kwargs)
+                cls._objects[cls] = object
+        return cls._objects[cls]
  
 
 class Requests(metaclass=RequestMeta):
