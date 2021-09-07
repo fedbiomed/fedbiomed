@@ -94,6 +94,12 @@ class Messaging:
 
         self.is_connected = True
 
+
+    def on_disconnect(client, userdata, rc):
+        print("=========== MQTT disconnecting reason :"  +str(rc))
+        self.is_connected = False
+
+
     def start(self, block=False):
         """ this method calls the loop function of mqtt
 
