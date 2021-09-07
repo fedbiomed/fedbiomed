@@ -8,6 +8,7 @@ from fedbiomed.researcher.environ import TIMEOUT, MESSAGES_QUEUE_DIR, RESEARCHER
 from fedbiomed.researcher.responses import Responses
 
 
+# singleton, not supporting multi-threaded calls to Requests
 class RequestMeta(type):
 
     _instances = {}
@@ -20,10 +21,10 @@ class RequestMeta(type):
  
 
 class Requests(metaclass=RequestMeta):
-    """This class represents the
+    """This class represents the protocol-independent messaging layer for the researcher
     """    
     def __init__(self, mess=None):
-        """[summary]
+        """Constructor of the class.
 
         Args:
             mess ([type], optional): [description]. Defaults to None.
@@ -56,7 +57,6 @@ class Requests(metaclass=RequestMeta):
         """
         ask the messaging class to send a new message (receivers are deduced from the message content)
         """
-        print(RESEARCHER_ID)
         self.messaging.send_message(msg, client=client)
 
 

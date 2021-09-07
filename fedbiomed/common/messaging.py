@@ -32,7 +32,8 @@ class Messaging:
         self.mqtt.on_message = self.on_message
         self.mqtt.on_disconnect = self.on_disconnect
 
-        self.mqtt.connect(mqtt_broker, mqtt_broker_port, keepalive=60)
+        self.mqtt_broker = mqtt_broker
+        self.mqtt_broker_port = mqtt_broker_port
 
         self.on_message_handler = on_message  # store the caller's mesg handler
 
@@ -89,7 +90,6 @@ class Messaging:
         self.is_connected = True
 
     def on_disconnect(self, client, userdata, rc):
-        print("MESSAGING DISCONNECTED ", self, ' ', rc)
         if rc == 0:
             # should this ever happen ? we're not disconnecting intentionally yet
             print("[INFO] Messaging ", self.messaging_id, " disconnected without error, object = ", self)
@@ -107,7 +107,9 @@ class Messaging:
             block (bool, optional): if True: calls the loop_forever method 
                                     else, calls the loop_start method
         """
+        self.mqtt.connect(self.mqtt_broker, self.mqtt_broker_port, keepalive=60)
         if block:
+            # TODO : not used, should probably be removed
             self.mqtt.loop_forever()
         elif not self.is_connected:
             self.mqtt.loop_start()
