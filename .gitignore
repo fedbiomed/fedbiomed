@@ -367,3 +367,4 @@ queue_manager/
 db_client_*.json
 queue_manager_client_*
 cover/
+mylog.log
