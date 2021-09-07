@@ -144,5 +144,51 @@ class TestLogger(unittest.TestCase):
         pass
 
 
+
+    def test_logger_logging(self):
+
+        # test debug()
+        with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
+            logger.debug("TEST_1")
+
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "TEST_1")
+
+        # test info()
+        with self.assertLogs('fedbiomed', logging.INFO) as captured:
+            logger.info("TEST_2")
+
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "TEST_2")
+
+        # test warning()
+        with self.assertLogs('fedbiomed', logging.WARNING) as captured:
+            logger.warning("TEST_3")
+
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "TEST_3")
+
+        # test error()
+        with self.assertLogs('fedbiomed', logging.ERROR) as captured:
+            logger.error("TEST_4")
+
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "TEST_4")
+
+        # test critical()
+        with self.assertLogs('fedbiomed', logging.CRITICAL) as captured:
+            logger.critical("TEST_5")
+
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "TEST_5")
+
+        # test log()
+        with self.assertLogs('fedbiomed', logging.CRITICAL) as captured:
+            logger.log("CRITICAL", "TEST_6")
+
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "TEST_6")
+
+
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
