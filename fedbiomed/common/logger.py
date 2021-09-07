@@ -1,3 +1,19 @@
+"""
+Global logger for fedbiomed
+
+Written above origin Logger class provided by python
+
+Add the following features:
+- provides a JSON file handler
+- provides a JSON MQTT handler
+- works on python scripts / ipython / notebook
+- manages handlers with a key name. Default keys are 'CONSOLE', 'MQTT', 'FILE',
+  but any key is allowed (only oen handler by key)
+- allow to change log level globally, or on a specific handler (using its key)
+- log levels can be provided as string instead of logging.* levels (no need to
+   import logging in caller's code)
+"""
+
 import paho.mqtt.publish as publish
 
 import logging
@@ -6,9 +22,9 @@ import logging.handlers
 import json_log_formatter
 
 # default values
-DEFAULT_LOGFILE = 'mylog.log'
-DEFAULT_LEVEL   = logging.WARNING
-DEFAULT_TOPIC   = 'general/logger'
+DEFAULT_LOG_FILE   = 'mylog.log'
+DEFAULT_LOG_LEVEL  = logging.WARNING
+DEFAULT_LOG_TOPIC  = 'general/logger'
 
 #
 # mqtt handler
@@ -22,7 +38,7 @@ class MqttHandler(logging.Handler):
                  client_id   = None,
                  hostname    = None,
                  port        = None,
-                 topic       = DEFAULT_TOPIC
+                 topic       = DEFAULT_LOG_TOPIC
                  ):
         """
         Constructor
@@ -81,7 +97,7 @@ class _LoggerBase():
     """
 
 
-    def __init__(self, level = DEFAULT_LEVEL ):
+    def __init__(self, level = DEFAULT_LOG_LEVEL ):
         """
         constructor of base class
 
@@ -95,7 +111,7 @@ class _LoggerBase():
         # name this logger
         self._logger = logging.getLogger("fedbiomed")
 
-        self._default_level = DEFAULT_LEVEL  # MANDATORY ! KEEP THIS PLEASE !!!
+        self._default_level = DEFAULT_LOG_LEVEL  # MANDATORY ! KEEP THIS PLEASE !!!
         self._default_level = self._internalLevelTranslator(level)
 
         self._logger.setLevel(self._default_level)
@@ -129,7 +145,7 @@ class _LoggerBase():
         pass
 
 
-    def _internalLevelTranslator(self, level = DEFAULT_LEVEL) :
+    def _internalLevelTranslator(self, level = DEFAULT_LOG_LEVEL) :
         """
         this helper allows to use a string instead of logging.* then using logger levels
 
@@ -178,11 +194,11 @@ class _LoggerBase():
         # because this method is called by __init__
         # (where else to log this really ?)
         self._logger.warning("calling selLevel() with bad value: " + str(level))
-        return DEFAULT_LEVEL
+        return DEFAULT_LOG_LEVEL
 
 
 
-    def addJsonFileHandler(self, filename = DEFAULT_LOGFILE, level = DEFAULT_LEVEL):
+    def addJsonFileHandler(self, filename = DEFAULT_LOG_FILE, level = DEFAULT_LOG_LEVEL):
         """
         add a JSON file handler
 
@@ -203,7 +219,7 @@ class _LoggerBase():
 
     def addConsoleHandler(self,
                           format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s' ,
-                          level  = DEFAULT_LEVEL):
+                          level  = DEFAULT_LOG_LEVEL):
 
         """
         add a console handler
@@ -229,8 +245,8 @@ class _LoggerBase():
                        client_id   = None,
                        hostname    = None,
                        port        = None,
-                       topic       = DEFAULT_TOPIC,
-                       level       = DEFAULT_LEVEL
+                       topic       = DEFAULT_LOG_TOPIC,
+                       level       = DEFAULT_LOG_LEVEL
                        ):
 
         """
