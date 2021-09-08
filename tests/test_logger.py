@@ -299,9 +299,6 @@ class TestLogger(unittest.TestCase):
         with open( randomfile.name ) as f:
             lines = f.readlines()
 
-        print("<==")
-        print(lines)
-        print("==>")
         # lines[] should contain YYY-FIND_THIS_IN_TEMPFILE-XXX
         if "YYY-FIND_THIS_IN_TEMPFILE-XXX" not in lines[0]:
             self.fail("log message not detected")
