@@ -97,7 +97,6 @@ class Messaging:
                 # this should be done once.
                 # This is sldo tested by the addHandler() method, but
                 # it may raise a MQTT message (that we prefer not to send)
-                print("=============== ADD MQTT HANDLER")  # TODO: remove then reviewed
                 logger.addMqttHandler(
                     mqtt      = self.mqtt,
                     client_id = self.messaging_id
