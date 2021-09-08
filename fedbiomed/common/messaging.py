@@ -73,12 +73,15 @@ class Messaging:
             rc: mqtt on_message arg
         """
 
-        # TODO/BUG: without it, there is an infinite loop (need investigation)
+        # TODO/BUG: ???
         #
-        # I guess that mqqt.publish (used by the logger.MQTTHandler)
-        # provoques a new connection to MQTT, so this handler is called !!!
-        if self.is_connected:
-            return
+        # this may be a solution for the infinite loop
+        # this may be a really bad solution to correct the dupplicate
+        # mqqt client_id....
+        # (http://www.steves-internet-guide.com/client-objects-python-mqtt/)
+        #
+        #if self.is_connected:
+        #    return
         print("Messaging " + self.messaging_id + " connected with result code " + str(rc))
         if self.messaging_type is MessagingType.RESEARCHER:
             self.mqtt.subscribe('general/server')
