@@ -53,6 +53,7 @@ class MqttHandler(logging.Handler):
         self._mqtt      = mqtt
         self._topic     = topic
 
+
     def emit(self, record):
         """
         do the proper job (override the logging.Handler method() )
@@ -99,6 +100,25 @@ class _LoggerBase():
 
         an initial console logger is installed (so the logger has at minimum one handler)
         """
+
+        # internal tables
+        # transform string to logging.level
+        self._levels = {
+            "DEBUG"          : logging.DEBUG,
+            "INFO"           : logging.INFO,
+            "WARNING"        : logging.WARNING,
+            "ERROR"          : logging.ERROR,
+            "CRITICAL"       : logging.CRITICAL,
+        }
+
+        # transform logging.level to string
+        self._original_levels = {
+            logging.DEBUG    : "DEBUG",
+            logging.INFO     : "INFO",
+            logging.WARNING  : "WARNING",
+            logging.ERROR    : "ERROR",
+            logging.CRITICAL : "CRITICAL"
+        }
 
         # name this logger
         self._logger = logging.getLogger("fedbiomed")
@@ -153,34 +173,16 @@ class _LoggerBase():
         _internalLevelTranslator('DEBUG')  returns logging.DEBUG
         """
 
-        # transform string to logging.level
-        _levels = {
-            "DEBUG"          : logging.DEBUG,
-            "INFO"           : logging.INFO,
-            "WARNING"        : logging.WARNING,
-            "ERROR"          : logging.ERROR,
-            "CRITICAL"       : logging.CRITICAL,
-        }
-
-        # to ease the validation test
-        _original_levels = {
-            logging.DEBUG    : None,
-            logging.INFO     : None,
-            logging.WARNING  : None,
-            logging.ERROR    : None,
-            logging.CRITICAL : None
-        }
-
         # logging.*
-        if level in _original_levels:
+        if level in self._original_levels:
             return level
 
         # strings
         if isinstance(level, str):
             upperlevel = level.upper()
 
-            if upperlevel in _levels:
-                return _levels[upperlevel]
+            if upperlevel in self._levels:
+                return self._levels[upperlevel]
 
         # bad input !
 
@@ -278,7 +280,11 @@ class _LoggerBase():
             msg["level"] = level
             self._logger.log(level, "from_json_handler", extra = msg)
         else:
-            self._logger.log(level, msg, extra = { "level": "DEBUG"} )
+            self._logger.log(
+                level,
+                msg,
+                extra = { "level": self._original_levels[level]}
+            )
 
 
     def debug(self, msg):
