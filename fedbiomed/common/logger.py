@@ -4,7 +4,7 @@ Global logger for fedbiomed
 Written above origin Logger class provided by python
 
 Add the following features:
-- provides a JSON file handler
+- provides a file handler
 - provides a JSON MQTT handler
 - works on python scripts / ipython / notebook
 - manages handlers with a key name. Default keys are 'CONSOLE', 'MQTT', 'FILE',
@@ -16,15 +16,64 @@ Add the following features:
 
 import paho.mqtt.publish as publish
 
+import copy
 import logging
 import logging.handlers
-
-import json_log_formatter
 
 # default values
 DEFAULT_LOG_FILE   = 'mylog.log'
 DEFAULT_LOG_LEVEL  = logging.WARNING
 DEFAULT_LOG_TOPIC  = 'general/logger'
+
+#
+# mqtt  formatter
+#
+class MqttFormatter(logging.Formatter):
+
+    def __init__(self, client_id):
+        super().__init__()
+        self._client_id = client_id
+
+    # fields of record
+    #
+    # name: 'fedbiomed'
+    # msg: 'mqtt+console ERROR message'
+    # args: ()
+    # levelname: 'ERROR'
+    # levelno: 40
+    # pathname: '/.../common/logger.py'
+    # filename: 'logger.py'
+    # module: 'logger'
+    # exc_info: None
+    # exc_text: None
+    # stack_info: None
+    # lineno: 349
+    # funcName: 'error'
+    # created: 1631108190.796861
+    # msecs: 796.860933303833
+    # relativeCreated: 3110.7118129730225
+    # thread: 4484275712
+    # threadName: 'MainThread'
+    # processName: 'MainProcess'
+    # process: 41544
+    # level: 'ERROR'
+    # message: 'mqtt+console ERROR message'
+    # asctime: '2021-09-08 15:36:30796'
+
+    def format(self, record):
+
+        json_message = {
+            "client_id" : self._client_id
+        }
+        for _ in [ "asctime", "name", "level", "message"]:
+            if _ in record.__dict__:
+                json_message[_] = record.__dict__[_]
+            else:
+                json_message[_] = "<undef>" # pragma: no cover
+
+        new_record     = copy.deepcopy(record)
+        new_record.msg = json_message
+        return super().format(new_record)
 
 #
 # mqtt handler
@@ -194,9 +243,12 @@ class _LoggerBase():
 
 
 
-    def addJsonFileHandler(self, filename = DEFAULT_LOG_FILE, level = DEFAULT_LOG_LEVEL):
+    def addFileHandler(self,
+                       filename = DEFAULT_LOG_FILE,
+                       format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s' ,
+                       level = DEFAULT_LOG_LEVEL):
         """
-        add a JSON file handler
+        add a file handler
 
         parameters:
         filename : file to log to
@@ -206,7 +258,7 @@ class _LoggerBase():
         handler  = logging.FileHandler(filename=filename, mode='a')
         handler.setLevel( self._internalLevelTranslator(level) )
 
-        formatter = json_log_formatter.JSONFormatter()
+        formatter = logging.Formatter(format)
         handler.setFormatter(formatter)
 
         self._internalAddHandler("FILE", handler)
@@ -261,7 +313,7 @@ class _LoggerBase():
         )
 
         handler.setLevel( self._internalLevelTranslator(level) )
-        formatter = json_log_formatter.JSONFormatter()
+        formatter = MqttFormatter(client_id)
 
         handler.setFormatter(formatter)
         self._internalAddHandler("MQTT", handler)
