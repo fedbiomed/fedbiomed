@@ -384,7 +384,7 @@ class _LoggerBase():
             _x = self._logger.__getattribute__(s)
             return _x
         else:
-            return _x
+            return _x # pragma: no cover
 
 
 #
