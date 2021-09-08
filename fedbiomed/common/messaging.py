@@ -91,10 +91,12 @@ class Messaging:
 
             if not self.logger_initialized:
                 # add the MQTT handler for logger
+                # this should be done once.
+                # This is sldo tested by the addHandler() method, but
+                # it may raise a MQTT message (that we prefer not to send)
                 print("=============== ADD MQTT HANDLER")  # TODO: remove then reviewed
                 logger.addMqttHandler(
-                    hostname  = self._broker_host,
-                    port      = self._broker_port,
+                    mqtt      = self.mqtt,
                     client_id = self.messaging_id
                 )
                 # to get Train/Epoch messages on console and on MQTT
