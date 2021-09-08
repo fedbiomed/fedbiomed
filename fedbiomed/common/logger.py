@@ -35,25 +35,22 @@ class MqttHandler(logging.Handler):
     """
 
     def __init__(self,
+                 mqtt        = None,
                  client_id   = None,
-                 hostname    = None,
-                 port        = None,
                  topic       = DEFAULT_LOG_TOPIC
                  ):
         """
         Constructor
 
         parameters:
-        client_id : unique MQTTT client id
-        hostname  : MQTT server hostname
-        port      : MQTT port
-        topic     : topic/channel to publish to
+        mqtt      : opened MQTT object
+        client_id : unique MQTT client id
+        topic     : topic/channel to publish to (default to logging.WARNING)
         """
 
         logging.Handler.__init__(self)
         self._client_id = client_id
-        self._hostname  = hostname
-        self._port      = port
+        self._mqtt      = mqtt
         self._topic     = topic
 
     def emit(self, record):
@@ -65,16 +62,11 @@ class MqttHandler(logging.Handler):
         """
 
         msg = self.format(record)
-        publish.single(self._topic,
-                       msg,
-                       hostname  = self._hostname,
-                       port      = self._port,
-                       client_id = self._client_id)
-
+        self._mqtt.publish(self._topic, msg)
 
 #
 # singletonizer: transforms a class to a singleton
-# nothin else to say really !
+# nothing else to say really !
 class _Singleton(type):
     _instances = {}
     def __call__(cls, *args, **kwargs):
@@ -147,6 +139,8 @@ class _LoggerBase():
 
     def _internalLevelTranslator(self, level = DEFAULT_LOG_LEVEL) :
         """
+        private method
+
         this helper allows to use a string instead of logging.* then using logger levels
 
         parameter:
@@ -242,33 +236,30 @@ class _LoggerBase():
 
 
     def addMqttHandler(self,
+                       mqtt        = None,
                        client_id   = None,
-                       hostname    = None,
-                       port        = None,
                        topic       = DEFAULT_LOG_TOPIC,
                        level       = DEFAULT_LOG_LEVEL
                        ):
 
         """
-        add a mqqt handler, to publish error message on a topic
+        add a mqtt handler, to publish error message on a topic
 
         parameters:
+        mqtt        : already opened MQTT object
         client_id   : unique client id of the caller
-        hostname    : MQTT server hostname
-        port        : MQTT port
         topic       : topic to publish to    (non mandatory)
         level       : level of this handler  (non mandatory)
         """
-        handler = MqttHandler( client_id   = client_id ,
-                               hostname    = hostname,
-                               port        = port,
-                               topic       = topic
-                              )
+
+        handler = MqttHandler(
+            mqtt        = mqtt,
+            client_id   = client_id ,
+            topic       = topic
+        )
 
         handler.setLevel( self._internalLevelTranslator(level) )
         formatter = json_log_formatter.JSONFormatter()
-        # old oneline format
-        #formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
 
         handler.setFormatter(formatter)
         self._internalAddHandler("MQTT", handler)
@@ -281,6 +272,7 @@ class _LoggerBase():
         overrides the logging.log() method to allow the usae of
         string instead of a logging.* level
         """
+
         level = logger._internalLevelTranslator(level)
         if isinstance(msg, dict):
             msg["level"] = level
