@@ -52,8 +52,7 @@ class SGDSkLearnModel():
         """
         return {key: getattr(self.m, key) for key in self.param_list}
 
-    def training_routine(self, epochs=1, log_interval=10, lr=1e-3, batch_size=50, batch_maxnum=0, dry_run=False,
-                         logger=None):
+    def training_routine(self, epochs=1):
         """
             Method training_routine called in Round, to change only if you know what you are doing.
             :param epochs
@@ -64,22 +63,16 @@ class SGDSkLearnModel():
             :param dry_run provided for backward compatibility only
             :param logger provided for backward compatibility only
         """
-        print('SGD Regressor training batch size ', batch_size)
+        print('SGD Regressor training ')
         #print('Init parameters', self.m.coef_, self.m.intercept_)
-        (data, target) = self.training_data(batch_size=batch_size)
+        (data, target) = self.training_data()
         for _ in range(epochs):
-            # do not take into account more than batch_maxnum batches from the dataset
-            if batch_maxnum == 0 :
-                if self.model_type == 'MultinomialNB' or self.model_type == 'BernoulliNB' or self.model_type == 'Perceptron' or self.model_type == 'SGDClassifier' or self.model_type == 'PassiveAggressiveClassifier' :
-                    self.m.partial_fit(data,target, classes = np.unique(target))
-                elif self.model_type == 'SGDRegressor' or self.model_type == 'PassiveAggressiveRegressor':
-                    self.m.partial_fit(data,target)
-                elif self.model_type == 'MiniBatchKMeans' or self.model_type == 'MiniBatchDictionaryLearning':
-                    self.m.partial_fit(data)
-            else:
-                print('Not yet implemented batch_maxnum != 0')
-
-        #print('MODEL PARAMS:',self.m.coef_, self.m.intercept_)
+            if self.model_type == 'MultinomialNB' or self.model_type == 'BernoulliNB' or self.model_type == 'Perceptron' or self.model_type == 'SGDClassifier' or self.model_type == 'PassiveAggressiveClassifier' :
+                self.m.partial_fit(data,target, classes = np.unique(target))
+            elif self.model_type == 'SGDRegressor' or self.model_type == 'PassiveAggressiveRegressor':
+                self.m.partial_fit(data,target)
+            elif self.model_type == 'MiniBatchKMeans' or self.model_type == 'MiniBatchDictionaryLearning':
+                self.m.partial_fit(data)
 
     def __init__(self,kwargs):
         """
