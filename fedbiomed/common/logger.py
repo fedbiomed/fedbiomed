@@ -365,7 +365,7 @@ class _LoggerBase():
             return
 
         # htype provided but no handler for this type exists
-        self._logger.warning(htype, "handler not initialized yet")
+        self._logger.warning(htype + " handler not initialized yet")
 
 
     def __getattr__(self,s):
