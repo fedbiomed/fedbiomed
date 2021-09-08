@@ -25,7 +25,7 @@ class TestLogger(unittest.TestCase):
         pass
 
 
-    def test_logger_internal_translator(self):
+    def test_logger_00_internal_translator(self):
         '''
 
         '''
@@ -46,7 +46,7 @@ class TestLogger(unittest.TestCase):
                           DEFAULT_LOG_LEVEL)
         pass
 
-    def test_logger_internal_addhandler(self):
+    def test_logger_01_internal_addhandler(self):
         '''
         should not use logger._handlers (this is internal data),
         but no getter for this internal data is provided yet....
@@ -73,7 +73,7 @@ class TestLogger(unittest.TestCase):
         pass
 
 
-    def test_logger_getattr(self):
+    def test_logger_02_getattr(self):
         '''
         test the __getattr__
         '''
@@ -103,7 +103,7 @@ class TestLogger(unittest.TestCase):
         pass
 
 
-    def test_logger_singleton(self):
+    def test_logger_03_singleton(self):
         '''
         test singleton mechanism
         '''
@@ -116,7 +116,7 @@ class TestLogger(unittest.TestCase):
 
         pass
 
-    def test_logger_setlevel(self):
+    def test_logger_04_setlevel(self):
 
         # initial DEFAULT_LOG_LEVEL
         self.assertEqual( logger.getEffectiveLevel() , DEFAULT_LOG_LEVEL)
@@ -157,7 +157,7 @@ class TestLogger(unittest.TestCase):
 
 
 
-    def test_logger_logging(self):
+    def test_logger_05_logging(self):
 
         # test debug() - string
         with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
@@ -248,7 +248,7 @@ class TestLogger(unittest.TestCase):
         self._mqtt_is_connected = False
 
 
-    def test_logger_mqtt(self):
+    def test_logger_06_mqtt(self):
 
         # try to connect to MQTT
         self._mqtt_is_connected  = False
@@ -279,17 +279,17 @@ class TestLogger(unittest.TestCase):
             client_id = self._client_id
         )
 
-        logger.debug("DEBUG message")
-        logger.error("ERROR message")
+        logger.debug("mqtt+console DEBUG message")
+        logger.error("mqtt+console ERROR message")
         self._mqtt.loop_stop()
         pass
 
 
-    def test_logger_jsonfile(self):
+    def test_logger_07_filehandler(self):
 
         randomfile = tempfile.NamedTemporaryFile()
 
-        logger.addJsonFileHandler( filename = randomfile.name)
+        logger.addFileHandler( filename = randomfile.name)
         logger.error("YYY-FIND_THIS_IN_TEMPFILE-XXX")
 
         # give some time to the logger
