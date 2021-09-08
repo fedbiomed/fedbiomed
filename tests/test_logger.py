@@ -1,18 +1,21 @@
 import unittest
 
+import uuid
 import logging
+import time
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.logger import DEFAULT_LOG_LEVEL
+
+import paho.mqtt.client as mqtt
 
 class TestLogger(unittest.TestCase):
     '''
     Test the Logger class
     '''
-    # before all tests
+    # before all tests: put the loglevel to a known state
     def setUp(self):
         logger.setLevel(DEFAULT_LOG_LEVEL)
-
         pass
 
     # after all tests
@@ -188,6 +191,57 @@ class TestLogger(unittest.TestCase):
 
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_6")
+
+
+    # minimal on_* handlers for mqtt
+    # the self._mqtt_is_connected will conditionnate the tests later
+    def on_message(self, client, userdata, msg):
+        print("MQTT message received")
+        pass
+    def on_connect(self, client, userdata, flags, rc):
+        print("MQTT connected")
+        self._mqtt_is_connected = True
+    def on_disconnect(self, client, userdata, flags, rc):
+        print("MQTT disconnected")
+        self._mqtt_is_connected = False
+
+
+    def test_logger_mqtt(self):
+
+        # try to connect to MQTT
+        self._mqtt_is_connected  = False
+        self._client_id          = str(uuid.uuid4())
+        self._mqtt               = mqtt.Client(client_id = self._client_id)
+        self._mqtt.on_message    = self.on_message
+        self._mqtt.on_connect    = self.on_connect
+        self._mqtt.on_disconnect = self.on_disconnect
+
+        try:
+            self._mqtt.connect('localhost', 1883)
+        except:
+            # be silent -- no MQTT server
+            pass
+
+        self._mqtt.loop_start()
+        time.sleep(1)
+
+        # only test this if a mqtt server is available
+        if not self._mqtt_is_connected:
+            #self.skipTest("no MQTT server")
+            print("no MQTT server")
+            return
+
+        print("MQTT server READY")
+
+        #
+        logger.addMqttHandler(
+            mqtt      = self._mqtt,
+            client_id = self._client_id
+        )
+
+        logger.debug("DEBUG message")
+        logger.error("ERROR message")
+        self._mqtt.loop_stop()
 
 
 if __name__ == '__main__':  # pragma: no cover
