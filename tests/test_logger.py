@@ -1,13 +1,15 @@
 import unittest
 
-import uuid
 import logging
+import tempfile
 import time
+import uuid
+
+import paho.mqtt.client as mqtt
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.logger import DEFAULT_LOG_LEVEL
 
-import paho.mqtt.client as mqtt
 
 class TestLogger(unittest.TestCase):
     '''
@@ -42,7 +44,7 @@ class TestLogger(unittest.TestCase):
 
         self.assertEqual( logger._internalLevelTranslator("STUPIDO"),
                           DEFAULT_LOG_LEVEL)
-
+        pass
 
     def test_logger_internal_addhandler(self):
         '''
@@ -144,65 +146,105 @@ class TestLogger(unittest.TestCase):
                           logging.DEBUG)
         self.assertEqual( logger._handlers["H_1"].level,
                           logging.DEBUG)
+
+        # not initialized handler
+        with self.assertLogs('fedbiomed', logging.WARNING) as captured:
+            logger.setLevel("DEBUG", "NOT_INITIALIZED_HANDLER")
+
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "NOT_INITIALIZED_HANDLER handler not initialized yet")
         pass
 
 
 
     def test_logger_logging(self):
 
-        # test debug()
+        # test debug() - string
         with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
             logger.debug("TEST_1")
 
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_1")
 
-        # test info()
+        # test debug() - dict
+        with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
+            logger.debug( { "XXX" : "test_1" } )
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "from_json_handler")
+
+        # test info() - string
         with self.assertLogs('fedbiomed', logging.INFO) as captured:
             logger.info("TEST_2")
 
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_2")
 
-        # test warning()
+        # test info() - dict
+        with self.assertLogs('fedbiomed', logging.INFO) as captured:
+            logger.info( { "XXX" : "test_1" } )
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "from_json_handler")
+
+        # test warning() - string
         with self.assertLogs('fedbiomed', logging.WARNING) as captured:
             logger.warning("TEST_3")
 
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_3")
 
-        # test error()
+        # test warning() - dict
+        with self.assertLogs('fedbiomed', logging.WARNING) as captured:
+            logger.warning( { "XXX" : "test_1" } )
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "from_json_handler")
+
+        # test error() - string
         with self.assertLogs('fedbiomed', logging.ERROR) as captured:
             logger.error("TEST_4")
 
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_4")
 
-        # test critical()
+        # test error() - dict
+        with self.assertLogs('fedbiomed', logging.ERROR) as captured:
+            logger.error( { "XXX" : "test_1" } )
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "from_json_handler")
+
+        # test critical() - string
         with self.assertLogs('fedbiomed', logging.CRITICAL) as captured:
             logger.critical("TEST_5")
 
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_5")
 
-        # test log()
+        # test critical() - dict
+        with self.assertLogs('fedbiomed', logging.CRITICAL) as captured:
+            logger.critical( { "XXX" : "test_1" } )
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "from_json_handler")
+
+        # test log() - string
         with self.assertLogs('fedbiomed', logging.CRITICAL) as captured:
             logger.log("CRITICAL", "TEST_6")
 
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_6")
 
+        # test log() - dict
+        with self.assertLogs('fedbiomed', logging.CRITICAL) as captured:
+            logger.log( logging.CRITICAL, { "XXX" : "test_1" } )
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "from_json_handler")
+
 
     # minimal on_* handlers for mqtt
     # the self._mqtt_is_connected will conditionnate the tests later
     def on_message(self, client, userdata, msg):
-        print("MQTT message received")
         pass
     def on_connect(self, client, userdata, flags, rc):
-        print("MQTT connected")
         self._mqtt_is_connected = True
     def on_disconnect(self, client, userdata, flags, rc):
-        print("MQTT disconnected")
         self._mqtt_is_connected = False
 
 
@@ -228,10 +270,8 @@ class TestLogger(unittest.TestCase):
         # only test this if a mqtt server is available
         if not self._mqtt_is_connected:
             #self.skipTest("no MQTT server")
-            print("no MQTT server")
+            print("no MQTT server - skipping test")
             return
-
-        print("MQTT server READY")
 
         #
         logger.addMqttHandler(
@@ -242,6 +282,30 @@ class TestLogger(unittest.TestCase):
         logger.debug("DEBUG message")
         logger.error("ERROR message")
         self._mqtt.loop_stop()
+        pass
+
+
+    def test_logger_jsonfile(self):
+
+        randomfile = tempfile.NamedTemporaryFile()
+
+        logger.addJsonFileHandler( filename = randomfile.name)
+        logger.error("YYY-FIND_THIS_IN_TEMPFILE-XXX")
+
+        # give some time to the logger
+        time.sleep(2)
+
+        # verify that the log appeared
+        with open( randomfile.name ) as f:
+            lines = f.readlines()
+
+        # lines[] should contain YYY-FIND_THIS_IN_TEMPFILE-XXX
+        if "YYY-FIND_THIS_IN_TEMPFILE-XXX" not in lines[0]:
+            self.fail("log message not detected")
+        else:
+            self.assertTrue(True, "log message detected")
+
+        pass
 
 
 if __name__ == '__main__':  # pragma: no cover
