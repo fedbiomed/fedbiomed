@@ -51,7 +51,7 @@ class SGDSkLearnModel():
         """
         return {key: getattr(self.m, key) for key in self.param_list}
 
-    def training_routine(self, epochs=1):
+    def training_routine(self, epochs=1,logger=None):
         """
             Method training_routine called in Round, to change only if you know what you are doing.
             :param epochs (integer)
