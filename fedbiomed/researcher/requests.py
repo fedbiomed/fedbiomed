@@ -1,4 +1,5 @@
 from time import sleep
+import uuid
 from datetime import datetime
 from threading import Lock
 
@@ -37,8 +38,8 @@ class Requests(metaclass=RequestMeta):
 
         Args:
             mess ([type], optional): [description]. Defaults to None.
-        """        
-        self.queue = TasksQueue(MESSAGES_QUEUE_DIR + '_' + RESEARCHER_ID, TMP_DIR)
+        """
+        self.queue = TasksQueue(MESSAGES_QUEUE_DIR + '_' + str(uuid.uuid4()), TMP_DIR)
 
         if mess is None or type(mess) is not Messaging:
             self.messaging = Messaging(self.on_message, MessagingType.RESEARCHER, \
@@ -85,21 +86,16 @@ class Requests(metaclass=RequestMeta):
         for _ in range(self.queue.qsize()):
             try:
                 item = self.queue.get(block=False)
+                self.queue.task_done()
+
+                if command is None or \
+                        ('command' in item.keys() and item['command'] == command):
+                    answers.append(item)
+                else:
+                    # currently trash all other messages
+                    pass
+                    #self.queue.add(item)
             except exceptionsEmpty:
-                print("[ERROR] Unexpected empty queue in researcher")
-                raise
-                #pass
-            self.queue.task_done()
-
-            if type(item) != dict:
-                print("[ERROR] Bad item type in researcher message queue", item)
-                raise TypeError
-
-            if command is None or \
-                    ('command' in item.keys() and item['command'] == command):
-                answers.append(item)
-            else:
-                # currently trash all other messages
                 pass
 
         return Responses(answers)

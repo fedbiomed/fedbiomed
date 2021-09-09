@@ -1,4 +1,5 @@
 from json import decoder
+import uuid
 
 import validators
 
@@ -13,7 +14,6 @@ from fedbiomed.node.round import Round
 class Node:
 
     def __init__(self, data_manager):
-
         self.tasks_queue = TasksQueue(MESSAGES_QUEUE_DIR, TMP_DIR)
         self.messaging = Messaging(self.on_message, MessagingType.NODE, \
             CLIENT_ID, MQTT_BROKER, MQTT_BROKER_PORT)

@@ -27,7 +27,9 @@ class Messaging:
         self.is_connected = False
         self.is_failed = False
 
-        self.mqtt = mqtt.Client(client_id=self.messaging_id)
+        # Client() will generate a random client_id if not given
+        # this means we choose not to use the {node,researcher}_id for this purpose
+        self.mqtt = mqtt.Client()
         self.mqtt.on_connect = self.on_connect
         self.mqtt.on_message = self.on_message
         self.mqtt.on_disconnect = self.on_disconnect
