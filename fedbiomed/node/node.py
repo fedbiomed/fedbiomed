@@ -28,8 +28,15 @@ class Node:
         """        
         self.tasks_queue.add(task)
 
-    def on_message(self, msg):
-        print('[CLIENT] Message received: ', msg)
+    def on_message(self, type: str, msg: dict):
+        print('[CLIENT] Message received: ', type, msg)
+        if type == 'ERROR':
+            print('[ERROR] Node message handler received an error from Messaging ', type, msg)
+            raise RuntimeError
+        elif type != 'MESSAGE':
+            print("[ERROR] Node message handler received bad type value from Messaging ", type, msg)
+            raise ValueError
+
         try:
             command = msg['command']
             request = NodeMessages.request_create(msg).get_dict()

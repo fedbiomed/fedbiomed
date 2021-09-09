@@ -52,15 +52,18 @@ class Requests(metaclass=RequestMeta):
         """        
         return(self.messaging)
 
-    def on_message(self, msg):
+    def on_message(self, type: str, msg: dict):
         """
         This handler is called by the Messaging class, then a message is received
         Args: 
-            msg: serialized msg
+            type: type of message
+            msg: de-serialized msg
         """
         print(datetime.now(), '[ RESEARCHER ] message received.', msg)
-        self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
-
+        if type == 'MESSAGE':
+            msg = ResearcherMessages.reply_create(msg).get_dict()
+        self.queue.add({ 'i_type': type, 'i_value': msg })
+        
 
     def send_message(self, msg: dict, client=None):      
         """
@@ -81,16 +84,34 @@ class Requests(metaclass=RequestMeta):
         for _ in range(self.queue.qsize()):
             try:
                 item = self.queue.get(block=False)
+            except exceptionsEmpty:
+                print("[ERROR] Unexpected empty queue in researcher")
+                raise
+                #pass
+            self.queue.task_done()
+
+            try:
+                i_type = item['i_type']
+                i_value = item['i_value']
+                if type(i_type) is not str or type(i_value) is not dict:
+                    raise TypeError
+            except TypeError:
+                print("[ERROR] Bad item type in researcher message queue", item)
+                raise
+
+            if i_type == 'MESSAGE':
                 if command is None or \
-                        ('command' in item.keys() and item['command'] == command):
-                    answers.append(item)
+                        ('command' in i_value.keys() and i_value['command'] == command):
+                    answers.append(i_value)
                 else:
                     # currently trash all other messages
                     pass
-                    #self.queue.add(item)
-                self.queue.task_done()
-            except exceptionsEmpty:
-                pass
+            elif i_type == 'ERROR':
+                print('[ERROR] Requests handler received an error from Messaging ', i_value)
+                raise RuntimeError
+            else:
+                print("[ERROR] Bad item type value in researcher message queue", item)
+                raise ValueError
 
         return Responses(answers)
 

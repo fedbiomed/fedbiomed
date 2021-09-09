@@ -26,6 +26,7 @@ class Messaging:
         self.messaging_type = messaging_type
         self.messaging_id = str(messaging_id)
         self.is_connected = False
+        self.is_failed = False
 
         self.mqtt = mqtt.Client(client_id=self.messaging_id)
         self.mqtt.on_connect = self.on_connect
@@ -56,7 +57,7 @@ class Messaging:
             msg: mqtt on_message arg
         """
         message = json.deserialize_msg(msg.payload)
-        self.on_message_handler(message)
+        self.on_message_handler('MESSAGE', message)
 
     def on_connect(self, client, userdata, flags, rc):
         """[summary]
@@ -96,9 +97,16 @@ class Messaging:
         else:
             # see MQTT specs : when another client connects with same client_id, the previous one
             # is disconnected https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901205
-            print("[ERROR] Messaging ", self.messaging_id, " disconnected with error code rc = ", rc, " object = ", self,
-                " - Hint: check for another instance of the same component running or for communication error")
-            sys.exit(-1)
+            
+            #print("[ERROR] Messaging ", self.messaging_id, " disconnected with error code rc = ", rc, " object = ", self,
+            #    " - Hint: check for another instance of the same component running or for communication error")
+            error_message = "[ERROR] Messaging " +  str(self.messaging_id) + " disconnected with error code rc = " + \
+                str(rc) +  " object = " + str(self) + \
+                " - Hint: check for another instance of the same component running or for communication error"
+            print(error_message)
+            #sys.exit(-1)
+            self.on_message_handler('ERROR', { 'message': error_message })
+            raise SystemExit
 
     def start(self, block=False):
         """ this method calls the loop function of mqtt
