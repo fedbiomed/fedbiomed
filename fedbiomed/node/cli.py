@@ -147,8 +147,8 @@ def manage_node():
     node = Node(data_manager)
     node.start_messaging(block=False)
 
-    print('\t - Starting task manager...\n')
-    node.task_manager()
+    print('\t - Starting node manager...\n')
+    node.node_manager()
 
 def launch_node():
     #p = Process(target=manage_node, name='node-' + CLIENT_ID, args=(data_manager,))

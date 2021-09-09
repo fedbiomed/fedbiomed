@@ -13,12 +13,13 @@ class MessagingType(Enum):
 class Messaging:
     """ This class represents the MQTT messaging."""
 
-    def __init__(self, on_message, messaging_type: MessagingType, messaging_id,
+    def __init__(self, on_message, on_event, messaging_type: MessagingType, messaging_id,
                  mqtt_broker='localhost', mqtt_broker_port=80):
         """ Constructor of the messaging class
 
         Args:
-            on_message ([function]): function that should be executed when a message is received
+            on_message (function(self, msg: dict)): function that is executed when a message is received
+            on_event (function(self, event: dict)): function that is executed when an event occurs
             messaging_type (MessagingType): 1 for researcher, 2 for researcher
             messaging_id ([int]): messaging id
             mqtt_broker_port (int, optional): Defaults to 80.
@@ -37,6 +38,7 @@ class Messaging:
         self.mqtt_broker_port = mqtt_broker_port
 
         self.on_message_handler = on_message  # store the caller's mesg handler
+        self.on_event_handler = on_event # store the caller's event handler
 
         if self.messaging_type is MessagingType.RESEARCHER:
             self.default_send_topic = 'general/clients'
@@ -57,7 +59,7 @@ class Messaging:
             msg: mqtt on_message arg
         """
         message = json.deserialize_msg(msg.payload)
-        self.on_message_handler('MESSAGE', message)
+        self.on_message_handler(message)
 
     def on_connect(self, client, userdata, flags, rc):
         """[summary]
@@ -91,6 +93,8 @@ class Messaging:
         self.is_connected = True
 
     def on_disconnect(self, client, userdata, rc):
+        self.is_connected = False
+
         if rc == 0:
             # should this ever happen ? we're not disconnecting intentionally yet
             print("[INFO] Messaging ", self.messaging_id, " disconnected without error, object = ", self)
@@ -105,7 +109,8 @@ class Messaging:
                 " - Hint: check for another instance of the same component running or for communication error"
             print(error_message)
             #sys.exit(-1)
-            self.on_message_handler('ERROR', { 'message': error_message })
+            #self.on_message_handler('ERROR', { 'message': error_message })
+            self.on_event_handler({ 'type': 'ERROR_DISCONNECT', 'message': error_message })
             raise SystemExit
 
     def start(self, block=False):
