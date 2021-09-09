@@ -178,6 +178,6 @@ class SGDSkLearnModel():
 
     def get_model(self):
         """
-            :return the scikit model object
+            :return the scikit model object (sklearn.base.BaseEstimator)
         """
         return self.m
