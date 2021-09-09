@@ -166,24 +166,12 @@ class TestLogger(unittest.TestCase):
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_1")
 
-        # test debug() - dict
-        with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
-            logger.debug( { "XXX" : "test_1" } )
-        self.assertEqual(len(captured.records), 1)
-        self.assertEqual(captured.records[0].getMessage(), "from_json_handler")
-
         # test info() - string
         with self.assertLogs('fedbiomed', logging.INFO) as captured:
             logger.info("TEST_2")
 
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_2")
-
-        # test info() - dict
-        with self.assertLogs('fedbiomed', logging.INFO) as captured:
-            logger.info( { "XXX" : "test_1" } )
-        self.assertEqual(len(captured.records), 1)
-        self.assertEqual(captured.records[0].getMessage(), "from_json_handler")
 
         # test warning() - string
         with self.assertLogs('fedbiomed', logging.WARNING) as captured:
@@ -192,24 +180,12 @@ class TestLogger(unittest.TestCase):
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_3")
 
-        # test warning() - dict
-        with self.assertLogs('fedbiomed', logging.WARNING) as captured:
-            logger.warning( { "XXX" : "test_1" } )
-        self.assertEqual(len(captured.records), 1)
-        self.assertEqual(captured.records[0].getMessage(), "from_json_handler")
-
         # test error() - string
         with self.assertLogs('fedbiomed', logging.ERROR) as captured:
             logger.error("TEST_4")
 
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_4")
-
-        # test error() - dict
-        with self.assertLogs('fedbiomed', logging.ERROR) as captured:
-            logger.error( { "XXX" : "test_1" } )
-        self.assertEqual(len(captured.records), 1)
-        self.assertEqual(captured.records[0].getMessage(), "from_json_handler")
 
         # test critical() - string
         with self.assertLogs('fedbiomed', logging.CRITICAL) as captured:
@@ -218,25 +194,12 @@ class TestLogger(unittest.TestCase):
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_5")
 
-        # test critical() - dict
-        with self.assertLogs('fedbiomed', logging.CRITICAL) as captured:
-            logger.critical( { "XXX" : "test_1" } )
-        self.assertEqual(len(captured.records), 1)
-        self.assertEqual(captured.records[0].getMessage(), "from_json_handler")
-
         # test log() - string
         with self.assertLogs('fedbiomed', logging.CRITICAL) as captured:
             logger.log("CRITICAL", "TEST_6")
 
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_6")
-
-        # test log() - dict
-        with self.assertLogs('fedbiomed', logging.CRITICAL) as captured:
-            logger.log( logging.CRITICAL, { "XXX" : "test_1" } )
-        self.assertEqual(len(captured.records), 1)
-        self.assertEqual(captured.records[0].getMessage(), "from_json_handler")
-
 
     # minimal on_* handlers for mqtt
     # the self._mqtt_is_connected will conditionnate the tests later

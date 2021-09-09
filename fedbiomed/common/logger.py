@@ -65,9 +65,10 @@ class MqttFormatter(logging.Formatter):
     def format(self, record):
 
         json_message = {
+            "asctime"   : record.__dict__["asctime"],
             "client_id" : self._client_id
         }
-        for _ in [ "asctime", "name", "level", "message"]:
+        for _ in [ "name", "level", "message"]:
             if _ in record.__dict__:
                 json_message[_] = record.__dict__[_]
             else:
@@ -247,7 +248,7 @@ class _LoggerBase():
 
     def addFileHandler(self,
                        filename = DEFAULT_LOG_FILE,
-                       format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s' ,
+                       format = '%(asctime)s %(name)s %(levelname)s - %(message)s' ,
                        level = DEFAULT_LOG_LEVEL):
         """
         add a file handler
@@ -268,7 +269,7 @@ class _LoggerBase():
 
 
     def addConsoleHandler(self,
-                          format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s' ,
+                          format = '%(asctime)s %(name)s %(levelname)s - %(message)s' ,
                           level  = DEFAULT_LOG_LEVEL):
 
         """
@@ -339,71 +340,6 @@ class _LoggerBase():
                 msg,
                 extra = { "level": self._original_levels[level]}
             )
-
-
-#    def debug(self, msg):
-#        """
-#        overrides the logging.debug() method
-#        """
-#        if isinstance(msg, dict):
-#            msg["level"] = "DEBUG"
-#            self._logger.debug("from_json_handler", extra = msg)
-#        else:
-#            self._logger.debug(msg, extra = { "level": "DEBUG"} )
-
-    def debug(self, msg):
-        """
-        overrides the logging.debug() method
-        """
-        import json
-        if isinstance(msg, dict):
-            self._logger.debug(json.dumps(msg))
-        else:
-            self._logger.debug(msg)
-
-
-    def info(self, msg):
-        """
-        overrides the logging.info() method
-        """
-        if isinstance(msg, dict):
-            msg["level"] = "INFO"
-            self._logger.info("from_json_handler", extra = msg)
-        else:
-            self._logger.info(msg, extra = { "level": "INFO"} )
-
-
-    def warning(self, msg):
-        """
-        overrides the logging.warning() method
-        """
-        if isinstance(msg, dict):
-            msg["level"] = "WARNING"
-            self._logger.warning("from_json_handler", extra = msg)
-        else:
-            self._logger.warning(msg, extra = { "level": "WARNING"} )
-
-
-    def error(self, msg):
-        """
-        overrides the logging.error() method
-        """
-        if isinstance(msg, dict):
-            msg["level"] = "ERROR"
-            self._logger.error("from_json_handler", extra = msg)
-        else:
-            self._logger.error(msg, extra = { "level": "ERROR"} )
-
-
-    def critical(self, msg):
-        """
-        overrides the logging.critical() method
-        """
-        if isinstance(msg, dict):
-            msg["level"] = "CRITICAL"
-            self._logger.critical("from_json_handler", extra = msg)
-        else:
-            self._logger.critical(msg, extra = { "level": "CRITICAL"} )
 
 
     def setLevel(self, level, htype = None ):
