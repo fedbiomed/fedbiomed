@@ -9,7 +9,7 @@ class SGDSkLearnModel():
     def set_init_params(self, kwargs):
         """
             Initialize model parameters
-            :param kwargs dictionnary containing model parameters
+            :param kwargs (dictionary) containing model parameters
         """
         if self.model_type in ['SGDRegressor']:
             self.param_list = ['intercept_','coef_']
@@ -29,62 +29,46 @@ class SGDSkLearnModel():
     def partial_fit(self,X,y):
         """
             Provide partial fit method of scikit learning model here.
-            :param X, ndarray
-            :param y, vector
+            :param X (ndarray)
+            :param y (vector)
             :raise NotImplementedError if developer do not implement this method.
         """
         raise NotImplementedError('Partial fit must be implemented')
 
-    def training_data(self, batch_size=None):
+    def training_data(self):
         """
             Perform in this method all data reading and data transformations you need.
             At the end you should provide a couple (X,y) as indicated in the partial_fit
             method of the scikit learn class.
-            :param batch_size
             :raise NotImplementedError if developer do not implement this method.
         """
         raise NotImplementedError('Training data must be implemented')
 
     def after_training_params(self):
-        """Provide a dictionnary with the federated parameters you need to aggregate, refer to
+        """Provide a dictionary with the federated parameters you need to aggregate, refer to
             scikit documentation for a detail of parameters
-            :return the federated parameters
+            :return the federated parameters (dictionary)
         """
         return {key: getattr(self.m, key) for key in self.param_list}
 
-    def training_routine(self, epochs=1, log_interval=10, lr=1e-3, batch_size=50, batch_maxnum=0, dry_run=False,
-                         logger=None):
+    def training_routine(self, epochs=1,logger=None):
         """
             Method training_routine called in Round, to change only if you know what you are doing.
-            :param epochs
-            :param log_interval unused, provided in the declaration for backward compatibility.
-            :param lr unused, provided in the declaration for backward compatibility.
-            :param batch_size size of batch for partial_fit
-            :param batch_maxnum always 0 for the moment.
-            :param dry_run provided for backward compatibility only
-            :param logger provided for backward compatibility only
+            :param epochs (integer)
         """
-        print('SGD Regressor training batch size ', batch_size)
-        #print('Init parameters', self.m.coef_, self.m.intercept_)
-        (data, target) = self.training_data(batch_size=batch_size)
+        (data, target) = self.training_data()
         for _ in range(epochs):
-            # do not take into account more than batch_maxnum batches from the dataset
-            if batch_maxnum == 0 :
-                if self.model_type == 'MultinomialNB' or self.model_type == 'BernoulliNB' or self.model_type == 'Perceptron' or self.model_type == 'SGDClassifier' or self.model_type == 'PassiveAggressiveClassifier' :
-                    self.m.partial_fit(data,target, classes = np.unique(target))
-                elif self.model_type == 'SGDRegressor' or self.model_type == 'PassiveAggressiveRegressor':
-                    self.m.partial_fit(data,target)
-                elif self.model_type == 'MiniBatchKMeans' or self.model_type == 'MiniBatchDictionaryLearning':
-                    self.m.partial_fit(data)
-            else:
-                print('Not yet implemented batch_maxnum != 0')
-
-        #print('MODEL PARAMS:',self.m.coef_, self.m.intercept_)
+            if self.model_type == 'MultinomialNB' or self.model_type == 'BernoulliNB' or self.model_type == 'Perceptron' or self.model_type == 'SGDClassifier' or self.model_type == 'PassiveAggressiveClassifier' :
+                self.m.partial_fit(data,target, classes = np.unique(target))
+            elif self.model_type == 'SGDRegressor' or self.model_type == 'PassiveAggressiveRegressor':
+                self.m.partial_fit(data,target)
+            elif self.model_type == 'MiniBatchKMeans' or self.model_type == 'MiniBatchDictionaryLearning':
+                self.m.partial_fit(data)
 
     def __init__(self,kwargs):
         """
            Class initializer.
-           :param kwargs dictionnary containing model parameters
+           :param kwargs (dictionary) containing model parameters
         """
         self.batch_size = 100
         self.model_map = {'MultinomialNB', 'BernoulliNB', 'Perceptron', 'SGDClassifier', 'PassiveAggressiveClassifier',
@@ -113,13 +97,13 @@ class SGDSkLearnModel():
     def add_dependency(self, dep):
         """
            Add new dependency to this class.
-           :param dep dependency to add.
+           :param dep (string) dependency to add.
         """
         self.dependencies.extend(dep)
         pass
 
     '''Save the code to send to nodes '''
-    def save_code(self, filename: str):
+    def save_code(self, filename):
         """Save the class code for this training plan to a file
            :param filename (string): path to the destination file
         """
@@ -139,8 +123,8 @@ class SGDSkLearnModel():
         """
         Save method for parameter communication, internally is used
         dump and load joblib library methods.
-        :param filename
-        :param params model parameters to save
+        :param filename (string)
+        :param params (dictionary) model parameters to save
 
         Save can be called from Job or Round.
             From round is always called with params.
@@ -170,9 +154,9 @@ class SGDSkLearnModel():
         Load can be called from Job or Round.
         From round is called with no params
         From job is called with  params
-        :param filename
-        :param to_params boolean to differentiate a pytorch from a sklearn
-        :return a dictionnary with the loaded parameters.
+        :param filename (string)
+        :param to_params (boolean) to differentiate a pytorch from a sklearn
+        :return dictionary with the loaded parameters.
         """
         di_ret = {}
         file = open( filename , "rb")
@@ -187,13 +171,13 @@ class SGDSkLearnModel():
 
     def set_dataset(self, dataset_path):
         """
-          :param dataset_path
+          :param dataset_path (string)
         """
         self.dataset_path = dataset_path
         print('Dataset_path',self.dataset_path)
 
     def get_model(self):
         """
-            :return the scikit model
+            :return the scikit model object
         """
         return self.m
