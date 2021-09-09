@@ -331,15 +331,71 @@ class _LoggerBase():
         """
 
         level = logger._internalLevelTranslator(level)
-        if isinstance(msg, dict):
-            msg["level"] = level
-            self._logger.log(level, "from_json_handler", extra = msg)
-        else:
-            self._logger.log(
-                level,
-                msg,
-                extra = { "level": self._original_levels[level]}
-            )
+        self._logger.log(
+            level,
+            msg,
+            extra = { "level": self._original_levels[level]}
+        )
+
+
+    def debug(self, msg):
+        """
+        overrides the logging.debug() method to pass the loglevel
+        to the MQTT handler
+        """
+        self._logger.log(
+            logging.DEBUG,
+            msg,
+            extra = { "level": "DEBUG" }
+        )
+
+
+    def info(self, msg):
+        """
+        overrides the logging.info() method to pass the loglevel
+        to the MQTT handler
+        """
+        self._logger.log(
+            logging.INFO,
+            msg,
+            extra = { "level": "INFO" }
+        )
+
+
+    def warning(self, msg):
+        """
+        overrides the logging.warning() method to pass the loglevel
+        to the MQTT handler
+        """
+        self._logger.log(
+            logging.WARNING,
+            msg,
+            extra = { "level": "WARNING" }
+        )
+
+
+    def error(self, msg):
+        """
+        overrides the logging.error() method to pass the loglevel
+        to the MQTT handler
+        """
+        self._logger.log(
+            logging.ERROR,
+            msg,
+            extra = { "level": "ERROR" }
+        )
+
+
+    def critical(self, msg):
+        """
+        overrides the logging.critical() method to pass the loglevel
+        to the MQTT handler
+        """
+        self._logger.log(
+            logging.CRITICAL,
+            msg,
+            extra = { "level": "CRITICAL" }
+        )
 
 
     def setLevel(self, level, htype = None ):

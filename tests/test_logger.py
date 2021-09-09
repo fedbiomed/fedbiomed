@@ -196,10 +196,16 @@ class TestLogger(unittest.TestCase):
 
         # test log() - string
         with self.assertLogs('fedbiomed', logging.CRITICAL) as captured:
-            logger.log("CRITICAL", "TEST_6")
+            logger.log(logging.CRITICAL, "TEST_6")
 
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_6")
+
+        with self.assertLogs('fedbiomed', logging.CRITICAL) as captured:
+            logger.log("CRITICAL", "TEST_7")
+
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].getMessage(), "TEST_7")
 
     # minimal on_* handlers for mqtt
     # the self._mqtt_is_connected will conditionnate the tests later
@@ -253,7 +259,7 @@ class TestLogger(unittest.TestCase):
         randomfile = tempfile.NamedTemporaryFile()
 
         logger.addFileHandler( filename = randomfile.name)
-        logger.error("YYY-FIND_THIS_IN_TEMPFILE-XXX")
+        logger.log("ERROR", "YYY-FIND_THIS_IN_TEMPFILE-XXX")
 
         # give some time to the logger
         time.sleep(2)
