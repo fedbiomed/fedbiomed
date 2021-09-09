@@ -17,6 +17,8 @@ Add the following features:
 import paho.mqtt.publish as publish
 
 import copy
+import json
+
 import logging
 import logging.handlers
 
@@ -71,9 +73,9 @@ class MqttFormatter(logging.Formatter):
             else:
                 json_message[_] = "<undef>" # pragma: no cover
 
-        new_record     = copy.deepcopy(record)
-        new_record.msg = json_message
-        return super().format(new_record)
+        record.msg = json.dumps(json_message)
+        return super().format(record)
+
 
 #
 # mqtt handler
@@ -339,15 +341,25 @@ class _LoggerBase():
             )
 
 
+#    def debug(self, msg):
+#        """
+#        overrides the logging.debug() method
+#        """
+#        if isinstance(msg, dict):
+#            msg["level"] = "DEBUG"
+#            self._logger.debug("from_json_handler", extra = msg)
+#        else:
+#            self._logger.debug(msg, extra = { "level": "DEBUG"} )
+
     def debug(self, msg):
         """
         overrides the logging.debug() method
         """
+        import json
         if isinstance(msg, dict):
-            msg["level"] = "DEBUG"
-            self._logger.debug("from_json_handler", extra = msg)
+            self._logger.debug(json.dumps(msg))
         else:
-            self._logger.debug(msg, extra = { "level": "DEBUG"} )
+            self._logger.debug(msg)
 
 
     def info(self, msg):
