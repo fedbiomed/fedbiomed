@@ -1,8 +1,6 @@
 from time import sleep
 from datetime import datetime
 from threading import Lock
-from queue import Queue, Empty
-import threading
 
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
@@ -34,25 +32,16 @@ class RequestMeta(type):
 class Requests(metaclass=RequestMeta):
     """This class represents the protocol-independent messaging layer for the researcher
     """    
-    def __init__(self, mess: Messaging =None):
+    def __init__(self, mess=None):
         """Constructor of the class.
 
         Args:
-            mess (Messaging, optional): Messaging object to be used by the class. Defaults to None,
-                Messaging will then be dynamically created
-        """  
-        # incoming message queue : used by underlying Messaging to report incoming messages 
-        # - permanent across runs of the class
-        # - shared between instances of the class
+            mess ([type], optional): [description]. Defaults to None.
+        """        
         self.queue = TasksQueue(MESSAGES_QUEUE_DIR + '_' + RESEARCHER_ID, TMP_DIR)
 
-        # event queue : used by the underlying Messaging to report running events
-        # - transient to a run of the class
-        # - specific to an instance of the class
-        self.event_queue = Queue()
-
         if mess is None or type(mess) is not Messaging:
-            self.messaging = Messaging(self.on_message, self.on_event, MessagingType.RESEARCHER, \
+            self.messaging = Messaging(self.on_message, MessagingType.RESEARCHER, \
                 RESEARCHER_ID, MQTT_BROKER, MQTT_BROKER_PORT)
             self.messaging.start(block=False)
         else:
@@ -65,27 +54,21 @@ class Requests(metaclass=RequestMeta):
 
     def on_message(self, msg: dict):
         """
-        This handler is called by the Messaging class when a message is received
+        This handler is called by the Messaging class, then a message is received
         Args: 
-            msg(dict): de-serialized msg
+            msg (dict): de-serialized msg
         """
         print(datetime.now(), '[ RESEARCHER ] message received.', msg)
-        print("---DEBUG---- on message", threading.current_thread().name, threading.current_thread().ident)
-        self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
+        self.queue.add(msg)
         
-    def on_event(self, event: dict):
-        """
-        This handler is called by the Messaging class when an event occurs in the messaging
-        Args:
-            event(dict): description of event
-        """
-        print(datetime.now(), '[ RESEARCHER ] event received.', event)
-        print("---DEBUG---- on event", threading.current_thread().name, threading.current_thread().ident)
-        self.event_queue.put(event)
 
     def send_message(self, msg: dict, client=None):      
         """
-        ask the messaging class to send a new message (receivers are deduced from the message content)
+        Ask the messaging class to send a new message (receivers are deduced from the message content)
+
+        Args:
+            msg (dict): message to be sent
+            client (str) : the client id of the receiver
         """
         self.messaging.send_message(msg, client=client)
 
@@ -98,34 +81,25 @@ class Requests(metaclass=RequestMeta):
         """
         sleep(time)
 
-        print("---DEBUG---- get_messages", threading.current_thread().name, threading.current_thread().ident)
         answers = []
-
-        # handle exceptional events if any
-        for _ in range(self.event_queue.qsize()):
-            try:
-                event = self.event_queue.get(block=False)
-            except Empty:
-                print("[ERROR] Unexpected empty event queue in researcher")
-                raise
-            print('[ERROR] Requests handler received an event from Messaging ', event)
-            raise SystemExit
-
-        # handle received messages
         for _ in range(self.queue.qsize()):
             try:
                 item = self.queue.get(block=False)
             except exceptionsEmpty:
-                print("[ERROR] Unexpected empty message queue in researcher")
+                print("[ERROR] Unexpected empty queue in researcher")
                 raise
+                #pass
             self.queue.task_done()
+
+            if type(item) != dict:
+                print("[ERROR] Bad item type in researcher message queue", item)
+                raise TypeError
 
             if command is None or \
                     ('command' in item.keys() and item['command'] == command):
                 answers.append(item)
             else:
                 # currently trash all other messages
-                print("[INFO] Ignoring message ", item)
                 pass
 
         return Responses(answers)
@@ -168,7 +142,7 @@ class Requests(metaclass=RequestMeta):
         return clients_online
 
 
-    def search(self, tags: tuple, clients: list=None):
+    def search(self, tags: tuple, clients: list = None):
         """
         Searches available data by tags
         :param tags: Tuple containing tags associated to the data researchir is looking for.

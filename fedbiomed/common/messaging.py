@@ -1,4 +1,3 @@
-import sys
 from enum import Enum
 import paho.mqtt.client as mqtt
 
@@ -13,13 +12,12 @@ class MessagingType(Enum):
 class Messaging:
     """ This class represents the MQTT messaging."""
 
-    def __init__(self, on_message, on_event, messaging_type: MessagingType, messaging_id,
+    def __init__(self, on_message, messaging_type: MessagingType, messaging_id,
                  mqtt_broker='localhost', mqtt_broker_port=80):
         """ Constructor of the messaging class
 
         Args:
-            on_message (function(self, msg: dict)): function that is executed when a message is received
-            on_event (function(self, event: dict)): function that is executed when an event occurs
+            on_message (function(msg: dict)): function that should be executed when a message is received
             messaging_type (MessagingType): 1 for researcher, 2 for researcher
             messaging_id ([int]): messaging id
             mqtt_broker_port (int, optional): Defaults to 80.
@@ -38,7 +36,6 @@ class Messaging:
         self.mqtt_broker_port = mqtt_broker_port
 
         self.on_message_handler = on_message  # store the caller's mesg handler
-        self.on_event_handler = on_event # store the caller's event handler
 
         if self.messaging_type is MessagingType.RESEARCHER:
             self.default_send_topic = 'general/clients'
@@ -74,22 +71,19 @@ class Messaging:
             print("[INFO] Messaging ", self.messaging_id, " successfully connected to the message broker, object = ", self)
         else:
             print("[ERROR] Messaging ", self.messaging_id, "could not connect to the message broker, object = ", self)
-            sys.exit(-1)
+            self.is_failed = True
 
         if self.messaging_type is MessagingType.RESEARCHER:
             result, _ = self.mqtt.subscribe('general/server')
             if result != mqtt.MQTT_ERR_SUCCESS:
                 print("[ERROR] Messaging ", self.messaging_id, "failed subscribe to channel")
-                sys.exit(-1)
+                self.is_failed = True
         elif self.messaging_type is MessagingType.NODE:
-            result, _ = self.mqtt.subscribe('general/clients')
-            if result != mqtt.MQTT_ERR_SUCCESS:
-                print("[ERROR] Messaging ", self.messaging_id, "failed subscribe to channel")
-                sys.exit(-1)
-            result, _ = self.mqtt.subscribe('general/' + self.messaging_id)
-            if result != mqtt.MQTT_ERR_SUCCESS:
-                print("[ERROR] Messaging ", self.messaging_id, "failed subscribe to channel")
-                sys.exit(-1)
+            for channel in ('general/clients', 'general/' + self.messaging_id):
+                result, _ = self.mqtt.subscribe(channel)
+                if result != mqtt.MQTT_ERR_SUCCESS:
+                    print("[ERROR] Messaging ", self.messaging_id, "failed subscribe to channel", channel)
+                    self.is_failed = True 
         self.is_connected = True
 
     def on_disconnect(self, client, userdata, rc):
@@ -104,13 +98,12 @@ class Messaging:
             
             #print("[ERROR] Messaging ", self.messaging_id, " disconnected with error code rc = ", rc, " object = ", self,
             #    " - Hint: check for another instance of the same component running or for communication error")
-            error_message = "[ERROR] Messaging " +  str(self.messaging_id) + " disconnected with error code rc = " + \
-                str(rc) +  " object = " + str(self) + \
-                " - Hint: check for another instance of the same component running or for communication error"
-            print(error_message)
-            #sys.exit(-1)
-            #self.on_message_handler('ERROR', { 'message': error_message })
-            self.on_event_handler({ 'type': 'ERROR_DISCONNECT', 'message': error_message })
+            print("[ERROR] Messaging ", self.messaging_id, " disconnected with error code rc = ", rc,
+                " object = ", self,
+                " - Hint: check for another instance of the same component running or for communication error")
+
+            self.is_failed = True
+            # quit messaging to avoid connect/disconnect storm in case multiple nodes with same id
             raise SystemExit
 
     def start(self, block=False):
@@ -120,6 +113,8 @@ class Messaging:
             block (bool, optional): if True: calls the loop_forever method 
                                     else, calls the loop_start method
         """
+        # will try a connect even if is_failed or is_connected, to give a chance to resolve problems
+
         self.mqtt.connect(self.mqtt_broker, self.mqtt_broker_port, keepalive=60)
         if block:
             # TODO : not used, should probably be removed
@@ -133,9 +128,10 @@ class Messaging:
         """
         this method stops the loop 
         """
+        # will try a stop even if is_failed or not is_connected, to give a chance to clean state        
         self.mqtt.loop_stop()
 
-    def send_message(self, msg: dict, client=None):
+    def send_message(self, msg: dict, client: str = None):
         """This method sends a message to a given client
 
         Args:
@@ -143,6 +139,13 @@ class Messaging:
             client ([str], optional): defines the channel to which the 
                                 message will be sent. Defaults to None(all clients)
         """
+        if self.is_failed:
+            print('[ERROR] Messaging is failed, will not try to send message')
+            return
+        elif not self.is_connected:
+            print('[ERROR] Messaging is not connected, will not try to send message')
+            return
+
         if client is None:
             channel = self.default_send_topic
         else:
@@ -152,7 +155,6 @@ class Messaging:
             if messinfo.rc != mqtt.MQTT_ERR_SUCCESS:
                 print("[ERROR] Messaging ", self.messaging_id, "failed sending message with code rc = ",
                 messinfo.rc, " object = ", self, " message = ", msg)
-                sys.exit(-1)
+                self.is_failed = True
         else:
             print("[ERROR] Messaging ", self.messaging_id, " send_message: channel must be specified (None at the moment)")
-            sys.exit(-1)

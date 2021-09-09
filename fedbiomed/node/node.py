@@ -1,12 +1,9 @@
 from json import decoder
-import threading
-from queue import Queue, Empty
-import time
 
 import validators
 
 from fedbiomed.common import json
-from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
+from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.messaging import Messaging,  MessagingType
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.node.environ import CLIENT_ID, MESSAGES_QUEUE_DIR, TMP_DIR, MQTT_BROKER, MQTT_BROKER_PORT
@@ -17,17 +14,8 @@ class Node:
 
     def __init__(self, data_manager):
 
-         # tasks to execute by the node queue : used by underlying Messaging to report incoming messages 
-        # - permanent across runs of the class
-        # - shared between instances of the class
         self.tasks_queue = TasksQueue(MESSAGES_QUEUE_DIR, TMP_DIR)
-
-        # event queue : used by the underlying Messaging to report running events
-        # - transient to a run of the class
-        # - specific to an instance of the class
-        self.event_queue = Queue()
-
-        self.messaging = Messaging(self.on_message, self.on_event, MessagingType.NODE, \
+        self.messaging = Messaging(self.on_message, MessagingType.NODE, \
             CLIENT_ID, MQTT_BROKER, MQTT_BROKER_PORT)
         self.data_manager = data_manager
         self.rounds = []
@@ -40,27 +28,9 @@ class Node:
         """        
         self.tasks_queue.add(task)
 
-    def on_event(self, event: dict):
-        """
-        This handler is called by the Messaging class when an event occurs in the messaging
-        Args:
-            event(dict): description of event
-        """
-        print('[ NODE ] event received.', event)
-        print("---DEBUG---- on event", threading.current_thread().name, threading.current_thread().ident)
-        self.event_queue.put(event)
-
     def on_message(self, msg: dict):
-        print('[CLIENT] Message received: ', type, msg)
-        print("---DEBUG---- on message", threading.current_thread().name, threading.current_thread().ident)
-        #if type == 'ERROR':
-        #    print('[ERROR] Node message handler received an error from Messaging ', type, msg)
-        #    raise RuntimeError
-        #elif type != 'MESSAGE':
-        #    print("[ERROR] Node message handler received bad type value from Messaging ", type, msg)
-        #    raise ValueError
+        print('[CLIENT] Message received: ', msg)
 
-        # TODO : move this code from handler to process main task
         try:
             command = msg['command']
             request = NodeMessages.request_create(msg).get_dict()
@@ -129,25 +99,12 @@ class Node:
                     self.rounds.append(Round(model_kwargs, training_kwargs, alldata[0], model_url,
                                          model_class, params_url, job_id, researcher_id, logger))
 
-
-    def task_manager(self, finish_flag:bool = False):
-        """ This method manage training tasks in the queue, it is usually
-        launched in a distinct thread by the node_manager
-
-        Args:
-            finish_flag 
+    def task_manager(self):
+        """ This method manage training tasks in the queue
         """        
 
         while True:
-            if finish_flag():
-                raise SystemExit
-
-            try:
-                item = self.tasks_queue.get(False)
-            except exceptionsEmpty:
-                time.sleep(1)
-                continue
-            print("---DEBUG---- task manager", threading.current_thread().name, threading.current_thread().ident)
+            item = self.tasks_queue.get()
 
             try:
                 print('[TASKS QUEUE] Item:', item)
@@ -161,32 +118,6 @@ class Node:
             except Exception as e:
                 self.messaging.send_message(NodeMessages.reply_create({'success':False,  "command":"error",
                         'msg':str(e), 'client_id':CLIENT_ID }).get_dict())
-
-
-    def node_manager(self):
-        """This method is the main entry loop for the node
-        """
-        finish_threads = False
-
-        taskman = threading.Thread(target=self.task_manager, args=(lambda : finish_threads, ))
-        taskman.start()
-
-        while True:
-            time.sleep(1)
-
-            for _ in range(self.event_queue.qsize()):
-                try:
-                    event = self.event_queue.get(block=False)
-                except Empty:
-                    print("[ERROR] Unexpected empty event queue in node")
-                    raise
-                print('[ERROR] Task manager received an event from Messaging ', event)
-                finish_threads=True
-                raise SystemExit
-
-            # TODO : move most of on_message handler code here
-
-        #taskman.join()
 
 
     def start_messaging(self, block=False):
