@@ -167,3 +167,6 @@ class TorchTrainingPlan(nn.Module):
     def training_data(self, batch_size = 48):
 
         pass
+
+    def after_training_params(self):
+        return self.state_dict()
