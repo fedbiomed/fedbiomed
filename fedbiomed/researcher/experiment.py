@@ -1,3 +1,4 @@
+from fedbiomed.common.logger import logger
 from fedbiomed.researcher.aggregators import fedavg
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
@@ -27,11 +28,11 @@ class Experiment:
 
         Args:
             tags (tuple): tuple of string with data tags
-            clients (list, optional): list of client_ids to filter the nodes to be involved in 
+            clients (list, optional): list of client_ids to filter the nodes to be involved in
                                       the experiment. Defaults to None (no filtering).
             model_class (string, optional): name of the model class to use for training
             model_path (string, optional) : path to file containing model code
-            model_args (dict, optional): contains output and input feature dimension. 
+            model_args (dict, optional): contains output and input feature dimension.
                                             Defaults to None.
             training_args (dict, optional): contains training parameters: lr, epochs, batch_size...
                                             Defaults to None.
@@ -91,12 +92,12 @@ class Experiment:
         for round_i in range(self._rounds):
             # Sample clients using strategy (if given)
             self._job.clients = self._client_selection_strategy.sample_clients(round_i)
-            print('Sampled clients in round ', round_i, ' ', self._job.clients)
+            logger.info('Sampled clients in round ' + str(round_i) + ' ' + str(self._job.clients))
             # Trigger training round on sampled clients
             self._job.start_clients_training_round(round=round_i)
 
             model_params, weights = self._client_selection_strategy.refine( self._job.training_replies[round_i], round_i)
- 
+
             aggregated_params = self._aggregator.aggregate(model_params, weights)
             aggregated_params_path = self._job.update_parameters(aggregated_params)
 

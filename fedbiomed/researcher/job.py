@@ -190,7 +190,7 @@ class Job:
 
         for cli in self._clients:
             msg['training_data'] = { cli: [ ds['dataset_id'] for ds in self._data.data()[cli] ] }
-            logger.info('[ RESEARCHER ] Send message to client ' + str(cli) + " - " + str(msg))
+            logger.info('Send message to client ' + str(cli) + " - " + str(msg))
             time_start[cli] = time.perf_counter()
             self._reqs.send_message( msg , cli)
 

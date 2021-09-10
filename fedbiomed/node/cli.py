@@ -78,14 +78,14 @@ def validated_path_input(data_type):
                 path = pick_with_tkinter(mode='file')
                 logger.debug(path)
                 if not path:
-                    logger.critical('No file was selected. Exiting...')
+                    logger.critical('No file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
             else:
                 path = pick_with_tkinter(mode='dir')
                 logger.debug(path)
                 if not path:
-                    logger.critical('No directory was selected. Exiting...')
+                    logger.critical('No directory was selected. Exiting')
                     exit(1)
                 assert os.path.isdir(path)
             break
@@ -236,7 +236,7 @@ def launch_cli():
     elif args.add_mnist is not None:
         add_database(interactive=False, path=args.add_mnist)
     elif args.list:
-        print('Listing your data available...')
+        print('Listing your data available')
         data = data_manager.list_my_data(verbose=True)
         if len(data) == 0:
             print('No data has been set up.')

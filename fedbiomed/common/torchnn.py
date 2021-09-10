@@ -71,7 +71,7 @@ class TorchTrainingPlan(nn.Module):
 
                 if batch_idx % log_interval == 0:
 #                    print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    self.system_logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    self.system_logger.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
                         batch_idx * len(data),
                         len(training_data.dataset),

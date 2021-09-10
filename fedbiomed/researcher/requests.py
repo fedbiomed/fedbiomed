@@ -1,6 +1,7 @@
 from time import sleep
 from datetime import datetime
 
+from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
 from fedbiomed.common.messaging import Messaging, MessagingType
@@ -10,13 +11,13 @@ from fedbiomed.researcher.responses import Responses
 
 class Requests:
     """This class represents the
-    """    
+    """
     def __init__(self, mess=None):
         """[summary]
 
         Args:
             mess ([type], optional): [description]. Defaults to None.
-        """        
+        """
         self.queue = TasksQueue(MESSAGES_QUEUE_DIR + '_' + RESEARCHER_ID, TMP_DIR)
 
         if mess is None or type(mess) is not Messaging:
@@ -28,24 +29,24 @@ class Requests:
 
     def get_messaging(self):
         """returns the messaging object
-        """        
+        """
         return(self.messaging)
 
     def on_message(self, msg):
         """
         This handler is called by the Messaging class, then a message is received
-        Args: 
+        Args:
             msg: serialized msg
         """
-        print(datetime.now(), '[ RESEARCHER ] message received.', msg)
+        logger.info('message received:' + str(msg))
         self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
 
 
-    def send_message(self, msg: dict, client=None):      
+    def send_message(self, msg: dict, client=None):
         """
         ask the messaging class to send a new message (receivers are deduced from the message content)
         """
-        print(RESEARCHER_ID)
+        logger.debug(str(RESEARCHER_ID))
         self.messaging.send_message(msg, client=client)
 
 
@@ -91,7 +92,7 @@ class Requests:
                     elif resp['success']:
                         new_responses.append(resp)
                 except Exception:
-                    print(datetime.now(),'[ RESEARCHER ] Incorrect message received.', resp)
+                    logger.error('Incorrect message received:' + str(resp))
                     pass
 
             if len(new_responses) == 0:
@@ -120,7 +121,7 @@ class Requests:
         """
         self.messaging.send_message(ResearcherMessages.request_create({'tags':tags, 'researcher_id':RESEARCHER_ID, "command": "search"}).get_dict())
 
-        print(f'Searching for clients with data tags: {tags} ...')
+        logger.info(f'Searching for clients with data tags: {tags}')
         data_found = {}
         for resp in self.get_responses(look_for_command='search'):
             if not clients or resp['client_id'] in clients:

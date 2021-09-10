@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 
+from fedbiomed.common.logger import logger
 
 class Message(object):
 
     def __init__(self):
         """ Constructor of the class
-        """        
+        """
         pass
 
     def set_param(self, param, param_value):
@@ -14,7 +15,7 @@ class Message(object):
         Args:
             param (str): the name of the param to be modified
             param_value: new value of the param
-        """        
+        """
         setattr(self, param, param_value)
 
     def get_param(self, param):
@@ -22,18 +23,18 @@ class Message(object):
 
         Args:
             param (str): name of the param
-        """        
+        """
         return(getattr(self, param))
 
     def get_dict(self):
         return(self.__dict__)
-    
+
     def validate(self, fields):
         ret = True
         for field_name, field_def in fields:
             actual_type = type(getattr(self, field_name))
             if actual_type != field_def.type:
-                print(f"\t{field_name}: '{actual_type}' instead of '{field_def.type}'")
+                logger.error(f"{field_name}: '{actual_type}' instead of '{field_def.type}'")
                 ret = False
         return ret
 
@@ -44,7 +45,7 @@ class SearchReply(Message):
 
     Args:
         Message ([type]): Parent class allows to get and set message params
-    """ 
+    """
     researcher_id: str
     success: bool
     databases: list
@@ -56,7 +57,7 @@ class SearchReply(Message):
         if not self.validate(self.__dataclass_fields__.items()):
             raise ValueError('Wrong types')
 
-    
+
 
 
 @dataclass
@@ -174,7 +175,7 @@ class TrainRequest(Message):
 class ResearcherMessages():
     """This class allows to create the corresponding class instance from
     a received/ sent message by the researcher
-    """    
+    """
     @classmethod
     def reply_create(cls, params):
         """this method is used on message reception.
@@ -189,7 +190,7 @@ class ResearcherMessages():
         An instance of the corresponding class
         """
         message_type = params['command']
-        
+
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
                                     'search': SearchReply,
                                     'ping': PingReply,
@@ -285,4 +286,3 @@ class NodeMessages():
             raise ValueError('Bad message type {}'.format(message_type))
 
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
-        
