@@ -181,7 +181,7 @@ class Node:
                         params_url,
                         job_id,
                         researcher_id,
-                        logger))
+                        hist_logger))
 
     def task_manager(self):
         """ This method manages training tasks in the queue
