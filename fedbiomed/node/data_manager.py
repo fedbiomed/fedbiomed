@@ -119,8 +119,6 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         else:
             raise NotImplementedError(f'Default dataset `{name}` has'
                                       'not been implemented.')
-        # FIXME: ` NotImplementedError` should not be raised for that (dataset not found)
-        # FIXES: create a custom error for that purpose
         if as_dataset:
             return dataset
         else:
@@ -301,10 +299,10 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
                 return self.load_as_dataloader(dataset)
             elif mode == 'torch_tensor':
                 raise NotImplementedError('We are working on this'
-                                          ' implementation!')
+                        ' implementation!')
             elif mode == 'numpy':
                 raise NotImplementedError('We are working on this'
-                                          'implementation!')
+                        'implementation!')
             else:
                 raise NotImplementedError(f'Mode `{mode}` has not been'
-                                          ' implemented on this version.')
+                        ' implemented on this version.')

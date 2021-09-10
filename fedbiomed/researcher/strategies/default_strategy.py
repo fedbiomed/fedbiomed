@@ -49,8 +49,7 @@ class DefaultStrategy(Strategy):
 		except DefaultStrategyException as ex:
 			print(ex)
 
-		# FIXME: should we seperate node response checking (above) from the computation
-		# of weighs (below) ? 
+
 		totalrows = sum([val[0]["shape"][0] for (key,val) in self._fds.data().items()])
 		weights = [val[0]["shape"][0] / totalrows for (key,val) in self._fds.data().items()]
 		print('Clients that successfully reply in round ', round_i, ' ', self._success_client_history[round_i])

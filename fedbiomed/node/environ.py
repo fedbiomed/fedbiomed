@@ -10,9 +10,7 @@ try:
 except NameError:
     defined_node_env = False
 
-# python imports should handle this,  but avoid eventual weird cases
-
-# FIXME: what if ` defined_node_env` is set to True ? 
+# python imports should handle that it is only executed once,  but avoid eventual weird cases
 if not defined_node_env:
     def init_client_config(client_id: Optional[str] = None):
         """ This method: reads the config file if exists, otherwise it creates
@@ -66,12 +64,12 @@ if not defined_node_env:
         return cfg
 
     ROOT_DIR = os.path.abspath(
-                               os.path.join(
-                                            os.path.dirname(
-                                                            os.path.abspath(__file__)
-                                                            ),
-                                            '../..')
-                               )
+                    os.path.join(
+                        os.path.dirname(
+                            os.path.abspath(__file__)
+                            ),
+                        '../..')
+                    )
 
     CONFIG_DIR = os.path.join(ROOT_DIR, 'etc')
     VAR_DIR = os.path.join(ROOT_DIR, 'var')
@@ -89,8 +87,8 @@ if not defined_node_env:
         CONFIG_FILE = os.getenv('CONFIG_FILE')
         if not os.path.isabs(CONFIG_FILE):
             CONFIG_FILE = os.path.join(
-                                       CONFIG_DIR,
-                                       os.getenv('CONFIG_FILE'))
+                            CONFIG_DIR,
+                            os.getenv('CONFIG_FILE'))
     else:
         CONFIG_FILE = os.path.join(CONFIG_DIR, 'config_node.ini')
 

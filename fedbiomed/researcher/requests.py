@@ -120,7 +120,7 @@ class Requests:
         """
         timeout = timeout or TIMEOUT
         responses = []
-        # TODO: add timeout error (in case all messages havenot been recieved)
+        
         while True:
             sleep(timeout)
             new_responses = []
@@ -147,7 +147,7 @@ class Requests:
         :return: list of client_id
         """
         self.messaging.send_message(ResearcherMessages.request_create({'researcher_id': RESEARCHER_ID, 'command':'ping'}).get_dict())
-        # TODO: (below) handle KeyError exception or use `.get()` method
+        # TODO: (below, above) handle exceptions
         clients_online = [resp['client_id'] for resp in self.get_responses(look_for_command='ping')]
         return clients_online
 

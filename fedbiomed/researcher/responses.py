@@ -22,7 +22,6 @@ class Responses:
             for d in data:
                 if d not in self._data:
                     self._data.append(d)
-                    # FIXME: would using ` set()` function be a better idea?
 
     @property
     def data(self) -> list:

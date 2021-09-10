@@ -59,7 +59,6 @@ class TorchTrainingPlan(nn.Module):
 
     #################################################
     # provided by fedbiomed
-    # FIXME: logger unused
     # FIXME: add betas parameters for ADAM solver + momentum for SGD
     def training_routine(self,
                          epochs: int = 2,

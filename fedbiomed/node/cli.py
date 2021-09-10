@@ -62,11 +62,11 @@ def pick_with_tkinter(mode='file'):
         # root.attributes("-topmost", True)
         if mode == 'file':
             return tkinter.filedialog.askopenfilename(
-                                                      filetypes=[
-                                                                ("CSV files",
-                                                                 "*.csv")
-                                                                ]
-                                                      )
+                        filetypes=[
+                                  ("CSV files",
+                                   "*.csv")
+                                  ]
+                        )
         else:
             return tkinter.filedialog.askdirectory()
 
@@ -157,7 +157,7 @@ def add_database(interactive=True, path=''):
 
 def manage_node():
     """
-    Instanciates a node and data manager objects. Then, node starts
+    Instantiates a node and data manager objects. Then, node starts
     messaging with the Network
     """
     print('Launching node...')

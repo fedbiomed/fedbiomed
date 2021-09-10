@@ -81,7 +81,7 @@ class Job:
                 print("Cannot import class ", model, " from path ", model_path, " - Error: ", e)
                 sys.exit(-1)
 
-        # create/save model instance (ie TrainigPlan)
+        # create/save model instance (ie TrainingPlan)
         if inspect.isclass(model):
             # case if `model` is a class
             if self._model_args is None or len(self._model_args) == 0:
@@ -125,7 +125,7 @@ class Job:
         # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args,
                                         ['model_url', 'model_class', 'params_url'])
-        # FIXME: (above) the constructor of a class mustnot call one of the method class in its definition
+        # FIXME: (above) the constructor of a class usually shouldnt call one of the method class in its definition
         
     @staticmethod
     def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
@@ -308,7 +308,6 @@ class localJob:
         self._id = str(uuid.uuid4())
         self._repository_args = {}
         self.__training_args = training_args
-        # FIXME : should it be ` _training_args`
         self._model_args = model_args
         self.dataset_path = dataset_path
 

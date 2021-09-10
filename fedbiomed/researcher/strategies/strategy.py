@@ -2,7 +2,7 @@
 from fedbiomed.researcher.datasets import FederatedDataSet
 
 
-# FIXME : this should be an abstract class
+# TODO: do we consider it as an abstract class ?
 class Strategy:
 	"""Default Strategy parent class"""
 	def __init__(self, data: FederatedDataSet):

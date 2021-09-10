@@ -11,12 +11,7 @@ from fedbiomed.node.history_logger import HistoryLogger
 from fedbiomed.node.round import Round
 from fedbiomed.node.data_manager import Data_manager
 
-# should we keep this import (third party package)? There is a risk
-# "validators" package will be no
 import validators
-# longer maintained in the future. Plus, there are no test coverage
-# available on github page
-# (here `validators` is only used for assertion errors)
 
 
 class Node:
@@ -43,7 +38,7 @@ class Node:
     def on_message(self, msg: Dict[str, Any]):
         """Handler to be used with `Messaging` class (ie with messager).
         It is called when a  messsage arrive through the messager
-        It reads and triggers instruction recieved by node from Researcher,
+        It reads and triggers instruction received by node from Researcher,
         mainly:
         - ping requests,
         - train requests (then a new task will be added on node 's task queue),
@@ -178,14 +173,14 @@ class Node:
                         ).get_dict())
                 else:
                     self.rounds.append(Round(model_kwargs,
-                                             training_kwargs,
-                                             alldata[0],
-                                             model_url,
-                                             model_class,
-                                             params_url,
-                                             job_id,
-                                             researcher_id,
-                                             logger))
+                        training_kwargs,
+                        alldata[0],
+                        model_url,
+                        model_class,
+                        params_url,
+                        job_id,
+                        researcher_id,
+                        logger))
 
     def task_manager(self):
         """ This method manages training tasks in the queue
@@ -210,8 +205,8 @@ class Node:
                 # send an error message back to network if something
                 # wrong occured
                 self.messaging.send_message(NodeMessages.reply_create({'success': False,
-                                                                       "command": "error",
-                                                                       'msg': str(e), 'client_id': CLIENT_ID}).get_dict())
+                    "command": "error",
+                    'msg': str(e), 'client_id': CLIENT_ID}).get_dict())
 
     def start_messaging(self, block: Optional[bool] = False):
         """This method calls the start method of messaging class

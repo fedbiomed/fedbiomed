@@ -1,6 +1,6 @@
 from typing import Optional
 
-import persistqueue  # used for persisiting queue on disk
+import persistqueue
 
 
 exceptionsEmpty = persistqueue.exceptions.Empty
@@ -13,7 +13,7 @@ class TasksQueue:
     
     """
     def __init__(self, messages_queue_dir: str, tmp_dir: str):
-        """Instanciates a disk-persistant Queue.
+        """Instantiates a disk-persistant Queue.
 
         Args:
             messages_queue_dir (str): directory where enqueued data should be

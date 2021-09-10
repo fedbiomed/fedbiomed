@@ -92,7 +92,7 @@ class Round:
                 # (below) import TrainingPlan created by Researcher on node
                 exec('import ' + import_module,  globals())
                 sys.path.pop(0)
-                # (below) instanciate model as `train_class`
+                # (below) instantiate model as `train_class`
                 train_class = eval(import_module + '.' + self.model_class)
                 if self.model_kwargs is None or len(self.model_kwargs) == 0:
                     # case where no args have been found (default)
@@ -156,25 +156,25 @@ class Round:
 
         if not is_failed:
             return NodeMessages.reply_create({'client_id': CLIENT_ID,
-                                              'job_id': self.job_id,
-                                              'researcher_id': self.researcher_id,
-                                              'command': 'train',
-                                              'success': True,
-                                              'dataset_id': self.dataset['dataset_id'],
-                                              'params_url': res['file'],
-                                              'msg': '',
-                                              'timing': {
-                                                  'rtime_training': rtime_after - rtime_before,
-                                                  'ptime_training': ptime_after - ptime_before }
-                                                        }).get_dict()
+                        'job_id': self.job_id,
+                        'researcher_id': self.researcher_id,
+                        'command': 'train',
+                        'success': True,
+                        'dataset_id': self.dataset['dataset_id'],
+                        'params_url': res['file'],
+                        'msg': '',
+                        'timing': {
+                            'rtime_training': rtime_after - rtime_before,
+                            'ptime_training': ptime_after - ptime_before }
+                                  }).get_dict()
         else:
             print('[ERROR] ' + error_message)
             return NodeMessages.reply_create({'client_id': CLIENT_ID,
-                                              'job_id': self.job_id,
-                                              'researcher_id': self.researcher_id,
-                                              'command': 'train',
-                                              'success': False,
-                                              'dataset_id': '',
-                                              'params_url': '',
-                                              'msg': error_message,
-                                              'timing': {} }).get_dict()
+                        'job_id': self.job_id,
+                        'researcher_id': self.researcher_id,
+                        'command': 'train',
+                        'success': False,
+                        'dataset_id': '',
+                        'params_url': '',
+                        'msg': error_message,
+                        'timing': {} }).get_dict()

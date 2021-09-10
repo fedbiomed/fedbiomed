@@ -5,7 +5,7 @@ from typing import Dict, Any, Union
 class Message(object):
     """
     This class defines the structure of a 
-    message sent/recieved via Messager
+    message sent/received via Messager
 
     """
     def __init__(self):

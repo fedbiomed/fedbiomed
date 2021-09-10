@@ -8,8 +8,8 @@ from fedbiomed.common import json
 
 
 class MessagingType(Enum):
-    """Enumeration class, used to charactierize
-    sender of a message (whether it is coming from 
+    """Enumeration class, used to characterize
+    context of message handling (whether it is done in 
     a researcher instance or a node instance)
 
     """
@@ -18,7 +18,7 @@ class MessagingType(Enum):
 
 
 class Messaging:
-    """ This class represents the Messager,
+    """ This class represents the messager,
     (MQTT messaging facility)."""
 
     def __init__(self,
@@ -55,8 +55,7 @@ class Messaging:
         # (see MQTT paho documentation for further information
         # _ https://github.com/eclipse/paho.mqtt.python)
         self.mqtt.on_connect = self.on_connect
-        self.mqtt.on_message = self.on_message  # refering to the method: not
-        # to `on_message` handler
+        self.mqtt.on_message = self.on_message
         self.mqtt.connect(mqtt_broker, mqtt_broker_port, keepalive=60)
 
         self.on_message_handler = on_message  # store the caller's mesg handler
@@ -111,19 +110,19 @@ class Messaging:
         self.is_connected = True
 
     def start(self, block=False):
-        """ this method calls the loop function of mqtt. Maintains network
-        traffic flows through the broker.
+        """ this method calls the loop function of mqtt. 
+        Starts message handling by the library.
 
         Args:
             block (bool, optional): if True: calls the loop_forever method in
-                                    MQTT (blocking loop)
-                                    else, calls the loop_start method
-                                    (non blocking loop).
-                                    `loop_start` calls a background thread
-                                    for messaging.
-                                    See Paho MQTT documentation 
-                                    (https://github.com/eclipse/paho.mqtt.python)
-                                    for further information. Defaults to False.
+                MQTT (blocking loop)
+                else, calls the loop_start method
+                (non blocking loop).
+                `loop_start` calls a background thread
+                for messaging.
+                See Paho MQTT documentation 
+                (https://github.com/eclipse/paho.mqtt.python)
+                for further information. Defaults to False.
         """
         if block:
             self.mqtt.loop_forever()

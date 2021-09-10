@@ -131,7 +131,7 @@ class Experiment:
             # Trigger training round on sampled clients
             self._job.start_clients_training_round(round=round_i)
 
-            # refining/normalizing model weigths recieved from nodes
+            # refining/normalizing model weigths received from nodes
             model_params, weights = self._client_selection_strategy.refine( self._job.training_replies[round_i], round_i)
             
             # aggregate model from nodes to a global model
