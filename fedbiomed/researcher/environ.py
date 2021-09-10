@@ -30,13 +30,11 @@ if not defined_researcher_env:
 
         researcher_id = os.getenv('RESEARCHER_ID', 'researcher_' + str(uuid.uuid4()))
 
-
         uploads_url = "http://localhost:8844/upload/"
         uploads_ip = os.getenv('UPLOADS_IP')
         if uploads_ip:
             uploads_url = "http://" + uploads_ip + ":8844/upload/"
         uploads_url = os.getenv('UPLOADS_URL', uploads_url)
-
 
         cfg['default'] = {
             'uploads_url': uploads_url,
@@ -56,7 +54,6 @@ if not defined_researcher_env:
             cfg.write(f)
 
         return cfg
-
 
     ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../..'))
 
@@ -83,10 +80,12 @@ if not defined_researcher_env:
         CONFIG_FILE = os.path.join(CONFIG_DIR, 'config_researcher.ini')
 
     cfg = init_researcher_config()
-    RESEARCHER_ID = os.getenv('RESEARCHER_ID', cfg.get('default', 'researcher_id'))
+    RESEARCHER_ID = os.getenv('RESEARCHER_ID', cfg.get('default',
+                                                       'researcher_id'))
 
     MQTT_BROKER = os.getenv('MQTT_BROKER', cfg.get('mqtt', 'broker_ip'))
-    MQTT_BROKER_PORT = int(os.getenv('MQTT_BROKER_PORT', cfg.get('mqtt', 'port')))
+    MQTT_BROKER_PORT = int(os.getenv('MQTT_BROKER_PORT', cfg.get('mqtt',
+                                                                 'port')))
 
     UPLOADS_URL = cfg.get('default', 'uploads_url')
     uploads_ip = os.getenv('UPLOADS_IP')
@@ -95,7 +94,7 @@ if not defined_researcher_env:
     UPLOADS_URL = os.getenv('UPLOADS_URL', UPLOADS_URL)
 
     # trailing slash is needed for repo url
-    if not UPLOADS_URL.endswith('/') :
+    if not UPLOADS_URL.endswith('/'):
         UPLOADS_URL += '/'
 
     TIMEOUT = 5

@@ -1,5 +1,6 @@
 from time import sleep
 from datetime import datetime
+from typing import Any, Dict, Union
 
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
@@ -9,50 +10,75 @@ from fedbiomed.researcher.responses import Responses
 
 
 class Requests:
-    """This class represents the
+    """This class represents the requests addressed from Researcher to nodes.
+    It creates a task queue storing reply to each incoming message.
     """    
-    def __init__(self, mess=None):
-        """[summary]
+    def __init__(self, mess: Any = None):
+        """
+        Starts a message queue and reconfigures  message to be sent
+        into a `Messaging` object.
 
         Args:
-            mess ([type], optional): [description]. Defaults to None.
+            mess (Any, optional): message to be sent. Defaults to None.
         """        
-        self.queue = TasksQueue(MESSAGES_QUEUE_DIR + '_' + RESEARCHER_ID, TMP_DIR)
+        self.queue = TasksQueue(MESSAGES_QUEUE_DIR + '_' + RESEARCHER_ID,
+                                TMP_DIR)
 
         if mess is None or type(mess) is not Messaging:
-            self.messaging = Messaging(self.on_message, MessagingType.RESEARCHER, \
-                RESEARCHER_ID, MQTT_BROKER, MQTT_BROKER_PORT)
+            self.messaging = Messaging(self.on_message,
+                                       MessagingType.RESEARCHER,
+                                       RESEARCHER_ID,
+                                       MQTT_BROKER,
+                                       MQTT_BROKER_PORT)
             self.messaging.start(block=False)
         else:
             self.messaging = mess
 
-    def get_messaging(self):
+    def get_messaging(self) -> Messaging:
         """returns the messaging object
         """        
         return(self.messaging)
 
-    def on_message(self, msg):
+    def on_message(self, msg: Dict[str, Any]):
         """
-        This handler is called by the Messaging class, then a message is received
+        This handler is called by the Messaging class (Messager),
+        when a message is received on researcher side. 
+        Adds to queue this incoming message.
+       
         Args: 
-            msg: serialized msg
+            msg (Dict[str, Any]): serialized msg
         """
         print(datetime.now(), '[ RESEARCHER ] message received.', msg)
         self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
 
-
-    def send_message(self, msg: dict, client=None):      
+    def send_message(self, msg: dict, client: str = None):
         """
-        ask the messaging class to send a new message (receivers are deduced from the message content)
+        asks the messaging class to send a new message (receivers are
+        deduced from the message content)
+        
+        Args:
+            msg (dict): the message to send to nodes
+            client ([str], optional): defines the channel to which the 
+                                message will be sent.
+                                Defaults to None(all clients)
         """
         print(RESEARCHER_ID)
         self.messaging.send_message(msg, client=client)
 
+    def get_messages(self, command: str = None, time: float = .0) -> Responses:
+        """ This method goes through the queue and gets messages with the
+        specific command
 
-    def get_messages(self, command=None, time=0):
-        """ This method go through the queue and gets messages with the specific command
-
-        returns Reponses : Dataframe containing the corresponding answers
+        Args: 
+            command (str, optional): checks if message is containing the
+            expecting command (the message  is discarded if it doesnot).
+            Defaults to None (no command message checking, meaning all
+            incoming messages are considered).
+            time (float, optional): time to sleep in seconds before considering
+            incoming messages. Defaults to .0.
+             
+        returns Reponses : `Responses` object containing the corresponding
+        answers
 
         """
         sleep(time)
@@ -73,14 +99,28 @@ class Requests:
 
         return Responses(answers)
 
-
-    def get_responses(self, look_for_command, timeout=None, only_successful=True):
+    def get_responses(self,
+                      look_for_command: str,
+                      timeout: float = None,
+                      only_successful: bool = True) -> Responses:
         """
-        wait for answers for all clients, regarding a specific command
+        waits for all clients' answers, regarding a specific command
         returns the list of all clients answers
+        
+        Args:
+            look_for_command (str): instruction that has been sent to
+            node. Can be either ping, search or train.
+            timeout (float, optional): wait for a specific duration
+                before collecting nodes messages. Defaults to None. 
+                If set to None; uses value in global variable TIMEOUT
+                instead.
+            only_successful (bool, optional): deal only with messages
+                that have been tagged as successful (ie with field
+                `success=True`). Defaults to True.
         """
         timeout = timeout or TIMEOUT
         responses = []
+        
         while True:
             sleep(timeout)
             new_responses = []
@@ -91,7 +131,8 @@ class Requests:
                     elif resp['success']:
                         new_responses.append(resp)
                 except Exception:
-                    print(datetime.now(),'[ RESEARCHER ] Incorrect message received.', resp)
+                    print(datetime.now(),
+                          '[ RESEARCHER ] Incorrect message received.', resp)
                     pass
 
             if len(new_responses) == 0:
@@ -100,29 +141,32 @@ class Requests:
             responses += new_responses
         return Responses(responses)
 
-
-    def ping_clients(self):
+    def ping_clients(self) -> list:
         """
         Pings online nodes
         :return: list of client_id
         """
-        self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':RESEARCHER_ID, 'command':'ping'}).get_dict())
+        self.messaging.send_message(ResearcherMessages.request_create({'researcher_id': RESEARCHER_ID, 'command':'ping'}).get_dict())
+        # TODO: (below, above) handle exceptions
         clients_online = [resp['client_id'] for resp in self.get_responses(look_for_command='ping')]
         return clients_online
 
-
-    def search(self, tags: tuple, clients: list=None):
+    def search(self, tags: tuple, clients: list = None) -> dict:
         """
         Searches available data by tags
-        :param tags: Tuple containing tags associated to the data researchir is looking for.
-        :clients: optionally filter clients with this list. Default : no filter, consider all clients
-        :return: a dict with client_id as keys, and list of dicts describing available data as values
+        :param tags: Tuple containing tags associated to the data researcher
+        is looking for.
+        :clients: optionally filter clients with this list.
+        Default : no filter, consider all clients
+        :return: a dict with client_id as keys, and list of dicts describing
+        available data as values
         """
         self.messaging.send_message(ResearcherMessages.request_create({'tags':tags, 'researcher_id':RESEARCHER_ID, "command": "search"}).get_dict())
 
         print(f'Searching for clients with data tags: {tags} ...')
         data_found = {}
         for resp in self.get_responses(look_for_command='search'):
+            # TODO: (below) handle KeyError exception or use `.get()` method
             if not clients or resp['client_id'] in clients:
                 data_found[resp['client_id']] = resp['databases']
         return data_found

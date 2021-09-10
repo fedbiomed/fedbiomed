@@ -1,11 +1,11 @@
-import os.path
-from typing import Union
 import csv
+import os.path
+from typing import Union, List
 import uuid
 
 from tinydb import TinyDB, Query
 import pandas as pd
-from tabulate import tabulate
+from tabulate import tabulate  # only used for printing
 import torch
 from torchvision import datasets
 from torchvision import transforms
@@ -13,99 +13,121 @@ from torchvision import transforms
 from fedbiomed.node.environ import DB_PATH
 
 
-class Data_manager: 
-
+class Data_manager: # should this be in camelcase (smthg like DataManager)?
+    """Interface over TinyDB database.
+    Facility fot storing, retrieving data and get data info
+    on the data stored into TinyDB database. 
+    """
     def __init__(self):
         """ The constrcutor of the class
         """        
         self.db = TinyDB(DB_PATH)
         self.database = Query()
 
-    def search_by_id(self, dataset_id: str):
-        """this method search for data with given dataset_id
+    def search_by_id(self, dataset_id: str) -> List[dict]:
+        """this method searches for data with given dataset_id
 
         Args:
             dataset_id (str):  dataset id
 
         Returns:
-            [list]: list og matching datasets
+            [List[dict]]: list of dict of matching datasets, each dict
+            containing all the fields describing the matching datasets
+            stored in Tiny database.
         """ 
         self.db.clear_cache() 
         return self.db.search(self.database.dataset_id.all(dataset_id))
 
-    def search_by_tags(self, tags: Union[tuple, list]):
-        """this method search for data with given tags
+    def search_by_tags(self, tags: Union[tuple, list]) -> list:
+        """this method searches for data with given tags
 
         Args:
             tags (Union[tuple, list]):  list of tags
 
         Returns:
-            [list]: list og matching datasets
+            [list]: list of matching datasets
         """     
         self.db.clear_cache()  
         return self.db.search(self.database.tags.all(tags))
 
-    def read_csv(self, csv_file: str, index_col=0):
-        """[summary]
+    def read_csv(self, csv_file: str, index_col: int = 0) -> pd.DataFrame:
+        """Reads a *.csv file and ouptuts its data into a pandas DataFrame.
+        Finds automatically the csv delimiter by parsing the first line.
 
         Args:
-            csv_file (str): [description]
-            index_col (int, optional): [description]. Defaults to 0.
+            csv_file (str): file name / path
+            index_col (int, optional): column that contains csv file index.
+            Set to None if not present. Defaults to 0.
 
         Returns:
-            [type]: [description]
+            pd.DataFrame: data contained in csv file.
         """        
 
-        # Automatically identify separator
         first_line = open(csv_file, 'r').readline()
-
+        
+        # Automatically identify separator (by parsing first line)
         sniffer = csv.Sniffer()
         delimiter = sniffer.sniff(first_line).delimiter
-
+        # TODO: add headers parameter
         return pd.read_csv(csv_file, index_col=index_col, sep=delimiter)
 
-
-    def get_torch_dataset_shape(self, dataset):
-        """[summary]
+    def get_torch_dataset_shape(self,
+                                dataset: torch.utils.data.Dataset) -> List[int]:
+        """Gets info about dataset shape.
 
         Args:
-            dataset ([type]): [description]
+            dataset (torch.utils.data.Dataset): a Pytorch dataset
 
         Returns:
-            [type]: [description]
+            List[int]: returns a list containing: 
+            [<nb_of_data>, <dimension_of_first_input_data>].
+            Example for MNIST: [60000, 1, 28, 28], where <nb_of_data>=60000
+            and <dimension_of_first_input_data>=1, 28, 28
         """        
         return [len(dataset)] + list(dataset[0][0].shape)
 
-
-    def load_default_database(self, name: str, path, as_dataset=False):
-        """[summary]
+    def load_default_database(self,
+                              name: str,
+                              path: str,
+                              as_dataset: bool = False) -> Union[List[int],
+                                                                torch.utils.data.Dataset]:
+        """Loads a default dataset. Currently, only MNIST dataset
+        is used as the default dataset.
 
         Args:
-            name (str): [description]
-            path ([type]): [description]
-            as_dataset (bool, optional): [description]. Defaults to False.
+            name (str): name of the default dataset. Currently, 
+            only MNIST is accepted.
+            path (str): pathfile to MNIST dataset.
+            as_dataset (bool, optional): whether to return 
+            the complete dataset (True) or dataset dimensions (False).
+            Defaults to False.
 
         Raises:
-            NotImplementedError: [description]
+            NotImplementedError: triggered if name is not matching with
+            the name of a default dataset.
 
         Returns:
-            [type]: [description]
+            [type]: depending on the value of the parameter `as_dataset`. If
+            set to True,  returns dataset (type: torch.utils.data.Dataset),
+            if set to False, returns the size of the dataset stored inside
+            a list (type: List[int])
         """        
-
         kwargs = dict(root=path, download=True, transform=transforms.ToTensor())
 
         if 'mnist' in name.lower():
             dataset = datasets.MNIST(**kwargs)
         else:
-            raise NotImplementedError(f'Default dataset `{name}` has not been implemented.')
-
+            raise NotImplementedError(f'Default dataset `{name}` has'
+                                      'not been implemented.')
         if as_dataset:
             return dataset
         else:
             return self.get_torch_dataset_shape(dataset)
 
-
-    def load_images_dataset(self, folder_path, as_dataset=False):
+    def load_images_dataset(self,
+                            folder_path: str,
+                            as_dataset: bool = False) -> Union[List[int],
+                                                               torch.utils.data.Dataset]:
         """[summary]
 
         Args:
@@ -116,14 +138,14 @@ class Data_manager:
             [type]: [description]
         """        
 
-        dataset = datasets.ImageFolder(folder_path, transform=transforms.ToTensor())
+        dataset = datasets.ImageFolder(folder_path,
+                                       transform=transforms.ToTensor())
         if as_dataset:
             return dataset
         else:
             return self.get_torch_dataset_shape(dataset)
 
-
-    def load_csv_dataset(self, path):
+    def load_csv_dataset(self, path) -> pd.DataFrame:
         """[summary]
 
         Args:
@@ -131,12 +153,31 @@ class Data_manager:
 
         Returns:
             [type]: [description]
-        """        
+        """
         return self.read_csv(path).shape
 
+    def add_database(self,
+                     name: str,
+                     data_type: str,
+                     tags: Union[tuple, list],
+                     description: str,
+                     path: str,
+                     dataset_id: str = None):
+        """
+        Adds a new dataset contained in a file to node
 
-    def add_database(self, name: str, data_type: str, tags: Union[tuple, list],
-                    description: str, path: str, dataset_id: str=None):
+        Args:
+            name (str): [description]
+            data_type (str): file extension/format of the
+            dataset (*.csv, images, ...)
+            tags (Union[tuple, list]): [description]
+            description (str): [description]
+            path (str): [description]
+            dataset_id (str, optional): [description]. Defaults to None.
+
+        Raises:
+            NotImplementedError: [description]
+        """
         # Accept tilde as home folder
         path = os.path.expanduser(path)
 
@@ -145,7 +186,8 @@ class Data_manager:
 
         data_types = ['csv', 'default', 'images']
         if data_type not in data_types:
-            raise NotImplementedError(f'Data type {data_type} is not a compatible data type. '
+            raise NotImplementedError(f'Data type {data_type} is not'
+                                      ' a compatible data type. '
                                       f'Compatible data types are: {data_types}')
 
         if data_type == 'default':
@@ -162,20 +204,20 @@ class Data_manager:
             dataset_id = 'dataset_' + str(uuid.uuid4())
 
         new_database = dict(name=name, data_type=data_type, tags=tags,
-                        description=description, shape=shape, path=path, dataset_id=dataset_id)
+                            description=description, shape=shape,
+                            path=path, dataset_id=dataset_id)
         self.db.insert(new_database)
-
 
     def remove_database(self, tags: Union[tuple, list]):
         doc_ids = [doc.doc_id for doc in self.search_by_tags(tags)]
         self.db.remove(doc_ids=doc_ids)
 
-
-    def modify_database_info(self, tags: Union[tuple, list], modified_dataset: dict):
+    def modify_database_info(self,
+                             tags: Union[tuple, list],
+                             modified_dataset: dict):
         self.db.update(modified_dataset, self.database.tags.all(tags))
 
-
-    def list_my_data(self, verbose=True):
+    def list_my_data(self, verbose: bool = True):
         """[summary]
 
         Args:
@@ -190,7 +232,6 @@ class Data_manager:
             print(tabulate(my_data, headers='keys'))
         return my_data
 
-
     def load_as_dataloader(self, dataset):
         """[summary]
 
@@ -202,11 +243,14 @@ class Data_manager:
         """        
         name = dataset['data_type']
         if name == 'default':
-            return self.load_default_database(name=dataset['name'], path=dataset['path'], as_dataset=True)
+            return self.load_default_database(name=dataset['name'],
+                                              path=dataset['path'],
+                                              as_dataset=True)
         elif name == 'images':
-            return self.load_images_dataset(folder_path=dataset['path'], as_dataset=True)
+            return self.load_images_dataset(folder_path=dataset['path'],
+                                            as_dataset=True)
 
-
+    #  `load_data` seems unused
     def load_data(self, tags: Union[tuple, list], mode: str):
         """[summary]
 
@@ -215,7 +259,8 @@ class Data_manager:
             mode (str): [description]
 
         Raises:
-            NotImplementedError: if mode is not in ['pandas', 'torch_dataset', 'torch_tensor', 'numpy']
+            NotImplementedError: if mode is not in ['pandas', 'torch_dataset',
+            'torch_tensor', 'numpy']
             NotImplementedError: [description]
             NotImplementedError: [description]
             NotImplementedError: [description]
@@ -228,7 +273,8 @@ class Data_manager:
         mode = mode.lower()
         modes = ['pandas', 'torch_dataset', 'torch_tensor', 'numpy']
         if mode not in modes:
-            raise NotImplementedError(f'Data mode `{mode}` was not found. Data modes available: {modes}')
+            raise NotImplementedError(f'Data mode `{mode}` was not found.'
+                                      ' Data modes available: {modes}')
 
         # Look for dataset in database
         dataset = self.search_by_tags(tags)[0]
@@ -252,9 +298,11 @@ class Data_manager:
             if mode == 'torch_dataset':
                 return self.load_as_dataloader(dataset)
             elif mode == 'torch_tensor':
-                raise NotImplementedError('We are working on this implementation!')
+                raise NotImplementedError('We are working on this'
+                        ' implementation!')
             elif mode == 'numpy':
-                raise NotImplementedError('We are working on this implementation!')
+                raise NotImplementedError('We are working on this'
+                        'implementation!')
             else:
-                raise NotImplementedError(f'Mode `{mode}` has not been implemented on this version.')
-
+                raise NotImplementedError(f'Mode `{mode}` has not been'
+                        ' implemented on this version.')

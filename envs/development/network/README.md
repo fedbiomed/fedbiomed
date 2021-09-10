@@ -5,7 +5,7 @@
 This repo provides :
 
 * a RESTful API for uploading models and data associated to fedbiomed
-* a MQQT service
+* a MQTT service
 
 These two services are provided as docker containers
 
@@ -19,7 +19,7 @@ git clone git@gitlab.inria.fr:fedbiomed/fedbiomed-network.git
 ### initialize the environment
 
 ```
-# ../../../scripts/febbiomed_environment network
+# ../../../scripts/fedbiomed_environment network
 ```
 
 * on localhost
