@@ -307,7 +307,7 @@ class localJob:
 
         self._id = str(uuid.uuid4())
         self._repository_args = {}
-        self.__training_args = training_args
+        self._localjob_training_args = training_args
         self._model_args = model_args
         self.dataset_path = dataset_path
 
@@ -340,11 +340,11 @@ class localJob:
 
     @property
     def training_args(self):
-        return self.__training_args
+        return self._localjob_training_args
 
     @training_args.setter
     def training_args(self, training_args: dict):
-        self.__training_args = training_args
+        self._localjob_training_args = training_args
 
     def start_training(self):
         """
@@ -366,7 +366,7 @@ class localJob:
             try:
              
                 self.model_instance.set_dataset(self.dataset_path)
-                self.model_instance.training_routine(**self.__training_args)
+                self.model_instance.training_routine(**self._localjob_training_args)
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot train model in job : " + str(e)
