@@ -39,6 +39,9 @@ class Requests(metaclass=RequestMeta):
         Args:
             mess ([type], optional): [description]. Defaults to None.
         """
+        # Need to ensure unique per researcher instance message queue to avoid conflicts 
+        # in case several instances of researcher (with same researcher_id ?) are active,
+        # eg: a notebook not quitted and launching a script
         self.queue = TasksQueue(MESSAGES_QUEUE_DIR + '_' + str(uuid.uuid4()), TMP_DIR)
 
         if mess is None or type(mess) is not Messaging:
@@ -60,7 +63,8 @@ class Requests(metaclass=RequestMeta):
             msg (dict): de-serialized msg
         """
         print(datetime.now(), '[ RESEARCHER ] message received.', msg)
-        self.queue.add(msg)
+        self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
+
         
 
     def send_message(self, msg: dict, client=None):      
