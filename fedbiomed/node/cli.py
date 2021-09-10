@@ -8,7 +8,7 @@ import argparse
 
 import tkinter.filedialog
 import tkinter.messagebox
-
+from tkinter import _tkinter
 
 from fedbiomed.node.environ import CLIENT_ID
 from fedbiomed.node.data_manager import Data_manager
@@ -55,16 +55,29 @@ def validated_data_type_input():
 
 
 def pick_with_tkinter(mode='file'):
+    """
+    Opens a tkinter graphical user interface to select dataset
+
+    Args:
+        mode (str, optional)
+    """
     try:
         # root = TK()
         # root.withdraw()
         # root.attributes("-topmost", True)
         if mode == 'file':
-            return tkinter.filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+            return tkinter.filedialog.askopenfilename(
+                        filetypes=[
+                                  ("CSV files",
+                                   "*.csv")
+                                  ]
+                        )
         else:
             return tkinter.filedialog.askdirectory()
 
-    except ModuleNotFoundError:
+    except (ModuleNotFoundError, _tkinter.TclError):
+        # handling case where tkinter package cannot be found on system
+        # or if tkinter crashes
         if mode == 'file':
             return input('Insert the path of the CSV file: ')
         else:
@@ -128,9 +141,11 @@ def add_database(interactive=True, path=''):
     # Add database
 
     try:
-        data_manager.add_database(name=name, tags=tags, data_type=data_type,
-                     description=description,
-                     path=path)
+        data_manager.add_database(name=name,
+                                  tags=tags,
+                                  data_type=data_type,
+                                  description=description,
+                                  path=path)
     except AssertionError as e:
         if interactive is True:
             try:
@@ -144,7 +159,12 @@ def add_database(interactive=True, path=''):
     print('\nGreat! Take a look at your data:')
     data_manager.list_my_data(verbose=True)
 
+
 def manage_node():
+    """
+    Instantiates a node and data manager objects. Then, node starts
+    messaging with the Network
+    """
     logger.info('Launching node')
 
     data_manager = Data_manager()
@@ -152,10 +172,16 @@ def manage_node():
     node = Node(data_manager)
     node.start_messaging(block=False)
 
+    print('\t - Starting task manager...\n')
     logger.info('Starting task manager')
-    node.task_manager()
+    node.task_manager()  # handling training tasks in queue
+
 
 def launch_node():
+    """
+    Launches node in a process. Process ends when user triggers
+    a KeyboardInterrupt exception (CTRL+C).
+    """
     #p = Process(target=manage_node, name='node-' + CLIENT_ID, args=(data_manager,))
     p = Process(target=manage_node, name='node-' + CLIENT_ID)
     p.daemon = True
@@ -171,10 +197,12 @@ def launch_node():
             logger.info("Terminating process " + str(p.pid))
             time.sleep(1)
         print('Exited with code ' + str(p.exitcode))
+        # (above) p.exitcode returns None if not finished yet
         logger.info('Exited with code ' + str(p.exitcode))
         exit()
 
-def delete_database(interactive=True):
+
+def delete_database(interactive: bool = True):
     my_data = data_manager.list_my_data(verbose=False)
     if not my_data:
         logger.warning('No dataset to delete')
@@ -216,13 +244,25 @@ def launch_cli():
     parser = argparse.ArgumentParser(description=f'{__intro__}:A CLI app for fedbiomed researchers.',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
-    parser.add_argument('-a', '--add', help='Add and configure local dataset (interactive)', action='store_true')
-    parser.add_argument('-am', '--add-mnist', help='Add MNIST local dataset (non-interactive)',
-        type=str, nargs='?', const='', metavar='path_mnist', action='store')
-    parser.add_argument('-d', '--delete', help='Delete existing local dataset (interactive)', action='store_true')
-    parser.add_argument('-dm', '--delete-mnist', help='Delete existing MNIST local dataset (non-interactive)', action='store_true')
-    parser.add_argument('-l', '--list', help='List my shared_data', action='store_true')
-    parser.add_argument('-s', '--start-node', help='Start fedbiomed node.', action='store_true')
+    parser.add_argument('-a', '--add',
+                        help='Add and configure local dataset (interactive)',
+                        action='store_true')
+    parser.add_argument('-am', '--add-mnist',
+                        help='Add MNIST local dataset (non-interactive)',
+                        type=str, nargs='?', const='', metavar='path_mnist',
+                        action='store')
+    parser.add_argument('-d', '--delete',
+                        help='Delete existing local dataset (interactive)',
+                        action='store_true')
+    parser.add_argument('-dm', '--delete-mnist',
+                        help='Delete existing MNIST local dataset (non-interactive)',
+                        action='store_true')
+    parser.add_argument('-l', '--list',
+                        help='List my shared_data',
+                        action='store_true')
+    parser.add_argument('-s', '--start-node',
+                        help='Start fedbiomed node.',
+                        action='store_true')
     args = parser.parse_args()
 
     if not any(args.__dict__.values()):
@@ -255,5 +295,6 @@ def main():
         print('Operation cancelled by user.')
         logger.info('Operation cancelled by user.')
 
+
 if __name__ == '__main__':
-        main()
+    main()
