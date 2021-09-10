@@ -6,19 +6,21 @@ from fedbiomed.common.repository import Repository
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.node.environ import CACHE_DIR, CLIENT_ID, TMP_DIR, UPLOADS_URL
 
+from fedbiomed.common.logger import logger
+
 
 class Round:
     """ This class repesents the training part execute by a node in a given round
-    """    
-    def __init__(self, 
-                 model_kwargs: dict = None, 
-                 training_kwargs: dict = None, 
-                 dataset: dict = None, 
-                 model_url: str= None, 
+    """
+    def __init__(self,
+                 model_kwargs: dict = None,
+                 training_kwargs: dict = None,
+                 dataset: dict = None,
+                 model_url: str= None,
                  model_class: str = None,
-                 params_url: str = None, 
-                 job_id: str = None, 
-                 researcher_id: str = None, 
+                 params_url: str = None,
+                 job_id: str = None,
+                 researcher_id: str = None,
                  logger = None):
         """Constructor of the class
 
@@ -32,7 +34,7 @@ class Round:
             job_id ([str]): job id
             researcher_id ([str]): researcher id
             logger ([HistoryLogger])
-        """        
+        """
         self.model_kwargs = model_kwargs
         self.training_kwargs = training_kwargs
         self.dataset = dataset
@@ -50,7 +52,7 @@ class Round:
 
         Returns:
             [NodeMessages]: returns the corresponding node message, trainReply instance
-        """        
+        """
         is_failed = False
         error_message = ''
 
@@ -80,12 +82,12 @@ class Round:
                 train_class = eval(import_module + '.' + self.model_class)
                 if self.model_kwargs is None or len(self.model_kwargs)==0:
                     model = train_class()
-                else:    
+                else:
                     model = train_class(self.model_kwargs)
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot instantiate model object: " + str(e)
-        
+
         # import model params into the model instance
         if not is_failed:
             try:
@@ -93,13 +95,13 @@ class Round:
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot initialize model parameters:" + str(e)
-                
+
         # Run the training routine
         if not is_failed:
             results = {}
             try:
                 training_kwargs_with_history = dict(logger=self.logger, **self.training_kwargs)
-                print(training_kwargs_with_history)
+                logger.info(training_kwargs_with_history)
                 model.set_dataset(self.dataset['path'])
                 rtime_before = time.perf_counter()
                 ptime_before = time.process_time()
@@ -122,7 +124,7 @@ class Round:
                 filename = TMP_DIR + '/node_params_' + str(uuid.uuid4()) + '.pt'
                 model.save(filename, results)
                 res = self.repository.upload_file(filename)
-                print("results uploaded successfully ")
+                logger.info("results uploaded successfully ")
             except Exception as e:
                     is_failed = True
                     error_message = "Cannot upload results: " + str(e)
@@ -141,7 +143,7 @@ class Round:
                     'params_url': res['file'], 'msg': '',
                     'timing': { 'rtime_training': rtime_after - rtime_before, 'ptime_training': ptime_after - ptime_before } }).get_dict()
         else:
-            print('[ERROR] ' + error_message)
+            logging.error(error_message)
             return NodeMessages.reply_create({'client_id': CLIENT_ID,
                     'job_id': self.job_id, 'researcher_id': self.researcher_id,
                     'command': 'train', 'success': False, 'dataset_id': '',

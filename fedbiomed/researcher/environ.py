@@ -2,10 +2,14 @@ import os
 import uuid
 import configparser
 
+from fedbiomed.common.logger import logger
 try:
     defined_researcher_env
 except NameError:
     defined_researcher_env = False
+
+# this may be changed on command line or in the config_client.ini
+logger.setLevel("DEBUG")
 
 # python imports should handle this, but avoid eventual weird cases
 if not defined_researcher_env:
@@ -71,7 +75,7 @@ if not defined_researcher_env:
             try:
                 os.makedirs(dir)
             except FileExistsError:
-                print("[ ERROR ] path exists but is not a directory", dir)
+                logging.error("path exists but is not a directory " + dir)
 
     MESSAGES_QUEUE_DIR = os.path.join(VAR_DIR, 'queue_messages')
 

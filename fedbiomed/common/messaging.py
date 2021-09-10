@@ -37,7 +37,7 @@ class Messaging:
         self._broker_port = mqtt_broker_port
 
         # protection for logger initialisation (mqqt handler)
-        self.logger_initialized = True
+        self.logger_initialized = False
 
         self.on_message_handler = on_message  # store the caller's mesg handler
 
@@ -82,7 +82,7 @@ class Messaging:
         #
         #if self.is_connected:
         #    return
-        print("Messaging " + self.messaging_id + " connected with result code " + str(rc))
+        logger.info("Messaging " + self.messaging_id + " connected with result code " + str(rc))
         if self.messaging_type is MessagingType.RESEARCHER:
             self.mqtt.subscribe('general/server')
             # subscribe to general/logger topic here ???? (needsome investigation)
@@ -110,7 +110,7 @@ class Messaging:
 
 
     def on_disconnect(client, userdata, rc):
-        print("=========== MQTT disconnecting reason :"  +str(rc))
+        logger.info("=========== MQTT disconnecting reason :"  +str(rc))
         self.is_connected = False
 
 
@@ -150,4 +150,4 @@ class Messaging:
         if channel is not None:
             self.mqtt.publish(channel, json.serialize_msg(msg))
         else:
-            print("send_message: channel must ne specifiec (None at the moment)")
+            logger.warning("send_message: channel must be specifiec (None at the moment)")

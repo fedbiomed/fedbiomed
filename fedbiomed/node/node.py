@@ -3,6 +3,7 @@ from json import decoder
 import validators
 
 from fedbiomed.common import json
+from fedbiomed.common.logger import logger
 from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.messaging import Messaging,  MessagingType
 from fedbiomed.common.message import NodeMessages
@@ -25,11 +26,11 @@ class Node:
 
         Args:
             task (dict): is a Message object describing a training task
-        """        
+        """
         self.tasks_queue.add(task)
 
     def on_message(self, msg):
-        print('[CLIENT] Message received: ', msg)
+        logger.debug('Message received: ' + str(msg))
         try:
             command = msg['command']
             request = NodeMessages.request_create(msg).get_dict()
@@ -68,11 +69,11 @@ class Node:
 
         Args:
             msg ([json]): serialized Message object to parse
-        """        
+        """
         if isinstance(msg, str) or isinstance(msg, bytes):
             msg = json.deserialize_msg(msg)
         msg = NodeMessages.request_create(msg)
-        logger = HistoryLogger(job_id=msg.get_param('job_id'), researcher_id=msg.get_param('researcher_id'), client=self.messaging)
+        hist_logger = HistoryLogger(job_id=msg.get_param('job_id'), researcher_id=msg.get_param('researcher_id'), client=self.messaging)
         # Get arguments for the model and training
         model_kwargs = msg.get_param('model_args') or {}
         training_kwargs = msg.get_param('training_args') or {}
@@ -86,7 +87,7 @@ class Node:
         assert validators.url(model_url), 'URL for model on repository is not valid.'
         assert model_class is not None, 'classname for the model and training routine was not found in message.'
         assert isinstance(model_class, str), '`model_class` must be a string corresponding to the classname for the model and training routine in the repository'
-        
+
         if CLIENT_ID in msg.get_param('training_data'):
             for dataset_id in msg.get_param('training_data')[CLIENT_ID]:
                 alldata = self.data_manager.search_by_id(dataset_id)
@@ -96,17 +97,17 @@ class Node:
                 else:
                     self.rounds = []
                     self.rounds.append(Round(model_kwargs, training_kwargs, alldata[0], model_url,
-                                         model_class, params_url, job_id, researcher_id, logger))
+                                         model_class, params_url, job_id, researcher_id, hist_logger))
 
     def task_manager(self):
         """ This method manage training tasks in the queue
-        """        
+        """
 
         while True:
             item = self.tasks_queue.get()
 
             try:
-                print('[TASKS QUEUE] Item:', item)
+                logger.debug('[TASKS QUEUE] Item:' + str(item))
                 self.parser_task(item)
 
                 for round in self.rounds:
@@ -124,5 +125,5 @@ class Node:
 
         Args:
             block (bool, optional): Defaults to False.
-        """        
+        """
         self.messaging.start(block)

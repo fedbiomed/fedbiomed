@@ -4,6 +4,8 @@ import uuid
 from six.moves import urllib
 import configparser
 
+from fedbiomed.common.logger import logger
+
 try:
     defined_node_env
 except NameError:
@@ -74,7 +76,7 @@ if not defined_node_env:
             try:
                 os.makedirs(dir)
             except FileExistsError:
-                print("[ ERROR ] path exists but is not a directory", dir)
+                logger.error("path exists but is not a directory " + dir)
 
 
     if os.getenv('CONFIG_FILE') :
