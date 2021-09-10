@@ -13,10 +13,8 @@ class Aggregator:
     def normalize_weights(weights) -> list:
         # Load list of weights assigned to each client and
         # normalize these weights so they sum up to 1
-        weights = torch.tensor(weights).float()
-        weights /= weights.sum()
-
-        return weights
+        norm = [w/sum(weights) for w in weights]
+        return norm
 
     def aggregate(self,  model_params: list, weights: list) -> Dict: # pragma: no cover
         """Strategy to aggregate models"""
