@@ -1,10 +1,10 @@
 from json import decoder
 import uuid
 
-from json import decoder
 from typing import Optional, Union, Dict, Any
 
 from fedbiomed.common import json
+from fedbiomed.common.logger import logger
 from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.messaging import Messaging,  MessagingType
 from fedbiomed.common.message import NodeMessages
@@ -18,7 +18,7 @@ import validators
 
 class Node:
     """ Defines the behaviour of the node, while communicating
-    with researcher through Messager, and executing / parsing task 
+    with researcher through Messager, and executing / parsing task
     requested by researcher stored in a queue.
     """
     def __init__(self, data_manager: Data_manager):
@@ -37,7 +37,7 @@ class Node:
         """
         self.tasks_queue.add(task)
 
-    def on_message(self, msg: Dict[str, Any]):
+    def on_message(self, msg):
         """Handler to be used with `Messaging` class (ie with messager).
         It is called when a  messsage arrive through the messager
         It reads and triggers instruction received by node from Researcher,
@@ -55,8 +55,7 @@ class Node:
 
         """
         # TODO: describe all exceptions defined in this method
-        print('[CLIENT] Message received: ', msg)
-
+        logger.debug('Message received: ' + str(msg))
         try:
             # get the request from the received message (from researcher)
             command = msg['command']
@@ -135,7 +134,7 @@ class Node:
             msg = json.deserialize_msg(msg)
         msg = NodeMessages.request_create(msg)
         # msg becomes a TrainRequest object
-        logger = HistoryLogger(job_id=msg.get_param(
+        hist_logger = HistoryLogger(job_id=msg.get_param(
             'job_id'), researcher_id=msg.get_param('researcher_id'),
                                client=self.messaging)
         # Get arguments for the model and training
@@ -151,12 +150,13 @@ class Node:
         assert validators.url(
             model_url), 'URL for model on repository is not valid.'
         assert model_class is not None, 'classname for the model and training routine was not found in message.'
+
         assert isinstance(
             model_class, str), '`model_class` must be a string corresponding to the classname for the model and training routine in the repository'
-        
+
         self.rounds = []  # store here rounds associated to each dataset_id
         # (so it is possible to train model on several dataset per round)
-                
+
         if CLIENT_ID in msg.get_param('training_data'):
             for dataset_id in msg.get_param('training_data')[CLIENT_ID]:
                 alldata = self.data_manager.search_by_id(dataset_id)
@@ -166,7 +166,7 @@ class Node:
                     # FIXME: 'the confdition above depends on database model
                     # if database model changes (ie `path` field removed/
                     # modified);
-                    # condition above is likely to be false 
+                    # condition above is likely to be false
                     self.messaging.send_message(NodeMessages.reply_create(
                         {'success': False,
                          'command': "error",
@@ -183,7 +183,7 @@ class Node:
                         params_url,
                         job_id,
                         researcher_id,
-                        logger))
+                        hist_logger))
 
     def task_manager(self):
         """ This method manages training tasks in the queue
@@ -193,11 +193,11 @@ class Node:
             item = self.tasks_queue.get()
 
             try:
-                print('[TASKS QUEUE] Item:', item)
+                logger.debug('[TASKS QUEUE] Item:' + str(item))
                 self.parser_task(item)
                 # once task is out of queue, initiate training rounds
                 for round in self.rounds:
-                    # iterate over each dataset found  
+                    # iterate over each dataset found
                     # in the current round (here round refers
                     # to a round to be done on a specific dataset).
                     msg = round.run_model_training()
