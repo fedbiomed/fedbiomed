@@ -1,3 +1,4 @@
+from fedbiomed.common.logger import logger
 from typing import Callable, Union
 
 from fedbiomed.researcher.aggregators import fedavg, aggregator
@@ -26,7 +27,7 @@ class Experiment:
                  ):
 
         """ Constructor of the class.
-        
+
 
         Args:
             tags (tuple): tuple of string with data tags
@@ -99,10 +100,10 @@ class Experiment:
         return self._job.model
 
     def run(self, sync=True):
-        """Runs an experiment, ie trains a model on nodes for a 
+        """Runs an experiment, ie trains a model on nodes for a
         given number of rounds.
         It involves the following steps:
-        
+
 
         Args:
             sync (bool, optional): whether synchronous execution is required
@@ -127,13 +128,13 @@ class Experiment:
         for round_i in range(self._rounds):
             # Sample clients using strategy (if given)
             self._job.clients = self._client_selection_strategy.sample_clients(round_i)
-            print('Sampled clients in round ', round_i, ' ', self._job.clients)
+            logger.info('Sampled clients in round ' + str(round_i) + ' ' + str(self._job.clients))
             # Trigger training round on sampled clients
             self._job.start_clients_training_round(round=round_i)
 
             # refining/normalizing model weigths received from nodes
             model_params, weights = self._client_selection_strategy.refine( self._job.training_replies[round_i], round_i)
-            
+
             # aggregate model from nodes to a global model
             aggregated_params = self._aggregator.aggregate(model_params,
                                                            weights)

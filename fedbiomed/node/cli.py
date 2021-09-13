@@ -14,6 +14,8 @@ from fedbiomed.node.environ import CLIENT_ID
 from fedbiomed.node.data_manager import Data_manager
 from fedbiomed.node.node import Node
 
+from fedbiomed.common.logger import logger
+
 
 __intro__ = """
 
@@ -24,6 +26,9 @@ __intro__ = """
  | ||  __/ (_| | |_) | | (_) | | | | | |  __/ (_| | | (__| | |  __/ | | | |_
  |_| \___|\__,_|_.__/|_|\___/|_| |_| |_|\___|\__,_|  \___|_|_|\___|_| |_|\__|
 """
+
+# this may be changed on command line or in the config_client.ini
+logger.setLevel("DEBUG")
 
 data_manager = Data_manager()
 
@@ -52,7 +57,7 @@ def validated_data_type_input():
 def pick_with_tkinter(mode='file'):
     """
     Opens a tkinter graphical user interface to select dataset
-    
+
     Args:
         mode (str, optional)
     """
@@ -84,16 +89,16 @@ def validated_path_input(data_type):
         try:
             if data_type == 'csv':
                 path = pick_with_tkinter(mode='file')
-                print(path)
+                logger.debug(path)
                 if not path:
-                    print('No file was selected. Exiting...')
+                    logger.critical('No file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
             else:
                 path = pick_with_tkinter(mode='dir')
-                print(path)
+                logger.debug(path)
                 if not path:
-                    print('No directory was selected. Exiting...')
+                    logger.critical('No directory was selected. Exiting')
                     exit(1)
                 assert os.path.isdir(path)
             break
@@ -160,14 +165,15 @@ def manage_node():
     Instantiates a node and data manager objects. Then, node starts
     messaging with the Network
     """
-    print('Launching node...')
+    logger.info('Launching node')
 
     data_manager = Data_manager()
-    print('\t - Starting communication channel with network...\n')
+    logger.info('Starting communication channel with network')
     node = Node(data_manager)
     node.start_messaging(block=False)
 
     print('\t - Starting task manager...\n')
+    logger.info('Starting task manager')
     node.task_manager()  # handling training tasks in queue
 
 
@@ -188,16 +194,18 @@ def launch_node():
         p.terminate()
         while(p.is_alive()):
             print("Terminating process " + str(p.pid))
+            logger.info("Terminating process " + str(p.pid))
             time.sleep(1)
         print('Exited with code ' + str(p.exitcode))
         # (above) p.exitcode returns None if not finished yet
+        logger.info('Exited with code ' + str(p.exitcode))
         exit()
 
 
 def delete_database(interactive: bool = True):
     my_data = data_manager.list_my_data(verbose=False)
     if not my_data:
-        print('No dataset to delete')
+        logger.warning('No dataset to delete')
         return
 
     if interactive is True:
@@ -211,7 +219,7 @@ def delete_database(interactive: bool = True):
             if interactive is True:
                 opt_idx = int(input(msg)) - 1
                 assert opt_idx >= 0
-            
+
                 tags = my_data[opt_idx]['tags']
             else:
                 tags = ''
@@ -221,14 +229,14 @@ def delete_database(interactive: bool = True):
                         break
 
             if not tags:
-                print('No matching dataset to delete')
+                logger.warning('No matching dataset to delete')
                 return
             data_manager.remove_database(tags)
-            print('Dataset removed. Here your available datasets')
+            logger.info('Dataset removed. Here your available datasets')
             data_manager.list_my_data()
             return
         except (ValueError, IndexError, AssertionError):
-            print('Invalid option. Please, try again.')
+            logger.error('Invalid option. Please, try again.')
 
 
 def launch_cli():
@@ -268,7 +276,7 @@ def launch_cli():
     elif args.add_mnist is not None:
         add_database(interactive=False, path=args.add_mnist)
     elif args.list:
-        print('Listing your data available...')
+        print('Listing your data available')
         data = data_manager.list_my_data(verbose=True)
         if len(data) == 0:
             print('No data has been set up.')
@@ -285,6 +293,7 @@ def main():
         launch_cli()
     except KeyboardInterrupt:
         print('Operation cancelled by user.')
+        logger.info('Operation cancelled by user.')
 
 
 if __name__ == '__main__':
