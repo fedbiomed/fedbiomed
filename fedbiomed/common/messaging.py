@@ -129,6 +129,21 @@ class Messaging:
                 if result != mqtt.MQTT_ERR_SUCCESS:
                     logger.error("Messaging " + str(self.messaging_id) + " failed subscribe to channel" + str(channel))
                     self.is_failed = True
+
+            if not self.logger_initialized:
+                # add the MQTT handler for logger
+                # this should be done once.
+                # This is sldo tested by the addHandler() method, but
+                # it may raise a MQTT message (that we prefer not to send)
+                logger.addMqttHandler(
+                    mqtt      = self.mqtt,
+                    client_id = self.messaging_id
+                )
+                # to get Train/Epoch messages on console and on MQTT
+                logger.setLevel("DEBUG")
+                self.logger_initialized = True
+
+
         self.is_connected = True
 
     def on_disconnect(self, client, userdata, rc):
