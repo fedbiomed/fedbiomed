@@ -47,13 +47,13 @@ class TestFedbiosklearn(unittest.TestCase):
     def test_save_and_load(self):
         CURRENTDIR = os.path.abspath(os.path.join(__file__, os.pardir))
         print('curdir ',CURRENTDIR)
-        filename = '/data/sgd.sav'
+        filename = os.path.join(CURRENTDIR,'sgd.sav')
         skm = SGDSkLearnModel({'max_iter': 1000, 'tol':1e-3, 'n_features': 5, 'model': 'SGDRegressor'})
-        skm.save(CURRENTDIR + filename)
+        skm.save(filename)
 
-        self.assertTrue(os.path.exists(CURRENTDIR + '/data/sgd.sav') and os.path.getsize(CURRENTDIR + filename) > 0  )
+        self.assertTrue(os.path.exists(filename) and os.path.getsize(filename) > 0  )
 
-        m = skm.load(CURRENTDIR + filename)
+        m = skm.load(filename)
 
         self.assertEqual(m.max_iter,1000)
         self.assertEqual(m.tol, 0.001)
