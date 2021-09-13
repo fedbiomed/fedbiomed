@@ -1,4 +1,6 @@
 from json import decoder
+import uuid
+
 from typing import Optional, Union, Dict, Any
 
 from fedbiomed.common import json

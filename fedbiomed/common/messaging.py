@@ -1,4 +1,3 @@
-import uuid
 from enum import Enum
 from typing import Any, Callable, Union
 
@@ -47,18 +46,23 @@ class Messaging:
             default port).
         """
         self.messaging_type = messaging_type
+        self.messaging_id = str(messaging_id)
+        self.is_connected = False
+        self.is_failed = False
 
-        self.messaging_id = str(uuid.uuid4()) if \
-            messaging_type == MessagingType.RESEARCHER else str(messaging_id)
-
-        self.mqtt = mqtt.Client(client_id=self.messaging_id)
+        # Client() will generate a random client_id if not given
+        # this means we choose not to use the {node,researcher}_id for this purpose
+        self.mqtt = mqtt.Client()
         # defining a client.
         # defining MQTT 's `on_connect` and `on_message` handlers
         # (see MQTT paho documentation for further information
         # _ https://github.com/eclipse/paho.mqtt.python)
         self.mqtt.on_connect = self.on_connect
         self.mqtt.on_message = self.on_message
-        self.mqtt.connect(mqtt_broker, mqtt_broker_port, keepalive=60)
+        self.mqtt.on_disconnect = self.on_disconnect
+
+        self.mqtt_broker = mqtt_broker
+        self.mqtt_broker_port = mqtt_broker_port
 
         # memorize mqqt parameters
         self._broker_host = mqtt_broker
@@ -76,7 +80,6 @@ class Messaging:
         else:  # should not occur
             self.default_send_topic = None
 
-        self.is_connected = False
 
     def on_message(self,
                    client: mqtt.Client,
@@ -108,24 +111,24 @@ class Messaging:
             broker (unused)
             rc (int): mqtt on_message arg, connection result
         """
-        # TODO/BUG: ???
-        #
-        # this may be a solution for the infinite loop
-        # this may be a really bad solution to correct the dupplicate
-        # mqqt client_id....
-        # (http://www.steves-internet-guide.com/client-objects-python-mqtt/)
-        #
-        #if self.is_connected:
-        #    return
-        logger.info("Messaging " + self.messaging_id + " connected with result code " + str(rc))
+
+        if rc == 0:
+            logger.error("Messaging " + str(self.messaging_id) + " successfully connected to the message broker, object = " + str(self))
+        else:
+            logger.error("[ERROR] Messaging " + str(self.messaging_id) + " could not connect to the message broker, object = " + str(self))
+            self.is_failed = True
+
         if self.messaging_type is MessagingType.RESEARCHER:
-            self.mqtt.subscribe('general/server')
-            # subscribe to general/logger topic here ???? (needsome investigation)
-            # (need more debugging and need on_message modifications)
-            # self.mqtt.subscribe(DEFAULT_LOG_TOPIC)
+            result, _ = self.mqtt.subscribe('general/server')
+            if result != mqtt.MQTT_ERR_SUCCESS:
+                logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel")
+                self.is_failed = True
         elif self.messaging_type is MessagingType.NODE:
-            self.mqtt.subscribe('general/clients')
-            self.mqtt.subscribe('general/' + self.messaging_id)
+            for channel in ('general/clients', 'general/' + self.messaging_id):
+                result, _ = self.mqtt.subscribe(channel)
+                if result != mqtt.MQTT_ERR_SUCCESS:
+                    logger.error("Messaging " + str(self.messaging_id) + " failed subscribe to channel" + str(channel))
+                    self.is_failed = True
 
             if not self.logger_initialized:
                 # add the MQTT handler for logger
@@ -143,11 +146,25 @@ class Messaging:
 
         self.is_connected = True
 
-
-    def on_disconnect(client, userdata, rc):
-        logger.info("=========== MQTT disconnecting reason :"  +str(rc))
+    def on_disconnect(self, client, userdata, rc):
         self.is_connected = False
 
+        if rc == 0:
+            # should this ever happen ? we're not disconnecting intentionally yet
+            logger.info("Messaging " + str(self.messaging_id) + " disconnected without error, object = " + str(self))
+        else:
+            # see MQTT specs : when another client connects with same client_id, the previous one
+            # is disconnected https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901205
+
+            #print("[ERROR] Messaging ", self.messaging_id, " disconnected with error code rc = ", rc, " object = ", self,
+            #    " - Hint: check for another instance of the same component running or for communication error")
+            logger.error("Messaging " + str(self.messaging_id) + " disconnected with error code rc = " + str(rc) +
+                         " object = " + str(self) +
+                         " - Hint: check for another instance of the same component running or for communication error")
+
+            self.is_failed = True
+            # quit messaging to avoid connect/disconnect storm in case multiple nodes with same id
+            raise SystemExit
 
     def start(self, block=False):
         """ this method calls the loop function of mqtt.
@@ -164,7 +181,11 @@ class Messaging:
                 (https://github.com/eclipse/paho.mqtt.python)
                 for further information. Defaults to False.
         """
+        # will try a connect even if is_failed or is_connected, to give a chance to resolve problems
+
+        self.mqtt.connect(self.mqtt_broker, self.mqtt_broker_port, keepalive=60)
         if block:
+            # TODO : not used, should probably be removed
             self.mqtt.loop_forever()
         elif not self.is_connected:
             self.mqtt.loop_start()
@@ -173,10 +194,11 @@ class Messaging:
 
     def stop(self):
         """
-        this method stops the loop started using `loop_start` method -
+        This method stops the loop started using `loop_start` method -
         ie the non-blocking loop triggered with `Messaging.start(block=True)`
         only. It stops the background thread for messaging.
         """
+        # will try a stop even if is_failed or not is_connected, to give a chance to clean state
         self.mqtt.loop_stop()
 
     def send_message(self, msg: dict, client: str = None):
@@ -188,12 +210,22 @@ class Messaging:
                                 message will be sent. Defaults to None(all
                                 clients)
         """
+        if self.is_failed:
+            print('[ERROR] Messaging is failed, will not try to send message')
+            return
+        elif not self.is_connected:
+            print('[ERROR] Messaging is not connected, will not try to send message')
+            return
+
         if client is None:
             channel = self.default_send_topic
         else:
             channel = "general/" + client
-
         if channel is not None:
-            self.mqtt.publish(channel, json.serialize_msg(msg))
+            messinfo = self.mqtt.publish(channel, json.serialize_msg(msg))
+            if messinfo.rc != mqtt.MQTT_ERR_SUCCESS:
+                print("[ERROR] Messaging ", self.messaging_id, "failed sending message with code rc = ",
+                messinfo.rc, " object = ", self, " message = ", msg)
+                self.is_failed = True
         else:
             logger.warning("send_message: channel must be specifiec (None at the moment)")
