@@ -1,6 +1,8 @@
 from time import sleep
+import uuid
 from datetime import datetime
-from typing import Any, Dict, Union
+from threading import Lock
+from typing import Any, Dict
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
@@ -10,7 +12,27 @@ from fedbiomed.researcher.environ import TIMEOUT, MESSAGES_QUEUE_DIR, RESEARCHER
 from fedbiomed.researcher.responses import Responses
 
 
-class Requests:
+class RequestMeta(type):
+    """ This class is a thread safe singleton for Requests, a common design pattern
+    for ensuring only one instance of each class using this metaclass
+    is created in the process
+    """
+
+    _objects = {}
+    _lock_instantiation = Lock()
+
+    def __call__(cls, *args, **kwargs):
+        """ Replace default class creation for classes using this metaclass,
+        executed before the constructor
+        """
+        with cls._lock_instantiation:
+            if cls not in cls._objects:
+                object = super().__call__(*args, **kwargs)
+                cls._objects[cls] = object
+        return cls._objects[cls]
+
+
+class Requests(metaclass=RequestMeta):
     """This class represents the requests addressed from Researcher to nodes.
     It creates a task queue storing reply to each incoming message.
     """
@@ -22,8 +44,10 @@ class Requests:
         Args:
             mess (Any, optional): message to be sent. Defaults to None.
         """
-        self.queue = TasksQueue(MESSAGES_QUEUE_DIR + '_' + RESEARCHER_ID,
-                                TMP_DIR)
+        # Need to ensure unique per researcher instance message queue to avoid conflicts
+        # in case several instances of researcher (with same researcher_id ?) are active,
+        # eg: a notebook not quitted and launching a script
+        self.queue = TasksQueue(MESSAGES_QUEUE_DIR + '_' + str(uuid.uuid4()), TMP_DIR)
 
         if mess is None or type(mess) is not Messaging:
             self.messaging = Messaging(self.on_message,
@@ -45,16 +69,17 @@ class Requests:
         This handler is called by the Messaging class (Messager),
         when a message is received on researcher side.
         Adds to queue this incoming message.
-
         Args:
-            msg (Dict[str, Any]): serialized msg
+            msg (Dict[str, Any]): de-serialized msg
         """
         logger.info('message received:' + str(msg))
         self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
 
-    def send_message(self, msg: dict, client: str = None):
+
+
+    def send_message(self, msg: dict, client=None):
         """
-        asks the messaging class to send a new message (receivers are
+        Ask the messaging class to send a new message (receivers are
         deduced from the message content)
 
         Args:
@@ -88,6 +113,8 @@ class Requests:
         for _ in range(self.queue.qsize()):
             try:
                 item = self.queue.get(block=False)
+                self.queue.task_done()
+
                 if command is None or \
                         ('command' in item.keys() and item['command'] == command):
                     answers.append(item)
