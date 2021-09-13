@@ -10,6 +10,7 @@ import time
 import validators
 
 from fedbiomed.common.repository import Repository
+from fedbiomed.common.logger import logger
 from fedbiomed.researcher.environ import RESEARCHER_ID, TMP_DIR, CACHE_DIR, UPLOADS_URL
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
@@ -20,7 +21,7 @@ class Job:
     """
     This class represents the entity that manage the training part at
     the nodes level
-    """    
+    """
     def __init__(self,
                  reqs: Requests = None,
                  clients: dict = None,
@@ -31,7 +32,7 @@ class Job:
                  data: FederatedDataSet = None):
 
         """ Constructor of the class.
-        
+
         Starts a message queue, loads python model file created by researcher
         (through `TrainingPlan`) and saves the loaded model in a temporary file
         (under the filename '<TEMP_DIR>/my_model_<random_id>.py').
@@ -50,8 +51,8 @@ class Job:
             model_args (dict, optional): contains output and input feature
                                         dimension.Defaults to None.
             data (FederatedDataset, optional): . Defaults to None.
-        
-        """        
+
+        """
         self._id = str(uuid.uuid4())  # creating a unique job id
         self._repository_args = {}
         self._training_args = training_args
@@ -78,7 +79,7 @@ class Job:
                 model = eval(model)
             except Exception:
                 e = sys.exc_info()
-                print("Cannot import class ", model, " from path ", model_path, " - Error: ", e)
+                logger.critical("Cannot import class " + model + " from path " +  model_path, " - Error: " + str(e))
                 sys.exit(-1)
 
         # create/save model instance (ie TrainingPlan)
@@ -98,8 +99,7 @@ class Job:
             try:
                 self.model_instance.save_code(model_file)
             except Exception as e:
-                print("Cannot save the model to a local tmp dir")
-                print(e)
+                logger.error("Cannot save the model to a local tmp dir : " + str(e))
                 return
 
             # upload my_model_xxx.py on HTTP server
@@ -110,14 +110,13 @@ class Job:
             try:
                 self.model_instance.save(params_file)
             except Exception as e:
-                print("Cannot save parameters of the model to a local tmp dir")
-                print(e)
+                logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
                 return
 
             # upload my_model_xxx.pt on HTTP server
             repo_response = self.repo.upload_file(params_file)
             self._repository_args['params_url'] = repo_response['file']
-            
+
         # (below) regex: matches a character not present among "^", "\", "."
         # characters at the end of string.
         self._repository_args['model_class'] = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
@@ -126,7 +125,7 @@ class Job:
         self.validate_minimal_arguments(self._repository_args,
                                         ['model_url', 'model_class', 'params_url'])
         # FIXME: (above) the constructor of a class usually shouldnt call one of the method class in its definition
-        
+
     @staticmethod
     def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
         """this method validates a given dictionary
@@ -135,7 +134,7 @@ class Job:
             obj (dict): object to be validated
             fields (Union[tuple, list]): list of fields that should be present
             on the obj
-        """        
+        """
         for f in fields:
             assert f in obj.keys(), f'Field {f} is required in object {obj}. Was not found.'
             if 'url' in f:
@@ -174,14 +173,14 @@ class Job:
     def waiting_for_clients(self, responses: Responses) -> bool:
         """ this method verifies if all clients involved in the job are
         present and Responding
-        
+
         Args:
             responses (Responses): contains message answers
 
         Returns:
             bool: False if all clients are present in the Responses object.
             True if waiting for at least one client.
-        """        
+        """
         try:
             clients_done = set(responses.dataframe['client_id'])
         except KeyError:
@@ -194,10 +193,10 @@ class Job:
         this method sends training task to clients and waits for the responses
         Args:
             round (int): current number of round the algorithm is performing
-            (a round is considered to be all the 
+            (a round is considered to be all the
             training steps of a federated model between 2 aggregations).
-            
-        """    
+
+        """
 
         headers = {
             'researcher_id': RESEARCHER_ID,
@@ -212,8 +211,8 @@ class Job:
         time_start = {}
 
         for cli in self._clients:
-            msg['training_data'] = {cli: [ds['dataset_id'] for ds in self._data.data()[cli]]}
-            print('[ RESEARCHER ] Send message to client ', cli, msg)
+            msg['training_data'] = { cli: [ ds['dataset_id'] for ds in self._data.data()[cli] ] }
+            logger.info('Send message to client ' + str(cli) + " - " + str(msg))
             time_start[cli] = time.perf_counter()
             self._reqs.send_message(msg, cli)  # send request to node
 
@@ -225,7 +224,7 @@ class Job:
             models_done = self._reqs.get_responses('train')
             for m in models_done.get_data():  # retrieve all models
                 # (there should have as many models done as nodes)
-                
+
                 # only consider replies for our request
                 if m['researcher_id'] != RESEARCHER_ID or m['job_id'] != self._id or m['client_id'] not in list(self._clients):
                     continue
@@ -233,10 +232,8 @@ class Job:
                 rtime_total = time.perf_counter() - time_start[m['client_id']]
 
                 # TODO : handle error depending on status
-                print("Downloading model params after training on ",
-                      m['client_id'], '\n\t- from', m['params_url'])
-                _, params_path = self.repo.download_file(m['params_url'],
-                                                         'my_model_' + str(uuid.uuid4()) + '.pt')
+                logger.info("Downloading model params after training on " + m['client_id'] + ' - from ' + m['params_url'])
+                _, params_path = self.repo.download_file(m['params_url'], 'my_model_' + str(uuid.uuid4()) + '.pt')
                 params = self.model_instance.load(params_path, to_params=True)['model_params']
                 # TODO: could choose completely different name/structure for
                 # job-level data
@@ -249,10 +246,10 @@ class Job:
                                'params_path': params_path,
                                'params': params,
                                'timing': timing})
-                self._training_replies[round].append(r)  # add new replies               
+                self._training_replies[round].append(r)  # add new replies
 
     def update_parameters(self, params: dict) -> str:
-        """Updates global model parameters after aggregation, by specifying in a 
+        """Updates global model parameters after aggregation, by specifying in a
         temporary file (TMP_DIR + '/researcher_params_<id>.pt', where <id> is a
         unique and random id)
 
@@ -264,17 +261,17 @@ class Job:
         """
         try:
             # FIXME: should we specify file extension as a local/global variable ?
-            # eg: 
+            # eg:
             # extension = 'pt'
             # filename = TMP_DIR + '/researcher_params_' + str(uuid.uuid4()) + extension
-            
+
             filename = TMP_DIR + '/researcher_params_' + str(uuid.uuid4()) + '.pt'
             self.model_instance.save(filename, params)
             repo_response = self.repo.upload_file(filename)
             self._repository_args['params_url'] = repo_response['file']
         except Exception as e:
             e = sys.exc_info()
-            print("Cannot update parameters - Error: ", e)
+            logger.error("Cannot update parameters - Error: " + str(e))
             sys.exit(-1)
         return filename
 
@@ -284,7 +281,7 @@ class localJob:
     This class represents the entity that manage the training part.
     LocalJob is the version of Job but applied locally on a local dataset (thus not involving any network).
     It is only used to compare results to a Federated approach, using networks.
-    """    
+    """
     def __init__(self, dataset_path = None,
                  model_class: str='MyTrainingPlan',
                  model_path: str=None,
@@ -295,14 +292,14 @@ class localJob:
 
         Args:
             dataset_path (): . Defaults to None.
-            model_class (string, optional): name of the model class to use for training. Defaults to 
+            model_class (string, optional): name of the model class to use for training. Defaults to
             'MyTrainingPlan'.
             model_path (string, optional) : path to file containing model code. Defaults to None.
             training_args (dict, optional): contains training parameters: lr, epochs, batch_size...
                                             Defaults to None.
-            model_args (dict, optional): contains output and input feature dimension. 
+            model_args (dict, optional): contains output and input feature dimension.
                                             Defaults to None.
-        """ 
+        """
 
 
         self._id = str(uuid.uuid4())
@@ -322,14 +319,14 @@ class localJob:
                 model_class = eval(model_class)
             except:
                 e = sys.exc_info()
-                print("Cannot import class ", model_class, " from path ", model_path, " - Error: ", e)
+                logger.critical("Cannot import class " + model_class, " from path ", model_path, " - Error: " + str(e))
                 sys.exit(-1)
 
         # create/save model instance
         if inspect.isclass(model_class):
             if self._model_args is None or len(self._model_args)==0:
                 self.model_instance = model_class()
-            else:    
+            else:
                 self.model_instance = model_class(self._model_args)
         else:
             self.model_instance = model_class
@@ -364,7 +361,6 @@ class localJob:
         if not is_failed:
             results = {}
             try:
-             
                 self.model_instance.set_dataset(self.dataset_path)
                 self.model_instance.training_routine(**self._localjob_training_args)
             except Exception as e:
@@ -388,4 +384,4 @@ class localJob:
             pass
 
         if error_message != '':
-            print(error_message)
+            logger.error(error_message)

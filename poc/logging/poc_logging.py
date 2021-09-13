@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 '''
 Validate logging mechanism in:
 - stdout/sdterr in script / cell in notebook
@@ -8,6 +7,7 @@ Validate logging mechanism in:
 
 We cannot use logger.basicConfig() because of notebook usage.
 '''
+
 
 from mylogger import logger
 import logging
@@ -46,3 +46,17 @@ logger.setLevel("WARNING")
 
 logger.debug("nobody can see me")
 logger.warning("every body should see me")
+
+
+# mqqt handler
+logger.addMqttHandler( hostname  = '127.0.0.1',
+                       port      = 1883,
+                       client_id = 'random_but_unique',
+                       channel   = 'logger',
+                       level     = "DEBUG" )
+
+# change globally the log levelS
+logger.setLevel("DEBUG")
+
+logger.debug("debug_XXX")
+logger.warning("warning_XXX")
