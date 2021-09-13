@@ -2,6 +2,7 @@ from time import sleep
 from datetime import datetime
 from typing import Any, Dict, Union
 
+from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
 from fedbiomed.common.messaging import Messaging, MessagingType
@@ -12,7 +13,7 @@ from fedbiomed.researcher.responses import Responses
 class Requests:
     """This class represents the requests addressed from Researcher to nodes.
     It creates a task queue storing reply to each incoming message.
-    """    
+    """
     def __init__(self, mess: Any = None):
         """
         Starts a message queue and reconfigures  message to be sent
@@ -20,7 +21,7 @@ class Requests:
 
         Args:
             mess (Any, optional): message to be sent. Defaults to None.
-        """        
+        """
         self.queue = TasksQueue(MESSAGES_QUEUE_DIR + '_' + RESEARCHER_ID,
                                 TMP_DIR)
 
@@ -36,47 +37,47 @@ class Requests:
 
     def get_messaging(self) -> Messaging:
         """returns the messaging object
-        """        
+        """
         return(self.messaging)
 
     def on_message(self, msg: Dict[str, Any]):
         """
         This handler is called by the Messaging class (Messager),
-        when a message is received on researcher side. 
+        when a message is received on researcher side.
         Adds to queue this incoming message.
-       
-        Args: 
+
+        Args:
             msg (Dict[str, Any]): serialized msg
         """
-        print(datetime.now(), '[ RESEARCHER ] message received.', msg)
+        logger.info('message received:' + str(msg))
         self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
 
     def send_message(self, msg: dict, client: str = None):
         """
         asks the messaging class to send a new message (receivers are
         deduced from the message content)
-        
+
         Args:
             msg (dict): the message to send to nodes
-            client ([str], optional): defines the channel to which the 
+            client ([str], optional): defines the channel to which the
                                 message will be sent.
                                 Defaults to None(all clients)
         """
-        print(RESEARCHER_ID)
+        logger.debug(str(RESEARCHER_ID))
         self.messaging.send_message(msg, client=client)
 
     def get_messages(self, command: str = None, time: float = .0) -> Responses:
         """ This method goes through the queue and gets messages with the
         specific command
 
-        Args: 
+        Args:
             command (str, optional): checks if message is containing the
             expecting command (the message  is discarded if it doesnot).
             Defaults to None (no command message checking, meaning all
             incoming messages are considered).
             time (float, optional): time to sleep in seconds before considering
             incoming messages. Defaults to .0.
-             
+
         returns Reponses : `Responses` object containing the corresponding
         answers
 
@@ -106,12 +107,12 @@ class Requests:
         """
         waits for all clients' answers, regarding a specific command
         returns the list of all clients answers
-        
+
         Args:
             look_for_command (str): instruction that has been sent to
             node. Can be either ping, search or train.
             timeout (float, optional): wait for a specific duration
-                before collecting nodes messages. Defaults to None. 
+                before collecting nodes messages. Defaults to None.
                 If set to None; uses value in global variable TIMEOUT
                 instead.
             only_successful (bool, optional): deal only with messages
@@ -120,7 +121,7 @@ class Requests:
         """
         timeout = timeout or TIMEOUT
         responses = []
-        
+
         while True:
             sleep(timeout)
             new_responses = []
@@ -131,8 +132,7 @@ class Requests:
                     elif resp['success']:
                         new_responses.append(resp)
                 except Exception:
-                    print(datetime.now(),
-                          '[ RESEARCHER ] Incorrect message received.', resp)
+                    logger.error('Incorrect message received:' + str(resp))
                     pass
 
             if len(new_responses) == 0:
@@ -163,7 +163,7 @@ class Requests:
         """
         self.messaging.send_message(ResearcherMessages.request_create({'tags':tags, 'researcher_id':RESEARCHER_ID, "command": "search"}).get_dict())
 
-        print(f'Searching for clients with data tags: {tags} ...')
+        logger.info(f'Searching for clients with data tags: {tags}')
         data_found = {}
         for resp in self.get_responses(look_for_command='search'):
             # TODO: (below) handle KeyError exception or use `.get()` method
