@@ -8,6 +8,9 @@
 # Called from CI_build
 #
 
+# timeout in seconds for aborting the test
+TEST_TIMEOUT=900
+
 basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit
 
@@ -62,7 +65,7 @@ source $basedir/scripts/fedbiomed_environment researcher
 EXEC_TEST=$basedir/notebooks/getting-started.py
 if [ -x "$EXEC_TEST" ]
 then
-    $EXEC_TEST
+    timeout --preserve-status --signal=HUP --kill-after=10 $TEST_TIMEOUT $EXEC_TEST
 else
     echo "INFO: no script $EXEC_TEST in this version, skipping"
 fi
