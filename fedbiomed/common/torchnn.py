@@ -9,22 +9,24 @@ from typing import Union, List
 import torch
 import torch.nn as nn
 
+from fedbiomed.common.logger import _FedLogger
+
 class TorchTrainingPlan(nn.Module):
     def __init__(self):
         """
-        An abstraction over pytorch module to run 
-        pytroch models and scritps on node side. 
-        
+        An abstraction over pytorch module to run
+        pytroch models and scritps on node side.
+
         Researcher model (resp. params) will be 1) saved  on a '*.py'
         (resp. '*.pt') files, 2) uploaded on a HTTP server (network layer),
-         3) then Downloaded from the HTTP server on node side, 
+         3) then Downloaded from the HTTP server on node side,
          and 4) finally read and executed on node side.
-        
-         
+
+
         Researcher must define/override:
         - a `training_data()` function
         - a `training_step()` function
-        
+
         Researcher may have to add extra dependancies/ python imports,
         by using `add_dependencies` method.
         """
@@ -40,7 +42,7 @@ class TorchTrainingPlan(nn.Module):
         # TODO : add random seed init
         # self.random_seed_params = None
         # self.random_seed_shuffling_data = None
-        
+
         # training // may be changed in training_routine ??
         self.device = "cpu"
 
@@ -56,6 +58,9 @@ class TorchTrainingPlan(nn.Module):
         # to be configured by setters
         self.dataset_path = None
 
+        # get the logger from the _FedLogger class (thanks Mr Singleton)
+        self.system_logger = _FedLogger()
+
 
     #################################################
     # provided by fedbiomed
@@ -70,12 +75,12 @@ class TorchTrainingPlan(nn.Module):
                          logger=None):
         """
         Training routine procedure.
-        
+
         Researcher should defined :
         - a `training_data()` function defining
         how sampling / handling data in node's dataset is done.
-        It should return a generator able to ouput tuple 
-        (batch_idx, (data, targets)) that is iterable for each batch. 
+        It should return a generator able to ouput tuple
+        (batch_idx, (data, targets)) that is iterable for each batch.
         - a `training_step()` function defining how cost is computed. It should
         output model error for model backpropagation.
 
@@ -100,6 +105,7 @@ class TorchTrainingPlan(nn.Module):
         # device = torch.device("cuda" if use_cuda else "cpu")
         self.device = "cpu"
 
+
         for epoch in range(1, epochs + 1):
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
@@ -117,19 +123,17 @@ class TorchTrainingPlan(nn.Module):
                 # do not take into account more than batch_maxnum
                 # batches from the dataset
                 if (batch_maxnum > 0) and (batch_idx >= batch_maxnum):
-                    print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    #print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    self.system_logger.debug('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
                     break
 
                 if batch_idx % log_interval == 0:
-                    print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'\
-                          .format(
-                                  epoch,
-                                  batch_idx * len(data),
-                                  len(training_data.dataset),
-                                  100 * batch_idx / len(training_data),
-                                  res.item()
-                                  )
-                          )
+                    self.system_logger.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                        epoch,
+                        batch_idx * len(data),
+                        len(training_data.dataset),
+                        100 * batch_idx / len(training_data),
+                        res.item()))
                     #
                     # deal with the logger here
                     #
@@ -157,7 +161,7 @@ class TorchTrainingPlan(nn.Module):
         Returns:
             None
 
-        Exceptions: 
+        Exceptions:
             none
         """
 
@@ -183,12 +187,12 @@ class TorchTrainingPlan(nn.Module):
         Args:
             filename (string): path to the destination file
             params (dict, optional): parameters to save to a file, should
-            be structured as a torch state_dict() 
+            be structured as a torch state_dict()
 
         Returns:
             pytorch.save() returns None
 
-        Exceptions: 
+        Exceptions:
             none
         """
         if params is not None:
@@ -210,7 +214,7 @@ class TorchTrainingPlan(nn.Module):
         Returns:
             dict containing parameters
 
-        Exceptions: 
+        Exceptions:
             none
         """
 
@@ -227,16 +231,16 @@ class TorchTrainingPlan(nn.Module):
     # manipulation module
     def set_dataset(self, dataset_path):
         self.dataset_path = dataset_path
-        print('Dataset_path',self.dataset_path)
+        self.system_logger.debug('Dataset_path' + self.dataset_path)
 
     # provided by the fedbiomed // should be moved in a DATA
     # manipulation module
     def training_data(self, batch_size=48):
         """
-        A method that describes how to parse/select/shuffle data 
-        when training model. Should be defined by researcher in its 
+        A method that describes how to parse/select/shuffle data
+        when training model. Should be defined by researcher in its
         trainig plan.
-        
+
         Args:
             batch_size (int, optional): size of the batch. Defaults to 48.
         """

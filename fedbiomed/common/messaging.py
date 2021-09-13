@@ -5,11 +5,13 @@ from typing import Any, Callable, Union
 import paho.mqtt.client as mqtt
 
 from fedbiomed.common import json
+from fedbiomed.common.logger import logger
+from fedbiomed.common.logger import DEFAULT_LOG_TOPIC
 
 
 class MessagingType(Enum):
     """Enumeration class, used to characterize
-    context of message handling (whether it is done in 
+    context of message handling (whether it is done in
     a researcher instance or a node instance)
 
     """
@@ -29,10 +31,10 @@ class Messaging:
                  mqtt_broker_port: int = 80):
         """ Constructor of the messaging class.
         Creates an instance of MQTT Client, and MQTT message handler.
-        Creates topics on which to send messages through Messager. 
+        Creates topics on which to send messages through Messager.
         Topics in MQTT work as a channel allowing to filter shared information
         between connected clients
-        
+
         Args:
             on_message (Callable): function that should be executed when
             a message is received
@@ -43,7 +45,7 @@ class Messaging:
             "localhost".
             mqtt_broker_port (int, optional): Defaults to 80 (http
             default port).
-        """        
+        """
         self.messaging_type = messaging_type
 
         self.messaging_id = str(uuid.uuid4()) if \
@@ -57,6 +59,13 @@ class Messaging:
         self.mqtt.on_connect = self.on_connect
         self.mqtt.on_message = self.on_message
         self.mqtt.connect(mqtt_broker, mqtt_broker_port, keepalive=60)
+
+        # memorize mqqt parameters
+        self._broker_host = mqtt_broker
+        self._broker_port = mqtt_broker_port
+
+        # protection for logger initialisation (mqqt handler)
+        self.logger_initialized = False
 
         self.on_message_handler = on_message  # store the caller's mesg handler
 
@@ -98,19 +107,50 @@ class Messaging:
             flags (dict): mqtt on_message arg, response flag sent by the
             broker (unused)
             rc (int): mqtt on_message arg, connection result
-        """   
-        print("Messaging " + self.messaging_id,
-              " connected with result code " + str(rc))
+        """
+        # TODO/BUG: ???
+        #
+        # this may be a solution for the infinite loop
+        # this may be a really bad solution to correct the dupplicate
+        # mqqt client_id....
+        # (http://www.steves-internet-guide.com/client-objects-python-mqtt/)
+        #
+        #if self.is_connected:
+        #    return
+        logger.info("Messaging " + self.messaging_id + " connected with result code " + str(rc))
         if self.messaging_type is MessagingType.RESEARCHER:
             self.mqtt.subscribe('general/server')
+            # subscribe to general/logger topic here ???? (needsome investigation)
+            # (need more debugging and need on_message modifications)
+            # self.mqtt.subscribe(DEFAULT_LOG_TOPIC)
         elif self.messaging_type is MessagingType.NODE:
             self.mqtt.subscribe('general/clients')
             self.mqtt.subscribe('general/' + self.messaging_id)
 
+            if not self.logger_initialized:
+                # add the MQTT handler for logger
+                # this should be done once.
+                # This is sldo tested by the addHandler() method, but
+                # it may raise a MQTT message (that we prefer not to send)
+                logger.addMqttHandler(
+                    mqtt      = self.mqtt,
+                    client_id = self.messaging_id
+                )
+                # to get Train/Epoch messages on console and on MQTT
+                logger.setLevel("DEBUG")
+                self.logger_initialized = True
+
+
         self.is_connected = True
 
+
+    def on_disconnect(client, userdata, rc):
+        logger.info("=========== MQTT disconnecting reason :"  +str(rc))
+        self.is_connected = False
+
+
     def start(self, block=False):
-        """ this method calls the loop function of mqtt. 
+        """ this method calls the loop function of mqtt.
         Starts message handling by the library.
 
         Args:
@@ -120,7 +160,7 @@ class Messaging:
                 (non blocking loop).
                 `loop_start` calls a background thread
                 for messaging.
-                See Paho MQTT documentation 
+                See Paho MQTT documentation
                 (https://github.com/eclipse/paho.mqtt.python)
                 for further information. Defaults to False.
         """
@@ -136,15 +176,15 @@ class Messaging:
         this method stops the loop started using `loop_start` method -
         ie the non-blocking loop triggered with `Messaging.start(block=True)`
         only. It stops the background thread for messaging.
-        """        
+        """
         self.mqtt.loop_stop()
 
     def send_message(self, msg: dict, client: str = None):
-        """This method sends a message to a given client 
+        """This method sends a message to a given client
 
         Args:
             msg (dict): the content of a message
-            client ([str], optional): defines the channel to which the 
+            client ([str], optional): defines the channel to which the
                                 message will be sent. Defaults to None(all
                                 clients)
         """
@@ -156,5 +196,4 @@ class Messaging:
         if channel is not None:
             self.mqtt.publish(channel, json.serialize_msg(msg))
         else:
-            print("send_message: channel must be\
-                specific (None at the moment)")
+            logger.warning("send_message: channel must be specifiec (None at the moment)")
