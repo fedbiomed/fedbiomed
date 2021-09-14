@@ -57,7 +57,8 @@ class MqttSpy:
         # use of a hash instead of a proper list for convenience
         self.channels = {
             'general/server'   : None,
-            'general/clients'  : None
+            'general/clients'  : None,
+            'general/logger'   : None
         }
 
 
