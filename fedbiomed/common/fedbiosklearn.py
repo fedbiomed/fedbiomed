@@ -3,6 +3,7 @@ from joblib import dump, load
 import numpy as np
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
+from fedbiomed.common.logger import logger
 
 class SGDSkLearnModel():
 
@@ -13,7 +14,7 @@ class SGDSkLearnModel():
         """
         if self.model_type in ['SGDRegressor']:
             self.param_list = ['intercept_','coef_']
-            init_params = {'intercept_': np.array([0.]), 
+            init_params = {'intercept_': np.array([0.]),
                            'coef_':  np.array([0.]*kwargs['n_features'])}
         elif self.model_type in ['Perceptron', 'SGDClassifier']:
             self.param_list = ['intercept_','coef_']
@@ -22,7 +23,7 @@ class SGDSkLearnModel():
 
         for p in self.param_list:
             setattr(self.m, p, init_params[p])
-        
+
         for p in self.params_sgd:
             setattr(self.m, p, self.params_sgd[p])
 
@@ -81,7 +82,7 @@ class SGDSkLearnModel():
                                 "import pandas as pd",
                              ]
         if kwargs['model'] not in self.model_map:
-            print('model must be one of, ', self.model_map)
+            logger.error('model must be one of, ' +  str(self.model_map))
         else:
             self.model_type = kwargs['model']
             self.m = eval(self.model_type)()
@@ -174,7 +175,7 @@ class SGDSkLearnModel():
           :param dataset_path (string)
         """
         self.dataset_path = dataset_path
-        print('Dataset_path',self.dataset_path)
+        logger.debug('Dataset_path' + str(self.dataset_path))
 
     def get_model(self):
         """

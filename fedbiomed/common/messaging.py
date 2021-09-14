@@ -211,10 +211,10 @@ class Messaging:
                                 clients)
         """
         if self.is_failed:
-            print('[ERROR] Messaging is failed, will not try to send message')
+            logger.error('Messaging has failed, will not try to send message')
             return
         elif not self.is_connected:
-            print('[ERROR] Messaging is not connected, will not try to send message')
+            logger.error('Messaging is not connected, will not try to send message')
             return
 
         if client is None:
@@ -224,8 +224,14 @@ class Messaging:
         if channel is not None:
             messinfo = self.mqtt.publish(channel, json.serialize_msg(msg))
             if messinfo.rc != mqtt.MQTT_ERR_SUCCESS:
-                print("[ERROR] Messaging ", self.messaging_id, "failed sending message with code rc = ",
-                messinfo.rc, " object = ", self, " message = ", msg)
+                logger.error("Messaging " +
+                             str(self.messaging_id) +
+                             " failed sending message with code rc = ",
+                             str(messinfo.rc) +
+                             " object = " +
+                             str(self) +
+                             " message = " +
+                             str(msg))
                 self.is_failed = True
         else:
             logger.warning("send_message: channel must be specifiec (None at the moment)")
