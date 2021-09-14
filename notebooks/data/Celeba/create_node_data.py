@@ -37,9 +37,12 @@ data_node_3.to_csv(out_dir + '/data_node_3/target.csv', sep='\t')
 #copy all images of each node in the correct folder
 for im in data_node_1.index:
     shutil.copy(img_dir+im, out_dir + "/data_node_1/data/" + im)
+print("data for node 1 succesfully created")
 
 for im in data_node_2.index:
     shutil.copy(img_dir+im, out_dir + "/data_node_2/data/" + im)
+print("data for node 2 succesfully created")
 
 for im in data_node_3.index:
     shutil.copy(img_dir+im, out_dir + "/data_node_3/data/" + im)
+print("data for node 3 succesfully created")

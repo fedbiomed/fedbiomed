@@ -19,7 +19,7 @@ Celeba
 |           | lots of images 
 ```
 
-Run the `python create_node_data.py` script inside `data_for_examples/Celeba`
+Run the `python create_node_data.py` script inside `data/Celeba`
 
 The dataset will be splited into 3 nodes, each containing a csv linking the name of the file and its target and a folder containing the images
 The target is only to determine if the target is smiling, but it can be changed inside the `create_node_data.py`
