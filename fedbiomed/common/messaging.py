@@ -113,9 +113,9 @@ class Messaging:
         """
 
         if rc == 0:
-            logger.error("Messaging " + str(self.messaging_id) + " successfully connected to the message broker, object = " + str(self))
+            logger.info("Messaging " + str(self.messaging_id) + " successfully connected to the message broker, object = " + str(self))
         else:
-            logger.error("[ERROR] Messaging " + str(self.messaging_id) + " could not connect to the message broker, object = " + str(self))
+            logger.error("Messaging " + str(self.messaging_id) + " could not connect to the message broker, object = " + str(self))
             self.is_failed = True
 
         if self.messaging_type is MessagingType.RESEARCHER:
