@@ -1,19 +1,18 @@
+import tempfile
+import os
 import unittest
 
-import copy
-from random import random
-from joblib import dump, load
-import torch
-from torch.nn import Linear
 import numpy as np
-from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from sklearn.linear_model import SGDRegressor
+
+from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
-import os
 
 
 class TestModel(SGDSkLearnModel):
-
+    """
+    What is it ?
+    """
     def adhoc(self):
         print('adhoc')
 
@@ -45,15 +44,14 @@ class TestFedbiosklearn(unittest.TestCase):
 
 
     def test_save_and_load(self):
-        CURRENTDIR = os.path.abspath(os.path.join(__file__, os.pardir))
-        print('curdir ',CURRENTDIR)
-        filename = os.path.join(CURRENTDIR,'sgd.sav')
+        randomfile = tempfile.NamedTemporaryFile()
+
         skm = SGDSkLearnModel({'max_iter': 1000, 'tol':1e-3, 'n_features': 5, 'model': 'SGDRegressor'})
-        skm.save(filename)
+        skm.save(randomfile.name)
 
-        self.assertTrue(os.path.exists(filename) and os.path.getsize(filename) > 0  )
+        self.assertTrue(os.path.exists(randomfile.name) and os.path.getsize(randomfile.name) > 0  )
 
-        m = skm.load(filename)
+        m = skm.load(randomfile.name)
 
         self.assertEqual(m.max_iter,1000)
         self.assertEqual(m.tol, 0.001)
