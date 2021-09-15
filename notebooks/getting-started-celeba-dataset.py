@@ -1,3 +1,8 @@
+# # Fedbiomed researcher
+#
+# This example demonstrates using a convolutional model in PyTorch for recognition
+# of smiling faces, with a CelebA dataset split over 2 nodes.
+# 
 # ## Setting the client up
 # 
 # Install the CelebA dataset with the help of the README.md file inside `notebooks/data/Celeba`  
@@ -31,10 +36,9 @@
 
 # Declare a torch.nn Net class to send for training on the node
 
-# In[3]:
 import torch
 import torch.nn as nn
-from   fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.common.torchnn import TorchTrainingPlan
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -141,9 +145,6 @@ class MyTrainingPlan(TorchTrainingPlan):
 # 
 # **NOTE:** typos and/or lack of positional (required) arguments will raise error. 🤓
 
-# In[4]:
-
-
 training_args = {
     'batch_size': 32, 
     'lr': 1e-3, 
@@ -160,14 +161,14 @@ training_args = {
 # - run a round of local training on nodes with model defined in `model_path` + federation with `aggregator`
 # - run for `rounds` rounds, applying the `client_selection_strategy` between the rounds
 
-# In[5]:
-
-
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 tags =  ['#celeba']
 rounds = 3
+
+print("here")
+return 0
 
 exp = Experiment(tags=tags,
                  model_class=MyTrainingPlan,
@@ -181,22 +182,15 @@ exp = Experiment(tags=tags,
 # 
 # By default, this function doesn't stop until all the `rounds` are done for all the clients
 
-# In[6]:
-
 
 exp.run()
 
 
 # Retrieve the federated model parameters
 
-# In[7]:
-
 
 fed_model = exp.model_instance
 fed_model.load_state_dict(exp.aggregated_params[rounds - 1]['params'])
-
-
-# In[8]:
 
 
 print(fed_model)
@@ -208,9 +202,6 @@ print(fed_model)
 # ## Important
 # This is done to test the model because it can be accessed in a developpement environment  
 # In production, the data wont be accessible on the nodes, need a test dataset on the server or accessible from the server.
-
-# In[9]:
-
 
 
 import torch
@@ -259,9 +250,6 @@ def testing_Accuracy(model, data_loader):
 
 # The test dataset is the data from the third node
 
-# In[10]:
-
-
 print("testing accuracy")
 script_path = os.path.dirname(os.path.realpath(__file__))
 test_dataset_path = script_path + "/data/Celeba/celeba_preprocessed/data_node_3"
@@ -296,13 +284,9 @@ data_loader = DataLoader(dataset, **train_kwargs)
 
 # Loading the testing dataset and computing accuracy metrics for local and federated models
 
-# In[11]:
-
 
 acc_federated = testing_Accuracy(fed_model, data_loader)
 
-
-# In[12]:
 
 
 print(f"model accuracy on testing set : {acc_federated[1]}")
