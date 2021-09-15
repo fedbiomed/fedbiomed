@@ -1,11 +1,15 @@
-# # Fedbiomed researcher
-#
-# This example demonstrates using a convolutional model in PyTorch for recognition
-# of smiling faces, with a CelebA dataset split over 2 nodes.
-# 
+#!/usr/bin/env python
+# coding: utf-8
+
+# # Fedbiomed Researcher
+
+# This example demonstrates using a convolutional model in PyTorch
+# for recognition of smiling faces, with a CelebA dataset split over 2 nodes.
+
+
 # ## Setting the client up
-# 
-# Install the CelebA dataset with the help of the README.md file inside `notebooks/data/Celeba`  
+#
+# Install the CelebA dataset with the help of the `README.md` file inside `notebooks/data/Celeba`
 # The script create 3 nodes with each their data. The dataset of the node 3 is used in this notebook as a testing set.  
 # Therefore its not necessary to create a node and run the node 3  
 # 
@@ -24,23 +28,24 @@
 # 1. `./scripts/fedbiomed_run node config (ini file) add`
 #   * Select option 3 (images) to add an image dataset to the node
 #   * Add a name and the tag for the dataset (tag should contain '#celeba' as it is the tag used for this training) and finaly add the description
-#   * Pick a data folder from the 3 generated inside data/Celeba/celeba_preprocessed
+#   * Pick a data folder from the 3 generated inside `data/Celeba/celeba_preprocessed` (eg: `data_node_1`)
 #   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
 #   
 # 2. Check that your data has been added by executing `./scripts/fedbiomed_run node config (ini file) list`
-# 3. Run the node using `./scripts/fedbiomed_run node config (ini file) start`. Wait until you get `Connected with result code 0`. it means you are online.
+# 3. Run the node using `./scripts/fedbiomed_run node config (ini file) start`. Wait until you get `Starting task manager`. it means you are online.
 # 
 # for the sake of testing the resulting model, only nodes 1 and 2 were started during training, datas from node 3 is used to test the model.
 
+
 # ## Create an experiment to train a model on the data found
 
-# Declare a torch.nn Net class to send for training on the node
+
+
+# Declare a TorchTrainingPlan MyTrainingPlan class to send for training on the node
 
 import torch
 import torch.nn as nn
 from fedbiomed.common.torchnn import TorchTrainingPlan
-import torch.nn.functional as F
-from torch.utils.data import DataLoader
 from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
@@ -48,10 +53,11 @@ import numpy as np
 from PIL import Image
 import os
 
-
-class MyTrainingPlan(TorchTrainingPlan):
+# you can use any class name eg:
+# class AlterTrainingPlan(TorchTrainingPlan):
+class Net(TorchTrainingPlan):
     def __init__(self):
-        super(MyTrainingPlan, self).__init__()
+        super(Net, self).__init__()
         #convolution layers
         self.conv1 = nn.Conv2d(3, 32, 3, 1)
         self.conv2 = nn.Conv2d(32, 32, 3, 1)
@@ -142,24 +148,26 @@ class MyTrainingPlan(TorchTrainingPlan):
 # This group of arguments correspond respectively:
 # * `model_args`: a dictionary with the arguments related to the model (e.g. number of layers, features, etc.). This will be passed to the model class on the client side.
 # * `training_args`: a dictionary containing the arguments for the training routine (e.g. batch size, learning rate, epochs, etc.). This will be passed to the routine on the client side.
-# 
+#
 # **NOTE:** typos and/or lack of positional (required) arguments will raise error. 🤓
 
+model_args = {}
+
 training_args = {
-    'batch_size': 32, 
-    'lr': 1e-3, 
-    'epochs': 1, 
-    'dry_run': False,  
-    'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
+    'batch_size': 32,
+    'lr': 1e-3,
+    'epochs': 1,
+    'dry_run': False,
+    'batch_maxnum': 100  # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
 
 
 # # Train the federated model
 
-# Define an experiment
-# - search nodes serving data for these `tags`, optionally filter on a list of client ID with `clients`
-# - run a round of local training on nodes with model defined in `model_path` + federation with `aggregator`
-# - run for `rounds` rounds, applying the `client_selection_strategy` between the rounds
+#    Define an experiment
+#    - search nodes serving data for these `tags`, optionally filter on a list of client ID with `clients`
+#    - run a round of local training on nodes with model defined in `model_class` + federation with `aggregator`
+#    - run for `rounds` rounds, applying the `client_selection_strategy` between the rounds
 
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -167,42 +175,37 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 tags =  ['#celeba']
 rounds = 3
 
-print("here")
-return 0
-
 exp = Experiment(tags=tags,
-                 model_class=MyTrainingPlan,
-                 training_args=training_args,
-                 rounds=rounds,
-                 aggregator=FedAverage(),
-                 client_selection_strategy=None)
+                #clients=None,
+                model_class=Net,
+                # model_class=AlterTrainingPlan,
+                # model_path='/path/to/model_file.py',
+                model_args=model_args,
+                training_args=training_args,
+                rounds=rounds,
+                aggregator=FedAverage(),
+                client_selection_strategy=None)
 
 
 # Let's start the experiment.
-# 
 # By default, this function doesn't stop until all the `rounds` are done for all the clients
-
 
 exp.run()
 
-
 # Retrieve the federated model parameters
-
 
 fed_model = exp.model_instance
 fed_model.load_state_dict(exp.aggregated_params[rounds - 1]['params'])
-
-
 print(fed_model)
 
-
 # # Test Model
-
+#
 # We define a little testing routine to extract the accuracy metrics on the testing dataset
+# 
 # ## Important
-# This is done to test the model because it can be accessed in a developpement environment  
+#
+# This is done to test the model because it can be accessed in a developpement environment
 # In production, the data wont be accessible on the nodes, need a test dataset on the server or accessible from the server.
-
 
 import torch
 import torch.nn as nn
@@ -247,7 +250,6 @@ def testing_Accuracy(model, data_loader):
 
     return(test_loss, accuracy)
 
-
 # The test dataset is the data from the third node
 
 print("testing accuracy")
@@ -275,7 +277,7 @@ class CelebaDataset(Dataset):
 
         def __len__(self):
             return self.y.shape[0]
-    
+
 
 dataset = CelebaDataset(test_dataset_path + "/target.csv", test_dataset_path + "/data/")
 train_kwargs = {'batch_size': 128, 'shuffle': True}
