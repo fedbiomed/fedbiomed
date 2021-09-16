@@ -9,8 +9,9 @@ Fed-BioMed is developped under Linux Fedora, should be easily ported to other Li
 ### Prerequisites :
 
 To ensure fedbiomed will work fine, you need to install before :
-* Docker.
-* MQTT.
+* docker.
+* docker-compose
+* conda
 
 ### clone repo
 
