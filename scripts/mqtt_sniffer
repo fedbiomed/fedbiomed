@@ -58,7 +58,8 @@ class MqttSpy:
         self.channels = {
             'general/server'   : None,
             'general/clients'  : None,
-            'general/logger'   : None
+            'general/logger'   : None,
+            'general/feedback'   : None
         }
 
 

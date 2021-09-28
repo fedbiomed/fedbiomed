@@ -16,6 +16,7 @@ class MessagingType(Enum):
     """
     RESEARCHER = 1
     NODE = 2
+    FEEDBACK = 3
 
 
 class Messaging:
@@ -142,7 +143,11 @@ class Messaging:
                 # to get Train/Epoch messages on console and on MQTT
                 logger.setLevel("DEBUG")
                 self.logger_initialized = True
-
+        elif self.messaging_type is MessagingType.FEEDBACK:
+            result, _ = self.mqtt.subscribe('general/feedback')
+            if result != mqtt.MQTT_ERR_SUCCESS:
+                logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel")
+                self.is_failed = True
 
         self.is_connected = True
 

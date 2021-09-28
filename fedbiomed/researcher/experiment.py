@@ -7,7 +7,7 @@ from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.datasets import FederatedDataSet
-
+from fedbiomed.researcher.feedback import Feedback
 
 class Experiment:
     """
@@ -24,6 +24,8 @@ class Experiment:
                  rounds: int = 1,
                  aggregator: aggregator.Aggregator = fedavg.FedAverage(),
                  client_selection_strategy: Strategy = None,
+                 tensorboard: bool = False,
+                 verbose: bool = False
                  ):
 
         """ Constructor of the class.
@@ -84,8 +86,11 @@ class Experiment:
         # structure (dict ?) for additional parameters to the strategy
         # currently unused, to be defined when needed
         self._sampled = None
-
         self._aggregated_params = {}
+
+        self._feedback = Feedback(tensorboard=tensorboard, 
+                                  verbose=verbose,
+                                  job = self._job._id)
 
     @property
     def training_replies(self):
@@ -143,3 +148,9 @@ class Experiment:
 
             self._aggregated_params[round_i] = {'params': aggregated_params,
                                                 'params_path': aggregated_params_path}
+
+            # Notify feedback class
+            self._feedback.increase_round()
+
+        # Close summary writer
+        self._feedback.close_writer()

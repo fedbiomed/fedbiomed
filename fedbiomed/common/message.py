@@ -133,8 +133,7 @@ class AddScalarReply(Message):
     researcher_id: str
     client_id: str
     job_id: str
-    key: float
-    iteration: int
+    res: dict
     command: str
 
     def __post_init__(self):

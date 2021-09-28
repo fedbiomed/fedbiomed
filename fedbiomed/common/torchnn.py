@@ -134,9 +134,10 @@ class TorchTrainingPlan(nn.Module):
                         len(training_data.dataset),
                         100 * batch_idx / len(training_data),
                         res.item()))
-                    #
-                    # deal with the logger here
-                    #
+
+                    # Send scalar values via general/feedback topic
+                    if logger is not None:
+                        logger.add_scalar('Loss', res.item(), batch_idx, epoch, len(training_data.dataset), len(data))
 
                     if dry_run:
                         return

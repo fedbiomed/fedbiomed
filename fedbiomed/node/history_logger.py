@@ -15,7 +15,7 @@ class HistoryLogger:
         self.researcher_id = researcher_id
         self.messaging = client
 
-    def add_scalar(self, key: str, value: Union[int, float], iteration: int):
+    def add_scalar(self, key: str, value: Union[int, float], iteration: int, epoch: int, len_data: int, num_batch: int ):
         """Adds a value to the logger, and sends an 'AddReply'
         response to researcher
 
@@ -23,6 +23,10 @@ class HistoryLogger:
             key (str): name value in logger to keep track with
             value (Union[int, float]):  recorded value
             iteration (int): current epoch iteration.
+            epoch (int): current epoch
+            len_data (int): length of dataset
+            num_batch (int): total number of batches
+
         """
         try:
             self.history[key][iteration] = value
@@ -33,7 +37,15 @@ class HistoryLogger:
                                                                'client_id': CLIENT_ID,
                                                                'job_id': self.job_id,
                                                                'researcher_id': self.researcher_id,
-                                                               'key': value,
-                                                               'iteration': iteration,
+                                                               'res':  {
+                                                                   'key' : key,
+                                                                   'value': value,
+                                                                   'iteration': iteration,
+                                                                   'epoch': epoch,
+                                                                   'len_data': len_data,
+                                                                   'num_batch': num_batch
+                                                               },
                                                                "command": "add_scalar"
-                                                               }).get_dict())
+                                                               }).get_dict(), 
+                                                               client='feedback'
+                                                               )
