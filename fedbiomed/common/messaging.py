@@ -95,6 +95,8 @@ class Messaging:
             msg: mqtt on_message arg
         """
         message = json.deserialize_msg(msg.payload)
+
+        print("DEBUG (MQTT msg received) :", str(message))
         self.on_message_handler(message)
 
     def on_connect(self,
@@ -121,7 +123,13 @@ class Messaging:
         if self.messaging_type is MessagingType.RESEARCHER:
             result, _ = self.mqtt.subscribe('general/server')
             if result != mqtt.MQTT_ERR_SUCCESS:
-                logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel")
+                logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel general/server")
+                self.is_failed = True
+
+            # PoC subscibe also to error channel
+            result, _ = self.mqtt.subscribe('general/error')
+            if result != mqtt.MQTT_ERR_SUCCESS:
+                logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel general/error")
                 self.is_failed = True
         elif self.messaging_type is MessagingType.NODE:
             for channel in ('general/clients', 'general/' + self.messaging_id):

@@ -196,9 +196,11 @@ def launch_node():
             print("Terminating process " + str(p.pid))
             logger.info("Terminating process " + str(p.pid))
             time.sleep(1)
-        print('Exited with code ' + str(p.exitcode))
+        #print('Exited with code ' + str(p.exitcode))
         # (above) p.exitcode returns None if not finished yet
-        logger.info('Exited with code ' + str(p.exitcode))
+
+        # tell the researcher that node has stopped
+        logger.critical('Exited with code ' + str(p.exitcode))
         exit()
 
 
@@ -292,8 +294,10 @@ def main():
     try:
         launch_cli()
     except KeyboardInterrupt:
-        print('Operation cancelled by user.')
-        logger.info('Operation cancelled by user.')
+        #print('Operation cancelled by user.')
+
+        # send error message to researche via logger.error()
+        logger.critical('Operation cancelled by user.')
 
 
 if __name__ == '__main__':

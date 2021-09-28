@@ -18,6 +18,7 @@ import paho.mqtt.publish as publish
 
 import copy
 import json
+from time import sleep
 
 import logging
 import logging.handlers
@@ -292,11 +293,33 @@ class _LoggerBase():
         pass
 
 
+    def _forceMqttHandlerLevel(self, level):
+        """
+        internal method
+
+        MQTT handler must send ERROR/CRITICAL messages do the
+        the researcher.
+        This method does the job
+        """
+
+        # sanity check that MQTT handler is installed
+        if not "MQTT" in self._handlers:
+            return
+
+        level = self._internalLevelTranslator(level)
+
+        if level > logging.ERROR:
+            level = logging.error
+            logger.debug("setting minimal level to ERROR for MQTT handler")
+
+        self._handlers["MQTT"].setLevel(level)
+
+
     def addMqttHandler(self,
                        mqtt        = None,
                        client_id   = None,
                        topic       = DEFAULT_LOG_TOPIC,
-                       level       = DEFAULT_LOG_LEVEL
+                       level       = logging.ERROR
                        ):
 
         """
@@ -307,6 +330,8 @@ class _LoggerBase():
         client_id   : unique client id of the caller
         topic       : topic to publish to    (non mandatory)
         level       : level of this handler  (non mandatory)
+                      level must be lower than ERROR to insure that the
+                      research get all ERROR/CRITICAL messages
         """
 
         handler = MqttHandler(
@@ -315,12 +340,15 @@ class _LoggerBase():
             topic       = topic
         )
 
+        # may be not necessary ?
         handler.setLevel( self._internalLevelTranslator(level) )
         formatter = MqttFormatter(client_id)
 
         handler.setFormatter(formatter)
         self._internalAddHandler("MQTT", handler)
 
+        # as a side effect this will set the minimal level to ERROR
+        self.setLevel(level , "MQTT")
         pass
 
 
@@ -336,6 +364,10 @@ class _LoggerBase():
             msg,
             extra = { "level": self._original_levels[level]}
         )
+
+        # give time to mqtt handler to send data to the researcher
+        if "MQTT" in self._handlers:
+            time.sleep(1)
 
 
     def debug(self, msg):
@@ -420,6 +452,11 @@ class _LoggerBase():
         if htype is None:
             for h in self._handlers:
                 self._handlers[h].setLevel(level)
+            self._forceMqttHandlerLevel(level)
+            return
+
+        if htype == "MQTT":
+            self._forceMqttHandlerLevel(level)
             return
 
         if htype in self._handlers:
