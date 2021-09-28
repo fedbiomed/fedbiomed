@@ -40,19 +40,19 @@ class Feedback(metaclass=FeedbackMeta):
                  verbose: bool = False,
                  job: str = None):
 
-        self.messaging = Messaging(self.on_message, MessagingType.FEEDBACK,
+        self._messaging = Messaging(self.on_message, MessagingType.FEEDBACK,
                                    'NodeTrainingFeedbackClient', MQTT_BROKER, MQTT_BROKER_PORT)
         
         # Start subscriber
-        self.messaging.start(block=False)
+        self._messaging.start(block=False)
 
-        self._tensorboard = tensorboard
-        self._verbose = verbose
-        self._round = 0
-        self._job = job  
+        self.tensorboard = tensorboard
+        self.verbose = verbose
+        self.round = 0
+        self._job_id = job  
 
-        if self._tensorboard:
-            self.summary = SummaryWriter(TMP_DIR + '/tensorboard/job-' + self._job)
+        if self.tensorboard:
+            self._summary = SummaryWriter(TMP_DIR + '/tensorboard/job-' + self._job_id)
 
 
     def on_message(self, msg):
@@ -73,9 +73,9 @@ class Feedback(metaclass=FeedbackMeta):
 
         if msg['command'] == 'add_scalar':
             # Logging training feedback
-            if self._verbose: 
+            if self.verbose: 
                 logger.info('Round: {} Node: {} - Train Epoch: {} [{}/{}]\t{}: {:.6f}'.format(
-                                str(self._round),
+                                str(self.round),
                                 node,
                                 res['epoch'],
                                 res['iteration']*res['num_batch'],
@@ -83,10 +83,10 @@ class Feedback(metaclass=FeedbackMeta):
                                 res['key'],
                                 res['value']))
 
-            if self._tensorboard:
-                self.summary.add_scalar( 'Node-{}/Round-{}/{}'.format(
+            if self.tensorboard:
+                self._summary.add_scalar( 'Node-{}/Round-{}/{}'.format(
                                             node, 
-                                            str(self._round), 
+                                            str(self.round), 
                                             res['key'] ), 
                                             res['value'], 
                                             res['iteration']*
@@ -99,9 +99,9 @@ class Feedback(metaclass=FeedbackMeta):
         state in case of rebuilding Singleton class. It will update only 
         tensorboard and verbose states.   
         """
-        
-        self._tensorboard = tensorboard
-        self._verbose = verbose
+
+        self.tensorboard = tensorboard
+        self.verbose = verbose
 
 
 
@@ -112,18 +112,18 @@ class Feedback(metaclass=FeedbackMeta):
         """
 
         # Bring back the round at the begening
-        self._round = 0
+        self.round = 0
 
-        if self.summary:
-            self.summary.close()
+        if self._summary:
+            self._summary.close()
         else: 
             logger.warning('TensorBoard has not been activated for the experiment')
 
     def flush_summary(self):
 
         # Flush summary files
-        if self.summary:
-            self.summary.flush()
+        if self._summary:
+            self._summary.flush()
         else:
             logger.warning('TensorBoard has not been activated for the experiment')
 
@@ -132,4 +132,4 @@ class Feedback(metaclass=FeedbackMeta):
         """ This method increase the round based on the rounds of the experiment
             It is called after each round loop. 
         """
-        self._round += 1
+        self.round += 1
