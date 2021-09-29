@@ -90,7 +90,7 @@ model_args = {}
 training_args = {
     'batch_size': 48,
     'lr': 1e-3,
-    'epochs': 2,
+    'epochs': 3,
     'dry_run': False,
     'batch_maxnum': 100  # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
@@ -105,7 +105,7 @@ from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 tags =  ['#MNIST', '#dataset']
-rounds = 2
+rounds = 3
 
 exp = Experiment(tags=tags,
                 #clients=None,
@@ -117,7 +117,6 @@ exp = Experiment(tags=tags,
                 rounds=rounds,
                 aggregator=FedAverage(),
                 client_selection_strategy=None,
-                verbose=True,
                 tensorboard=True)
 
 

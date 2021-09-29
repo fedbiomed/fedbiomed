@@ -24,8 +24,7 @@ class Experiment:
                  rounds: int = 1,
                  aggregator: aggregator.Aggregator = fedavg.FedAverage(),
                  client_selection_strategy: Strategy = None,
-                 tensorboard: bool = False,
-                 verbose: bool = False
+                 tensorboard: bool = False
                  ):
 
         """ Constructor of the class.
@@ -88,9 +87,7 @@ class Experiment:
         self._sampled = None
         self._aggregated_params = {}
 
-        self._feedback = Feedback(tensorboard=tensorboard, 
-                                  verbose=verbose,
-                                  job = self._job._id)
+        self._feedback = Feedback(tensorboard=tensorboard)
 
     @property
     def training_replies(self):
@@ -154,3 +151,4 @@ class Experiment:
 
         # Close summary writer
         self._feedback.close_writer()
+        
