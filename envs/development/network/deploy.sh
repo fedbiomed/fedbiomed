@@ -26,6 +26,7 @@ do
             exit 1;;
     esac
 done
+# rq: $0 gives the name of the script file (hence it outputs `deploy.sh`)
 
 # Start the new one
 docker-compose up --force-recreate -d

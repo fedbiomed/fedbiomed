@@ -6,9 +6,21 @@ version 3 implementation of the Fed-BioMed project
 
 Fed-BioMed is developped under Linux Fedora, should be easily ported to other Linux distributions.
 
+### Prerequisites :
+
+To ensure fedbiomed will work fine, you need to install before :
+* docker.
+* docker-compose
+* conda
+
 ### clone repo
 
-Clone the FedBiomed repository
+Clone the FedBiomed repository for running the software :
+```
+git clone https://gitlab.inria.fr/fedbiomed/fedbiomed.git
+```
+
+Fed-BioMed developers clone of the repository :
 ```
 git clone git@gitlab.inria.fr:fedbiomed/fedbiomed.git
 ```
@@ -45,7 +57,6 @@ where ENV chosen from:
 * node
 * researcher
 
-
 ### run the software
 
 #### run the network part
@@ -79,9 +90,19 @@ $ ./scripts/fedbiomed_run node add
 * you may also specify a new config file for the node (usefull then running multiple test nodes on the same host)
 
 ```
-$ ./scripts/fedbiomed_run node start config another_config.ini
+$ ./scripts/fedbiomed_run node config another_config.ini start
 ```
 
+* if you want to change the default IP address used to join the fedbiomed network component (localhost), you can provide it at launch time:
+
+```
+$ ./scripts/fedbiomed_run node ip_address 192.168.0.100 start
+$ ./scripts/fedbiomed_run researcher ip_address 192.168
+```
+
+(adjust the 192.168.0.100 IP address to your configuration)
+
+If this option is given at the first launch or after a clean, it is saved in the configuration file and becomes the default for subsequent launches. If this option is given at a subsequent launch, it only affects this launch.
 
 #### run a researcher notebook
 
@@ -111,6 +132,25 @@ $ source ./scripts/fedbiomed_environment researcher
 $ python ./notebooks/getting-started.py
 ```
 
+### change IP address for network in the current bash
+
+By default, fedbiomed-{node,researcher} contact fedbiomed-network on `localhost`.
+To configure your current shell to use another IP address for joining fedbiomed-network (e.g. 192.168.0.100):
+
+```bash
+source ./scripts/fedbiomed_environment network
+source ./scripts/fedbiomed_environment node 192.168.0.100
+source ./scripts/fedbiomed_environment researcher 192.168.0.100
+```
+
+Then launch the components with usual commands while you are in the current shell.
+
+Warning: this option does not modify the existing configuration file (.ini file).
+
+
+This currently doesn't support scenario where node and researcher do not use the same IP address to contact the network (eg: NAT for one component).
+
+
 ### clean state (restore environments back to new)
 
 De-configure environments, remove all configuration files and caches
@@ -129,4 +169,3 @@ list the content of a message queue (as used in fedbiomed.node and fedbiomed.res
 usage:  lqueue directory
    or
         lqueue dir1 dir2 dir3 ...
-
