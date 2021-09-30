@@ -94,9 +94,13 @@ class Messaging:
             userdata (Any): mqtt on_message arg (unused)
             msg: mqtt on_message arg
         """
-        message = json.deserialize_msg(msg.payload)
 
-        print("DEBUG (MQTT msg received) :", str(message))
+        # did not decide how to manage general/logger messages yet
+        print("#### msg received - topic =", str(msg.topic), " content =", str(json.deserialize_msg(msg.payload)))
+        if str(msg.topic) == "general/logger":
+            return
+
+        message = json.deserialize_msg(msg.payload)
         self.on_message_handler(message)
 
     def on_connect(self,
@@ -127,7 +131,7 @@ class Messaging:
                 self.is_failed = True
 
             # PoC subscibe also to error channel
-            result, _ = self.mqtt.subscribe('general/error')
+            result, _ = self.mqtt.subscribe('general/logger')
             if result != mqtt.MQTT_ERR_SUCCESS:
                 logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel general/error")
                 self.is_failed = True
