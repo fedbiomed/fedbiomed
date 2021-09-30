@@ -15,7 +15,7 @@ RUN git clone https://git.zx2c4.com/wireguard-tools && \
     make -C wireguard-tools/src install
 
 
-# docker base image for VPN server, Fed-BioMer node and researcher
+# docker base image for VPN server, Fed-BioMed node and researcher
 # - need proper python version for Fed-BioMed
 FROM python:3.9-slim-bullseye
 

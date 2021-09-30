@@ -8,7 +8,7 @@ CONTAINER_UID=${CONTAINER_UID:-root}
 RUNNING_KERNELWG=false
 RUNNING_BORINGTUN=false
 
-# { "$USE_WG_KERNEL_MOD" && ip link add dev wg0 type wireguard; } || { WG_SUDO=1 boringtun wg0 && RUNNING_BORINGTUN=true; }
+# launch wireguard kernel module or userspace (boringtun)
 if "$USE_WG_KERNEL_MOD"
 then
     ip link add dev wg0 type wireguard
@@ -25,6 +25,8 @@ fi
 # need wireguard to continue
 "$RUNNING_KERNELWG" || "$RUNNING_BORINGTUN" || { echo "ERROR: Could not start wireguard" ; exit 1 ; }
 
+# initiate configuration directories
+# use container launcher's identity to avoid creating root owned files on mounted filesystem
 CONFIG_DIR=/config
 su -c "mkdir -p $CONFIG_DIR/wireguard" $CONTAINER_UID
 su -c "mkdir -p $CONFIG_DIR/ip_assign" $CONTAINER_UID
