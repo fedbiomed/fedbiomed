@@ -1,4 +1,6 @@
 import os
+import signal
+import sys
 import time
 from multiprocessing import Process
 
@@ -160,22 +162,43 @@ def add_database(interactive=True, path=''):
     data_manager.list_my_data(verbose=True)
 
 
+def node_signal_handler(signum, frame):
+    """
+    Catch the temination signal then user stops the process
+    """
+    logger.critical("Node stopped, probably by user decision (Ctrl C)")
+    sys.exit(15)
+
 def manage_node():
     """
     Instantiates a node and data manager objects. Then, node starts
     messaging with the Network
     """
-    logger.info('Launching node')
 
-    data_manager = Data_manager()
-    logger.info('Starting communication channel with network')
-    node = Node(data_manager)
-    node.start_messaging(block=False)
+    try:
+        signal.signal(signal.SIGTERM, node_signal_handler)
 
-    print('\t - Starting task manager...\n')
-    logger.info('Starting task manager')
-    node.task_manager()  # handling training tasks in queue
+        logger.info('Launching node')
 
+        data_manager = Data_manager()
+        logger.info('Starting communication channel with network')
+        node = Node(data_manager)
+        node.start_messaging(block=False)
+
+        logger.info('Starting task manager')
+        node.task_manager()  # handling training tasks in queue
+
+    except Exception as e:
+        # must send info to the researcher
+        logger.critical("Node stopped. Error =", str(e))
+
+
+    # finally:
+    #     # must send info to the researcher (as critical ?)
+    #     logger.critical("(CRIT)Node stopped, probably by user decision (Ctrl C)")
+    #     time.sleep(1)
+    #     logger.exception("Reason:")
+    #     time.sleep(1)
 
 def launch_node():
     """
@@ -187,20 +210,22 @@ def launch_node():
     p.daemon = True
     p.start()
 
+    logger.info("Node started as process with pid = "+ str(p.pid))
     try:
         print('To stop press Ctrl + C.')
         p.join()
     except KeyboardInterrupt:
         p.terminate()
-        while(p.is_alive()):
-            print("Terminating process " + str(p.pid))
-            logger.info("Terminating process " + str(p.pid))
-            time.sleep(1)
-        #print('Exited with code ' + str(p.exitcode))
-        # (above) p.exitcode returns None if not finished yet
 
-        # tell the researcher that node has stopped
-        logger.critical('Exited with code ' + str(p.exitcode))
+        # give time to the node to send a MQTT message
+        time.sleep(1)
+        while(p.is_alive()):
+            logger.info("Terminating process id =" + str(p.pid))
+            time.sleep(1)
+
+        # (above) p.exitcode returns None if not finished yet
+        logger.info('Exited with code ' + str(p.exitcode))
+
         exit()
 
 
