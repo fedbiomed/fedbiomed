@@ -118,6 +118,7 @@ class MqttHandler(logging.Handler):
         msg = self.format(record)
         self._mqtt.publish(self._topic, msg)
 
+
 #
 # singletonizer: transforms a class to a singleton
 # nothing else to say really !
@@ -156,7 +157,7 @@ class _LoggerBase():
 
         # internal tables
         # transform string to logging.level
-        self._levels = {
+        self._string_levels = {
             "DEBUG"          : logging.DEBUG,
             "INFO"           : logging.INFO,
             "WARNING"        : logging.WARNING,
@@ -223,7 +224,7 @@ class _LoggerBase():
         level:  logging.* form of the level
 
         ex:
-        _internalLevelTranslator('DEBUG')  returns logging.DEBUG
+        _internalLevelTranslator('DEBUG')  returns logging.DEBUG aka 10
         """
 
         # logging.*
@@ -234,8 +235,8 @@ class _LoggerBase():
         if isinstance(level, str):
             upperlevel = level.upper()
 
-            if upperlevel in self._levels:
-                return self._levels[upperlevel]
+            if upperlevel in self._string_levels:
+                return self._string_levels[upperlevel]
 
         # bad input !
 
@@ -245,6 +246,16 @@ class _LoggerBase():
         self._logger.warning("calling selLevel() with bad value: " + str(level))
         return DEFAULT_LOG_LEVEL
 
+
+    def _internalLevelToString(self, level):
+        """
+        Returns a string corresponding to the log level
+        """
+        if level in self._string_levels:
+            return level
+        if level in self._original_levels:
+            return self._original_levels[level]
+        return "UNKNOWN"
 
 
     def addFileHandler(self,
@@ -293,13 +304,13 @@ class _LoggerBase():
         pass
 
 
-    def _forceMqttHandlerLevel(self, level):
+    def _internalForceMqttHandlerLevel(self, level):
         """
         internal method
 
-        MQTT handler must send ERROR/CRITICAL messages do the
-        the researcher.
-        This method does the job
+        MQTT handler must send ERROR + CRITICAL messages do the
+        the researcher, in any case. So MQQT handler error level must
+        be at least ERROR.
         """
 
         # sanity check that MQTT handler is installed
@@ -354,15 +365,16 @@ class _LoggerBase():
 
     def log(self, level, msg):
         """
-        overrides the logging.log() method to allow the usae of
+        overrides the logging.log() method to allow the use of
         string instead of a logging.* level
         """
 
+        print("###### log:", level)
         level = logger._internalLevelTranslator(level)
         self._logger.log(
             level,
             msg,
-            extra = { "level": self._original_levels[level]}
+            extra = { "level": self._internalLevelToString(level)}
         )
 
         # give time to mqtt handler to send data to the researcher
@@ -452,11 +464,11 @@ class _LoggerBase():
         if htype is None:
             for h in self._handlers:
                 self._handlers[h].setLevel(level)
-            self._forceMqttHandlerLevel(level)
+            self._internalForceMqttHandlerLevel(level)
             return
 
         if htype == "MQTT":
-            self._forceMqttHandlerLevel(level)
+            self._internalForceMqttHandlerLevel(level)
             return
 
         if htype in self._handlers:
