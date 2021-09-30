@@ -165,9 +165,11 @@ def add_database(interactive=True, path=''):
 def node_signal_handler(signum, frame):
     """
     Catch the temination signal then user stops the process
+    and send SystemExit(0) to be trapped later
     """
-    logger.critical("Node stopped, probably by user decision (Ctrl C)")
-    sys.exit(15)
+    logger.critical("Node stopped in signal_handler, probably by user decision (Ctrl C)")
+    time.sleep(1)
+    sys.exit(signum)
 
 def manage_node():
     """
@@ -190,7 +192,13 @@ def manage_node():
 
     except Exception as e:
         # must send info to the researcher
-        logger.critical("Node stopped. Error =", str(e))
+        logger.critical("Node stopped. Error = ", str(e))
+
+    finally:
+        # this is triggered by the signal.SIGTERM handler SystemExit(0)
+        #
+        # cleaning staff should be done here
+        pass
 
 
     # finally:
