@@ -37,7 +37,7 @@ services:
         - CONTAINER_GID
     image: fedbiomed/vpnserver
     env_file:
-      - ./vpnserver/config/config.env
+      - ./vpnserver/run_mounts/config/config.env
     environment:
       - CONTAINER_UID
       - CONTAINER_GID
@@ -47,6 +47,6 @@ services:
     devices:
       - /dev/net/tun # needed to handle wireguard interface
     volumes:
-      - ./vpnserver/config:/config
+      - ./vpnserver/run_mounts/config:/config
     ports:
       - 51820:51820/udp
