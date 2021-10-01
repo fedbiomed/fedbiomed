@@ -48,7 +48,7 @@ services:
     devices:
       - /dev/net/tun # needed to handle wireguard interface
     volumes:
-      - ./vpnserver/run_mounts/config:/config
+      - ./vpnserver/run_mounts/config:/config # contains VPN configurations
     ports:
       - 51820:51820/udp
   #
@@ -61,5 +61,17 @@ services:
       args:
         - CONTAINER_UID
         - CONTAINER_GID
+    image: fedbiomed/node
+    env_file:
+      - ./node/run_mounts/config/config.env
+    cap_add:
+      - net_admin
+      - sys_module
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./node/run_mounts/config:/config # contains VPN configurations
+      - ./node/run_mounts/data:/data # datasets can be added here
+
 
       

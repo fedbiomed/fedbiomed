@@ -14,6 +14,16 @@ RUN [ "$CONTAINER_GID" != 'root' ] && groupadd -g $CONTAINER_GID $CONTAINER_GID 
 RUN [ "$CONTAINER_UID" != 'root' ] && useradd -m -d /home/$CONTAINER_UID \
         -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_UID || :
 
+# Install miniconda
+RUN wget -q --directory-prefix=$HOME https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
+        bash $HOME/Miniconda3-latest-Linux-x86_64.sh -b -p /miniconda && \
+        rm -f $HOME/Miniconda3-latest-Linux-x86_64.sh
+# easier to install in a fixed path, not in alternate account home :
+# cannot use "ENV PATH=${PATH}:${HOME}/miniconda/bin" : wont work because
+# ${HOME} not defined in ENV command, only in RUN/etc. (executing in subshell)
+ENV PATH=${PATH}:/miniconda/bin
+
+# Setup subset of fedbiomed code tree
 RUN mkdir /fedbiomed
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
 COPY envs /fedbiomed/envs
@@ -24,18 +34,14 @@ COPY scripts /fedbiomed/scripts
 #    a long time if you have zillion files in notebooks/data)
 #  - ensures using develop branch (good or bad)
 
+# Prepare for work in context of alternate account
 RUN chown -R $CONTAINER_UID:$CONTAINER_GID /fedbiomed
 WORKDIR /fedbiomed
 USER $CONTAINER_UID:$CONTAINER_GID
 
-# 
-#RUN wget -nv --directory-prefix=$HOME https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-#        bash $HOME/Miniconda3-latest-Linux-x86_64.sh -b -p $HOME/miniconda && \
-#        rm -f $HOME/Miniconda3-latest-Linux-x86_64.sh
-
-#RUN conda env update --file ./envs/development/conda/fedbiomed-node.yaml
-## another option : add tag to configure script to call "./scripts/configure_conda fedbiomed-node"
-
+# Configure conda env in context of alternate account
+RUN conda env update --file ./envs/development/conda/fedbiomed-node.yaml
+# another option : add tag to configure script to call "./scripts/configure_conda fedbiomed-node"
 
 #ENTRYPOINT ["./entrypoint.sh"]
 ENTRYPOINT ["sleep", "infinity"] 
