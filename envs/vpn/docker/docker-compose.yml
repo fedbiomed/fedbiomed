@@ -6,7 +6,7 @@ services:
   builder:
     container_name: fedbiomed-builder
     build:
-      context: ./base/build_root
+      context: ./base/build_files
       target: builder
     image: fedbiomed/builder
     entrypoint: /bin/true
@@ -21,7 +21,7 @@ services:
   base:
     container_name: fedbiomed-base
     build:
-      context: ./base/build_root
+      context: ./base/build_files
     image: fedbiomed/base
     entrypoint: /bin/true
     # profiles:
@@ -31,16 +31,17 @@ services:
   vpnserver:
     container_name: fedbiomed-vpnserver
     build:
-      context: ./vpnserver/build_root
+      context: ./vpnserver/build_files
       args:
-        - CONTAINER_UID
-        - CONTAINER_GID
+        - CONTAINER_UID # build and use other account than "root"
+        - CONTAINER_GID # build and use other group than "root"
     image: fedbiomed/vpnserver
     env_file:
       - ./vpnserver/run_mounts/config/config.env
-    environment:
-      - CONTAINER_UID
-      - CONTAINER_GID
+    #environment:
+    ## not needed, use image settings
+    #  - CONTAINER_UID
+    #  - CONTAINER_GID
     cap_add:
       - net_admin # needed to handle wireguard interface
       - sys_module # needed to remove wireguard kernel module
@@ -50,3 +51,15 @@ services:
       - ./vpnserver/run_mounts/config:/config
     ports:
       - 51820:51820/udp
+  #
+  # node component
+  node:
+    container_name: fedbiomed-node
+    build:
+      context: ../../..
+      dockerfile: envs/vpn/docker/node/build_files/Dockerfile
+      args:
+        - CONTAINER_UID
+        - CONTAINER_GID
+
+      

@@ -1,0 +1,41 @@
+FROM fedbiomed/base
+
+ARG CONTAINER_GID
+ARG CONTAINER_UID
+# assign default values even when variable exists and is empty
+# (ARG default value only applies when variable is non existent)
+# + make it persistent at runtime (pass this variable to container)
+ENV CONTAINER_UID=${CONTAINER_UID:-root}
+ENV CONTAINER_GID=${CONTAINER_GID:-root}
+
+RUN apt-get update && apt-get install -y apt-utils wget
+
+RUN [ "$CONTAINER_GID" != 'root' ] && groupadd -g $CONTAINER_GID $CONTAINER_GID || :
+RUN [ "$CONTAINER_UID" != 'root' ] && useradd -m -d /home/$CONTAINER_UID \
+        -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_UID || :
+
+RUN mkdir /fedbiomed
+# Copy files from fedbiomed repo - in the context of fedbiomed top directory
+COPY envs /fedbiomed/envs
+COPY fedbiomed /fedbiomed/fedbiomed
+COPY scripts /fedbiomed/scripts
+# Alternative option : git clone & strip unused dirs
+#  - ensures working with clean repo (docker build begins with a stat(), hangs for 
+#    a long time if you have zillion files in notebooks/data)
+#  - ensures using develop branch (good or bad)
+
+RUN chown -R $CONTAINER_UID:$CONTAINER_GID /fedbiomed
+WORKDIR /fedbiomed
+USER $CONTAINER_UID:$CONTAINER_GID
+
+# 
+#RUN wget -nv --directory-prefix=$HOME https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
+#        bash $HOME/Miniconda3-latest-Linux-x86_64.sh -b -p $HOME/miniconda && \
+#        rm -f $HOME/Miniconda3-latest-Linux-x86_64.sh
+
+#RUN conda env update --file ./envs/development/conda/fedbiomed-node.yaml
+## another option : add tag to configure script to call "./scripts/configure_conda fedbiomed-node"
+
+
+#ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["sleep", "infinity"] 
