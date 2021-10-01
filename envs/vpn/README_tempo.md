@@ -21,9 +21,27 @@ CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build node
 * on the vpn server
 ```bash
 cd ./envs/vpn/docker
-# launch wanted container(s)
 docker-compose up -d vpnserver
+```
+
+* on the node
+```bash
+cd ./envs/vpn/docker
 docker-compose up -d node
+```
+
+## connecting to containers
+
+Works only if the container is running
+
+* on the VPN server
+```bash
+docker container exec -ti fedbiomed-vpnserver bash
+```
+
+* on the node
+```bash
+docker container exec -ti -u $(id -u) fedbiomed-vpnserver bash
 ```
 
 

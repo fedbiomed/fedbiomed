@@ -23,6 +23,7 @@ RUN wget -q --directory-prefix=$HOME https://repo.anaconda.com/miniconda/Minicon
 # ${HOME} not defined in ENV command, only in RUN/etc. (executing in subshell)
 ENV PATH=${PATH}:/miniconda/bin
 
+COPY ./envs/vpn/docker/node/build_files/entrypoint.sh /
 # Setup subset of fedbiomed code tree
 RUN mkdir /fedbiomed
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
@@ -43,5 +44,7 @@ USER $CONTAINER_UID:$CONTAINER_GID
 RUN conda env update --file ./envs/development/conda/fedbiomed-node.yaml
 # another option : add tag to configure script to call "./scripts/configure_conda fedbiomed-node"
 
-#ENTRYPOINT ["./entrypoint.sh"]
-ENTRYPOINT ["sleep", "infinity"] 
+# Launch as root to manage VPN
+USER root:root
+ENTRYPOINT ["/entrypoint.sh"]
+

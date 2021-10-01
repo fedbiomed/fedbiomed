@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Fed-BioMed - VPN server container launch script
+# Fed-BioMed - node container launch script
 # - launched as root to handle VPN
 # - may drop privileges to CONTAINER_UID at some point
 
@@ -29,13 +29,6 @@ fi
 # need wireguard to continue
 "$RUNNING_KERNELWG" || "$RUNNING_BORINGTUN" || { echo "ERROR: Could not start wireguard" ; exit 1 ; }
 
-# initiate configuration directories
-# use container launcher's identity to avoid creating root owned files on mounted filesystem
-CONFIG_DIR=/config
-su -c "mkdir -p $CONFIG_DIR/wireguard" $CONTAINER_UID
-su -c "mkdir -p $CONFIG_DIR/ip_assign" $CONTAINER_UID
-su -c "mkdir -p $CONFIG_DIR/config_peers" $CONTAINER_UID
-
 if [ -s "$CONFIG_DIR/wireguard/wg0.conf" ]
 then
     echo "Loading Wireguard config..."
@@ -46,8 +39,9 @@ else
     ( umask 0077; wg showconf wg0 | su -c "cat - > $CONFIG_DIR/wireguard/wg0.conf" $CONTAINER_UID )
 fi
 
-# VPN server setup
-wg set wg0 listen-port $VPN_SERVER_PORT
+# VPN client setup
+wg set wg0 peer "$VPN_SERVER_PUBLIC_KEY" allowed-ips "$VPN_SERVER_ALLOWED_IPS" endpoint "$VPN_SERVER_ENDPOINT" preshared-key <(echo "$VPN_SERVER_PSK") persistent-keepalive 25
+unset VPN_SERVER_PSK
 
 ip -4 address add "$VPN_IP/$VPN_SUBNET_PREFIX" dev wg0
 ip link set mtu 1420 up dev wg0
