@@ -7,7 +7,7 @@ from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.monitoring import Monitoring
+from fedbiomed.researcher.monitor import Monitor
 
 class Experiment:
     """
@@ -87,7 +87,7 @@ class Experiment:
         self._sampled = None
         self._aggregated_params = {}
 
-        self._monitor = Monitoring(tensorboard=tensorboard)
+        self._monitor = Monitor(tensorboard=tensorboard)
 
     @property
     def training_replies(self):

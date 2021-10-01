@@ -1,17 +1,14 @@
 import os
 import shutil
-import time
 from threading import Lock
 from fedbiomed.node.environ import  TMP_DIR, MQTT_BROKER, MQTT_BROKER_PORT
 from fedbiomed.common.messaging import Messaging, MessagingType
 from fedbiomed.common.message import MonitorMessages 
 from fedbiomed.common.logger import logger
-from tensorboard.compat.proto import event_pb2
-from tensorboard.compat.proto.summary_pb2 import Summary
-from tensorboard.summary.writer.event_file_writer import EventFileWriter
+from torch.utils.tensorboard import SummaryWriter
 
 
-class MonitoringMeta(type):
+class MonitorMeta(type):
     """ This class is a thread safe singleton for Feedback, a common design pattern
     for ensuring only one instance of each class using this metaclass
     is created in the process
@@ -29,15 +26,16 @@ class MonitoringMeta(type):
                 object = super().__call__(*args, **kwargs)
                 cls._objects[cls] = object
             else:
-                # Change the tensorboard state with given new state if the class has been already constructed 
+                # Change the tensorboard state with given new state if the singleton 
+                # class has been already constructed 
                 cls._objects[cls].reconstruct(kwargs['tensorboard'])
 
         return cls._objects[cls]
 
 
-class Monitoring(metaclass=MonitoringMeta):
+class Monitor(metaclass=MonitorMeta):
 
-    """ This is the class that subscribes feedback channel and logs scalar values 
+    """ This is the class that subscribes monitor channel and logs scalar values 
     using `logger`. It also writes scalar values to tensorboard log files. 
     """
     
@@ -52,7 +50,10 @@ class Monitoring(metaclass=MonitoringMeta):
         self.tensorboard = tensorboard
         self.round = 0
         self._event_writers = {}
-        self._global_step = 0
+        self._step = 0
+        self._step_state = 0
+        self._stepper = 0
+
 
         # Clear logs directory from the files from other experiments.
         shutil.rmtree(self._log_dir)
@@ -83,12 +84,17 @@ class Monitoring(metaclass=MonitoringMeta):
             self._log_to_console(msg)
 
             if self.tensorboard:
-                self._summary_writer(msg)
+                self._summary_writer(msg['client_id'], 
+                                     msg['key'],   
+                                     msg['iteration'],   
+                                     msg['value'],
+                                     msg['epoch'] 
+                )
     
 
     def _log_to_console(self, msg):
 
-        """ This method is for loging scalar values into console by usign
+        """ This method is for loging scalar values into console by using
         logger.
         """
 
@@ -102,23 +108,32 @@ class Monitoring(metaclass=MonitoringMeta):
                         msg['value']))
 
     
-    def _summary_writer(self, msg):
+    def _summary_writer(self, client: str, key: str, global_step: int, scalar: float, epoch: int ):
 
         """ This method is for writing scalar values using torch SummaryWriter
         It create new summary path for each round of traning
         """
         
-        if msg['client_id'] not in self._event_writers:
-            self._event_writers[msg['client_id']] = self._SummaryWriter(self._log_dir + '/NODE-' + msg['client_id'])
-    
 
-        self._event_writers[msg['client_id']].add_scalar('Metric[{}]'.format( 
-                                                            msg['key'] ), 
-                                                            msg['value'],  
-                                                            msg['iteration'],
-                                                            msg['epoch'],
-                                                            self.round
-                                                            )
+        if client not in self._event_writers:
+             self._event_writers[client] = SummaryWriter(log_dir=self._log_dir + '/NODE-' + client)
+        
+
+        # Operations for finding log interval 
+        if  global_step != 0 and self._stepper == 0:
+            self._stepper = global_step 
+
+        if global_step == 0:
+            self._step_state = self._step + self._stepper 
+
+        self._step = self._step_state + global_step 
+
+        self._event_writers[client].add_scalar('Metric[{}]'.format( 
+                                                            key ), 
+                                                            scalar,  
+                                                            self._step)
+
+        #self._event_writers[client].close()
 
     def reconstruct(self, tensorboard: bool):
         
@@ -152,57 +167,3 @@ class Monitoring(metaclass=MonitoringMeta):
             It is called after each round loop. 
         """
         self.round += 1
-
-
-    class _SummaryWriter():
-
-        """ SummaryWriter for scalar values that comes from each client"""
-
-        def __init__(self, log_dir: str, flush_secs: int = 120,  filename_suffix: str =''):
-
-            """ EventFileWriter for writing scalar events in to tensorboard log
-            file.
-
-            Args:
-                log_dir (str): Directory that logs will be writen
-                flush_secs (int): in seconds, flush time interval for pending events
-                filename_suffix (str): suffix for adding all log files
-            """
-
-
-            self._event_writer = EventFileWriter(log_dir, 
-                                                 flush_secs=flush_secs, 
-                                                 filename_suffix= filename_suffix) 
-            self._step = 0
-            self._step_state = 0
-            self._stepper = 0
-
-        def add_scalar(self, tag: str, scalar: float, global_step: int,  epoch: int, round: int, walltime: time = None):
-
-            """ Add scalar to summary using event writer"""
-
-            # Oparations for finding log interval 
-            if global_step != 0 and self._stepper == 0:
-                self._stepper = global_step 
-            if global_step == 0:
-                self._step_state = self._step + self._stepper 
-
-            self._step = self._step_state + global_step 
-            
-                 
-            summary = Summary(value=[Summary.Value(tag=tag, simple_value=scalar)])
-            event = event_pb2.Event(summary=summary)
-            
-            # Time that scalar is writen
-            event.wall_time = time.time() if walltime is None else walltime
-            
-            if global_step is not None:
-                event.step = int(self._step)
-
-            self._event_writer.add_event(event)
-
-        def close(self):
-
-            """Method for closing event writer"""   
-            self._event_writer.close()
-
