@@ -5,7 +5,7 @@ from fedbiomed.common.messaging import Messaging
 from fedbiomed.node.environ import CLIENT_ID
 
 
-class HistoryLogger:
+class HistoryMonitor:
     def __init__(self,
                  job_id: str,
                  researcher_id: str,
@@ -15,8 +15,8 @@ class HistoryLogger:
         self.researcher_id = researcher_id
         self.messaging = client
 
-    def add_scalar(self, key: str, value: Union[int, float], iteration: int, epoch: int, len_data: int, num_batch: int ):
-        """Adds a value to the logger, and sends an 'AddReply'
+    def add_scalar(self, key: str, value: Union[int, float], iteration: int, epoch: int ):
+        """Adds a scalar value to the monitor, and sends an 'AddScalarReply'
         response to researcher
 
         Args:
@@ -24,10 +24,9 @@ class HistoryLogger:
             value (Union[int, float]):  recorded value
             iteration (int): current epoch iteration.
             epoch (int): current epoch
-            len_data (int): length of dataset
-            num_batch (int): total number of batches
-
         """
+
+        # Keeps history of the scalar values. Please see Round.py where it is called 
         try:
             self.history[key][iteration] = value
         except (KeyError, AttributeError):
@@ -37,15 +36,11 @@ class HistoryLogger:
                                                                'client_id': CLIENT_ID,
                                                                'job_id': self.job_id,
                                                                'researcher_id': self.researcher_id,
-                                                               'res':  {
-                                                                   'key' : key,
-                                                                   'value': value,
-                                                                   'iteration': iteration,
-                                                                   'epoch': epoch,
-                                                                   'len_data': len_data,
-                                                                   'num_batch': num_batch
-                                                               },
-                                                               "command": "add_scalar"
+                                                               'key' : key,
+                                                               'value': value,
+                                                               'iteration': iteration,
+                                                               'epoch' : epoch,
+                                                               'command': 'add_scalar'
                                                                }).get_dict(), 
-                                                               client='feedback'
+                                                               client='monitoring'
                                                                )

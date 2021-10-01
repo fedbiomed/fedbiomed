@@ -133,7 +133,10 @@ class AddScalarReply(Message):
     researcher_id: str
     client_id: str
     job_id: str
-    res: dict
+    key: str
+    value: float
+    epoch: int
+    iteration: int
     command: str
 
     def __post_init__(self):
@@ -224,8 +227,7 @@ class ResearcherMessages():
     def reply_create(cls, params: Dict[str, Any]) -> Union[TrainReply,
                                                            SearchReply,
                                                            PingReply,
-                                                           ErrorMessage,
-                                                           AddScalarReply]:
+                                                           ErrorMessage]:
         """this method is used on message reception (as a mean to reply to
         node requests, such as a Ping request).
         it creates the adequate message, it maps an instruction
@@ -248,8 +250,7 @@ class ResearcherMessages():
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
                                      'search': SearchReply,
                                      'ping': PingReply,
-                                     'error': ErrorMessage,
-                                     'add_scalar': AddScalarReply
+                                     'error': ErrorMessage
         }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -370,9 +371,9 @@ class NodeMessages():
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
-class FeedbackMessages():
+class MonitorMessages():
     """This class allows to create the corresponding class instance from
-    a received/ sent message by the researcher
+    a received/ sent message by the Monitoring
     """
     @classmethod
     def reply_create(cls, params: Dict[str, Any]) -> Union[AddScalarReply]:

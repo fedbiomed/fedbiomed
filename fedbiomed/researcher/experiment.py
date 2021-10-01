@@ -7,7 +7,7 @@ from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.feedback import Feedback
+from fedbiomed.researcher.monitoring import Monitoring
 
 class Experiment:
     """
@@ -87,7 +87,7 @@ class Experiment:
         self._sampled = None
         self._aggregated_params = {}
 
-        self._feedback = Feedback(tensorboard=tensorboard)
+        self._monitor = Monitoring(tensorboard=tensorboard)
 
     @property
     def training_replies(self):
@@ -147,8 +147,8 @@ class Experiment:
                                                 'params_path': aggregated_params_path}
 
             # Notify feedback class
-            self._feedback.increase_round()
+            self._monitor.increase_round()
 
         # Close summary writer
-        self._feedback.close_writer()
+        self._monitor.close_writer()
         

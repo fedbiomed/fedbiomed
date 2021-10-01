@@ -9,7 +9,7 @@ from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.messaging import Messaging,  MessagingType
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.node.environ import CLIENT_ID, MESSAGES_QUEUE_DIR, TMP_DIR, MQTT_BROKER, MQTT_BROKER_PORT
-from fedbiomed.node.history_logger import HistoryLogger
+from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.round import Round
 from fedbiomed.node.data_manager import Data_manager
 
@@ -134,7 +134,7 @@ class Node:
             msg = json.deserialize_msg(msg)
         msg = NodeMessages.request_create(msg)
         # msg becomes a TrainRequest object
-        hist_logger = HistoryLogger(job_id=msg.get_param(
+        hist_monitor = HistoryMonitor(job_id=msg.get_param(
             'job_id'), researcher_id=msg.get_param('researcher_id'),
                                client=self.messaging)
         # Get arguments for the model and training
@@ -183,7 +183,7 @@ class Node:
                         params_url,
                         job_id,
                         researcher_id,
-                        hist_logger))
+                        hist_monitor))
 
     def task_manager(self):
         """ This method manages training tasks in the queue

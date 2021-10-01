@@ -72,7 +72,7 @@ class TorchTrainingPlan(nn.Module):
                          batch_size: int = 48,
                          batch_maxnum: int = 0,
                          dry_run: bool = False,
-                         logger=None):
+                         monitor=None):
         """
         Training routine procedure.
 
@@ -136,8 +136,8 @@ class TorchTrainingPlan(nn.Module):
                         res.item()))
 
                     # Send scalar values via general/feedback topic
-                    if logger is not None:
-                        logger.add_scalar('Loss', res.item(), batch_idx, epoch, len(training_data.dataset), len(data))
+                    if monitor is not None:
+                        monitor.add_scalar('Loss', res.item(), batch_idx, epoch)
 
                     if dry_run:
                         return
