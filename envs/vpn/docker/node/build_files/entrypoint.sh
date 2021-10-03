@@ -60,4 +60,6 @@ finish () {
 trap finish TERM INT QUIT
 
 sleep infinity &
+# TODO launch node
+# su - c "./scripts/fedbiomed_run node start" $CONTAINER_UID &
 wait $!
