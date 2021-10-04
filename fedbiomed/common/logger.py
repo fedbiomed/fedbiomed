@@ -115,8 +115,21 @@ class MqttHandler(logging.Handler):
         record : is automatically passed by the logger class
         """
 
-        msg = self.format(record)
-        self._mqtt.publish(self._topic, msg)
+        #
+        # format a message as expected for LogMessage
+        #
+        # TODO:
+        # - use the Message class
+        # - get the researcher_id from the caller (is it needed ???)
+        #   researcher_id is not known then adding the mqtt handler....
+        #
+        msg = dict(
+            command       = 'log',
+            msg           = self.format(record),
+            client_id     = self._client_id,
+            researcher_id = 'uknown'
+        )
+        self._mqtt.publish(self._topic, json.dumps(msg))
 
 
 #

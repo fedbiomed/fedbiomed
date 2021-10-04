@@ -148,8 +148,8 @@ class Messaging:
                 # This is sldo tested by the addHandler() method, but
                 # it may raise a MQTT message (that we prefer not to send)
                 logger.addMqttHandler(
-                    mqtt      = self.mqtt,
-                    client_id = self.messaging_id
+                    mqtt          = self.mqtt,
+                    client_id     = self.messaging_id
                 )
                 # to get Train/Epoch messages on console and on MQTT
                 logger.setLevel("DEBUG")
