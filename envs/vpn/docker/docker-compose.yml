@@ -72,6 +72,18 @@ services:
     volumes:
       - ./node/run_mounts/config:/config # contains VPN configurations
       - ./node/run_mounts/data:/data # datasets can be added here
+  #
+  # mqtt server component
+  mosquitto:
+    container_name: fedbiomed-mqtt-vpn
+    build:
+      context: ./mosquitto/build_files
+    image: fedbiomed/mosquitto
+    #image: eclipse-mosquitto
+    command: ["/usr/sbin/mosquitto", "-c", "/mosquitto-no-auth.conf"]
+    ports:
+      - "1883:1883"
+      - "9001:9001"
 
 
       

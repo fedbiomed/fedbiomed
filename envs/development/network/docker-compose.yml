@@ -18,7 +18,9 @@ services:
       - "8844:8000"
   mosquitto:
     container_name: fedbiomed-mqtt
-    image: toke/mosquitto
+    #image: toke/mosquitto
+    image: eclipse-mosquitto
+    command: ["/usr/sbin/mosquitto", "-c", "/mosquitto-no-auth.conf"]
     ports:
       - "1883:1883"
       - "9001:9001"
