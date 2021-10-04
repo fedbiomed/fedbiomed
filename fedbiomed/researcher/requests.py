@@ -1,8 +1,10 @@
-from time import sleep
-import uuid
 from datetime import datetime
+import json
 from threading import Lock
+import sys
+from time import sleep
 from typing import Any, Dict
+import uuid
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
@@ -73,8 +75,37 @@ class Requests(metaclass=RequestMeta):
             msg (Dict[str, Any]): de-serialized msg
             topic (str)         : topic name (eg MQTT channel)
         """
-        logger.debug( 'MSG received on topic: ' + topic + ' - message: ' + str(msg))
-        self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
+
+        if topic == "general/logger":
+            self.node_log_handling(ResearcherMessages.reply_create(msg).get_dict())
+        elif topic == "general/server":
+            self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
+        else:
+            log.error("message received on wrong topic ("+ topic +") - IGNORING")
+
+
+    def node_log_handling(self, log: Dict[str, Any]):
+        """
+        manage log/error handling
+        """
+
+        # log contains the original message sent by the node
+        original_msg = json.loads(log["msg"])
+
+        logger.info("log from: " +
+                    log["client_id"] +
+                    " - " +
+                    log["level"] +
+                    " " +
+                    original_msg["message"])
+
+        # deal with error/critical messages from a node
+        node_msg_level = original_msg["level"]
+
+        if node_msg_level == "ERROR" or node_msg_level == "CRITICAL":
+            # first error  implementation: stop the researcher
+            print("#### STOP THE RESEARCHER !")
+            sys.exit(-1)
 
 
     def send_message(self, msg: dict, client=None):
