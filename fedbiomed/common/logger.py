@@ -18,7 +18,7 @@ import paho.mqtt.publish as publish
 
 import copy
 import json
-from time import sleep
+import time
 
 import logging
 import logging.handlers
