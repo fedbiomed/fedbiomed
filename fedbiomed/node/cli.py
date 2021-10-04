@@ -192,7 +192,7 @@ def manage_node():
 
     except Exception as e:
         # must send info to the researcher
-        logger.critical("Node stopped. Error = ", str(e))
+        logger.critical("Node stopped. Error = " + str(e))
 
     finally:
         # this is triggered by the signal.SIGTERM handler SystemExit(0)
