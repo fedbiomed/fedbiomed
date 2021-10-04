@@ -18,10 +18,12 @@ import paho.mqtt.publish as publish
 
 import copy
 import json
+import sys
 import time
 
 import logging
 import logging.handlers
+
 
 # default values
 DEFAULT_LOG_FILE   = 'mylog.log'
@@ -102,10 +104,9 @@ class MqttHandler(logging.Handler):
         """
 
         logging.Handler.__init__(self)
-        self._client_id = client_id
-        self._mqtt      = mqtt
-        self._topic     = topic
-
+        self._client_id      = client_id
+        self._mqtt           = mqtt
+        self._topic          = topic
 
     def emit(self, record):
         """
@@ -119,7 +120,6 @@ class MqttHandler(logging.Handler):
         # format a message as expected for LogMessage
         #
         # TODO:
-        # - use the Message class
         # - get the researcher_id from the caller (is it needed ???)
         #   researcher_id is not known then adding the mqtt handler....
         #
@@ -130,7 +130,25 @@ class MqttHandler(logging.Handler):
             client_id     = self._client_id,
             researcher_id = 'uknown'
         )
-        self._mqtt.publish(self._topic, json.dumps(msg))
+        try:
+            #
+            # import is done here to avoid circular import
+            # it must also be done each time emit() is called
+            #
+            import fedbiomed.common.message as message
+
+            # verify the message content with Message validator
+            r = message.NodeMessages.reply_create( msg )
+            self._mqtt.publish(self._topic, json.dumps(msg))
+
+        except:
+            # obviously cannot call logger here... (infinite loop)
+            print(
+                record.__dict__["asctime"],
+                record.__dict__["name"],
+                "CRITICAL - Badly formatted MQTT log message. Cannot send MQTT message"
+            )
+            sys.exit(-1)
 
 
 #
