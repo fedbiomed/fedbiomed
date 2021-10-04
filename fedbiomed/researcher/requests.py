@@ -64,17 +64,17 @@ class Requests(metaclass=RequestMeta):
         """
         return(self.messaging)
 
-    def on_message(self, msg: Dict[str, Any]):
+    def on_message(self, msg: Dict[str, Any] , topic: str):
         """
         This handler is called by the Messaging class (Messager),
         when a message is received on researcher side.
         Adds to queue this incoming message.
         Args:
             msg (Dict[str, Any]): de-serialized msg
+            topic (str)         : topic name (eg MQTT channel)
         """
-        logger.info('message received:' + str(msg))
+        logger.debug( 'MSG received on topic: ' + topic + ' - message: ' + str(msg))
         self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
-
 
 
     def send_message(self, msg: dict, client=None):

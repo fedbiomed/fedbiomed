@@ -95,13 +95,8 @@ class Messaging:
             msg: mqtt on_message arg
         """
 
-        # did not decide how to manage general/logger messages yet
-        print("#### msg received - topic =", str(msg.topic), " content =", str(json.deserialize_msg(msg.payload)))
-        if str(msg.topic) == "general/logger":
-            return
-
         message = json.deserialize_msg(msg.payload)
-        self.on_message_handler(message)
+        self.on_message_handler( msg = message, topic = msg.topic)
 
     def on_connect(self,
                    client: mqtt.Client,
