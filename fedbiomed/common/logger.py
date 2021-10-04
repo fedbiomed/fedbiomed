@@ -128,7 +128,7 @@ class MqttHandler(logging.Handler):
             level         = record.__dict__["levelname"],
             msg           = self.format(record),
             client_id     = self._client_id,
-            researcher_id = 'uknown'
+            researcher_id = '<unknown>'
         )
         try:
             #
