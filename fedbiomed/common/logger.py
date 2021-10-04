@@ -125,6 +125,7 @@ class MqttHandler(logging.Handler):
         #
         msg = dict(
             command       = 'log',
+            level         = record.__dict__["levelname"],
             msg           = self.format(record),
             client_id     = self._client_id,
             researcher_id = 'uknown'

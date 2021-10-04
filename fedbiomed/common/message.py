@@ -152,6 +152,7 @@ class LogMessage(Message):
     """
     researcher_id: str
     client_id: str
+    level: str
     msg: str
     command: str
 

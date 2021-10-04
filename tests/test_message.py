@@ -714,6 +714,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = 'toto',
             client_id     = 'titi',
+            level         = 'INFO',
             msg           = 'this is an error message',
             command       = 'log'
         )
@@ -736,6 +737,12 @@ class TestMessage(unittest.TestCase):
             message.LogMessage,
             expected_result = False,
 
+            level        = 'INFO')
+
+        self.check_class_args(
+            message.LogMessage,
+            expected_result = False,
+
             msg           = 'this is an error message')
 
         self.check_class_args(
@@ -750,6 +757,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = 'toto',
             client_id     = 'titi',
+            level         = 'INFO',
             msg           = 'this is an error message',
             command       = 'log',
             extra_arg     = '???' )
@@ -762,6 +770,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = False,
             client_id     = 'titi',
+            level         = 'INFO',
             msg           = 'this is an error message',
             command       = 'log'
         )
@@ -772,6 +781,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = 'toto',
             client_id     = False,
+            level         = 'INFO',
             msg           = 'this is an error message',
             command       = 'log'
         )
@@ -782,6 +792,18 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = 'toto',
             client_id     = 'titi',
+            level         = False,
+            msg           = 'this is an error message',
+            command       = 'log'
+        )
+
+        self.check_class_args(
+            message.LogMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            level         = 'INFO',
             msg           = [ 1 , 2 ],
             command       = 'log')
 
@@ -791,6 +813,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = 'toto',
             client_id     = 'titi',
+            level         = 'INFO',
             msg           = [ 1 , 2 ],
             command       = False)
 
@@ -1230,6 +1253,7 @@ class TestMessage(unittest.TestCase):
         params = {
             "researcher_id" : 'toto' ,
             "client_id"     : 'titi' ,
+            "level"         : 'INFO',
             "msg"           : 'bim boum badaboum',
             "command"       : 'log'
         }
