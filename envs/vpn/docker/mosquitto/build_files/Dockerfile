@@ -15,12 +15,14 @@ RUN git clone https://git.zx2c4.com/wireguard-tools && \
     make -C wireguard-tools/src install
 
 
-# docker base image for VPN server, Fed-BioMed node and researcher
-# - need proper python version for Fed-BioMed
+# docker image for mosquitto server
 FROM eclipse-mosquitto
 
-RUN apk update && apk add iptables iproute2 iputils-ping bash procps build-essential kmod
+RUN apk update && apk add iptables bash procps alpine-sdk linux-headers kmod
 
 # get wireguard from builder image
 COPY --from=builder /root/.cargo/bin/boringtun /usr/bin/
 COPY --from=builder /usr/bin/wg* /usr/bin/
+
+COPY ./entrypoint.sh /
+ENTRYPOINT ["/entrypoint.sh"]

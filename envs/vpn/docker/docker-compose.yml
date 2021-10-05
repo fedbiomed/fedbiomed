@@ -79,11 +79,13 @@ services:
     build:
       context: ./mosquitto/build_files
     image: fedbiomed/mosquitto
-    #image: eclipse-mosquitto
-    command: ["/usr/sbin/mosquitto", "-c", "/mosquitto-no-auth.conf"]
     ports:
       - "1883:1883"
       - "9001:9001"
-
+    cap_add:
+      - net_admin
+      - sys_module
+    devices:
+      - /dev/net/tun
 
       
