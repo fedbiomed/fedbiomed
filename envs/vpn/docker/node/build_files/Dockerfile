@@ -1,4 +1,4 @@
-FROM fedbiomed/base
+FROM fedbiomed/vpn-base
 
 ARG CONTAINER_GID
 ARG CONTAINER_UID
@@ -41,7 +41,7 @@ WORKDIR /fedbiomed
 USER $CONTAINER_UID:$CONTAINER_GID
 
 # Configure conda env in context of alternate account
-RUN conda env update --file ./envs/development/conda/fedbiomed-node.yaml
+RUN conda env update --file ./envs/vpn/conda/fedbiomed-node.yaml
 # another option : add tag to configure script to call "./scripts/configure_conda fedbiomed-node"
 
 # Launch as root to manage VPN

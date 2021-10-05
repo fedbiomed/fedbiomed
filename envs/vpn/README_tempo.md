@@ -12,8 +12,9 @@ cd ./envs/vpn/docker
 # final configuration will be : build all containers
 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build
 # WIP configuration is : build existing containers
-CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build vpnserver
-CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build node
+CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build vpn-vpnserver
+CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build vpn-node
+CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build vpn-mqtt
 ```
 
 ## launching containers
@@ -30,18 +31,29 @@ cd ./envs/vpn/docker
 docker-compose up -d node
 ```
 
+* on the mqtt
+```bash
+cd ./envs/vpn/docker
+docker-compose up -d mqtt
+```
+
 ## connecting to containers
 
 Works only if the container is running
 
 * on the VPN server
 ```bash
-docker container exec -ti fedbiomed-vpnserver bash
+docker container exec -ti fedbiomed-vpn-vpnserver bash
 ```
 
 * on the node
 ```bash
-docker container exec -ti -u $(id -u) fedbiomed-vpnserver bash
+docker container exec -ti -u $(id -u) fedbiomed-vpn-node bash
+```
+
+* on the mqtt server
+```bash
+docker container exec -ti fedbiomed-vpn-mqtt bash
 ```
 
 

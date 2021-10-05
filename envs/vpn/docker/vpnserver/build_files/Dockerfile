@@ -1,4 +1,4 @@
-FROM fedbiomed/base
+FROM fedbiomed/vpn-base
 
 WORKDIR /fedbiomed
 

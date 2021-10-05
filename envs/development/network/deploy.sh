@@ -32,6 +32,6 @@ done
 docker-compose up --force-recreate -d
 
 # Create Admin user
-docker exec -t fedbiomed-restful sh -c "python manage.py migrate"
-docker exec -t fedbiomed-restful sh -c "python manage.py collectstatic --link --noinput"
-docker exec -t fedbiomed-restful sh -c "python manage.py createsuperuser --noinput"
+docker exec -t fedbiomed-dev-restful sh -c "python manage.py migrate"
+docker exec -t fedbiomed-dev-restful sh -c "python manage.py collectstatic --link --noinput"
+docker exec -t fedbiomed-dev-restful sh -c "python manage.py createsuperuser --noinput"
