@@ -1,7 +1,9 @@
 from datetime import datetime
 import json
-from threading import Lock
+import os
+import signal
 import sys
+import threading
 from time import sleep
 from typing import Any, Dict
 import uuid
@@ -21,7 +23,7 @@ class RequestMeta(type):
     """
 
     _objects = {}
-    _lock_instantiation = Lock()
+    _lock_instantiation = threading.Lock()
 
     def __call__(cls, *args, **kwargs):
         """ Replace default class creation for classes using this metaclass,
@@ -104,8 +106,8 @@ class Requests(metaclass=RequestMeta):
 
         if node_msg_level == "ERROR" or node_msg_level == "CRITICAL":
             # first error  implementation: stop the researcher
-            print("#### STOP THE RESEARCHER !")
-            sys.exit(-1)
+            logger.critical("researcher stopped after receiving error/critical log from node: " + log["client_id"])
+            os.kill(os.getpid(), signal.SIGTERM)
 
 
     def send_message(self, msg: dict, client=None):
