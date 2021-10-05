@@ -172,7 +172,7 @@ class Round:
                             'ptime_training': ptime_after - ptime_before }
                                   }).get_dict()
         else:
-            logging.error(error_message)
+            logger.error(error_message)
             return NodeMessages.reply_create({'client_id': CLIENT_ID,
                         'job_id': self.job_id,
                         'researcher_id': self.researcher_id,
