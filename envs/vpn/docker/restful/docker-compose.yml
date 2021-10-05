@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  restful:
+    container_name: fedbiomed-vpn-restful
+    build:
+      context: ./build_files
+    image: fedbiomed/vpn-restful
+    user: "${CONTAINER_UID:-root}:${CONTAINER_GID:-root}"
+    environment:
+      - PRODUCTION=1
+      - DJANGO_SUPERUSER_USERNAME=admin
+      - DJANGO_SUPERUSER_EMAIL=dummy@gitlab.inria.fr
+      - DJANGO_SUPERUSER_PASSWORD=admin123
+    volumes:
+      - ./run_mounts:/app
+    ports:
+      - "8844:8000"
+
