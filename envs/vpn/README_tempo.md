@@ -12,9 +12,9 @@ cd ./envs/vpn/docker
 # final configuration will be : build all containers
 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build
 # WIP configuration is : build existing containers
-CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build vpn-vpnserver
-CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build vpn-node
-CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build vpn-mqtt
+CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build vpnserver
+CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build node
+CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build mqtt
 ```
 
 ## launching containers
