@@ -1,9 +1,25 @@
+import sys
+from io import StringIO
 import inspect
 from joblib import dump, load
 import numpy as np
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
 from fedbiomed.common.logger import logger
+
+class _Capturer(list):
+
+    """ Capturing class for output of the scikitlearn models during training
+    when the verbose is set ture.
+    """
+    def __enter__(self):
+        self._stdout = sys.stdout
+        sys.stdout = self._stringio = StringIO()
+        return self
+    def __exit__(self, *args):
+        self.extend(self._stringio.getvalue().splitlines())
+        del self._stringio    # Remove it from memory
+        sys.stdout = self._stdout
 
 class SGDSkLearnModel():
 
@@ -52,19 +68,43 @@ class SGDSkLearnModel():
         """
         return {key: getattr(self.m, key) for key in self.param_list}
 
-    def training_routine(self, epochs=1,logger=None):
+    def training_routine(self, epochs=1, monitor=None):
         """
             Method training_routine called in Round, to change only if you know what you are doing.
             :param epochs (integer)
         """
         (data, target) = self.training_data()
-        for _ in range(epochs):
-            if self.model_type == 'MultinomialNB' or self.model_type == 'BernoulliNB' or self.model_type == 'Perceptron' or self.model_type == 'SGDClassifier' or self.model_type == 'PassiveAggressiveClassifier' :
-                self.m.partial_fit(data,target, classes = np.unique(target))
-            elif self.model_type == 'SGDRegressor' or self.model_type == 'PassiveAggressiveRegressor':
-                self.m.partial_fit(data,target)
-            elif self.model_type == 'MiniBatchKMeans' or self.model_type == 'MiniBatchDictionaryLearning':
-                self.m.partial_fit(data)
+        for epoch in range(epochs):
+            with _Capturer() as output:
+                if self.model_type == 'MultinomialNB' or self.model_type == 'BernoulliNB' or self.model_type == 'Perceptron' or self.model_type == 'SGDClassifier' or self.model_type == 'PassiveAggressiveClassifier' :
+                    self.m.partial_fit(data,target, classes = np.unique(target))
+                elif self.model_type == 'SGDRegressor' or self.model_type == 'PassiveAggressiveRegressor':
+                    self.m.partial_fit(data,target)
+                elif self.model_type == 'MiniBatchKMeans' or self.model_type == 'MiniBatchDictionaryLearning':
+                    self.m.partial_fit(data)
+            
+            if monitor is not None:
+                if self.model_type in self._verbose_capture:
+                    for line in output:
+                        if(len(line.split("loss: ")) == 1):
+                            continue
+                        try:
+                            loss = line.split("loss: ")[-1]
+                            # Batch -1 means Batch Gradient Descent, use all samples
+                            # This part should be changed after mini-batch implementation is completed
+                            monitor.add_scalar('Loss', float(loss), -1 , epoch)
+                        except ValueError as e:
+                            logger.error("Value error:" + e)
+                        except Exception as e:
+                            logger.error("Error during monitoring:" + e)
+                elif self.model_type == "MiniBatchKMeans":
+                    # Passes inertia value as scalar. It should be emplemented when KMeans implementation is ready 
+                    # monitor.add_scalar('Inertia', self.m.inertia_, -1 , epoch)
+                    pass
+                elif self.model_type in ['MultinomialNB','BernoulliNB']:
+                    # Need to find a way for Bayesian approaches 
+                    pass
+
 
     def __init__(self,kwargs):
         """
@@ -85,6 +125,17 @@ class SGDSkLearnModel():
             logger.error('model must be one of, ' +  str(self.model_map))
         else:
             self.model_type = kwargs['model']
+
+            # Sklearn mothods that returns loss value when the verbose flag is provided
+            self._verbose_capture = ['Perceptron', 'SGDClassifier', 
+                                     'PassiveAggressiveClassifier', 
+                                     'SGDRegressor', 
+                                     'PassiveAggressiveRegressor']
+
+            # Add verbosity in kwargs if not and model is in verbose capturer
+            if 'verbose' not in kwargs and kwargs['model'] in self._verbose_capture:
+                kwargs['verbose'] = 1
+            
             self.m = eval(self.model_type)()
             self.params_sgd = self.m.get_params()
             from_kwargs_sgd_proper_pars = {key: kwargs[key] for key in kwargs if key in self.params_sgd}

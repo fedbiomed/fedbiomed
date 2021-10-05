@@ -1,7 +1,7 @@
 import os
 import shutil
 from threading import Lock
-from fedbiomed.node.environ import  TMP_DIR, MQTT_BROKER, MQTT_BROKER_PORT
+from fedbiomed.node.environ import  VAR_DIR, MQTT_BROKER, MQTT_BROKER_PORT
 from fedbiomed.common.messaging import Messaging, MessagingType
 from fedbiomed.common.message import MonitorMessages 
 from fedbiomed.common.logger import logger
@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class MonitorMeta(type):
-    """ This class is a thread safe singleton for Feedback, a common design pattern
+    """ This class is a thread safe singleton for Monitor, a common design pattern
     for ensuring only one instance of each class using this metaclass
     is created in the process
     """
@@ -41,26 +41,33 @@ class Monitor(metaclass=MonitorMeta):
     
     def __init__(self, tensorboard: bool = False):
 
+        """ Constructor of the class.
+
+
+        Args:
+            tensorboard (bool):  Default is False. If it is true it will write scalar
+                                 values recevied from node during traning to tensorboard
+                                 log file. 
+        """ 
+
+
         self._messaging = Messaging(self._on_message, MessagingType.MONITOR,
                                    'NodeTrainingFeedbackClient', MQTT_BROKER, MQTT_BROKER_PORT)
         
         # Start subscriber
         self._messaging.start(block=False)
-        self._log_dir = TMP_DIR + '/tensorboard'
+        self._log_dir = VAR_DIR + '/tensorboard'
         self.tensorboard = tensorboard
         self.round = 0
         self._event_writers = {}
-        self._step = 0
-        self._step_state = 0
-        self._stepper = 0
 
-
-        # Clear logs directory from the files from other experiments.
-        shutil.rmtree(self._log_dir)
-
-        if self.tensorboard and not os.path.exists(self._log_dir):
-            os.makedirs(self._log_dir)
- 
+        if self.tensorboard:
+            if not os.path.exists(self._log_dir):
+                os.makedirs(self._log_dir)
+            else:
+                # Clear logs directory from the files from other experiments.
+                shutil.rmtree(self._log_dir)
+                
     def _on_message(self, msg):
 
         """Handler to be used with `Messaging` class (ie with messager).
@@ -94,16 +101,22 @@ class Monitor(metaclass=MonitorMeta):
 
     def _log_to_console(self, msg):
 
-        """ This method is for loging scalar values into console by using
+        """ This method is for loging traning loss values into console by using
         logger.
         """
 
-        # Logging training feedback
+        # Means that batch is equal to all samples
+        if msg['iteration'] == -1:
+            batch = 'all'
+        else:
+            batch = msg['iteration']
+
+        # Logging training loss values
         logger.info('Round: {} Node: {} - Train Epoch: {} [Batch {} ]\t{}: {:.6f}'.format(
                         str(self.round),
                         msg['client_id'],
                         msg['epoch'],
-                        msg['iteration'],
+                        batch,
                         msg['key'],
                         msg['value']))
 
@@ -111,29 +124,38 @@ class Monitor(metaclass=MonitorMeta):
     def _summary_writer(self, client: str, key: str, global_step: int, scalar: float, epoch: int ):
 
         """ This method is for writing scalar values using torch SummaryWriter
-        It create new summary path for each round of traning
+        It create new summary path for each node
         """
-        
 
+        # Initilize event SummaryWriters
         if client not in self._event_writers:
-             self._event_writers[client] = SummaryWriter(log_dir=self._log_dir + '/NODE-' + client)
-        
+            self._event_writers[client] = { 
+                                    'writer' : SummaryWriter(log_dir=self._log_dir + '/NODE-' + client), 
+                                    'stepper': 0,
+                                    'step_state': 0,
+                                    'step': 0
+                                    }
+            
+        # Means that batch is equal to all samples use epoch as global step 
+        if global_step == -1:
+            global_step = epoch
+            # global_step = epoch
 
-        # Operations for finding log interval 
-        if  global_step != 0 and self._stepper == 0:
-            self._stepper = global_step 
+        # Operations for finding log interval for the traning 
+        if global_step != 0 and self._event_writers[client]['stepper'] == 0:
+            self._event_writers[client]['stepper'] = global_step 
 
         if global_step == 0:
-            self._step_state = self._step + self._stepper 
+            self._event_writers[client]['step_state'] = self._event_writers[client]['step'] + \
+                                                        self._event_writers[client]['stepper']
 
-        self._step = self._step_state + global_step 
+        self._event_writers[client]['step'] = self._event_writers[client]['step_state'] + global_step 
 
-        self._event_writers[client].add_scalar('Metric[{}]'.format( 
+        self._event_writers[client]['writer'].add_scalar('Metric[{}]'.format( 
                                                             key ), 
                                                             scalar,  
-                                                            self._step)
+                                                            self._event_writers[client]['step'])
 
-        #self._event_writers[client].close()
 
     def reconstruct(self, tensorboard: bool):
         
@@ -141,24 +163,24 @@ class Monitor(metaclass=MonitorMeta):
         It will update tensorboard state and remove tensorboard log files from 
         previous experiment. 
         """
+
         self.tensorboard = tensorboard
 
         # Remove tensorboard files from previous experiment
-        shutil.rmtree(self._log_dir)
+        if os.path.exists(self._log_dir):      
+           shutil.rmtree(self._log_dir)
 
 
     def close_writer(self):
         
-        """Stops `SummaryWriter` if the experiment started with 
-        option `tensorbroad=True`  
-        """
+        """Stops `SummaryWriter` for each node of the experiment"""
 
-        # Bring back the round and round state at the begening
+        # Bring back the round 
         self.round = 0
 
-        # Close each open event writer
-        for writer in self._event_writers:
-            self._event_writers[writer].close() 
+        # Close each open SummaryWriter
+        for node in self._event_writers:
+            self._event_writers[node]['writer'].close() 
 
 
     def increase_round(self):
