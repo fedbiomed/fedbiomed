@@ -119,6 +119,7 @@ exp = Experiment(tags=tags,
                 client_selection_strategy=None,
                 tensorboard=True)
 
+# You should start tensorboard using command  " tensorboard --logdir './var/tensorboard' ""
 
 # Let's start the experiment.
 # By default, this function doesn't stop until all the `rounds` are done for all the clients

@@ -572,7 +572,9 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             client_id     = 'titi',
             job_id        = 'tutu',
-            key           = 3.14,
+            key           = 'key',
+            value         = 13.34,
+            epoch         = 12,
             iteration     = 666,
             command       = 'do_it')
 
@@ -1266,11 +1268,13 @@ class TestMessage(unittest.TestCase):
             "researcher_id" : 'toto' ,
             "client_id"     : 'titi' ,
             "job_id"        : 'job_id',
-            "key"           : 3.14,
+            "key"           : 'key',
+            "value"         : 14.34,
             "iteration"     : 666,
+            "epoch"         : 12,
             "command"       : 'add_scalar'
         }
-        r = message.ResearcherMessages.reply_create( params )
+        r = message.MonitorMessages.reply_create( params )
         self.assertIsInstance( r, message.AddScalarReply )
 
         r = message.NodeMessages.reply_create( params )
