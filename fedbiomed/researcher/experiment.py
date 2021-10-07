@@ -1,5 +1,7 @@
+import os
 from fedbiomed.common.logger import logger
 from typing import Callable, Union
+from fedbiomed.node.environ import VAR_DIR
 
 from fedbiomed.researcher.aggregators import fedavg, aggregator
 from fedbiomed.researcher.strategies.strategy import Strategy
@@ -146,7 +148,7 @@ class Experiment:
             self._save_state()
 
     def _create_breakpoints_folder(self, round: int=0):
-        pass
+        breakpoint_path_file = os.path.join(VAR_DIR)
     
     @staticmethod
     def _get_class_name(obj: object) -> str:
