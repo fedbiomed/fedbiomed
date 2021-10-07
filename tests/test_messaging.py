@@ -57,11 +57,13 @@ class TestMessaging(unittest.TestCase):
         print("test_connect")
 
         i = 0
-        while i < 100:
+        connect_ko = True
+        while i < 8 and connect_ko:
             time.sleep(1)
             if self.broker._conn is not None:
                 print("receiving")
                 self.broker.receive_packet( 20 )
+                connect_ko = False
             else:
 
                 print("conn is None")

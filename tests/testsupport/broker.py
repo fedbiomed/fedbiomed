@@ -4,7 +4,7 @@
 import socket
 
 class FakeBroker:
-    def __init__(self, port = 12345):
+    def __init__(self, port = 9999):
         # Bind to "localhost" for maximum performance, as described in:
         # http://docs.python.org/howto/sockets.html#ipc
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -12,7 +12,7 @@ class FakeBroker:
         sock.settimeout(30)
 
         if port < 1024:
-            port = 12345
+            port = 9999
         self._port = port
 
         sock.bind(("localhost", port))
