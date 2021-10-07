@@ -10,11 +10,12 @@ cd ./envs/vpn/docker
 # TODO: check if we can use different id than the account building the images
 #
 # final configuration will be : build all containers
-CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build
+CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build
 # WIP configuration is : build existing containers
-CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build vpnserver
-CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build node
-CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose build mqtt
+CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build vpnserver
+CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
+CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build mqtt
+CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build restful
 ```
 
 ## launching containers
@@ -37,6 +38,12 @@ cd ./envs/vpn/docker
 docker-compose up -d mqtt
 ```
 
+* on the restful
+```bash
+cd ./envs/vpn/docker
+docker-compose up -d restful
+```
+
 ## connecting to containers
 
 Works only if the container is running
@@ -54,6 +61,11 @@ docker container exec -ti -u $(id -u) fedbiomed-vpn-node bash
 * on the mqtt server
 ```bash
 docker container exec -ti fedbiomed-vpn-mqtt bash
+```
+
+* on the restful server
+```bash
+docker container exec -ti fedbiomed-vpn-restful bash
 ```
 
 

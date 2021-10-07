@@ -29,6 +29,9 @@ fi
 # need wireguard to continue
 "$RUNNING_KERNELWG" || "$RUNNING_BORINGTUN" || { echo "ERROR: Could not start wireguard" ; exit 1 ; }
 
+CONFIG_DIR=/config
+su -c "mkdir -p $CONFIG_DIR/wireguard" $CONTAINER_UID
+
 if [ -s "$CONFIG_DIR/wireguard/wg0.conf" ]
 then
     echo "Loading Wireguard config..."
@@ -59,7 +62,7 @@ finish () {
 
 trap finish TERM INT QUIT
 
-sleep infinity &
-# TODO launch node
-# su - c "./scripts/fedbiomed_run node start" $CONTAINER_UID &
+# sleep infinity &
+su -c "./scripts/fedbiomed_run node start" $CONTAINER_UID &
+
 wait $!

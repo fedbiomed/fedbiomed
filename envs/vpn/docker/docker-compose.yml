@@ -35,6 +35,8 @@ services:
       args:
         - CONTAINER_UID # build and use other account than "root"
         - CONTAINER_GID # build and use other group than "root"
+        - CONTAINER_USER # build and use other account than "root"
+        - CONTAINER_GROUP # build and use other group than "root"
     image: fedbiomed/vpn-vpnserver
     env_file:
       - ./vpnserver/run_mounts/config/config.env
@@ -42,6 +44,8 @@ services:
     ## not needed, use image settings
     #  - CONTAINER_UID
     #  - CONTAINER_GID
+    #  - CONTAINER_USER
+    #  - CONTAINER_GROUP
     cap_add:
       - net_admin # needed to handle wireguard interface
       - sys_module # needed to remove wireguard kernel module
@@ -61,6 +65,8 @@ services:
       args:
         - CONTAINER_UID
         - CONTAINER_GID
+        - CONTAINER_USER
+        - CONTAINER_GROUP
     image: fedbiomed/vpn-node
     env_file:
       - ./node/run_mounts/config/config.env
@@ -78,6 +84,11 @@ services:
     container_name: fedbiomed-vpn-mqtt
     build:
       context: ./mqtt/build_files
+      args:
+        - CONTAINER_UID
+        - CONTAINER_GID
+        - CONTAINER_USER
+        - CONTAINER_GROUP
     image: fedbiomed/vpn-mqtt
     ports:
       - "1883:1883"
@@ -87,20 +98,33 @@ services:
       - sys_module
     devices:
       - /dev/net/tun
+    volumes:
+      - ./mqtt/run_mounts/config:/config # contains VPN configurations
   #
   # resful http server component
   restful:
     container_name: fedbiomed-vpn-restful
     build:
       context: ./restful/build_files
+      args:
+        - CONTAINER_UID
+        - CONTAINER_GID
+        - CONTAINER_USER
+        - CONTAINER_GROUP
     image: fedbiomed/vpn-restful
-    user: "${CONTAINER_UID:-root}:${CONTAINER_GID:-root}"
     environment:
       - PRODUCTION=1
       - DJANGO_SUPERUSER_USERNAME=admin
       - DJANGO_SUPERUSER_EMAIL=dummy@gitlab.inria.fr
       - DJANGO_SUPERUSER_PASSWORD=admin123
-    volumes:
-      - ./restful/run_mounts:/app
     ports:
-      - "8844:8000" 
+      - "8844:8000"
+    cap_add:
+      - net_admin
+      - sys_module
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./restful/run_mounts/app:/app # django application
+      - ./restful/run_mounts/config:/config # contains VPN configurations
+
