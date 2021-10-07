@@ -376,7 +376,7 @@ class MonitorMessages():
     a received/ sent message by the Monitoring
     """
     @classmethod
-    def reply_create(cls, params: Dict[str, Any]) -> Union[AddScalarReply]:
+    def reply_create(cls, params: Dict[str, Any]) -> AddScalarReply:
         """this method is used on message reception (as a mean to reply to
         node requests, such as a Ping request).
         it creates the adequate message, it maps an instruction

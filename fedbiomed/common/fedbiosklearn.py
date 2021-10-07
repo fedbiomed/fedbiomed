@@ -10,7 +10,7 @@ from fedbiomed.common.logger import logger
 class _Capturer(list):
 
     """ Capturing class for output of the scikitlearn models during training
-    when the verbose is set ture.
+    when the verbose is set to true.
     """
     def __enter__(self):
         self._stdout = sys.stdout
@@ -136,6 +136,9 @@ class SGDSkLearnModel():
             if 'verbose' not in kwargs and kwargs['model'] in self._verbose_capture:
                 kwargs['verbose'] = 1
             
+            elif kwargs['model'] not in self._verbose_capture:
+                logger.info("[TENSORBOARD ERROR]: cannot compute loss for " +\
+                    kwargs['model'] + ": it needs to be implemeted")
             self.m = eval(self.model_type)()
             self.params_sgd = self.m.get_params()
             from_kwargs_sgd_proper_pars = {key: kwargs[key] for key in kwargs if key in self.params_sgd}

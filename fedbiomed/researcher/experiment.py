@@ -24,7 +24,7 @@ class Experiment:
                  rounds: int = 1,
                  aggregator: aggregator.Aggregator = fedavg.FedAverage(),
                  client_selection_strategy: Strategy = None,
-                 tensorboard=False
+                 tensorboard:bool = False
                  ):
 
         """ Constructor of the class.

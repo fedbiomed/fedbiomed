@@ -1,11 +1,13 @@
 import os
 import shutil
 from threading import Lock
-from fedbiomed.node.environ import  VAR_DIR, MQTT_BROKER, MQTT_BROKER_PORT
+from fedbiomed.node.environ import VAR_DIR, MQTT_BROKER, MQTT_BROKER_PORT
 from fedbiomed.common.messaging import Messaging, MessagingType
 from fedbiomed.common.message import MonitorMessages 
 from fedbiomed.common.logger import logger
 from torch.utils.tensorboard import SummaryWriter
+
+from typing import Dict, Any
 
 
 class MonitorMeta(type):
@@ -68,7 +70,7 @@ class Monitor(metaclass=MonitorMeta):
                 # Clear logs directory from the files from other experiments.
                 shutil.rmtree(self._log_dir)
                 
-    def _on_message(self, msg):
+    def _on_message(self, msg: Dict[str, Any]):
 
         """Handler to be used with `Messaging` class (ie with messager).
         It is called when a  messsage arrive through the messager
@@ -101,7 +103,7 @@ class Monitor(metaclass=MonitorMeta):
 
     def _log_to_console(self, msg):
 
-        """ This method is for loging traning loss values into console by using
+        """ This method is for logging traning loss values into console by using
         logger.
         """
 
@@ -139,9 +141,8 @@ class Monitor(metaclass=MonitorMeta):
         # Means that batch is equal to all samples use epoch as global step 
         if global_step == -1:
             global_step = epoch
-            # global_step = epoch
 
-        # Operations for finding log interval for the traning 
+        # Operations for finding log interval for the training 
         if global_step != 0 and self._event_writers[client]['stepper'] == 0:
             self._event_writers[client]['stepper'] = global_step 
 
@@ -175,7 +176,7 @@ class Monitor(metaclass=MonitorMeta):
         
         """Stops `SummaryWriter` for each node of the experiment"""
 
-        # Bring back the round 
+        # Bring back the round to ist default value
         self.round = 0
 
         # Close each open SummaryWriter

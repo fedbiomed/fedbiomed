@@ -11,6 +11,7 @@ import torch.nn as nn
 
 from fedbiomed.common.logger import _FedLogger
 
+
 class TorchTrainingPlan(nn.Module):
     def __init__(self):
         """
@@ -96,7 +97,7 @@ class TorchTrainingPlan(nn.Module):
             dry_run (bool, optional): whether to stop once the first
             batch size of the first epoch of the first round is completed.
             Defaults to False.
-            logger ([type], optional): [description]. Defaults to None.
+            monitor ([type], optional): [description]. Defaults to None.
         """
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
