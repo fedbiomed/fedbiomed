@@ -17,7 +17,7 @@ fake_researcher_env.TMP_DIR            = "/tmp/var/tmp"
 fake_researcher_env.MESSAGES_QUEUE_DIR = "/tmp/var/queue_messages"
 fake_researcher_env.RESEARCHER_ID      = "researcher_XXX"
 fake_researcher_env.MQTT_BROKER        = "localhost"
-fake_researcher_env.MQTT_BROKER_PORT   = 9999
+fake_researcher_env.MQTT_BROKER_PORT   = 1883
 fake_researcher_env.UPLOADS_URL        = "http://localhost:8888/upload/"
 fake_researcher_env.TIMEOUT            = 10
 
