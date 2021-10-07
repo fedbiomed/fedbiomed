@@ -207,14 +207,15 @@ class Job:
             'command': 'train'
         }
 
-        msg = {**headers, **self._repository_args}
+        self.msg = {**headers, **self._repository_args}
+        
         time_start = {}
 
         for cli in self._clients:
-            msg['training_data'] = { cli: [ ds['dataset_id'] for ds in self._data.data()[cli] ] }
-            logger.info('Send message to client ' + str(cli) + " - " + str(msg))
+            self.msg['training_data'] = { cli: [ ds['dataset_id'] for ds in self._data.data()[cli] ] }
+            logger.info('Send message to client ' + str(cli) + " - " + str(self.msg))
             time_start[cli] = time.perf_counter()
-            self._reqs.send_message(msg, cli)  # send request to node
+            self._reqs.send_message(self.msg, cli)  # send request to node
 
         # Recollect models trained
         self._training_replies[round] = Responses([])
@@ -247,6 +248,8 @@ class Job:
                                'params': params,
                                'timing': timing})
                 self._training_replies[round].append(r)  # add new replies
+    
+    
 
     def update_parameters(self, params: dict) -> str:
         """Updates global model parameters after aggregation, by specifying in a

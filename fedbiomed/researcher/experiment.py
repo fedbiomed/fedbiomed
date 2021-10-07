@@ -143,3 +143,42 @@ class Experiment:
 
             self._aggregated_params[round_i] = {'params': aggregated_params,
                                                 'params_path': aggregated_params_path}
+            self._save_state()
+
+    def _create_breakpoints_folder(self, round: int=0):
+        pass
+    
+    @staticmethod
+    def _get_class_name(obj: object) -> str:
+        if hasattr(obj, "__name__"):
+            return obj.__name__
+        elif hasattr(obj, "__str__"):
+            return str(obj)
+        elif hasattr(obj, "__repr__"):
+            return repr(obj)
+        else:
+            return "none"
+        
+    def _save_state(self, round: int=0):
+        """
+        """
+        state = {
+            'researcher_id': self._job.msg.get("researcher_id"),
+            'job_id': self._job.msg.get("job_id"),
+            'training_data': self._job.msg.get("training_data"),
+            'training_args': self._job._training_args,
+            'model_args': self._job._model_args,
+            'command': self._job.msg.get("command"),
+            'model_url': self._job.msg.get("model_url"),
+            'params_url': self._job.msg.get("params_url"),
+            'model_class': self._job.msg.get("model_class"),
+            "model_path_file": self._model_path,
+            #"params_path_file":
+            "aggregated_params": self._aggregated_params[-1],
+            'round_number': round,
+            'aggregator': Experiment._get_class_name(self._aggregator),
+            'client_selection_strategy': Experiment._get_class_name(self._client_selection_strategy),
+            'round_success': True
+        }
+        
+        self._job.msg
