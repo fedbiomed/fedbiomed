@@ -63,6 +63,9 @@ class Requests(metaclass=RequestMeta):
         else:
             self.messaging = mess
 
+        # defines the sequence used for ping protocol
+        self._sequence = 0
+
     def get_messaging(self) -> Messaging:
         """returns the messaging object
         """
@@ -206,7 +209,12 @@ class Requests(metaclass=RequestMeta):
         Pings online nodes
         :return: list of client_id
         """
-        self.messaging.send_message(ResearcherMessages.request_create({'researcher_id': RESEARCHER_ID, 'command':'ping'}).get_dict())
+        self.messaging.send_message(ResearcherMessages.request_create(
+            {'researcher_id': RESEARCHER_ID,
+             'sequence': self._sequence,
+             'command':'ping'}).get_dict())
+        self._sequence += 1
+
         # TODO: (below, above) handle exceptions
         clients_online = [resp['client_id'] for resp in self.get_responses(look_for_command='ping')]
         return clients_online
