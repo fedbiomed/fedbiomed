@@ -401,7 +401,6 @@ class _LoggerBase():
         string instead of a logging.* level
         """
 
-        print("###### log:", level)
         level = logger._internalLevelTranslator(level)
         self._logger.log(
             level,
