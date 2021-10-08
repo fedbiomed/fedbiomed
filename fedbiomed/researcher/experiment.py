@@ -200,7 +200,7 @@ class Experiment:
         job_state = self._job.state
         state = {
             #"params_path_file":
-            #"aggregated_params": self._aggregated_params[round],
+            #"aggregated_params":self._job.model_instance.save(self._aggregated_params[round],
             'round_number': round,
             'aggregator': self._aggregator.save_state(),
             'client_selection_strategy': self._client_selection_strategy.save_state(),

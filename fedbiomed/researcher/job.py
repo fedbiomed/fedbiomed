@@ -8,6 +8,7 @@ from typing import Union, Callable
 import uuid
 import re
 import time
+import copy
 
 import validators
 
@@ -98,7 +99,6 @@ class Job:
             self.model_instance = model
 
         self.repo = Repository(UPLOADS_URL, TMP_DIR, CACHE_DIR)
-        print("TMP_DIR", TMP_DIR)
         tmpdirname = tempfile.mkdtemp(prefix=TMP_DIR)
         atexit.register(lambda: shutil.rmtree(tmpdirname))  # remove `tmpdirname` 
         # directory when script will end running
@@ -220,7 +220,7 @@ class Job:
         msg = {**headers, **self._repository_args}
         
         time_start = {}
-        print("ANSWER START", os.path.isfile(self._model_file))
+        
         for cli in self._clients:
             msg['training_data'] = { cli: [ ds['dataset_id'] for ds in self._data.data()[cli] ] }
             logger.info('Send message to client ' + str(cli) + " - " + str(msg))
@@ -258,9 +258,8 @@ class Job:
                                'params': params,
                                'timing': timing})
                 self._training_replies[round].append(r)  # add new replies
-                print(r)
+            
                 self._params_path[r[0]['client_id']] = params_path
-        #self._save_state(msg)
     
 
     def update_parameters(self, params: dict) -> str:
@@ -305,10 +304,27 @@ class Job:
             'model_path': self._model_file,
             'params_path': self._params_path,
             #'model_class': type(self.model_instance).__name__,
-            'model_class': self._repository_args.get('model_class')
-            #'training_replies': self.training_replies
+            'model_class': self._repository_args.get('model_class'),
+            'training_replies': self._save_training_replies()
         }
         
+    def _save_training_replies(self) -> dict:
+        """saves last values training replies variable, and replace pytroch tensor 
+        by path files pointing to files
+
+        Returns:
+            dict: [description]
+        """
+        last_index = max(self._training_replies.keys())
+        converted_training_replies = copy.deepcopy(
+                                    self._training_replies[last_index].data
+                                    )
+        # training_replies saving facility
+        for client_i, client_entry in enumerate(self._training_replies[last_index]):
+            client_id = client_entry.get("client_id")
+            params = self._params_path.get(client_id)
+            converted_training_replies[client_i]['params'] = self._params_path.get(client_id)
+        return converted_training_replies
          
 class localJob:
     """
