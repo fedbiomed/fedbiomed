@@ -259,6 +259,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = 'toto',
             client_id     = 'titi',
+            sequence      = 100,
             success       = True,
             command       = 'do_it')
 
@@ -291,9 +292,17 @@ class TestMessage(unittest.TestCase):
             message.PingReply,
             expected_result = False,
 
+            sequence = 100
+            )
+
+        self.check_class_args(
+            message.PingReply,
+            expected_result = False,
+
             researcher_id = 'toto',
             client_id = 'titi',
             success = True,
+            sequence = 100,
             command = 'do_it',
             extra_arg = 'foobar')
 
@@ -305,6 +314,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = True,
             client_id     = 'titi',
             success       = True,
+            sequence = 100,
             command       = 'do_it')
 
         self.check_class_args(
@@ -314,6 +324,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             client_id     = True,
             success       = True,
+            sequence = 100,
             command       = 'do_it')
 
         self.check_class_args(
@@ -323,6 +334,17 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             client_id     = 'titi',
             success       = 'not_a_bool',
+            sequence = 100,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.PingReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            success       = 'not_a_bool',
+            sequence      = False,
             command       = 'do_it')
 
         self.check_class_args(
@@ -885,6 +907,7 @@ class TestMessage(unittest.TestCase):
             expected_result = True,
 
             researcher_id = 'toto',
+            sequence       = 100,
             command       = 'do_it')
 
 
@@ -900,6 +923,12 @@ class TestMessage(unittest.TestCase):
             message.PingRequest,
             expected_result = False,
 
+            sequence       = 100)
+
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = False,
+
             command       = 'do_it')
 
         self.check_class_args(
@@ -908,6 +937,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = 'toto',
             command       = 'do_it',
+            sequence       = 100,
             extra_arg     = '???')
 
 
@@ -917,6 +947,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = False,
+            sequence       = 100,
             command       = 'do_it')
 
         self.check_class_args(
@@ -924,6 +955,15 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
+            sequence       = False,
+            command       = False)
+
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            sequence       = 100,
             command       = False)
 
 
@@ -1223,8 +1263,9 @@ class TestMessage(unittest.TestCase):
         params = {
             "researcher_id" : 'toto' ,
             "client_id"     : 'titi' ,
+            "sequence"      : 100,
             "success"       : True,
-            "command"       : 'ping'
+            "command"       : 'pong'
         }
         r = message.ResearcherMessages.reply_create( params )
         self.assertIsInstance( r, message.PingReply )
@@ -1234,6 +1275,7 @@ class TestMessage(unittest.TestCase):
 
         params = {
             "researcher_id" : 'toto' ,
+            "sequence"      : 100,
             "command"       : 'ping'
         }
         r = message.ResearcherMessages.request_create( params )
