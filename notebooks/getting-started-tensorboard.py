@@ -119,7 +119,10 @@ exp = Experiment(tags=tags,
                 client_selection_strategy=None,
                 tensorboard=True)
 
-# You should start tensorboard using command  " tensorboard --logdir './var/tensorboard' ""
+# TENSORBOARD
+# While you are running experiment with python scripts you should start tensorboard from terminal window. 
+# You can use " tensorboard --logdir './runs' " command to start tensorboard. Please make sure that
+# fedbiomed-researcher conda environment is active. 
 
 # Let's start the experiment.
 # By default, this function doesn't stop until all the `rounds` are done for all the clients

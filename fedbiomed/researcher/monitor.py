@@ -1,7 +1,7 @@
 import os
 import shutil
 from threading import Lock
-from fedbiomed.researcher.environ import VAR_DIR, MQTT_BROKER, MQTT_BROKER_PORT
+from fedbiomed.researcher.environ import TENSORBOARD_RESULTS_DIR, VAR_DIR, MQTT_BROKER, MQTT_BROKER_PORT
 from fedbiomed.common.messaging import Messaging, MessagingType
 from fedbiomed.common.message import MonitorMessages 
 from fedbiomed.common.logger import logger
@@ -58,7 +58,7 @@ class Monitor(metaclass=MonitorMeta):
         
         # Start subscriber
         self._messaging.start(block=False)
-        self._log_dir = os.path.join(VAR_DIR, 'tensorboard')
+        self._log_dir = TENSORBOARD_RESULTS_DIR
         self.tensorboard = tensorboard
         self.round = 0
         self._event_writers = {}
@@ -174,7 +174,7 @@ class Monitor(metaclass=MonitorMeta):
         """
 
         self.tensorboard = tensorboard
-
+        self._event_writers = {}
         # Remove tensorboard files from previous experiment
         if os.path.exists(self._log_dir):      
            shutil.rmtree(self._log_dir)

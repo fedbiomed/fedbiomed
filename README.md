@@ -189,18 +189,18 @@ exp = Experiment(tags=tags,
                 )
 ```
 
-During training, the scalar values (loss) will be writen in the `var/tensorboard` directory. You can either start tensorboard from jupyter notebook or terminal window. 
+During training, the scalar values (loss) will be writen in the `runs` directory. You can either start tensorboard from jupyter notebook or terminal window. 
 
 For notebook, first you should load tenserboard extension. 
 
 `%load_ext tensorboard`
-`tensorboard --logdir '../var/tensorboard`
+`tensorboard --logdir '../runs`
 
 To start tensorboard from terminal;
 
 Note: please make sure that already activated fedbiomed-researcher conda environment. 
 
-`tensorboard --logdir '../var/tensorboard`
+`tensorboard --logdir '../runs`
 
 
 
