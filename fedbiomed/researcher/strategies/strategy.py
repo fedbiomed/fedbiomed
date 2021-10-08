@@ -26,3 +26,9 @@ class Strategy:
 	"""
 	def refine(self, training_replies, round_i):
 		return
+
+	def save_state(self) -> tuple:
+		return None, None
+	
+	def load_state(self):
+		pass

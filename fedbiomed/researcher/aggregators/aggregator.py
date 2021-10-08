@@ -23,3 +23,9 @@ class Aggregator:
     def aggregate(self,  model_params: list, weights: list) -> Dict: # pragma: no cover
         """Strategy to aggregate models"""
         pass
+
+    def save_state(self) -> tuple:
+        return None, None
+
+    def load_state(self):
+        pass

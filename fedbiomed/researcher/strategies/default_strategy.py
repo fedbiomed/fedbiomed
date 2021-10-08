@@ -14,6 +14,7 @@ class DefaultStrategy(Strategy):
         """
         def __init__(self, data: FederatedDataSet):
                 super().__init__(data)
+                self.parameters = None
 
         def sample_clients(self, round_i: int) -> List[uuid.UUID]:
                 """Samples and selects clients/nodes on which to train local model.
@@ -56,3 +57,7 @@ class DefaultStrategy(Strategy):
                 weights = [val[0]["shape"][0] / totalrows for (key,val) in self._fds.data().items()]
                 logger.info('Clients that successfully reply in round ' + str(round_i) + ' ' + str(self._success_client_history[round_i] ))
                 return models_params, weights
+        
+
+        def save_state(self) -> tuple:
+            return type(self).__name__, self.parameters

@@ -2,6 +2,8 @@ import inspect
 import os
 import sys
 import tempfile
+import shutil
+import atexit
 from typing import Union, Callable
 import uuid
 import re
@@ -29,7 +31,8 @@ class Job:
                  model_path: str = None,
                  training_args: dict = None,
                  model_args: dict = None,
-                 data: FederatedDataSet = None):
+                 data: FederatedDataSet = None, 
+                 save_breakpoint:bool=True):
 
         """ Constructor of the class.
 
@@ -59,7 +62,8 @@ class Job:
         self._model_args = model_args
         self._clients = clients
         self._training_replies = {}  # will contain all node replies for every round
-
+        self._model_file = None
+        
         if reqs is None:
             self._reqs = Requests()
         else:
@@ -94,33 +98,39 @@ class Job:
             self.model_instance = model
 
         self.repo = Repository(UPLOADS_URL, TMP_DIR, CACHE_DIR)
-        with tempfile.TemporaryDirectory(dir=TMP_DIR) as tmpdirname:
-            model_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.py'
-            try:
-                self.model_instance.save_code(model_file)
-            except Exception as e:
-                logger.error("Cannot save the model to a local tmp dir : " + str(e))
-                return
+        print("TMP_DIR", TMP_DIR)
+        tmpdirname = tempfile.mkdtemp(prefix=TMP_DIR)
+        atexit.register(lambda: shutil.rmtree(tmpdirname))  # remove `tmpdirname` 
+        # directory when script will end running
+        #with tempfile.TemporaryDirectory(dir=TMP_DIR) as tmpdirname:
+        self._model_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.py'
+        print("tmpdirname", tmpdirname)
+        try:
+            self.model_instance.save_code(self._model_file)
+        except Exception as e:
+            logger.error("Cannot save the model to a local tmp dir : " + str(e))
+            return
 
-            # upload my_model_xxx.py on HTTP server
-            repo_response = self.repo.upload_file(model_file)
-            self._repository_args['model_url'] = repo_response['file']
+        # upload my_model_xxx.py on HTTP server
+        repo_response = self.repo.upload_file(self._model_file)
+        
+        self._repository_args['model_url'] = repo_response['file']
 
-            params_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.pt'
-            try:
-                self.model_instance.save(params_file)
-            except Exception as e:
-                logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
-                return
+        params_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.pt'
+        try:
+            self.model_instance.save(params_file)
+        except Exception as e:
+            logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
+            return
 
-            # upload my_model_xxx.pt on HTTP server
-            repo_response = self.repo.upload_file(params_file)
-            self._repository_args['params_url'] = repo_response['file']
+        # upload my_model_xxx.pt on HTTP server
+        repo_response = self.repo.upload_file(params_file)
+        self._repository_args['params_url'] = repo_response['file']
 
         # (below) regex: matches a character not present among "^", "\", "."
         # characters at the end of string.
         self._repository_args['model_class'] = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
-
+        print("ANSWER", os.path.isfile(self._model_file))
         # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args,
                                         ['model_url', 'model_class', 'params_url'])
@@ -197,7 +207,7 @@ class Job:
             training steps of a federated model between 2 aggregations).
 
         """
-
+        self._params_path = {}
         headers = {
             'researcher_id': RESEARCHER_ID,
             'job_id': self._id,
@@ -207,15 +217,15 @@ class Job:
             'command': 'train'
         }
 
-        self.msg = {**headers, **self._repository_args}
+        msg = {**headers, **self._repository_args}
         
         time_start = {}
-
+        print("ANSWER START", os.path.isfile(self._model_file))
         for cli in self._clients:
-            self.msg['training_data'] = { cli: [ ds['dataset_id'] for ds in self._data.data()[cli] ] }
-            logger.info('Send message to client ' + str(cli) + " - " + str(self.msg))
+            msg['training_data'] = { cli: [ ds['dataset_id'] for ds in self._data.data()[cli] ] }
+            logger.info('Send message to client ' + str(cli) + " - " + str(msg))
             time_start[cli] = time.perf_counter()
-            self._reqs.send_message(self.msg, cli)  # send request to node
+            self._reqs.send_message(msg, cli)  # send request to node
 
         # Recollect models trained
         self._training_replies[round] = Responses([])
@@ -248,7 +258,9 @@ class Job:
                                'params': params,
                                'timing': timing})
                 self._training_replies[round].append(r)  # add new replies
-    
+                print(r)
+                self._params_path[r[0]['client_id']] = params_path
+        #self._save_state(msg)
     
 
     def update_parameters(self, params: dict) -> str:
@@ -278,7 +290,26 @@ class Job:
             sys.exit(-1)
         return filename
 
-
+    def save_state(self, round: int=0):
+        
+        training_data = {last_reply["dataset_id"]: last_reply["client_id"] for \
+                         last_reply in self._training_replies[round]}
+        
+        self.state = {
+            'researcher_id': RESEARCHER_ID,
+            'job_id': self._id,
+            'training_data': training_data,
+            'training_args': self._training_args,
+            'model_args': self._model_args,
+            'command': 'train',
+            'model_path': self._model_file,
+            'params_path': self._params_path,
+            #'model_class': type(self.model_instance).__name__,
+            'model_class': self._repository_args.get('model_class')
+            #'training_replies': self.training_replies
+        }
+        
+         
 class localJob:
     """
     This class represents the entity that manage the training part.

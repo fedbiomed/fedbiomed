@@ -72,7 +72,7 @@ if not defined_researcher_env:
             try:
                 os.makedirs(dir)
             except FileExistsError:
-                logging.error("path exists but is not a directory " + dir)
+                logger.error("path exists but is not a directory " + dir)
 
     MESSAGES_QUEUE_DIR = os.path.join(VAR_DIR, 'queue_messages')
 

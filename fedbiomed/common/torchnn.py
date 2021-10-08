@@ -171,7 +171,7 @@ class TorchTrainingPlan(nn.Module):
 
         content += "\n"
         content += inspect.getsource(self.__class__)
-
+        print("filename", filename)
         # TODO: try/except
         file = open(filename, "w")
         # (above) should we write it in binary (for the sake of space

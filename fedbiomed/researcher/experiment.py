@@ -1,7 +1,10 @@
 import os
+import json
+import shutil
+
 from fedbiomed.common.logger import logger
-from typing import Callable, Union
-from fedbiomed.node.environ import VAR_DIR
+from typing import ByteString, Callable, Union
+from fedbiomed.researcher.environ import VAR_DIR
 
 from fedbiomed.researcher.aggregators import fedavg, aggregator
 from fedbiomed.researcher.strategies.strategy import Strategy
@@ -26,6 +29,7 @@ class Experiment:
                  rounds: int = 1,
                  aggregator: aggregator.Aggregator = fedavg.FedAverage(),
                  client_selection_strategy: Strategy = None,
+                 save_breakpoints: bool = True
                  ):
 
         """ Constructor of the class.
@@ -88,6 +92,8 @@ class Experiment:
         self._sampled = None
 
         self._aggregated_params = {}
+        self._save_breakpoints = save_breakpoints
+            
 
     @property
     def training_replies(self):
@@ -123,6 +129,9 @@ class Experiment:
         else:
             self._client_selection_strategy = self._client_selection_strategy(self._fds, self._sampled)
 
+        if self._save_breakpoints:
+            self._create_breakpoints_folder()
+            self._create_breakpoint_exp_folder()
         if not sync:
             raise NotImplementedError("One day....")
 
@@ -145,11 +154,34 @@ class Experiment:
 
             self._aggregated_params[round_i] = {'params': aggregated_params,
                                                 'params_path': aggregated_params_path}
-            self._save_state()
+            if self._save_breakpoints:
+                self._save_state(round_i)
 
-    def _create_breakpoints_folder(self, round: int=0):
-        breakpoint_path_file = os.path.join(VAR_DIR)
-    
+    def _create_breakpoints_folder(self):
+        self._breakpoint_path_file = os.path.join(VAR_DIR, "breakpoints")
+        if not os.path.isdir(self._breakpoint_path_file):
+            try:
+                os.makedirs(self._breakpoint_path_file)
+            except PermissionError:
+                logger.error(f"Can not save breakpoints files because\
+                    {self._breakpoint_path_file} folder could not be created\
+                        due to PermissionError")
+        
+    def _create_breakpoint_exp_folder(self):
+        all_file = os.listdir(self._breakpoint_path_file)
+        self._exp_breakpoint_folder = "Experiment_" + str(len(all_file))
+        os.makedirs(os.path.join(self._breakpoint_path_file,
+                                 self._exp_breakpoint_folder))
+        
+    def _create_breakpoint_file_and_folder(self, round:int=0) -> str:
+        breakpoint_folder = "breakpoint_" + str(round)
+        breakpoint_folder_path = os.path.join(self._breakpoint_path_file,
+                                              self._exp_breakpoint_folder,
+                                              breakpoint_folder)
+        os.makedirs(breakpoint_folder_path)
+        breakpoint_file = breakpoint_folder + ".json"
+        return breakpoint_folder_path, breakpoint_file
+
     @staticmethod
     def _get_class_name(obj: object) -> str:
         if hasattr(obj, "__name__"):
@@ -164,23 +196,25 @@ class Experiment:
     def _save_state(self, round: int=0):
         """
         """
+        self._job.save_state(round)  # create attribute `_job.state`
+        job_state = self._job.state
         state = {
-            'researcher_id': self._job.msg.get("researcher_id"),
-            'job_id': self._job.msg.get("job_id"),
-            'training_data': self._job.msg.get("training_data"),
-            'training_args': self._job._training_args,
-            'model_args': self._job._model_args,
-            'command': self._job.msg.get("command"),
-            'model_url': self._job.msg.get("model_url"),
-            'params_url': self._job.msg.get("params_url"),
-            'model_class': self._job.msg.get("model_class"),
-            "model_path_file": self._model_path,
             #"params_path_file":
-            "aggregated_params": self._aggregated_params[-1],
+            #"aggregated_params": self._aggregated_params[round],
             'round_number': round,
-            'aggregator': Experiment._get_class_name(self._aggregator),
-            'client_selection_strategy': Experiment._get_class_name(self._client_selection_strategy),
+            'aggregator': self._aggregator.save_state(),
+            'client_selection_strategy': self._client_selection_strategy.save_state(),
             'round_success': True
         }
+        state.update(job_state)
+        breakpoint_path, breakpoint_file_name = self._create_breakpoint_file_and_folder(round)
+        with open(os.path.join(breakpoint_path, breakpoint_file_name), 'w') as bkpt:
+            json.dump(state, bkpt)
+        print(f"breakpoint saved at {breakpoint_file_name}")
         
-        self._job.msg
+        #copy model parameters and model to breakpoint folder
+        for client_id, param_path in state['params_path'].items():
+            shutil.copy2(param_path, os.path.join(breakpoint_path,
+                                                  "client_" + client_id + ".pt"))
+        shutil.copy2(state["model_path"], os.path.join(breakpoint_path,
+                                                  "model_" + str(round) + ".py"))
