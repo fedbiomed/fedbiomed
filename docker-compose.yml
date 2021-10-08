@@ -27,8 +27,6 @@ services:
     networks:
       - fed-net-hub
     environment:
-      ## HOST_BASEDIR needs to match your installation eg
-      #HOST_BASEDIR: /home/respi/Development/respi
       HOST_BASEDIR: ${PWD}
       BASE_URL: /fedbiomed/
       DOCKER_JUPYTERLAB_IMAGE: fed-notebook_image
@@ -40,6 +38,8 @@ services:
         /envs/development/notebook/before-notebook.d:/usr/local/bin/before-notebook.d
         /envs/development/notebook/data/samples:/home/samples
       JUPYTERLAB_VOLUME_RW: /envs/development/notebook/data/notebook:/home/notebook
+      # This part didn't worked for fedbiomed jupyterhub, if it can work 
+      # we can define env variable such as MQTT UPLOADS_URL etc. here. 
       JUPYTERLAB_ENVIRONMENT: NB_USER:fedclient
         NB_UID:998
         NB_GROUP:fedclient

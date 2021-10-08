@@ -174,11 +174,34 @@ usage:  lqueue directory
 
 ### Build Containers and run
 
-To build and your jupyterhub condatiners run following command in base directory
+To build and your jupyterhub condatiners first you need to indicate 'MQTT_BROKER', 'MQTT_BROKER_PORT' and 'UPLOADS_URL' your internal ip in 'Dockerfile-notebook'
 
+```
+ENV UPLOADS_URL 'http://138.96.220.179:8844/upload/'
+ENV MQTT_BROKER '138.96.220.179'
+ENV MQTT_BROKER_PORT '1883'
+```
+
+Afterwards, you can run following code 
 `docker-compose up --build`
 
-Open your browser and go http://localhost:8000/fedbiomed. Login with follwing username and password.
+### Runing Nodes 
+Since jupyter notebook runs in docker, it should download model paramaters using host internal ip. So, node should be started with ip_address option
+
+```
+./scripts/fedbiomed_run node config config-n1.ini ip_address x.x.x.x start
+```
+
+### Access Jupyter HUB
+Open your browser and go http://localhost:8000/fedbiomed. Login with following username and password.
 
 User: fedbiomed
 pass: FED123fed
+
+### Add New User
+
+Adding a user account
+* add user account to `envs/development/hub/etc/passwd` and `envs/development/hub/etc/shadow` (cut/paste/adapt from existing account)
+* generate a password hash (eg `openssl passwd -1`) and add it to `envs/development/hub/etc/shadow`
+* commit and push to git to make it permanent
+
