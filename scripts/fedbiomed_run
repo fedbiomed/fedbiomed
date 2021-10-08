@@ -141,7 +141,17 @@ case $1 in
 
         source ./scripts/fedbiomed_environment researcher $IP_ADDRESS
         cd notebooks
-        jupyter notebook
+
+        # Windows WSL and others cannot handle using redirect file for securing notebook launch
+        # https://jupyter-notebook.readthedocs.io/en/stable/config.html (section NotebookApp.use_redirect_file)
+        NB_OPTS=
+        if [ -n "$(uname -r | egrep -i 'microsoft|wsl')" ]
+        # case if windows WSL is used
+        then
+            NB_OPTS='--NotebookApp.use_redirect_file=false'
+        fi
+
+        jupyter notebook $NB_OPTS
         ;;
 
     help|-h|--help)
@@ -149,7 +159,7 @@ case $1 in
 usage: fedbiomed_run network
        fedbiomed_run researcher [ip_address IP_ADDRESS]
        fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS]
-                         (start | add | list | delete | add-mnist | delete-mnist) PARAMS
+                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist) PARAMS
 
 
 Runs the fedbiomed components after properly initializing the environments.
@@ -164,7 +174,7 @@ researcher: launch a researcher notebook
 
 node      : a second arguement is mandatory
             - start : launch a new node
-            - add/list/delete deals with dataset
+            - add/list/delete deal with dataset
             - add-mnist PATH_TO_DATASET directly adds a mnist dataset
             - delete-mnist directly removes a mnist dataset
 
@@ -172,6 +182,8 @@ node      : a second arguement is mandatory
 
             an optional IP_ADDRESS can be used to join the network component instead of
                 the default localhost
+
+            optional additional PARAMS are passed to fedbiomed
 
 EOF
         ;;
