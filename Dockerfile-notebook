@@ -21,6 +21,9 @@ RUN /opt/conda/bin/conda install -y paho-mqtt=1.5.1 \
         JSON-log-formatter \
         persist-queue==0.5.1
 
+ENV UPLOADS_URL 'http://138.96.220.179:8844/upload/'
+ENV MQTT_BROKER '138.96.220.179'
+ENV MQTT_BROKER_PORT '1883'
 
 #RUN conda install nbstripout joblib=1.0.1 pyyaml colorama nose pytest tinydb=4.4.0 tabulate=0.8.9 requests paho-mqtt=1.5.1
 #RUN pip install torch==1.8.0 torchvision==0.9.0 persist-queue==0.5.1 pandas==1.2.3 tensorboard JSON-log-formatter 
