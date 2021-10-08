@@ -130,7 +130,7 @@ class Job:
         # (below) regex: matches a character not present among "^", "\", "."
         # characters at the end of string.
         self._repository_args['model_class'] = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
-        print("ANSWER", os.path.isfile(self._model_file))
+        
         # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args,
                                         ['model_url', 'model_class', 'params_url'])
@@ -308,12 +308,15 @@ class Job:
             'training_replies': self._save_training_replies()
         }
         
-    def _save_training_replies(self) -> dict:
-        """saves last values training replies variable, and replace pytroch tensor 
-        by path files pointing to files
+    def _save_training_replies(self) -> list:
+        """saves last values training replies variable, and replace
+        pytroch tensor / numpy arrays by path files pointing to
+        tensor files (these tensor files contain pytorch tensor / numpy arrays)
 
         Returns:
-            dict: [description]
+            list: `_training_replies` variable containing path files towards
+            pytorch / numpy arrays instead of Tensors/Arrays values (so it can 
+            be saved with JSON).
         """
         last_index = max(self._training_replies.keys())
         converted_training_replies = copy.deepcopy(

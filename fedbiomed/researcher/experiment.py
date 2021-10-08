@@ -3,7 +3,7 @@ import json
 import shutil
 
 from fedbiomed.common.logger import logger
-from typing import ByteString, Callable, Union
+from typing import Callable, Union, Tuple
 from fedbiomed.researcher.environ import VAR_DIR
 
 from fedbiomed.researcher.aggregators import fedavg, aggregator
@@ -29,7 +29,7 @@ class Experiment:
                  rounds: int = 1,
                  aggregator: aggregator.Aggregator = fedavg.FedAverage(),
                  client_selection_strategy: Strategy = None,
-                 save_breakpoints: bool = True
+                 save_breakpoints: bool = False
                  ):
 
         """ Constructor of the class.
@@ -63,6 +63,10 @@ class Experiment:
                                                   non-responding clients
                                                   are managed. Defaults to
                                                   None (ie DefaultStartegy)
+            save_breakpoints (bool, optional): whether to save breakpoints or
+                                                not. Breakpoints can be used
+                                                for resuming a crashed
+                                                experiment. Defaults to False.
         """
         self._tags = tags
         self._clients = clients
@@ -158,6 +162,9 @@ class Experiment:
                 self._save_state(round_i)
 
     def _create_breakpoints_folder(self):
+        """Creates a general folder for storing breakpoints (if non existant)
+        into the `VAR_DIR` folder.
+        """
         self._breakpoint_path_file = os.path.join(VAR_DIR, "breakpoints")
         if not os.path.isdir(self._breakpoint_path_file):
             try:
@@ -168,12 +175,29 @@ class Experiment:
                         due to PermissionError")
         
     def _create_breakpoint_exp_folder(self):
+        """Creates a breakpoint folder for the current experiment (ie the 
+        current run of the model). This folder is located at
+        `VAR_DIR/Experiment_x` where `x-1` is the number of experiments
+        already run (`x`=0 for the first experiment)
+        """
         all_file = os.listdir(self._breakpoint_path_file)
         self._exp_breakpoint_folder = "Experiment_" + str(len(all_file))
         os.makedirs(os.path.join(self._breakpoint_path_file,
                                  self._exp_breakpoint_folder))
         
-    def _create_breakpoint_file_and_folder(self, round:int=0) -> str:
+    def _create_breakpoint_file_and_folder(self, round:int=0) -> Tuple[str, str]:
+        """It creates a breakpoint file for each round. 
+
+        Args:
+            round (int, optional): the current number of rounds minus one.
+            Starts from 0. Defaults to 0.
+
+        Returns:
+            breakpoint_folder_path (str): name of the created folder that
+            will contain all data for the current round
+            breakpoint_file (str): name of the file that will
+            contain the state of an experiment.
+        """
         breakpoint_folder = "breakpoint_" + str(round)
         breakpoint_folder_path = os.path.join(self._breakpoint_path_file,
                                               self._exp_breakpoint_folder,
@@ -181,40 +205,57 @@ class Experiment:
         os.makedirs(breakpoint_folder_path)
         breakpoint_file = breakpoint_folder + ".json"
         return breakpoint_folder_path, breakpoint_file
-
-    @staticmethod
-    def _get_class_name(obj: object) -> str:
-        if hasattr(obj, "__name__"):
-            return obj.__name__
-        elif hasattr(obj, "__str__"):
-            return str(obj)
-        elif hasattr(obj, "__repr__"):
-            return repr(obj)
-        else:
-            return "none"
         
     def _save_state(self, round: int=0):
         """
+        Saves a state of the training at a current round.
+        The following attributes will be saved:
+         - 'round_number'
+         - 'aggregator'
+         - 'client_selection_strategy'
+         - 'round_success'
+         - researcher_id
+         - job_id
+         - training_data
+         - training_args
+         - model_args
+         - command
+         - model_path
+         - params_path
+         - model_class
+         - training_replies
+        
+        Args:
+            round (int, optional): number of rounds already executed.
+            Starts from 0. Defaults to 0.
         """
         self._job.save_state(round)  # create attribute `_job.state`
         job_state = self._job.state
         state = {
-            #"params_path_file":
-            #"aggregated_params":self._job.model_instance.save(self._aggregated_params[round],
             'round_number': round,
             'aggregator': self._aggregator.save_state(),
             'client_selection_strategy': self._client_selection_strategy.save_state(),
             'round_success': True
         }
+        
         state.update(job_state)
         breakpoint_path, breakpoint_file_name = self._create_breakpoint_file_and_folder(round)
-        with open(os.path.join(breakpoint_path, breakpoint_file_name), 'w') as bkpt:
-            json.dump(state, bkpt)
-        print(f"breakpoint saved at {breakpoint_file_name}")
         
-        #copy model parameters and model to breakpoint folder
+        
+        # copy model parameters and model to breakpoint folder
         for client_id, param_path in state['params_path'].items():
-            shutil.copy2(param_path, os.path.join(breakpoint_path,
-                                                  "client_" + client_id + ".pt"))
-        shutil.copy2(state["model_path"], os.path.join(breakpoint_path,
-                                                  "model_" + str(round) + ".py"))
+            copied_param_file = "params_" + client_id + ".pt"
+            copied_param_path = os.path.join(breakpoint_path,
+                                                  copied_param_file)
+            shutil.copy2(param_path, copied_param_path)
+            state['params_path'] = copied_param_file
+        copied_model_file = "model_" + str(round) + ".py"
+        copied_model_path = os.path.join(breakpoint_path,
+                                                       copied_model_file)
+        shutil.copy2(state["model_path"], copied_model_path)
+        state["model_path"] = copied_model_file
+        # save state into a json file.
+        breakpoint_path = os.path.join(breakpoint_path, breakpoint_file_name)
+        with open(breakpoint_path, 'w') as bkpt:
+            json.dump(state, bkpt)
+        logger.info(f"breakpoint for round {round} saved at {breakpoint_path}")
