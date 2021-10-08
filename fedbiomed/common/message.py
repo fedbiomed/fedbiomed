@@ -93,6 +93,7 @@ class PingReply(Message):
     researcher_id: str
     client_id: str
     success: bool
+    sequence: int
     command: str
 
     def __post_init__(self):
@@ -189,6 +190,7 @@ class PingRequest(Message):
         ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
+    sequence: int
     command: str
 
     def __post_init__(self):
@@ -249,7 +251,7 @@ class ResearcherMessages():
 
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
                                      'search': SearchReply,
-                                     'ping': PingReply,
+                                     'pong': PingReply,
                                      'error': ErrorMessage
         }
 
@@ -360,7 +362,7 @@ class NodeMessages():
         message_type = params['command']
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
                                      'search': SearchReply,
-                                     'ping': PingReply,
+                                     'pong': PingReply,
                                      'error': ErrorMessage,
                                      'add_scalar': AddScalarReply
                                      }

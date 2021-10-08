@@ -64,11 +64,15 @@ class Node:
                 # add training task to queue
                 self.add_task(request)
             elif command == 'ping':
-                self.messaging.send_message(NodeMessages.reply_create(
-                    {'success': True, 'client_id': CLIENT_ID,
-                     'researcher_id': msg['researcher_id'],
-                     'command': 'ping'}
-                                        ).get_dict())
+                self.messaging.send_message(
+                    NodeMessages.reply_create(
+                        {
+                            'researcher_id': msg['researcher_id'],
+                            'client_id': CLIENT_ID,
+                            'success': True,
+                            'sequence': msg['sequence'],
+                            'command': 'pong'
+                         }).get_dict())
             elif command == 'search':
                 # Look for databases matching the tags
                 databases = self.data_manager.search_by_tags(msg['tags'])
