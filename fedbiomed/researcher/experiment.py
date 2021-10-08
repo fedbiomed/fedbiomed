@@ -180,6 +180,8 @@ class Experiment:
         `VAR_DIR/Experiment_x` where `x-1` is the number of experiments
         already run (`x`=0 for the first experiment)
         """
+        # FIXME: improve method robustness (here nb of exp equals nb of file
+        # in directory)
         all_file = os.listdir(self._breakpoint_path_file)
         self._exp_breakpoint_folder = "Experiment_" + str(len(all_file))
         os.makedirs(os.path.join(self._breakpoint_path_file,
@@ -248,12 +250,12 @@ class Experiment:
             copied_param_path = os.path.join(breakpoint_path,
                                                   copied_param_file)
             shutil.copy2(param_path, copied_param_path)
-            state['params_path'] = copied_param_file
+            state['params_path'] = copied_param_path
         copied_model_file = "model_" + str(round) + ".py"
         copied_model_path = os.path.join(breakpoint_path,
                                                        copied_model_file)
         shutil.copy2(state["model_path"], copied_model_path)
-        state["model_path"] = copied_model_file
+        state["model_path"] = copied_model_path
         # save state into a json file.
         breakpoint_path = os.path.join(breakpoint_path, breakpoint_file_name)
         with open(breakpoint_path, 'w') as bkpt:

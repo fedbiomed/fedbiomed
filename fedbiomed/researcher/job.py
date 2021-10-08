@@ -32,8 +32,7 @@ class Job:
                  model_path: str = None,
                  training_args: dict = None,
                  model_args: dict = None,
-                 data: FederatedDataSet = None, 
-                 save_breakpoint:bool=True):
+                 data: FederatedDataSet = None):
 
         """ Constructor of the class.
 
@@ -111,7 +110,7 @@ class Job:
             logger.error("Cannot save the model to a local tmp dir : " + str(e))
             return
 
-        # upload my_model_xxx.py on HTTP server
+        # upload my_model_xxx.py on HTTP server (contains model definition)
         repo_response = self.repo.upload_file(self._model_file)
         
         self._repository_args['model_url'] = repo_response['file']
@@ -123,7 +122,7 @@ class Job:
             logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
             return
 
-        # upload my_model_xxx.pt on HTTP server
+        # upload my_model_xxx.pt on HTTP server (contains model parameters)
         repo_response = self.repo.upload_file(params_file)
         self._repository_args['params_url'] = repo_response['file']
 
