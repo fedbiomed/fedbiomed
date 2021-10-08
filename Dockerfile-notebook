@@ -8,15 +8,22 @@ VOLUME [ "/home/samples" ]
 VOLUME [ "/home/jovyan/data" ]
 
 # Copy fedbiomed library
-COPY ./fedbiomed/ /home/fed/fedbiomed 
-COPY ./envs/development/conda /home/conda-envs
-
+COPY . /home/fed 
+#RUN /home/fed/scripts/configure_researcher
 ENV PYTHONPATH '${PYTHONPATH}:/home/fed/'
 
-RUN conda install paho-mqtt=1.5.1
+RUN /opt/conda/bin/conda install -y paho-mqtt=1.5.1 \ 
+        pyyaml colorama nose tinydb=4.4.0 tabulate \
+        validators=0.18.2 \
+        nbstripout joblib=1.0.1 pytest requests && \
+    /opt/conda/bin/pip install torchvision==0.9.0 \
+        torch==1.8.0 \
+        JSON-log-formatter \
+        persist-queue==0.5.1
 
-# RUN conda install scikit-learn=0.24.2 nbstripout joblib=1.0.1 pyyaml colorama nose pytest tinydb=4.4.0 tabulate=0.8.9 requests paho-mqtt=1.5.1
+
+#RUN conda install nbstripout joblib=1.0.1 pyyaml colorama nose pytest tinydb=4.4.0 tabulate=0.8.9 requests paho-mqtt=1.5.1
 #RUN pip install torch==1.8.0 torchvision==0.9.0 persist-queue==0.5.1 pandas==1.2.3 tensorboard JSON-log-formatter 
 
-#RUN conda env update --file /home/fed/fedbiomed/envs/development/conda/fedbiomed-researcher.yaml
+#RUN /opt/conda/bin/conda env update --file /home/fed/fedbiomed/envs/development/conda/fedbiomed-researcher.yaml
 USER $NB_UID

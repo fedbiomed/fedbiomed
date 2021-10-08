@@ -1,0 +1,8 @@
+./var
+./poc
+./tests
+docker-compose.yml
+Dockerfile-hub
+Dockerfile-notebook
+README.md
+CHANGELOS.md

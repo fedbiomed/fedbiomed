@@ -169,3 +169,16 @@ list the content of a message queue (as used in fedbiomed.node and fedbiomed.res
 usage:  lqueue directory
    or
         lqueue dir1 dir2 dir3 ...
+
+## Jupyterhub 
+
+### Build Containers and run
+
+To build and your jupyterhub condatiners run following command in base directory
+
+`docker-compose up --build`
+
+Open your browser and go http://localhost:8000/fedbiomed. Login with follwing username and password.
+
+User: fedbiomed
+pass: FED123fed

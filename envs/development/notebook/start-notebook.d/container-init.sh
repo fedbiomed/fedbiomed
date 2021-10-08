@@ -9,6 +9,7 @@ if [ -n "$NB_USER" ] ; then
 fi
 if [ -n "$NB_UID" ] ; then
     find /home/jovyan/ -mount -exec mountpoint {} >/dev/null \; -or -exec chown $NB_UID {} \;
+    find /home/fed/ -mount -exec mountpoint {} >/dev/null \; -or -exec chown $NB_UID {} \;
 fi
 if [ -n "$NB_GID" ] ; then
     find /home/jovyan/ -mount -exec mountpoint {} >/dev/null \; -or -exec chgrp $NB_UID {} \;
@@ -36,3 +37,5 @@ fi
 if [ -n "$NB_GID" ] ; then
     find $NOTEBOOKPATH/ -mount -exec mountpoint {} >/dev/null \; -or -exec chgrp $NB_UID {} \;
 fi
+
+
