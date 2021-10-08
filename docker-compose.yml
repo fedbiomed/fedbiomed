@@ -6,7 +6,7 @@ services:
     container_name: fed-notebook_app
     build:
       context: ./
-      dockerfile: Dockerfile-notebook
+      dockerfile:  envs/jupyterhub/notebook/Dockerfile-notebook
 
   fed-hub:
     image: fed-hub_image
@@ -14,7 +14,7 @@ services:
     container_name: fed-hub_app
     build:
       context: ./
-      dockerfile: Dockerfile-hub
+      dockerfile: envs/jupyterhub/hub/Dockerfile-hub
     command: jupyterhub -f /etc/jupyterhub/jupyterhub_config.py
     volumes:
       - ./envs/jupyterhub/hub/etc/passwd:/etc/passwd:ro
