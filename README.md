@@ -198,6 +198,8 @@ Open your browser and go http://localhost:8000/fedbiomed. Login with following u
 User: fedbiomed
 pass: FED123fed
 
+Note: In case of frozen loading bar while accessing jupyterlab, please logout and login again. 
+
 ### Add New User
 
 Adding a user account

@@ -17,10 +17,10 @@ services:
       dockerfile: Dockerfile-hub
     command: jupyterhub -f /etc/jupyterhub/jupyterhub_config.py
     volumes:
-      - ./envs/development/hub/etc/passwd:/etc/passwd:ro
-      - ./envs/development/hub/etc/shadow:/etc/shadow:ro
-      - ./envs/development/hub/etc/group:/etc/group:ro
-      - ./envs/development/hub/etc/jupyterhub:/etc/jupyterhub:ro
+      - ./envs/jupyterhub/hub/etc/passwd:/etc/passwd:ro
+      - ./envs/jupyterhub/hub/etc/shadow:/etc/shadow:ro
+      - ./envs/jupyterhub/hub/etc/group:/etc/group:ro
+      - ./envs/jupyterhub/hub/etc/jupyterhub:/etc/jupyterhub:ro
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "8000:8000"
@@ -34,10 +34,10 @@ services:
       HUB_IP: fed-hub_app
 
       JUPYTERLAB_USER: root
-      JUPYTERLAB_VOLUME_RO: /envs/development/notebook/start-notebook.d:/usr/local/bin/start-notebook.d
-        /envs/development/notebook/before-notebook.d:/usr/local/bin/before-notebook.d
-        /envs/development/notebook/data/samples:/home/samples
-      JUPYTERLAB_VOLUME_RW: /envs/development/notebook/data/notebook:/home/notebook
+      JUPYTERLAB_VOLUME_RO: /envs/jupyterhub/notebook/start-notebook.d:/usr/local/bin/start-notebook.d
+        /envs/jupyterhub/notebook/before-notebook.d:/usr/local/bin/before-notebook.d
+        /envs/jupyterhub/notebook/data/samples:/home/samples
+      JUPYTERLAB_VOLUME_RW: /envs/jupyterhub/notebook/data/notebook:/home/notebook
       # This part didn't worked for fedbiomed jupyterhub, if it can work 
       # we can define env variable such as MQTT UPLOADS_URL etc. here. 
       JUPYTERLAB_ENVIRONMENT: NB_USER:fedclient

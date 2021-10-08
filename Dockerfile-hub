@@ -1,10 +1,7 @@
 FROM jupyterhub/jupyterhub:1.2
 EXPOSE 8000
 
-
+# Install docker spawner
 RUN pip install dockerspawner==0.11.1
 
-
-
-#COPY ./envs/development/hub/srv/userlist /srv/jupyterhub/userlist
 
