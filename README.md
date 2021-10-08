@@ -200,7 +200,7 @@ To start tensorboard from terminal;
 
 Note: please make sure that already activated fedbiomed-researcher conda environment. 
 
-`tensorboard --logdir '../runs`
+`tensorboard --logdir '../runs'`
 
 
 

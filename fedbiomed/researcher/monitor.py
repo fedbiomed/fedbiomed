@@ -1,7 +1,7 @@
 import os
 import shutil
 from threading import Lock
-from fedbiomed.researcher.environ import TENSORBOARD_RESULTS_DIR, VAR_DIR, MQTT_BROKER, MQTT_BROKER_PORT
+from fedbiomed.researcher.environ import TENSORBOARD_RESULTS_DIR, MQTT_BROKER, MQTT_BROKER_PORT
 from fedbiomed.common.messaging import Messaging, MessagingType
 from fedbiomed.common.message import MonitorMessages 
 from fedbiomed.common.logger import logger
