@@ -79,7 +79,7 @@ class MLaggregator(Aggregator):
             tilmuk = np.zeros((D_i[k], 1))
             tilWk = np.zeros((D_i[k], q))
             tilSk = 0.0
-            for model in range(model_params):
+            for model in model_params:
                 if type(model['muk'][k]) is not str:
                     tilmuk+=model['muk'][k]
                 if type(model['Wk'][k]) is not str:
@@ -93,7 +93,7 @@ class MLaggregator(Aggregator):
             if Tot_C_k_W[k] > 1:
                 tilde_Wk.append(1.0 / Tot_C_k_W[k] * tilWk)
                 sigWk = 0.0
-                for model in range(model_params):
+                for model in model_params:
                     if type(model['Wk'][k]) is not str:
                         sigWk += np.matrix.trace((model['Wk'][k] - tilde_Wk[k]).T.dot(model['Wk'][k] - tilde_Wk[k]))
                 if sigWk == 0.0:
@@ -108,7 +108,7 @@ class MLaggregator(Aggregator):
             if Tot_C_k_mu[k] > 1:
                 tilde_muk.append(1.0/Tot_C_k_mu[k]*tilmuk)
                 sigmuk = 0.0
-                for model in range(model_params):
+                for model in model_params:
                     if type(model['muk'][k]) is not str:
                         sigmuk+=float((model['muk'][k]-tilde_muk[k]).T.dot(model['muk'][k]-tilde_muk[k]))
                 if sigmuk == 0.0:
@@ -136,7 +136,7 @@ class MLaggregator(Aggregator):
                 Ck_1 = 0.0
                 Ck_2 = 0.0
                 varSk = 0.0
-                for model in range(model_params):
+                for model in model_params:
                     if type(model['sigma2k'][k]) is not str:
                         Ck_1 += 1.0 / model['sigma2k'][k]
                         Ck_2 += log(model['sigma2k'][k])
@@ -152,7 +152,7 @@ class MLaggregator(Aggregator):
                     alphak = self.inv_digamma(y=log(Tot_C_k_S[k]*alphak)+Ck)
                 if alphak<=2:
                     alphak = 2+1e-5
-                betak = (self.Tot_C_k_S[k] * alphak) / Ck_1
+                betak = (Tot_C_k_S[k] * alphak) / Ck_1
                 var_sigmak = betak ** 2 / (((alphak - 1) ** 2) * (alphak - 2))
                 Beta.append(betak)
                 Alpha.append(alphak)
@@ -175,7 +175,7 @@ class MLaggregator(Aggregator):
             TotCkW = 0
             TotCkmu = 0
             TotCkS = 0
-            for model in range(model_params):
+            for model in model_params:
                 if type(model['Wk'][k]) is not str:
                     TotCkW += 1
                 if type(model['muk'][k]) is not str:
