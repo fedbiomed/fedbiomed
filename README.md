@@ -169,3 +169,38 @@ list the content of a message queue (as used in fedbiomed.node and fedbiomed.res
 usage:  lqueue directory
    or
         lqueue dir1 dir2 dir3 ...
+
+
+## Using Tensorboard  
+
+To enable tensorboard during traning routine to see loss values, you need to set `tensorboard` parameter to `true` while initializing Experiment class.
+
+```
+exp = Experiment(tags=tags,
+                 #clients=None,
+                 model_path=model_file,
+                 model_args=model_args,
+                 model_class='MyTrainingPlan',
+                 training_args=training_args,
+                 rounds=rounds,
+                 aggregator=FedAverage(),
+                 client_selection_strategy=None,
+                 tensorboard=True
+                )
+```
+
+During training, the scalar values (loss) will be writen in the `var/tensorboard` directory. You can either start tensorboard from jupyter notebook or terminal window. 
+
+For notebook, first you should load tenserboard extension. 
+
+`%load_ext tensorboard`
+`tensorboard --logdir '../var/tensorboard`
+
+To start tensorboard from terminal;
+
+Note: please make sure that already activated fedbiomed-researcher conda environment. 
+
+`tensorboard --logdir '../var/tensorboard`
+
+
+

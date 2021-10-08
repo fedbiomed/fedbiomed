@@ -1,7 +1,7 @@
 import os
 import shutil
 from threading import Lock
-from fedbiomed.node.environ import VAR_DIR, MQTT_BROKER, MQTT_BROKER_PORT
+from fedbiomed.researcher.environ import VAR_DIR, MQTT_BROKER, MQTT_BROKER_PORT
 from fedbiomed.common.messaging import Messaging, MessagingType
 from fedbiomed.common.message import MonitorMessages 
 from fedbiomed.common.logger import logger
@@ -58,7 +58,7 @@ class Monitor(metaclass=MonitorMeta):
         
         # Start subscriber
         self._messaging.start(block=False)
-        self._log_dir = VAR_DIR + '/tensorboard'
+        self._log_dir = os.path.join(VAR_DIR, 'tensorboard')
         self.tensorboard = tensorboard
         self.round = 0
         self._event_writers = {}
@@ -127,6 +127,14 @@ class Monitor(metaclass=MonitorMeta):
 
         """ This method is for writing scalar values using torch SummaryWriter
         It create new summary path for each node
+        
+        Args:
+            client (str): node id that sends 
+            key (str): Name of the scalar value it can be e.g. loss, accuracy
+            global_step (int): The index of the current batch proccess during epoch.
+                               Batch is all samples if it is -1.  
+            scalar (float): The value that be writen into tensorboard logs: loss, accuracy etc.
+            epoch (int): Epoch during training routine
         """
 
         # Initilize event SummaryWriters
