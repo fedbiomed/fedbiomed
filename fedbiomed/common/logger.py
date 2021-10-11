@@ -152,7 +152,7 @@ class _LoggerBase():
 
         # internal tables
         # transform string to logging.level
-        self._levels = {
+        self._nameToLevel = {
             "DEBUG"          : logging.DEBUG,
             "INFO"           : logging.INFO,
             "WARNING"        : logging.WARNING,
@@ -161,7 +161,7 @@ class _LoggerBase():
         }
 
         # transform logging.level to string
-        self._original_levels = {
+        self._levelToName = {
             logging.DEBUG    : "DEBUG",
             logging.INFO     : "INFO",
             logging.WARNING  : "WARNING",
@@ -220,18 +220,22 @@ class _LoggerBase():
 
         ex:
         _internalLevelTranslator('DEBUG')  returns logging.DEBUG
+
+        remark:
+        this is the opposite of the getLevelName() of logging python module
+        and this is not provided by the logging.Logger class
         """
 
         # logging.*
-        if level in self._original_levels:
+        if level in self._levelToName:
             return level
 
         # strings
         if isinstance(level, str):
             upperlevel = level.upper()
 
-            if upperlevel in self._levels:
-                return self._levels[upperlevel]
+            if upperlevel in self._nameToLevel:
+                return self._nameToLevel[upperlevel]
 
         # bad input !
 
