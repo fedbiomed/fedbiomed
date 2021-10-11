@@ -26,12 +26,6 @@ RUN /opt/conda/bin/conda install -y paho-mqtt=1.5.1 \
         JSON-log-formatter \
         persist-queue==0.5.1
 
-# Create ENV Variables for fedbiomed.researcher.environ 
-ENV UPLOADS_URL 'http://138.96.220.179:8844/upload/'
-ENV MQTT_BROKER '138.96.220.179'
-ENV MQTT_BROKER_PORT '1883'
-
-
 # Created env but does not activate as default environment
 #RUN /home/fed/scripts/configure_conda
 #RUN source /home/fed/scripts/fedbiomed_environment researcher

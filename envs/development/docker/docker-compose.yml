@@ -84,6 +84,12 @@ services:
         CHOWN_EXTRA:/home/fedclient/notebook
         CHOWN_EXTRA_OPTS:-R
         RESTARTABLE:yes
+        UPLOAD_IP:138.96.220.179
+        UPLOAD_PORT:8844
+        UPLOAD_PATH:upload/
+        MQTT_BROKER:138.96.220.179
+        MQTT_BROKER_PORT:1883
+
 
 networks:
   fed-net-hub:
