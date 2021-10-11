@@ -37,7 +37,7 @@ class Node:
         """
         self.tasks_queue.add(task)
 
-    def on_message(self, msg):
+    def on_message(self, msg, topic = None):
         """Handler to be used with `Messaging` class (ie with messager).
         It is called when a  messsage arrive through the messager
         It reads and triggers instruction received by node from Researcher,
@@ -52,7 +52,8 @@ class Node:
             of the command (ping requests, train requests,
             or search requests).
 
-
+            topic(str): topic name, decision (specially on researcher) may
+            be done regarding of the topic.
         """
         # TODO: describe all exceptions defined in this method
         logger.debug('Message received: ' + str(msg))

@@ -1,8 +1,12 @@
-from time import sleep
-import uuid
 from datetime import datetime
-from threading import Lock
+import json
+import os
+import signal
+import sys
+import threading
+from time import sleep
 from typing import Any, Dict
+import uuid
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
@@ -19,7 +23,7 @@ class RequestMeta(type):
     """
 
     _objects = {}
-    _lock_instantiation = Lock()
+    _lock_instantiation = threading.Lock()
 
     def __call__(cls, *args, **kwargs):
         """ Replace default class creation for classes using this metaclass,
@@ -67,17 +71,46 @@ class Requests(metaclass=RequestMeta):
         """
         return(self.messaging)
 
-    def on_message(self, msg: Dict[str, Any]):
+    def on_message(self, msg: Dict[str, Any] , topic: str):
         """
         This handler is called by the Messaging class (Messager),
         when a message is received on researcher side.
         Adds to queue this incoming message.
         Args:
             msg (Dict[str, Any]): de-serialized msg
+            topic (str)         : topic name (eg MQTT channel)
         """
-        logger.info('message received:' + str(msg))
-        self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
 
+        if topic == "general/logger":
+            self.node_log_handling(ResearcherMessages.reply_create(msg).get_dict())
+        elif topic == "general/server":
+            self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
+        else:
+            log.error("message received on wrong topic ("+ topic +") - IGNORING")
+
+
+    def node_log_handling(self, log: Dict[str, Any]):
+        """
+        manage log/error handling
+        """
+
+        # log contains the original message sent by the node
+        original_msg = json.loads(log["msg"])
+
+        logger.info("log from: " +
+                    log["client_id"] +
+                    " - " +
+                    log["level"] +
+                    " " +
+                    original_msg["message"])
+
+        # deal with error/critical messages from a node
+        node_msg_level = original_msg["level"]
+
+        if node_msg_level == "ERROR" or node_msg_level == "CRITICAL":
+            # first error  implementation: stop the researcher
+            logger.critical("researcher stopped after receiving error/critical log from node: " + log["client_id"])
+            os.kill(os.getpid(), signal.SIGTERM)
 
 
     def send_message(self, msg: dict, client=None):
