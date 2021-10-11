@@ -52,7 +52,7 @@ if not defined_node_env:
         }
 
         mqtt_broker = os.getenv('MQTT_BROKER', 'localhost')
-        mqtt_broker_port = int(os.getenv('MQTT_BROKER_PORT', 80))
+        mqtt_broker_port = int(os.getenv('MQTT_BROKER_PORT', 1883))
 
         cfg['mqtt'] = {
             'broker_ip': mqtt_broker,

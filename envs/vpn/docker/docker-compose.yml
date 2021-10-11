@@ -115,9 +115,10 @@ services:
     image: fedbiomed/vpn-mqtt
     env_file:
       - ./mqtt/run_mounts/config/config.env
-    ports:
-      - "1883:1883"
-      - "9001:9001"
+    # no open ports ! this would backdoor the vpnization
+    #ports:
+    #  - "1883:1883"
+    #  - "9001:9001"
     cap_add:
       - net_admin
       - sys_module
@@ -144,8 +145,9 @@ services:
       - DJANGO_SUPERUSER_USERNAME=admin
       - DJANGO_SUPERUSER_EMAIL=dummy@gitlab.inria.fr
       - DJANGO_SUPERUSER_PASSWORD=admin123
-    ports:
-      - "8844:8000"
+    # no open ports ! this would backdoor the vpnization
+    #ports:
+    #  - "8844:8000"
     cap_add:
       - net_admin
       - sys_module
