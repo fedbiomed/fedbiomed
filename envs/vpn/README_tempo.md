@@ -49,6 +49,31 @@ docker container exec -ti -u $(id -u) fedbiomed-vpn-node bash
 docker container exec -ti -u $(id -u) fedbiomed-vpn-researcher bash
 ```
 
+## initializing VPN
+
+```bash
+docker container exec -ti fedbiomed-vpn-vpnserver bash
+python ./vpn/bin/configure_peer.py genconf management mqtt
+```
+
+
+
+
+## cleaning
+
+### vpnserver
+
+cd ./envs/vpn/docker
+docker-compose rm -sf vpnserver
+# currently as root 
+# TODO write config files as CONTAINER_USER
+rm -rf vpnserver/run_mounts/config/{config_peers,ip_assign,wireguard}
+
+### mqtt
+
+cd ./envs/vpn/docker
+docker-compose rm -sf mqtt
+rm -rf mqtt/run_mounts/config/wireguard
 
 ## background / wireguard
 
