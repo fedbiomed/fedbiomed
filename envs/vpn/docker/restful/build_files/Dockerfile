@@ -37,7 +37,7 @@ ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
 RUN apk update && apk add shadow bash
 RUN [ "$CONTAINER_GROUP" != 'root' ] && groupadd -g $CONTAINER_GID $CONTAINER_GROUP || :
-RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_UID \
+RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
         -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER || :
 
 

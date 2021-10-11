@@ -63,17 +63,13 @@ finish () {
 
 trap finish TERM INT QUIT
 
+# glitch : could not have PATH properly set with su -c either via logins.def or .profile/etc.
+# and we need more than default PATH
+su -c " export PATH=${PATH} ; python manage.py migrate" $CONTAINER_USER
+su -c " export PATH=${PATH} ; python manage.py collectstatic --link --noinput" $CONTAINER_USER
+su -c " export PATH=${PATH} ; python manage.py createsuperuser --noinput" $CONTAINER_USER
+
+su -c " export PATH=${PATH} ; gunicorn -w 4 -b 0.0.0.0:8000 --log-level debug fedbiomed.wsgi" $CONTAINER_USER &
 #sleep infinity &
-
-#su -c "python manage.py migrate" $CONTAINER_USER
-#su -c "python manage.py collectstatic --link --noinput" $CONTAINER_USER
-#su -c "python manage.py createsuperuser --noinput" $CONTAINER_USER
-#
-#su -c "gunicorn -w 4 -b 0.0.0.0:8000 --log-level debug fedbiomed.wsgi" $CONTAINER_USER &
-python manage.py migrate
-python manage.py collectstatic --link --noinput
-python manage.py createsuperuser --noinput
-
-gunicorn -w 4 -b 0.0.0.0:8000 --log-level debug fedbiomed.wsgi &
 
 wait $!
