@@ -17,14 +17,14 @@ ENV PYTHONPATH '${PYTHONPATH}:/home/fed/'
 
 
 # Install required packages
-# RUN /opt/conda/bin/conda install -y paho-mqtt=1.5.1 \ 
-#         pyyaml colorama nose tinydb=4.4.0 tabulate \
-#         validators=0.18.2 \
-#         nbstripout joblib=1.0.1 pytest requests && \
-#     /opt/conda/bin/pip install torchvision==0.9.0 \
-#         torch==1.8.0 \
-#         JSON-log-formatter \
-#         persist-queue==0.5.1
+RUN /opt/conda/bin/conda install -y paho-mqtt=1.5.1 \ 
+        pyyaml colorama nose tinydb=4.4.0 tabulate \
+        validators=0.18.2 \
+        nbstripout joblib=1.0.1 pytest requests && \
+    /opt/conda/bin/pip install torchvision==0.9.0 \
+        torch==1.8.0 \
+        JSON-log-formatter \
+        persist-queue==0.5.1
 
 # Create ENV Variables for fedbiomed.researcher.environ 
 ENV UPLOADS_URL 'http://138.96.220.179:8844/upload/'

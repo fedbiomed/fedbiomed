@@ -34,3 +34,57 @@ services:
     ports:
       - "1883:1883"
       - "9001:9001"
+
+  fed-notebook:
+    image: fed-notebook_image
+    restart: always
+    container_name: fedbiomed-dev-notebook
+    build:
+      context:  ../../../
+      dockerfile: envs/development/docker/notebook/build_files/Dockerfile
+
+  fed-hub:
+    image: fed-hub_image
+    restart: always
+    container_name: fedbiomed-dev-jupyterhub
+    build:
+      context: ../../../
+      dockerfile: envs/development/docker/jupyterhub/build_files/Dockerfile
+
+    command: jupyterhub -f /etc/jupyterhub/jupyterhub_config.py
+    volumes:
+      - ./jupyterhub/run_mounts/etc/passwd:/etc/passwd:ro
+      - ./jupyterhub/run_mounts/etc/shadow:/etc/shadow:ro
+      - ./jupyterhub/run_mounts/etc/group:/etc/group:ro
+      - ./jupyterhub/run_mounts/etc/jupyterhub:/etc/jupyterhub:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8000:8000"
+    networks:
+      - fed-net-hub
+    environment:
+      HOST_BASEDIR: ${PWD}
+      BASE_URL: /fedbiomed/
+      DOCKER_JUPYTERLAB_IMAGE: fed-notebook_image
+      DOCKER_NETWORK_NAME: docker_fed-net-hub
+      HUB_IP: fedbiomed-dev-jupyterhub
+
+      JUPYTERLAB_USER: root
+      JUPYTERLAB_VOLUME_RO: /notebook/run_mounts/start-notebook.d:/usr/local/bin/start-notebook.d
+        /notebook/run_mounts/before-notebook.d:/usr/local/bin/before-notebook.d
+        /notebook/run_mounts/data/samples:/home/samples
+      JUPYTERLAB_VOLUME_RW: /notebook/run_mounts/data/notebook:/home/notebook
+      # Set JUPYTERLAB ENV Variables
+      JUPYTERLAB_ENVIRONMENT: NB_USER:fedclient
+        NB_UID:998
+        NB_GROUP:fedclient
+        NB_GID:998
+        CHOWN_HOME:yes
+        CHOWN_HOME_OPTS:-R
+        CHOWN_EXTRA:/home/fedclient/notebook
+        CHOWN_EXTRA_OPTS:-R
+        RESTARTABLE:yes
+
+networks:
+  fed-net-hub:
+    driver: bridge
