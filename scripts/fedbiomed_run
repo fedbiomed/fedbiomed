@@ -29,8 +29,12 @@ case $1 in
 
     network)
         source ./scripts/fedbiomed_environment network
-        cd ./envs/development/network
-        ./deploy.sh --local
+        cd ./envs/development/docker
+        # 
+        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
+          CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) \
+          docker-compose build restful mqtt
+        docker-compose up -d restful mqtt
         ;;
 
     node)
