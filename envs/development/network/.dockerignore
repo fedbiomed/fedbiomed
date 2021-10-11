@@ -1,7 +1,0 @@
-Dockerfile
-docker-compose.yml
-environment.yml
-.*ignore
-db.sqlite3
-
-media/

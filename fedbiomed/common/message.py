@@ -144,16 +144,16 @@ class AddScalarReply(Message):
 
 
 @dataclass
-class ErrorMessage(Message):
+class LogMessage(Message):
     """
-    This class describes an error message sent by the node
+    This class describes a log message sent by the node
 
     Raises:
         ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
-    success: bool
     client_id: str
+    level: str
     msg: str
     command: str
 
@@ -227,7 +227,7 @@ class ResearcherMessages():
     def reply_create(cls, params: Dict[str, Any]) -> Union[TrainReply,
                                                            SearchReply,
                                                            PingReply,
-                                                           ErrorMessage,
+                                                           LogMessage,
                                                            AddScalarReply]:
         """this method is used on message reception (as a mean to reply to
         node requests, such as a Ping request).
@@ -251,7 +251,7 @@ class ResearcherMessages():
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
                                      'search': SearchReply,
                                      'pong': PingReply,
-                                     'error': ErrorMessage,
+                                     'log': LogMessage,
                                      'add_scalar': AddScalarReply
         }
 
@@ -338,7 +338,7 @@ class NodeMessages():
     def reply_create(cls, params: dict) -> Union[TrainReply,
                                                  SearchReply,
                                                  PingReply,
-                                                 ErrorMessage,
+                                                 LogMessage,
                                                  AddScalarReply]:
         """this method is used on message reception.
         It creates the adequate message reply to send to the researcher,
@@ -361,7 +361,7 @@ class NodeMessages():
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
                                      'search': SearchReply,
                                      'pong': PingReply,
-                                     'error': ErrorMessage,
+                                     'log': LogMessage,
                                      'add_scalar': AddScalarReply
                                      }
 
