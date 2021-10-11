@@ -288,7 +288,14 @@ class Job:
         return filename
 
     def save_state(self, round: int=0):
-        
+        """Creates attribute `self.state` containing a 
+        first state of the job. State will be completed by
+        other methods called fro; `Experiment`.
+
+        Args:
+            round (int, optional): number of round iteration.
+            Defaults to 0.
+        """
         training_data = {last_reply["dataset_id"]: last_reply["client_id"] for \
                          last_reply in self._training_replies[round]}
         
@@ -323,7 +330,7 @@ class Job:
         # training_replies saving facility
         for client_i, client_entry in enumerate(self._training_replies[last_index]):
             client_id = client_entry.get("client_id")
-            params = self._params_path.get(client_id)
+            #params = self._params_path.get(client_id)
             converted_training_replies[client_i]['params'] = self._params_path.get(client_id)
         return converted_training_replies
          

@@ -1,11 +1,11 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock, PropertyMock
 import os
 import tempfile
 import shutil
 import json
 from typing import Union
-from fedbiomed.researcher.environ import TMP_DIR, VAR_DIR
+from fedbiomed.researcher.environ import TMP_DIR, VAR_DIR, UPLOADS_URL
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
@@ -46,19 +46,30 @@ class TestStateExp(unittest.TestCase):
                              return_value=None)
         self.patcher2 = patch('fedbiomed.researcher.requests.Requests.search',
                               return_value=None)
+        self.patcher3 = patch('fedbiomed.common.repository.Repository.upload_file',
+                              return_value={"file": UPLOADS_URL})
         self.patcher.start() 
         self.patcher2.start()
+        self.patcher3.start()
 
     def tearDown(self) -> None:
         
         self.patcher.stop()
         self.patcher2.stop()
+        self.patcher3.stop()
         shutil.rmtree(os.path.join(VAR_DIR, "breakpoints"))
         # (above) remove files created during these unit tests
 
     def test_save(self):
+        """tests:
+        1. if model file is copied from temporary folder to breakpoint folder
+        2. if state file created is json loadable
+        """
+        model_file = MagicMock(return_value=None)
+        
+        model_file.save_code = MagicMock(return_value=None)
         test_exp = Experiment(
-            'some_tags', save_breakpoints=True
+            'some_tags', model_class=model_file, save_breakpoints=True
         )
         test_exp._client_selection_strategy = DefaultStrategy(None)
         
@@ -89,9 +100,19 @@ class TestStateExp(unittest.TestCase):
         self.assertIs(val, None)
     
     def test_create_breakpoint(self,
-                               breakpoint_folder_name:str="breakpoint_"):
+                               breakpoint_folder_name: str="breakpoint_"):
+        """
+        Tests method `_create_breakpoint_file_and_folder`. Checks the correct
+        spelling of breakpoint and state file.
+        
+        Args:
+            breakpoint_folder_name (str, optional): [description]. Defaults to "breakpoint_".
+        """
+        model_file = MagicMock(return_value=None)
+        
+        model_file.save_code = MagicMock(return_value=None)
         test_exp = Experiment(
-            'some_tags', save_breakpoints=True
+            'some_tags', model_class=model_file, save_breakpoints=True
         )
         test_exp._create_breakpoints_folder()
         test_exp._create_breakpoint_exp_folder()
@@ -112,5 +133,4 @@ class TestStateExp(unittest.TestCase):
         
 
 if __name__ == '__main__':  # pragma: no cover
-    print(TMP_DIR)
     unittest.main()
