@@ -59,8 +59,8 @@ class TestMessagingResearcher(unittest.TestCase):
 
 
     # mqqt callbacks
-    def on_message(msg):
-        print("RECV:", msg)
+    def on_message(msg, topic):
+        print("RECV:", topic, msg)
 
 
     # tests
