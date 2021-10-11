@@ -37,7 +37,7 @@ class Node:
         """
         self.tasks_queue.add(task)
 
-    def on_message(self, msg):
+    def on_message(self, msg, topic = None):
         """Handler to be used with `Messaging` class (ie with messager).
         It is called when a  messsage arrive through the messager
         It reads and triggers instruction received by node from Researcher,
@@ -52,7 +52,8 @@ class Node:
             of the command (ping requests, train requests,
             or search requests).
 
-
+            topic(str): topic name, decision (specially on researcher) may
+            be done regarding of the topic.
         """
         # TODO: describe all exceptions defined in this method
         logger.debug('Message received: ' + str(msg))
@@ -64,11 +65,15 @@ class Node:
                 # add training task to queue
                 self.add_task(request)
             elif command == 'ping':
-                self.messaging.send_message(NodeMessages.reply_create(
-                    {'success': True, 'client_id': CLIENT_ID,
-                     'researcher_id': msg['researcher_id'],
-                     'command': 'ping'}
-                                        ).get_dict())
+                self.messaging.send_message(
+                    NodeMessages.reply_create(
+                        {
+                            'researcher_id': msg['researcher_id'],
+                            'client_id': CLIENT_ID,
+                            'success': True,
+                            'sequence': msg['sequence'],
+                            'command': 'pong'
+                         }).get_dict())
             elif command == 'search':
                 # Look for databases matching the tags
                 databases = self.data_manager.search_by_tags(msg['tags'])

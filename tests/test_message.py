@@ -28,7 +28,7 @@ class TestMessage(unittest.TestCase):
             message.PingReply,
             message.TrainReply,
             message.AddScalarReply,
-            message.ErrorMessage,
+            message.LogMessage,
             message.SearchRequest,
             message.PingRequest,
             message.TrainRequest
@@ -259,6 +259,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = 'toto',
             client_id     = 'titi',
+            sequence      = 100,
             success       = True,
             command       = 'do_it')
 
@@ -291,9 +292,17 @@ class TestMessage(unittest.TestCase):
             message.PingReply,
             expected_result = False,
 
+            sequence = 100
+            )
+
+        self.check_class_args(
+            message.PingReply,
+            expected_result = False,
+
             researcher_id = 'toto',
             client_id = 'titi',
             success = True,
+            sequence = 100,
             command = 'do_it',
             extra_arg = 'foobar')
 
@@ -305,6 +314,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = True,
             client_id     = 'titi',
             success       = True,
+            sequence = 100,
             command       = 'do_it')
 
         self.check_class_args(
@@ -314,6 +324,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             client_id     = True,
             success       = True,
+            sequence = 100,
             command       = 'do_it')
 
         self.check_class_args(
@@ -323,6 +334,17 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             client_id     = 'titi',
             success       = 'not_a_bool',
+            sequence = 100,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.PingReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            success       = 'not_a_bool',
+            sequence      = False,
             command       = 'do_it')
 
         self.check_class_args(
@@ -705,112 +727,116 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_errormessage(self):
+    def test_logmessage(self):
 
         # well formatted message
         self.check_class_args(
-            message.ErrorMessage,
+            message.LogMessage,
             expected_result = True,
 
             researcher_id = 'toto',
-            success       = True,
             client_id     = 'titi',
+            level         = 'INFO',
             msg           = 'this is an error message',
-            command       = 'do_it')
+            command       = 'log'
+        )
 
 
         # bad param number
         self.check_class_args(
-            message.ErrorMessage,
+            message.LogMessage,
             expected_result = False,
 
             researcher_id = 'toto')
 
         self.check_class_args(
-            message.ErrorMessage,
-            expected_result = False,
-
-            success       = True)
-
-        self.check_class_args(
-            message.ErrorMessage,
+            message.LogMessage,
             expected_result = False,
 
             client_id     = 'titi')
 
         self.check_class_args(
-            message.ErrorMessage,
+            message.LogMessage,
+            expected_result = False,
+
+            level        = 'INFO')
+
+        self.check_class_args(
+            message.LogMessage,
             expected_result = False,
 
             msg           = 'this is an error message')
 
         self.check_class_args(
-            message.ErrorMessage,
+            message.LogMessage,
             expected_result = False,
 
-            command       = 'do_it')
+            command       = 'log')
 
         self.check_class_args(
-            message.ErrorMessage,
+            message.LogMessage,
             expected_result = False,
 
             researcher_id = 'toto',
-            success       = True,
             client_id     = 'titi',
+            level         = 'INFO',
             msg           = 'this is an error message',
-            command       = 'do_it',
+            command       = 'log',
             extra_arg     = '???' )
 
 
         # bad param type
         self.check_class_args(
-            message.ErrorMessage,
+            message.LogMessage,
             expected_result = False,
 
             researcher_id = False,
-            success       = True,
             client_id     = 'titi',
+            level         = 'INFO',
             msg           = 'this is an error message',
-            command       = 'do_it')
+            command       = 'log'
+        )
 
         self.check_class_args(
-            message.ErrorMessage,
+            message.LogMessage,
             expected_result = False,
 
             researcher_id = 'toto',
-            success       = "not_a_bool",
-            client_id     = 'titi',
-            msg           = 'this is an error message',
-            command       = 'do_it')
-
-        self.check_class_args(
-            message.ErrorMessage,
-            expected_result = False,
-
-            researcher_id = 'toto',
-            success       = True,
             client_id     = False,
+            level         = 'INFO',
             msg           = 'this is an error message',
-            command       = 'do_it')
+            command       = 'log'
+        )
 
         self.check_class_args(
-            message.ErrorMessage,
+            message.LogMessage,
             expected_result = False,
 
             researcher_id = 'toto',
-            success       = True,
             client_id     = 'titi',
+            level         = False,
+            msg           = 'this is an error message',
+            command       = 'log'
+        )
+
+        self.check_class_args(
+            message.LogMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            client_id     = 'titi',
+            level         = 'INFO',
             msg           = [ 1 , 2 ],
-            command       = 'do_it')
+            command       = 'log')
 
         self.check_class_args(
-            message.ErrorMessage,
+            message.LogMessage,
             expected_result = False,
 
             researcher_id = 'toto',
-            success       = True,
             client_id     = 'titi',
-            msg           = 'this is an error message',
+            level         = 'INFO',
+            msg           = [ 1 , 2 ],
             command       = False)
 
 
@@ -885,6 +911,7 @@ class TestMessage(unittest.TestCase):
             expected_result = True,
 
             researcher_id = 'toto',
+            sequence       = 100,
             command       = 'do_it')
 
 
@@ -900,6 +927,12 @@ class TestMessage(unittest.TestCase):
             message.PingRequest,
             expected_result = False,
 
+            sequence       = 100)
+
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = False,
+
             command       = 'do_it')
 
         self.check_class_args(
@@ -908,6 +941,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = 'toto',
             command       = 'do_it',
+            sequence       = 100,
             extra_arg     = '???')
 
 
@@ -917,6 +951,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = False,
+            sequence       = 100,
             command       = 'do_it')
 
         self.check_class_args(
@@ -924,6 +959,15 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
+            sequence       = False,
+            command       = False)
+
+        self.check_class_args(
+            message.PingRequest,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            sequence       = 100,
             command       = False)
 
 
@@ -1223,8 +1267,9 @@ class TestMessage(unittest.TestCase):
         params = {
             "researcher_id" : 'toto' ,
             "client_id"     : 'titi' ,
+            "sequence"      : 100,
             "success"       : True,
-            "command"       : 'ping'
+            "command"       : 'pong'
         }
         r = message.ResearcherMessages.reply_create( params )
         self.assertIsInstance( r, message.PingReply )
@@ -1234,6 +1279,7 @@ class TestMessage(unittest.TestCase):
 
         params = {
             "researcher_id" : 'toto' ,
+            "sequence"      : 100,
             "command"       : 'ping'
         }
         r = message.ResearcherMessages.request_create( params )
@@ -1248,16 +1294,16 @@ class TestMessage(unittest.TestCase):
         # error
         params = {
             "researcher_id" : 'toto' ,
-            "success"       : True ,
             "client_id"     : 'titi' ,
+            "level"         : 'INFO',
             "msg"           : 'bim boum badaboum',
-            "command"       : 'error'
+            "command"       : 'log'
         }
         r = message.ResearcherMessages.reply_create( params )
-        self.assertIsInstance( r, message.ErrorMessage )
+        self.assertIsInstance( r, message.LogMessage )
 
         r = message.NodeMessages.reply_create( params )
-        self.assertIsInstance( r, message.ErrorMessage )
+        self.assertIsInstance( r, message.LogMessage )
 
     def test_addscalaremessages(self):
 
