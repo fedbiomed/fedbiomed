@@ -66,10 +66,11 @@ docker container exec -ti -u $(id -u) fedbiomed-vpn-node bash
 cd ./envs/vpn/docker
 vi ./vpnserver/run_mounts/config/config.env # change VPN_SERVER_PUBLIC_ADDR
 ```
-* connect and configure
+* connect and generate config for components
 ```bash
 docker-compose exec vpnserver bash
 python ./vpn/bin/configure_peer.py genconf management mqtt
+python ./vpn/bin/configure_peer.py genconf management restful
 ```
 
 ## initializing mqtt
@@ -89,7 +90,29 @@ docker-compose exec mqtt wg show wg0 public-key
 * connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
 ```bash
 docker-compose exec vpnserver bash
-python ./vpn/configure_peer.py add management mqtt *publickey*
+python ./vpn/bin/configure_peer.py add management mqtt *publickey*
+```
+
+## initializing restful
+
+Basically same as mqtt with proper adaptations :
+
+* generate VPN client for this container (see above in vpnserver)
+* configure the VPN client for this container
+```bash
+cd ./envs/vpn/docker
+cp ./vpnserver/run_mounts/config/config_peers/management/restful/config.env ./restful/run_mounts/config/config.env
+```
+* build and launch container
+* retrieve the *publickey*
+```bash
+docker-compose exec restful wg show wg0 public-key
+```
+
+* connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
+```bash
+docker-compose exec vpnserver bash
+python ./vpn/bin/configure_peer.py add management restful *publickey*
 ```
 
 
