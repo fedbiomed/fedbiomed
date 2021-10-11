@@ -44,7 +44,12 @@ class TestStateInJob(unittest.TestCase):
         # (above) remove files created during these unit tests
 
     def test_save_private_training_replies(self):
-        
+        """
+        tests if `_save_training_replies` is converted
+        pytorch tensor and numpy arrays into path files (since
+        both are not JSON serializable). It uses a dummy class
+        ResponsesMock, a weak implementation of `Responses` class
+        """
         class ResponsesMock(list):
             """
             This class mimicks `Responses` class. It 
@@ -77,10 +82,7 @@ class TestStateInJob(unittest.TestCase):
         test_job._params_path = {client_id1: tmpfilename_client1,
                                  client_id2: tmpfilename_client2}
                                  
-                                  
-        
-        
-        
+
         # first create a `_training_replies` variable
         _training_replies = {0: ResponsesMock([]),
                              1: ResponsesMock([
