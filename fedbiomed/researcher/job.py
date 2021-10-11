@@ -79,7 +79,7 @@ class Job:
                 model = eval(model)
             except Exception:
                 e = sys.exc_info()
-                logger.critical("Cannot import class " + model + " from path " +  model_path, " - Error: " + str(e))
+                logger.critical("Cannot import class " + model + " from path " +  model_path + " - Error: " + str(e))
                 sys.exit(-1)
 
         # create/save model instance (ie TrainingPlan)
@@ -319,7 +319,7 @@ class localJob:
                 model_class = eval(model_class)
             except:
                 e = sys.exc_info()
-                logger.critical("Cannot import class " + model_class, " from path ", model_path, " - Error: " + str(e))
+                logger.critical("Cannot import class " + model_class + " from path " + model_path + " - Error: " + str(e))
                 sys.exit(-1)
 
         # create/save model instance
