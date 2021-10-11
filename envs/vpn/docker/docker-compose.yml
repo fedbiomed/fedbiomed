@@ -79,6 +79,29 @@ services:
       - ./node/run_mounts/config:/config # contains VPN configurations
       - ./node/run_mounts/data:/data # datasets can be added here
   #
+  # researcher component
+  researcher:
+    container_name: fedbiomed-vpn-researcher
+    build:
+      context: ../../..
+      dockerfile: envs/vpn/docker/researcher/build_files/Dockerfile
+      args:
+        - CONTAINER_UID
+        - CONTAINER_GID
+        - CONTAINER_USER
+        - CONTAINER_GROUP
+    image: fedbiomed/vpn-researcher
+    env_file:
+      - ./researcher/run_mounts/config/config.env
+    cap_add:
+      - net_admin
+      - sys_module
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./researcher/run_mounts/config:/config # contains VPN configurations
+      - ./researcher/run_mounts/data:/data # results and persistent data can be saved here
+  #
   # mqtt server component
   mqtt:
     container_name: fedbiomed-vpn-mqtt
