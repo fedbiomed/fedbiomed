@@ -58,7 +58,6 @@ class MqttFormatter(logging.Formatter):
     # threadName: 'MainThread'
     # processName: 'MainProcess'
     # process: 41544
-    # level: 'ERROR'
     # message: 'mqtt+console ERROR message'
     # asctime: '2021-09-08 15:36:30796'
 
@@ -68,11 +67,9 @@ class MqttFormatter(logging.Formatter):
             "asctime"   : record.__dict__["asctime"],
             "client_id" : self._client_id
         }
-        for _ in [ "name", "level", "message"]:
-            if _ in record.__dict__:
-                json_message[_] = record.__dict__[_]
-            else:
-                json_message[_] = "<undef>" # pragma: no cover
+        json_message["name"] = record.__dict__["name"]
+        json_message["level"] = record.__dict__["levelname"]
+        json_message["message"] = record.__dict__["message"]
 
         record.msg = json.dumps(json_message)
         return super().format(record)
@@ -333,68 +330,7 @@ class _LoggerBase():
         level = logger._internalLevelTranslator(level)
         self._logger.log(
             level,
-            msg,
-            extra = { "level": self._original_levels[level]}
-        )
-
-
-    def debug(self, msg):
-        """
-        overrides the logging.debug() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.DEBUG,
-            msg,
-            extra = { "level": "DEBUG" }
-        )
-
-
-    def info(self, msg):
-        """
-        overrides the logging.info() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.INFO,
-            msg,
-            extra = { "level": "INFO" }
-        )
-
-
-    def warning(self, msg):
-        """
-        overrides the logging.warning() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.WARNING,
-            msg,
-            extra = { "level": "WARNING" }
-        )
-
-
-    def error(self, msg):
-        """
-        overrides the logging.error() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.ERROR,
-            msg,
-            extra = { "level": "ERROR" }
-        )
-
-
-    def critical(self, msg):
-        """
-        overrides the logging.critical() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.CRITICAL,
-            msg,
-            extra = { "level": "CRITICAL" }
+            msg
         )
 
 
