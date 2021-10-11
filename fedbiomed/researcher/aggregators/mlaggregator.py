@@ -20,7 +20,7 @@ class MLaggregator(Aggregator):
         Args:
             model_params (list): contains each model layers
             weights (list): contains all weigths of a given
-            layer.
+            layer (note: weights are not used here).
 
         Returns:
             Dict: [description]
@@ -35,7 +35,7 @@ class MLaggregator(Aggregator):
             assert d1 == dim_views
             assert q1 == q
 
-        corr_det_inv = 1e-35
+        corr_det_inv = 1e-20
         rho = 1e-4
 
         # evaluate total number of centers having measurements for each view
@@ -48,7 +48,6 @@ class MLaggregator(Aggregator):
             self.eval_gauss_global_params(model_params,K,dim_views,q,Tot_C_k_W, Tot_C_k_mu, Tot_C_k_S,corr_det_inv,rho)
         Alpha, Beta, sigma_til_sigma2k = self.eval_inv_gamma(model_params,K,Tot_C_k_S,tilde_Sigma2k,corr_det_inv,rho)
 
-        # Update global parameters
         global_params_dict = {'tilde_muk': tilde_muk,
                               'tilde_Wk': tilde_Wk,
                               'tilde_Sigma2k': tilde_Sigma2k,
@@ -143,7 +142,7 @@ class MLaggregator(Aggregator):
                         varSk += (model['sigma2k'][k] - tilde_Sigma2k[k]) ** 2
                 Ck = -log(Ck_1) - Ck_2 / Tot_C_k_S[k]
                 if varSk == 0.0:
-                    varSk = 1e-16
+                    varSk = corr_det_inv
                 if Tot_C_k_S[k] == 1:
                     alphak = (tilde_Sigma2k[k] ** 2) / (varSk) + 2
                 else:
