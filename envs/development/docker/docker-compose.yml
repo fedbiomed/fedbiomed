@@ -72,8 +72,8 @@ services:
       JUPYTERLAB_USER: root
       JUPYTERLAB_VOLUME_RO: /notebook/run_mounts/start-notebook.d:/usr/local/bin/start-notebook.d
         /notebook/run_mounts/before-notebook.d:/usr/local/bin/before-notebook.d
-        /notebook/run_mounts/data/samples:/home/samples
-      JUPYTERLAB_VOLUME_RW: /notebook/run_mounts/data/notebook:/home/notebook
+      # /notebook/run_mounts/data/samples:/home/samples
+      # JUPYTERLAB_VOLUME_RW: /notebook/run_mounts/data/notebook:/home/notebook
       # Set JUPYTERLAB ENV Variables
       JUPYTERLAB_ENVIRONMENT: NB_USER:fedclient
         NB_UID:998
