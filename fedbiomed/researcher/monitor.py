@@ -67,10 +67,11 @@ class Monitor(metaclass=MonitorMeta):
             if not os.path.exists(self._log_dir):
                 os.makedirs(self._log_dir)
             else:
+                logger.info('Removing tensorboard logs from previous experiment')
                 # Clear logs directory from the files from other experiments.
                 shutil.rmtree(self._log_dir)
                 
-    def _on_message(self, msg: Dict[str, Any]):
+    def _on_message(self, msg: Dict[str, Any], topic: str):
 
         """Handler to be used with `Messaging` class (ie with messager).
         It is called when a  messsage arrive through the messager
@@ -81,6 +82,7 @@ class Monitor(metaclass=MonitorMeta):
             msg (Dict[str, Any]): incoming message from Node.
             Must contain key named `command`, describing the nature
             of the command (currently the command is only add_scalar).
+            topic (str): topic name (eg MQTT channel)
         """
 
         # Check command whether is scalar
@@ -89,8 +91,9 @@ class Monitor(metaclass=MonitorMeta):
 
         if scalar['command'] == 'add_scalar':
 
-            # Print out scalar values    
-            self._log_to_console(msg)
+            # Print out scalar values  
+            # Disabled, logger already sends loss information text during traning in node  
+            # self._log_to_console(msg)
 
             if self.tensorboard:
                 self._summary_writer(msg['client_id'], 
@@ -176,7 +179,8 @@ class Monitor(metaclass=MonitorMeta):
         self.tensorboard = tensorboard
         self._event_writers = {}
         # Remove tensorboard files from previous experiment
-        if os.path.exists(self._log_dir):      
+        if os.path.exists(self._log_dir):
+           logger.info('Removing tensorboard logs from previous experiment')      
            shutil.rmtree(self._log_dir)
 
 

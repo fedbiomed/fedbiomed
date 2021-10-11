@@ -9,7 +9,7 @@ from typing import Union, List
 import torch
 import torch.nn as nn
 
-from fedbiomed.common.logger import _FedLogger
+from fedbiomed.common.logger import logger
 
 
 class TorchTrainingPlan(nn.Module):
@@ -58,9 +58,6 @@ class TorchTrainingPlan(nn.Module):
 
         # to be configured by setters
         self.dataset_path = None
-
-        # get the logger from the _FedLogger class (thanks Mr Singleton)
-        self.system_logger = _FedLogger()
 
 
     #################################################
@@ -125,11 +122,11 @@ class TorchTrainingPlan(nn.Module):
                 # batches from the dataset
                 if (batch_maxnum > 0) and (batch_idx >= batch_maxnum):
                     #print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    self.system_logger.debug('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    logger.debug('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
                     break
 
                 if batch_idx % log_interval == 0:
-                    self.system_logger.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    logger.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
                         batch_idx * len(data),
                         len(training_data.dataset),
@@ -233,7 +230,7 @@ class TorchTrainingPlan(nn.Module):
     # manipulation module
     def set_dataset(self, dataset_path):
         self.dataset_path = dataset_path
-        self.system_logger.debug('Dataset_path' + self.dataset_path)
+        logger.debug('Dataset_path' + self.dataset_path)
 
     # provided by the fedbiomed // should be moved in a DATA
     # manipulation module

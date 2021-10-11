@@ -90,9 +90,16 @@ class SGDSkLearnModel():
                             continue
                         try:
                             loss = line.split("loss: ")[-1]
+                            
+                            # Logging loss values with global logger 
+                            logger.info('Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}'.format(
+                                            epoch,
+                                            float(loss)))
+                            
                             # Batch -1 means Batch Gradient Descent, use all samples
                             # This part should be changed after mini-batch implementation is completed
                             monitor.add_scalar('Loss', float(loss), -1 , epoch)
+
                         except ValueError as e:
                             logger.error("Value error:" + e)
                         except Exception as e:
