@@ -777,11 +777,10 @@ c.Spawner.default_url = '/lab'
 #  across upgrades, so if you are using the callable take care to verify it
 #  continues to work after upgrades!
 #c.Spawner.environment = {}
-# c.Spawner.environment = {}
-# for envs in os.environ['JUPYTERLAB_ENVIRONMENT'].split():
-#     env = envs.split(':')
-#     c.Spawner.environment[env[0]] = env[1]
-
+c.Spawner.environment = {}
+for envs in os.environ['JUPYTERLAB_ENVIRONMENT'].split():
+    env = envs.split(':')
+    c.Spawner.environment[env[0]] = env[1]
 ## Timeout (in seconds) before giving up on a spawned HTTP server
 #  
 #  Once a server has successfully been spawned, this is the amount of time we
