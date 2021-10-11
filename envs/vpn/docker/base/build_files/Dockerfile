@@ -19,7 +19,7 @@ RUN git clone https://git.zx2c4.com/wireguard-tools && \
 # - need proper python version for Fed-BioMed
 FROM python:3.9-slim-bullseye
 
-RUN apt-get update && apt-get install -y iptables iproute2 iputils-ping bash procps build-essential kmod
+RUN apt-get update && apt-get install -y iptables iproute2 iputils-ping bash vim net-tools procps build-essential kmod
 
 # get wireguard from builder image
 COPY --from=builder /root/.cargo/bin/boringtun /usr/bin/

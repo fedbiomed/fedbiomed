@@ -45,7 +45,7 @@ RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
 COPY requirements.txt /requirements.txt
 
 # dependencies for wireguard
-RUN apk update && apk add iptables bash procps alpine-sdk linux-headers kmod
+RUN apk update && apk add iptables bash vim net-tools procps alpine-sdk linux-headers kmod
 # dependencies for restful server
 RUN apk add --no-cache --virtual .build-deps \
     ca-certificates gcc postgresql-dev linux-headers musl-dev \

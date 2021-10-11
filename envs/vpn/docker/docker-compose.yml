@@ -113,6 +113,8 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-mqtt
+    env_file:
+      - ./mqtt/run_mounts/config/config.env
     ports:
       - "1883:1883"
       - "9001:9001"
@@ -135,6 +137,8 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-restful
+    env_file:
+      - ./restful/run_mounts/config/config.env
     environment:
       - PRODUCTION=1
       - DJANGO_SUPERUSER_USERNAME=admin

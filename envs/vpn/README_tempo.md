@@ -2,6 +2,10 @@
 
 TODO : convert to updates for main README.md + additions to install scripts
 
+- outside of containers : work with your user account, unless this is explicitely written to work as root
+- inside containers : follow instructions (work as root for managing vpn, work as user for managing experiments)
+
+
 ## building images
 
 ```bash
@@ -37,26 +41,56 @@ Can connect to a container only if the corresponding container is already runnin
 
 * connect on the VPN server / node / mqtt server / restful as root to configure the VPN
 ```bash
-docker container exec -ti fedbiomed-vpn-vpnserver bash
-docker container exec -ti fedbiomed-vpn-node bash
-docker container exec -ti fedbiomed-vpn-researcher bash
-docker container exec -ti fedbiomed-vpn-mqtt bash
-docker container exec -ti fedbiomed-vpn-restful bash
+docker-compose exec vpnserver bash
+docker-compose exec node bash
+docker-compose exec researcher bash
+docker-compose exec mqtt bash
+docker-compose exec restful bash
 ```
 * connect on the node as user to handle experiments
 ```bash
+docker-compose exec -ti -u $(id -u) node bash
+docker-compose exec -ti -u $(id -u) researcher bash
+```
+
+Note : can also use commands in the form
+```bash
 docker container exec -ti -u $(id -u) fedbiomed-vpn-node bash
-docker container exec -ti -u $(id -u) fedbiomed-vpn-researcher bash
 ```
 
 ## initializing VPN
 
+* build and launch container
+* set the VPN server public IP *VPN_SERVER_PUBLIC_ADDR* (can also do it inside container)
 ```bash
-docker container exec -ti fedbiomed-vpn-vpnserver bash
+cd ./envs/vpn/docker
+vi ./vpnserver/run_mounts/config/config.env # change VPN_SERVER_PUBLIC_ADDR
+```
+* connect and configure
+```bash
+docker-compose exec vpnserver bash
 python ./vpn/bin/configure_peer.py genconf management mqtt
 ```
 
+## initializing mqtt
 
+* generate VPN client for this container (see above in vpnserver)
+* configure the VPN client for this container
+```bash
+cd ./envs/vpn/docker
+cp ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env ./mqtt/run_mounts/config/config.env
+```
+* build and launch container
+* retrieve the *publickey*
+```bash
+docker-compose exec mqtt wg show wg0 public-key
+```
+
+* connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
+```bash
+docker-compose exec vpnserver bash
+python ./vpn/configure_peer.py add management mqtt *publickey*
+```
 
 
 ## cleaning
@@ -73,7 +107,9 @@ rm -rf vpnserver/run_mounts/config/{config_peers,ip_assign,wireguard}
 
 cd ./envs/vpn/docker
 docker-compose rm -sf mqtt
-rm -rf mqtt/run_mounts/config/wireguard
+rm -rf ./mqtt/run_mounts/config/wireguard
+echo > ./mqtt/run_mounts/config/config.env
+
 
 ## background / wireguard
 
