@@ -11,20 +11,29 @@ VOLUME [ "/home/samples" ]
 COPY ./fedbiomed /home/fed/fedbiomed 
 COPY ./envs /home/fed/envs
 COPY ./scripts /home/fed/scripts
+COPY ./envs/development/docker/notebook/build_files/requirements-conda.txt /home/fed/requirements/
+COPY ./envs/development/docker/notebook/build_files/requirements-pip.txt /home/fed/requirements/
+
 
 # Set PYTHONPATH to fedbiomed directory
 ENV PYTHONPATH '${PYTHONPATH}:/home/fed/'
 
-
+RUN /opt/conda/bin/conda install -y --file /home/fed/requirements/requirements-conda.txt && \
+        conda clean --all -f -y && \
+        fix-permissions "${CONDA_DIR}" && \
+        fix-permissions "/home/${NB_USER}"
+RUN /opt/conda/bin/pip install -r /home/fed/requirements/requirements-pip.txt&& \
+        fix-permissions "${CONDA_DIR}" && \
+        fix-permissions "/home/${NB_USER}"
 # Install required packages
-RUN /opt/conda/bin/conda install -y paho-mqtt=1.5.1 \ 
-        pyyaml colorama nose tinydb=4.4.0 tabulate \
-        validators=0.18.2 \
-        nbstripout joblib=1.0.1 pytest requests && \
-    /opt/conda/bin/pip install torchvision==0.9.0 \
-        torch==1.8.0 \
-        JSON-log-formatter \
-        persist-queue==0.5.1
+# RUN /opt/conda/bin/conda install -y paho-mqtt=1.5.1 \ 
+#         pyyaml colorama nose tinydb=4.4.0 tabulate \
+#         validators=0.18.2 \
+#         nbstripout joblib=1.0.1 pytest requests && \
+#     /opt/conda/bin/pip install torchvision==0.9.0 \
+#         torch==1.8.0 \
+#         JSON-log-formatter \
+#         persist-queue==0.5.1
 
 # Created env but does not activate as default environment
 #RUN /home/fed/scripts/configure_conda
