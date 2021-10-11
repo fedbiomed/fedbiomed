@@ -71,6 +71,8 @@ vi ./vpnserver/run_mounts/config/config.env # change VPN_SERVER_PUBLIC_ADDR
 docker-compose exec vpnserver bash
 python ./vpn/bin/configure_peer.py genconf management mqtt
 python ./vpn/bin/configure_peer.py genconf management restful
+python ./vpn/bin/configure_peer.py genconf node node1
+python ./vpn/bin/configure_peer.py genconf researcher researcher1
 ```
 
 ## initializing mqtt
@@ -115,6 +117,38 @@ docker-compose exec vpnserver bash
 python ./vpn/bin/configure_peer.py add management restful *publickey*
 ```
 
+## initializing node
+
+* generate VPN client for this container (see above in vpnserver)
+* configure the VPN client for this container
+```bash
+cd ./envs/vpn/docker
+cp ./vpnserver/run_mounts/config/config_peers/node/node1/config.env ./node/run_mounts/config/config.env
+```
+* build and launch container
+* retrieve the *publickey*
+```bash
+docker-compose exec restful wg show wg0 public-key
+```
+
+* connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
+```bash
+docker-compose exec vpnserver bash
+python ./vpn/bin/configure_peer.py add management restful *publickey*
+```
+
+* TODO: better package/scripting needed
+  Connect again to the node and launch manually, now that the VPN is established
+```bash
+docker-compose exec -u $(id -u) node bash
+#export MQTT_BROKER=10.220.0.2
+#export MQTT_BROKER_PORT=1883
+#export UPLOADS_URL="http://10.220.0.3:8000/upload/"
+export PYTHONPATH=/fedbiomed
+eval "$(conda shell.bash hook)"
+conda activate fedbiomed-node
+python -m fedbiomed.node.cli --start
+```
 
 ## cleaning
 
@@ -132,6 +166,17 @@ cd ./envs/vpn/docker
 docker-compose rm -sf mqtt
 rm -rf ./mqtt/run_mounts/config/wireguard
 echo > ./mqtt/run_mounts/config/config.env
+
+
+## node 
+
+Same as mqtt :
+
+cd ./envs/vpn/docker
+docker-compose rm -sf node
+rm -rf ./node/run_mounts/config/wireguard
+echo > ./node/run_mounts/config/config.env
+
 
 
 ## background / wireguard
