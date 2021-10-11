@@ -82,31 +82,6 @@ class PpcaPlan():
             X, Xk, ViewsX, y = self.training_data()
         elif len(self.training_data()) == 3:
             X, Xk, ViewsX = self.training_data()
-        
-        # ViewsX is a list, with len(ViewsX)=self.K, containing 1 at position i 
-        # if the center dispose of data for the i-th view, 0 otherwise. 
-        #ViewsX = []
-        #for k in range(self.K):
-        #    if ((type(Xk[k])==str) or (Xk[k] is None)):
-        #        ViewsX.append(0)
-        #    else:
-        #        ViewsX.append(1)
-
-        ## self.Xk is a list contianing the view-specific local datasets
-        #Xk = []
-        #ind = 0
-        #for k in range(self.K):
-        #    if ViewsX[k] == 1:
-        #        Xk.append(X.iloc[:, ind:ind + self.dim_views[k]])
-        #        ind += self.dim_views[k]
-        #    else:
-        #        Xk.append('NaN')
-
-        print('ViewsX=',ViewsX)
-
-        ## if norm = true, data are normalized with min max scaler
-        #if norm:
-        #    X = self.normalize_data(X)
 
         N = X.shape[0]
         q = self.n_components
