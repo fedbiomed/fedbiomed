@@ -2,17 +2,22 @@ FROM fedbiomed/vpn-base
 
 ARG CONTAINER_GID
 ARG CONTAINER_UID
+ARG CONTAINER_GROUP
+ARG CONTAINER_USER
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
 # + make it persistent at runtime (pass this variable to container)
 ENV CONTAINER_UID=${CONTAINER_UID:-root}
 ENV CONTAINER_GID=${CONTAINER_GID:-root}
+# alpine does not accept users/groups with numerical names
+ENV CONTAINER_USER=${CONTAINER_USER:-root}
+ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
 RUN apt-get update && apt-get install -y apt-utils wget
 
-RUN [ "$CONTAINER_GID" != 'root' ] && groupadd -g $CONTAINER_GID $CONTAINER_GID || :
-RUN [ "$CONTAINER_UID" != 'root' ] && useradd -m -d /home/$CONTAINER_UID \
-        -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_UID || :
+RUN [ "$CONTAINER_GROUP" != 'root' ] && groupadd -g $CONTAINER_GID $CONTAINER_GROUP || :
+RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
+        -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER || :
 
 # Install miniconda
 RUN wget -q --directory-prefix=$HOME https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
@@ -36,9 +41,9 @@ COPY scripts /fedbiomed/scripts
 #  - ensures using develop branch (good or bad)
 
 # Prepare for work in context of alternate account
-RUN chown -R $CONTAINER_UID:$CONTAINER_GID /fedbiomed
+RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 WORKDIR /fedbiomed
-USER $CONTAINER_UID:$CONTAINER_GID
+USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Configure conda env in context of alternate account
 RUN conda env update --file ./envs/vpn/conda/fedbiomed-node.yaml

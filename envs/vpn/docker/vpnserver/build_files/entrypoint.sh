@@ -2,10 +2,10 @@
 
 # Fed-BioMed - VPN server container launch script
 # - launched as root to handle VPN
-# - may drop privileges to CONTAINER_UID at some point
+# - may drop privileges to CONTAINER_USER at some point
 
 # set identity when we would like to drop privileges
-CONTAINER_UID=${CONTAINER_UID:-root}
+CONTAINER_USER=${CONTAINER_USER:-root}
 
 
 [ -z "$USE_WG_KERNEL_MOD" ] && USE_WG_KERNEL_MOD=false
@@ -32,9 +32,9 @@ fi
 # initiate configuration directories
 # use container launcher's identity to avoid creating root owned files on mounted filesystem
 CONFIG_DIR=/config
-su -c "mkdir -p $CONFIG_DIR/wireguard" $CONTAINER_UID
-su -c "mkdir -p $CONFIG_DIR/ip_assign" $CONTAINER_UID
-su -c "mkdir -p $CONFIG_DIR/config_peers" $CONTAINER_UID
+su -c "mkdir -p $CONFIG_DIR/wireguard" $CONTAINER_USER
+su -c "mkdir -p $CONFIG_DIR/ip_assign" $CONTAINER_USER
+su -c "mkdir -p $CONFIG_DIR/config_peers" $CONTAINER_USER
 
 if [ -s "$CONFIG_DIR/wireguard/wg0.conf" ]
 then
@@ -43,7 +43,7 @@ then
 else
     echo "Generating Wireguard config..."
     wg set wg0 private-key <(wg genkey)
-    ( umask 0077; wg showconf wg0 | su -c "cat - > $CONFIG_DIR/wireguard/wg0.conf" $CONTAINER_UID )
+    ( umask 0077; wg showconf wg0 | su -c "cat - > $CONFIG_DIR/wireguard/wg0.conf" $CONTAINER_USER )
 fi
 
 # VPN server setup
@@ -56,7 +56,7 @@ echo "Wireguard started"
 finish () {
 
     echo "Saving Wireguard config"
-    ( umask 0077; wg showconf wg0 | su -c "cat - > $CONFIG_DIR/wireguard/wg0.conf" $CONTAINER_UID )
+    ( umask 0077; wg showconf wg0 | su -c "cat - > $CONFIG_DIR/wireguard/wg0.conf" $CONTAINER_USER )
 
     echo "Stopping Wireguard"
     [ -z "$RUNNING_BORINGTUN" ] && ip link delete dev wg0 || pkill boringtun

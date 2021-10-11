@@ -20,52 +20,29 @@ CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER
 
 ## launching containers
 
-* on the vpn server
+* on the vpn server / node / mqtt server / restful
 ```bash
 cd ./envs/vpn/docker
 docker-compose up -d vpnserver
-```
-
-* on the node
-```bash
-cd ./envs/vpn/docker
 docker-compose up -d node
-```
-
-* on the mqtt
-```bash
-cd ./envs/vpn/docker
 docker-compose up -d mqtt
-```
-
-* on the restful
-```bash
-cd ./envs/vpn/docker
 docker-compose up -d restful
 ```
 
 ## connecting to containers
 
-Works only if the container is running
+Can connect to a container only if the corresponding container is already running
 
-* on the VPN server
+* connect on the VPN server / node / mqtt server / restful as root to configure the VPN
 ```bash
 docker container exec -ti fedbiomed-vpn-vpnserver bash
+docker container exec -ti fedbiomed-vpn-node bash
+docker container exec -ti fedbiomed-vpn-mqtt bash
+docker container exec -ti fedbiomed-vpn-restful bash
 ```
-
-* on the node
+* connect on the node as user to handle experiments
 ```bash
 docker container exec -ti -u $(id -u) fedbiomed-vpn-node bash
-```
-
-* on the mqtt server
-```bash
-docker container exec -ti fedbiomed-vpn-mqtt bash
-```
-
-* on the restful server
-```bash
-docker container exec -ti fedbiomed-vpn-restful bash
 ```
 
 

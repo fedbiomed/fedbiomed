@@ -2,10 +2,10 @@
 
 # Fed-BioMed - node container launch script
 # - launched as root to handle VPN
-# - may drop privileges to CONTAINER_UID at some point
+# - may drop privileges to CONTAINER_USER at some point
 
 # set identity when we would like to drop privileges
-CONTAINER_UID=${CONTAINER_UID:-root}
+CONTAINER_USER=${CONTAINER_USER:-root}
 
 
 [ -z "$USE_WG_KERNEL_MOD" ] && USE_WG_KERNEL_MOD=false
@@ -30,7 +30,7 @@ fi
 "$RUNNING_KERNELWG" || "$RUNNING_BORINGTUN" || { echo "ERROR: Could not start wireguard" ; exit 1 ; }
 
 CONFIG_DIR=/config
-su -c "mkdir -p $CONFIG_DIR/wireguard" $CONTAINER_UID
+su -c "mkdir -p $CONFIG_DIR/wireguard" $CONTAINER_USER
 
 if [ -s "$CONFIG_DIR/wireguard/wg0.conf" ]
 then
@@ -39,7 +39,7 @@ then
 else
     echo "Generating Wireguard config..."
     wg set wg0 private-key <(wg genkey)
-    ( umask 0077; wg showconf wg0 | su -c "cat - > $CONFIG_DIR/wireguard/wg0.conf" $CONTAINER_UID )
+    ( umask 0077; wg showconf wg0 | su -c "cat - > $CONFIG_DIR/wireguard/wg0.conf" $CONTAINER_USER )
 fi
 
 # VPN client setup
@@ -53,7 +53,7 @@ echo "Wireguard started"
 finish () {
 
     echo "Saving Wireguard config"
-    ( umask 0077; wg showconf wg0 | su -c "cat - > $CONFIG_DIR/wireguard/wg0.conf" $CONTAINER_UID )
+    ( umask 0077; wg showconf wg0 | su -c "cat - > $CONFIG_DIR/wireguard/wg0.conf" $CONTAINER_USER )
 
     echo "Stopping Wireguard"
     [ -z "$RUNNING_BORINGTUN" ] && ip link delete dev wg0 || pkill boringtun
@@ -62,7 +62,7 @@ finish () {
 
 trap finish TERM INT QUIT
 
-# sleep infinity &
-su -c "./scripts/fedbiomed_run node start" $CONTAINER_UID &
+#sleep infinity &
+su -c "./scripts/fedbiomed_run node start" $CONTAINER_USER &
 
 wait $!
