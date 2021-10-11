@@ -97,6 +97,8 @@ class Experiment:
 
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
+        self._state_root_folder = VAR_DIR  # from where breakpoint folder
+        # will be created
             
 
     @property
@@ -165,7 +167,8 @@ class Experiment:
         """Creates a general folder for storing breakpoints (if non existant)
         into the `VAR_DIR` folder.
         """
-        self._breakpoint_path_file = os.path.join(VAR_DIR, "breakpoints")
+        self._breakpoint_path_file = os.path.join(self._state_root_folder,
+                                                  "breakpoints")
         if not os.path.isdir(self._breakpoint_path_file):
             try:
                 os.makedirs(self._breakpoint_path_file)

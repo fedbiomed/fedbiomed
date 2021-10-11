@@ -6,21 +6,12 @@ import os
 import tempfile
 import shutil
 
-from fedbiomed.researcher.environ import UPLOADS_URL
+from fedbiomed.researcher.environ import UPLOADS_URL, VAR_DIR
 from fedbiomed.researcher.job import Job
 
 import torch
 import numpy as np
 
-def create_file(file_name: str):
-    """create a file on the specified path `file_name`
-
-    Args:
-        file_name (str): path of the file
-    """
-    with open(file_name, "w") as f:
-        f.write("this is a test- file. \
-            This file should be removed at the end of unit tests")
    
 class TestStateInJob(unittest.TestCase):
     def setUp(self):
