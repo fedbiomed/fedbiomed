@@ -187,7 +187,7 @@ class Experiment:
         os.makedirs(os.path.join(self._breakpoint_path_file,
                                  self._exp_breakpoint_folder))
         
-    def _create_breakpoint_file_and_folder(self, round:int=0) -> Tuple[str, str]:
+    def _create_breakpoint_file_and_folder(self, round: int=0) -> Tuple[str, str]:
         """It creates a breakpoint file for each round. 
 
         Args:
@@ -253,7 +253,7 @@ class Experiment:
             state['params_path'] = copied_param_path
         copied_model_file = "model_" + str(round) + ".py"
         copied_model_path = os.path.join(breakpoint_path,
-                                                       copied_model_file)
+                                         copied_model_file)
         shutil.copy2(state["model_path"], copied_model_path)
         state["model_path"] = copied_model_path
         # save state into a json file.

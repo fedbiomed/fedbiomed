@@ -100,10 +100,9 @@ class Job:
         self.repo = Repository(UPLOADS_URL, TMP_DIR, CACHE_DIR)
         tmpdirname = tempfile.mkdtemp(prefix=TMP_DIR)
         atexit.register(lambda: shutil.rmtree(tmpdirname))  # remove `tmpdirname` 
-        # directory when script will end running
-        #with tempfile.TemporaryDirectory(dir=TMP_DIR) as tmpdirname:
+        # directory when script will end running (replace 
+        # `with tempfile.TemporaryDirectory(dir=TMP_DIR) as tmpdirname: `)
         self._model_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.py'
-        print("tmpdirname", tmpdirname)
         try:
             self.model_instance.save_code(self._model_file)
         except Exception as e:
