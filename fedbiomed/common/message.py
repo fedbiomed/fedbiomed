@@ -93,6 +93,7 @@ class PingReply(Message):
     researcher_id: str
     client_id: str
     success: bool
+    sequence: int
     command: str
 
     def __post_init__(self):
@@ -143,16 +144,16 @@ class AddScalarReply(Message):
 
 
 @dataclass
-class ErrorMessage(Message):
+class LogMessage(Message):
     """
-    This class describes an error message sent by the node
+    This class describes a log message sent by the node
 
     Raises:
         ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
-    success: bool
     client_id: str
+    level: str
     msg: str
     command: str
 
@@ -187,6 +188,7 @@ class PingRequest(Message):
         ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
+    sequence: int
     command: str
 
     def __post_init__(self):
@@ -225,7 +227,7 @@ class ResearcherMessages():
     def reply_create(cls, params: Dict[str, Any]) -> Union[TrainReply,
                                                            SearchReply,
                                                            PingReply,
-                                                           ErrorMessage,
+                                                           LogMessage,
                                                            AddScalarReply]:
         """this method is used on message reception (as a mean to reply to
         node requests, such as a Ping request).
@@ -248,8 +250,8 @@ class ResearcherMessages():
 
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
                                      'search': SearchReply,
-                                     'ping': PingReply,
-                                     'error': ErrorMessage,
+                                     'pong': PingReply,
+                                     'log': LogMessage,
                                      'add_scalar': AddScalarReply
         }
 
@@ -336,7 +338,7 @@ class NodeMessages():
     def reply_create(cls, params: dict) -> Union[TrainReply,
                                                  SearchReply,
                                                  PingReply,
-                                                 ErrorMessage,
+                                                 LogMessage,
                                                  AddScalarReply]:
         """this method is used on message reception.
         It creates the adequate message reply to send to the researcher,
@@ -358,8 +360,8 @@ class NodeMessages():
         message_type = params['command']
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
                                      'search': SearchReply,
-                                     'ping': PingReply,
-                                     'error': ErrorMessage,
+                                     'pong': PingReply,
+                                     'log': LogMessage,
                                      'add_scalar': AddScalarReply
                                      }
 
