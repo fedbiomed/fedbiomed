@@ -12,7 +12,7 @@ from fedbiomed.researcher.job import Job
 import torch
 import numpy as np
 
-   
+
 class TestStateInJob(unittest.TestCase):
     def setUp(self):
 

@@ -34,7 +34,9 @@ def load_json(file: str) -> Union[None, Exception]:
         return None
     except Exception as err:
         return err
-   
+
+# FIXME: it seems it is more an integration test than a unit test. 
+# an improvement can be to 'patch' Job class instead calling it. 
 class TestStateExp(unittest.TestCase):
     def setUp(self):
         try:
@@ -80,17 +82,7 @@ class TestStateExp(unittest.TestCase):
         1. if model file is copied from temporary folder to breakpoint folder
         2. if state file created is json loadable
         """
-        # model_file = MagicMock(return_value=None)
         
-        # model_file.save_code = MagicMock(return_value=None)
-        # test_exp = Experiment(
-        #     'some_tags', model_class=model_file, save_breakpoints=True
-        # )
-        
-        # test_exp._client_selection_strategy = DefaultStrategy(None)
-        
-        # test_exp._create_breakpoints_folder()
-        # test_exp._create_breakpoint_exp_folder()
         # Lets mock `client_selection_strategy`
         self.test_exp._client_selection_strategy = MagicMock(return_value=None)
         self.test_exp._client_selection_strategy.save_state = MagicMock(return_value={})
