@@ -62,6 +62,12 @@ finish () {
 
 trap finish TERM INT QUIT
 
+## TODO : make more general by including in the VPN configuration file and in user environment
+#export MQTT_BROKER=10.220.0.2
+#export MQTT_BROKER_PORT=1883
+#export UPLOADS_URL="http://10.220.0.3:8000/upload/"
+#export PYTHONPATH=/fedbiomed
+
 sleep infinity &
 
 wait $!
