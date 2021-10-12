@@ -171,8 +171,8 @@ class Experiment:
                                                   "breakpoints")
         if not os.path.isdir(self._breakpoint_path_file):
             try:
-                os.makedirs(self._breakpoint_path_file)
-            except PermissionError:
+                os.makedirs(self._breakpoint_path_file, exist_ok=True)
+            except (PermissionError, OSError):
                 logger.error(f"Can not save breakpoints files because\
                     {self._breakpoint_path_file} folder could not be created\
                         due to PermissionError")
@@ -207,7 +207,12 @@ class Experiment:
         breakpoint_folder_path = os.path.join(self._breakpoint_path_file,
                                               self._exp_breakpoint_folder,
                                               breakpoint_folder)
-        os.makedirs(breakpoint_folder_path)
+        try:
+            os.makedirs(breakpoint_folder_path, exist_ok=True)
+        except (PermissionError, OSError) as err:
+            logger.error(f"Can not save breakpoint folder at\
+                {breakpoint_folder_path} due to some error {err} ")
+
         breakpoint_file = breakpoint_folder + ".json"
         return breakpoint_folder_path, breakpoint_file
         
