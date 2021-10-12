@@ -90,11 +90,6 @@ class Monitor(metaclass=MonitorMeta):
         scalar = MonitorMessages.reply_create(msg).get_dict()
 
         if scalar['command'] == 'add_scalar':
-
-            # Print out scalar values  
-            # Disabled, logger already sends loss information text during traning in node  
-            # self._log_to_console(msg)
-
             if self.tensorboard:
                 self._summary_writer(msg['client_id'], 
                                      msg['key'],   
@@ -102,29 +97,6 @@ class Monitor(metaclass=MonitorMeta):
                                      msg['value'],
                                      msg['epoch'] 
                 )
-    
-
-    def _log_to_console(self, msg):
-
-        """ This method is for logging traning loss values into console by using
-        logger.
-        """
-
-        # Means that batch is equal to all samples
-        if msg['iteration'] == -1:
-            batch = 'all'
-        else:
-            batch = msg['iteration']
-
-        # Logging training loss values
-        logger.info('Round: {} Node: {} - Train Epoch: {} [Batch {} ]\t{}: {:.6f}'.format(
-                        str(self.round),
-                        msg['client_id'],
-                        msg['epoch'],
-                        batch,
-                        msg['key'],
-                        msg['value']))
-
     
     def _summary_writer(self, client: str, key: str, global_step: int, scalar: float, epoch: int ):
 
