@@ -62,12 +62,15 @@ class TestMonitor(unittest.TestCase):
         
     @patch('fedbiomed.common.messaging')
     def test_monitor_initialization_2(self, mocking_messaging_init):
+        """Tests if folder is created even if user 
+        is setting `tesorboard` to False
+        """
         mocking_messaging_init.return_value = None
         mocking_messaging_init._messaging.return_value = None
         monitor = Monitor(tensorboard=False)
         tensorboard_file = monitor._log_dir
         
-        self.assertFalse(os.path.isdir(tensorboard_file))
+        self.assertTrue(os.path.isdir(tensorboard_file))
         del monitor
         
     # @patch('torch.utils.tensorboard.SummaryWriter')
