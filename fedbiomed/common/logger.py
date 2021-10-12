@@ -61,7 +61,6 @@ class MqttFormatter(logging.Formatter):
     # threadName: 'MainThread'
     # processName: 'MainProcess'
     # process: 41544
-    # level: 'ERROR'
     # message: 'mqtt+console ERROR message'
     # asctime: '2021-09-08 15:36:30796'
 
@@ -71,11 +70,9 @@ class MqttFormatter(logging.Formatter):
             "asctime"   : record.__dict__["asctime"],
             "client_id" : self._client_id
         }
-        for _ in [ "name", "level", "message"]:
-            if _ in record.__dict__:
-                json_message[_] = record.__dict__[_]
-            else:
-                json_message[_] = "<undef>" # pragma: no cover
+        json_message["name"] = record.__dict__["name"]
+        json_message["level"] = record.__dict__["levelname"]
+        json_message["message"] = record.__dict__["message"]
 
         record.msg = json.dumps(json_message)
         return super().format(record)
@@ -189,7 +186,7 @@ class _LoggerBase():
 
         # internal tables
         # transform string to logging.level
-        self._string_levels = {
+        self._nameToLevel = {
             "DEBUG"          : logging.DEBUG,
             "INFO"           : logging.INFO,
             "WARNING"        : logging.WARNING,
@@ -198,7 +195,7 @@ class _LoggerBase():
         }
 
         # transform logging.level to string
-        self._original_levels = {
+        self._levelToName = {
             logging.DEBUG    : "DEBUG",
             logging.INFO     : "INFO",
             logging.WARNING  : "WARNING",
@@ -256,19 +253,23 @@ class _LoggerBase():
         level:  logging.* form of the level
 
         ex:
-        _internalLevelTranslator('DEBUG')  returns logging.DEBUG aka 10
+        _internalLevelTranslator('DEBUG')  returns logging.DEBUG
+
+        remark:
+        this is the opposite of the getLevelName() of logging python module
+        and this is not provided by the logging.Logger class
         """
 
         # logging.*
-        if level in self._original_levels:
+        if level in self._levelToName:
             return level
 
         # strings
         if isinstance(level, str):
             upperlevel = level.upper()
 
-            if upperlevel in self._string_levels:
-                return self._string_levels[upperlevel]
+            if upperlevel in self._nameToLevel:
+                return self._nameToLevel[upperlevel]
 
         # bad input !
 
@@ -404,72 +405,7 @@ class _LoggerBase():
         level = logger._internalLevelTranslator(level)
         self._logger.log(
             level,
-            msg,
-            extra = { "level": self._internalLevelToString(level)}
-        )
-
-        # give time to mqtt handler to send data to the researcher
-        if "MQTT" in self._handlers:
-            time.sleep(1)
-
-
-    def debug(self, msg):
-        """
-        overrides the logging.debug() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.DEBUG,
-            msg,
-            extra = { "level": "DEBUG" }
-        )
-
-
-    def info(self, msg):
-        """
-        overrides the logging.info() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.INFO,
-            msg,
-            extra = { "level": "INFO" }
-        )
-
-
-    def warning(self, msg):
-        """
-        overrides the logging.warning() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.WARNING,
-            msg,
-            extra = { "level": "WARNING" }
-        )
-
-
-    def error(self, msg):
-        """
-        overrides the logging.error() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.ERROR,
-            msg,
-            extra = { "level": "ERROR" }
-        )
-
-
-    def critical(self, msg):
-        """
-        overrides the logging.critical() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.CRITICAL,
-            msg,
-            extra = { "level": "CRITICAL" }
+            msg
         )
 
 
