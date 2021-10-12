@@ -52,10 +52,8 @@ class Monitor(metaclass=MonitorMeta):
                                  log file. 
         """ 
 
-
         self._messaging = Messaging(self._on_message, MessagingType.MONITOR,
                                    'NodeTrainingFeedbackClient', MQTT_BROKER, MQTT_BROKER_PORT)
-        
         # Start subscriber
         self._messaging.start(block=False)
         self._log_dir = TENSORBOARD_RESULTS_DIR
@@ -64,11 +62,11 @@ class Monitor(metaclass=MonitorMeta):
         self._event_writers = {}
 
         if self.tensorboard:
-            if not os.listdir(self._log_dir):
+            if os.listdir(self._log_dir):
                 logger.info('Removing tensorboard logs from previous experiment')
                 # Clear logs directory from the files from other experiments.
-                shutil.rmtree(self._log_dir)
-                
+                self._remove_logs()
+
     def _on_message(self, msg: Dict[str, Any], topic: str):
 
         """Handler to be used with `Messaging` class (ie with messager).
@@ -84,7 +82,6 @@ class Monitor(metaclass=MonitorMeta):
         """
 
         # Check command whether is scalar
-
         scalar = MonitorMessages.reply_create(msg).get_dict()
 
         if scalar['command'] == 'add_scalar':
@@ -93,8 +90,7 @@ class Monitor(metaclass=MonitorMeta):
                                      msg['key'],   
                                      msg['iteration'],   
                                      msg['value'],
-                                     msg['epoch'] 
-                )
+                                     msg['epoch'] )
     
     def _summary_writer(self, client: str, key: str, global_step: int, scalar: float, epoch: int ):
 
@@ -150,9 +146,9 @@ class Monitor(metaclass=MonitorMeta):
         self.tensorboard = tensorboard
         self._event_writers = {}
         # Remove tensorboard files from previous experiment
-        if os.path.exists(self._log_dir):
-           logger.info('Removing tensorboard logs from previous experiment')      
-           shutil.rmtree(self._log_dir)
+        if os.listdir(self._log_dir):
+            logger.info('Removing tensorboard logs from previous experiment')      
+            self._remove_logs()
 
 
     def close_writer(self):
@@ -166,10 +162,24 @@ class Monitor(metaclass=MonitorMeta):
         for node in self._event_writers:
             self._event_writers[node]['writer'].close() 
 
-
     def increase_round(self):
         
         """ This method increase the round based on the rounds of the experiment
             It is called after each round loop. 
         """
+
         self.round += 1
+
+    def _remove_logs(self):
+
+        """ This is private method for removing logs files from
+        tensorboard results dir. 
+        """   
+
+        for file in os.listdir(self._log_dir):
+            rf = os.path.join(self._log_dir, file)
+            if os.path.isdir(rf):
+                shutil.rmtree(rf)
+            elif os.path.isfile(rf):
+                os.remove(rf)
+        
