@@ -56,6 +56,22 @@ class TestHistoryMonitor(unittest.TestCase):
         )
         self.assertEqual(scalar, None)
         
+        pass
+    
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    def test_send_message_error(self, mocking_messaging_send_message):
+        
+        """Test send message in case of sending wrong types"""
+        
+        with self.assertRaises(ValueError):
+            scalar = self.history_monitor.add_scalar(
+                            key=123,
+                            value='asdasd',
+                            iteration='111',
+                            epoch='111',
+            )
+
+        
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
 
