@@ -73,25 +73,37 @@ class TestMonitor(unittest.TestCase):
         self.assertTrue(os.path.isdir(tensorboard_file))
         del monitor
         
-    # @patch('torch.utils.tensorboard.SummaryWriter')
-    # @patch('torch.utils.tensorboard.SummaryWriter.add_scalar')
-    # def test_summary_writer(self,
-    #                         mocking_summary_writer_init,
-    #                         mocking_summary_writer_add_scalar):
+    @patch('fedbiomed.researcher.monitor.SummaryWriter')
+    @patch('fedbiomed.researcher.monitor.SummaryWriter.add_scalar')
+    def test_summary_writer(self,
+                            mocking_summary_writer,
+                            mocking_summary_writer_add_scalar, 
+                            ):
+        """Tests if: 
+        1. `SummaryWriter.add_scalar` has been called when calling
+        `_summary_writer`
+        2. arguments passed are stored in `_event_writers`
+
+        """
+
+        monitor = Monitor(tensorboard=True)
+        mocking_summary_writer.return_value = MagicMock()
+        mocking_summary_writer_add_scalar.return_value = MagicMock()
+       
+        client_id = "1234"
+        monitor._summary_writer(client_id,
+                                "loss",
+                                global_step=-1,
+                                scalar=2,
+                                epoch=3)
         
-    #     mocking_summary_writer_init.return_value = "abcd"
-    #     #mocking_summary_writer_init.return_value
-    #     mocking_summary_writer_add_scalar.return_value = "abcd"
-    #     monitor = Monitor(tensorboard=True)
-    #     client_id = "1234"
-    #     monitor._summary_writer(client_id,
-    #                             "loss",
-    #                             global_step=-1,
-    #                             scalar=2,
-    #                             epoch=3)
-    #     print(monitor._event_writers)
-    #     self.assertEquals(monitor._event_writers[client_id]['writer'], None)
-    #     del monitor
+        
+        mocking_summary_writer_add_scalar.assert_called_once()
+        print(monitor._event_writers[client_id])
+        self.assertEqual(monitor._event_writers[client_id]['step'], 3)
+        self.assertEqual(monitor._event_writers[client_id]['stepper'], 3)
+        self.assertEqual(monitor._event_writers[client_id]['step_state'], 0)
+        del monitor
         
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
