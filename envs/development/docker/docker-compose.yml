@@ -72,17 +72,12 @@ services:
       JUPYTERLAB_USER: root
       JUPYTERLAB_VOLUME_RO: /notebook/run_mounts/start-notebook.d:/usr/local/bin/start-notebook.d
         /notebook/run_mounts/before-notebook.d:/usr/local/bin/before-notebook.d
-      # /notebook/run_mounts/data/samples:/home/samples
-      # JUPYTERLAB_VOLUME_RW: /notebook/run_mounts/data/notebook:/home/notebook
-      # Set JUPYTERLAB ENV Variables
-      JUPYTERLAB_ENVIRONMENT: NB_USER:fedclient
+      JUPYTERLAB_ENVIRONMENT: NB_USER:fedbiomeduser
         NB_UID:998
-        NB_GROUP:fedclient
+        NB_GROUP:fedbiomeduser
         NB_GID:998
         CHOWN_HOME:yes
         CHOWN_HOME_OPTS:-R
-        CHOWN_EXTRA:/home/fedclient/notebook
-        CHOWN_EXTRA_OPTS:-R
         RESTARTABLE:yes
         UPLOAD_IP:138.96.220.179
         UPLOAD_PORT:8844
