@@ -186,9 +186,11 @@ class Experiment:
         # FIXME: improve method robustness (here nb of exp equals nb of file
         # in directory)
         all_file = os.listdir(self._breakpoint_path_file)
-        self._exp_breakpoint_folder = "Experiment_" + str(len(all_file))
-        os.makedirs(os.path.join(self._breakpoint_path_file,
-                                 self._exp_breakpoint_folder))
+        if not hasattr(self, "_exp_breakpoint_folder"):
+            
+            self._exp_breakpoint_folder = "Experiment_" + str(len(all_file))
+            os.makedirs(os.path.join(self._breakpoint_path_file,
+                                    self._exp_breakpoint_folder))
         
     def _create_breakpoint_file_and_folder(self, round: int=0) -> Tuple[str, str]:
         """It creates a breakpoint file for each round. 
@@ -265,5 +267,15 @@ class Experiment:
             json.dump(state, bkpt)
         logger.info(f"breakpoint for round {round} saved at {breakpoint_path}")
 
-def load_breakpoint():
-    pass
+def load_breakpoint(self, breakpoint_folder: str):
+    
+    # First, let's test if folder is a folder path
+    if not os.path.isdir(breakpoint_folder):
+        # trigger an exception
+        raise FileNotFoundError(f"{breakpoint_folder} is not a\
+            breakpoint directory!")
+    # check if folder is a valid breakpoint
+    
+    # get breakpoint material
+    json.loads()
+    self._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
