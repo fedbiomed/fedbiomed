@@ -191,16 +191,24 @@ exp = Experiment(tags=tags,
 
 During training, the scalar values (loss) will be writen in the `runs` directory. You can either start tensorboard from jupyter notebook or terminal window. 
 
-For notebook, first you should load tenserboard extension. 
+**Start tensforboard from notebook**
+First you should import ROOT_DIR from researcher environment in another cell
+`from fedbiomed.researcher.environ import ROOT_DIR`
 
+Load tensroboard extension in a different code block. 
 `%load_ext tensorboard`
-`tensorboard --logdir '../runs`
 
-To start tensorboard from terminal;
+Run following command to start tensorboard
+`tensorboard --logdir "$ROOT_DIR"/runs`
 
-Note: please make sure that already activated fedbiomed-researcher conda environment. 
+**Start tensorboard from terminal windows**
 
-`tensorboard --logdir '../runs'`
+- Open new terminal and cd into fedbiomed root directory and run following command. 
+
+**Note:** Please make sure that already activated fedbiomed-researcher conda environment.
+.
+`tensorboard --logdir $PYTHONPATH/runs`
+
 
 
 
