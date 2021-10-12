@@ -62,16 +62,8 @@ finish () {
 
 trap finish TERM INT QUIT
 
-# TODO : cannnot launch node at this step because it cannot connect to mqtt yet
-#        but this will create a configuration file for the node & fail
-# TODO : make more general by including in the VPN configuration file and in user environment
-export MQTT_BROKER=10.220.0.2
-export MQTT_BROKER_PORT=1883
-export UPLOADS_URL="http://10.220.0.3:8000/upload/"
-export PYTHONPATH=/fedbiomed
-#
-# dont wait for node to enable node stop/restart
-su -c "export PATH=${PATH} ; eval $(conda shell.bash hook) ; conda activate fedbiomed-node ; python -m fedbiomed.node.cli --start" $CONTAINER_USER &
+# Cannot launch node at this step because VPN is not yet fully established
+# thus it cannot connect to mqtt
 
 sleep infinity &
 

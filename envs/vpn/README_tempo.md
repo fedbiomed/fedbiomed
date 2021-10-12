@@ -141,9 +141,12 @@ python ./vpn/bin/configure_peer.py add management restful *publickey*
   Connect again to the node and launch manually, now that the VPN is established
 ```bash
 docker-compose exec -u $(id -u) node bash
-#export MQTT_BROKER=10.220.0.2
-#export MQTT_BROKER_PORT=1883
-#export UPLOADS_URL="http://10.220.0.3:8000/upload/"
+# TODO : make more general by including it in the VPN configuration and user environment ?
+# TODO : create scripts in VPN environment
+# need proper parameters at first launch to create configuration file
+export MQTT_BROKER=10.220.0.2
+export MQTT_BROKER_PORT=1883
+export UPLOADS_URL="http://10.220.0.3:8000/upload/"
 export PYTHONPATH=/fedbiomed
 eval "$(conda shell.bash hook)"
 conda activate fedbiomed-node
@@ -170,13 +173,13 @@ echo > ./mqtt/run_mounts/config/config.env
 
 ## node 
 
-Same as mqtt :
+Same as mqtt
 
 cd ./envs/vpn/docker
 docker-compose rm -sf node
 rm -rf ./node/run_mounts/config/wireguard
 echo > ./node/run_mounts/config/config.env
-
+rm -rf ./node/run_mounts/data/*
 
 
 ## background / wireguard
