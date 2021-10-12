@@ -171,11 +171,11 @@ class Experiment:
                                                   "breakpoints")
         if not os.path.isdir(self._breakpoint_path_file):
             try:
-                os.makedirs(self._breakpoint_path_file)
-            except PermissionError:
+                os.makedirs(self._breakpoint_path_file, exist_ok=True)
+            except (PermissionError, OSError) as err:
                 logger.error(f"Can not save breakpoints files because\
                     {self._breakpoint_path_file} folder could not be created\
-                        due to PermissionError")
+                        due to {err}")
         
     def _create_breakpoint_exp_folder(self):
         """Creates a breakpoint folder for the current experiment (ie the 
@@ -186,12 +186,16 @@ class Experiment:
         # FIXME: improve method robustness (here nb of exp equals nb of file
         # in directory)
         all_file = os.listdir(self._breakpoint_path_file)
-        if not hasattr(self, "_exp_breakpoint_folder"):
-            
-            self._exp_breakpoint_folder = "Experiment_" + str(len(all_file))
+        self._exp_breakpoint_folder = "Experiment_" + str(len(all_file))
+        try:
             os.makedirs(os.path.join(self._breakpoint_path_file,
-                                    self._exp_breakpoint_folder))
-        
+                                     self._exp_breakpoint_folder),
+                        exist_ok=True)
+        except (PermissionError, OSError) as err: 
+            logger.error(f"Can not save breakpoints files because\
+                    {self._breakpoint_path_file} folder could not be created\
+                        due to {err}")
+            
     def _create_breakpoint_file_and_folder(self, round: int=0) -> Tuple[str, str]:
         """It creates a breakpoint file for each round. 
 
@@ -209,7 +213,12 @@ class Experiment:
         breakpoint_folder_path = os.path.join(self._breakpoint_path_file,
                                               self._exp_breakpoint_folder,
                                               breakpoint_folder)
-        os.makedirs(breakpoint_folder_path)
+        try:
+            os.makedirs(breakpoint_folder_path, exist_ok=True)
+        except (PermissionError, OSError) as err:
+            logger.error(f"Can not save breakpoint folder at\
+                {breakpoint_folder_path} due to some error {err} ")
+
         breakpoint_file = breakpoint_folder + ".json"
         return breakpoint_folder_path, breakpoint_file
         
@@ -253,7 +262,7 @@ class Experiment:
         for client_id, param_path in state['params_path'].items():
             copied_param_file = "params_" + client_id + ".pt"
             copied_param_path = os.path.join(breakpoint_path,
-                                                  copied_param_file)
+                                             copied_param_file)
             shutil.copy2(param_path, copied_param_path)
             state['params_path'] = copied_param_path
         copied_model_file = "model_" + str(round) + ".py"
