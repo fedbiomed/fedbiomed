@@ -64,9 +64,7 @@ class Monitor(metaclass=MonitorMeta):
         self._event_writers = {}
 
         if self.tensorboard:
-            if not os.path.exists(self._log_dir):
-                os.makedirs(self._log_dir)
-            else:
+            if not os.listdir(self._log_dir):
                 logger.info('Removing tensorboard logs from previous experiment')
                 # Clear logs directory from the files from other experiments.
                 shutil.rmtree(self._log_dir)
@@ -145,7 +143,8 @@ class Monitor(metaclass=MonitorMeta):
         
         """This method is used for changing tensorboard in case of rebuilding Singleton class. 
         It will update tensorboard state and remove tensorboard log files from 
-        previous experiment. 
+        previous experiment. It is necessary for runing building eperiment in notebook 
+        multiple times. 
         """
 
         self.tensorboard = tensorboard
