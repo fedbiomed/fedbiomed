@@ -172,5 +172,5 @@ usage:  lqueue directory
 
 ## Jupyterhub 
 
-Please go [here]('./envs/development/docker/README.md') to have more information about lauching JupyterHub with fedbiomed. 
+Please go `env/development/docker` directory to have more information about launching JupyterHub. 
 

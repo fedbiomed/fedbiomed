@@ -41,10 +41,10 @@ Open your browser and go http://localhost:8000/fedbiomed. Login with default use
 User: fedbiomed
 pass: FED123fed
 
-Note: In case of frozen loading bar while loading jupyterlab notebook, please refresh or logout and login again. 
+Note: In case of frozen loading bar while accessing jupyterlab notebook, please refresh or logout and login again. 
 
 ### Add New User
 
-* add user account to `envs/development/docker/juypterhub/etc/passwd` and `envs/development/docker/juypterhub/etc/shadow` (cut/paste/adapt from existing account)
-* generate a password hash (eg `openssl passwd -1`) and add it to `envs/development/docker/juypterhub/etc/shadow`
+* add user account to `envs/development/docker/juypterhub/run_mounts/etc/passwd` and `envs/development/docker/juypterhub/run_mounts/etc/shadow` (cut/paste/adapt from existing account)
+* generate a password hash (eg `openssl passwd -1`) and add it to `envs/development/docker/juypterhub/run_mounts/etc/shadow`
 * commit and push to git to make it permanent
