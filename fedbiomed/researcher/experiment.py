@@ -264,3 +264,6 @@ class Experiment:
         with open(breakpoint_path, 'w') as bkpt:
             json.dump(state, bkpt)
         logger.info(f"breakpoint for round {round} saved at {breakpoint_path}")
+
+def load_breakpoint():
+    pass
