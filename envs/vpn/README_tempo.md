@@ -195,7 +195,8 @@ conda activate fedbiomed-researcher
 ./notebooks/getting-started.py
 ```
 
-TODO : test with notebooks
+* to use notebooks, from outside the researcher container connect to `http://localhost:8888` or `http://SERVER_IP:8888`
+  * TODO : add protection for distant connection to researcher
 
 ## cleaning
 

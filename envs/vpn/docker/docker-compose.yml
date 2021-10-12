@@ -93,6 +93,8 @@ services:
     image: fedbiomed/vpn-researcher
     env_file:
       - ./researcher/run_mounts/config/config.env
+    ports:
+      - "8888:8888"
     cap_add:
       - net_admin
       - sys_module
