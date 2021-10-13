@@ -4,7 +4,7 @@ import sys
 import tempfile
 import shutil
 import atexit
-from typing import Union, Callable
+from typing import Union, Callable, List
 import uuid
 import re
 import time
@@ -14,6 +14,8 @@ import validators
 
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.logger import logger
+from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
+from fedbiomed.common.torchnn import TorchTrainingPlan
 from fedbiomed.researcher.environ import RESEARCHER_ID, TMP_DIR, CACHE_DIR, UPLOADS_URL
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
@@ -269,7 +271,7 @@ class Job:
             params (dict): [description]
 
         Returns:
-            str: [description]
+            str: filename
         """
         try:
             # FIXME: should we specify file extension as a local/global variable ?
@@ -313,7 +315,7 @@ class Job:
             'training_replies': self._save_training_replies()
         }
         
-    def _save_training_replies(self) -> list:
+    def _save_training_replies(self) -> List[dict]:
         """saves last values training replies variable, and replace
         pytroch tensor / numpy arrays by path files pointing to
         tensor files (these tensor files contain pytorch tensor / numpy arrays)
@@ -333,7 +335,20 @@ class Job:
             #params = self._params_path.get(client_id)
             converted_training_replies[client_i]['params'] = self._params_path.get(client_id)
         return converted_training_replies
-         
+
+    def _load_training_replies(self,
+                               training_replies: List[dict],
+                               params_path: List[str],
+                               model_obj: Union[SGDSkLearnModel,
+                                                TorchTrainingPlan]):
+        
+        for client_i, _ in enumerate(training_replies):
+            training_replies[client_i]['params'] = model_obj.load(params_path[client_i])
+            training_replies[client_i]['params_path'] = params_path[client_i]
+            
+        self._training_replies = training_replies
+
+
 class localJob:
     """
     This class represents the entity that manage the training part.

@@ -36,7 +36,7 @@ def load_json(file: str) -> Union[None, Exception]:
         return err
 
 # FIXME: it seems it is more an integration test than a unit test. 
-# an improvement can be to 'patch' Job class instead calling it. 
+# an improvement can be to 'patch' Job class instead of calling it. 
 class TestStateExp(unittest.TestCase):
     def setUp(self):
         try:
@@ -94,7 +94,7 @@ class TestStateExp(unittest.TestCase):
             create_file(tempfile_path)
             self.test_exp._job.save_state = return_state
             self.test_exp._job.state = {"model_path": str(tempfile_path), 
-                                   'params_path': {}}
+                                        'params_path': {}}
 
             self.test_exp._save_state()
             exp_path = os.path.join(VAR_DIR,

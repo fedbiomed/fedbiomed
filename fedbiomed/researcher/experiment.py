@@ -278,53 +278,68 @@ class Experiment:
             json.dump(state, bkpt)
         logger.info(f"breakpoint for round {round} saved at {breakpoint_path}")
 
-def load_breakpoint(self, breakpoint_folder: str):
-    
-    # First, let's test if folder is a folder path
-    if not os.path.isdir(breakpoint_folder):
-        if os.path.isfile(breakpoint_folder):
-            raise FileNotFoundError(f"{breakpoint_folder} \
-                is not a folder but a file")
-        else:
-             
-            # trigger an exception
-            raise FileNotFoundError(f"Cannot find {breakpoint_folder}!")
-    # check if folder is a valid breakpoint
-    
-    # get breakpoint material
-    # regex : breakpoint_\d\.json
+    @staticmethod
+    def load_breakpoint(breakpoint_folder: str):
+        
+        # First, let's test if folder is a real folder path
+        if not os.path.isdir(breakpoint_folder):
+            if os.path.isfile(breakpoint_folder):
+                raise FileNotFoundError(f"{breakpoint_folder} \
+                    is not a folder but a file")
+            else:
+                
+                # trigger an exception
+                raise FileNotFoundError(f"Cannot find {breakpoint_folder}!")
+        # check if folder is a valid breakpoint
+        
+        # get breakpoint material
+        # regex : breakpoint_\d\.json
 
-    all_breakpoint_materials = os.listdir(breakpoint_folder)
-    if len(all_breakpoint_materials) == 0:
-        raise Exception("breakpoint folder is empty !")
-    
-    state_file, model_file, params_files = None, None, []
-    for breakpoint_material in all_breakpoint_materials:
-        # look for the json file containing experiment state 
-        # (it should be named `brekpoint_xx.json`)
-        json_match = re.fullmatch(r'breakpoint_\d*\.json', breakpoint_material)
-        py_model_match = re.fullmatch(r'model_\d*\.py', breakpoint_material)
-        params_match = re.fullmatch(r'params_client_[a-zA-Z0-9_.-]*.pt',
-                                    breakpoint_material)
-        if json_match is not None:
-            logging.debug(f"found json file containing states at\
-                {breakpoint_material}")
-            state_file = breakpoint_material
+        all_breakpoint_materials = os.listdir(breakpoint_folder)
+        if len(all_breakpoint_materials) == 0:
+            raise Exception("breakpoint folder is empty !")
         
-        elif py_model_match is not None:
-            model_file = breakpoint_material
-            logging.debug(f"found '*.py model' containing model at\
-                {breakpoint_material}")
+        state_file, model_file, params_files = None, None, []
+        for breakpoint_material in all_breakpoint_materials:
+            # look for the json file containing experiment state 
+            # (it should be named `brekpoint_xx.json`)
+            json_match = re.fullmatch(r'breakpoint_\d*\.json',
+                                      breakpoint_material)
+            # py_model_match = re.fullmatch(r'model_\d*\.py', breakpoint_material)
+            # params_match = re.fullmatch(r'params_client_[a-zA-Z0-9_.-]*.pt',
+            #                             breakpoint_material)
+            if json_match is not None:
+                logging.debug(f"found json file containing states at\
+                    {breakpoint_material}")
+                state_file = breakpoint_material
+            
+            # elif py_model_match is not None:
+            #     model_file = breakpoint_material
+            #     logging.debug(f"found '*.py model' containing model at\
+            #         {breakpoint_material}")
+            
+            # elif params_match is not None:
+            #     params_files.append(breakpoint_material)
+            #     logging.debug(f"found '*.pt' file containing model\
+            #         params at {breakpoint_material}")
+            else:
+                logging.error(f"Cannot find JSON file containing\
+                    model state at {breakpoint_folder}")
+                #sys.exit(-1)
+        # TODO: check if all elements needed for breakpoint are present
+        with open(state_file, "r") as f:
+            saved_state = json.loads(f)
         
-        elif params_match is not None:
-            params_files.append(breakpoint_material)
-            logging.debug(f"found '*.pt' file containing model\
-                params at {breakpoint_material}")
-        else:
-            logging.debug(f"found file {breakpoint_material}\
-                but dont know what it is for... ")
+        job_keys = [
+                     'training_data',
+                     'training_args',
+                     'model_args',
+                     'model_class'
+                    ]
+        job_args = {key: entry for key, entry in saved_state if key in job_keys}
         
-    with open(state_file, "r") as f:
-        saved_state = json.loads(f)
-    
-    self._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
+        # get all breakpoint folders
+        #self._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
+
+    def _retrieve_training_replies(self):
+        pass

@@ -58,7 +58,8 @@ class TestStateInJob(unittest.TestCase):
                 Returns:
                     list:  data of the class `Responses`
                 """
-                return(self._data)  
+                return(self._data)
+            
             def __getitem__(self, item):
                 return self._data[item]
             
@@ -101,7 +102,8 @@ class TestStateInJob(unittest.TestCase):
  
         self.assertTrue(isinstance(new_training_replies[0].get('params'),
                                    str))
-        self.assertEquals(new_training_replies[0].get('params'), tmpfilename_client1)
+        self.assertEquals(new_training_replies[0].get('params'),
+                          tmpfilename_client1)
     
 
         
