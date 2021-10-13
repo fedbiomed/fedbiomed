@@ -72,6 +72,7 @@ services:
       JUPYTERLAB_USER: root
       JUPYTERLAB_VOLUME_RO: /notebook/run_mounts/start-notebook.d:/usr/local/bin/start-notebook.d
         /notebook/run_mounts/before-notebook.d:/usr/local/bin/before-notebook.d
+      JUPYTERLAB_VOLUME_RW: /notebook/run_mounts/workspace:/home/workspace
       JUPYTERLAB_ENVIRONMENT: NB_USER:fedbiomeduser
         NB_UID:998
         NB_GROUP:fedbiomeduser
@@ -79,10 +80,10 @@ services:
         CHOWN_HOME:yes
         CHOWN_HOME_OPTS:-R
         RESTARTABLE:yes
-        UPLOAD_IP:138.96.220.179
+        UPLOAD_IP:138.96.220.146
         UPLOAD_PORT:8844
         UPLOAD_PATH:upload/
-        MQTT_BROKER:138.96.220.179
+        MQTT_BROKER:138.96.220.146
         MQTT_BROKER_PORT:1883
 
 

@@ -3,7 +3,7 @@ FROM jupyter/datascience-notebook
 # Volumues for scripts
 VOLUME [ "/usr/local/bin/start-notebook.d" ]
 VOLUME [ "/usr/local/bin/before-notebook.d" ]
-
+VOLUME [ "/home/workspace"]
 
 # Copy fedbiomed library
 COPY ./fedbiomed /home/fed/fedbiomed 
