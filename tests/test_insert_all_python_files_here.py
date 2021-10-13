@@ -13,7 +13,7 @@ import fedbiomed.common.message
 import fedbiomed.common.repository
 import fedbiomed.common.json
 import fedbiomed.common.messaging
-import fedbiomed.node.history_logger
+import fedbiomed.node.history_monitor
 import fedbiomed.node.round
 import fedbiomed.node.cli
 import fedbiomed.node.node

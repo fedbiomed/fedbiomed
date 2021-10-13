@@ -134,7 +134,9 @@ class AddScalarReply(Message):
     researcher_id: str
     client_id: str
     job_id: str
-    key: float
+    key: str
+    value: float
+    epoch: int
     iteration: int
     command: str
 
@@ -227,8 +229,7 @@ class ResearcherMessages():
     def reply_create(cls, params: Dict[str, Any]) -> Union[TrainReply,
                                                            SearchReply,
                                                            PingReply,
-                                                           LogMessage,
-                                                           AddScalarReply]:
+                                                           LogMessage]:
         """this method is used on message reception (as a mean to reply to
         node requests, such as a Ping request).
         it creates the adequate message, it maps an instruction
@@ -251,8 +252,7 @@ class ResearcherMessages():
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
                                      'search': SearchReply,
                                      'pong': PingReply,
-                                     'log': LogMessage,
-                                     'add_scalar': AddScalarReply
+                                     'log': LogMessage
         }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -294,6 +294,8 @@ class ResearcherMessages():
             raise ValueError('Bad message type {}'.format(message_type))
 
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
+
+
 
 
 class NodeMessages():
@@ -364,6 +366,41 @@ class NodeMessages():
                                      'log': LogMessage,
                                      'add_scalar': AddScalarReply
                                      }
+
+        if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
+            raise ValueError('Bad message type {}'.format(message_type))
+
+        return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
+
+
+class MonitorMessages():
+    """This class allows to create the corresponding class instance from
+    a received/ sent message by the Monitoring
+    """
+    @classmethod
+    def reply_create(cls, params: Dict[str, Any]) -> AddScalarReply:
+        """this method is used on message reception (as a mean to reply to
+        node requests, such as a Ping request).
+        it creates the adequate message, it maps an instruction
+        (given the key "command" in the input dictionary `params`)
+        to a Message object
+        It validates:
+        - the legacy of the message
+        - the structure of the received message
+
+        Raises:
+        ValueError: triggered if the message is not allowed to
+        be received by the researcher
+        KeyError: triggered if 'command' field is not present in `params`
+
+        Returns:
+        An instance of the corresponding Message class
+        """
+        message_type = params['command']
+
+        MESSAGE_TYPE_TO_CLASS_MAP = {
+                                     'add_scalar': AddScalarReply
+        }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
             raise ValueError('Bad message type {}'.format(message_type))
