@@ -78,7 +78,7 @@ class Experiment:
         # (below) search for nodes either having tags that matches the tags
         # the researcher is looking for (`self._tags`) or based on client id
         # (`self._clients`)
-        if self._training_data is not None:
+        if self._training_data is None:
             training_data = self._reqs.search(self._tags,
                                               self._clients)
         else:
@@ -235,6 +235,7 @@ class Experiment:
         Saves a state of the training at a current round.
         The following attributes will be saved:
          - 'round_number'
+         - tags
          - 'aggregator'
          - 'client_selection_strategy'
          - 'round_success'
@@ -259,7 +260,8 @@ class Experiment:
             'round_number': round,
             'aggregator': self._aggregator.save_state(),
             'client_selection_strategy': self._client_selection_strategy.save_state(),
-            'round_success': True
+            'round_success': True,
+            'tags': self._tags
         }
         
         state.update(job_state)
@@ -346,8 +348,18 @@ class Experiment:
         
         # get all breakpoint folders
         #self._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
+        
+        
+        
+        #  retrieve client sampling startegy
+        client_sampling_startegy_name = saved_state.get("client_selection_strategy")
+        
+        #  retrieve federator
+        
         cls._training_data = saved_state.get('training_data')
-        return cls()
+        
+        return cls(tags=saved_state.get('tags'),
+                   clients=saved_state.get('client_id'))
 
     def _retrieve_training_replies(self):
         pass

@@ -315,7 +315,7 @@ class Job:
             'training_replies': self._save_training_replies()
         }
         
-    def _save_training_replies(self) -> Dict[List[dict]]:
+    def _save_training_replies(self) -> Dict[int, List[dict]]:
         """saves last values training replies variable, and replace
         pytroch tensor / numpy arrays by path files pointing to
         tensor files (these tensor files contain pytorch tensor / numpy arrays)
@@ -337,7 +337,7 @@ class Job:
         return {last_index: converted_training_replies}
 
     def _load_training_replies(self,
-                               training_replies: Dict[List[dict]],
+                               training_replies: Dict[int, List[dict]],
                                params_path: List[str],
                                round: int, 
                                model_obj: Union[SGDSkLearnModel,
