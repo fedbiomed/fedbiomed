@@ -1,7 +1,3 @@
-import inspect
-
-from joblib import dump, load
-
 import numpy as np
 import pandas as pd
 from sklearn import preprocessing
@@ -9,7 +5,6 @@ from copy import deepcopy
 from scipy.stats import matrix_normal, invgamma
 from numpy.linalg import solve
 from math import log
-from fedbiomed.common.logger import logger
 from fedbiomed.common.pythonmodel import PythonModelPlan
 
 class PpcaPlan(PythonModelPlan):
