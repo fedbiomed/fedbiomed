@@ -200,12 +200,14 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         # Check that there are not existing databases with the same name
         assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
 
+        dtypes = [] # empty list for Image datasets
         data_types = ['csv', 'default', 'images']
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
                                       ' a compatible data type. '
                                       f'Compatible data types are: {data_types}')
 
+        
         if data_type == 'default':
             assert os.path.isdir(path), f'Folder {path} for Default Dataset does not exist.'
             shape = self.load_default_database(name, path)

@@ -301,14 +301,19 @@ class Job:
                     dtypes.append(feature["dtypes"])
                     shapes.append(feature["shape"])
 
-            assert len(set(data_types)) == 1, f'Datasets in nodes has been loaded with different types: {data_types}'
-
+            assert len(set(data_types)) == 1,\
+                 f'Datasets in nodes has been loaded with different types: {data_types}'
+                 
             if data_types[0] == 'csv':              
                 assert len(set([s[1] for s in shapes])) == 1, \
-                        f'Column dimonsions does not match {shapes}'
+                        f'Number of columns of federated datasets do not match {shapes}.'
+                
+                dtypesT = list(map(list, zip(*dtypes)))
+                for t in dtypesT:
+                    assert len(set(t)) == 1, \
+                         f'Variable data types do not match in federated datasets {dtypes}'
+
             elif data_types[0] == 'images':
-                # assert len(set( sum(s[1:]) for s in shapes )) == 1, \
-                #     f'Image dataset dimensions does not match'
                 pass
             else:
                 pass
