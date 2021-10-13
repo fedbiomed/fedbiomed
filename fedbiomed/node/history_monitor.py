@@ -5,7 +5,7 @@ from fedbiomed.common.messaging import Messaging
 from fedbiomed.node.environ import CLIENT_ID
 
 
-class HistoryLogger:
+class HistoryMonitor:
     def __init__(self,
                  job_id: str,
                  researcher_id: str,
@@ -15,15 +15,18 @@ class HistoryLogger:
         self.researcher_id = researcher_id
         self.messaging = client
 
-    def add_scalar(self, key: str, value: Union[int, float], iteration: int):
-        """Adds a value to the logger, and sends an 'AddReply'
+    def add_scalar(self, key: str, value: Union[int, float], iteration: int, epoch: int ):
+        """Adds a scalar value to the monitor, and sends an 'AddScalarReply'
         response to researcher
 
         Args:
             key (str): name value in logger to keep track with
             value (Union[int, float]):  recorded value
             iteration (int): current epoch iteration.
+            epoch (int): current epoch
         """
+
+        # Keeps history of the scalar values. Please see Round.py where it is called 
         try:
             self.history[key][iteration] = value
         except (KeyError, AttributeError):
@@ -33,7 +36,11 @@ class HistoryLogger:
                                                                'client_id': CLIENT_ID,
                                                                'job_id': self.job_id,
                                                                'researcher_id': self.researcher_id,
-                                                               'key': value,
+                                                               'key' : key,
+                                                               'value': value,
                                                                'iteration': iteration,
-                                                               "command": "add_scalar"
-                                                               }).get_dict())
+                                                               'epoch' : epoch,
+                                                               'command': 'add_scalar'
+                                                               }).get_dict(), 
+                                                               client='monitoring'
+                                                               )
