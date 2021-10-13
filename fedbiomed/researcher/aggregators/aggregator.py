@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Any
 
 import torch
 
@@ -24,8 +24,8 @@ class Aggregator:
         """Strategy to aggregate models"""
         pass
 
-    def save_state(self) -> tuple:
-        return None, None
+    def save_state(self) -> Dict[str, Any]:
+        return None
 
     def load_state(self):
         pass

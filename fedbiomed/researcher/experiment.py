@@ -5,8 +5,10 @@ import shutil
 import re
 
 from fedbiomed.common.logger import logger
-from typing import Callable, Union, Tuple
+from typing import Callable, Union, Tuple, Dict, Any, List
 from fedbiomed.researcher.environ import VAR_DIR
+from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
+from fedbiomed.common.torchnn import TorchTrainingPlan
 
 from fedbiomed.researcher.aggregators import fedavg, aggregator
 from fedbiomed.researcher.strategies.strategy import Strategy
@@ -15,6 +17,7 @@ from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.monitor import Monitor
+
 
 class Experiment:
     """
@@ -112,8 +115,8 @@ class Experiment:
 
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
-        self._state_root_folder = VAR_DIR  # from where breakpoint folder
-        # will be created
+        self._state_root_folder = VAR_DIR  # directory from where breakpoint
+        #  folder will be created
         
         self._monitor = Monitor(tensorboard=tensorboard)
         
@@ -202,7 +205,7 @@ class Experiment:
                         due to {err}")
         
     def _create_breakpoint_exp_folder(self):
-        """Creates a breakpoint folder for the current experiment (ie the 
+        """Creates a breakpoint folder for the current experiment (ie the
         current run of the model). This folder is located at
         `VAR_DIR/Experiment_x` where `x-1` is the number of experiments
         already run (`x`=0 for the first experiment)
@@ -210,7 +213,8 @@ class Experiment:
         # FIXME: improve method robustness (here nb of exp equals nb of file
         # in directory)
         all_files = os.listdir(self._breakpoint_path_file)
-        self._exp_breakpoint_folder = "Experiment_" + str(len(all_files))
+        if not hasattr(self, "_exp_breakpoint_folder"):
+            self._exp_breakpoint_folder = "Experiment_" + str(len(all_files))
         try:
             os.makedirs(os.path.join(self._breakpoint_path_file,
                                      self._exp_breakpoint_folder),
@@ -251,6 +255,7 @@ class Experiment:
         Saves a state of the training at a current round.
         The following attributes will be saved:
          - 'round_number'
+         - round_number_due
          - tags
          - 'aggregator'
          - 'client_selection_strategy'
@@ -274,6 +279,7 @@ class Experiment:
         job_state = self._job.state
         state = {
             'round_number': round,
+            'round_number_due': self._rounds,
             'aggregator': self._aggregator.save_state(),
             'client_selection_strategy': self._client_selection_strategy.save_state(),
             'round_success': True,
@@ -290,7 +296,7 @@ class Experiment:
             copied_param_path = os.path.join(breakpoint_path,
                                              copied_param_file)
             shutil.copy2(param_path, copied_param_path)
-            state['params_path'] = copied_param_path
+            state['params_path'][client_id] = copied_param_path
         copied_model_file = "model_" + str(round) + ".py"
         copied_model_path = os.path.join(breakpoint_path,
                                          copied_model_file)
@@ -303,7 +309,9 @@ class Experiment:
         logger.info(f"breakpoint for round {round} saved at {breakpoint_path}")
 
     @classmethod
-    def load_breakpoint(cls, breakpoint_folder: str) -> object:
+    def load_breakpoint(cls,
+                        breakpoint_folder: str,
+                        extra_rounds: int = 0) -> object:
         
         # First, let's test if folder is a real folder path
         if not os.path.isdir(breakpoint_folder):
@@ -351,32 +359,79 @@ class Experiment:
                     model state at {breakpoint_folder}")
                 #sys.exit(-1)
         # TODO: check if all elements needed for breakpoint are present
-        with open(state_file, "r") as f:
-            saved_state = json.loads(f)
-        
-        job_keys = [
-                     'training_data',
-                     'training_args',
-                     'model_args',
-                     'model_class'
-                    ]
-        job_args = {key: entry for key, entry in saved_state if key in job_keys}
-        
-        # get all breakpoint folders
-        #self._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
+        with open(os.path.join(breakpoint_folder, state_file), "r") as f:
+            saved_state = json.load(f)
+        print(saved_state)
         
         
+        # -----  retrieve breakpoint sampling starategy ----
+        bkpt_sampling_startegy_args = saved_state.get("client_selection_strategy")
+        import_str = cls._instancialize_module(bkpt_sampling_startegy_args)  # importing client strategy
+        print(import_str)
+        exec(import_str)
+        bkpt_sampling_startegy = eval(bkpt_sampling_startegy_args.get("class"))
         
-        #  retrieve client sampling startegy
-        client_sampling_startegy_name = saved_state.get("client_selection_strategy")
+        # ----- retrieve federator -----
+        bkpt_aggregator_args = saved_state.get("aggregator")
+        import_str = cls._instancialize_module(bkpt_aggregator_args)
+        print(import_str)
+        exec(import_str)
+        bkpt_aggregator = eval(bkpt_aggregator_args.get("class"))
         
-        #  retrieve federator
-        
+        # remaining round to resume before end of experiment
+        remaining_round = extra_rounds + \
+            saved_state.get('round_number_due', 1) \
+            - saved_state.get('round_number', 0)
+        # ------ initializing experiment -------
         cls._training_data = saved_state.get('training_data')
         
-        return cls(tags=saved_state.get('tags'),
-                   clients=saved_state.get('client_id'))
+        loaded_exp = cls(tags=saved_state.get('tags'),
+                         clients=saved_state.get('client_id'),
+                         model_class=saved_state.get("model_class"),
+                         model_path=saved_state.get("model_path"),
+                         model_args=saved_state.get("model_args"),
+                         training_args=saved_state.get("training_args"),
+                         rounds=remaining_round,
+                         aggregator=bkpt_aggregator,
+                         client_selection_strategy=bkpt_sampling_startegy,
+                         save_breakpoints=True,
+                         )
 
-    def _retrieve_training_replies(self):
-        pass
+        # get experiment folder for breakpoint
+        loaded_exp._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
+        # ------- changing `Job` attributes -------
+        loaded_exp._job._id = saved_state.get('job_id')
+        loaded_exp._load_training_replies(saved_state.get('training_replies'),
+                                          saved_state.get("params_path"),
+                                          saved_state.get('round_number', 0)
+                                          )
+        loaded_exp._job._researcher_id = saved_state('researcher_id')
+        logging.debug(f"reloading from {breakpoint_folder} successful!")
+        return loaded_exp
+
+    @staticmethod
+    def _instancialize_module(args: Dict[str, Any],
+                              class_key: str = "class",
+                              module_key: str = "module"):
+        print("args", args, type(args))
+        module_class = args.get(class_key)
+        module_path = args.get(module_key, "custom")
+        if module_path == "custom":
+            # case where user is loading its own custom
+            # client sampling strategy
+            import_str = ' import ' + module_class
+        else:
+            # client is using a fedbiomed client sampling strategy
+            import_str = 'from ' + module_path + ' import ' + module_class
+        logging.debug(f"{module_class} loaded !")
+        print(module_class)
+        return import_str
+
+    def _load_training_replies(self,
+                               training_replies: Dict[int, List[dict]],
+                               params_path: List[str],
+                               round: int):
+        self._job._load_training_replies(training_replies,
+                                         params_path,
+                                         round)
 

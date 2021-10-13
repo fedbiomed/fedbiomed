@@ -59,6 +59,7 @@ class Job:
 
         """
         self._id = str(uuid.uuid4())  # creating a unique job id
+        self._researcher_id = RESEARCHER_ID
         self._repository_args = {}
         self._training_args = training_args
         self._model_args = model_args
@@ -209,7 +210,7 @@ class Job:
         """
         self._params_path = {}
         headers = {
-            'researcher_id': RESEARCHER_ID,
+            'researcher_id': self._researcher_id,
             'job_id': self._id,
             'training_args': self._training_args,
             #'training_data' is set after
@@ -301,6 +302,7 @@ class Job:
         training_data = {last_reply["client_id"]: last_reply["dataset_id"] for \
                          last_reply in self._training_replies[round]}
         
+        
         self.state = {
             'researcher_id': RESEARCHER_ID,
             'job_id': self._id,
@@ -339,16 +341,14 @@ class Job:
     def _load_training_replies(self,
                                training_replies: Dict[int, List[dict]],
                                params_path: List[str],
-                               round: int, 
-                               model_obj: Union[SGDSkLearnModel,
-                                                TorchTrainingPlan]):
+                               round: int):
         
         
         # get key
         key = tuple(training_replies.keys())[0]
-        for client_i, _ in enumerate(training_replies):
-            training_replies[key][client_i]['params'] = model_obj.load(params_path[client_i])
-            training_replies[key][client_i]['params_path'] = params_path[client_i]
+        for client_id, (client_i, _) in zip(params_path.keys(), enumerate(training_replies)):
+            training_replies[key][client_i]['params'] = self.model_instance.load(params_path[client_id])
+            training_replies[key][client_i]['params_path'] = params_path[client_id]
             
         self._training_replies = {round: training_replies}
 

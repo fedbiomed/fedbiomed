@@ -1,7 +1,7 @@
 from fedbiomed.common.logger import logger
 
 import uuid
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.exceptions import DefaultStrategyException
@@ -59,5 +59,10 @@ class DefaultStrategy(Strategy):
                 return models_params, weights
         
 
-        def save_state(self) -> tuple:
-            return type(self).__name__, self.parameters
+        def save_state(self) -> Dict[str, Any]:
+                state = {
+                        "class": type(self).__name__,
+                        "module": self.__module__,
+                        "parameters": self.parameters
+                }
+                return state
