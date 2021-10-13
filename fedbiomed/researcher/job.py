@@ -67,6 +67,10 @@ class Job:
 
         self.last_msg = None
         self._data = data
+
+        # Check dataset quality
+        self.check_data_quality()
+
         # handle case when model is in a file
         if model_path is not None:
             try:
@@ -275,6 +279,41 @@ class Job:
             sys.exit(-1)
         return filename
 
+    def check_data_quality(self):
+
+        """
+        Compare datasets that has been found in different nodes. 
+        """
+
+        data_features = self._data.data()
+
+        # If there are more than two nodes ready for the job
+        if len(data_features.keys()) > 1:
+            
+            # Frist check data types are same based on searched tags
+            logger.info('Checking data quaity of found datasets')
+            data_types = [] 
+            shapes = []
+            dtypes = []
+            for data_list in data_features.items():
+                for feature in data_list[1]:
+                    data_types.append(feature["data_type"]) 
+                    dtypes.append(feature["dtypes"])
+                    shapes.append(feature["shape"])
+
+            assert len(set(data_types)) == 1, f'Datasets in nodes has been loaded with different types: {data_types}'
+
+            if data_types[0] == 'csv':              
+                assert len(set([s[1] for s in shapes])) == 1, \
+                        f'Column dimonsions does not match {shapes}'
+            elif data_types[0] == 'images':
+                # assert len(set( sum(s[1:]) for s in shapes )) == 1, \
+                #     f'Image dataset dimensions does not match'
+                pass
+            else:
+                pass
+        else:
+            pass
 
 class localJob:
     """
