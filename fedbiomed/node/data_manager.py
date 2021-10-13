@@ -50,7 +50,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         self.db.clear_cache()  
         return self.db.search(self.database.tags.all(tags))
 
-    def read_csv(self, csv_file: str, index_col: int = 0) -> pd.DataFrame:
+    def read_csv(self, csv_file: str, index_col: Union[int, None] = None ) -> pd.DataFrame:
         """Reads a *.csv file and ouptuts its data into a pandas DataFrame.
         Finds automatically the csv delimiter by parsing the first line.
 
@@ -63,13 +63,14 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             pd.DataFrame: data contained in csv file.
         """        
 
-        first_line = open(csv_file, 'r').readline()
-        
-        # Automatically identify separator (by parsing first line)
+        # Automatically identify separator and header 
         sniffer = csv.Sniffer()
-        delimiter = sniffer.sniff(first_line).delimiter
-        # TODO: add headers parameter
-        return pd.read_csv(csv_file, index_col=index_col, sep=delimiter)
+        with open(csv_file) as file:
+            delimiter = sniffer.sniff(file.readline()).delimiter
+            header = None if not sniffer.has_header(file.read()) else 0
+            file.seek(0)
+
+        return pd.read_csv(csv_file, index_col=index_col, sep=delimiter, header=header)
 
     def get_torch_dataset_shape(self,
                                 dataset: torch.utils.data.Dataset) -> List[int]:
@@ -85,6 +86,21 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             and <dimension_of_first_input_data>=1, 28, 28
         """        
         return [len(dataset)] + list(dataset[0][0].shape)
+
+    def get_csv_data_types(self, dataset: pd.DataFrame) -> List[str]:
+
+        """Gets data types of each variable in dataset.
+
+        Args:
+            dataset (pd.DataFrame): a Pandas dataset
+
+        Returns:
+            List[int]: returns a list containing data types 
+        """            
+
+        types = [str(t) for t in dataset.dtypes]
+
+        return types
 
     def load_default_database(self,
                               name: str,
@@ -149,12 +165,12 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         """[summary]
 
         Args:
-            path ([type]): [description]
+            path (str): CSV path
 
         Returns:
-            [type]: [description]
+            [pd.DataFrame]: Returns pandas DataFrame
         """
-        return self.read_csv(path).shape
+        return self.read_csv(path)
 
     def add_database(self,
                      name: str,
@@ -195,7 +211,9 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             shape = self.load_default_database(name, path)
         elif data_type == 'csv':
             assert os.path.isfile(path), f'Path provided ({path}) does not correspond to a CSV file.'
-            shape = self.load_csv_dataset(path)
+            dataset = self.load_csv_dataset(path)
+            shape = dataset.shape
+            dtypes = self.get_csv_data_types(dataset)
         elif data_type == 'images':
             assert os.path.isdir(path), f'Folder {path} for Images Dataset does not exist.'
             shape = self.load_images_dataset(path)
@@ -205,7 +223,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         new_database = dict(name=name, data_type=data_type, tags=tags,
                             description=description, shape=shape,
-                            path=path, dataset_id=dataset_id)
+                            path=path, dataset_id=dataset_id, dtypes=dtypes)
         self.db.insert(new_database)
 
     def remove_database(self, tags: Union[tuple, list]):
@@ -228,8 +246,14 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         """     
         self.db.clear_cache()    
         my_data = self.db.all()
+
+        # Do not display dtypes 
+        for doc in my_data:
+            doc.pop('dtypes') 
+
         if verbose:
             print(tabulate(my_data, headers='keys'))
+            
         return my_data
 
     def load_as_dataloader(self, dataset):
