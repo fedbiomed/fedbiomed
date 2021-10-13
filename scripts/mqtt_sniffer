@@ -56,9 +56,10 @@ class MqttSpy:
         # list of channels to subscribe to
         # use of a hash instead of a proper list for convenience
         self.channels = {
-            'general/server'   : None,
-            'general/clients'  : None,
-            'general/logger'   : None
+            'general/server'        : None,
+            'general/clients'       : None,
+            'general/logger'        : None,
+            'general/monitoring'    : None
         }
 
 

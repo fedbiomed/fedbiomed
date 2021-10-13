@@ -74,11 +74,9 @@ class SGDRegressorTrainingPlan(SGDSkLearnModel):
 model_args = { 'max_iter':1000, 'tol': 1e-3 , 'number_columns': 5 , 'model': 'SGDRegressor' , 'n_features': 5}
 
 training_args = {
-    'batch_size': None,
-    'lr': 1e-3,
+    
     'epochs': 5,
-    'dry_run': False,
-    'batch_maxnum': 0
+    
 }
 
 
@@ -96,7 +94,8 @@ exp = Experiment(tags=tags,
                  training_args=training_args,
                  rounds=rounds,
                  aggregator=FedAverage(),
-                 client_selection_strategy=None)
+                 client_selection_strategy=None,
+                 tensorboard=True)
 
 exp.run()
 
