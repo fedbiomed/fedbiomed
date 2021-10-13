@@ -53,10 +53,10 @@ services:
 
     command: jupyterhub -f /etc/jupyterhub/jupyterhub_config.py
     volumes:
-      - ./jupyterhub/run_mounts/etc/passwd:/etc/passwd:ro
-      - ./jupyterhub/run_mounts/etc/shadow:/etc/shadow:ro
-      - ./jupyterhub/run_mounts/etc/group:/etc/group:ro
-      - ./jupyterhub/run_mounts/etc/jupyterhub:/etc/jupyterhub:ro
+      - ./jupyterhub/run_mounts/etc_files/passwd:/etc/passwd:ro
+      - ./jupyterhub/run_mounts/etc_files/shadow:/etc/shadow:ro
+      - ./jupyterhub/run_mounts/etc_files/group:/etc/group:ro
+      - ./jupyterhub/run_mounts/etc_files/jupyterhub:/etc/jupyterhub:ro
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "8000:8000"
