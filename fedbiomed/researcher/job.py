@@ -4,7 +4,7 @@ import sys
 import tempfile
 import shutil
 import atexit
-from typing import Union, Callable, List
+from typing import Union, Callable, List, Dict
 import uuid
 import re
 import time
@@ -298,7 +298,7 @@ class Job:
             round (int, optional): number of round iteration.
             Defaults to 0.
         """
-        training_data = {last_reply["dataset_id"]: last_reply["client_id"] for \
+        training_data = {last_reply["client_id"]: last_reply["dataset_id"] for \
                          last_reply in self._training_replies[round]}
         
         self.state = {
@@ -315,7 +315,7 @@ class Job:
             'training_replies': self._save_training_replies()
         }
         
-    def _save_training_replies(self) -> List[dict]:
+    def _save_training_replies(self) -> Dict[List[dict]]:
         """saves last values training replies variable, and replace
         pytroch tensor / numpy arrays by path files pointing to
         tensor files (these tensor files contain pytorch tensor / numpy arrays)
@@ -334,19 +334,23 @@ class Job:
             client_id = client_entry.get("client_id")
             #params = self._params_path.get(client_id)
             converted_training_replies[client_i]['params'] = self._params_path.get(client_id)
-        return converted_training_replies
+        return {last_index: converted_training_replies}
 
     def _load_training_replies(self,
-                               training_replies: List[dict],
+                               training_replies: Dict[List[dict]],
                                params_path: List[str],
+                               round: int, 
                                model_obj: Union[SGDSkLearnModel,
                                                 TorchTrainingPlan]):
         
+        
+        # get key
+        key = tuple(training_replies.keys())[0]
         for client_i, _ in enumerate(training_replies):
-            training_replies[client_i]['params'] = model_obj.load(params_path[client_i])
-            training_replies[client_i]['params_path'] = params_path[client_i]
+            training_replies[key][client_i]['params'] = model_obj.load(params_path[client_i])
+            training_replies[key][client_i]['params_path'] = params_path[client_i]
             
-        self._training_replies = training_replies
+        self._training_replies = {round: training_replies}
 
 
 class localJob:

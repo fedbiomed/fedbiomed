@@ -20,7 +20,9 @@ class Experiment:
     """
     This class represents the orchestrator managing the federated training
     """
-
+    _load_experiment = False  # if experiment is loaded or not
+    _training_data = None  # should contain client and dataset values
+    
     def __init__(self,
                  tags: tuple,
                  clients: list = None,
@@ -76,8 +78,12 @@ class Experiment:
         # (below) search for nodes either having tags that matches the tags
         # the researcher is looking for (`self._tags`) or based on client id
         # (`self._clients`)
-        self._fds = FederatedDataSet(self._reqs.search(self._tags,
-                                                       self._clients))
+        if self._training_data is not None:
+            training_data = self._reqs.search(self._tags,
+                                              self._clients)
+        else:
+            training_data = self._training_data
+        self._fds = FederatedDataSet(training_data)
         self._client_selection_strategy = client_selection_strategy
         self._aggregator = aggregator
 
@@ -101,7 +107,7 @@ class Experiment:
         self._save_breakpoints = save_breakpoints
         self._state_root_folder = VAR_DIR  # from where breakpoint folder
         # will be created
-            
+        self._load_experiment = False  # reset variable to `False`
 
     @property
     def training_replies(self):
@@ -278,8 +284,8 @@ class Experiment:
             json.dump(state, bkpt)
         logger.info(f"breakpoint for round {round} saved at {breakpoint_path}")
 
-    @staticmethod
-    def load_breakpoint(breakpoint_folder: str):
+    @classmethod
+    def load_breakpoint(cls, breakpoint_folder: str) -> object:
         
         # First, let's test if folder is a real folder path
         if not os.path.isdir(breakpoint_folder):
@@ -340,6 +346,8 @@ class Experiment:
         
         # get all breakpoint folders
         #self._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
+        cls._training_data = saved_state.get('training_data')
+        return cls()
 
     def _retrieve_training_replies(self):
         pass
