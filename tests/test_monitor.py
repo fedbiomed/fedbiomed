@@ -7,7 +7,12 @@ import unittest
 from unittest.mock import patch, MagicMock
 
 
-def create_file(file_name:str):
+def create_file(file_name: str):
+    """ Creates a simple file for testing.
+
+    Args:
+        file_name (str): [path name of the file
+    """
     #with tempfile.TemporaryFile() as temp_file:
     with open(file_name, "w") as f:
         f.write("this is a test. This file should be removed")
@@ -32,7 +37,10 @@ class TestMonitor(unittest.TestCase):
     def test_monitor_initialization_1(self,
                                       mocking_messaging_init,
                                       mocking_messaging_start):
-        """Test first call and 2nd call to Monitor class
+        """Test first call and 2nd call to Monitor class.
+        Checks the behaviour of Monitor (should behave as a singleton)
+        and should remove existing files in `TENSORBOARD_RESULTS_DIR` 
+        when Monitor is reinitialized.
         """
         try:
             del self.monitor
