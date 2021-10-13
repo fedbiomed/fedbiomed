@@ -4,7 +4,7 @@ import time
 
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.message import NodeMessages, TrainReply
-from fedbiomed.node.history_logger import HistoryLogger
+from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.environ import CACHE_DIR, CLIENT_ID, TMP_DIR, UPLOADS_URL
 
 from fedbiomed.common.logger import logger
@@ -23,7 +23,8 @@ class Round:
                  params_url: str = None,
                  job_id: str = None,
                  researcher_id: str = None,
-                 logger: HistoryLogger = None):
+                 monitor: HistoryMonitor = None):
+
         """Constructor of the class
 
         Args:
@@ -41,7 +42,7 @@ class Round:
             params_url ([str]): url from which to upload/dowload model params
             job_id ([str]): job id
             researcher_id ([str]): researcher id
-            logger ([HistoryLogger])
+            monitor ([HistoryMonitor])
         """
         self.model_kwargs = model_kwargs
         self.training_kwargs = training_kwargs
@@ -51,7 +52,7 @@ class Round:
         self.params_url = params_url
         self.job_id = job_id
         self.researcher_id = researcher_id
-        self.logger = logger
+        self.monitor = monitor
 
         self.repository = Repository(UPLOADS_URL, TMP_DIR, CACHE_DIR)
 
@@ -119,7 +120,7 @@ class Round:
         if not is_failed:
             results = {}
             try:
-                training_kwargs_with_history = dict(logger=self.logger,
+                training_kwargs_with_history = dict(monitor=self.monitor,
                                                     **self.training_kwargs)
                 print(training_kwargs_with_history)
                 logger.info(training_kwargs_with_history)
@@ -138,7 +139,7 @@ class Round:
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
             results['model_params'] = model.after_training_params()
-            results['history'] = self.logger.history
+            results['history'] = self.monitor.history
             results['client_id'] = CLIENT_ID
             try:
                 # TODO : should test status code but not yet returned
@@ -172,7 +173,7 @@ class Round:
                             'ptime_training': ptime_after - ptime_before }
                                   }).get_dict()
         else:
-            logging.error(error_message)
+            logger.error(error_message)
             return NodeMessages.reply_create({'client_id': CLIENT_ID,
                         'job_id': self.job_id,
                         'researcher_id': self.researcher_id,

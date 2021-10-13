@@ -7,7 +7,7 @@ from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.datasets import FederatedDataSet
-
+from fedbiomed.researcher.monitor import Monitor
 
 class Experiment:
     """
@@ -24,6 +24,7 @@ class Experiment:
                  rounds: int = 1,
                  aggregator: aggregator.Aggregator = fedavg.FedAverage(),
                  client_selection_strategy: Strategy = None,
+                 tensorboard:bool = False
                  ):
 
         """ Constructor of the class.
@@ -57,7 +58,12 @@ class Experiment:
                                                   non-responding clients
                                                   are managed. Defaults to
                                                   None (ie DefaultStartegy)
-        """
+            tensorboard (bool): Tensorboard flag for displaying scalar values 
+                                during tarning in every node. If it is true, 
+                                monitor will write scalar logs in the
+                                var/tensorboard directory
+        """ 
+        
         self._tags = tags
         self._clients = clients
         self._reqs = Requests()
@@ -86,6 +92,7 @@ class Experiment:
         self._sampled = None
 
         self._aggregated_params = {}
+        self._monitor = Monitor(tensorboard=tensorboard)
 
     @property
     def training_replies(self):
@@ -143,3 +150,8 @@ class Experiment:
 
             self._aggregated_params[round_i] = {'params': aggregated_params,
                                                 'params_path': aggregated_params_path}
+            # Increase round state in the monitor
+            self._monitor.increase_round()
+        
+        # Close SummaryWriters for tensorboard
+        self._monitor.close_writer()
