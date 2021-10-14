@@ -1,9 +1,16 @@
 # WIP notes for Fed-BioMed VPN'ization
 
-TODO : convert to updates for main README.md + additions to install scripts
+**TODO** : convert to updates for main README.md + additions to install scripts
 
-- outside of containers : work with your user account, unless this is explicitely written to work as root
-- inside containers : follow instructions (work as root for managing vpn, work as user for managing experiments)
+Which identity to use ?
+
+- outside of containers : work with the user account used for launching the containers (eg `[user@node $]`), unless this is explicitely written to work as root (eg `[root@node #]`). This is also the account used by the containers when they drop privileges.
+- inside containers : follow instructions, work as root for managing vpn (eg `[root@vpnserver-container #]`), work as user for managing experiments (eg `[user@node-container $]`)
+
+Which machine to use ?
+
+- when using distinct machines for the components, type node commands (eg `[user@node $]`) on node, researcher commands (eg `[user@researcher $]`) on researcher, network commands on network (eg `[user@network $]`)
+- when running all components on a single laptop, all components are on this machine
 
 ## containers
 
@@ -12,56 +19,22 @@ TODO : convert to updates for main README.md + additions to install scripts
 ```bash
 [user@laptop $] cd ./envs/vpn/docker
 # CONTAINER_{UID,GID,USER,GROUP} are target id for running the container
-# TODO: check if we can use different id than the account building the images
+# **TODO**: check if we can use different id than the account building the images
 #
-# final configuration will be : build all containers
-[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build
-# WIP configuration is : build existing containers
-[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build vpnserver
-[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
-[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build researcher
-[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build mqtt
-[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build restful
+[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build vpnserver
+[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build mqtt
+[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build restful
+#
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
+#
+[user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build researcher
+#
+## when running on a single machine : build all containers
+#[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build
 ```
 
 Caveat : docker >= 20.10.0 needed to build mqtt, see [there](https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2). With older docker version it fails with a `make: sh: Operation not permitted`
 
-
-### launching containers
-
-* on the vpn server / node / researcher / mqtt server / restful
-```bash
-[user@laptop $] cd ./envs/vpn/docker
-## dont launch yet, see below
-#[user@laptop $] docker-compose up -d vpnserver
-#[user@laptop $] docker-compose up -d node
-#[user@laptop $] docker-compose up -d researcher
-#[user@laptop $] docker-compose up -d mqtt
-#[user@laptop $] docker-compose up -d restful
-```
-
-### connecting to containers
-
-Can connect to a container only if the corresponding container is already running
-
-* connect on the VPN server / node / mqtt server / restful as root to configure the VPN
-```bash
-[user@laptop $] docker-compose exec vpnserver bash
-[user@laptop $] docker-compose exec node bash
-[user@laptop $] docker-compose exec researcher bash
-[user@laptop $] docker-compose exec mqtt bash
-[user@laptop $] docker-compose exec restful bash
-```
-* connect on the node as user to handle experiments
-```bash
-[user@laptop $] docker-compose exec -ti -u $(id -u) node bash
-[user@laptop $] docker-compose exec -ti -u $(id -u) researcher bash
-```
-
-Note : can also use commands in the form
-```bash
-[user@laptop $] docker container exec -ti -u $(id -u) fedbiomed-vpn-node bash
-```
 
 ## setup VPN and fedbiomed
 
@@ -70,16 +43,16 @@ Note : can also use commands in the form
 * (optional) build container
 * set the VPN server public IP *VPN_SERVER_PUBLIC_ADDR*
 ```bash
-[user@laptop $] cd ./envs/vpn/docker
-[user@laptop $] vi ./vpnserver/run_mounts/config/config.env # change VPN_SERVER_PUBLIC_ADDR
+[user@network $] cd ./envs/vpn/docker
+[user@network $] vi ./vpnserver/run_mounts/config/config.env # change VPN_SERVER_PUBLIC_ADDR
 ```
 * launch container (will build it if not done yet)
 ```bash
-[user@laptop $] docker-compose up -d vpnserver
+[user@network $] docker-compose up -d vpnserver
 ```
 * connect and generate config for components
 ```bash
-[user@laptop $] docker-compose exec vpnserver bash
+[user@network $] docker-compose exec vpnserver bash
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf management mqtt
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf management restful
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf node node1
@@ -92,22 +65,22 @@ Note : can also use commands in the form
 * generate VPN client for this container (see above in vpnserver)
 * configure the VPN client for this container
 ```bash
-[user@laptop $] cd ./envs/vpn/docker
-[user@laptop $] cp ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env ./mqtt/run_mounts/config/config.env
+[user@network $] cd ./envs/vpn/docker
+[user@network $] cp ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env ./mqtt/run_mounts/config/config.env
 ```
 * launch container (will build it if not done yet)
 ```bash
-[user@laptop $] docker-compose up -d mqtt
+[user@network $] docker-compose up -d mqtt
 ```
 * retrieve the *publickey*
 ```bash
-[user@laptop $] docker-compose exec mqtt wg show wg0 public-key
+[user@network $] docker-compose exec mqtt wg show wg0 public-key
 ```
 * connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
 ```bash
-[user@laptop $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add management mqtt *publickey*
+[user@network $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add management mqtt *publickey*
 ## other option :
-#[user@laptop $] docker-compose exec vpnserver bash
+#[user@network $] docker-compose exec vpnserver bash
 #[root@vpnserver-container #] python ./vpn/bin/configure_peer.py add management mqtt *publickey*
 ```
 
@@ -119,20 +92,20 @@ Basically same as mqtt with proper adaptations :
 * generate VPN client for this container (see above in vpnserver)
 * configure the VPN client for this container
 ```bash
-[user@laptop $] cd ./envs/vpn/docker
-[user@laptop $] cp ./vpnserver/run_mounts/config/config_peers/management/restful/config.env ./restful/run_mounts/config/config.env
+[user@network $] cd ./envs/vpn/docker
+[user@network $] cp ./vpnserver/run_mounts/config/config_peers/management/restful/config.env ./restful/run_mounts/config/config.env
 ```
 * launch container (will build it if not done yet)
 ```bash
-[user@laptop $] docker-compose up -d restful
+[user@network $] docker-compose up -d restful
 ```
 * retrieve the *publickey*
 ```bash
-[user@laptop $] docker-compose exec restful wg show wg0 public-key
+[user@network $] docker-compose exec restful wg show wg0 public-key
 ```
 * connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
 ```bash
-[user@laptop $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add management restful *publickey*
+[user@network $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add management restful *publickey*
 ```
 
 ### initializing node
@@ -141,20 +114,24 @@ Basically same as mqtt with proper adaptations :
 * generate VPN client for this container (see above in vpnserver)
 * configure the VPN client for this container
 ```bash
-[user@laptop $] cd ./envs/vpn/docker
-[user@laptop $] cp ./vpnserver/run_mounts/config/config_peers/node/node1/config.env ./node/run_mounts/config/config.env
+[user@node $] cd ./envs/vpn/docker
+[user@node $] vi ./node/run_mounts/config/config.env
+# add the content of the command below in the edited file above
+[user@network $] cat ./vpnserver/run_mounts/config/config_peers/node/node1/config.env
+## if running on a single machine
+#[user@laptop $] cp ./vpnserver/run_mounts/config/config_peers/node/node1/config.env ./node/run_mounts/config/config.env
 ```
 * launch container (will build it if not done yet)
 ```bash
-[user@laptop $] docker-compose up -d node
+[user@node $] docker-compose up -d node
 ```
 * retrieve the *publickey*
 ```bash
-[user@laptop $] docker-compose exec node wg show wg0 public-key
+[user@node $] docker-compose exec node wg show wg0 public-key
 ```
 * connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
 ```bash
-[user@laptop $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node node1 *publickey*
+[user@network $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node node1 *publickey*
 ```
 
 * TODO: better package/scripting needed
@@ -185,7 +162,11 @@ Same as node
 * configure the VPN client for this container
 ```bash
 [user@laptop $] cd ./envs/vpn/docker
-[user@laptop $] cp vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env researcher/run_mounts/config/config.env
+[user@node $] vi ./researcher/run_mounts/config/config.env
+# add the content of the command below in the edited file above
+[user@network $] cat ./vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env
+## if running on a single machine
+#[user@laptop $] cp ./vpnserver/run_mounts/config/config_peers/node/node1/config.env ./researcher/run_mounts/config/config.env
 ```
 * launch container (will build it if not done yet)
 ```bash
@@ -219,6 +200,30 @@ Same as node
 
 * to use notebooks, from outside the researcher container connect to `http://localhost:8888` or `http://SERVER_IP:8888`
   * TODO : add protection for distant connection to researcher
+
+
+## connecting to containers
+
+You can connect to a container only if the corresponding container is already running
+
+* connect on the VPN server / node / mqtt server / restful as root to configure the VPN
+```bash
+[user@network $] docker-compose exec vpnserver bash
+[user@network $] docker-compose exec mqtt bash
+[user@network $] docker-compose exec restful bash
+[user@node $] docker-compose exec node bash
+[user@researcher $] docker-compose exec researcher bash
+```
+* connect on the node as user to handle experiments
+```bash
+[user@node $] docker-compose exec -ti -u $(id -u) node bash
+[user@researcher $] docker-compose exec -ti -u $(id -u) researcher bash
+```
+
+Note : can also use commands in the form
+```bash
+[user@node $] docker container exec -ti -u $(id -u) fedbiomed-vpn-node bash
+```
 
 ## cleaning
 
