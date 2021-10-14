@@ -62,11 +62,20 @@ class TestStateInJob(unittest.TestCase):
             
             def __getitem__(self, item):
                 return self._data[item]
-            
-        model_file = MagicMock(return_value=None)
         
+        # mock model object
+        model_file = MagicMock(return_value=None)
         model_file.save = MagicMock(return_value=None)
-        test_job = Job(model=model_file)
+        
+        # mock FederatedDataSet
+        fds = MagicMock()
+        fds.data = MagicMock(return_value=None)
+        
+        # instanciate job
+        test_job = Job(model=model_file,
+                       data=fds)
+        
+        # create dummy data mimicking 2 nodes
         client_id1, client_id2 = '1', '2'
         tmpfilename_client1 = str(os.path.join('client', '1', 'path'))
         tmpfilename_client2 = str(os.path.join('client', '2', 'path'))
@@ -98,11 +107,12 @@ class TestStateInJob(unittest.TestCase):
         
         # FIXME: not the best way to check if path names are valid
         new_training_replies = test_job.state.get('training_replies')
+        
+        # check if `training_replies` is accordingly saved
         print(test_job.state)
- 
-        self.assertTrue(isinstance(new_training_replies[0].get('params'),
+        self.assertTrue(isinstance(new_training_replies[1][0].get('params'),
                                    str))
-        self.assertEquals(new_training_replies[0].get('params'),
+        self.assertEquals(new_training_replies[1][0].get('params'),
                           tmpfilename_client1)
     
 

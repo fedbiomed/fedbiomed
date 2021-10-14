@@ -340,8 +340,7 @@ class Job:
 
     def _load_training_replies(self,
                                training_replies: Dict[int, List[dict]],
-                               params_path: List[str],
-                               round: int):
+                               params_path: List[str]):
         
         
         # get key
@@ -363,6 +362,7 @@ class Job:
         
         #self._training_replies = {int(round): Responses(training_replies)}
         self._training_replies = training_replies
+
 
 class localJob:
     """

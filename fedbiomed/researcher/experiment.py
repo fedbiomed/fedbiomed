@@ -174,6 +174,7 @@ class Experiment:
             # refining/normalizing model weigths received from nodes
             model_params, weights = self._client_selection_strategy.refine( self._job.training_replies[round_i], round_i)
 
+            print("refining", model_params,"weigths", weights, "aggregator", self._aggregator)
             # aggregate model from nodes to a global model
             aggregated_params = self._aggregator.aggregate(model_params,
                                                            weights)
@@ -189,7 +190,7 @@ class Experiment:
             self._monitor.increase_round()
         
         # Close SummaryWriters for tensorboard
-        self._monitor.close_writer()                
+        self._monitor.close_writer()
 
     def _create_breakpoints_folder(self):
         """Creates a general folder for storing breakpoints (if non existant)
@@ -211,7 +212,7 @@ class Experiment:
         `VAR_DIR/Experiment_x` where `x-1` is the number of experiments
         already run (`x`=0 for the first experiment)
         """
-        # FIXME: improve method robustness (here nb of exp equals nb of file
+        # FIXME: improve method robustness (here nb of exp equals nb of files
         # in directory)
         all_files = os.listdir(self._breakpoint_path_file)
         if not hasattr(self, "_exp_breakpoint_folder"):
@@ -279,7 +280,7 @@ class Experiment:
         self._job.save_state(round)  # create attribute `_job.state`
         job_state = self._job.state
         state = {
-            'round_number': round,
+            'round_number': min(round - 1, 0),
             'round_number_due': self._rounds,
             'aggregator': self._aggregator.save_state(),
             'client_selection_strategy': self._client_selection_strategy.save_state(),
@@ -368,6 +369,8 @@ class Experiment:
         print(saved_state)
         
         
+        # TODO: for both client sampling strategy & aggregator
+        # deal with parameter
         # -----  retrieve breakpoint sampling starategy ----
         bkpt_sampling_startegy_args = saved_state.get("client_selection_strategy")
         import_str = cls._instancialize_module(bkpt_sampling_startegy_args)  # importing client strategy
@@ -383,9 +386,8 @@ class Experiment:
         bkpt_aggregator = eval(bkpt_aggregator_args.get("class"))
         
         # remaining round to resume before end of experiment
-        remaining_round = extra_rounds + \
-            saved_state.get('round_number_due', 1) \
-            - saved_state.get('round_number', 0)
+        remaining_round = max(extra_rounds + \
+            saved_state.get('round_number_due', 1), 2) 
         # ------ initializing experiment -------
         cls._training_data = saved_state.get('training_data')
         
@@ -396,20 +398,20 @@ class Experiment:
                          model_args=saved_state.get("model_args"),
                          training_args=saved_state.get("training_args"),
                          rounds=remaining_round,
-                         aggregator=bkpt_aggregator,
+                         aggregator=bkpt_aggregator(),
                          client_selection_strategy=bkpt_sampling_startegy,
                          save_breakpoints=True,
                          )
 
         # get experiment folder for breakpoint
         loaded_exp._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
-        loaded_exp._round_init = saved_state.get('round_number', 0)
+        loaded_exp._round_init = saved_state.get('round_number', 0) + 1
+        loaded_exp._rounds = extra_rounds + saved_state.get('round_number_due', 1)
         # ------- changing `Job` attributes -------
         loaded_exp._job._id = saved_state.get('job_id')
-        loaded_exp._job._data = FederatedDataSet()
+        loaded_exp._job._data = FederatedDataSet(saved_state.get('training_data'))
         loaded_exp._load_training_replies(saved_state.get('training_replies'),
-                                          saved_state.get("params_path"),
-                                          saved_state.get('round_number', 0)
+                                          saved_state.get("params_path")
                                           )
         loaded_exp._job._researcher_id = saved_state.get('researcher_id')
         logging.debug(f"reloading from {breakpoint_folder} successful!")
@@ -435,9 +437,7 @@ class Experiment:
 
     def _load_training_replies(self,
                                training_replies: Dict[int, List[dict]],
-                               params_path: List[str],
-                               round: int):
+                               params_path: List[str]):
         self._job._load_training_replies(training_replies,
-                                         params_path,
-                                         round)
+                                         params_path)
 
