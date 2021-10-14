@@ -16,20 +16,14 @@ Which machine to use ?
 
 ### building images
 
+Done when initializing each container (see after)
+
 ```bash
-[user@laptop $] cd ./envs/vpn/docker
-# CONTAINER_{UID,GID,USER,GROUP} are target id for running the container
-# **TODO**: check if we can use different id than the account building the images
+#[user@laptop $] cd ./envs/vpn/docker
+## CONTAINER_{UID,GID,USER,GROUP} are target id for running the container
+## **TODO**: check if we can use different id than the account building the images
 #
-[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build vpnserver
-[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build mqtt
-[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build restful
-#
-[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
-#
-[user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build researcher
-#
-## when running on a single machine : build all containers
+## when running on a single machine : build all containers at one time with
 #[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build
 ```
 
@@ -40,13 +34,19 @@ Caveat : docker >= 20.10.0 needed to build mqtt, see [there](https://wiki.alpine
 
 ### initializing vpnserver
 
-* (optional) build container
-* set the VPN server public IP *VPN_SERVER_PUBLIC_ADDR*
+Run this only at first launch of container or after cleaning :
+
+* build container
 ```bash
 [user@network $] cd ./envs/vpn/docker
+[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
+[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build vpnserver
+```
+* set the VPN server public IP *VPN_SERVER_PUBLIC_ADDR*
+```bash
 [user@network $] vi ./vpnserver/run_mounts/config/config.env # change VPN_SERVER_PUBLIC_ADDR
 ```
-* launch container (will build it if not done yet)
+* launch container
 ```bash
 [user@network $] docker-compose up -d vpnserver
 ```
@@ -59,16 +59,28 @@ Caveat : docker >= 20.10.0 needed to build mqtt, see [there](https://wiki.alpine
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf researcher researcher1
 ```
 
+Run this for all launches of the container :
+* launch container
+```bash
+[user@network $] docker-compose up -d vpnserver
+```
+
 ### initializing mqtt
 
-* (optional) build container
+Run this only at first launch of container or after cleaning :
+
+* build container
+```bash
+[user@network $] cd ./envs/vpn/docker
+[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build mqtt
+```
 * generate VPN client for this container (see above in vpnserver)
 * configure the VPN client for this container
 ```bash
 [user@network $] cd ./envs/vpn/docker
 [user@network $] cp ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env ./mqtt/run_mounts/config/config.env
 ```
-* launch container (will build it if not done yet)
+* launch container
 ```bash
 [user@network $] docker-compose up -d mqtt
 ```
@@ -84,18 +96,28 @@ Caveat : docker >= 20.10.0 needed to build mqtt, see [there](https://wiki.alpine
 #[root@vpnserver-container #] python ./vpn/bin/configure_peer.py add management mqtt *publickey*
 ```
 
+Run this for all launches of the container :
+* launch container
+```bash
+[user@network $] docker-compose up -d mqtt
+```
+
 ### initializing restful
 
-Basically same as mqtt with proper adaptations :
+Run this only at first launch of container or after cleaning :
 
-* (optional) build container
+* build container
+```bash
+[user@network $] cd ./envs/vpn/docker
+[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build restful
+```
 * generate VPN client for this container (see above in vpnserver)
 * configure the VPN client for this container
 ```bash
 [user@network $] cd ./envs/vpn/docker
 [user@network $] cp ./vpnserver/run_mounts/config/config_peers/management/restful/config.env ./restful/run_mounts/config/config.env
 ```
-* launch container (will build it if not done yet)
+* launch container
 ```bash
 [user@network $] docker-compose up -d restful
 ```
@@ -108,9 +130,21 @@ Basically same as mqtt with proper adaptations :
 [user@network $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add management restful *publickey*
 ```
 
+Run this for all launches of the container :
+* launch container
+```bash
+[user@network $] docker-compose up -d restful
+```
+
 ### initializing node
 
-* (optional) build container
+Run this only at first launch of container or after cleaning :
+
+* build container
+```bash
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
+```
 * generate VPN client for this container (see above in vpnserver)
 * configure the VPN client for this container
 ```bash
@@ -121,7 +155,7 @@ Basically same as mqtt with proper adaptations :
 ## if running on a single machine
 #[user@laptop $] cp ./vpnserver/run_mounts/config/config_peers/node/node1/config.env ./node/run_mounts/config/config.env
 ```
-* launch container (will build it if not done yet)
+* launch container
 ```bash
 [user@node $] docker-compose up -d node
 ```
@@ -134,6 +168,12 @@ Basically same as mqtt with proper adaptations :
 [user@network $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node node1 *publickey*
 ```
 
+Run this for all launches of the container :
+
+* launch container
+```bash
+[user@node $] docker-compose up -d node
+```
 * TODO: better package/scripting needed
   Connect again to the node and launch manually, now that the VPN is established
 ```bash
@@ -155,9 +195,13 @@ Basically same as mqtt with proper adaptations :
 
 ### initializing researcher
 
-Same as node
+Run this only at first launch of container or after cleaning :
 
-* (optional) build container
+* build container
+```bash
+[user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
+[user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build researcher
+```
 * generate VPN client for this container (see above in vpnserver)
 * configure the VPN client for this container
 ```bash
@@ -168,7 +212,7 @@ Same as node
 ## if running on a single machine
 #[user@laptop $] cp ./vpnserver/run_mounts/config/config_peers/node/node1/config.env ./researcher/run_mounts/config/config.env
 ```
-* launch container (will build it if not done yet)
+* launch container
 ```bash
 [user@laptop $] docker-compose up -d researcher
 ```
@@ -180,6 +224,8 @@ Same as node
 ```bash
 [user@laptop $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add researcher researcher1 *publickey*
 ```
+
+Run this for all launches of the container :
 
 * TODO: better package/scripting needed
   Connect again to the researcher and launch manually, now that the VPN is established
