@@ -69,7 +69,7 @@ class Job:
         self._data = data
 
         # Check dataset quality
-        self.check_data_quality()
+        self.check_data_quality(self._data)
 
         # handle case when model is in a file
         if model_path is not None:
@@ -279,16 +279,14 @@ class Job:
             sys.exit(-1)
         return filename
 
-    def check_data_quality(self):
+    @staticmethod
+    def check_data_quality(data):
 
+        """Compare datasets that has been found in different nodes. 
         """
-        Compare datasets that has been found in different nodes. 
-        """
-
-        data_features = self._data.data()
 
         # If there are more than two nodes ready for the job
-        if len(data_features.keys()) > 1:
+        if len(data.keys()) > 1:
             
             # Frist check data types are same based on searched tags
             logger.info('Checking data quality of federated datasets...')
@@ -298,7 +296,7 @@ class Job:
             dtypes = [] # variable types for CSV datasets
 
             # Extract features into arrays for comparison
-            for data_list in data_features.items():
+            for data_list in data.items():
                 for feature in data_list[1]:
                     data_types.append(feature["data_type"]) 
                     dtypes.append(feature["dtypes"])
