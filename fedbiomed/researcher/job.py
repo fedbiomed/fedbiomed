@@ -301,12 +301,12 @@ class Job:
         """
         training_data = {last_reply["client_id"]: last_reply["dataset_id"] for \
                          last_reply in self._training_replies[round]}
-        
-        
+
         self.state = {
             'researcher_id': RESEARCHER_ID,
             'job_id': self._id,
-            'training_data': training_data,
+            'training_data': self._data.data(),
+            #'fds': self._data,
             'training_args': self._training_args,
             'model_args': self._model_args,
             'command': 'train',
@@ -336,7 +336,7 @@ class Job:
             client_id = client_entry.get("client_id")
             #params = self._params_path.get(client_id)
             converted_training_replies[client_i]['params'] = self._params_path.get(client_id)
-        return {last_index: converted_training_replies}
+        return {int(last_index): converted_training_replies}
 
     def _load_training_replies(self,
                                training_replies: Dict[int, List[dict]],
@@ -346,12 +346,23 @@ class Job:
         
         # get key
         key = tuple(training_replies.keys())[0]
-        for client_id, (client_i, _) in zip(params_path.keys(), enumerate(training_replies)):
-            training_replies[key][client_i]['params'] = self.model_instance.load(params_path[client_id])
+        if key != int(key):
+            # convert string key to integer
+            
+            training_replies[int(key)] = training_replies[key]
+            training_replies.pop(key)
+            #
+            key = int(key)
+        for client_id, client_i in zip(params_path.keys(), range(len(training_replies))):
+            print("LOAD TRAINING REPLIES", client_id)
+            training_replies[key][client_i]['params'] = self.model_instance.load(params_path[client_id],
+                                                                                 to_params=True)
             training_replies[key][client_i]['params_path'] = params_path[client_id]
             
-        self._training_replies = {round: training_replies}
-
+            training_replies[key] = Responses(training_replies[key])
+        
+        #self._training_replies = {int(round): Responses(training_replies)}
+        self._training_replies = training_replies
 
 class localJob:
     """

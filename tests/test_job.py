@@ -36,7 +36,7 @@ class TestStateInJob(unittest.TestCase):
 
     def test_save_private_training_replies(self):
         """
-        tests if `_save_training_replies` is converted
+        tests if `_save_training_replies` is converting
         pytorch tensor and numpy arrays into path files (since
         both are not JSON serializable). It uses a dummy class
         ResponsesMock, a weak implementation of `Responses` class

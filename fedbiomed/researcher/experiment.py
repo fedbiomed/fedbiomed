@@ -355,8 +355,11 @@ class Experiment:
             #     logging.debug(f"found '*.pt' file containing model\
             #         params at {breakpoint_material}")
             else:
-                logging.error(f"Cannot find JSON file containing\
-                    model state at {breakpoint_folder}")
+                continue
+        if state_file is None:
+            logging.error(f"Cannot find JSON file containing\
+                model state at {breakpoint_folder}. Aborting")
+            # raise error method
                 #sys.exit(-1)
         # TODO: check if all elements needed for breakpoint are present
         with open(os.path.join(breakpoint_folder, state_file), "r") as f:
@@ -401,11 +404,12 @@ class Experiment:
         loaded_exp._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
         # ------- changing `Job` attributes -------
         loaded_exp._job._id = saved_state.get('job_id')
+        loaded_exp._job._data = FederatedDataSet()
         loaded_exp._load_training_replies(saved_state.get('training_replies'),
                                           saved_state.get("params_path"),
                                           saved_state.get('round_number', 0)
                                           )
-        loaded_exp._job._researcher_id = saved_state('researcher_id')
+        loaded_exp._job._researcher_id = saved_state.get('researcher_id')
         logging.debug(f"reloading from {breakpoint_folder} successful!")
         return loaded_exp
 
