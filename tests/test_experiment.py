@@ -35,6 +35,7 @@ def load_json(file: str) -> Union[None, Exception]:
     except Exception as err:
         return err
 
+
 # FIXME: it seems it is more an integration test than a unit test. 
 # an improvement can be to 'patch' Job class instead calling it. 
 class TestStateExp(unittest.TestCase):
@@ -50,9 +51,12 @@ class TestStateExp(unittest.TestCase):
                               return_value=None)
         self.patcher3 = patch('fedbiomed.common.repository.Repository.upload_file',
                               return_value={"file": UPLOADS_URL})
+        self.patcher_monitor = patch('fedbiomed.researcher.experiment.Monitor',
+                                     return_value=None)
         self.patcher.start() 
         self.patcher2.start()
         self.patcher3.start()
+        self.patcher_monitor.start()
         model_file = MagicMock(return_value=None)
         
         model_file.save_code = MagicMock(return_value=None)
@@ -70,6 +74,7 @@ class TestStateExp(unittest.TestCase):
         self.patcher.stop()
         self.patcher2.stop()
         self.patcher3.stop()
+        self.patcher_monitor.stop()
         try:
             shutil.rmtree(os.path.join(VAR_DIR, "breakpoints"))
             # (above) remove files created during these unit tests
