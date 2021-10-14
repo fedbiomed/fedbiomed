@@ -69,7 +69,7 @@ class Job:
         self._data = data
 
         # Check dataset quality
-        self.check_data_quality(self._data)
+        self.check_data_quality()
 
         # handle case when model is in a file
         if model_path is not None:
@@ -279,12 +279,11 @@ class Job:
             sys.exit(-1)
         return filename
 
-    @staticmethod
-    def check_data_quality(data):
+    def check_data_quality(self):
 
         """Compare datasets that has been found in different nodes. 
         """
-
+        data = self._data.data()
         # If there are more than two nodes ready for the job
         if len(data.keys()) > 1:
             
