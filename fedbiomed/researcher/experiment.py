@@ -12,7 +12,7 @@ from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.datasets import FederatedDataSet
-
+from fedbiomed.researcher.monitor import Monitor
 
 class Experiment:
     """
@@ -29,7 +29,8 @@ class Experiment:
                  rounds: int = 1,
                  aggregator: aggregator.Aggregator = fedavg.FedAverage(),
                  client_selection_strategy: Strategy = None,
-                 save_breakpoints: bool = False
+                 save_breakpoints: bool = False,
+                 tensorboard: bool = False
                  ):
 
         """ Constructor of the class.
@@ -67,7 +68,13 @@ class Experiment:
                                                 not. Breakpoints can be used
                                                 for resuming a crashed
                                                 experiment. Defaults to False.
-        """
+
+            tensorboard (bool): Tensorboard flag for displaying scalar values 
+                                during tarning in every node. If it is true, 
+                                monitor will write scalar logs in the
+                                var/tensorboard directory
+        """ 
+        
         self._tags = tags
         self._clients = clients
         self._reqs = Requests()
@@ -100,6 +107,7 @@ class Experiment:
         self._state_root_folder = VAR_DIR  # from where breakpoint folder
         # will be created
             
+        self._monitor = Monitor(tensorboard=tensorboard)
 
     @property
     def training_replies(self):
@@ -162,6 +170,12 @@ class Experiment:
                                                 'params_path': aggregated_params_path}
             if self._save_breakpoints:
                 self._save_state(round_i)
+                
+            # Increase round state in the monitor
+            self._monitor.increase_round()
+        
+        # Close SummaryWriters for tensorboard
+        self._monitor.close_writer()
 
     def _create_breakpoints_folder(self):
         """Creates a general folder for storing breakpoints (if non existant)

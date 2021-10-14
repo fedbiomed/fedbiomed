@@ -154,7 +154,7 @@ class Job:
 
     @property
     def requests(self):
-        return self.reqs
+        return self._reqs
 
     @property
     def clients(self):
