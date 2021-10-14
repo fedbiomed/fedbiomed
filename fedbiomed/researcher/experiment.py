@@ -93,6 +93,7 @@ class Experiment:
                                               self._clients)
         else:
             training_data = self._training_data
+        self._round_init = 0  # start from round 0
         self._fds = FederatedDataSet(training_data)
         self._client_selection_strategy = client_selection_strategy
         self._aggregator = aggregator
@@ -163,7 +164,7 @@ class Experiment:
             raise NotImplementedError("One day....")
 
         # Run experiment
-        for round_i in range(self._rounds):
+        for round_i in range(self._round_init, self._rounds):
             # Sample clients using strategy (if given)
             self._job.clients = self._client_selection_strategy.sample_clients(round_i)
             logger.info('Sampled clients in round ' + str(round_i) + ' ' + str(self._job.clients))
@@ -402,6 +403,7 @@ class Experiment:
 
         # get experiment folder for breakpoint
         loaded_exp._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
+        loaded_exp._round_init = saved_state.get('round_number', 0)
         # ------- changing `Job` attributes -------
         loaded_exp._job._id = saved_state.get('job_id')
         loaded_exp._job._data = FederatedDataSet()
