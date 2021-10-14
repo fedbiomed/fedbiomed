@@ -291,10 +291,13 @@ class Job:
         if len(data_features.keys()) > 1:
             
             # Frist check data types are same based on searched tags
-            logger.info('Checking data quaity of found datasets')
-            data_types = [] 
-            shapes = []
-            dtypes = []
+            logger.info('Checking data quality of federated datasets...')
+
+            data_types = [] # CSV, Image or default 
+            shapes = [] # dimensions
+            dtypes = [] # variable types for CSV datasets
+
+            # Extract features into arrays for comparison
             for data_list in data_features.items():
                 for feature in data_list[1]:
                     data_types.append(feature["data_type"]) 
@@ -302,23 +305,39 @@ class Job:
                     shapes.append(feature["shape"])
 
             assert len(set(data_types)) == 1,\
-                 f'Datasets in nodes has been loaded with different types: {data_types}'
-                 
+                 f'Diferent type of datasets has been loaded with same tag: {data_types}'
+
             if data_types[0] == 'csv':              
                 assert len(set([s[1] for s in shapes])) == 1, \
                         f'Number of columns of federated datasets do not match {shapes}.'
                 
-                dtypesT = list(map(list, zip(*dtypes)))
-                for t in dtypesT:
+                dtypes_t = list(map(list, zip(*dtypes)))
+                for t in dtypes_t:
                     assert len(set(t)) == 1, \
                          f'Variable data types do not match in federated datasets {dtypes}'
 
             elif data_types[0] == 'images':
-                pass
+    
+                shapes_t = list(map(list, zip(*[s[2:] for s in shapes])))
+                dim_state = True
+                for s in shapes_t:
+                    if len(set(s)) != 1:
+                        dim_state = False
+
+                if not dim_state:
+                    logger.error(f'Dimensions of the images in federated datasets \
+                                 do not match. Please consider using resize. {shapes} ')
+                
+
+                if len(set([ k[1] for k in shapes])) != 1:
+                    logger.error(f'Color channels of the images in federated \
+                                    datasets do not match. {shapes}')
+
+            # If it is default MNIST dataset pass
             else:
                 pass
-        else:
-            pass
+        
+        pass
 
 class localJob:
     """
