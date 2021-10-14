@@ -2,7 +2,6 @@ from typing import Dict
 import numpy as np
 from math import log
 from scipy.special import digamma, polygamma
-from scipy.stats import matrix_normal, multivariate_normal, invgamma, norm
 
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 
