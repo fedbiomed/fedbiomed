@@ -6,30 +6,23 @@ VOLUME [ "/usr/local/bin/before-notebook.d" ]
 VOLUME [ "/home/workspace"]
 
 # Copy fedbiomed library
-COPY ./fedbiomed /home/fed/fedbiomed 
-COPY ./envs/development/docker/notebook/build_files/requirements-conda.txt /home/fed/requirements/
-COPY ./envs/development/docker/notebook/build_files/requirements-pip.txt /home/fed/requirements/
-COPY ./notebooks /home/$NB_USER/notebooks/
+COPY --chown=$NB_USER:$NB_GID .             /home/fed/.
+COPY --chown=$NB_USER:$NB_GID ./notebooks/. /home/$NB_USER/notebooks/.
 
-# Set PYTHONPATH to fedbiomed directory
-ENV PYTHONPATH '${PYTHONPATH}:/home/fed/'
-
-RUN /opt/conda/bin/conda install -y --file /home/fed/requirements/requirements-conda.txt && \
-        conda clean --all -f -y && \
-        fix-permissions "${CONDA_DIR}" && \
-        fix-permissions "/home/${NB_USER}"
-RUN /opt/conda/bin/pip install -r /home/fed/requirements/requirements-pip.txt && \
-        fix-permissions "${CONDA_DIR}" && \
-        fix-permissions "/home/${NB_USER}"
-
+# Allows multikernel in notebook
+RUN conda install -c conda-forge nb_conda_kernels
 
 # This commands creates env but does not activate as default environment
-#RUN /home/fed/scripts/configure_conda
-#RUN source /home/fed/scripts/fedbiomed_environment researcher
+RUN conda env update -f /home/fed/envs/development/docker/notebook/build_files/fedbiomed-researcher.yaml
 
+# Set PYTHONPATH to fedbiomed directory
+ENV PYTHONPATH '/home/fed'
 
-# Tested and got permission error
-#RUN /opt/conda/bin/conda env update --file /home/fed/conda/fedbiomed-researcher.yaml
-#RUN /opt/conda/bin/conda activate fedbiomed-researcher
+# register the conda env to the notebook
+RUN conda run -n fedbiomed-researcher ipython kernel install --user --name=fedbiomed-researcher
+
+# automatically start shell inside this conda env
+SHELL ["conda", "run", "-n", "fedbiomed-researcher", "/bin/bash", "-c"]
+
 
 EXPOSE 8888

@@ -1,0 +1,9 @@
+__pycache__
+.ipynb_checkpoints
+*.
+*.pyc
+*.db
+.git
+data
+runs
+var
