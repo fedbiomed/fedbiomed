@@ -36,7 +36,7 @@ class TestLoadDataSets(unittest.TestCase):
                                         tags=['titi'],
                                         data_type='csv',
                                         description='description',
-                                        path=os.path.join( os.getenv('PYTHONPATH'),'tests/test-data/csv/tata-header.csv'))
+                                        path='tests/test-data/csv/tata-header.csv')
 
         # Should raise error due to same tag
         with self.assertRaises(Exception):                            
@@ -44,14 +44,14 @@ class TestLoadDataSets(unittest.TestCase):
                                     tags=['titi'],
                                     data_type='csv',
                                     description='description',
-                                    path=os.path.join( os.getenv('PYTHONPATH'),'tests/test-data/csv/tata-header.csv'))
+                                    path='tests/test-data/csv/tata-header.csv')
 
         # Load data with normal different types
         self.data_manager.add_database( name='test',
                                         tags=['tata'],
                                         data_type='csv',
                                         description='description',
-                                        path=os.path.join( os.getenv('PYTHONPATH'),'tests/test-data/csv/titi-normal.csv'))
+                                        path='tests/test-data/csv/titi-normal.csv')
 
         # Should raise error due to broken csv
         with self.assertRaises(Exception):                            
@@ -59,7 +59,7 @@ class TestLoadDataSets(unittest.TestCase):
                                     tags=['tutu'],
                                     data_type='csv',
                                     description='description',
-                                    path=os.path.join( os.getenv('PYTHONPATH'), 'tests/test-data/csv/toto-error.csv'))
+                                    path= 'tests/test-data/csv/toto-error.csv')
 
         pass
 
@@ -72,7 +72,7 @@ class TestLoadDataSets(unittest.TestCase):
                                         tags=['titi'],
                                         data_type='images',
                                         description='description',
-                                        path=os.path.join( os.getenv('PYTHONPATH'),'tests/test-data/images'))
+                                        path='tests/test-data/images')
 
         # Should raise error due to same tag
         with self.assertRaises(Exception):
@@ -80,7 +80,7 @@ class TestLoadDataSets(unittest.TestCase):
                                             tags=['titi'],
                                             data_type='images',
                                             description='description',
-                                            path=os.path.join( os.getenv('PYTHONPATH'),'tests/test-data/images'))
+                                            path='tests/test-data/images')
         pass
 
 if __name__ == '__main__':  # pragma: no cover    
