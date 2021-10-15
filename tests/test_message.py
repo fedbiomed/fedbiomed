@@ -31,7 +31,9 @@ class TestMessage(unittest.TestCase):
             message.LogMessage,
             message.SearchRequest,
             message.PingRequest,
-            message.TrainRequest
+            message.TrainRequest,
+            message.ListReply,
+            message.ListRequest
             ]
 
         # test minimal python (only affectation) to insure
@@ -582,6 +584,140 @@ class TestMessage(unittest.TestCase):
             command       = True)
 
         pass
+
+    def test_listreply(self):
+
+        # well formatted message
+        self.check_class_args(
+            message.ListReply,
+            expected_result = True,
+
+            researcher_id = 'toto',
+            success       = True,
+            databases     = [1, 2, 3],
+            count         = 666,
+            client_id     = 'titi',
+            command       = 'do_it')
+
+
+        # all these test should fail (not enough arguments)
+        self.check_class_args(
+            message.ListReply,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
+        self.check_class_args(
+            message.ListReply,
+            expected_result = False,
+
+            count = 666 )
+
+        self.check_class_args(
+            message.ListReply,
+            expected_result = False,
+
+            success = True)
+
+        self.check_class_args(
+            message.ListReply,
+            expected_result = False,
+
+            databases = [1, 2, 3] )
+
+        self.check_class_args(
+            message.ListReply,
+            expected_result = False,
+
+            client_id = 'toto')
+
+        self.check_class_args(
+            message.ListReply,
+            expected_result = False,
+
+            command = "toto" )
+
+        # too much arguments
+        self.check_class_args(
+            message.ListReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            databases     = [1, 2, 3],
+            count         = 666,
+            client_id     = 'titi',
+            command       = 'do_it',
+            extra_arg     = "not_allowed"
+        )
+
+        # all the following should be bad (bad argument type)
+        self.check_class_args(
+            message.ListReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            databases     = [1, 2, 3],
+            count         = "not_an_integer",
+            client_id     = 'titi',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ListReply,
+            expected_result = False,
+
+            researcher_id = True,
+            success       = True,
+            databases     = [1, 2, 3],
+            count         = 666,
+            client_id     = 'titi',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ListReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            databases     = [1, 2, 3],
+            count         = 666,
+            client_id     = True,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ListReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            databases     = [1, 2, 3],
+            count         = 666,
+            client_id     = 'titi',
+            command       = True)
+
+        self.check_class_args(
+            message.ListReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = True,
+            databases     = "not a list",
+            count         = 666,
+            client_id     = 'titi',
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ListReply,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            success       = "not_a_boolean",
+            databases     = [],
+            count         = 666,
+            client_id     = 'titi',
+            command       = 'do_it')
+
 
 
     def test_addscalarreply(self):
@@ -1194,7 +1330,52 @@ class TestMessage(unittest.TestCase):
 
 
         pass
+    def test_listrequest(self):
 
+        # well formatted message
+        self.check_class_args(
+            message.ListRequest,
+            expected_result = True,
+            researcher_id='toto',
+            command='sada')
+
+
+        # bad param number
+        self.check_class_args(
+            message.ListRequest,
+            expected_result = False,
+            tags          = [ "data", "doto" ])
+
+        self.check_class_args(
+            message.ListRequest,
+            expected_result = False,
+            command       = 'do_it')
+
+        self.check_class_args(
+            message.ListRequest,
+            expected_result = False,
+            researcher_id = 'toto',
+            tags          = [ "data", "doto" ],
+            command       = 'do_it',
+            extra_args    = '???' )
+
+
+        # bad param type
+        self.check_class_args(
+            message.ListRequest,
+            expected_result = False,
+            researcher_id = False,
+            tags          = [ "data", "doto" ],
+            command       = 'do_it')
+        
+        # bad param type
+        self.check_class_args(
+            message.ListRequest,
+            expected_result = False,
+            researcher_id = False,
+            command       = True)
+
+        pass
 
     # test ResearcherMessage and NodeMessagess classes
     # (next 9 tests)
@@ -1233,6 +1414,33 @@ class TestMessage(unittest.TestCase):
 
         r = message.NodeMessages.request_create( params )
         self.assertIsInstance( r, message.TrainRequest )
+
+    def test_listmessages(self):
+
+        """  Test list datasets messages for node and researcher """
+        params = {
+            "researcher_id" : 'toto',
+            "success"       : True,
+            "databases"     : [ "one", "two" ],
+            "count"         : 666,
+            "client_id"     : 'titi',
+            "command"       : 'list' }
+
+        r = message.ResearcherMessages.reply_create( params )
+        self.assertIsInstance( r, message.ListReply )
+
+        r = message.NodeMessages.reply_create( params )
+        self.assertIsInstance( r, message.ListReply )
+
+
+        params = {
+            "researcher_id" : 'toto',
+            "command"       : 'list' }
+        r = message.ResearcherMessages.request_create( params )
+        self.assertIsInstance( r, message.ListRequest )
+
+        r = message.NodeMessages.request_create( params )
+        self.assertIsInstance( r, message.ListRequest )
 
 
     def test_searchmessages(self):
