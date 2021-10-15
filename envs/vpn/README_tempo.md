@@ -276,54 +276,89 @@ Note : can also use commands in the form
 ### vpnserver
 
 ```bash
-cd ./envs/vpn/docker
-docker-compose rm -sf vpnserver
+[user@network $] cd ./envs/vpn/docker
+
+# level 1 : container instance
+[user@network $] docker-compose rm -sf vpnserver
+
+# level 2 : configuration
 # currently as root 
 # TODO write config files as CONTAINER_USER
-rm -rf vpnserver/run_mounts/config/{config_peers,ip_assign,wireguard}
+[root@network #] rm -rf vpnserver/run_mounts/config/{config_peers,ip_assign,wireguard}
+
+# level 3 : image
+[user@network $] docker image rm fedbiomed-vpn-vpnserver
 ```
 
 ### mqtt
 
-```
-cd ./envs/vpn/docker
-docker-compose rm -sf mqtt
-rm -rf ./mqtt/run_mounts/config/wireguard
-echo > ./mqtt/run_mounts/config/config.env
+```bash
+[user@network $] cd ./envs/vpn/docker
+
+# level 1 : container instance
+[user@network $] docker-compose rm -sf mqtt
+
+# level 2 : configuration
+[user@network $] rm -rf ./mqtt/run_mounts/config/wireguard
+[user@network $] echo > ./mqtt/run_mounts/config/config.env
+
+# level 3 : image
+[user@network $] docker image rm fedbiomed-vpn-mqtt
 ```
 
 ### restful
 
-```
-cd ./envs/vpn/docker
-docker-compose rm -sf restful
-rm -rf ./restful/run_mounts/config/wireguard
-echo > ./restful/run_mounts/config/config.env
+```bash
+[user@network $] cd ./envs/vpn/docker
 
-rm -f ./restful/run_mounts/app/db.sqlite3
+# level 1 : container instance
+[user@network $] docker-compose rm -sf restful
+
+# level 2 : configuration
+[user@network $] rm -rf ./restful/run_mounts/config/wireguard
+[user@network $] echo > ./restful/run_mounts/config/config.env
+
+[user@network $] rm -f ./restful/run_mounts/app/db.sqlite3
 # also clean saved files ? (same for env/developement)
+
+# level 3 : image
+[user@network $] docker image rm fedbiomed-vpn-restful
 ```
 
 ### node 
 
-```
-cd ./envs/vpn/docker
-docker-compose rm -sf node
-rm -rf ./node/run_mounts/config/wireguard
-echo > ./node/run_mounts/config/config.env
-rm -rf ./node/run_mounts/data/*
+```bash
+[user@node $] cd ./envs/vpn/docker
+
+# level 1 : container instance
+[user@node $] docker-compose rm -sf node
+
+# level 2 : configuration
+[user@node $] rm -rf ./node/run_mounts/config/wireguard
+[user@node $] echo > ./node/run_mounts/config/config.env
+[user@node $] rm -rf ./node/run_mounts/data/*
+
+# level 3 : image
+[user@node $] docker image rm fedbiomed-vpn-node
 ```
 
 ### researcher
 
 Same as node
 
-```
-cd ./envs/vpn/docker
-docker-compose rm -sf researcher
-rm -rf ./researcher/run_mounts/config/wireguard
-echo > ./researcher/run_mounts/config/config.env
-rm -rf ./researcher/run_mounts/data/*
+```bash
+[user@researcher $] cd ./envs/vpn/docker
+
+# level 1 : container instance
+[user@researcher $] docker-compose rm -sf researcher
+
+# level 2 : configuration
+[user@researcher $] rm -rf ./researcher/run_mounts/config/wireguard
+[user@researcher $] echo > ./researcher/run_mounts/config/config.env
+[user@researcher $] rm -rf ./researcher/run_mounts/data/*
+
+# level 3 : image
+[user@researcher $] docker image rm fedbiomed-vpn-researcher
 ```
 
 ## background / wireguard
