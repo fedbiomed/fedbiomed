@@ -72,7 +72,9 @@ su -c "export PATH=${PATH} ; python manage.py migrate" $CONTAINER_USER
 su -c "export PATH=${PATH} ; python manage.py collectstatic --link --noinput" $CONTAINER_USER
 su -c "export PATH=${PATH} ; python manage.py createsuperuser --noinput" $CONTAINER_USER
 
-su -c "export PATH=${PATH} ; gunicorn -w 4 -b 0.0.0.0:8000 --log-level debug fedbiomed.wsgi" $CONTAINER_USER &
+# default timeout 30s is not enough for uploading big models over slow links
+su -c "export PATH=${PATH} ; gunicorn -w 4 -b 0.0.0.0:8000 --timeout 900 --log-level debug fedbiomed.wsgi" $CONTAINER_USER &
+
 #sleep infinity &
 
 wait $!
