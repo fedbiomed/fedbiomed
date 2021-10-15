@@ -65,7 +65,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         # Automatically identify separator and header 
         sniffer = csv.Sniffer()
-        with open(csv_file) as file:
+        with open(csv_file, 'r') as file:
             delimiter = sniffer.sniff(file.readline()).delimiter
             header = None if not sniffer.has_header(file.read()) else 0
             file.seek(0)

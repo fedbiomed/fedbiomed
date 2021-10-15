@@ -12,7 +12,7 @@ class TestJobDatasetQualityCheck(unittest.TestCase):
         unittest ([type]): [description]
     """
     
-    # Setup HistoryMonitor with Mocking messaging 
+    # Setup patchers for mocking modules
     def setUp(self):
 
         self.patcher1 = patch('fedbiomed.common.repository.Repository.upload_file')
