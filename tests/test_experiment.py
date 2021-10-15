@@ -84,8 +84,8 @@ class TestStateExp(unittest.TestCase):
             pass
         
 
-    def test_save(self):
-        """tests:
+    def test_save_states(self):
+        """tests `save_states` private method:
         1. if model file is copied from temporary folder to breakpoint folder
         2. if state file created is json loadable
         """

@@ -6,7 +6,7 @@ import re
 
 from fedbiomed.common.logger import logger
 from typing import Callable, Union, Tuple, Dict, Any, List, TypeVar, Type
-from fedbiomed.researcher.environ import VAR_DIR
+from fedbiomed.researcher.environ import BREAKPOINTS_DIR 
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
 
@@ -25,7 +25,6 @@ class Experiment:
     """
     This class represents the orchestrator managing the federated training
     """
-    _load_experiment = False  # if experiment is loaded or not
     _training_data = None  # should contain client and dataset values
     
     def __init__(self,
@@ -118,7 +117,7 @@ class Experiment:
 
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
-        self._state_root_folder = VAR_DIR  # directory from where breakpoint
+        
         #  folder will be created
         
         self._monitor = Monitor(tensorboard=tensorboard)
@@ -174,9 +173,8 @@ class Experiment:
             self._job.start_clients_training_round(round=round_i)
 
             # refining/normalizing model weigths received from nodes
-            model_params, weights = self._client_selection_strategy.refine( self._job.training_replies[round_i], round_i)
+            model_params, weights = self._client_selection_strategy.refine(self._job.training_replies[round_i], round_i)
 
-            print("refining", model_params,"weigths", weights, "aggregator", self._aggregator)
             # aggregate model from nodes to a global model
             aggregated_params = self._aggregator.aggregate(model_params,
                                                            weights)
@@ -196,10 +194,9 @@ class Experiment:
 
     def _create_breakpoints_folder(self):
         """Creates a general folder for storing breakpoints (if non existant)
-        into the `VAR_DIR` folder.
+        into the `BREAKPOINTS_DIR` folder.
         """
-        self._breakpoint_path_file = os.path.join(self._state_root_folder,
-                                                  "breakpoints")
+        self._breakpoint_path_file = BREAKPOINTS_DIR
         if not os.path.isdir(self._breakpoint_path_file):
             try:
                 os.makedirs(self._breakpoint_path_file, exist_ok=True)
@@ -211,7 +208,7 @@ class Experiment:
     def _create_breakpoint_exp_folder(self):
         """Creates a breakpoint folder for the current experiment (ie the
         current run of the model). This folder is located at
-        `VAR_DIR/Experiment_x` where `x-1` is the number of experiments
+        `BREAKPOINTS_DIR_DIR/Experiment_x` where `x-1` is the number of experiments
         already run (`x`=0 for the first experiment)
         """
         # FIXME: improve method robustness (here nb of exp equals nb of files
@@ -228,7 +225,8 @@ class Experiment:
                     {self._breakpoint_path_file} folder could not be created\
                         due to {err}")
             
-    def _create_breakpoint_file_and_folder(self, round: int=0) -> Tuple[str, str]:
+    def _create_breakpoint_file_and_folder(self,
+                                           round: int = 0) -> Tuple[str, str]:
         """It creates a breakpoint file for each round.
 
         Args:
@@ -313,26 +311,29 @@ class Experiment:
         logger.info(f"breakpoint for round {round} saved at {breakpoint_path}")
 
     @staticmethod
-    def _get_latest_file(list_file: List[str],
-                         only_folder: bool=False):
+    def _get_latest_file(pathfile: str,
+                         list_name_file: List[str],
+                         only_folder: bool = False):
         latest_nb = 0
         latest_folder = None
-        for exp_folder in list_file:
+        for exp_folder in list_name_file:
 
             exp_match = re.search(r'[0-9]*$',
                                   exp_folder)
 
             if exp_match is not None:
-                #if not only_folder or os.path.isdir(exp_folder):
-                f_idx = exp_match.span()[0]
-                order = int(exp_folder[f_idx:])
+                print("ony_folder", only_folder, "isdir", os.path.isdir(exp_folder))
+                dir_path = os.path.join(pathfile, exp_folder)
+                if not only_folder or os.path.isdir(dir_path):
+                    f_idx = exp_match.span()[0]
+                    order = int(exp_folder[f_idx:])
 
-                if order >= latest_nb:
-                    latest_nb = order
-                    latest_folder = exp_folder
+                    if order >= latest_nb:
+                        latest_nb = order
+                        latest_folder = exp_folder
         
         if latest_folder is None:
-            raise FileNotFoundError(f"None of those are breakpoints {list_file}")            
+            raise FileNotFoundError("None of those are breakpoints{}".format(", ".join(list_name_file)))            
         return latest_folder
     
     @classmethod
@@ -343,17 +344,20 @@ class Experiment:
         # First, let's test if folder is a real folder path
         if breakpoint_folder is None:
             # retrieve latest experiment
-            default_breakpoints_folder = os.path.join(VAR_DIR,
-                                                      "breakpoints")
+            default_breakpoints_folder = BREAKPOINTS_DIR
             experiment_folders = os.listdir(default_breakpoints_folder)
             
-            latest_exp_folder = Experiment._get_latest_file(experiment_folders,
-                                                            only_folder=True)
+            latest_exp_folder = Experiment._get_latest_file(
+                                                    default_breakpoints_folder,
+                                                    experiment_folders,
+                                                    only_folder=True)
             latest_exp_folder = os.path.join(default_breakpoints_folder,
-                                                    latest_exp_folder)
+                                             latest_exp_folder)
             bkpt_folders = os.listdir(latest_exp_folder)
-            breakpoint_folder = Experiment._get_latest_file(bkpt_folders,
-                                                            only_folder=True)
+            breakpoint_folder = Experiment._get_latest_file(
+                                            latest_exp_folder,
+                                            bkpt_folders,
+                                            only_folder=True)
             breakpoint_folder = os.path.join(latest_exp_folder,
                                              breakpoint_folder)
             
@@ -380,24 +384,13 @@ class Experiment:
             # look for the json file containing experiment state 
             # (it should be named `brekpoint_xx.json`)
             json_match = re.fullmatch(r'breakpoint_\d*\.json',
-                                    breakpoint_material)
-            # py_model_match = re.fullmatch(r'model_\d*\.py', breakpoint_material)
-            # params_match = re.fullmatch(r'params_client_[a-zA-Z0-9_.-]*.pt',
-            #                             breakpoint_material)
+                                      breakpoint_material)
+
             if json_match is not None:
                 logging.debug(f"found json file containing states at\
                     {breakpoint_material}")
                 state_file = breakpoint_material
-            
-            # elif py_model_match is not None:
-            #     model_file = breakpoint_material
-            #     logging.debug(f"found '*.py model' containing model at\
-            #         {breakpoint_material}")
-            
-            # elif params_match is not None:
-            #     params_files.append(breakpoint_material)
-            #     logging.debug(f"found '*.pt' file containing model\
-            #         params at {breakpoint_material}")
+
             else:
                 continue
         if state_file is None:
@@ -416,16 +409,19 @@ class Experiment:
         # TODO: for both client sampling strategy & aggregator
         # deal with parameter
         # -----  retrieve breakpoint sampling starategy ----
-        bkpt_sampling_startegy_args = saved_state.get("client_selection_strategy")
-        import_str = cls._instancialize_module(bkpt_sampling_startegy_args)  # importing client strategy
-        print(import_str)
+        bkpt_sampling_startegy_args = saved_state.get(
+                                                "client_selection_strategy"
+                                                     )
+        import_str = cls._instancialize_module(bkpt_sampling_startegy_args)
+        # (above) importing client strategy
+        
         exec(import_str)
         bkpt_sampling_startegy = eval(bkpt_sampling_startegy_args.get("class"))
         
         # ----- retrieve federator -----
         bkpt_aggregator_args = saved_state.get("aggregator")
         import_str = cls._instancialize_module(bkpt_aggregator_args)
-        print(import_str)
+
         exec(import_str)
         bkpt_aggregator = eval(bkpt_aggregator_args.get("class"))
         

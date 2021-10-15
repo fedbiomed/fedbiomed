@@ -66,6 +66,7 @@ if not defined_researcher_env:
     CACHE_DIR = os.path.join(VAR_DIR, 'cache')
     TMP_DIR = os.path.join(VAR_DIR, 'tmp')
     TENSORBOARD_RESULTS_DIR = os.path.join(ROOT_DIR, 'runs')
+    BREAKPOINTS_DIR = os.path.join(VAR_DIR, "breakpoints")
 
     for dir in CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP_DIR, TENSORBOARD_RESULTS_DIR:
         if not os.path.isdir(dir):
