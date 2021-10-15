@@ -170,7 +170,51 @@ usage:  lqueue directory
    or
         lqueue dir1 dir2 dir3 ...
 
+<<<<<<< HEAD
 ## Jupyterhub 
 
 Please go `env/development/docker` directory to have more information about launching JupyterHub. 
+=======
+
+## Using Tensorboard  
+
+To enable tensorboard during traning routine to see loss values, you need to set `tensorboard` parameter to `true` while initializing Experiment class.
+
+```
+exp = Experiment(tags=tags,
+                 #clients=None,
+                 model_path=model_file,
+                 model_args=model_args,
+                 model_class='MyTrainingPlan',
+                 training_args=training_args,
+                 rounds=rounds,
+                 aggregator=FedAverage(),
+                 client_selection_strategy=None,
+                 tensorboard=True
+                )
+```
+
+During training, the scalar values (loss) will be writen in the `runs` directory. You can either start tensorboard from jupyter notebook or terminal window. 
+
+**Start tensforboard from notebook**
+First you should import ROOT_DIR from researcher environment in another cell
+`from fedbiomed.researcher.environ import ROOT_DIR`
+
+Load tensroboard extension in a different code block. 
+`%load_ext tensorboard`
+
+Run following command to start tensorboard
+`tensorboard --logdir "$ROOT_DIR"/runs`
+
+**Start tensorboard from terminal windows**
+
+- Open new terminal and cd into fedbiomed root directory and run following command. 
+
+**Note:** Please make sure that already activated fedbiomed-researcher conda environment.
+.
+`tensorboard --logdir $PYTHONPATH/runs`
+
+
+
+>>>>>>> develop
 
