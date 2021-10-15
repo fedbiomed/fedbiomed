@@ -1339,7 +1339,6 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             command='sada')
 
-
         # bad param number
         self.check_class_args(
             message.ListRequest,

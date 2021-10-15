@@ -261,7 +261,6 @@ class Requests(metaclass=RequestMeta):
         for resp in self.get_responses(look_for_command='list'):
             if not clients:
                 data_found[resp.get('client_id')] = resp.get('databases')
-
             elif resp.get('client_id') in clients:
                 data_found[resp.get('client_id')] = resp.get('databases')
 
