@@ -166,15 +166,16 @@ del exp
 
 from fedbiomed.researcher.environ import VAR_DIR
 import os
-loaded_exp = Experiment.load_breakpoint(os.path.join(VAR_DIR, "breakpoints", 'Experiment_0', 'breakpoint_1'), extra_rounds=2)
+loaded_exp = Experiment.load_breakpoint(os.path.join(VAR_DIR, "breakpoints", 'Experiment_0', 'breakpoint_1'),
+                                        extra_rounds=1)
 
 print("______________ loaded training replies_________________")
-print("\nList the training rounds : ", loaded_exp.training_replies.keys())
+#print("\nList the training rounds : ", loaded_exp.training_replies.keys())
 
 print("\nList the clients for the last training round and their timings : ")
 round_data = loaded_exp.training_replies[rounds - 1].data
 for c in range(len(round_data)):
-    print(round_data[c])
+    #print(round_data[c])
     print("\t- {id} :\
         \n\t\trtime_training={rtraining:.2f} seconds\
         \n\t\tptime_training={ptraining:.2f} seconds\
@@ -184,7 +185,11 @@ for c in range(len(round_data)):
                 rtotal = round_data[c]['timing']['rtime_total']))
 print('\n')
     
-print(loaded_exp.training_replies[rounds - 1].dataframe)
+#print(loaded_exp.training_replies[rounds - 1].dataframe)
+loaded_exp.run()
+
+del loaded_exp
+loaded_exp = Experiment.load_breakpoint()
 loaded_exp.run()
 # ## Optional : searching the data
 

@@ -5,7 +5,7 @@ import shutil
 import re
 
 from fedbiomed.common.logger import logger
-from typing import Callable, Union, Tuple, Dict, Any, List
+from typing import Callable, Union, Tuple, Dict, Any, List, TypeVar, Type
 from fedbiomed.researcher.environ import VAR_DIR
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
@@ -17,6 +17,8 @@ from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.monitor import Monitor
+
+_E = TypeVar("Experiment")  # only for typing
 
 
 class Experiment:
@@ -280,7 +282,7 @@ class Experiment:
         self._job.save_state(round)  # create attribute `_job.state`
         job_state = self._job.state
         state = {
-            'round_number': min(round - 1, 0),
+            'round_number': round + 1,
             'round_number_due': self._rounds,
             'aggregator': self._aggregator.save_state(),
             'client_selection_strategy': self._client_selection_strategy.save_state(),
@@ -310,35 +312,75 @@ class Experiment:
             json.dump(state, bkpt)
         logger.info(f"breakpoint for round {round} saved at {breakpoint_path}")
 
+    @staticmethod
+    def _get_latest_file(list_file: List[str],
+                         only_folder: bool=False):
+        latest_nb = 0
+        latest_folder = None
+        for exp_folder in list_file:
+
+            exp_match = re.search(r'[0-9]*$',
+                                  exp_folder)
+
+            if exp_match is not None:
+                #if not only_folder or os.path.isdir(exp_folder):
+                f_idx = exp_match.span()[0]
+                order = int(exp_folder[f_idx:])
+
+                if order >= latest_nb:
+                    latest_nb = order
+                    latest_folder = exp_folder
+        
+        if latest_folder is None:
+            raise FileNotFoundError(f"None of those are breakpoints {list_file}")            
+        return latest_folder
+    
     @classmethod
-    def load_breakpoint(cls,
-                        breakpoint_folder: str,
-                        extra_rounds: int = 0) -> object:
+    def load_breakpoint(cls: Type[_E],
+                        breakpoint_folder: str = None,
+                        extra_rounds: int = 1) -> _E:
         
         # First, let's test if folder is a real folder path
-        if not os.path.isdir(breakpoint_folder):
-            if os.path.isfile(breakpoint_folder):
-                raise FileNotFoundError(f"{breakpoint_folder} \
-                    is not a folder but a file")
-            else:
-                
-                # trigger an exception
-                raise FileNotFoundError(f"Cannot find {breakpoint_folder}!")
-        # check if folder is a valid breakpoint
-        
-        # get breakpoint material
-        # regex : breakpoint_\d\.json
+        if breakpoint_folder is None:
+            # retrieve latest experiment
+            default_breakpoints_folder = os.path.join(VAR_DIR,
+                                                      "breakpoints")
+            experiment_folders = os.listdir(default_breakpoints_folder)
+            
+            latest_exp_folder = Experiment._get_latest_file(experiment_folders,
+                                                            only_folder=True)
+            latest_exp_folder = os.path.join(default_breakpoints_folder,
+                                                    latest_exp_folder)
+            bkpt_folders = os.listdir(latest_exp_folder)
+            breakpoint_folder = Experiment._get_latest_file(bkpt_folders,
+                                                            only_folder=True)
+            breakpoint_folder = os.path.join(latest_exp_folder,
+                                             breakpoint_folder)
+            
+        else:
+            if not os.path.isdir(breakpoint_folder):
+                if os.path.isfile(breakpoint_folder):
+                    raise FileNotFoundError(f"{breakpoint_folder} \
+                        is not a folder but a file")
+                else:
+                    
+                    # trigger an exception
+                    raise FileNotFoundError(f"Cannot find {breakpoint_folder}!")
+            # check if folder is a valid breakpoint
+            
+            # get breakpoint material
+            # regex : breakpoint_\d\.json
 
         all_breakpoint_materials = os.listdir(breakpoint_folder)
         if len(all_breakpoint_materials) == 0:
             raise Exception("breakpoint folder is empty !")
         
-        state_file, model_file, params_files = None, None, []
+        state_file = None
         for breakpoint_material in all_breakpoint_materials:
             # look for the json file containing experiment state 
             # (it should be named `brekpoint_xx.json`)
             json_match = re.fullmatch(r'breakpoint_\d*\.json',
-                                      breakpoint_material)
+                                    breakpoint_material)
             # py_model_match = re.fullmatch(r'model_\d*\.py', breakpoint_material)
             # params_match = re.fullmatch(r'params_client_[a-zA-Z0-9_.-]*.pt',
             #                             breakpoint_material)
@@ -361,7 +403,9 @@ class Experiment:
         if state_file is None:
             logging.error(f"Cannot find JSON file containing\
                 model state at {breakpoint_folder}. Aborting")
-            # raise error method
+            raise FileNotFoundError(f"Cannot find JSON file containing\
+                model state at {breakpoint_folder}. Aborting")
+
                 #sys.exit(-1)
         # TODO: check if all elements needed for breakpoint are present
         with open(os.path.join(breakpoint_folder, state_file), "r") as f:
@@ -387,7 +431,7 @@ class Experiment:
         
         # remaining round to resume before end of experiment
         remaining_round = max(extra_rounds + \
-            saved_state.get('round_number_due', 1), 2) 
+            saved_state.get('round_number_due', 1), 1) 
         # ------ initializing experiment -------
         cls._training_data = saved_state.get('training_data')
         
@@ -405,11 +449,13 @@ class Experiment:
 
         # get experiment folder for breakpoint
         loaded_exp._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
-        loaded_exp._round_init = saved_state.get('round_number', 0) + 1
+        loaded_exp._round_init = saved_state.get('round_number', 0)
         loaded_exp._rounds = extra_rounds + saved_state.get('round_number_due', 1)
         # ------- changing `Job` attributes -------
         loaded_exp._job._id = saved_state.get('job_id')
-        loaded_exp._job._data = FederatedDataSet(saved_state.get('training_data'))
+        loaded_exp._job._data = FederatedDataSet(
+                                        saved_state.get('training_data')
+                                                )
         loaded_exp._load_training_replies(saved_state.get('training_replies'),
                                           saved_state.get("params_path")
                                           )
