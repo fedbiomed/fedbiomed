@@ -89,6 +89,22 @@ class Node:
                          'researcher_id': msg['researcher_id'],
                          'databases': databases,
                          'count': len(databases)}).get_dict())
+            elif command == 'list':
+                 # Get list of all datasets
+                 databases = self.data_manager.list_my_data(verbose=False)
+                 remove_key = ['path', 'dataset_id']
+                 for d in databases:
+                     for key in remove_key:
+                        d.pop(key, None)
+                
+                 self.messaging.send_message(NodeMessages.reply_create(
+                     {'success': True,
+                      'command': 'list',
+                      'client_id': CLIENT_ID,
+                      'researcher_id': msg['researcher_id'],
+                      'databases': databases,
+                      'count' : len(databases), 
+                     }).get_dict())
             else:
                 raise NotImplementedError('Command not found')
         except decoder.JSONDecodeError:

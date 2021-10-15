@@ -7,6 +7,8 @@ import threading
 from time import sleep
 from typing import Any, Dict
 import uuid
+import tabulate
+
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
@@ -235,6 +237,43 @@ class Requests(metaclass=RequestMeta):
         data_found = {}
         for resp in self.get_responses(look_for_command='search'):
             # TODO: (below) handle KeyError exception or use `.get()` method
-            if not clients or resp['client_id'] in clients:
-                data_found[resp['client_id']] = resp['databases']
+            if not clients:
+                data_found[resp.get('client_id')] = resp.get('databases')
+            elif resp.get('client_id') in clients:
+                data_found[resp.get('client_id')] = resp.get('databases')
+
+        return data_found
+
+    def list(self, clients: list = None, verbose: bool = False) -> dict:
+        """ Lists available data in each node
+
+        Args:
+            clients (str): Listings datasets by given client ids
+                            Default is none. 
+            verbose (bool): If it is true it prints datasets in readable format
+        """
+
+        self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':RESEARCHER_ID, "command": "list"}).get_dict())
+
+        logger.info(f'Listing avaialbe dataset in nodes: ')
+        data_found = {}
+
+        for resp in self.get_responses(look_for_command='list'):
+            if not clients:
+                data_found[resp.get('client_id')] = resp.get('databases')
+
+            elif resp.get('client_id') in clients:
+                data_found[resp.get('client_id')] = resp.get('databases')
+
+        # Print dataset tables
+        if verbose:
+            for node in data_found:
+                print('\n Node: {} | Number of Datasets: {}'.format( node, len(data_found[node])))
+                if len(data_found[node]) > 0 :
+                    rows = [row.values() for row in data_found[node]]
+                    headers = data_found[node][0].keys()
+                    print(tabulate.tabulate(rows, headers, tablefmt="grid"))  
+                else:
+                    print(" No data has been set up for this node.")
+
         return data_found
