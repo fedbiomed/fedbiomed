@@ -234,14 +234,16 @@ class Requests(metaclass=RequestMeta):
         self.messaging.send_message(ResearcherMessages.request_create({'tags':tags, 'researcher_id':RESEARCHER_ID, "command": "search"}).get_dict())
 
         logger.info(f'Searching for clients with data tags: {tags}')
+        if clients:
+            logger.info(f'Indicated clients will be selected based on results of the search request: {clients}')
+
         data_found = {}
         for resp in self.get_responses(look_for_command='search'):
-            # TODO: (below) handle KeyError exception or use `.get()` method
             if not clients:
                 data_found[resp.get('client_id')] = resp.get('databases')
             elif resp.get('client_id') in clients:
                 data_found[resp.get('client_id')] = resp.get('databases')
-
+                logger.info('Node selected for training -> {}'.format(resp.get('client_id')))
         return data_found
 
     def list(self, clients: list = None, verbose: bool = False) -> dict:
