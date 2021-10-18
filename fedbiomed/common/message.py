@@ -84,8 +84,8 @@ class SearchReply(Message):
 @dataclass
 class ListReply(Message):
 
-    """This class describes a list reply message sent by the node that includes 
-    list of datasets. It is a reply for ListReqeust of researcher. 
+    """This class describes a list reply message sent by the node that includes
+    list of datasets. It is a reply for ListRequest messsage from the researcher.
 
     Args:
         Message ([type]): Parent class allows to get and set message params
@@ -207,8 +207,8 @@ class SearchRequest(Message):
 @dataclass
 class ListRequest(Message):
     """
-    This class describes a list request message sent by the researcher to nodes in order to list 
-    datasets in nodes. 
+    This class describes a list request message sent by the researcher to nodes in order to list
+    datasets belonging to each node.
 
     Raises:
        ValueError: triggered if message's fields validation failed
