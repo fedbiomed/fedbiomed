@@ -16,11 +16,11 @@ from fedbiomed.node.environ import DB_PATH
 class Data_manager: # should this be in camelcase (smthg like DataManager)?
     """Interface over TinyDB database.
     Facility fot storing, retrieving data and get data info
-    on the data stored into TinyDB database. 
+    on the data stored into TinyDB database.
     """
     def __init__(self):
         """ The constrcutor of the class
-        """        
+        """
         self.db = TinyDB(DB_PATH)
         self.database = Query()
 
@@ -34,8 +34,8 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             [List[dict]]: list of dict of matching datasets, each dict
             containing all the fields describing the matching datasets
             stored in Tiny database.
-        """ 
-        self.db.clear_cache() 
+        """
+        self.db.clear_cache()
         return self.db.search(self.database.dataset_id.all(dataset_id))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
@@ -46,8 +46,8 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         Returns:
             [list]: list of matching datasets
-        """     
-        self.db.clear_cache()  
+        """
+        self.db.clear_cache()
         return self.db.search(self.database.tags.all(tags))
 
     def read_csv(self, csv_file: str, index_col: Union[int, None] = None ) -> pd.DataFrame:
@@ -61,14 +61,13 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         Returns:
             pd.DataFrame: data contained in csv file.
-        """        
+        """
 
-        # Automatically identify separator and header 
+        # Automatically identify separator and header
         sniffer = csv.Sniffer()
         with open(csv_file, 'r') as file:
             delimiter = sniffer.sniff(file.readline()).delimiter
             header = None if not sniffer.has_header(file.read()) else 0
-            file.seek(0)
 
         return pd.read_csv(csv_file, index_col=index_col, sep=delimiter, header=header)
 
@@ -80,11 +79,11 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             dataset (torch.utils.data.Dataset): a Pytorch dataset
 
         Returns:
-            List[int]: returns a list containing: 
+            List[int]: returns a list containing:
             [<nb_of_data>, <dimension_of_first_input_data>].
             Example for MNIST: [60000, 1, 28, 28], where <nb_of_data>=60000
             and <dimension_of_first_input_data>=1, 28, 28
-        """        
+        """
         return [len(dataset)] + list(dataset[0][0].shape)
 
     def get_csv_data_types(self, dataset: pd.DataFrame) -> List[str]:
@@ -95,8 +94,8 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             dataset (pd.DataFrame): a Pandas dataset
 
         Returns:
-            List[int]: returns a list containing data types 
-        """            
+            List[int]: returns a list containing data types
+        """
 
         types = [str(t) for t in dataset.dtypes]
 
@@ -111,10 +110,10 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         is used as the default dataset.
 
         Args:
-            name (str): name of the default dataset. Currently, 
+            name (str): name of the default dataset. Currently,
             only MNIST is accepted.
             path (str): pathfile to MNIST dataset.
-            as_dataset (bool, optional): whether to return 
+            as_dataset (bool, optional): whether to return
             the complete dataset (True) or dataset dimensions (False).
             Defaults to False.
 
@@ -127,7 +126,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             set to True,  returns dataset (type: torch.utils.data.Dataset),
             if set to False, returns the size of the dataset stored inside
             a list (type: List[int])
-        """        
+        """
         kwargs = dict(root=path, download=True, transform=transforms.ToTensor())
 
         if 'mnist' in name.lower():
@@ -152,7 +151,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         Returns:
             [type]: [description]
-        """        
+        """
 
         dataset = datasets.ImageFolder(folder_path,
                                        transform=transforms.ToTensor())
@@ -207,7 +206,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
                                       ' a compatible data type. '
                                       f'Compatible data types are: {data_types}')
 
-        
+
         if data_type == 'default':
             assert os.path.isdir(path), f'Folder {path} for Default Dataset does not exist.'
             shape = self.load_default_database(name, path)
@@ -245,17 +244,17 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         Returns:
             [type]: [description]
-        """     
-        self.db.clear_cache()    
+        """
+        self.db.clear_cache()
         my_data = self.db.all()
 
-        # Do not display dtypes 
+        # Do not display dtypes
         for doc in my_data:
-            doc.pop('dtypes') 
+            doc.pop('dtypes')
 
         if verbose:
             print(tabulate(my_data, headers='keys'))
-            
+
         return my_data
 
     def load_as_dataloader(self, dataset):
@@ -266,7 +265,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         Returns:
             [type]: [description]
-        """        
+        """
         name = dataset['data_type']
         if name == 'default':
             return self.load_default_database(name=dataset['name'],
@@ -293,7 +292,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         Returns:
             [type]: [description]
-        """        
+        """
 
         # Verify is mode is available
         mode = mode.lower()
