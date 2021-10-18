@@ -95,6 +95,12 @@ Run this only at first launch of container or after cleaning :
 #[user@network $] docker-compose exec vpnserver bash
 #[root@vpnserver-container #] python ./vpn/bin/configure_peer.py add management mqtt *publickey*
 ```
+* check the container correctly established a VPN with vpnserver:
+```bash
+# 10.220.0.1 is vpnserver contacted inside the VPN
+# it should answer to the ping
+[user@network $] docker-compose exec node ping -c 3 -W 1 10.220.0.1
+```
 
 Run this for all launches of the container :
 * launch container
@@ -128,6 +134,12 @@ Run this only at first launch of container or after cleaning :
 * connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
 ```bash
 [user@network $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add management restful *publickey*
+```
+* check the container correctly established a VPN with vpnserver:
+```bash
+# 10.220.0.1 is vpnserver contacted inside the VPN
+# it should answer to the ping
+[user@network $] docker-compose exec node ping -c 3 -W 1 10.220.0.1
 ```
 
 Run this for all launches of the container :
@@ -167,6 +179,12 @@ Run this only at first launch of container or after cleaning :
 ```bash
 [user@network $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node node1 *publickey*
 ```
+* check the container correctly established a VPN with vpnserver:
+```bash
+# 10.220.0.1 is vpnserver contacted inside the VPN
+# it should answer to the ping
+[user@node $] docker-compose exec node ping -c 3 -W 1 10.220.0.1
+```
 
 Run this for all launches of the container :
 
@@ -177,7 +195,7 @@ Run this for all launches of the container :
 * TODO: better package/scripting needed
   Connect again to the node and launch manually, now that the VPN is established
 ```bash
-[user@laptop $] docker-compose exec -u $(id -u) node bash
+[user@node $] docker-compose exec -u $(id -u) node bash
 # TODO : make more general by including it in the VPN configuration and user environment ?
 # TODO : create scripts in VPN environment
 # need proper parameters at first launch to create configuration file
@@ -205,24 +223,30 @@ Run this only at first launch of container or after cleaning :
 * generate VPN client for this container (see above in vpnserver)
 * configure the VPN client for this container
 ```bash
-[user@laptop $] cd ./envs/vpn/docker
-[user@node $] vi ./researcher/run_mounts/config/config.env
+[user@researcher $] cd ./envs/vpn/docker
+[user@researcher $] vi ./researcher/run_mounts/config/config.env
 # add the content of the command below in the edited file above
 [user@network $] cat ./vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env
 ## if running on a single machine
-#[user@laptop $] cp ./vpnserver/run_mounts/config/config_peers/node/node1/config.env ./researcher/run_mounts/config/config.env
+#[user@laptop $] cp ./vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env ./researcher/run_mounts/config/config.env
 ```
 * launch container
 ```bash
-[user@laptop $] docker-compose up -d researcher
+[user@researcher $] docker-compose up -d researcher
 ```
 * retrieve the *publickey*
 ```bash
-[user@laptop $] docker-compose exec researcher wg show wg0 public-key
+[user@researcher $] docker-compose exec researcher wg show wg0 public-key
 ```
 * connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
 ```bash
-[user@laptop $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add researcher researcher1 *publickey*
+[user@network $] docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add researcher researcher1 *publickey*
+```
+* check the container correctly established a VPN with vpnserver:
+```bash
+# 10.220.0.1 is vpnserver contacted inside the VPN
+# it should answer to the ping
+[user@researcher $] docker-compose exec researcher ping -c 3 -W 1 10.220.0.1
 ```
 
 Run this for all launches of the container :
@@ -230,7 +254,7 @@ Run this for all launches of the container :
 * TODO: better package/scripting needed
   Connect again to the researcher and launch manually, now that the VPN is established
 ```bash
-[user@laptop $] docker-compose exec -u $(id -u) researcher bash
+[user@researcher $] docker-compose exec -u $(id -u) researcher bash
 # TODO : make more general by including it in the VPN configuration and user environment ?
 # TODO : create scripts in VPN environment
 # need proper parameters at first launch to create configuration file
