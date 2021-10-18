@@ -231,11 +231,22 @@ class Requests(metaclass=RequestMeta):
         :return: a dict with client_id as keys, and list of dicts describing
         available data as values
         """
-        self.messaging.send_message(ResearcherMessages.request_create({'tags':tags, 'researcher_id':RESEARCHER_ID, "command": "search"}).get_dict())
 
-        logger.info(f'Searching for clients with data tags: {tags}')
+        # Search datasets based on client specifications 
         if clients:
-            logger.info(f'Indicated clients will be selected based on results of the search request: {clients}')
+            for client in clients:
+                self.messaging.send_message(ResearcherMessages.request_create({'tags':tags, 
+                                                                               'researcher_id':RESEARCHER_ID, 
+                                                                               "command": "search"}
+                                                                               ).get_dict(),
+                                                                               client=client)
+                logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {clients}')
+        else:
+            self.messaging.send_message(ResearcherMessages.request_create({'tags':tags, 
+                                                                           'researcher_id':RESEARCHER_ID, 
+                                                                           "command": "search"}
+                                                                           ).get_dict())
+            logger.info(f'Searching for clients with data tags: {tags}')
 
         data_found = {}
         for resp in self.get_responses(look_for_command='search'):
@@ -244,6 +255,10 @@ class Requests(metaclass=RequestMeta):
             elif resp.get('client_id') in clients:
                 data_found[resp.get('client_id')] = resp.get('databases')
                 logger.info('Node selected for training -> {}'.format(resp.get('client_id')))
+        
+        if not data_found:
+            logger.info("No available dataset has found in nodes with tags: {}".format(tags)) 
+
         return data_found
 
     def list(self, clients: list = None, verbose: bool = False) -> dict:
@@ -255,26 +270,37 @@ class Requests(metaclass=RequestMeta):
             verbose (bool): If it is true it prints datasets in readable format
         """
 
-        self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':RESEARCHER_ID, "command": "list"}).get_dict())
-
-        logger.info(f'Listing avaialbe dataset in nodes: ')
+        # If clients list is provided
+        if clients:
+            for client in clients:
+                self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':RESEARCHER_ID, 
+                                                                                "command": "list"}
+                                                                                ).get_dict() ,
+                                                                                client=client)
+            logger.info(f'Listing datasets of given list of nodes : {clients}')
+        else:
+            self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':RESEARCHER_ID, 
+                                                                           "command": "list"}).get_dict())
+            logger.info(f'Listing available datasets in all nodes... ')
+        
+        # Get datasets from client responses
         data_found = {}
-
         for resp in self.get_responses(look_for_command='list'):
             if not clients:
                 data_found[resp.get('client_id')] = resp.get('databases')
             elif resp.get('client_id') in clients:
                 data_found[resp.get('client_id')] = resp.get('databases')
 
-        # Print dataset tables
+        # Print dataset tables usong data_found object
         if verbose:
             for node in data_found:
-                print('\n Node: {} | Number of Datasets: {}'.format( node, len(data_found[node])))
                 if len(data_found[node]) > 0 :
                     rows = [row.values() for row in data_found[node]]
                     headers = data_found[node][0].keys()
-                    print(tabulate.tabulate(rows, headers, tablefmt="grid"))  
+                    info = '\n Node: {} | Number of Datasets: {} \n'.format( node, len(data_found[node]))
+                    logger.info(info + tabulate.tabulate(rows, headers, tablefmt="grid") + '\n')  
                 else:
-                    print(" No data has been set up for this node.")
+                    logger.info('\n Node: {} | Number of Datasets: {}'.format( node, len(data_found[node])) + \
+                                 " No data has been set up for this node.")
 
         return data_found
