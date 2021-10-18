@@ -147,7 +147,7 @@ class TestStateExp(unittest.TestCase):
         file"""
         
         # test 1
-        files = ["Experiment_0", 
+        files = ["Experiment_0",
                  "Experiment_4",
                  "EXperiment_5",
                  "blabla",
@@ -160,7 +160,8 @@ class TestStateExp(unittest.TestCase):
                                                   only_folder=False)
         self.assertEqual(files[2], latest_file)
         
-        # test 2
+        # test 2: in this test, we patch isir builtin function
+        # so it returns always `True` when called
         patcher_builtin_os_path_isdir = patch("os.path.isdir",
                                               return_value=True)
         patcher_builtin_os_path_isdir.start()
@@ -176,7 +177,7 @@ class TestStateExp(unittest.TestCase):
                                                   only_folder=False)
         self.assertEqual(latest_file, None)
         
-        # test 4: exception
+        # test 4: test if exception is raised
         files = ['q', 'foo', 'bar']
         
         self.assertRaises(FileNotFoundError,
@@ -184,7 +185,16 @@ class TestStateExp(unittest.TestCase):
                           pathfile_test,
                           files,
                           only_folder=False)
+        
+    def test_private_instancialize_module(self):
+        pass  # too complicated
 
 
+    def test_private_load_training_replies(self):
+        patcher = patch('fedbiomed.researcher.job.Job._load_training_replies')
+        patcher.start()
+        # to be finished 
+        # test it hqs been called once
+        
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

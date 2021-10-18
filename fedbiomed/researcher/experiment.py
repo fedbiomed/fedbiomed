@@ -464,7 +464,7 @@ class Experiment:
     def _instancialize_module(args: Dict[str, Any],
                               class_key: str = "class",
                               module_key: str = "module"):
-        print("args", args, type(args))
+        
         module_class = args.get(class_key)
         module_path = args.get(module_key, "custom")
         if module_path == "custom":
