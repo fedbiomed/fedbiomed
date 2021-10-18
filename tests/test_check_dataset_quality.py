@@ -19,13 +19,11 @@ class TestJobDatasetQualityCheck(unittest.TestCase):
         self.patcher2 = patch('fedbiomed.researcher.job.Job.validate_minimal_arguments')
         self.patcher3 = patch('fedbiomed.common.messaging.Messaging.__init__')
         self.patcher4 = patch('fedbiomed.common.messaging.Messaging.start')
-        self.patcher5 = patch('fedbiomed.researcher.requests.Requests.__init__')
         
         self.mock_repository = self.patcher1.start()
         self.mock_job_validate = self.patcher2.start()
         self.mock_message_init = self.patcher3.start()
         self.mock_message_start = self.patcher4.start()
-        self.mock_req_init = self.patcher5.start()
 
         pass
 
@@ -36,8 +34,7 @@ class TestJobDatasetQualityCheck(unittest.TestCase):
         self.patcher2.stop()
         self.patcher3.stop()
         self.patcher4.stop()
-        self.patcher5.stop()
-        
+
         pass
     
     def test_check_quality_csv(self):
@@ -46,7 +43,6 @@ class TestJobDatasetQualityCheck(unittest.TestCase):
 
         self.mock_message_init.return_value = None
         self.mock_message_start.return_value = None
-        self.mock_req_init.return_value = None
 
 
         self.mock_repository.return_value.upload_file.return_value = {"file" : 'sss'}
@@ -129,14 +125,15 @@ class TestJobDatasetQualityCheck(unittest.TestCase):
 
             fds = FederatedDataSet(job_client_datasets)
             Job(data=fds, model = model_file)
-    
+
+        pass
+
     def test_check_quality_image(self):
         
         """Test when federated image dataset do match with good qualty"""
 
         self.mock_message_init.return_value = None
         self.mock_message_start.return_value = None
-        self.mock_req_init.return_value = None
 
 
         self.mock_repository.return_value.upload_file.return_value = {"file" : 'sss'}
@@ -244,7 +241,7 @@ class TestJobDatasetQualityCheck(unittest.TestCase):
         except:
             self.assertTrue(False, 'Raised an error while checking transposed images')
 
-
+        pass
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

@@ -1,7 +1,7 @@
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 import unittest
-from unittest.mock import MagicMock, patch 
+from unittest.mock import patch 
 
 
 class TestRequest(unittest.TestCase):
@@ -10,26 +10,31 @@ class TestRequest(unittest.TestCase):
     def setUp(self):
 
         """Setup mocks for Messaging class"""
-        self.pathcer1 = patch('fedbiomed.common.messaging.Messaging.__init__')
-        self.pathcer2 = patch('fedbiomed.common.messaging.Messaging.start')
-        self.pathcer3 = patch('fedbiomed.common.messaging.Messaging.send_message')
+        self.req_pathcer1 = patch('fedbiomed.common.messaging.Messaging.__init__')
+        self.req_pathcer2 = patch('fedbiomed.common.messaging.Messaging.start')
+        self.req_pathcer3 = patch('fedbiomed.common.messaging.Messaging.send_message')
 
-        self.message_init = self.pathcer1.start()
-        self.message_start = self.pathcer2.start()
-        self.message_send = self.pathcer3.start()
+        self.message_init           = self.req_pathcer1.start()
+        self.message_start          = self.req_pathcer2.start()
+        self.message_send           = self.req_pathcer3.start()
         
         self.message_init.return_value = None
         self.message_start.return_value = None
         self.message_send.return_value = None
 
+
     def tearDown(self):
 
-        self.pathcer1.stop()
-        self.pathcer2.stop()
+        self.req_pathcer1.stop()
+        self.req_pathcer1.stop()
+        self.req_pathcer1.stop()
 
+        pass
+    
+    
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     def test_list_function(self, request_get_response):
-
+        
         # Test with single response database
         res = [
                 {'client_id' : 'client-1', 
