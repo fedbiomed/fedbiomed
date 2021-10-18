@@ -1,10 +1,22 @@
 #!/bin/sh
 
+
+([[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
+ [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
+    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
+ [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)) && sourced=1 || sourced=0
+
+[[ "${sourced}" == "0" ]] &&
+    echo "This file MUST be sourced from a BASH shell (and not executed) to benefit from the environment" && exit -1
+
+[[ "$KSH_VERSION" ]] && echo "This script only works from a BASH or ZSH shell" && return
+
+
 SERVICES=""
 SERVICES_LAUNCH=""
 REBUILD=0
 BUILD=0
-IP_ADDRESS='localhost'
+IP_ADDRESS=0
 
 for (( i=1; i<=$#; i++)); do
 
@@ -31,7 +43,7 @@ for (( i=1; i<=$#; i++)); do
             IP_ADDRESS="${!j}"
             ;;  
         -h)
-            echo "usage: ./scripts/start_jupyterhub [jupyterhub] [notebook] [-bg] [-rebuild] [--ip_address]"
+            echo "usage: ./scripts/start_jupyterhub [jupyterhub] [notebook] [-bg] [-rebuild] [-build] [-ip_address]"
             exit -1
             ;;
     esac
@@ -85,12 +97,21 @@ for SERVICE_NAME in $SERVICES ; do
 done
 
 cd ./envs/development/docker
-# export JUPYTERLAB_HOST_IP=$IP_ADDRESS
+
+# Check IP address specified 
+if [ ${IP_ADDRESS} == "0" ]; then
+  # Get host machine ip address
+  internal_ip=$(ip addr show |grep "inet " |grep -v 127.0.0. |head -1|cut -d" " -f6|cut -d/ -f1)
+  export JUPYTERLAB_HOST_IP=$internal_ip
+else
+  export JUPYTERLAB_HOST_IP=$IP_ADDRESS
+fi
+
 
 
 if [ ${BUILD} == "1" ] ; then
     echo -e "\n==building image $SERVICES from $LAUNCH_DIR"
-    docker-compose build $SERVICES
+    docker-compose up --build $SERVICES
 fi 
 
 if [ -n "$SERVICES_LAUNCH" ] ; then
@@ -100,3 +121,4 @@ else
   echo -e "\n== not launching any new container"
 fi
 
+cd ../../../

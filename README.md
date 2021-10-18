@@ -170,11 +170,22 @@ usage:  lqueue directory
    or
         lqueue dir1 dir2 dir3 ...
 
-<<<<<<< HEAD
 ## Jupyterhub 
 
-Please go `env/development/docker` directory to have more information about launching JupyterHub. 
-=======
+**Note:** Please go `env/development/docker` directory to have more information about launching JupyterHub using `docker-compose`.
+
+For launching JupyterHub using script;
+
+`source ./scripts/start_jupyterhub --build`
+
+If you've already built your images you can just run following command;
+
+`source ./scripts/start_jupyterhub`
+
+The script will automatically get the host machine IP. If you want to change it, please use scpecify it with `--ip_address` argument;
+
+`source ./scripts/start_jupyterhub --ip_address 1.1.1.1`
+
 
 ## Using Tensorboard  
 
@@ -216,5 +227,4 @@ Run following command to start tensorboard
 
 
 
->>>>>>> develop
 

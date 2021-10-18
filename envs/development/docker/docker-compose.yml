@@ -80,10 +80,10 @@ services:
         CHOWN_HOME:yes
         CHOWN_HOME_OPTS:-R
         RESTARTABLE:yes
-        UPLOAD_IP:138.96.220.146
+        UPLOAD_IP:${JUPYTERLAB_HOST_IP}
         UPLOAD_PORT:8844
         UPLOAD_PATH:upload/
-        MQTT_BROKER:138.96.220.146
+        MQTT_BROKER:${JUPYTERLAB_HOST_IP}
         MQTT_BROKER_PORT:1883
 
 
