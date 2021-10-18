@@ -117,11 +117,8 @@ class Experiment:
 
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
-        
         #  folder will be created
-        
         self._monitor = Monitor(tensorboard=tensorboard)
-        
         self._training_data = None  # reset variable to `None`
 
     @property
@@ -185,6 +182,12 @@ class Experiment:
                                                 'params_path': aggregated_params_path}
             if self._save_breakpoints:
                 self._save_state(round_i)
+                
+            # Increase round state in the monitor
+            self._monitor.increase_round()
+        
+        # Close SummaryWriters for tensorboard
+        self._monitor.close_writer()
 
             # Increase round state in the monitor
             self._monitor.increase_round()
@@ -483,4 +486,3 @@ class Experiment:
                                params_path: List[str]):
         self._job._load_training_replies(training_replies,
                                          params_path)
-
