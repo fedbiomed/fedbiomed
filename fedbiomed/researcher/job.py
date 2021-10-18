@@ -358,7 +358,7 @@ class Job:
             training_replies[key][client_i]['params_path'] = params_path[client_id]
 
             loaded_training_replies[key].append(Responses(training_replies[key][client_i]))
-
+        print(loaded_training_replies)
         self._training_replies = loaded_training_replies
 
 

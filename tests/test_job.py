@@ -116,7 +116,7 @@ class TestStateInJob(unittest.TestCase):
         self.assertEquals(new_training_replies[1][1].get('dataset_id'),
                           'id_client_2')
     
-    def test_load_private_training_replies(self):
+    def test_private_load_training_replies(self):
         """tests if `_load_training_replies` is converting path files into
         pytorch tensor or numpy arrays.
         """
@@ -163,6 +163,7 @@ class TestStateInJob(unittest.TestCase):
                                               params_path)
 
         # check `self._training_replies` for pytorch models
+
         self.assertTrue(torch.isclose(test_job_torch._training_replies[3][0]['params'],
                         pytorch_params).all())
         self.assertTrue(test_job_torch._training_replies[3][0]['params_path'],

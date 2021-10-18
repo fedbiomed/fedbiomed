@@ -7,6 +7,7 @@ import json
 from typing import Union
 from fedbiomed.researcher.environ import TMP_DIR, VAR_DIR, UPLOADS_URL
 from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 
@@ -187,14 +188,35 @@ class TestStateExp(unittest.TestCase):
                           only_folder=False)
         
     def test_private_instancialize_module(self):
+        args = {"class": "myclass",
+                "module": "module.containing.my.class",
+                "parameters": None}
+        
+        # test 1: default
+        import_str = Experiment._instancialize_module(args)
+        self.assertEqual(import_str,
+                         'from module.containing.my.class import myclass')
+        # test 2: custom module
+        args = {"class": "myclass",
+                "module": "custom",
+                "parameters": None}
+        import_str = Experiment._instancialize_module(args)
+        self.assertEqual(import_str, 'import myclass')
+
+    def test_load_breakpoints(self):
         pass  # too complicated
 
+    @patch('fedbiomed.researcher.job.Job._load_training_replies')
+    def test_private_load_training_replies(self,
+                                           path_job_load_training_replies):
+        path_job_load_training_replies.return_value = None
+        tr_replies = {1: [{"foo": "bar"}]}
+        pr_path = ["/path/to/file", "/path/to/file"]
+        self.test_exp._load_training_replies(tr_replies, pr_path)
+        # test if Job's `_load_training_replies` has been called once
+        path_job_load_training_replies.assert_called_once()
+        
 
-    def test_private_load_training_replies(self):
-        patcher = patch('fedbiomed.researcher.job.Job._load_training_replies')
-        patcher.start()
-        # to be finished 
-        # test it hqs been called once
         
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

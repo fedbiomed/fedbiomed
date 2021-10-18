@@ -189,12 +189,6 @@ class Experiment:
         # Close SummaryWriters for tensorboard
         self._monitor.close_writer()
 
-            # Increase round state in the monitor
-            self._monitor.increase_round()
-        
-        # Close SummaryWriters for tensorboard
-        self._monitor.close_writer()
-
     def _create_breakpoints_folder(self):
         """Creates a general folder for storing breakpoints (if non existant)
         into the `BREAKPOINTS_DIR` folder.
@@ -473,12 +467,12 @@ class Experiment:
         if module_path == "custom":
             # case where user is loading its own custom
             # client sampling strategy
-            import_str = ' import ' + module_class
+            import_str = 'import ' + module_class
         else:
             # client is using a fedbiomed client sampling strategy
             import_str = 'from ' + module_path + ' import ' + module_class
         logging.debug(f"{module_class} loaded !")
-        print(module_class)
+
         return import_str
 
     def _load_training_replies(self,
