@@ -185,6 +185,7 @@ class Requests(metaclass=RequestMeta):
                 `success=True`). Defaults to True.
         """
         timeout = timeout or TIMEOUT
+        print("TIMEOUT = ", TIMEOUT)
         responses = []
 
         while True:
@@ -232,21 +233,21 @@ class Requests(metaclass=RequestMeta):
         available data as values
         """
 
-        # Search datasets based on client specifications 
+        # Search datasets based on client specifications
         if clients:
+            logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {clients}')
             for client in clients:
-                self.messaging.send_message(ResearcherMessages.request_create({'tags':tags, 
-                                                                               'researcher_id':RESEARCHER_ID, 
+                self.messaging.send_message(ResearcherMessages.request_create({'tags':tags,
+                                                                               'researcher_id':RESEARCHER_ID,
                                                                                "command": "search"}
                                                                                ).get_dict(),
                                                                                client=client)
-                logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {clients}')
         else:
-            self.messaging.send_message(ResearcherMessages.request_create({'tags':tags, 
-                                                                           'researcher_id':RESEARCHER_ID, 
+            logger.info(f'Searching dataset with data tags: {tags} for all nodes')
+            self.messaging.send_message(ResearcherMessages.request_create({'tags':tags,
+                                                                           'researcher_id':RESEARCHER_ID,
                                                                            "command": "search"}
                                                                            ).get_dict())
-            logger.info(f'Searching for clients with data tags: {tags}')
 
         data_found = {}
         for resp in self.get_responses(look_for_command='search'):
@@ -255,9 +256,9 @@ class Requests(metaclass=RequestMeta):
             elif resp.get('client_id') in clients:
                 data_found[resp.get('client_id')] = resp.get('databases')
                 logger.info('Node selected for training -> {}'.format(resp.get('client_id')))
-        
+
         if not data_found:
-            logger.info("No available dataset has found in nodes with tags: {}".format(tags)) 
+            logger.info("No available dataset has found in nodes with tags: {}".format(tags))
 
         return data_found
 
@@ -266,23 +267,23 @@ class Requests(metaclass=RequestMeta):
 
         Args:
             clients (str): Listings datasets by given client ids
-                            Default is none. 
+                            Default is none.
             verbose (bool): If it is true it prints datasets in readable format
         """
 
         # If clients list is provided
         if clients:
             for client in clients:
-                self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':RESEARCHER_ID, 
+                self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':RESEARCHER_ID,
                                                                                 "command": "list"}
                                                                                 ).get_dict() ,
                                                                                 client=client)
             logger.info(f'Listing datasets of given list of nodes : {clients}')
         else:
-            self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':RESEARCHER_ID, 
+            self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':RESEARCHER_ID,
                                                                            "command": "list"}).get_dict())
             logger.info(f'Listing available datasets in all nodes... ')
-        
+
         # Get datasets from client responses
         data_found = {}
         for resp in self.get_responses(look_for_command='list'):
@@ -298,7 +299,7 @@ class Requests(metaclass=RequestMeta):
                     rows = [row.values() for row in data_found[node]]
                     headers = data_found[node][0].keys()
                     info = '\n Node: {} | Number of Datasets: {} \n'.format( node, len(data_found[node]))
-                    logger.info(info + tabulate.tabulate(rows, headers, tablefmt="grid") + '\n')  
+                    logger.info(info + tabulate.tabulate(rows, headers, tablefmt="grid") + '\n')
                 else:
                     logger.info('\n Node: {} | Number of Datasets: {}'.format( node, len(data_found[node])) + \
                                  " No data has been set up for this node.")
