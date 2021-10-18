@@ -53,7 +53,7 @@ class TestStateExp(unittest.TestCase):
         self.patcher3 = patch('fedbiomed.common.repository.Repository.upload_file',
                               return_value={"file": UPLOADS_URL})
         self.patcher_monitor = patch('fedbiomed.researcher.experiment.Monitor',
-                                return_value=None)
+                                     return_value=None)
 
         self.patcher.start() 
         self.patcher2.start()
@@ -142,6 +142,49 @@ class TestStateExp(unittest.TestCase):
         self.assertEqual(bkpt_file,
                          breakpoint_folder_name + str(2) + ".json")
         
+    def test_private_get_latest_file(self):
+        """tests if `_get_latest_file` returns more recent
+        file"""
+        
+        # test 1
+        files = ["Experiment_0", 
+                 "Experiment_4",
+                 "EXperiment_5",
+                 "blabla",
+                 "99_blabla"]
+        
+        pathfile_test = "/path/to/a/file"
+        
+        latest_file = Experiment._get_latest_file(pathfile_test,
+                                                  files,
+                                                  only_folder=False)
+        self.assertEqual(files[2], latest_file)
+        
+        # test 2
+        patcher_builtin_os_path_isdir = patch("os.path.isdir",
+                                              return_value=True)
+        patcher_builtin_os_path_isdir.start()
+        latest_file = Experiment._get_latest_file(pathfile_test,
+                                                  files,
+                                                  only_folder=True)
+        self.assertEqual(files[2], latest_file)
+        patcher_builtin_os_path_isdir.stop()
+        # test 3
+        files = []
+        latest_file = Experiment._get_latest_file(pathfile_test,
+                                                  files,
+                                                  only_folder=False)
+        self.assertEqual(latest_file, None)
+        
+        # test 4: exception
+        files = ['q', 'foo', 'bar']
+        
+        self.assertRaises(FileNotFoundError,
+                          Experiment._get_latest_file,
+                          pathfile_test,
+                          files,
+                          only_folder=False)
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

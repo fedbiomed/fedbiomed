@@ -313,7 +313,7 @@ class Experiment:
     @staticmethod
     def _get_latest_file(pathfile: str,
                          list_name_file: List[str],
-                         only_folder: bool = False):
+                         only_folder: bool = False) -> str:
         latest_nb = 0
         latest_folder = None
         for exp_folder in list_name_file:
@@ -321,8 +321,8 @@ class Experiment:
             exp_match = re.search(r'[0-9]*$',
                                   exp_folder)
 
-            if exp_match is not None:
-                print("ony_folder", only_folder, "isdir", os.path.isdir(exp_folder))
+            if len(exp_folder) != exp_match.span()[0]:
+                
                 dir_path = os.path.join(pathfile, exp_folder)
                 if not only_folder or os.path.isdir(dir_path):
                     f_idx = exp_match.span()[0]
@@ -332,7 +332,8 @@ class Experiment:
                         latest_nb = order
                         latest_folder = exp_folder
         
-        if latest_folder is None:
+        if latest_folder is None and len(list_name_file) != 0:
+                
             raise FileNotFoundError("None of those are breakpoints{}".format(", ".join(list_name_file)))            
         return latest_folder
     
