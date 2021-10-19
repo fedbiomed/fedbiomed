@@ -314,6 +314,25 @@ class Experiment:
     def _get_latest_file(pathfile: str,
                          list_name_file: List[str],
                          only_folder: bool = False) -> str:
+        """Gets latest file from folder specified in `list_name_file`
+        from the following convention:
+            the more recent folder is the file written as `myfile_xx`
+            where `xx` is the higher integer amongst files in `list_name_file`
+
+        Args:
+            pathfile (str): path towards folder on system
+            list_name_file (List[str]): a list containing files
+            only_folder (bool, optional): whether to consider only 
+            folder names or to consider both  file and folder names.
+            Defaults to False.
+
+        Raises:
+            FileNotFoundError: triggered if none of the names 
+            in folder doesnot match with naming convention.
+
+        Returns:
+            str: More recent file name given naming convention.
+        """
         latest_nb = 0
         latest_folder = None
         for exp_folder in list_name_file:
@@ -338,7 +357,27 @@ class Experiment:
         return latest_folder
     
     @staticmethod
-    def _find_breakpoint_path(breakpoint_folder: str = None):
+    def _find_breakpoint_path(breakpoint_folder: str = None) -> Tuple[str, str]:
+        """Finds breakpoint path, regarding if
+        user specifies a specific breakpoint path or
+        considers only the latest breakpoint.
+
+        Args:
+            breakpoint_folder (str, optional):path towards breakpoint. If None, 
+            (default), consider latest breakpoint saved on default path 
+            (provided at least one breakpoint exists). Defaults to None.
+
+        Raises:
+            FileNotFoundError: triggered either if breakpoint cannot be found,
+            or cannot be parsed
+            Exception: triggered if breakpoint folder is empty.
+            FileNotFoundError: [description]
+
+        Returns:
+            str: folder location toward breakpoint (unchanged if 
+            specified by user)
+            str: latest experiment and breakpoint folder.
+        """
         # First, let's test if folder is a real folder path
         if breakpoint_folder is None:
             try:
@@ -414,6 +453,24 @@ class Experiment:
     def load_breakpoint(cls: Type[_E],
                         breakpoint_folder: str = None,
                         extra_rounds: int = 1) -> _E:
+        """
+        Loads breakpoint (provided a breakpoint has been saved)
+        so experience can be resumed. Useful if training has crashed
+        researcher side or if user wants to resume experiment.
+
+        Args:
+            cls (Type[_E]): Experiment class
+            breakpoint_folder (str, optional): path of the breakpoint folder.
+            Path should be: "breakpoints/Experiment_xx/breakpoints_xx".
+            If None, loads latest breakpoint of the latest experiment.
+            Defaults to None.
+            extra_rounds (int, optional): executes extra training rounds.
+            Defaults to 1.
+
+        Returns:
+            _E: Reinitialized experiment. With given object,
+            user can then use `.run()` method to pursue model training.
+        """
         # get breakpoint folder path (if it is None) and 
         # state file
         breakpoint_folder, state_file = Experiment._find_breakpoint_path(breakpoint_folder)
@@ -498,6 +555,6 @@ class Experiment:
 
     def _load_training_replies(self,
                                training_replies: Dict[int, List[dict]],
-                               params_path: List[str]):
+                               params_path: Dict[str, str]):
         self._job._load_training_replies(training_replies,
                                          params_path)

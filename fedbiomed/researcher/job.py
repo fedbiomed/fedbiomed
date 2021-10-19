@@ -343,8 +343,17 @@ class Job:
 
     def _load_training_replies(self,
                                training_replies: Dict[int, List[dict]],
-                               params_path: List[str]):
-        
+                               params_path: Dict[str, str]):
+        """Loads training replies from a formatted JSON file,
+        so it behaves like a real `training_replies`.
+        Gathers parameters values instead of path to paramater files.
+
+        Args:
+            training_replies (Dict[int, List[dict]]): JSON formatted
+            `training_replies` entry.
+            params_path (Dict[str, str]): dictionary of parameter paths (keys)
+            mapping client ids (entries).
+        """
         
         # get key
         key = tuple(training_replies.keys())[0]
