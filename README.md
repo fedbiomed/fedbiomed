@@ -199,7 +199,7 @@ pass: FED123fed
 
 Note: In case of frozen loading bar while accessing jupyterlab notebook, please refresh or logout and login again. 
 
-**Note:** Please go `env/development/docker/README.md` directory to have more information about launching JupyterHub using `docker-compose` and adding jupyterhub user.
+**Note:** Please go `env/development/docker/README.md` to have more information about launching JupyterHub using `docker-compose` and adding jupyterhub user.
 
 ## Using Tensorboard  
 
