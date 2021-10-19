@@ -67,6 +67,10 @@ class Job:
 
         self.last_msg = None
         self._data = data
+
+        # Check dataset quality
+        self.check_data_quality()
+
         # handle case when model is in a file
         if model_path is not None:
             try:
@@ -275,6 +279,62 @@ class Job:
             sys.exit(-1)
         return filename
 
+    def check_data_quality(self):
+
+        """Compare datasets that has been found in different nodes. 
+        """
+        data = self._data.data()
+        # If there are more than two nodes ready for the job
+        if len(data.keys()) > 1:
+            
+            # Frist check data types are same based on searched tags
+            logger.info('Checking data quality of federated datasets...')
+
+            data_types = [] # CSV, Image or default 
+            shapes = [] # dimensions
+            dtypes = [] # variable types for CSV datasets
+
+            # Extract features into arrays for comparison
+            for data_list in data.items():
+                for feature in data_list[1]:
+                    data_types.append(feature["data_type"]) 
+                    dtypes.append(feature["dtypes"])
+                    shapes.append(feature["shape"])
+
+            assert len(set(data_types)) == 1,\
+                 f'Diferent type of datasets has been loaded with same tag: {data_types}'
+
+            if data_types[0] == 'csv':              
+                assert len(set([s[1] for s in shapes])) == 1, \
+                        f'Number of columns of federated datasets do not match {shapes}.'
+                
+                dtypes_t = list(map(list, zip(*dtypes)))
+                for t in dtypes_t:
+                    assert len(set(t)) == 1, \
+                         f'Variable data types do not match in federated datasets {dtypes}'
+
+            elif data_types[0] == 'images':
+    
+                shapes_t = list(map(list, zip(*[s[2:] for s in shapes])))
+                dim_state = True
+                for s in shapes_t:
+                    if len(set(s)) != 1:
+                        dim_state = False
+
+                if not dim_state:
+                    logger.error(f'Dimensions of the images in federated datasets \
+                                 do not match. Please consider using resize. {shapes} ')
+                
+
+                if len(set([ k[1] for k in shapes])) != 1:
+                    logger.error(f'Color channels of the images in federated \
+                                    datasets do not match. {shapes}')
+
+            # If it is default MNIST dataset pass
+            else:
+                pass
+        
+        pass
 
 class localJob:
     """
