@@ -150,14 +150,31 @@ Run this for all launches of the container :
 
 ### initializing node
 
+#### specific instructions: building node image in classical case
 
-## specific instructions: building node image on a different machine
+This paragraph contains specific instructions for the classical case where
+you build the node image on the same machine and in the same code tree where
+you run it.
+
+Run this only at first launch of container or after cleaning :
+
+* build container
+```bash
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
+```
+
+Then follow the common instructions for nodes (below).
+
+
+#### specific instructions: building node image on a different machine
 
 This paragraph contains specific instructions when building node image
 on a different machine than the machine where the node runs.
 
 If you do not want to clone the repo and build the node image on a machine, you can
 instantiate a node from an image built on another machine.
+
 * in this paragraph we distinguish commands typed on the build machine (eg `[user@build $]`) from the commands typed on the machine running the node (eg `[user@node $]`)
 
 
@@ -203,18 +220,13 @@ On the node machine
 Then follow the common instructions for nodes (below).
 
 
-### common instructions: in all cases
+#### common instructions: in all cases
 
 Always follow this paragraph for initializing a node, whether you build it on the same machine 
 or another machine.
 
 Run this only at first launch of container or after cleaning :
 
-* build container
-```bash
-[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
-[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
-```
 * generate VPN client for this container (see above in vpnserver)
 * configure the VPN client for this container
 ```bash
