@@ -1,47 +1,163 @@
+from fedbiomed.researcher.requests import Requests
+from fedbiomed.researcher.responses import Responses
 import unittest
-from unittest.mock import Mock
+from unittest.mock import patch 
 
-import os
-import sys
-import time
 
-# import a fake environment for tests bafore importing other files
-import testsupport.mock_researcher_environ
+class TestRequest(unittest.TestCase):
+    """ Test class for Request class """
 
-from fedbiomed.researcher.job import Job
-
-class TestJob(unittest.TestCase):
-
-    '''
-    Test the Job class
-    '''
-    # once in test lifetime
-    @classmethod
-    def setUpClass(cls):
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        pass
-
-    # before all the tests
     def setUp(self):
-        pass
 
-    # after all the tests
+        """Setup mocks for Messaging class"""
+        self.req_pathcer1 = patch('fedbiomed.common.messaging.Messaging.__init__')
+        self.req_pathcer2 = patch('fedbiomed.common.messaging.Messaging.start')
+        self.req_pathcer3 = patch('fedbiomed.common.messaging.Messaging.send_message')
+
+        self.message_init           = self.req_pathcer1.start()
+        self.message_start          = self.req_pathcer2.start()
+        self.message_send           = self.req_pathcer3.start()
+        
+        self.message_init.return_value = None
+        self.message_start.return_value = None
+        self.message_send.return_value = None
+
+
     def tearDown(self):
-        pass
 
-    # tests
-    def test_job(self):
-        '''
-
-        '''
-        # does not work yet !!
-        #j = Job()
+        self.req_pathcer1.stop()
+        self.req_pathcer1.stop()
+        self.req_pathcer1.stop()
 
         pass
+    
+    
+    @patch('fedbiomed.researcher.requests.Requests.get_responses')
+    def test_list_function(self, request_get_response):
+        
+        # Test with single response database
+        res = [
+                {'client_id' : 'client-1', 
+                'researcher_id': 'r-xxx', 
+                'databases' : [ 
+                    {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'},
+                    {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'}
+                ],
+                'success' : True,
+                'count' : 2,
+                'command': 'list'
+                }
+            ]
 
+        responses = Responses(res)
+        request_get_response.return_value = responses
+        try: 
+            req = Requests()
+            result = req.list()
+        except:
+            self.assertTrue(False, 'List method failed even data is okay')
+
+        self.assertIsInstance(result, object)
+        
+        # Test with multople database response
+        res = [
+                {'client_id' : 'client-1', 
+                'researcher_id': 'r-xxx', 
+                'databases' : [ 
+                    {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'},
+                    {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'}
+                ],
+                'success' : True,
+                'count' : 2,
+                'command': 'list'
+                },
+                {'client_id' : 'client-2', 
+                'researcher_id': 'r-xxx', 
+                'databases' : [ 
+                    {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'},
+                    {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'}
+                ],
+                'success' : True,
+                'count' : 2,
+                'command': 'list'
+                }
+            ]
+        
+        responses = Responses(res)
+        request_get_response.return_value = responses
+
+        try: 
+            req = Requests()
+            result = req.list()
+        except:
+            self.assertTrue(False, 'List method failed even data is okay')
+
+        self.assertIsInstance(result, object)
+
+        # Test with verbose mode
+        res = [
+                {'client_id' : 'client', 
+                'researcher_id': 'r-xxx', 
+                'databases' : [ 
+                    {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'},
+                    {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'}
+                ],
+                'success' : True,
+                'count' : 2,
+                'command': 'list'
+                },
+            ]
+        
+        responses = Responses(res)
+        request_get_response.return_value = responses
+
+        try: 
+            req = Requests(verbose=True)
+            result = req.list()
+        except:
+            self.assertTrue(False, 'List method failed even data is okay')
+
+        self.assertIsInstance(result, object)
+        # Test with client ids
+        res = [
+                {'client_id' : 'client', 
+                'researcher_id': 'r-xxx', 
+                'databases' : [ 
+                    {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'},
+                    {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'}
+                ],
+                'success' : True,
+                'count' : 2,
+                'command': 'list'
+                },
+                {'client_id' : 'client-2', 
+                'researcher_id': 'r-xxx', 
+                'databases' : [ 
+                    {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'},
+                    {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'}
+                ],
+                'success' : True,
+                'count' : 2,
+                'command': 'list'
+                }
+            ]
+        
+        responses = Responses(res)
+        request_get_response.return_value = responses
+
+        try: 
+            req = Requests(clients= ['client-1' , 'client-2'])
+            result = req.list()
+        except:
+            self.assertTrue(False, 'List method failed even data is okay')
+            
+        self.assertIsInstance(result, object)
+
+
+
+
+
+        pass
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

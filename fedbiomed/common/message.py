@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, Any, Union
+from typing import Dict, Any, List, Union
 
 from fedbiomed.common.logger import logger
 
@@ -76,6 +76,30 @@ class SearchReply(Message):
     count: int
     client_id: str
     command: str
+
+    def __post_init__(self):
+        if not self.validate(self.__dataclass_fields__.items()):
+            raise ValueError('Wrong types')
+
+@dataclass
+class ListReply(Message):
+
+    """This class describes a list reply message sent by the node that includes
+    list of datasets. It is a reply for ListRequest messsage from the researcher.
+
+    Args:
+        Message ([type]): Parent class allows to get and set message params
+
+    Raises:
+        ValueError: triggered if message's fields validation failed
+    """
+
+    researcher_id: str
+    success: bool
+    databases: list
+    client_id: str
+    command: str
+    count: int
 
     def __post_init__(self):
         if not self.validate(self.__dataclass_fields__.items()):
@@ -180,6 +204,22 @@ class SearchRequest(Message):
         if not self.validate(self.__dataclass_fields__.items()):
             raise ValueError('Wrong types')
 
+@dataclass
+class ListRequest(Message):
+    """
+    This class describes a list request message sent by the researcher to nodes in order to list
+    datasets belonging to each node.
+
+    Raises:
+       ValueError: triggered if message's fields validation failed
+    """
+
+    researcher_id: str
+    command: str
+
+    def __post_init__(self):
+        if not self.validate(self.__dataclass_fields__.items()):
+            raise ValueError('Wrong types')
 
 @dataclass
 class PingRequest(Message):
@@ -229,7 +269,8 @@ class ResearcherMessages():
     def reply_create(cls, params: Dict[str, Any]) -> Union[TrainReply,
                                                            SearchReply,
                                                            PingReply,
-                                                           LogMessage]:
+                                                           LogMessage,
+                                                           ListReply]:
         """this method is used on message reception (as a mean to reply to
         node requests, such as a Ping request).
         it creates the adequate message, it maps an instruction
@@ -252,7 +293,8 @@ class ResearcherMessages():
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
                                      'search': SearchReply,
                                      'pong': PingReply,
-                                     'log': LogMessage
+                                     'log': LogMessage,
+                                     'list': ListReply
         }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -263,7 +305,8 @@ class ResearcherMessages():
     @classmethod
     def request_create(cls, params: Dict[str, Any]) -> Union[TrainRequest,
                                                              SearchRequest,
-                                                             PingRequest]:
+                                                             PingRequest,
+                                                             ListRequest]:
 
         """This method creates the adequate message/request,
         it maps an instruction (given the key "command" in
@@ -287,7 +330,8 @@ class ResearcherMessages():
 
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainRequest,
                                      'search': SearchRequest,
-                                     'ping': PingRequest
+                                     'ping': PingRequest,
+                                     'list': ListRequest
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -305,7 +349,8 @@ class NodeMessages():
     @classmethod
     def request_create(cls, params: dict) -> Union[TrainRequest,
                                                    SearchRequest,
-                                                   PingRequest]:
+                                                   PingRequest,
+                                                   ListRequest]:
         """
         This method creates the adequate message/ request to send
         to researcher, it maps an instruction (given the key "command" in the
@@ -329,6 +374,7 @@ class NodeMessages():
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainRequest,
                                      'search': SearchRequest,
                                      'ping': PingRequest,
+                                     'list': ListRequest
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -341,7 +387,8 @@ class NodeMessages():
                                                  SearchReply,
                                                  PingReply,
                                                  LogMessage,
-                                                 AddScalarReply]:
+                                                 AddScalarReply,
+                                                 ListReply]:
         """this method is used on message reception.
         It creates the adequate message reply to send to the researcher,
         it maps an instruction (given the key "command" in the
@@ -364,7 +411,8 @@ class NodeMessages():
                                      'search': SearchReply,
                                      'pong': PingReply,
                                      'log': LogMessage,
-                                     'add_scalar': AddScalarReply
+                                     'add_scalar': AddScalarReply,
+                                     'list': ListReply
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
