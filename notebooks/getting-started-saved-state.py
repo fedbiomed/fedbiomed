@@ -149,25 +149,14 @@ for c in range(len(round_data)):
                 rtotal = round_data[c]['timing']['rtime_total']))
 print('\n')
     
-#print(exp.training_replies[rounds - 1].dataframe)
+
+del exp  
+# here we simulate the removing of the ongoing experiment
+# fret not! we have saved breakpoint, so we can retrieve parameters
+# of the experiment using `load_breakpoint` method
 
 
-# Federated parameters for each round are available in `exp.aggregated_params` (index 0 to (`rounds` - 1) ).
-# For example you can view the federated parameters for the last round of the experiment :
-
-# print("\nList the training rounds : ", exp.aggregated_params.keys())
-
-# print("\nAccess the federated params for the last training round : ")
-# print("\t- params_path: ", exp.aggregated_params[rounds - 1]['params_path'])
-# print("\t- parameter data: ", exp.aggregated_params[rounds - 1]['params'].keys())
-
-
-del exp
-
-from fedbiomed.researcher.environ import VAR_DIR
-import os
-loaded_exp = Experiment.load_breakpoint(os.path.join(VAR_DIR, "breakpoints", 'Experiment_0', 'breakpoint_1'),
-                                        extra_rounds=1)
+loaded_exp = Experiment.load_breakpoint()
 
 print("______________ loaded training replies_________________")
 #print("\nList the training rounds : ", loaded_exp.training_replies.keys())
@@ -188,9 +177,16 @@ print('\n')
 #print(loaded_exp.training_replies[rounds - 1].dataframe)
 loaded_exp.run()
 
-del loaded_exp
-loaded_exp = Experiment.load_breakpoint()
-loaded_exp.run()
+
+
+# Federated parameters for each round are available in `exp.aggregated_params` (index 0 to (`rounds` - 1) ).
+# For example you can view the federated parameters for the last round of the experiment :
+
+print("\nList the training rounds : ", loaded_exp.aggregated_params.keys())
+
+print("\nAccess the federated params for the last training round : ")
+print("\t- params_path: ", loaded_exp.aggregated_params[rounds ]['params_path'])
+print("\t- parameter data: ", loaded_exp.aggregated_params[rounds ]['params'].keys())
 # ## Optional : searching the data
 
 #from fedbiomed.researcher.requests import Requests
