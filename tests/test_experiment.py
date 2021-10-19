@@ -216,7 +216,20 @@ class TestStateExp(unittest.TestCase):
         # test if Job's `_load_training_replies` has been called once
         path_job_load_training_replies.assert_called_once()
         
-
+    @patch('os.listdir')
+    @patch('fedbiomed.researcher.experiment.Experiment._get_latest_file')
+    @patch('fedbiomed.researcher.experiment.eval')
+    @patch('fedbiomed.researcher.experiment.exec')
+    def test_load_breakpoint(self,
+                             patch_os_listdir,
+                             patch_get_latest_file,
+                             patch_builtin_eval,
+                             patch_builtin_exec):
+        patch_os_listdir.return_value = ["/path/to/file"]
+        patch_get_latest_file.return_value = '/path/to/file'
+        patch_builtin_eval.return_value = MagicMock()
+        patch_builtin_exec.return_value = None
+        pass
         
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

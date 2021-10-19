@@ -305,7 +305,8 @@ class Experiment:
         breakpoint_path = os.path.join(breakpoint_path, breakpoint_file_name)
         with open(breakpoint_path, 'w') as bkpt:
             json.dump(state, bkpt)
-        logger.info(f"breakpoint for round {round} saved at {breakpoint_path}")
+        logger.info(f"breakpoint for round {round} saved at \
+            {os.path.dirname(breakpoint_path)}")
 
     @staticmethod
     def _get_latest_file(pathfile: str,
@@ -402,10 +403,11 @@ class Experiment:
         with open(os.path.join(breakpoint_folder, state_file), "r") as f:
             saved_state = json.load(f)
         print(saved_state)
-        
-        
+
+
         # TODO: for both client sampling strategy & aggregator
-        # deal with parameter
+        # deal with saved parameters
+
         # -----  retrieve breakpoint sampling starategy ----
         bkpt_sampling_startegy_args = saved_state.get(
                                                 "client_selection_strategy"
