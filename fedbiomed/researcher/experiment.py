@@ -337,11 +337,8 @@ class Experiment:
             raise FileNotFoundError("None of those are breakpoints{}".format(", ".join(list_name_file)))            
         return latest_folder
     
-    @classmethod
-    def load_breakpoint(cls: Type[_E],
-                        breakpoint_folder: str = None,
-                        extra_rounds: int = 1) -> _E:
-        
+    @staticmethod
+    def _find_breakpoint_path(breakpoint_folder: str = None):
         # First, let's test if folder is a real folder path
         if breakpoint_folder is None:
             # retrieve latest experiment
@@ -399,8 +396,17 @@ class Experiment:
                 model state at {breakpoint_folder}. Aborting")
             raise FileNotFoundError(f"Cannot find JSON file containing\
                 model state at {breakpoint_folder}. Aborting")
+            #sys.exit(-1)
+        return breakpoint_folder, state_file
 
-                #sys.exit(-1)
+    @classmethod
+    def load_breakpoint(cls: Type[_E],
+                        breakpoint_folder: str = None,
+                        extra_rounds: int = 1) -> _E:
+        # get breakpoint folder path (if it is None) and 
+        # state file
+        breakpoint_folder, state_file = Experiment._find_breakpoint_path(breakpoint_folder)
+
         # TODO: check if all elements needed for breakpoint are present
         with open(os.path.join(breakpoint_folder, state_file), "r") as f:
             saved_state = json.load(f)

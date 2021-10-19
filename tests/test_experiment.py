@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import patch, MagicMock, mock_open, Mock, PropertyMock
 import os
 import tempfile
 import shutil
@@ -219,23 +219,63 @@ class TestStateExp(unittest.TestCase):
         # test if Job's `_load_training_replies` has been called once
         path_job_load_training_replies.assert_called_once()
         
-    @patch('os.listdir')
-    @patch('fedbiomed.researcher.experiment.Experiment._get_latest_file')
+    @patch('fedbiomed.researcher.job.Job._load_training_replies')
+    @patch('fedbiomed.researcher.job.Job.__init__')
     @patch('fedbiomed.researcher.experiment.eval')
-    @patch('fedbiomed.researcher.experiment.exec')
+    @patch('fedbiomed.researcher.experiment.Experiment._instancialize_module')
+    @patch('json.load')
+    @patch("builtins.open")
+    @patch('fedbiomed.researcher.experiment.Experiment._find_breakpoint_path')
     def test_load_breakpoint(self,
-                             patch_os_listdir,
-                             patch_get_latest_file,
+                             patch_find_breakpoint_path,
+                             patch_builtin_open,
+                             patch_json_load,
+                             patch_instancialize_module,
                              patch_builtin_eval,
-                             patch_builtin_exec):
-        patch_os_listdir.return_value = ["/path/to/file"]
-        patch_get_latest_file.return_value = '/path/to/file'
+                             patch_job_init,
+                             patch_job_load_training_replies
+                             ):
+        
+        values = ["/path/to/breakpoint/foler", "my_breakpoint.json"]
+        dummy_agg = {"class":None,
+                     "Module":None}
+        loaded_states = {
+            "client_selection_strategy": dummy_agg ,
+            "aggregator": dummy_agg,
+            "tags": ["some_tags"],
+            "client_id": "my_client_id",
+            "model_class": "my_model_class",
+            "model_path": "/path/to/model/file",
+            "model_args": {},
+            "training_args":{},
+            "round_number": 1,
+            "round_number_due":3,
+            "training_data": {},
+            "job_id": "1234",
+            "researcher_id": '1234',
+            "params_path": [],
+            "training_replies": {"1":[{}, {}]}
+            
+        }
+        patch_find_breakpoint_path.return_value = values
+        patch_builtin_open.return_value = MagicMock()
+        patch_json_load.return_value = loaded_states
+        patch_instancialize_module.return_value = "import abc"  # not sure it is a good idea
         patch_builtin_eval.return_value = MagicMock()
-        patch_builtin_exec.return_value = None
+        patch_job_init.return_value = None
+        patch_job_load_training_replies.return_value = MagicMock()
         
+        bkpt_folder = "/path/to/breakpoint/folder"
+        loaded_exp = Experiment.load_breakpoint(bkpt_folder)
+        print(type(loaded_exp))
         
-        #loaded_exp = Experiment.load_breakpoint()
-        pass
-        
+        # tests 
+        patch_json_load.assert_called_once()  # check if patched 
+        # json has been called
+        self.assertTrue(isinstance(loaded_exp, Experiment))
+        self.assertEqual(loaded_exp._round_init, loaded_states.get('round_number'))
+        self.assertEqual(loaded_exp._job._id, loaded_states.get('job_id'))
+        self.assertEqual(loaded_exp._rounds, 1 + loaded_states.get('round_number_due'))
+
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
