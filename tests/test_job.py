@@ -7,11 +7,24 @@ from fedbiomed.researcher.environ import UPLOADS_URL
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.responses import Responses
 
+# import a fake environment for tests bafore importing other files
+import testsupport.mock_researcher_environ
+
 import torch
 import numpy as np
             
 
-class TestStateInJob(unittest.TestCase):
+class TestJob(unittest.TestCase):
+    # once in test lifetime
+    @classmethod
+    def setUpClass(cls):
+        pass
+
+    @classmethod
+    def tearDownClass(cls):
+        pass
+
+
     def setUp(self):
 
         self.patcher = patch('fedbiomed.researcher.requests.Requests.__init__',
@@ -34,6 +47,16 @@ class TestStateInJob(unittest.TestCase):
         #shutil.rmtree(os.path.join(VAR_DIR, "breakpoints"))
         # (above) remove files created during these unit tests
 
+    # tests
+    def test_job(self):
+        '''
+
+        '''
+        # does not work yet !!
+        #j = Job()
+
+        pass
+    
     def test_save_private_training_replies(self):
         """
         tests if `_save_training_replies` is converting
@@ -69,7 +92,8 @@ class TestStateInJob(unittest.TestCase):
                 
         # mock FederatedDataSet
         fds = MagicMock()
-        fds.data = MagicMock(return_value=None)
+        fds.data = MagicMock(return_value={})
+        #fds.keys = MagicMock(return_value={})
         
         # instanciate job
         test_job = Job(model=model_file,
@@ -123,10 +147,11 @@ class TestStateInJob(unittest.TestCase):
         
         # first test with a model done with pytorch
         pytorch_params = torch.Tensor([1, 3, 5, 7])
-        sklearn_params = np.array([[1,2,3,4,5], [2,8,7,5,5]])
+        sklearn_params = np.array([[1,2,3,4,5],
+                                   [2,8,7,5,5]])
         # mock FederatedDataSet
         fds = MagicMock()
-        fds.data = MagicMock(return_value=None)
+        fds.data = MagicMock(return_value={})
 
         # mock Pytroch model object
         model_torch = MagicMock(return_value=None)
@@ -191,5 +216,4 @@ class TestStateInJob(unittest.TestCase):
                                    Responses))
 
 if __name__ == '__main__':  # pragma: no cover
-   
     unittest.main()

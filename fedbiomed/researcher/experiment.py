@@ -90,9 +90,11 @@ class Experiment:
         # the researcher is looking for (`self._tags`) or based on client id
         # (`self._clients`)
         if self._training_data is None:
+            # normal case
             training_data = self._reqs.search(self._tags,
                                               self._clients)
         else:
+            # case where loaded from saved breakpoint
             training_data = self._training_data
         self._round_init = 0  # start from round 0
         self._fds = FederatedDataSet(training_data)

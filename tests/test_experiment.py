@@ -42,6 +42,9 @@ def load_json(file: str) -> Union[None, Exception]:
 class TestStateExp(unittest.TestCase):
 
     def setUp(self):
+        fds = MagicMock()
+        fds.keys = MagicMock(return_value={})
+        
         try:
             shutil.rmtree(os.path.join(VAR_DIR, "breakpoints"))
             # clean up existing breakpoints
@@ -50,7 +53,7 @@ class TestStateExp(unittest.TestCase):
         self.patcher = patch('fedbiomed.researcher.requests.Requests.__init__',
                              return_value=None)
         self.patcher2 = patch('fedbiomed.researcher.requests.Requests.search',
-                              return_value=None)
+                              return_value=fds)
         self.patcher3 = patch('fedbiomed.common.repository.Repository.upload_file',
                               return_value={"file": UPLOADS_URL})
         self.patcher_monitor = patch('fedbiomed.researcher.experiment.Monitor',
@@ -229,6 +232,9 @@ class TestStateExp(unittest.TestCase):
         patch_get_latest_file.return_value = '/path/to/file'
         patch_builtin_eval.return_value = MagicMock()
         patch_builtin_exec.return_value = None
+        
+        
+        #loaded_exp = Experiment.load_breakpoint()
         pass
         
 if __name__ == '__main__':  # pragma: no cover
