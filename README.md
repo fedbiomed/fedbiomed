@@ -201,7 +201,7 @@ Note: In case of frozen loading bar while accessing jupyterlab notebook, please 
 
 **Note:** Please go `env/development/docker/README.md` to have more information about launching JupyterHub using `docker-compose` and adding jupyterhub user.
 
-## Using Tensorboard  
+## Using Tensorboard
 
 To enable tensorboard during traning routine to see loss values, you need to set `tensorboard` parameter to `true` while initializing Experiment class.
 
