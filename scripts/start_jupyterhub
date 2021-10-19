@@ -1,17 +1,6 @@
 #!/bin/sh
 
 
-([[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
- [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
-    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
- [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)) && sourced=1 || sourced=0
-
-[[ "${sourced}" == "0" ]] &&
-    echo "This file MUST be sourced from a BASH shell (and not executed) to benefit from the environment" && exit -1
-
-[[ "$KSH_VERSION" ]] && echo "This script only works from a BASH or ZSH shell" && return
-
-
 SERVICES=""
 SERVICES_LAUNCH=""
 REBUILD=0
@@ -102,9 +91,9 @@ cd ./envs/development/docker
 if [ ${IP_ADDRESS} == "0" ]; then
   # Get host machine ip address
   internal_ip=$(ip addr show |grep "inet " |grep -v 127.0.0. |head -1|cut -d" " -f6|cut -d/ -f1)
-  export JUPYTERLAB_HOST_IP=$internal_ip
+  source jupyterhub/run_mounts/jupyterhub_export_env.sh $internal_ip
 else
-  export JUPYTERLAB_HOST_IP=$IP_ADDRESS
+  source jupyterhub/run_mounts/jupyterhub_export_env.sh $IP_ADDRESS
 fi
 
 
@@ -120,5 +109,3 @@ if [ -n "$SERVICES_LAUNCH" ] ; then
 else
   echo -e "\n== not launching any new container"
 fi
-
-cd ../../../
