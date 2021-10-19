@@ -150,6 +150,64 @@ Run this for all launches of the container :
 
 ### initializing node
 
+
+## specific instructions: building node image on a different machine
+
+This paragraph contains specific instructions when building node image
+on a different machine than the machine where the node runs.
+
+If you do not want to clone the repo and build the node image on a machine, you can
+instantiate a node from an image built on another machine.
+* in this paragraph we distinguish commands typed on the build machine (eg `[user@build $]`) from the commands typed on the machine running the node (eg `[user@node $]`)
+
+
+Run this only at first launch of container or after cleaning
+
+On the build machine
+
+* for building use the `CONTAINER_UID` and `CONTAINER_GID` that will be used on the node machine for running the node (they may differ from the ids on the build machine)
+* build container
+```bash
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
+```
+* save images for container
+```bash
+[user@build $] docker image save fedbiomed/vpn-node | gzip >/tmp/vpn-node-image.tar.gz
+```
+* save files needed for running container
+```bash
+[user@build $] cd ./envs/vpn/docker
+# if needed, clean the configurations in ./node/run_mounts before
+[user@build $] tar cvzf /tmp/vpn-node-files.tar.gz ./docker-compose_run_node.yml ./node/run_mounts
+```
+
+On the node machine
+
+* load images for container
+```bash
+[user@node $] docker image load </tmp/vpn-node-image.tar.gz
+```
+* load files needed for running container
+```bash
+[user@node $] cd ./envs/vpn/docker
+[user@node $] tar xvzf /tmp/vpn-node-files.tar.gz
+[user@node $] mv docker-compose_run_node.yml docker-compose.yml
+```
+* if needed load data to be passed to container
+```bash
+# example : copy a MNIST dataset
+#[user@node $] rsync -auxvt /tmp/MNIST ./node/run_mounts/data/
+```
+
+Then follow the common instructions for nodes (below).
+
+
+### common instructions: in all cases
+
+Always follow this paragraph for initializing a node, whether you build it on the same machine 
+or another machine.
+
 Run this only at first launch of container or after cleaning :
 
 * build container
@@ -209,6 +267,8 @@ Run this for all launches of the container :
 [user@node-container $] python -m fedbiomed.node.cli -am /data
 # start the node
 [user@node-container $] python -m fedbiomed.node.cli --start
+# alternative: start the node in background
+# [user@node-container $] nohup python -m fedbiomed.node.cli  -s >./fedbiomed_node.out &
 ```
 
 ### initializing researcher
@@ -270,6 +330,7 @@ Run this for all launches of the container :
 
 * to use notebooks, from outside the researcher container connect to `http://localhost:8888` or `http://SERVER_IP:8888`
   * TODO : add protection for distant connection to researcher
+
 
 
 ## connecting to containers
