@@ -341,24 +341,35 @@ class Experiment:
     def _find_breakpoint_path(breakpoint_folder: str = None):
         # First, let's test if folder is a real folder path
         if breakpoint_folder is None:
-            # retrieve latest experiment
-            default_breakpoints_folder = BREAKPOINTS_DIR
-            experiment_folders = os.listdir(default_breakpoints_folder)
-            
-            latest_exp_folder = Experiment._get_latest_file(
+            try:
+                # retrieve latest experiment
+                default_breakpoints_folder = BREAKPOINTS_DIR
+                experiment_folders = os.listdir(default_breakpoints_folder)
+                
+                latest_exp_folder = Experiment._get_latest_file(
                                                     default_breakpoints_folder,
                                                     experiment_folders,
                                                     only_folder=True)
-            latest_exp_folder = os.path.join(default_breakpoints_folder,
-                                             latest_exp_folder)
-            bkpt_folders = os.listdir(latest_exp_folder)
-            breakpoint_folder = Experiment._get_latest_file(
-                                            latest_exp_folder,
-                                            bkpt_folders,
-                                            only_folder=True)
-            breakpoint_folder = os.path.join(latest_exp_folder,
-                                             breakpoint_folder)
-            
+                latest_exp_folder = os.path.join(default_breakpoints_folder,
+                                                 latest_exp_folder)
+                bkpt_folders = os.listdir(latest_exp_folder)
+                breakpoint_folder = Experiment._get_latest_file(
+                                                latest_exp_folder,
+                                                bkpt_folders,
+                                                only_folder=True)
+                
+                breakpoint_folder = os.path.join(latest_exp_folder,
+                                                 breakpoint_folder)
+            except FileNotFoundError as err:
+                logger.error(err)
+                raise FileNotFoundError("Cannot find latest breakpoint \
+                    saved. Are you sure you have saved at least one breakpoint?")
+            except TypeError as err:
+                # case where `Experiment._get_latest_file`
+                # Fails (ie return `None`)
+                logger.error(err)
+                raise FileNotFoundError(f"found an empty breakpoint folder\
+                    at {latest_exp_folder}")
         else:
             if not os.path.isdir(breakpoint_folder):
                 if os.path.isfile(breakpoint_folder):

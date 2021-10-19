@@ -3,12 +3,14 @@ from unittest.mock import patch, MagicMock
 
 import os
 
+# import a fake environment for tests bafore importing other files
+import testsupport.mock_researcher_environ
+
 from fedbiomed.researcher.environ import UPLOADS_URL
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.responses import Responses
 
-# import a fake environment for tests bafore importing other files
-import testsupport.mock_researcher_environ
+
 
 import torch
 import numpy as np
