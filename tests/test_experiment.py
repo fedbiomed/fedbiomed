@@ -31,7 +31,7 @@ def load_json(file: str) -> Union[None, Exception]:
     Args:
         file (str): path name of the json file to load
     Returns:
-    
+
     """
     try:
         with open(file, "r") as f:
@@ -41,14 +41,14 @@ def load_json(file: str) -> Union[None, Exception]:
         return err
 
 
-# FIXME: it seems it is more an integration test than a unit test. 
-# an improvement can be to 'patch' Job class instead of calling it. 
+# FIXME: it seems it is more an integration test than a unit test.
+# an improvement can be to 'patch' Job class instead of calling it.
 class TestStateExp(unittest.TestCase):
 
     def setUp(self):
         fds = MagicMock()
         fds.keys = MagicMock(return_value={})
-        
+
         try:
             shutil.rmtree(os.path.join(VAR_DIR, "breakpoints"))
             # clean up existing breakpoints
@@ -63,24 +63,24 @@ class TestStateExp(unittest.TestCase):
         self.patcher_monitor = patch('fedbiomed.researcher.experiment.Monitor',
                                      return_value=None)
 
-        self.patcher.start() 
+        self.patcher.start()
         self.patcher2.start()
         self.patcher3.start()
         self.patcher_monitor.start()
         model_file = MagicMock(return_value=None)
-        
+
         model_file.save_code = MagicMock(return_value=None)
         self.test_exp = Experiment(
             'some_tags', model_class=model_file, save_breakpoints=True
         )
         self.test_exp._create_breakpoints_folder()
         self.test_exp._create_breakpoint_exp_folder()
-        
+
         self.test_exp._state_root_folder = VAR_DIR  # changing value of
         # the root folder
 
     def tearDown(self) -> None:
-        
+
         self.patcher.stop()
         self.patcher2.stop()
         self.patcher3.stop()
@@ -90,14 +90,14 @@ class TestStateExp(unittest.TestCase):
             # (above) remove files created during these unit tests
         except FileNotFoundError:
             pass
-        
+
 
     def test_save_states(self):
         """tests `save_states` private method:
         1. if model file is copied from temporary folder to breakpoint folder
         2. if state file created is json loadable
         """
-        
+
         # Lets mock `client_selection_strategy`
         self.test_exp._client_selection_strategy = MagicMock(return_value=None)
         self.test_exp._client_selection_strategy.save_state = MagicMock(return_value={})
@@ -108,7 +108,7 @@ class TestStateExp(unittest.TestCase):
             tempfile_path = os.path.join(tmpdirname, 'test_save')
             create_file(tempfile_path)
             self.test_exp._job.save_state = return_state
-            self.test_exp._job.state = {"model_path": str(tempfile_path), 
+            self.test_exp._job.state = {"model_path": str(tempfile_path),
                                         'params_path': {}}
 
             self.test_exp._save_state()
@@ -116,58 +116,58 @@ class TestStateExp(unittest.TestCase):
                                     "breakpoints",
                                     "Experiment_0",
                                     'breakpoint_0')
-            self.assertTrue(os.path.isdir(exp_path))  # test if folder used 
+            self.assertTrue(os.path.isdir(exp_path))  # test if folder used
             # for saving the breakpoint exists
             test_model_path = os.path.join(exp_path, "breakpoint_0.json")
-            
+
         # test if file containing state of experiment in breakpoint folder
         # is JSON loadable
         val = load_json(test_model_path)
         self.assertIs(val, None)
-    
+
     def test_create_breakpoint(self,
                                breakpoint_folder_name: str="breakpoint_"):
         """
         Tests method `_create_breakpoint_file_and_folder`. Checks the correct
         spelling of breakpoint and state file.
-        
+
         Args:
             breakpoint_folder_name (str, optional): [description]. Defaults to "breakpoint_".
         """
-        
+
         bkpt_folder, bkpt_file = self.test_exp._create_breakpoint_file_and_folder(
                                                                     round=0)
-        
+
         self.assertEqual(os.path.basename(bkpt_folder),
                          breakpoint_folder_name + str(0))
         self.assertEqual(bkpt_file,
                          breakpoint_folder_name + str(0) + ".json")
-        
+
         bkpt_folder, bkpt_file = self.test_exp._create_breakpoint_file_and_folder(
                                                                     round=2)
         self.assertEqual(os.path.basename(bkpt_folder),
                          breakpoint_folder_name + str(2))
         self.assertEqual(bkpt_file,
                          breakpoint_folder_name + str(2) + ".json")
-        
+
     def test_private_get_latest_file(self):
         """tests if `_get_latest_file` returns more recent
         file"""
-        
+
         # test 1
         files = ["Experiment_0",
                  "Experiment_4",
                  "EXperiment_5",
                  "blabla",
                  "99_blabla"]
-        
+
         pathfile_test = "/path/to/a/file"
-        
+
         latest_file = Experiment._get_latest_file(pathfile_test,
                                                   files,
                                                   only_folder=False)
         self.assertEqual(files[2], latest_file)
-        
+
         # test 2: in this test, we patch isir builtin function
         # so it returns always `True` when called
         patcher_builtin_os_path_isdir = patch("os.path.isdir",
@@ -184,21 +184,21 @@ class TestStateExp(unittest.TestCase):
                                                   files,
                                                   only_folder=False)
         self.assertEqual(latest_file, None)
-        
+
         # test 4: test if exception is raised
         files = ['q', 'foo', 'bar']
-        
+
         self.assertRaises(FileNotFoundError,
                           Experiment._get_latest_file,
                           pathfile_test,
                           files,
                           only_folder=False)
-        
+
     def test_private_instancialize_module(self):
         args = {"class": "myclass",
                 "module": "module.containing.my.class",
                 "parameters": None}
-        
+
         # test 1: default
         import_str = Experiment._instancialize_module(args)
         self.assertEqual(import_str,
@@ -219,7 +219,7 @@ class TestStateExp(unittest.TestCase):
         self.test_exp._load_training_replies(tr_replies, pr_path)
         # test if Job's `_load_training_replies` has been called once
         path_job_load_training_replies.assert_called_once()
-        
+
     @patch('fedbiomed.researcher.job.Job._load_training_replies')
     @patch('fedbiomed.researcher.job.Job.__init__')
     @patch('fedbiomed.researcher.experiment.eval')
@@ -236,7 +236,7 @@ class TestStateExp(unittest.TestCase):
                              patch_job_init,
                              patch_job_load_training_replies
                              ):
-        
+
         values = ["/path/to/breakpoint/foler", "my_breakpoint.json"]
         dummy_agg = {"class":None,
                      "Module":None}
@@ -256,7 +256,7 @@ class TestStateExp(unittest.TestCase):
             "researcher_id": '1234',
             "params_path": [],
             "training_replies": {"1":[{}, {}]}
-            
+
         }
         patch_find_breakpoint_path.return_value = values
         patch_builtin_open.return_value = MagicMock()
@@ -265,13 +265,13 @@ class TestStateExp(unittest.TestCase):
         patch_builtin_eval.return_value = MagicMock()
         patch_job_init.return_value = None
         patch_job_load_training_replies.return_value = MagicMock()
-        
+
         bkpt_folder = "/path/to/breakpoint/folder"
         loaded_exp = Experiment.load_breakpoint(bkpt_folder)
         print(type(loaded_exp))
-        
-        # tests 
-        patch_json_load.assert_called_once()  # check if patched 
+
+        # tests
+        patch_json_load.assert_called_once()  # check if patched
         # json has been called
         self.assertTrue(isinstance(loaded_exp, Experiment))
         self.assertEqual(loaded_exp._round_init,
@@ -279,7 +279,7 @@ class TestStateExp(unittest.TestCase):
         self.assertEqual(loaded_exp._job._id,
                          loaded_states.get('job_id'))
         self.assertEqual(loaded_exp._rounds,
-                         1 + loaded_states.get('round_number_due'))
+                         loaded_states.get('round_number_due'))
 
     @patch('os.path.isdir')
     @patch('os.listdir')
@@ -293,7 +293,7 @@ class TestStateExp(unittest.TestCase):
         patch_os_listdir.return_value = ['breakpoint_1234.json',
                                          "another_file"]
         patch_os_path_isdir.return_value = True
-        
+
         bkpt_folder_out, state_file = Experiment._find_breakpoint_path(bkpt_folder)
         self.assertEqual(bkpt_folder, bkpt_folder_out)
         self.assertEqual(state_file, 'breakpoint_1234.json')
@@ -334,7 +334,7 @@ class TestStateExp(unittest.TestCase):
                                          "another_file"]
         patch_os_path_isdir.return_value = False
         patch_os_path_isfile.return_value = False
-        self.assertRaises(FileNotFoundError, 
+        self.assertRaises(FileNotFoundError,
                           Experiment._find_breakpoint_path,
                           bkpt_folder)
     @patch('os.path.isfile')
@@ -345,16 +345,16 @@ class TestStateExp(unittest.TestCase):
                                                      patch_os_path_isdir,
                                                      patch_os_path_isfile):
         # triggers error: FileNotFoundError (folder not found)
-        # 
+        #
         bkpt_folder = "/path/to/breakpoint"
         patch_os_listdir.return_value = ['breakpoint_1234.json',
                                          "another_file"]
         patch_os_path_isdir.return_value = False
         patch_os_path_isfile.return_value = True
-        self.assertRaises(FileNotFoundError, 
+        self.assertRaises(FileNotFoundError,
                           Experiment._find_breakpoint_path,
                           bkpt_folder)
-        
+
     @patch('fedbiomed.researcher.experiment.Experiment._get_latest_file')
     @patch('os.path.isdir')
     @patch('os.listdir')
