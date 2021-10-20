@@ -66,7 +66,7 @@ class Job:
         self._clients = clients
         self._training_replies = {}  # will contain all node replies for every round
         self._model_file = None
-        
+
         if reqs is None:
             self._reqs = Requests()
         else:
@@ -77,9 +77,9 @@ class Job:
 
         # Check dataset quality
         if data is not None:
-            
+
             self.check_data_quality()
-            
+
 
         # handle case when model is in a file
         if model_path is not None:
@@ -109,8 +109,8 @@ class Job:
 
         self.repo = Repository(UPLOADS_URL, TMP_DIR, CACHE_DIR)
         tmpdirname = tempfile.mkdtemp(prefix=TMP_DIR)
-        atexit.register(lambda: shutil.rmtree(tmpdirname))  # remove `tmpdirname` 
-        # directory when script will end running (replace 
+        atexit.register(lambda: shutil.rmtree(tmpdirname))  # remove `tmpdirname`
+        # directory when script will end running (replace
         # `with tempfile.TemporaryDirectory(dir=TMP_DIR) as tmpdirname: `)
         self._model_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.py'
         try:
@@ -121,7 +121,7 @@ class Job:
 
         # upload my_model_xxx.py on HTTP server (contains model definition)
         repo_response = self.repo.upload_file(self._model_file)
-        
+
         self._repository_args['model_url'] = repo_response['file']
 
         params_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.pt'
@@ -138,7 +138,7 @@ class Job:
         # (below) regex: matches a character not present among "^", "\", "."
         # characters at the end of string.
         self._repository_args['model_class'] = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
-        
+
         # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args,
                                         ['model_url', 'model_class', 'params_url'])
@@ -226,9 +226,9 @@ class Job:
         }
 
         msg = {**headers, **self._repository_args}
-        
+
         time_start = {}
-        
+
         for cli in self._clients:
             msg['training_data'] = { cli: [ ds['dataset_id'] for ds in self._data.data()[cli] ] }
             logger.info('Send message to client ' + str(cli) + " - " + str(msg))
@@ -266,9 +266,9 @@ class Job:
                                'params': params,
                                'timing': timing})
                 self._training_replies[round].append(r)  # add new replies
-            
+
                 self._params_path[r[0]['client_id']] = params_path
-    
+
 
     def update_parameters(self, params: dict) -> str:
         """Updates global model parameters after aggregation, by specifying in a
@@ -298,7 +298,7 @@ class Job:
         return filename
 
     def save_state(self, round: int=0):
-        """Creates attribute `self.state` containing a 
+        """Creates attribute `self.state` containing a
         first state of the job. State will be completed by
         other methods called fro; `Experiment`.
 
@@ -319,7 +319,7 @@ class Job:
             'model_class': self._repository_args.get('model_class'),
             'training_replies': self._save_training_replies()
         }
-        
+
     def _save_training_replies(self) -> Dict[int, List[dict]]:
         """saves last values training replies variable, and replace
         pytroch tensor / numpy arrays by path files pointing to
@@ -327,7 +327,7 @@ class Job:
 
         Returns:
             list: `_training_replies` variable containing path files towards
-            pytorch / numpy arrays instead of Tensors/Arrays values (so it can 
+            pytorch / numpy arrays instead of Tensors/Arrays values (so it can
             be saved with JSON).
         """
         last_index = max(self._training_replies.keys())
@@ -354,65 +354,65 @@ class Job:
             params_path (Dict[str, str]): dictionary of parameter paths (keys)
             mapping client ids (entries).
         """
-        
+
         # get key
         key = tuple(training_replies.keys())[0]
         if key != int(key):
             # convert string key to integer (converting into JSON
             # change every key type into str type)
-            
+
             training_replies[int(key)] = training_replies[key]
             #training_replies.pop(key)
             #
             key = int(key)
         loaded_training_replies = {key: Responses([])}
-        for client_id, client_i in zip(params_path.keys(), 
+        for client_id, client_i in zip(params_path.keys(),
                                        range(len(training_replies))):
             training_replies[key][client_i]['params'] = self.model_instance.load(params_path[client_id],
                                                                                  to_params=True)
-            
+
             training_replies[key][client_i]['params_path'] = params_path[client_id]
 
             loaded_training_replies[key].append(Responses(training_replies[key][client_i]))
-        print(loaded_training_replies)
+        #print(loaded_training_replies)
         self._training_replies = loaded_training_replies
 
     def check_data_quality(self):
 
-        """Compare datasets that has been found in different nodes. 
+        """Compare datasets that has been found in different nodes.
         """
         data = self._data.data()
         # If there are more than two nodes ready for the job
         if len(data.keys()) > 1:
-            
+
             # Frist check data types are same based on searched tags
             logger.info('Checking data quality of federated datasets...')
 
-            data_types = [] # CSV, Image or default 
+            data_types = [] # CSV, Image or default
             shapes = [] # dimensions
             dtypes = [] # variable types for CSV datasets
 
             # Extract features into arrays for comparison
             for data_list in data.items():
                 for feature in data_list[1]:
-                    data_types.append(feature["data_type"]) 
+                    data_types.append(feature["data_type"])
                     dtypes.append(feature["dtypes"])
                     shapes.append(feature["shape"])
 
             assert len(set(data_types)) == 1,\
                  f'Diferent type of datasets has been loaded with same tag: {data_types}'
 
-            if data_types[0] == 'csv':              
+            if data_types[0] == 'csv':
                 assert len(set([s[1] for s in shapes])) == 1, \
                         f'Number of columns of federated datasets do not match {shapes}.'
-                
+
                 dtypes_t = list(map(list, zip(*dtypes)))
                 for t in dtypes_t:
                     assert len(set(t)) == 1, \
                          f'Variable data types do not match in federated datasets {dtypes}'
 
             elif data_types[0] == 'images':
-    
+
                 shapes_t = list(map(list, zip(*[s[2:] for s in shapes])))
                 dim_state = True
                 for s in shapes_t:
@@ -422,7 +422,7 @@ class Job:
                 if not dim_state:
                     logger.error(f'Dimensions of the images in federated datasets \
                                  do not match. Please consider using resize. {shapes} ')
-                
+
 
                 if len(set([ k[1] for k in shapes])) != 1:
                     logger.error(f'Color channels of the images in federated \
@@ -431,7 +431,7 @@ class Job:
             # If it is default MNIST dataset pass
             else:
                 pass
-        
+
         pass
 
 class localJob:
