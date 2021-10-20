@@ -452,7 +452,7 @@ class Experiment:
     @classmethod
     def load_breakpoint(cls: Type[_E],
                         breakpoint_folder: str = None,
-                        extra_rounds: int = 1) -> _E:
+                        extra_rounds: int = 0) -> _E:
         """
         Loads breakpoint (provided a breakpoint has been saved)
         so experience can be resumed. Useful if training has crashed
@@ -478,8 +478,7 @@ class Experiment:
         # TODO: check if all elements needed for breakpoint are present
         with open(os.path.join(breakpoint_folder, state_file), "r") as f:
             saved_state = json.load(f)
-        print(saved_state)
-
+        
 
         # TODO: for both client sampling strategy & aggregator
         # deal with saved parameters
