@@ -185,7 +185,6 @@ class Requests(metaclass=RequestMeta):
                 `success=True`). Defaults to True.
         """
         timeout = timeout or TIMEOUT
-        print("TIMEOUT = ", TIMEOUT)
         responses = []
 
         while True:

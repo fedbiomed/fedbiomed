@@ -17,6 +17,7 @@ def create_file(file_name: str):
     with open(file_name, "w") as f:
         f.write("this is a test. This file should be removed")
 
+
 class TestMonitor(unittest.TestCase):
     """
     Test `Monitor` class
