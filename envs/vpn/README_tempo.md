@@ -99,7 +99,7 @@ Run this only at first launch of container or after cleaning :
 ```bash
 # 10.220.0.1 is vpnserver contacted inside the VPN
 # it should answer to the ping
-[user@network $] docker-compose exec node ping -c 3 -W 1 10.220.0.1
+[user@network $] docker-compose exec mqtt ping -c 3 -W 1 10.220.0.1
 ```
 
 Run this for all launches of the container :
@@ -139,7 +139,7 @@ Run this only at first launch of container or after cleaning :
 ```bash
 # 10.220.0.1 is vpnserver contacted inside the VPN
 # it should answer to the ping
-[user@network $] docker-compose exec node ping -c 3 -W 1 10.220.0.1
+[user@network $] docker-compose exec restful ping -c 3 -W 1 10.220.0.1
 ```
 
 Run this for all launches of the container :
