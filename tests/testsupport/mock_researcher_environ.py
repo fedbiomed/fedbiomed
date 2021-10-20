@@ -20,6 +20,8 @@ fake_researcher_env.MQTT_BROKER        = "localhost"
 fake_researcher_env.MQTT_BROKER_PORT   = 1883
 fake_researcher_env.UPLOADS_URL        = "http://localhost:8888/upload/"
 fake_researcher_env.TIMEOUT            = 10
+fake_researcher_env.BREAKPOINTS_DIR    = '/tmp/var/breakpoints'
+fake_researcher_env.TENSORBOARD_RESULTS_DIR = "/tmp/runs"
 
 # TODO: create random directory paths like for test_taskqueue.py
 os.makedirs(fake_researcher_env.ROOT_DIR          , exist_ok=True)
@@ -28,5 +30,7 @@ os.makedirs(fake_researcher_env.VAR_DIR           , exist_ok=True)
 os.makedirs(fake_researcher_env.CACHE_DIR         , exist_ok=True)
 os.makedirs(fake_researcher_env.TMP_DIR           , exist_ok=True)
 os.makedirs(fake_researcher_env.MESSAGES_QUEUE_DIR, exist_ok=True)
+os.makedirs(fake_researcher_env.BREAKPOINTS_DIR,    exist_ok=True)
+os.makedirs(fake_researcher_env.TENSORBOARD_RESULTS_DIR, exist_ok=True)
 
 sys.modules['fedbiomed.researcher.environ'] = fake_researcher_env

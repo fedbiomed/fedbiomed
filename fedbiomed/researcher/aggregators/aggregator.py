@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Any
 
 import torch
 
@@ -22,4 +22,10 @@ class Aggregator:
 
     def aggregate(self,  model_params: list, weights: list) -> Dict: # pragma: no cover
         """Strategy to aggregate models"""
+        pass
+
+    def save_state(self) -> Dict[str, Any]:
+        return None
+
+    def load_state(self):
         pass

@@ -2,15 +2,20 @@ import inspect
 import os
 import sys
 import tempfile
-from typing import Union, Callable
+import shutil
+import atexit
+from typing import Union, Callable, List, Dict
 import uuid
 import re
 import time
+import copy
 
 import validators
 
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.logger import logger
+from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
+from fedbiomed.common.torchnn import TorchTrainingPlan
 from fedbiomed.researcher.environ import RESEARCHER_ID, TMP_DIR, CACHE_DIR, UPLOADS_URL
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
@@ -54,11 +59,13 @@ class Job:
 
         """
         self._id = str(uuid.uuid4())  # creating a unique job id
+        self._researcher_id = RESEARCHER_ID
         self._repository_args = {}
         self._training_args = training_args
         self._model_args = model_args
         self._clients = clients
         self._training_replies = {}  # will contain all node replies for every round
+        self._model_file = None
 
         if reqs is None:
             self._reqs = Requests()
@@ -69,7 +76,10 @@ class Job:
         self._data = data
 
         # Check dataset quality
-        self.check_data_quality()
+        if data is not None:
+
+            self.check_data_quality()
+
 
         # handle case when model is in a file
         if model_path is not None:
@@ -98,28 +108,32 @@ class Job:
             self.model_instance = model
 
         self.repo = Repository(UPLOADS_URL, TMP_DIR, CACHE_DIR)
-        with tempfile.TemporaryDirectory(dir=TMP_DIR) as tmpdirname:
-            model_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.py'
-            try:
-                self.model_instance.save_code(model_file)
-            except Exception as e:
-                logger.error("Cannot save the model to a local tmp dir : " + str(e))
-                return
+        tmpdirname = tempfile.mkdtemp(prefix=TMP_DIR)
+        atexit.register(lambda: shutil.rmtree(tmpdirname))  # remove `tmpdirname`
+        # directory when script will end running (replace
+        # `with tempfile.TemporaryDirectory(dir=TMP_DIR) as tmpdirname: `)
+        self._model_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.py'
+        try:
+            self.model_instance.save_code(self._model_file)
+        except Exception as e:
+            logger.error("Cannot save the model to a local tmp dir : " + str(e))
+            return
 
-            # upload my_model_xxx.py on HTTP server
-            repo_response = self.repo.upload_file(model_file)
-            self._repository_args['model_url'] = repo_response['file']
+        # upload my_model_xxx.py on HTTP server (contains model definition)
+        repo_response = self.repo.upload_file(self._model_file)
 
-            params_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.pt'
-            try:
-                self.model_instance.save(params_file)
-            except Exception as e:
-                logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
-                return
+        self._repository_args['model_url'] = repo_response['file']
 
-            # upload my_model_xxx.pt on HTTP server
-            repo_response = self.repo.upload_file(params_file)
-            self._repository_args['params_url'] = repo_response['file']
+        params_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.pt'
+        try:
+            self.model_instance.save(params_file)
+        except Exception as e:
+            logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
+            return
+
+        # upload my_model_xxx.pt on HTTP server (contains model parameters)
+        repo_response = self.repo.upload_file(params_file)
+        self._repository_args['params_url'] = repo_response['file']
 
         # (below) regex: matches a character not present among "^", "\", "."
         # characters at the end of string.
@@ -201,9 +215,9 @@ class Job:
             training steps of a federated model between 2 aggregations).
 
         """
-
+        self._params_path = {}
         headers = {
-            'researcher_id': RESEARCHER_ID,
+            'researcher_id': self._researcher_id,
             'job_id': self._id,
             'training_args': self._training_args,
             #'training_data' is set after
@@ -212,6 +226,7 @@ class Job:
         }
 
         msg = {**headers, **self._repository_args}
+
         time_start = {}
 
         for cli in self._clients:
@@ -252,6 +267,9 @@ class Job:
                                'timing': timing})
                 self._training_replies[round].append(r)  # add new replies
 
+                self._params_path[r[0]['client_id']] = params_path
+
+
     def update_parameters(self, params: dict) -> str:
         """Updates global model parameters after aggregation, by specifying in a
         temporary file (TMP_DIR + '/researcher_params_<id>.pt', where <id> is a
@@ -261,7 +279,7 @@ class Job:
             params (dict): [description]
 
         Returns:
-            str: [description]
+            str: filename
         """
         try:
             # FIXME: should we specify file extension as a local/global variable ?
@@ -279,42 +297,122 @@ class Job:
             sys.exit(-1)
         return filename
 
+    def save_state(self, round: int=0):
+        """Creates attribute `self.state` containing a
+        first state of the job. State will be completed by
+        other methods called fro; `Experiment`.
+
+        Args:
+            round (int, optional): number of round iteration.
+            Defaults to 0.
+        """
+
+        self.state = {
+            'researcher_id': RESEARCHER_ID,
+            'job_id': self._id,
+            'training_data': self._data.data(),
+            'training_args': self._training_args,
+            'model_args': self._model_args,
+            'command': 'train',
+            'model_path': self._model_file,
+            'params_path': self._params_path,
+            'model_class': self._repository_args.get('model_class'),
+            'training_replies': self._save_training_replies()
+        }
+
+    def _save_training_replies(self) -> Dict[int, List[dict]]:
+        """saves last values training replies variable, and replace
+        pytroch tensor / numpy arrays by path files pointing to
+        tensor files (these tensor files contain pytorch tensor / numpy arrays)
+
+        Returns:
+            list: `_training_replies` variable containing path files towards
+            pytorch / numpy arrays instead of Tensors/Arrays values (so it can
+            be saved with JSON).
+        """
+        last_index = max(self._training_replies.keys())
+        converted_training_replies = copy.deepcopy(
+                                    self._training_replies[last_index].data
+                                    )
+        # training_replies saving facility
+        for client_i, client_entry in enumerate(self._training_replies[last_index]):
+            client_id = client_entry.get("client_id")
+            #params = self._params_path.get(client_id)
+            converted_training_replies[client_i]['params'] = self._params_path.get(client_id)
+        return {int(last_index): converted_training_replies}
+
+    def _load_training_replies(self,
+                               training_replies: Dict[int, List[dict]],
+                               params_path: Dict[str, str]):
+        """Loads training replies from a formatted JSON file,
+        so it behaves like a real `training_replies`.
+        Gathers parameters values instead of path to paramater files.
+
+        Args:
+            training_replies (Dict[int, List[dict]]): JSON formatted
+            `training_replies` entry.
+            params_path (Dict[str, str]): dictionary of parameter paths (keys)
+            mapping client ids (entries).
+        """
+
+        # get key
+        key = tuple(training_replies.keys())[0]
+        if key != int(key):
+            # convert string key to integer (converting into JSON
+            # change every key type into str type)
+
+            training_replies[int(key)] = training_replies[key]
+            #training_replies.pop(key)
+            #
+            key = int(key)
+        loaded_training_replies = {key: Responses([])}
+        for client_id, client_i in zip(params_path.keys(),
+                                       range(len(training_replies))):
+            training_replies[key][client_i]['params'] = self.model_instance.load(params_path[client_id],
+                                                                                 to_params=True)
+
+            training_replies[key][client_i]['params_path'] = params_path[client_id]
+
+            loaded_training_replies[key].append(Responses(training_replies[key][client_i]))
+        #print(loaded_training_replies)
+        self._training_replies = loaded_training_replies
+
     def check_data_quality(self):
 
-        """Compare datasets that has been found in different nodes. 
+        """Compare datasets that has been found in different nodes.
         """
         data = self._data.data()
         # If there are more than two nodes ready for the job
         if len(data.keys()) > 1:
-            
+
             # Frist check data types are same based on searched tags
             logger.info('Checking data quality of federated datasets...')
 
-            data_types = [] # CSV, Image or default 
+            data_types = [] # CSV, Image or default
             shapes = [] # dimensions
             dtypes = [] # variable types for CSV datasets
 
             # Extract features into arrays for comparison
             for data_list in data.items():
                 for feature in data_list[1]:
-                    data_types.append(feature["data_type"]) 
+                    data_types.append(feature["data_type"])
                     dtypes.append(feature["dtypes"])
                     shapes.append(feature["shape"])
 
             assert len(set(data_types)) == 1,\
                  f'Diferent type of datasets has been loaded with same tag: {data_types}'
 
-            if data_types[0] == 'csv':              
+            if data_types[0] == 'csv':
                 assert len(set([s[1] for s in shapes])) == 1, \
                         f'Number of columns of federated datasets do not match {shapes}.'
-                
+
                 dtypes_t = list(map(list, zip(*dtypes)))
                 for t in dtypes_t:
                     assert len(set(t)) == 1, \
                          f'Variable data types do not match in federated datasets {dtypes}'
 
             elif data_types[0] == 'images':
-    
+
                 shapes_t = list(map(list, zip(*[s[2:] for s in shapes])))
                 dim_state = True
                 for s in shapes_t:
@@ -324,7 +422,7 @@ class Job:
                 if not dim_state:
                     logger.error(f'Dimensions of the images in federated datasets \
                                  do not match. Please consider using resize. {shapes} ')
-                
+
 
                 if len(set([ k[1] for k in shapes])) != 1:
                     logger.error(f'Color channels of the images in federated \
@@ -333,7 +431,7 @@ class Job:
             # If it is default MNIST dataset pass
             else:
                 pass
-        
+
         pass
 
 class localJob:

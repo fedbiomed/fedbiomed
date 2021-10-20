@@ -1,6 +1,6 @@
 
 from fedbiomed.researcher.datasets import FederatedDataSet
-
+from typing import Dict, Any
 
 # TODO: do we consider it as an abstract class ?
 class Strategy:
@@ -26,3 +26,9 @@ class Strategy:
 	"""
 	def refine(self, training_replies, round_i):
 		return
+
+	def save_state(self) -> Dict[str, Any]:
+		return None
+	
+	def load_state(self):
+		pass
