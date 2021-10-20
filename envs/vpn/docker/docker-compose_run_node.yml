@@ -1,0 +1,24 @@
+version: "3.7"
+services:
+  #
+  # Minimal configuration for only running a node component from a saved image
+  #
+  # Minimal dockerfile permits minimal file tree
+  # because *all* files dependencies referenced in `docker-compose.yml`
+  # (eg: `./*/build_files`, `./*/run_mounts/config/config.env`)
+  # need to exist for *all* containers everytime we run a docker-compose command
+  # thus we would have to copy file trees for vpnserver, researcher, etc. when only
+  # running a node
+  node:
+    container_name: fedbiomed-vpn-node
+    image: fedbiomed/vpn-node
+    env_file:
+      - ./node/run_mounts/config/config.env
+    cap_add:
+      - net_admin
+      - sys_module
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./node/run_mounts/config:/config # contains VPN configurations
+      - ./node/run_mounts/data:/data # datasets can be added here
