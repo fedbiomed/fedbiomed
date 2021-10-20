@@ -164,7 +164,6 @@ class Experiment:
                 self._client_selection_strategy = self._client_selection_strategy(self._fds)
 
         if self._save_breakpoints:
-            self._create_breakpoints_folder()
             self._create_breakpoint_exp_folder()
         if not sync:
             raise NotImplementedError("One day....")
@@ -201,17 +200,6 @@ class Experiment:
         # Close SummaryWriters for tensorboard
         self._monitor.close_writer()
 
-    def _create_breakpoints_folder(self):
-        """Creates a general folder for storing breakpoints (if non existant)
-        into the `BREAKPOINTS_DIR` folder.
-        """
-        if not os.path.isdir(BREAKPOINTS_DIR):
-            try:
-                os.makedirs(BREAKPOINTS_DIR, exist_ok=True)
-            except (PermissionError, OSError) as err:
-                logger.error(f"Can not save breakpoints files because\
-                    {BREAKPOINTS_DIR} folder could not be created\
-                        due to {err}")
 
     def _create_breakpoint_exp_folder(self):
         """Creates a breakpoint folder for the current experiment (ie the
@@ -219,10 +207,23 @@ class Experiment:
         `BREAKPOINTS_DIR/Experiment_x` where `x-1` is the number of experiments
         already run (`x`=0 for the first experiment)
         """
+
+        if not os.path.isdir(BREAKPOINTS_DIR):
+            try:
+                os.makedirs(BREAKPOINTS_DIR, exist_ok=True)
+            except (PermissionError, OSError) as err:
+                logger.error(f"Can not save breakpoints files because\
+                    {BREAKPOINTS_DIR} folder could not be created\
+                        due to {err}")
+                return
+
         # FIXME: improve method robustness (here nb of exp equals nb of files
         # in directory)
         all_files = os.listdir(BREAKPOINTS_DIR)
         if not hasattr(self, "_exp_breakpoint_folder"):
+            #
+            # in this case, the Experiment object has been created from
+            # a breakpoint. We keep the same place to save next steps
             self._exp_breakpoint_folder = "Experiment_" + str(len(all_files))
         try:
             os.makedirs(os.path.join(BREAKPOINTS_DIR,
