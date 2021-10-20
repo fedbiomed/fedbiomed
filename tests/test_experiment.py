@@ -11,8 +11,6 @@ import testsupport.mock_researcher_environ
 
 from fedbiomed.researcher.environ import BREAKPOINTS_DIR, TMP_DIR, VAR_DIR, UPLOADS_URL
 from fedbiomed.researcher.experiment import Experiment
-from fedbiomed.researcher.job import Job
-from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 
 def create_file(file_name: str):
@@ -73,7 +71,7 @@ class TestStateExp(unittest.TestCase):
         self.test_exp = Experiment(
             'some_tags', model_class=model_file, save_breakpoints=True
         )
-        self.test_exp._create_breakpoints_folder()
+        
         self.test_exp._create_breakpoint_exp_folder()
 
         self.test_exp._state_root_folder = VAR_DIR  # changing value of
