@@ -3,10 +3,11 @@ import os
 import json
 import shutil
 import re
+import inspect
 
 from fedbiomed.common.logger import logger
 from typing import Callable, Union, Tuple, Dict, Any, List, TypeVar, Type
-from fedbiomed.researcher.environ import BREAKPOINTS_DIR 
+from fedbiomed.researcher.environ import BREAKPOINTS_DIR
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
 
@@ -25,8 +26,7 @@ class Experiment:
     """
     This class represents the orchestrator managing the federated training
     """
-    _training_data = None  # should contain client and dataset values
-    
+
     def __init__(self,
                  tags: tuple,
                  clients: list = None,
@@ -38,6 +38,7 @@ class Experiment:
                  aggregator: aggregator.Aggregator = fedavg.FedAverage(),
                  client_selection_strategy: Strategy = None,
                  save_breakpoints: bool = False,
+                 training_data: dict = None,
                  tensorboard: bool = False
                  ):
 
@@ -71,33 +72,34 @@ class Experiment:
                                                   for training, and how
                                                   non-responding clients
                                                   are managed. Defaults to
-                                                  None (ie DefaultStartegy)
+                                                  None (ie DefaultStrategy)
             save_breakpoints (bool, optional): whether to save breakpoints or
                                                 not. Breakpoints can be used
                                                 for resuming a crashed
                                                 experiment. Defaults to False.
 
-            tensorboard (bool): Tensorboard flag for displaying scalar values 
-                                during tarning in every node. If it is true, 
+            tensorboard (bool): Tensorboard flag for displaying scalar values
+                                during tarning in every node. If it is true,
                                 monitor will write scalar logs in the
                                 var/tensorboard directory
-        """ 
-        
+        """
+
         self._tags = tags
         self._clients = clients
         self._reqs = Requests()
         # (below) search for nodes either having tags that matches the tags
         # the researcher is looking for (`self._tags`) or based on client id
         # (`self._clients`)
-        if self._training_data is None:
+        if training_data is None:
             # normal case
-            training_data = self._reqs.search(self._tags,
-                                              self._clients)
+            self._training_data = self._reqs.search(self._tags,
+                                                    self._clients)
         else:
             # case where loaded from saved breakpoint
-            training_data = self._training_data
+            self._training_data = training_data
+
         self._round_init = 0  # start from round 0
-        self._fds = FederatedDataSet(training_data)
+        self._fds = FederatedDataSet(self._training_data)
         self._client_selection_strategy = client_selection_strategy
         self._aggregator = aggregator
 
@@ -115,25 +117,28 @@ class Experiment:
 
         # structure (dict ?) for additional parameters to the strategy
         # currently unused, to be defined when needed
-        self._sampled = None
+        #self._sampled = None
 
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
         #  folder will be created
         self._monitor = Monitor(tensorboard=tensorboard)
-        self._training_data = None  # reset variable to `None`
+
 
     @property
     def training_replies(self):
         return self._job.training_replies
 
+
     @property
     def aggregated_params(self):
         return self._aggregated_params
 
+
     @property
     def model_instance(self):
         return self._job.model
+
 
     def run(self, sync=True):
         """Runs an experiment, ie trains a model on nodes for a
@@ -149,13 +154,14 @@ class Experiment:
         Raises:
             NotImplementedError: [description]
         """
-        if self._client_selection_strategy is None or self._sampled is None:
+        if self._client_selection_strategy is None:
             # Default sample_clients: train all clients
             # Default refine: Raise error with any failure and stop the
             # experiment
             self._client_selection_strategy = DefaultStrategy(self._fds)
         else:
-            self._client_selection_strategy = self._client_selection_strategy(self._fds, self._sampled)
+            if inspect.isclass(self._client_selection_strategy):
+                self._client_selection_strategy = self._client_selection_strategy(self._fds)
 
         if self._save_breakpoints:
             self._create_breakpoints_folder()
@@ -164,6 +170,10 @@ class Experiment:
             raise NotImplementedError("One day....")
 
         # Run experiment
+        if self._round_init >= self._rounds:
+            logger.info("Round limit reached. Nothing to do")
+            return
+
         for round_i in range(self._round_init, self._rounds):
             # Sample clients using strategy (if given)
             self._job.clients = self._client_selection_strategy.sample_clients(round_i)
@@ -184,10 +194,10 @@ class Experiment:
                                                 'params_path': aggregated_params_path}
             if self._save_breakpoints:
                 self._save_state(round_i)
-                
+
             # Increase round state in the monitor
             self._monitor.increase_round()
-        
+
         # Close SummaryWriters for tensorboard
         self._monitor.close_writer()
 
@@ -195,35 +205,34 @@ class Experiment:
         """Creates a general folder for storing breakpoints (if non existant)
         into the `BREAKPOINTS_DIR` folder.
         """
-        self._breakpoint_path_file = BREAKPOINTS_DIR
-        if not os.path.isdir(self._breakpoint_path_file):
+        if not os.path.isdir(BREAKPOINTS_DIR):
             try:
-                os.makedirs(self._breakpoint_path_file, exist_ok=True)
+                os.makedirs(BREAKPOINTS_DIR, exist_ok=True)
             except (PermissionError, OSError) as err:
                 logger.error(f"Can not save breakpoints files because\
-                    {self._breakpoint_path_file} folder could not be created\
+                    {BREAKPOINTS_DIR} folder could not be created\
                         due to {err}")
-        
+
     def _create_breakpoint_exp_folder(self):
         """Creates a breakpoint folder for the current experiment (ie the
         current run of the model). This folder is located at
-        `BREAKPOINTS_DIR_DIR/Experiment_x` where `x-1` is the number of experiments
+        `BREAKPOINTS_DIR/Experiment_x` where `x-1` is the number of experiments
         already run (`x`=0 for the first experiment)
         """
         # FIXME: improve method robustness (here nb of exp equals nb of files
         # in directory)
-        all_files = os.listdir(self._breakpoint_path_file)
+        all_files = os.listdir(BREAKPOINTS_DIR)
         if not hasattr(self, "_exp_breakpoint_folder"):
             self._exp_breakpoint_folder = "Experiment_" + str(len(all_files))
         try:
-            os.makedirs(os.path.join(self._breakpoint_path_file,
+            os.makedirs(os.path.join(BREAKPOINTS_DIR,
                                      self._exp_breakpoint_folder),
                         exist_ok=True)
-        except (PermissionError, OSError) as err: 
+        except (PermissionError, OSError) as err:
             logger.error(f"Can not save breakpoints files because\
-                    {self._breakpoint_path_file} folder could not be created\
+                    {BREAKPOINTS_DIR} folder could not be created\
                         due to {err}")
-            
+
     def _create_breakpoint_file_and_folder(self,
                                            round: int = 0) -> Tuple[str, str]:
         """It creates a breakpoint file for each round.
@@ -239,7 +248,7 @@ class Experiment:
             contain the state of an experiment.
         """
         breakpoint_folder = "breakpoint_" + str(round)
-        breakpoint_folder_path = os.path.join(self._breakpoint_path_file,
+        breakpoint_folder_path = os.path.join(BREAKPOINTS_DIR,
                                               self._exp_breakpoint_folder,
                                               breakpoint_folder)
         try:
@@ -250,7 +259,7 @@ class Experiment:
 
         breakpoint_file = breakpoint_folder + ".json"
         return breakpoint_folder_path, breakpoint_file
-        
+
     def _save_state(self, round: int=0):
         """
         Saves a state of the training at a current round.
@@ -271,7 +280,7 @@ class Experiment:
          - params_path
          - model_class
          - training_replies
-        
+
         Args:
             round (int, optional): number of rounds already executed.
             Starts from 0. Defaults to 0.
@@ -286,11 +295,11 @@ class Experiment:
             'round_success': True,
             'tags': self._tags
         }
-        
+
         state.update(job_state)
         breakpoint_path, breakpoint_file_name = self._create_breakpoint_file_and_folder(round)
-        
-        
+
+
         # copy model parameters and model to breakpoint folder
         for client_id, param_path in state['params_path'].items():
             copied_param_file = "params_" + client_id + ".pt"
@@ -322,12 +331,12 @@ class Experiment:
         Args:
             pathfile (str): path towards folder on system
             list_name_file (List[str]): a list containing files
-            only_folder (bool, optional): whether to consider only 
+            only_folder (bool, optional): whether to consider only
             folder names or to consider both  file and folder names.
             Defaults to False.
 
         Raises:
-            FileNotFoundError: triggered if none of the names 
+            FileNotFoundError: triggered if none of the names
             in folder doesnot match with naming convention.
 
         Returns:
@@ -341,7 +350,7 @@ class Experiment:
                                   exp_folder)
 
             if len(exp_folder) != exp_match.span()[0]:
-                
+
                 dir_path = os.path.join(pathfile, exp_folder)
                 if not only_folder or os.path.isdir(dir_path):
                     f_idx = exp_match.span()[0]
@@ -350,12 +359,12 @@ class Experiment:
                     if order >= latest_nb:
                         latest_nb = order
                         latest_folder = exp_folder
-        
+
         if latest_folder is None and len(list_name_file) != 0:
-                
-            raise FileNotFoundError("None of those are breakpoints{}".format(", ".join(list_name_file)))            
+
+            raise FileNotFoundError("None of those are breakpoints{}".format(", ".join(list_name_file)))
         return latest_folder
-    
+
     @staticmethod
     def _find_breakpoint_path(breakpoint_folder: str = None) -> Tuple[str, str]:
         """Finds breakpoint path, regarding if
@@ -363,8 +372,8 @@ class Experiment:
         considers only the latest breakpoint.
 
         Args:
-            breakpoint_folder (str, optional):path towards breakpoint. If None, 
-            (default), consider latest breakpoint saved on default path 
+            breakpoint_folder (str, optional):path towards breakpoint. If None,
+            (default), consider latest breakpoint saved on default path
             (provided at least one breakpoint exists). Defaults to None.
 
         Raises:
@@ -374,7 +383,7 @@ class Experiment:
             FileNotFoundError: [description]
 
         Returns:
-            str: folder location toward breakpoint (unchanged if 
+            str: folder location toward breakpoint (unchanged if
             specified by user)
             str: latest experiment and breakpoint folder.
         """
@@ -382,54 +391,63 @@ class Experiment:
         if breakpoint_folder is None:
             try:
                 # retrieve latest experiment
-                default_breakpoints_folder = BREAKPOINTS_DIR
-                experiment_folders = os.listdir(default_breakpoints_folder)
-                
-                latest_exp_folder = Experiment._get_latest_file(
-                                                    default_breakpoints_folder,
-                                                    experiment_folders,
-                                                    only_folder=True)
-                latest_exp_folder = os.path.join(default_breakpoints_folder,
-                                                 latest_exp_folder)
-                bkpt_folders = os.listdir(latest_exp_folder)
+
+                # content of breakpoint folder
+                _experiment_folders = os.listdir(BREAKPOINTS_DIR)
+
+                _latest_exp_folder = Experiment._get_latest_file(
+                    BREAKPOINTS_DIR,
+                    _experiment_folders,
+                    only_folder=True)
+
+                _latest_exp_folder = os.path.join(BREAKPOINTS_DIR,
+                                                  _latest_exp_folder)
+
+                _bkpt_folders = os.listdir(_latest_exp_folder)
+
                 breakpoint_folder = Experiment._get_latest_file(
-                                                latest_exp_folder,
-                                                bkpt_folders,
-                                                only_folder=True)
-                
-                breakpoint_folder = os.path.join(latest_exp_folder,
+                    _latest_exp_folder,
+                    _bkpt_folders,
+                    only_folder=True)
+
+                breakpoint_folder = os.path.join(_latest_exp_folder,
                                                  breakpoint_folder)
             except FileNotFoundError as err:
-                logger.error(err)
+                logger.error("cannot find a breakpoint in:" + BREAKPOINTS_DIR + " - " + err)
                 raise FileNotFoundError("Cannot find latest breakpoint \
                     saved. Are you sure you have saved at least one breakpoint?")
             except TypeError as err:
                 # case where `Experiment._get_latest_file`
                 # Fails (ie return `None`)
                 logger.error(err)
+
+                #### REVIEW: _latest_exp_folder may be undefined here (it try block breaks before its definition)
                 raise FileNotFoundError(f"found an empty breakpoint folder\
-                    at {latest_exp_folder}")
+                    at {_latest_exp_folder}")
         else:
             if not os.path.isdir(breakpoint_folder):
                 if os.path.isfile(breakpoint_folder):
                     raise FileNotFoundError(f"{breakpoint_folder} \
                         is not a folder but a file")
                 else:
-                    
+
                     # trigger an exception
                     raise FileNotFoundError(f"Cannot find {breakpoint_folder}!")
             # check if folder is a valid breakpoint
-            
+
             # get breakpoint material
             # regex : breakpoint_\d\.json
 
+        #
+        # verify the validity of the breakpoint content
+        # TODO: be more robust
         all_breakpoint_materials = os.listdir(breakpoint_folder)
         if len(all_breakpoint_materials) == 0:
             raise Exception("breakpoint folder is empty !")
-        
+
         state_file = None
         for breakpoint_material in all_breakpoint_materials:
-            # look for the json file containing experiment state 
+            # look for the json file containing experiment state
             # (it should be named `brekpoint_xx.json`)
             json_match = re.fullmatch(r'breakpoint_\d*\.json',
                                       breakpoint_material)
@@ -439,8 +457,6 @@ class Experiment:
                     {breakpoint_material}")
                 state_file = breakpoint_material
 
-            else:
-                continue
         if state_file is None:
             logging.error(f"Cannot find JSON file containing\
                 model state at {breakpoint_folder}. Aborting")
@@ -451,8 +467,7 @@ class Experiment:
 
     @classmethod
     def load_breakpoint(cls: Type[_E],
-                        breakpoint_folder: str = None,
-                        extra_rounds: int = 1) -> _E:
+                        breakpoint_folder: str = None ) -> _E:
         """
         Loads breakpoint (provided a breakpoint has been saved)
         so experience can be resumed. Useful if training has crashed
@@ -464,84 +479,80 @@ class Experiment:
             Path should be: "breakpoints/Experiment_xx/breakpoints_xx".
             If None, loads latest breakpoint of the latest experiment.
             Defaults to None.
-            extra_rounds (int, optional): executes extra training rounds.
-            Defaults to 1.
 
         Returns:
             _E: Reinitialized experiment. With given object,
             user can then use `.run()` method to pursue model training.
         """
-        # get breakpoint folder path (if it is None) and 
+
+
+        # get breakpoint folder path (if it is None) and
         # state file
         breakpoint_folder, state_file = Experiment._find_breakpoint_path(breakpoint_folder)
 
         # TODO: check if all elements needed for breakpoint are present
         with open(os.path.join(breakpoint_folder, state_file), "r") as f:
             saved_state = json.load(f)
-        print(saved_state)
+        #print(saved_state)
 
 
         # TODO: for both client sampling strategy & aggregator
         # deal with saved parameters
 
-        # -----  retrieve breakpoint sampling starategy ----
-        bkpt_sampling_startegy_args = saved_state.get(
-                                                "client_selection_strategy"
-                                                     )
-        import_str = cls._instancialize_module(bkpt_sampling_startegy_args)
-        # (above) importing client strategy
-        
+        # -----  retrieve breakpoint sampling strategy ----
+        _bkpt_sampling_strategy_args = saved_state.get(
+            "client_selection_strategy"
+        )
+        import_str = cls._instancialize_module(_bkpt_sampling_strategy_args)
         exec(import_str)
-        bkpt_sampling_startegy = eval(bkpt_sampling_startegy_args.get("class"))
-        
+        _bkpt_sampling_strategy = eval(_bkpt_sampling_strategy_args.get("class"))
+
         # ----- retrieve federator -----
         bkpt_aggregator_args = saved_state.get("aggregator")
         import_str = cls._instancialize_module(bkpt_aggregator_args)
-
         exec(import_str)
         bkpt_aggregator = eval(bkpt_aggregator_args.get("class"))
-        
-        # remaining round to resume before end of experiment
-        remaining_round = max(extra_rounds + \
-            saved_state.get('round_number_due', 1), 1) 
+
         # ------ initializing experiment -------
-        cls._training_data = saved_state.get('training_data')
-        
+
         loaded_exp = cls(tags=saved_state.get('tags'),
-                         clients=saved_state.get('client_id'),
+                         clients=None,   # list of previous clients is contained in training_data
                          model_class=saved_state.get("model_class"),
                          model_path=saved_state.get("model_path"),
                          model_args=saved_state.get("model_args"),
                          training_args=saved_state.get("training_args"),
-                         rounds=remaining_round,
+                         rounds=saved_state.get("round_number_due"),
                          aggregator=bkpt_aggregator(),
-                         client_selection_strategy=bkpt_sampling_startegy,
+                         client_selection_strategy=_bkpt_sampling_strategy,
                          save_breakpoints=True,
+                         training_data = saved_state.get('training_data')
                          )
 
         # get experiment folder for breakpoint
         loaded_exp._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
         loaded_exp._round_init = saved_state.get('round_number', 0)
-        loaded_exp._rounds = extra_rounds + saved_state.get('round_number_due', 1)
+        loaded_exp._rounds = saved_state.get('round_number_due', 1)
         # ------- changing `Job` attributes -------
         loaded_exp._job._id = saved_state.get('job_id')
         loaded_exp._job._data = FederatedDataSet(
-                                        saved_state.get('training_data')
-                                                )
-        loaded_exp._load_training_replies(saved_state.get('training_replies'),
-                                          saved_state.get("params_path")
-                                          )
+            saved_state.get('training_data')
+        )
+        loaded_exp._load_training_replies(
+            saved_state.get('training_replies'),
+            saved_state.get("params_path")
+        )
         loaded_exp._job._researcher_id = saved_state.get('researcher_id')
         logging.debug(f"reloading from {breakpoint_folder} successful!")
         return loaded_exp
 
     @staticmethod
-    def _instancialize_module(args: Dict[str, Any],
-                              class_key: str = "class",
-                              module_key: str = "module"):
-        
-        module_class = args.get(class_key)
-        module_path = args.get(module_key, "custom")
+    def _instancialize_module(args: Dict[str, Any]):
+        """
+        ???
+        """
+
+        module_class = args.get("class")
+        module_path = args.get("module", "custom")
         if module_path == "custom":
             # case where user is loading its own custom
             # client sampling strategy
