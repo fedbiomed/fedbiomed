@@ -205,8 +205,10 @@ On the node machine
 ```bash
 [user@node $] docker image load </tmp/vpn-node-image.tar.gz
 ```
+* change to directory you want to use as base directory for running this container
 * load files needed for running container
 ```bash
+[user@node $] mkdir -p ./envs/vpn/docker
 [user@node $] cd ./envs/vpn/docker
 [user@node $] tar xvzf /tmp/vpn-node-files.tar.gz
 [user@node $] mv docker-compose_run_node.yml docker-compose.yml
