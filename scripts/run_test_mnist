@@ -8,6 +8,9 @@
 # Called from CI_build
 #
 
+# timeout in seconds for aborting the test
+TEST_TIMEOUT=900
+
 basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit
 
@@ -62,7 +65,7 @@ source $basedir/scripts/fedbiomed_environment researcher
 EXEC_TEST=$basedir/notebooks/getting-started.py
 if [ -x "$EXEC_TEST" ]
 then
-    $EXEC_TEST
+    timeout --preserve-status --signal=HUP --kill-after=10 $TEST_TIMEOUT $EXEC_TEST
 else
     echo "INFO: no script $EXEC_TEST in this version, skipping"
 fi
@@ -72,7 +75,7 @@ conda deactivate
 ##clean running processes and datasets
 echo "INFO: killing kpids=$kpids"
 kill -9 $kpids
-( cd $basedir/envs/development/network ; CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) docker-compose down )
+( cd $basedir/envs/development/docker ; docker-compose down )
 source $basedir/scripts/fedbiomed_environment node
 $basedir/scripts/fedbiomed_run node --delete-mnist
 

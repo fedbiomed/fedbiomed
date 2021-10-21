@@ -29,25 +29,49 @@ case $1 in
 
     network)
         source ./scripts/fedbiomed_environment network
-        cd ./envs/development/network
-        ./deploy.sh --local
+        cd ./envs/development/docker
+        # 
+        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
+          CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) \
+          docker-compose build restful mqtt
+        docker-compose up -d restful mqtt
         ;;
 
     node)
 
-        # deal with alternative config file
-        if [ $# -ge 4 -a "${@:$#-1:1}" = 'config' ]
+        while true ; do
+            case $2 in
+                # handle optional parameters : config file, network ip
+                config)
+                    if [ $# -lt 3 ] ; then
+                        echo "ERROR: missing config file name"
+                        exit 1
+                    fi
+                    export CONFIG_FILE=$3
+                    shift
+                    shift
+                ;;
+                ip_address)
+                    if [ $# -lt 3 ] ; then
+                        echo "ERROR: missing network ip"
+                        exit 1
+                    fi
+                    IP_ADDRESS=$3
+                    shift
+                    shift
+                ;;
+                *)
+                    break
+                ;;
+            esac
+        done
+        
+        # pass remaining params to launched script
+        if [ $# -ge 2 ]
         then
-            export CONFIG_FILE=${@:$#}
-            export PARAMS=${@:3:$#-4}
+            export PARAMS=${@:3:$#-2}
         else
-            unset CONFIG_FILE
-            if [ $# -ge 3 ]
-            then
-                export PARAMS=${@:3:$#-2}
-            else
-                export PARAMS=
-            fi
+            export PARAMS=
         fi
 
         # TODO : better test with python module loading attempt and try/except
@@ -56,27 +80,27 @@ case $1 in
             case $2 in
 
                 list|--list|-l)
-                    source ./scripts/fedbiomed_environment node
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --list $PARAMS
                     ;;
 
                 del|delete|--del|--delete|-d)
-                    source ./scripts/fedbiomed_environment node
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --delete $PARAMS
                     ;;
 
-                --delete-mnist|-dm)
-                    source ./scripts/fedbiomed_environment node
+                delete-mnist|--delete-mnist|-dm)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --delete-mnist $PARAMS
                     ;;
 
                 add|--add|-a)
-                    source ./scripts/fedbiomed_environment node
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --add $PARAMS
                     ;;
 
-                --add-mnist|-am)
-                    source ./scripts/fedbiomed_environment node
+                add-mnist|--add-mnist|-am)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --add-mnist $PARAMS
                     ;;
 
@@ -84,7 +108,7 @@ case $1 in
                     #export MQTT_BROKER=localhost
                     #export MQTT_BROKER_PORT=1883
                     #export UPLOADS_URL='http://localhost:8844/upload/'
-                    source ./scripts/fedbiomed_environment node
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --start $PARAMS
                     ;;
                 *)
@@ -101,19 +125,46 @@ case $1 in
         #export MQTT_BROKER=localhost
         #export MQTT_BROKER_PORT=1883
         #export UPLOADS_URL='http://localhost:8844/upload/'
-        source ./scripts/fedbiomed_environment researcher
+
+        while true ; do
+            case $2 in
+                ip_address)
+                    if [ $# -lt 3 ] ; then
+                        echo "ERROR: missing network ip"
+                        exit 1
+                    fi
+                    IP_ADDRESS=$3
+                    shift
+                    shift
+                ;;
+                *)
+                    break
+                ;;
+            esac
+        done
+
+        source ./scripts/fedbiomed_environment researcher $IP_ADDRESS
         cd notebooks
-        jupyter notebook
+
+        # Windows WSL and others cannot handle using redirect file for securing notebook launch
+        # https://jupyter-notebook.readthedocs.io/en/stable/config.html (section NotebookApp.use_redirect_file)
+        NB_OPTS=
+        if [ -n "$(uname -r | egrep -i 'microsoft|wsl')" ]
+        # case if windows WSL is used
+        then
+            NB_OPTS='--NotebookApp.use_redirect_file=false'
+        fi
+
+        jupyter notebook $NB_OPTS
         ;;
 
     help|-h|--help)
         cat <<EOF
 usage: fedbiomed_run network
-       fedbiomed_run researcher
-       fedbiomed_run node       add    (config_name.ini)
-       fedbiomed_run node       start  (config_name.ini)
-       fedbiomed_run node       delete (config_name.ini)
-       fedbiomed_run node       list   (config_name.ini)
+       fedbiomed_run researcher [ip_address IP_ADDRESS]
+       fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS]
+                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist) PARAMS
+
 
 Runs the fedbiomed components after properly initializing the environments.
 The component name is mandatory.
@@ -122,12 +173,22 @@ network   : run the necessary docker containers (in development mode)
 
 researcher: launch a researcher notebook
 
-node      : a second arguement is mandatory
-            start : launch a new node
-            add/list/delete deals with dataset
+            an optional IP_ADDRESS (eg 10.1.2.3 or host.foo) can be used to join the network
+                component instead of the default localhost
 
-            if a config_name.ini file is given as third argeument,
-            it will be used instead of the default one (config.ini)
+node      : a second arguement is mandatory
+            - start : launch a new node
+            - add/list/delete deal with dataset
+            - add-mnist PATH_TO_DATASET directly adds a mnist dataset
+            - delete-mnist directly removes a mnist dataset
+
+            an optional config file CONFIG_NAME can be given it will be used instead of the default one (config.ini)
+
+            an optional IP_ADDRESS can be used to join the network component instead of
+                the default localhost
+
+            optional additional PARAMS are passed to fedbiomed
+
 EOF
         ;;
 

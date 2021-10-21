@@ -1,4 +1,6 @@
 import os
+import signal
+import sys
 import time
 from multiprocessing import Process
 
@@ -8,11 +10,13 @@ import argparse
 
 import tkinter.filedialog
 import tkinter.messagebox
-
+from tkinter import _tkinter
 
 from fedbiomed.node.environ import CLIENT_ID
 from fedbiomed.node.data_manager import Data_manager
 from fedbiomed.node.node import Node
+
+from fedbiomed.common.logger import logger
 
 
 __intro__ = """
@@ -24,6 +28,9 @@ __intro__ = """
  | ||  __/ (_| | |_) | | (_) | | | | | |  __/ (_| | | (__| | |  __/ | | | |_
  |_| \___|\__,_|_.__/|_|\___/|_| |_| |_|\___|\__,_|  \___|_|_|\___|_| |_|\__|
 """
+
+# this may be changed on command line or in the config_client.ini
+logger.setLevel("DEBUG")
 
 data_manager = Data_manager()
 
@@ -50,16 +57,29 @@ def validated_data_type_input():
 
 
 def pick_with_tkinter(mode='file'):
+    """
+    Opens a tkinter graphical user interface to select dataset
+
+    Args:
+        mode (str, optional)
+    """
     try:
         # root = TK()
         # root.withdraw()
         # root.attributes("-topmost", True)
         if mode == 'file':
-            return tkinter.filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+            return tkinter.filedialog.askopenfilename(
+                        filetypes=[
+                                  ("CSV files",
+                                   "*.csv")
+                                  ]
+                        )
         else:
             return tkinter.filedialog.askdirectory()
 
-    except ModuleNotFoundError:
+    except (ModuleNotFoundError, _tkinter.TclError):
+        # handling case where tkinter package cannot be found on system
+        # or if tkinter crashes
         if mode == 'file':
             return input('Insert the path of the CSV file: ')
         else:
@@ -71,16 +91,16 @@ def validated_path_input(data_type):
         try:
             if data_type == 'csv':
                 path = pick_with_tkinter(mode='file')
-                print(path)
+                logger.debug(path)
                 if not path:
-                    print('No file was selected. Exiting...')
+                    logger.critical('No file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
             else:
                 path = pick_with_tkinter(mode='dir')
-                print(path)
+                logger.debug(path)
                 if not path:
-                    print('No directory was selected. Exiting...')
+                    logger.critical('No directory was selected. Exiting')
                     exit(1)
                 assert os.path.isdir(path)
             break
@@ -123,9 +143,11 @@ def add_database(interactive=True, path=''):
     # Add database
 
     try:
-        data_manager.add_database(name=name, tags=tags, data_type=data_type,
-                     description=description,
-                     path=path)
+        data_manager.add_database(name=name,
+                                  tags=tags,
+                                  data_type=data_type,
+                                  description=description,
+                                  path=path)
     except AssertionError as e:
         if interactive is True:
             try:
@@ -139,38 +161,86 @@ def add_database(interactive=True, path=''):
     print('\nGreat! Take a look at your data:')
     data_manager.list_my_data(verbose=True)
 
+
+def node_signal_handler(signum, frame):
+    """
+    Catch the temination signal then user stops the process
+    and send SystemExit(0) to be trapped later
+    """
+    logger.critical("Node stopped in signal_handler, probably by user decision (Ctrl C)")
+    time.sleep(1)
+    sys.exit(signum)
+
 def manage_node():
-    print('Launching node...')
+    """
+    Instantiates a node and data manager objects. Then, node starts
+    messaging with the Network
+    """
 
-    data_manager = Data_manager()
-    print('\t - Starting communication channel with network...\n')
-    node = Node(data_manager)
-    node.start_messaging(block=False)
+    try:
+        signal.signal(signal.SIGTERM, node_signal_handler)
 
-    print('\t - Starting task manager...\n')
-    node.task_manager()
+        logger.info('Launching node')
+
+        data_manager = Data_manager()
+        logger.info('Starting communication channel with network')
+        node = Node(data_manager)
+        node.start_messaging(block=False)
+
+        logger.info('Starting task manager')
+        node.task_manager()  # handling training tasks in queue
+
+    except Exception as e:
+        # must send info to the researcher
+        logger.critical("Node stopped. Error = " + str(e))
+
+    finally:
+        # this is triggered by the signal.SIGTERM handler SystemExit(0)
+        #
+        # cleaning staff should be done here
+        pass
+
+
+    # finally:
+    #     # must send info to the researcher (as critical ?)
+    #     logger.critical("(CRIT)Node stopped, probably by user decision (Ctrl C)")
+    #     time.sleep(1)
+    #     logger.exception("Reason:")
+    #     time.sleep(1)
 
 def launch_node():
+    """
+    Launches node in a process. Process ends when user triggers
+    a KeyboardInterrupt exception (CTRL+C).
+    """
     #p = Process(target=manage_node, name='node-' + CLIENT_ID, args=(data_manager,))
     p = Process(target=manage_node, name='node-' + CLIENT_ID)
     p.daemon = True
     p.start()
 
+    logger.info("Node started as process with pid = "+ str(p.pid))
     try:
         print('To stop press Ctrl + C.')
         p.join()
     except KeyboardInterrupt:
         p.terminate()
+
+        # give time to the node to send a MQTT message
+        time.sleep(1)
         while(p.is_alive()):
-            print("Terminating process " + str(p.pid))
+            logger.info("Terminating process id =" + str(p.pid))
             time.sleep(1)
-        print('Exited with code ' + str(p.exitcode))
+
+        # (above) p.exitcode returns None if not finished yet
+        logger.info('Exited with code ' + str(p.exitcode))
+
         exit()
 
-def delete_database(interactive=True):
+
+def delete_database(interactive: bool = True):
     my_data = data_manager.list_my_data(verbose=False)
     if not my_data:
-        print('No dataset to delete')
+        logger.warning('No dataset to delete')
         return
 
     if interactive is True:
@@ -184,7 +254,7 @@ def delete_database(interactive=True):
             if interactive is True:
                 opt_idx = int(input(msg)) - 1
                 assert opt_idx >= 0
-            
+
                 tags = my_data[opt_idx]['tags']
             else:
                 tags = ''
@@ -194,14 +264,14 @@ def delete_database(interactive=True):
                         break
 
             if not tags:
-                print('No matching dataset to delete')
+                logger.warning('No matching dataset to delete')
                 return
             data_manager.remove_database(tags)
-            print('Dataset removed. Here your available datasets')
+            logger.info('Dataset removed. Here your available datasets')
             data_manager.list_my_data()
             return
         except (ValueError, IndexError, AssertionError):
-            print('Invalid option. Please, try again.')
+            logger.error('Invalid option. Please, try again.')
 
 
 def launch_cli():
@@ -209,13 +279,25 @@ def launch_cli():
     parser = argparse.ArgumentParser(description=f'{__intro__}:A CLI app for fedbiomed researchers.',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
-    parser.add_argument('-a', '--add', help='Add and configure local dataset (interactive)', action='store_true')
-    parser.add_argument('-am', '--add-mnist', help='Add MNIST local dataset (non-interactive)', 
-        type=str, nargs='?', const='', metavar='path_mnist', action='store')
-    parser.add_argument('-d', '--delete', help='Delete existing local dataset (interactive)', action='store_true')
-    parser.add_argument('-dm', '--delete-mnist', help='Delete existing MNIST local dataset (non-interactive)', action='store_true')
-    parser.add_argument('-l', '--list', help='List my shared_data', action='store_true')
-    parser.add_argument('-s', '--start-node', help='Start fedbiomed node.', action='store_true')
+    parser.add_argument('-a', '--add',
+                        help='Add and configure local dataset (interactive)',
+                        action='store_true')
+    parser.add_argument('-am', '--add-mnist',
+                        help='Add MNIST local dataset (non-interactive)',
+                        type=str, nargs='?', const='', metavar='path_mnist',
+                        action='store')
+    parser.add_argument('-d', '--delete',
+                        help='Delete existing local dataset (interactive)',
+                        action='store_true')
+    parser.add_argument('-dm', '--delete-mnist',
+                        help='Delete existing MNIST local dataset (non-interactive)',
+                        action='store_true')
+    parser.add_argument('-l', '--list',
+                        help='List my shared_data',
+                        action='store_true')
+    parser.add_argument('-s', '--start-node',
+                        help='Start fedbiomed node.',
+                        action='store_true')
     args = parser.parse_args()
 
     if not any(args.__dict__.values()):
@@ -229,7 +311,7 @@ def launch_cli():
     elif args.add_mnist is not None:
         add_database(interactive=False, path=args.add_mnist)
     elif args.list:
-        print('Listing your data available...')
+        print('Listing your data available')
         data = data_manager.list_my_data(verbose=True)
         if len(data) == 0:
             print('No data has been set up.')
@@ -245,7 +327,11 @@ def main():
     try:
         launch_cli()
     except KeyboardInterrupt:
-        print('Operation cancelled by user.')
+        #print('Operation cancelled by user.')
+
+        # send error message to researche via logger.error()
+        logger.critical('Operation cancelled by user.')
+
 
 if __name__ == '__main__':
-        main()
+    main()

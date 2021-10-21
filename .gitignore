@@ -353,7 +353,7 @@ fabric.properties
 # End of https://www.toptal.com/developers/gitignore/api/django,python,pycharm,jupyternotebooks,visualstudiocode
 .idea
 
-# temproary files
+# temporary files
 uploads
 my_model.p*
 etc/
@@ -366,3 +366,11 @@ queue_manager/
 *.ini
 db_client_*.json
 queue_manager_client_*
+cover/
+mylog.log
+sgd.sav
+
+# vpn configurations
+**/config/config_peers
+**/config/ip_assign
+**/config/wireguard

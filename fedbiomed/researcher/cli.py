@@ -3,7 +3,9 @@ import socket
 import sys
 import os
 
+from fedbiomed.common.logger import logger
 from fedbiomed.researcher.environ import TENSORBOARD_RESULTS_DIR
+
 
 class TensorboardSupervisor:
     def __init__(self, log_dp):
@@ -19,7 +21,8 @@ class TensorboardSupervisor:
             print('Killing Tensorboard Server')
             self.server.terminate()
             self.server.join()
-        # As a preference, we leave chrome open - but this may be amended similar to the method above
+        # As a preference, we leave chrome open -
+        # but this may be amended similar to the method above
 
 
 class TensorboardServer(Process):
@@ -58,9 +61,10 @@ class ChromeProcess(Process):
 
 
 def launch_tensorboard():
+    tb_sup = None
     try:
-        print('Starting tensorboard for client monitoring...')
+        print('Starting tensorboard for client monitoring')
         tb_sup = TensorboardSupervisor(TENSORBOARD_RESULTS_DIR)
     except KeyboardInterrupt:
-        print('Stopping service...')
+        print('Stopping service')
         tb_sup.finalize()

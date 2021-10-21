@@ -1,17 +1,20 @@
+import configparser
 import os
 import uuid
 
 from six.moves import urllib
-import configparser
+from typing import Optional
+
+from fedbiomed.common.logger import logger
 
 try:
     defined_node_env
 except NameError:
     defined_node_env = False
 
-# python imports should handle this,  but avoid eventual weird cases
+# python imports should handle that it is only executed once,  but avoid eventual weird cases
 if not defined_node_env:
-    def init_client_config(client_id=None):
+    def init_client_config(client_id: Optional[str] = None):
         """ This method: reads the config file if exists, otherwise it creates
                 it with the NODE config params
 
@@ -32,14 +35,28 @@ if not defined_node_env:
         # Create client ID
         client_id = os.getenv('CLIENT_ID', 'client_' + str(uuid.uuid4()))
 
+        # create network csracteristics from environment or config file
+        uploads_ip = os.getenv('UPLOADS_IP')
+        uploads_url = "http://localhost:8844/upload/"
+
+        if uploads_ip:
+            uploads_url = "http://" + uploads_ip + ":8844/upload/"
+
+        # is positionned UPLOADS_URL is stronger than the one deduced from
+        # UPLOADS_IP
+        uploads_url = os.getenv('UPLOADS_URL', uploads_url)
+
         cfg['default'] = {
             'client_id': client_id,
-            'uploads_url': 'http://localhost:8844/upload/',
+            'uploads_url': uploads_url,
         }
 
+        mqtt_broker = os.getenv('MQTT_BROKER', 'localhost')
+        mqtt_broker_port = int(os.getenv('MQTT_BROKER_PORT', 1883))
+
         cfg['mqtt'] = {
-            'broker_url': 'localhost',
-            'port': 80,
+            'broker_ip': mqtt_broker,
+            'port': mqtt_broker_port,
             'keep_alive': 60
         }
 
@@ -48,8 +65,13 @@ if not defined_node_env:
 
         return cfg
 
-
-    ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../..'))
+    ROOT_DIR = os.path.abspath(
+                    os.path.join(
+                        os.path.dirname(
+                            os.path.abspath(__file__)
+                            ),
+                        '../..')
+                    )
 
     CONFIG_DIR = os.path.join(ROOT_DIR, 'etc')
     VAR_DIR = os.path.join(ROOT_DIR, 'var')
@@ -61,13 +83,14 @@ if not defined_node_env:
             try:
                 os.makedirs(dir)
             except FileExistsError:
-                print("[ ERROR ] path exists but is not a directory", dir)
+                logger.error("path exists but is not a directory " + dir)
 
-
-    if os.getenv('CONFIG_FILE') :
+    if os.getenv('CONFIG_FILE'):
         CONFIG_FILE = os.getenv('CONFIG_FILE')
-        if not CONFIG_FILE.startswith("/") :
-            CONFIG_FILE = os.path.join(CONFIG_DIR,os.getenv('CONFIG_FILE'))
+        if not os.path.isabs(CONFIG_FILE):
+            CONFIG_FILE = os.path.join(
+                            CONFIG_DIR,
+                            os.getenv('CONFIG_FILE'))
     else:
         CONFIG_FILE = os.path.join(CONFIG_DIR, 'config_node.ini')
 
@@ -77,11 +100,18 @@ if not defined_node_env:
     MESSAGES_QUEUE_DIR = os.path.join(VAR_DIR, f'queue_manager_{CLIENT_ID}')
     DB_PATH = os.path.join(VAR_DIR, f'db_{CLIENT_ID}.json')
 
-    MQTT_BROKER = os.getenv('MQTT_BROKER', cfg.get('mqtt', 'broker_url'))
-    MQTT_BROKER_PORT = int(os.getenv('MQTT_BROKER_PORT', cfg.get('mqtt', 'port')))
+    MQTT_BROKER = os.getenv('MQTT_BROKER', cfg.get('mqtt', 'broker_ip'))
+    MQTT_BROKER_PORT = int(os.getenv('MQTT_BROKER_PORT',
+                                     cfg.get('mqtt', 'port')))
 
-    UPLOADS_URL = os.getenv('UPLOADS_URL', cfg.get('default', 'uploads_url'))
-    if not UPLOADS_URL.endswith('/') :
+    UPLOADS_URL = cfg.get('default', 'uploads_url')
+    uploads_ip = os.getenv('UPLOADS_IP')
+    if uploads_ip:
+        UPLOADS_URL = "http://" + uploads_ip + ":8844/upload/"
+    UPLOADS_URL = os.getenv('UPLOADS_URL', UPLOADS_URL)
+
+    # trailing slash is needed for repo url
+    if not UPLOADS_URL.endswith('/'):
         UPLOADS_URL += '/'
 
 
@@ -91,7 +121,8 @@ if not defined_node_env:
     opener = urllib.request.build_opener()
     opener.addheaders = [
         ('User-agent', 'Python-urllib/3.7'),
-        ('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'),
+        ('Accept',
+         'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'),
         ('Accept-Language', 'en-US,en;q=0.9'),
         ('Accept-Encoding', 'gzip, deflate, br')
     ]
