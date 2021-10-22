@@ -7,6 +7,7 @@ from numpy.linalg import solve
 from math import log
 from fedbiomed.common.pythonmodel import PythonModelPlan
 
+
 class PpcaPlan(PythonModelPlan):
     def __init__(self,
                  kwargs):
@@ -86,6 +87,7 @@ class PpcaPlan(PythonModelPlan):
 
         # self.q_i contains the "effective" latent space dimension per view 
         # (at least equal to original view dimension-1)
+
         q_i = [] 
         for i in D_i:
             if i <= q:
