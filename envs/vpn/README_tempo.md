@@ -386,7 +386,7 @@ Note : can also use commands in the form
 [root@network #] rm -rf vpnserver/run_mounts/config/{config_peers,ip_assign,wireguard}
 
 # level 3 : image
-[user@network $] docker image rm fedbiomed-vpn-vpnserver
+[user@network $] docker image rm fedbiomed/vpn-vpnserver
 ```
 
 ### mqtt
@@ -402,7 +402,7 @@ Note : can also use commands in the form
 [user@network $] echo > ./mqtt/run_mounts/config/config.env
 
 # level 3 : image
-[user@network $] docker image rm fedbiomed-vpn-mqtt
+[user@network $] docker image rm fedbiomed/vpn-mqtt
 ```
 
 ### restful
@@ -421,7 +421,7 @@ Note : can also use commands in the form
 # also clean saved files ? (same for env/developement)
 
 # level 3 : image
-[user@network $] docker image rm fedbiomed-vpn-restful
+[user@network $] docker image rm fedbiomed/vpn-restful
 ```
 
 ### node 
@@ -438,7 +438,7 @@ Note : can also use commands in the form
 [user@node $] rm -rf ./node/run_mounts/data/*
 
 # level 3 : image
-[user@node $] docker image rm fedbiomed-vpn-node
+[user@node $] docker image rm fedbiomed/vpn-node
 ```
 
 ### researcher
@@ -457,7 +457,7 @@ Same as node
 [user@researcher $] rm -rf ./researcher/run_mounts/data/*
 
 # level 3 : image
-[user@researcher $] docker image rm fedbiomed-vpn-researcher
+[user@researcher $] docker image rm fedbiomed/vpn-researcher
 ```
 
 ## background / wireguard
