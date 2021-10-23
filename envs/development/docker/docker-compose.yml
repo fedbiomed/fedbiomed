@@ -34,3 +34,59 @@ services:
     ports:
       - "1883:1883"
       - "9001:9001"
+
+  fed-notebook:
+    image: fed-notebook_image
+    restart: always
+    container_name: fedbiomed-dev-notebook
+    build:
+      context:  ../../../
+      dockerfile: envs/development/docker/notebook/build_files/Dockerfile
+
+  fed-hub:
+    image: fed-hub_image
+    restart: always
+    container_name: fedbiomed-dev-jupyterhub
+    build:
+      context: ../../../
+      dockerfile: envs/development/docker/jupyterhub/build_files/Dockerfile
+
+    command: jupyterhub -f /etc/jupyterhub/jupyterhub_config.py
+    volumes:
+      - ./jupyterhub/run_mounts/etc_files/passwd:/etc/passwd:ro
+      - ./jupyterhub/run_mounts/etc_files/shadow:/etc/shadow:ro
+      - ./jupyterhub/run_mounts/etc_files/group:/etc/group:ro
+      - ./jupyterhub/run_mounts/etc_files/jupyterhub:/etc/jupyterhub:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8000:8000"
+    networks:
+      - fed-net-hub
+    environment:
+      HOST_BASEDIR: ${PWD}
+      BASE_URL: /fedbiomed/
+      DOCKER_JUPYTERLAB_IMAGE: fed-notebook_image
+      DOCKER_NETWORK_NAME: docker_fed-net-hub
+      HUB_IP: fedbiomed-dev-jupyterhub
+
+      JUPYTERLAB_USER: root
+      JUPYTERLAB_VOLUME_RO: /notebook/run_mounts/start-notebook.d:/usr/local/bin/start-notebook.d
+        /notebook/run_mounts/before-notebook.d:/usr/local/bin/before-notebook.d
+      JUPYTERLAB_VOLUME_RW: /notebook/run_mounts/workspace:/home/workspace
+      JUPYTERLAB_ENVIRONMENT: NB_USER:fedbiomeduser
+        NB_UID:998
+        NB_GROUP:fedbiomeduser
+        NB_GID:998
+        CHOWN_HOME:yes
+        CHOWN_HOME_OPTS:-R
+        RESTARTABLE:yes
+        UPLOAD_IP:${JUPYTERLAB_HOST_IP}
+        UPLOAD_PORT:8844
+        UPLOAD_PATH:upload/
+        MQTT_BROKER:${JUPYTERLAB_HOST_IP}
+        MQTT_BROKER_PORT:1883
+
+
+networks:
+  fed-net-hub:
+    driver: bridge

@@ -170,8 +170,38 @@ usage:  lqueue directory
    or
         lqueue dir1 dir2 dir3 ...
 
+## Jupyterhub 
 
-## Using Tensorboard  
+The command below will build images for jupyterhub and start it;  
+
+`./scripts/start_jupyterhub --build`
+
+If you've already built your images you can just run following command;  
+
+`./scripts/start_jupyterhub`
+
+If you dont want to start jupyter notebook container, you can just add `jupyterhub` argument to the command;  
+`./scripts/start_jupyterhub jupyterhub`
+
+The script will automatically get the host machine IP. If you have an error during this operation, please scpecify your ip address with `--ip_address` argument;  
+
+`./scripts/start_jupyterhub --ip_address 1.1.1.1`  
+
+### Running Examples
+
+To be able to run getting started examples, you need start fedbiomed network and nodes in your host machine. 
+
+### Access Jupyter HUB
+Open your browser and go http://localhost:8000/fedbiomed. Login with default username and password.
+
+User: fedbiomed
+pass: FED123fed
+
+Note: In case of frozen loading bar while accessing jupyterlab notebook, please refresh or logout and login again. 
+
+**Note:** Please go `env/development/docker/README.md` to have more information about launching JupyterHub using `docker-compose` and adding jupyterhub user.
+
+## Using Tensorboard
 
 To enable tensorboard during traning routine to see loss values, you need to set `tensorboard` parameter to `true` while initializing Experiment class.
 

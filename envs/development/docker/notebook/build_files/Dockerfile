@@ -1,0 +1,27 @@
+FROM jupyter/datascience-notebook
+
+# Volumues for scripts
+VOLUME [ "/usr/local/bin/start-notebook.d" ]
+VOLUME [ "/usr/local/bin/before-notebook.d" ]
+VOLUME [ "/home/workspace"]
+
+# Copy fedbiomed library
+COPY --chown=$NB_USER:$NB_GID .             /home/fed/.
+COPY --chown=$NB_USER:$NB_GID ./notebooks/. /home/$NB_USER/notebooks/.
+
+# Install packages using conda and pip
+RUN /opt/conda/bin/conda install -y --file  /home/fed/envs/development/docker/notebook/build_files/requirements-conda.txt && \
+        conda clean --all -f -y && \
+        fix-permissions "${CONDA_DIR}" && \
+        fix-permissions "/home/${NB_USER}"
+RUN /opt/conda/bin/pip install -r  /home/fed/envs/development/docker/notebook/build_files/requirements-pip.txt && \
+        fix-permissions "${CONDA_DIR}" && \
+        fix-permissions "/home/${NB_USER}"
+
+
+
+# Set PYTHONPATH to fedbiomed directory
+ENV PYTHONPATH '/home/fed'
+
+
+EXPOSE 8888
