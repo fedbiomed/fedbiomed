@@ -78,11 +78,11 @@ class MLaggregator(Aggregator):
             tilWk = np.zeros((D_i[k], q))
             tilSk = 0.0
             for model in model_params:
-                if type(model['muk'][k]) is not str:
+                if type(model['muk'][k]) is not np.nan:
                     tilmuk+=model['muk'][k]
-                if type(model['Wk'][k]) is not str:
+                if type(model['Wk'][k]) is not np.nan:
                     tilWk += model['Wk'][k]
-                if type(model['sigma2k'][k]) is not str:
+                if type(model['sigma2k'][k]) is not np.nan:
                     tilSk += model['sigma2k'][k]
             
             if Tot_C_k_S[k] >= 1:
@@ -92,7 +92,7 @@ class MLaggregator(Aggregator):
                 tilde_Wk.append(1.0 / Tot_C_k_W[k] * tilWk)
                 sigWk = 0.0
                 for model in model_params:
-                    if type(model['Wk'][k]) is not str:
+                    if type(model['Wk'][k]) is not np.nan:
                         sigWk += np.matrix.trace((model['Wk'][k] - tilde_Wk[k]).T.dot(model['Wk'][k] - tilde_Wk[k]))
                 if sigWk == 0.0:
                     sigma_til_Wk.append(corr_det_inv)
@@ -107,7 +107,7 @@ class MLaggregator(Aggregator):
                 tilde_muk.append(1.0/Tot_C_k_mu[k]*tilmuk)
                 sigmuk = 0.0
                 for model in model_params:
-                    if type(model['muk'][k]) is not str:
+                    if type(model['muk'][k]) is not np.nan:
                         sigmuk+=float((model['muk'][k]-tilde_muk[k]).T.dot(model['muk'][k]-tilde_muk[k]))
                 if sigmuk == 0.0:
                     sigma_til_muk.append(corr_det_inv)
@@ -135,7 +135,7 @@ class MLaggregator(Aggregator):
                 Ck_2 = 0.0
                 varSk = 0.0
                 for model in model_params:
-                    if type(model['sigma2k'][k]) is not str:
+                    if type(model['sigma2k'][k]) is not np.nan:
                         Ck_1 += 1.0 / model['sigma2k'][k]
                         Ck_2 += log(model['sigma2k'][k])
                         varSk += (model['sigma2k'][k] - tilde_Sigma2k[k]) ** 2
@@ -174,11 +174,11 @@ class MLaggregator(Aggregator):
             TotCkmu = 0
             TotCkS = 0
             for model in model_params:
-                if type(model['Wk'][k]) is not str:
+                if type(model['Wk'][k]) is not np.nan:
                     TotCkW += 1
-                if type(model['muk'][k]) is not str:
+                if type(model['muk'][k]) is not np.nan:
                     TotCkmu += 1
-                if type(model['sigma2k'][k]) is not str:
+                if type(model['sigma2k'][k]) is not np.nan:
                     TotCkS += 1
             Tot_C_k_W.append(TotCkW)
             Tot_C_k_mu.append(TotCkmu)

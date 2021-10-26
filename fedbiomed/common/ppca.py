@@ -112,7 +112,7 @@ class PpcaPlan(PythonModelPlan):
         #self.load_params({'Wk': Wk, 'muk': muk, 'sigma2k': Sigma2})
         self.update_params({'Wk': Wk, 'muk': muk, 'sigma2k': Sigma2})
 
-    def normalize_data(self,X):
+    def normalize_data(self,X: pd.DataFrame) -> pd.DataFrame:
         """
         This function normalize the dataset X using min max scaler.
             :return normalized pandas dataframe norm_dataset
@@ -154,8 +154,8 @@ class PpcaPlan(PythonModelPlan):
                 Wk.append(W_k)
                 Sigma2.append(s)
             else:
-                Wk.append('NaN')
-                Sigma2.append('NaN')
+                Wk.append(np.nan)
+                Sigma2.append(np.nan)
 
         return Wk, Sigma2
 
@@ -229,7 +229,7 @@ class PpcaPlan(PythonModelPlan):
                     term2 = mu_1 + (1 / self.params_dict['sigma_til_muk'][k]) * Cc.dot(self.params_dict['tilde_muk'][k].reshape(D_i[k], 1))
                     muk.append(term1.dot(term2))
             else:
-                muk.append('NaN')
+                muk.append(np.nan)
 
         return muk
 
@@ -279,8 +279,8 @@ class PpcaPlan(PythonModelPlan):
                     tn_mu_k.append(Xk[k].iloc[n].values.reshape(D_i[k], 1) - muk[k])
                     norm2_k.append(np.linalg.norm(tn_mu_k[k]) ** 2)
                 else:
-                    norm2_k.append('NaN')
-                    tn_mu_k.append('NaN')
+                    norm2_k.append(np.nan)
+                    tn_mu_k.append(np.nan)
             norm2.append(norm2_k)
             tn_muk.append(tn_mu_k)
 
@@ -389,8 +389,8 @@ class PpcaPlan(PythonModelPlan):
                     Sigma2_new.append((sigma2k + 2 * self.params_dict['Beta'][k]) / \
                         (N * D_i[k] + 2 * (self.params_dict['Alpha'][k] + 1)))
             else:
-                Wk.append('NaN')
-                Sigma2_new.append('NaN')
+                Wk.append(np.nan)
+                Sigma2_new.append(np.nan)
 
         return Wk, Sigma2_new
 
