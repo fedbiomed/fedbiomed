@@ -18,9 +18,12 @@ import paho.mqtt.publish as publish
 
 import copy
 import json
+import sys
+import time
 
 import logging
 import logging.handlers
+
 
 # default values
 DEFAULT_LOG_FILE   = 'mylog.log'
@@ -58,7 +61,6 @@ class MqttFormatter(logging.Formatter):
     # threadName: 'MainThread'
     # processName: 'MainProcess'
     # process: 41544
-    # level: 'ERROR'
     # message: 'mqtt+console ERROR message'
     # asctime: '2021-09-08 15:36:30796'
 
@@ -68,11 +70,9 @@ class MqttFormatter(logging.Formatter):
             "asctime"   : record.__dict__["asctime"],
             "client_id" : self._client_id
         }
-        for _ in [ "name", "level", "message"]:
-            if _ in record.__dict__:
-                json_message[_] = record.__dict__[_]
-            else:
-                json_message[_] = "<undef>" # pragma: no cover
+        json_message["name"] = record.__dict__["name"]
+        json_message["level"] = record.__dict__["levelname"]
+        json_message["message"] = record.__dict__["message"]
 
         record.msg = json.dumps(json_message)
         return super().format(record)
@@ -101,10 +101,9 @@ class MqttHandler(logging.Handler):
         """
 
         logging.Handler.__init__(self)
-        self._client_id = client_id
-        self._mqtt      = mqtt
-        self._topic     = topic
-
+        self._client_id      = client_id
+        self._mqtt           = mqtt
+        self._topic          = topic
 
     def emit(self, record):
         """
@@ -114,8 +113,40 @@ class MqttHandler(logging.Handler):
         record : is automatically passed by the logger class
         """
 
-        msg = self.format(record)
-        self._mqtt.publish(self._topic, msg)
+        #
+        # format a message as expected for LogMessage
+        #
+        # TODO:
+        # - get the researcher_id from the caller (is it needed ???)
+        #   researcher_id is not known then adding the mqtt handler....
+        #
+        msg = dict(
+            command       = 'log',
+            level         = record.__dict__["levelname"],
+            msg           = self.format(record),
+            client_id     = self._client_id,
+            researcher_id = '<unknown>'
+        )
+        try:
+            #
+            # import is done here to avoid circular import
+            # it must also be done each time emit() is called
+            #
+            import fedbiomed.common.message as message
+
+            # verify the message content with Message validator
+            r = message.NodeMessages.reply_create( msg )
+            self._mqtt.publish(self._topic, json.dumps(msg))
+
+        except:
+            # obviously cannot call logger here... (infinite loop)
+            print(
+                record.__dict__["asctime"],
+                record.__dict__["name"],
+                "CRITICAL - Badly formatted MQTT log message. Cannot send MQTT message"
+            )
+            sys.exit(-1)
+
 
 #
 # singletonizer: transforms a class to a singleton
@@ -155,7 +186,7 @@ class _LoggerBase():
 
         # internal tables
         # transform string to logging.level
-        self._levels = {
+        self._nameToLevel = {
             "DEBUG"          : logging.DEBUG,
             "INFO"           : logging.INFO,
             "WARNING"        : logging.WARNING,
@@ -164,7 +195,7 @@ class _LoggerBase():
         }
 
         # transform logging.level to string
-        self._original_levels = {
+        self._levelToName = {
             logging.DEBUG    : "DEBUG",
             logging.INFO     : "INFO",
             logging.WARNING  : "WARNING",
@@ -223,18 +254,22 @@ class _LoggerBase():
 
         ex:
         _internalLevelTranslator('DEBUG')  returns logging.DEBUG
+
+        remark:
+        this is the opposite of the getLevelName() of logging python module
+        and this is not provided by the logging.Logger class
         """
 
         # logging.*
-        if level in self._original_levels:
+        if level in self._levelToName:
             return level
 
         # strings
         if isinstance(level, str):
             upperlevel = level.upper()
 
-            if upperlevel in self._levels:
-                return self._levels[upperlevel]
+            if upperlevel in self._nameToLevel:
+                return self._nameToLevel[upperlevel]
 
         # bad input !
 
@@ -244,6 +279,16 @@ class _LoggerBase():
         self._logger.warning("calling selLevel() with bad value: " + str(level))
         return DEFAULT_LOG_LEVEL
 
+
+    def _internalLevelToString(self, level):
+        """
+        Returns a string corresponding to the log level
+        """
+        if level in self._string_levels:
+            return level
+        if level in self._original_levels:
+            return self._original_levels[level]
+        return "UNKNOWN"
 
 
     def addFileHandler(self,
@@ -292,11 +337,33 @@ class _LoggerBase():
         pass
 
 
+    def _internalForceMqttHandlerLevel(self, level):
+        """
+        internal method
+
+        MQTT handler must send ERROR + CRITICAL messages do the
+        the researcher, in any case. So MQQT handler error level must
+        be at least ERROR.
+        """
+
+        # sanity check that MQTT handler is installed
+        if not "MQTT" in self._handlers:
+            return
+
+        level = self._internalLevelTranslator(level)
+
+        if level > logging.ERROR:
+            level = logging.error
+            logger.debug("setting minimal level to ERROR for MQTT handler")
+
+        self._handlers["MQTT"].setLevel(level)
+
+
     def addMqttHandler(self,
                        mqtt        = None,
                        client_id   = None,
                        topic       = DEFAULT_LOG_TOPIC,
-                       level       = DEFAULT_LOG_LEVEL
+                       level       = logging.ERROR
                        ):
 
         """
@@ -307,6 +374,8 @@ class _LoggerBase():
         client_id   : unique client id of the caller
         topic       : topic to publish to    (non mandatory)
         level       : level of this handler  (non mandatory)
+                      level must be lower than ERROR to insure that the
+                      research get all ERROR/CRITICAL messages
         """
 
         handler = MqttHandler(
@@ -315,86 +384,28 @@ class _LoggerBase():
             topic       = topic
         )
 
+        # may be not necessary ?
         handler.setLevel( self._internalLevelTranslator(level) )
         formatter = MqttFormatter(client_id)
 
         handler.setFormatter(formatter)
         self._internalAddHandler("MQTT", handler)
 
+        # as a side effect this will set the minimal level to ERROR
+        self.setLevel(level , "MQTT")
         pass
 
 
     def log(self, level, msg):
         """
-        overrides the logging.log() method to allow the usae of
+        overrides the logging.log() method to allow the use of
         string instead of a logging.* level
         """
 
         level = logger._internalLevelTranslator(level)
         self._logger.log(
             level,
-            msg,
-            extra = { "level": self._original_levels[level]}
-        )
-
-
-    def debug(self, msg):
-        """
-        overrides the logging.debug() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.DEBUG,
-            msg,
-            extra = { "level": "DEBUG" }
-        )
-
-
-    def info(self, msg):
-        """
-        overrides the logging.info() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.INFO,
-            msg,
-            extra = { "level": "INFO" }
-        )
-
-
-    def warning(self, msg):
-        """
-        overrides the logging.warning() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.WARNING,
-            msg,
-            extra = { "level": "WARNING" }
-        )
-
-
-    def error(self, msg):
-        """
-        overrides the logging.error() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.ERROR,
-            msg,
-            extra = { "level": "ERROR" }
-        )
-
-
-    def critical(self, msg):
-        """
-        overrides the logging.critical() method to pass the loglevel
-        to the MQTT handler
-        """
-        self._logger.log(
-            logging.CRITICAL,
-            msg,
-            extra = { "level": "CRITICAL" }
+            msg
         )
 
 
@@ -420,6 +431,11 @@ class _LoggerBase():
         if htype is None:
             for h in self._handlers:
                 self._handlers[h].setLevel(level)
+            self._internalForceMqttHandlerLevel(level)
+            return
+
+        if htype == "MQTT":
+            self._internalForceMqttHandlerLevel(level)
             return
 
         if htype in self._handlers:

@@ -9,7 +9,8 @@ from typing import Union, List
 import torch
 import torch.nn as nn
 
-from fedbiomed.common.logger import _FedLogger
+from fedbiomed.common.logger import logger
+
 
 class TorchTrainingPlan(nn.Module):
     def __init__(self):
@@ -58,9 +59,6 @@ class TorchTrainingPlan(nn.Module):
         # to be configured by setters
         self.dataset_path = None
 
-        # get the logger from the _FedLogger class (thanks Mr Singleton)
-        self.system_logger = _FedLogger()
-
 
     #################################################
     # provided by fedbiomed
@@ -72,7 +70,7 @@ class TorchTrainingPlan(nn.Module):
                          batch_size: int = 48,
                          batch_maxnum: int = 0,
                          dry_run: bool = False,
-                         logger=None):
+                         monitor=None):
         """
         Training routine procedure.
 
@@ -96,7 +94,7 @@ class TorchTrainingPlan(nn.Module):
             dry_run (bool, optional): whether to stop once the first
             batch size of the first epoch of the first round is completed.
             Defaults to False.
-            logger ([type], optional): [description]. Defaults to None.
+            monitor ([type], optional): [description]. Defaults to None.
         """
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
@@ -124,19 +122,20 @@ class TorchTrainingPlan(nn.Module):
                 # batches from the dataset
                 if (batch_maxnum > 0) and (batch_idx >= batch_maxnum):
                     #print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    self.system_logger.debug('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    logger.debug('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
                     break
 
                 if batch_idx % log_interval == 0:
-                    self.system_logger.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    logger.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
                         batch_idx * len(data),
                         len(training_data.dataset),
                         100 * batch_idx / len(training_data),
                         res.item()))
-                    #
-                    # deal with the logger here
-                    #
+
+                    # Send scalar values via general/feedback topic
+                    if monitor is not None:
+                        monitor.add_scalar('Loss', res.item(), batch_idx, epoch)
 
                     if dry_run:
                         return
@@ -171,7 +170,7 @@ class TorchTrainingPlan(nn.Module):
 
         content += "\n"
         content += inspect.getsource(self.__class__)
-
+        logger.debug("torchnn saved model filename: " + filename)
         # TODO: try/except
         file = open(filename, "w")
         # (above) should we write it in binary (for the sake of space
@@ -231,7 +230,7 @@ class TorchTrainingPlan(nn.Module):
     # manipulation module
     def set_dataset(self, dataset_path):
         self.dataset_path = dataset_path
-        self.system_logger.debug('Dataset_path' + self.dataset_path)
+        logger.debug('Dataset_path' + self.dataset_path)
 
     # provided by the fedbiomed // should be moved in a DATA
     # manipulation module

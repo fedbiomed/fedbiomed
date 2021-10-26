@@ -46,7 +46,7 @@ if not defined_researcher_env:
         }
 
         mqtt_broker = os.getenv('MQTT_BROKER', 'localhost')
-        mqtt_broker_port = int(os.getenv('MQTT_BROKER_PORT', 80))
+        mqtt_broker_port = int(os.getenv('MQTT_BROKER_PORT', 1883))
 
         cfg['mqtt'] = {
             'broker_ip': mqtt_broker,
@@ -66,13 +66,14 @@ if not defined_researcher_env:
     CACHE_DIR = os.path.join(VAR_DIR, 'cache')
     TMP_DIR = os.path.join(VAR_DIR, 'tmp')
     TENSORBOARD_RESULTS_DIR = os.path.join(ROOT_DIR, 'runs')
+    BREAKPOINTS_DIR = os.path.join(VAR_DIR, "breakpoints")
 
     for dir in CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP_DIR, TENSORBOARD_RESULTS_DIR:
         if not os.path.isdir(dir):
             try:
                 os.makedirs(dir)
             except FileExistsError:
-                logging.error("path exists but is not a directory " + dir)
+                logger.error("path exists but is not a directory " + dir)
 
     MESSAGES_QUEUE_DIR = os.path.join(VAR_DIR, 'queue_messages')
 

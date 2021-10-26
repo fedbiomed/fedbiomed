@@ -1,8 +1,14 @@
-from time import sleep
-import uuid
 from datetime import datetime
-from threading import Lock
+import json
+import os
+import signal
+import sys
+import threading
+from time import sleep
 from typing import Any, Dict
+import uuid
+import tabulate
+
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
@@ -19,7 +25,7 @@ class RequestMeta(type):
     """
 
     _objects = {}
-    _lock_instantiation = Lock()
+    _lock_instantiation = threading.Lock()
 
     def __call__(cls, *args, **kwargs):
         """ Replace default class creation for classes using this metaclass,
@@ -59,22 +65,54 @@ class Requests(metaclass=RequestMeta):
         else:
             self.messaging = mess
 
+        # defines the sequence used for ping protocol
+        self._sequence = 0
+
     def get_messaging(self) -> Messaging:
         """returns the messaging object
         """
         return(self.messaging)
 
-    def on_message(self, msg: Dict[str, Any]):
+    def on_message(self, msg: Dict[str, Any] , topic: str):
         """
         This handler is called by the Messaging class (Messager),
         when a message is received on researcher side.
         Adds to queue this incoming message.
         Args:
             msg (Dict[str, Any]): de-serialized msg
+            topic (str)         : topic name (eg MQTT channel)
         """
-        logger.info('message received:' + str(msg))
-        self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
 
+        if topic == "general/logger":
+            self.node_log_handling(ResearcherMessages.reply_create(msg).get_dict())
+        elif topic == "general/server":
+            self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
+        else:
+            log.error("message received on wrong topic ("+ topic +") - IGNORING")
+
+
+    def node_log_handling(self, log: Dict[str, Any]):
+        """
+        manage log/error handling
+        """
+
+        # log contains the original message sent by the node
+        original_msg = json.loads(log["msg"])
+
+        logger.info("log from: " +
+                    log["client_id"] +
+                    " - " +
+                    log["level"] +
+                    " " +
+                    original_msg["message"])
+
+        # deal with error/critical messages from a node
+        node_msg_level = original_msg["level"]
+
+        if node_msg_level == "ERROR" or node_msg_level == "CRITICAL":
+            # first error  implementation: stop the researcher
+            logger.critical("researcher stopped after receiving error/critical log from node: " + log["client_id"])
+            os.kill(os.getpid(), signal.SIGTERM)
 
 
     def send_message(self, msg: dict, client=None):
@@ -173,7 +211,12 @@ class Requests(metaclass=RequestMeta):
         Pings online nodes
         :return: list of client_id
         """
-        self.messaging.send_message(ResearcherMessages.request_create({'researcher_id': RESEARCHER_ID, 'command':'ping'}).get_dict())
+        self.messaging.send_message(ResearcherMessages.request_create(
+            {'researcher_id': RESEARCHER_ID,
+             'sequence': self._sequence,
+             'command':'ping'}).get_dict())
+        self._sequence += 1
+
         # TODO: (below, above) handle exceptions
         clients_online = [resp['client_id'] for resp in self.get_responses(look_for_command='ping')]
         return clients_online
@@ -188,12 +231,76 @@ class Requests(metaclass=RequestMeta):
         :return: a dict with client_id as keys, and list of dicts describing
         available data as values
         """
-        self.messaging.send_message(ResearcherMessages.request_create({'tags':tags, 'researcher_id':RESEARCHER_ID, "command": "search"}).get_dict())
 
-        logger.info(f'Searching for clients with data tags: {tags}')
+        # Search datasets based on client specifications
+        if clients:
+            logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {clients}')
+            for client in clients:
+                self.messaging.send_message(ResearcherMessages.request_create({'tags':tags,
+                                                                               'researcher_id':RESEARCHER_ID,
+                                                                               "command": "search"}
+                                                                               ).get_dict(),
+                                                                               client=client)
+        else:
+            logger.info(f'Searching dataset with data tags: {tags} for all nodes')
+            self.messaging.send_message(ResearcherMessages.request_create({'tags':tags,
+                                                                           'researcher_id':RESEARCHER_ID,
+                                                                           "command": "search"}
+                                                                           ).get_dict())
+
         data_found = {}
         for resp in self.get_responses(look_for_command='search'):
-            # TODO: (below) handle KeyError exception or use `.get()` method
-            if not clients or resp['client_id'] in clients:
-                data_found[resp['client_id']] = resp['databases']
+            if not clients:
+                data_found[resp.get('client_id')] = resp.get('databases')
+            elif resp.get('client_id') in clients:
+                data_found[resp.get('client_id')] = resp.get('databases')
+                logger.info('Node selected for training -> {}'.format(resp.get('client_id')))
+
+        if not data_found:
+            logger.info("No available dataset has found in nodes with tags: {}".format(tags))
+
+        return data_found
+
+    def list(self, clients: list = None, verbose: bool = False) -> dict:
+        """ Lists available data in each node
+
+        Args:
+            clients (str): Listings datasets by given client ids
+                            Default is none.
+            verbose (bool): If it is true it prints datasets in readable format
+        """
+
+        # If clients list is provided
+        if clients:
+            for client in clients:
+                self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':RESEARCHER_ID,
+                                                                                "command": "list"}
+                                                                                ).get_dict() ,
+                                                                                client=client)
+            logger.info(f'Listing datasets of given list of nodes : {clients}')
+        else:
+            self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':RESEARCHER_ID,
+                                                                           "command": "list"}).get_dict())
+            logger.info(f'Listing available datasets in all nodes... ')
+
+        # Get datasets from client responses
+        data_found = {}
+        for resp in self.get_responses(look_for_command='list'):
+            if not clients:
+                data_found[resp.get('client_id')] = resp.get('databases')
+            elif resp.get('client_id') in clients:
+                data_found[resp.get('client_id')] = resp.get('databases')
+
+        # Print dataset tables usong data_found object
+        if verbose:
+            for node in data_found:
+                if len(data_found[node]) > 0 :
+                    rows = [row.values() for row in data_found[node]]
+                    headers = data_found[node][0].keys()
+                    info = '\n Node: {} | Number of Datasets: {} \n'.format( node, len(data_found[node]))
+                    logger.info(info + tabulate.tabulate(rows, headers, tablefmt="grid") + '\n')
+                else:
+                    logger.info('\n Node: {} | Number of Datasets: {}'.format( node, len(data_found[node])) + \
+                                 " No data has been set up for this node.")
+
         return data_found

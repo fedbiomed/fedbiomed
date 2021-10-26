@@ -9,7 +9,7 @@ from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.messaging import Messaging,  MessagingType
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.node.environ import CLIENT_ID, MESSAGES_QUEUE_DIR, TMP_DIR, MQTT_BROKER, MQTT_BROKER_PORT
-from fedbiomed.node.history_logger import HistoryLogger
+from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.round import Round
 from fedbiomed.node.data_manager import Data_manager
 
@@ -37,7 +37,7 @@ class Node:
         """
         self.tasks_queue.add(task)
 
-    def on_message(self, msg):
+    def on_message(self, msg, topic = None):
         """Handler to be used with `Messaging` class (ie with messager).
         It is called when a  messsage arrive through the messager
         It reads and triggers instruction received by node from Researcher,
@@ -52,7 +52,8 @@ class Node:
             of the command (ping requests, train requests,
             or search requests).
 
-
+            topic(str): topic name, decision (specially on researcher) may
+            be done regarding of the topic.
         """
         # TODO: describe all exceptions defined in this method
         logger.debug('Message received: ' + str(msg))
@@ -64,11 +65,15 @@ class Node:
                 # add training task to queue
                 self.add_task(request)
             elif command == 'ping':
-                self.messaging.send_message(NodeMessages.reply_create(
-                    {'success': True, 'client_id': CLIENT_ID,
-                     'researcher_id': msg['researcher_id'],
-                     'command': 'ping'}
-                                        ).get_dict())
+                self.messaging.send_message(
+                    NodeMessages.reply_create(
+                        {
+                            'researcher_id': msg['researcher_id'],
+                            'client_id': CLIENT_ID,
+                            'success': True,
+                            'sequence': msg['sequence'],
+                            'command': 'pong'
+                         }).get_dict())
             elif command == 'search':
                 # Look for databases matching the tags
                 databases = self.data_manager.search_by_tags(msg['tags'])
@@ -84,6 +89,22 @@ class Node:
                          'researcher_id': msg['researcher_id'],
                          'databases': databases,
                          'count': len(databases)}).get_dict())
+            elif command == 'list':
+                 # Get list of all datasets
+                 databases = self.data_manager.list_my_data(verbose=False)
+                 remove_key = ['path', 'dataset_id']
+                 for d in databases:
+                     for key in remove_key:
+                        d.pop(key, None)
+                
+                 self.messaging.send_message(NodeMessages.reply_create(
+                     {'success': True,
+                      'command': 'list',
+                      'client_id': CLIENT_ID,
+                      'researcher_id': msg['researcher_id'],
+                      'databases': databases,
+                      'count' : len(databases), 
+                     }).get_dict())
             else:
                 raise NotImplementedError('Command not found')
         except decoder.JSONDecodeError:
@@ -134,7 +155,7 @@ class Node:
             msg = json.deserialize_msg(msg)
         msg = NodeMessages.request_create(msg)
         # msg becomes a TrainRequest object
-        hist_logger = HistoryLogger(job_id=msg.get_param(
+        hist_monitor = HistoryMonitor(job_id=msg.get_param(
             'job_id'), researcher_id=msg.get_param('researcher_id'),
                                client=self.messaging)
         # Get arguments for the model and training
@@ -183,7 +204,7 @@ class Node:
                         params_url,
                         job_id,
                         researcher_id,
-                        hist_logger))
+                        hist_monitor))
 
     def task_manager(self):
         """ This method manages training tasks in the queue
