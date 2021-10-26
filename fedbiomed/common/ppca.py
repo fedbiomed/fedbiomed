@@ -98,15 +98,16 @@ class PpcaPlan(PythonModelPlan):
         # initialize W and Sigma2 either randomly or using priors if available
         Wk, Sigma2 = self.initial_loc_params(q_i,ViewsX)
 
-        # epochs indices for saving results
-        sp_arr = np.arange(1, n_iterations + 1)[np.round(
-            np.linspace(0, len(np.arange(1, n_iterations + 1)) - 1, int(n_iterations / 3))).astype(
-            int)]
+        # # epochs indices for saving results
+        # sp_arr = np.arange(1, n_iterations + 1)[np.round(
+        #     np.linspace(0, len(np.arange(1, n_iterations + 1)) - 1, int(n_iterations / 3))).astype(
+        #     int)]
 
+        # iteration loop
         for i in range(1, n_iterations + 1):
             muk, Wk, Sigma2, ELL = self.EM_Optimization(N,q_i,Xk,Wk,Sigma2,ViewsX)
-            if i in sp_arr:
-                print('Iteration: {}/{}\tExpected LL: {:.6f}'.format(i,n_iterations,ELL))
+            # if i in sp_arr:
+            print('Iteration: {}/{}\tExpected LL: {:.6f}'.format(i,n_iterations,ELL))
 
         # update local parameters
         #self.load_params({'Wk': Wk, 'muk': muk, 'sigma2k': Sigma2})
@@ -329,7 +330,7 @@ class PpcaPlan(PythonModelPlan):
 
     def eval_Wk_Sigma2_new(self, N, q_i, norm2, tn_muk, E_X, E_X_2, Sigma2, ViewsX):
         """
-        This function optimize Wk and sigma2k at each EM or MAP iteration step.
+        This function optimizes Wk and sigma2k at each EM or MAP iteration step.
           :param N (int): number of samples
           :param q_i (list): corrected latent dimension
           :param norm2 (list): list of reals, ||tn^kg-mu^k||^2
