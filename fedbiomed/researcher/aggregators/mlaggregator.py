@@ -12,7 +12,7 @@ class MLaggregator(Aggregator):
     def __init__(self):
         super(MLaggregator, self).__init__()
 
-    def aggregate(self, model_params: list, weights: list) -> Dict:
+    def aggregate(self, model_params: list, weights: list=None) -> Dict:
         """aggregates  local models sent by participating nodes into
         a global model, following Federated Averaging strategy.
 
@@ -43,9 +43,24 @@ class MLaggregator(Aggregator):
         # ================================== #
         #           ML OPTIMIZATION          #
         # ================================== #
+        
+        # obtain model parameters through Maximum likelihood estimation
         tilde_muk, tilde_Wk, tilde_Sigma2k, sigma_til_muk, sigma_til_Wk = \
-            self.eval_gauss_global_params(model_params,K,dim_views,q,Tot_C_k_W, Tot_C_k_mu, Tot_C_k_S,corr_det_inv,rho)
-        Alpha, Beta, sigma_til_sigma2k = self.eval_inv_gamma(model_params,K,Tot_C_k_S,tilde_Sigma2k,corr_det_inv,rho)
+            self.eval_gauss_global_params(model_params,
+                                          K,
+                                          dim_views,
+                                          q,
+                                          Tot_C_k_W,
+                                          Tot_C_k_mu,
+                                          Tot_C_k_S,
+                                          corr_det_inv,
+                                          rho)
+        Alpha, Beta, sigma_til_sigma2k = self.eval_inv_gamma(model_params,
+                                                             K,
+                                                             Tot_C_k_S,
+                                                             tilde_Sigma2k,
+                                                             corr_det_inv,
+                                                             rho)
 
         global_params_dict = {'tilde_muk': tilde_muk,
                               'tilde_Wk': tilde_Wk,
@@ -60,7 +75,15 @@ class MLaggregator(Aggregator):
         return global_params_dict
 
     @staticmethod
-    def eval_gauss_global_params(model_params,K,D_i,q,Tot_C_k_W, Tot_C_k_mu, Tot_C_k_S,corr_det_inv,rho):
+    def eval_gauss_global_params(model_params,
+                                 K,
+                                 D_i,
+                                 q,
+                                 Tot_C_k_W,
+                                 Tot_C_k_mu,
+                                 Tot_C_k_S,
+                                 corr_det_inv,
+                                 rho):
         """
         This function performs ML estimation for normally distributed parameters
         :return lists of np.arrays (tilde_muk, tilde_Wk)
@@ -78,11 +101,11 @@ class MLaggregator(Aggregator):
             tilWk = np.zeros((D_i[k], q))
             tilSk = 0.0
             for model in model_params:
-                if type(model['muk'][k]) is not np.nan:
+                if model['muk'][k] is not np.nan:
                     tilmuk+=model['muk'][k]
-                if type(model['Wk'][k]) is not np.nan:
+                if model['Wk'][k] is not np.nan:
                     tilWk += model['Wk'][k]
-                if type(model['sigma2k'][k]) is not np.nan:
+                if model['sigma2k'][k] is not np.nan:
                     tilSk += model['sigma2k'][k]
             
             if Tot_C_k_S[k] >= 1:
@@ -92,7 +115,7 @@ class MLaggregator(Aggregator):
                 tilde_Wk.append(1.0 / Tot_C_k_W[k] * tilWk)
                 sigWk = 0.0
                 for model in model_params:
-                    if type(model['Wk'][k]) is not np.nan:
+                    if model['Wk'][k] is not np.nan:
                         sigWk += np.matrix.trace((model['Wk'][k] - tilde_Wk[k]).T.dot(model['Wk'][k] - tilde_Wk[k]))
                 if sigWk == 0.0:
                     sigma_til_Wk.append(corr_det_inv)
@@ -107,7 +130,7 @@ class MLaggregator(Aggregator):
                 tilde_muk.append(1.0/Tot_C_k_mu[k]*tilmuk)
                 sigmuk = 0.0
                 for model in model_params:
-                    if type(model['muk'][k]) is not np.nan:
+                    if model['muk'][k] is not np.nan:
                         sigmuk+=float((model['muk'][k]-tilde_muk[k]).T.dot(model['muk'][k]-tilde_muk[k]))
                 if sigmuk == 0.0:
                     sigma_til_muk.append(corr_det_inv)
@@ -135,7 +158,7 @@ class MLaggregator(Aggregator):
                 Ck_2 = 0.0
                 varSk = 0.0
                 for model in model_params:
-                    if type(model['sigma2k'][k]) is not np.nan:
+                    if model['sigma2k'][k] is not np.nan:
                         Ck_1 += 1.0 / model['sigma2k'][k]
                         Ck_2 += log(model['sigma2k'][k])
                         varSk += (model['sigma2k'][k] - tilde_Sigma2k[k]) ** 2
@@ -161,12 +184,15 @@ class MLaggregator(Aggregator):
     @staticmethod
     def count_participating_clients(model_params,K):
         """
-        This function evaluates the effective number of participating clients per parameter for the current round
-        :return lists of integers
+        This function evaluates the effective number of participating clients
+        per parameter for the current round
+        :Params model_params: contains each model parameter from each node
+        :K views: number of features for ech views
+        :return tuple of lists of integers
         """
 
-        Tot_C_k_W = []
-        Tot_C_k_mu = []
+        Tot_C_k_W = []  # total of W reconstruction matrix
+        Tot_C_k_mu = []  #
         Tot_C_k_S = []
 
         for k in range(K):
@@ -174,11 +200,11 @@ class MLaggregator(Aggregator):
             TotCkmu = 0
             TotCkS = 0
             for model in model_params:
-                if type(model['Wk'][k]) is not np.nan:
+                if model['Wk'][k] is not np.nan:
                     TotCkW += 1
-                if type(model['muk'][k]) is not np.nan:
+                if model['muk'][k] is not np.nan:
                     TotCkmu += 1
-                if type(model['sigma2k'][k]) is not np.nan:
+                if model['sigma2k'][k] is not np.nan:
                     TotCkS += 1
             Tot_C_k_W.append(TotCkW)
             Tot_C_k_mu.append(TotCkmu)

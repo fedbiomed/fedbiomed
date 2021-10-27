@@ -5,6 +5,7 @@ from copy import deepcopy
 from scipy.stats import matrix_normal, invgamma
 from numpy.linalg import solve
 from math import log
+from fedbiomed.common.logger import logger
 from fedbiomed.common.pythonmodel import PythonModelPlan
 
 
@@ -62,12 +63,12 @@ class PpcaPlan(PythonModelPlan):
 
     #################################################
     def training_routine(self, 
-                         n_iterations: int=None,
+                         n_iterations: int,
                          logger=None):
 
         """ 
         Args:
-            n_iterations (int): the number of EM/MAP iterations for the current round. Defaults to None
+            n_iterations (int): the number of EM/MAP iterations for the current round.
         """
 
         #use_cuda = torch.cuda.is_available()
@@ -80,6 +81,8 @@ class PpcaPlan(PythonModelPlan):
             X, Xk, ViewsX, y = self.training_data()
         elif len(self.training_data()) == 3:
             X, Xk, ViewsX = self.training_data()
+        else: 
+            raise ValueError(f"unexpeected number of value to unpack (expecting 3 or 4, got {len(self.training_data)}")
 
         N = X.shape[0]
         q = self.n_components
@@ -103,11 +106,11 @@ class PpcaPlan(PythonModelPlan):
         #     np.linspace(0, len(np.arange(1, n_iterations + 1)) - 1, int(n_iterations / 3))).astype(
         #     int)]
 
-        # iteration loop
+        # training loop
         for i in range(1, n_iterations + 1):
             muk, Wk, Sigma2, ELL = self.EM_Optimization(N,q_i,Xk,Wk,Sigma2,ViewsX)
             # if i in sp_arr:
-            print('Iteration: {}/{}\tExpected LL: {:.6f}'.format(i,n_iterations,ELL))
+            logger.info('Iteration: {}/{}\tExpected LL: {:.6f}'.format(i,n_iterations,ELL))
 
         # update local parameters
         #self.load_params({'Wk': Wk, 'muk': muk, 'sigma2k': Sigma2})
@@ -162,7 +165,8 @@ class PpcaPlan(PythonModelPlan):
 
     def EM_Optimization(self,N,q_i,Xk,Wk,Sigma2,ViewsX):
         """
-        This function performs one iteration of EM or MAP optimization.
+        This function performs one iteration of EM (Expectation Maximization) or MAP (Maximum A Posteriori)
+        optimization.
           :param N (int): number of samples
           :param q_i (list): corrected latent dimension
           :param Xk (list): list of view-specific dataset
@@ -175,7 +179,7 @@ class PpcaPlan(PythonModelPlan):
         D_i = self.dim_views
         # mu
         muk = self.eval_muk(N,Xk,Wk,Sigma2,ViewsX)
-        # matreces M, B
+        # matreces M, B computation
         M, B = self.eval_MB(Wk,Sigma2,ViewsX)
         # ||tn^kg-mu^k)||2, (tn^kg-mu^k)
         norm2, tn_muk = self.compute_access_vectors(Xk, N, muk, ViewsX)
@@ -199,13 +203,13 @@ class PpcaPlan(PythonModelPlan):
                 if Sigma2_new[k] > 0:
                     Sigma2[k] = deepcopy(Sigma2_new[k])
                 else:
-                    print(f'Warning: sigma2(%i)<0 (={Sigma2_new[k]})' % (k + 1))
+                    logger.error(f'Warning: sigma2(%i)<0 (={Sigma2_new[k]})' % (k + 1))
 
         return muk, Wk, Sigma2, ELL
 
     def eval_muk(self,N,Xk,Wk,Sigma2,ViewsX):
         """
-        This function optimize muk at each EM or MAP iteration step.
+        This function optimizes muk at each EM or MAP iteration step.
           :param N (int): number of samples
           :param Xk (list): list of view-specific dataset
           :param Wk (list): list of view-specific Wk parameters at previous iteration
@@ -237,6 +241,8 @@ class PpcaPlan(PythonModelPlan):
     def eval_MB(self, Wk, Sigma2,ViewsX):
         """
         This function evaluate matrices M and B at each EM or MAP iteration step. 
+        M = (sum(1/sigma2_k t(W_k)W_k) + id)^-1 
+        B = [W_0/sigma2_0 --- W_d/sigma2_d]
         These matrices are needed to compute the expected LL.
           :param Wk (list): list of view-specific Wk parameters at previous iteration
           :param Sigma2 (list): list of view-specific sigma2k parameters at previous iteration
@@ -245,7 +251,7 @@ class PpcaPlan(PythonModelPlan):
         """
         q = self.n_components
         D_i = self.dim_views
-        index = ViewsX.index(1)
+        index = ViewsX.index(1)  # get all views that has been specified
         # TODO: self.index has not been defined (to be solved with self.ViewsX)
         M1 = Wk[index].reshape(D_i[index], q).T.dot(Wk[index].reshape(D_i[index],q)) / Sigma2[index]
         B = Wk[index].reshape(D_i[index], q).T / Sigma2[index]
@@ -261,7 +267,8 @@ class PpcaPlan(PythonModelPlan):
 
     def compute_access_vectors(self, Xk, N, muk,ViewsX):
         """
-        This function compute for each subject n the vectors (tn^kg-mu^k) and the corresponding norm.
+        This function computes for each subject n the vectors (tn^kg-mu^k) and the corresponding norm.
+
           :param Xk (list): list of view-specific dataset
           :param N (int): number of samples
           :param muk (list): list of view-specific muk parameters at previous iteration
