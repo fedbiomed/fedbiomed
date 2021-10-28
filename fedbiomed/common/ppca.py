@@ -64,7 +64,7 @@ class PpcaPlan(PythonModelPlan):
     #################################################
     def training_routine(self, 
                          n_iterations: int,
-                         logger=None):
+                         monitor=None):
 
         """ 
         Args:
@@ -241,6 +241,7 @@ class PpcaPlan(PythonModelPlan):
     def eval_MB(self, Wk, Sigma2,ViewsX):
         """
         This function evaluate matrices M and B at each EM or MAP iteration step. 
+        M:=inv(I_q+sum_k Wk.TWk/sigma2k) and B:= [W1.T/sigma2K,...,W1.T/sigma2K].
         M = (sum(1/sigma2_k t(W_k)W_k) + id)^-1 
         B = [W_0/sigma2_0 --- W_d/sigma2_d]
         These matrices are needed to compute the expected LL.
