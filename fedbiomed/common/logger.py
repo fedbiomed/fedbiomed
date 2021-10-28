@@ -24,6 +24,7 @@ import time
 import logging
 import logging.handlers
 
+from fedbiomed.common.singleton import SingletonMeta
 
 # default values
 DEFAULT_LOG_FILE   = 'mylog.log'
@@ -148,18 +149,6 @@ class MqttHandler(logging.Handler):
             sys.exit(-1)
 
 
-#
-# singletonizer: transforms a class to a singleton
-# nothing else to say really !
-class _Singleton(type):
-    _instances = {}
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(_Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
-
-
-#
 class _LoggerBase():
     """
     base class for the logger. it uses python logging module by
@@ -461,7 +450,7 @@ class _LoggerBase():
 
 #
 # this is the proper Logger to use
-class _FedLogger(_LoggerBase, metaclass=_Singleton):
+class _FedLogger(_LoggerBase, metaclass=SingletonMeta):
     pass
 
 

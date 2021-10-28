@@ -10,6 +10,7 @@ import uuid
 import tabulate
 
 
+from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
@@ -18,27 +19,7 @@ from fedbiomed.researcher.environ import TIMEOUT, MESSAGES_QUEUE_DIR, RESEARCHER
 from fedbiomed.researcher.responses import Responses
 
 
-class RequestMeta(type):
-    """ This class is a thread safe singleton for Requests, a common design pattern
-    for ensuring only one instance of each class using this metaclass
-    is created in the process
-    """
-
-    _objects = {}
-    _lock_instantiation = threading.Lock()
-
-    def __call__(cls, *args, **kwargs):
-        """ Replace default class creation for classes using this metaclass,
-        executed before the constructor
-        """
-        with cls._lock_instantiation:
-            if cls not in cls._objects:
-                object = super().__call__(*args, **kwargs)
-                cls._objects[cls] = object
-        return cls._objects[cls]
-
-
-class Requests(metaclass=RequestMeta):
+class Requests(metaclass=SingletonMeta):
     """This class represents the requests addressed from Researcher to nodes.
     It creates a task queue storing reply to each incoming message.
     """
