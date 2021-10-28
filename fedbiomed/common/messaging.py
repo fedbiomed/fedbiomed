@@ -77,7 +77,7 @@ class Messaging:
         if self.messaging_type is MessagingType.RESEARCHER:
             self.default_send_topic = 'general/clients'
         elif self.messaging_type is MessagingType.NODE:
-            self.default_send_topic = 'general/server'
+            self.default_send_topic = 'general/researcher'
         else:  # should not occur
             self.default_send_topic = None
 
@@ -121,9 +121,9 @@ class Messaging:
             self.is_failed = True
 
         if self.messaging_type is MessagingType.RESEARCHER:
-            result, _ = self.mqtt.subscribe('general/server')
+            result, _ = self.mqtt.subscribe('general/researcher')
             if result != mqtt.MQTT_ERR_SUCCESS:
-                logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel general/server")
+                logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel general/researcher")
                 self.is_failed = True
 
             # PoC subscibe also to error channel

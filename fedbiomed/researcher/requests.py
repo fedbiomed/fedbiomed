@@ -66,7 +66,7 @@ class Requests(metaclass=SingletonMeta):
 
         if topic == "general/logger":
             self.node_log_handling(ResearcherMessages.reply_create(msg).get_dict())
-        elif topic == "general/server":
+        elif topic == "general/researcher":
             self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
         else:
             log.error("message received on wrong topic ("+ topic +") - IGNORING")
