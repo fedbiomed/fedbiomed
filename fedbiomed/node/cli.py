@@ -152,7 +152,7 @@ def add_database(interactive=True, path=''):
         if interactive is True:
             try:
                 tkinter.messagebox.showwarning(title='Warning', message=str(e))
-            except ModuleNotFoundError:
+            except (ModuleNotFoundError, _tkinter.TclError):
                 warnings.warn('[ERROR]: {e}')
         else:
             warnings.warn(f'[ERROR]: {e}')

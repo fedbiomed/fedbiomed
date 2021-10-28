@@ -4,7 +4,7 @@ import copy
 from random import random
 
 import numpy as np
-from fedbiomed.researcher.aggregators.mlaggregator import MLaggregator
+from fedbiomed.researcher.aggregators.ppca_aggregator import MLaggregator
 
 class TestMLaggregator(unittest.TestCase):
     '''

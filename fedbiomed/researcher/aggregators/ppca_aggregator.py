@@ -37,7 +37,7 @@ class MLaggregator(Aggregator):
         corr_det_inv = 1e-20
         rho = 1e-4
 
-        # evaluate total number of centers having measurements for each view
+        # evaluate total number of centers Ensure compatibility with datahaving measurements for each view
         Tot_C_k_W, Tot_C_k_mu, Tot_C_k_S = self.count_participating_clients(model_params,K)
 
         # ================================== #

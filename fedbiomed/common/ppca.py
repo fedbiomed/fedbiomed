@@ -302,7 +302,7 @@ class PpcaPlan(PythonModelPlan):
           :param N (int): number of samples
           :param Sigma2 (list): list of view-specific sigma2k parameters at previous iteration
           :param norm2 (list): list of reals, ||tn^kg-mu^k||^2, (n: nb of samples,
-          k: nb of features, )
+          k: nb of features,  g: considered group)
           :param tn_muk (list): list of vectors, (tn^kg-mu^k)
           :param M (np matrix): M:=inv(I_q+sum_k Wk.TWk/sigma2k)
           :param B (np matrix): B:= [W1.T/sigma2K,...,W1.T/sigma2K]

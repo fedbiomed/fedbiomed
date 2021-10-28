@@ -68,8 +68,17 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         with open(csv_file, 'r') as file:
             delimiter = sniffer.sniff(file.readline()).delimiter
             header = None if not sniffer.has_header(file.read()) else 0
+            
+        dataframe = pd.read_csv(csv_file, index_col=index_col, sep=delimiter,
+                                header=header)
+        if header is not None:
+            if 'feature_name' in dataframe.index.values:
+                # case where a multi view csv file has been loaded.
+                # in this case, reload dataset with different header option
+                dataframe = pd.read_csv(csv_file, index_col=index_col,
+                                        sep=delimiter, header=[0,1])
 
-        return pd.read_csv(csv_file, index_col=index_col, sep=delimiter, header=header)
+        return dataframe
 
     def get_torch_dataset_shape(self,
                                 dataset: torch.utils.data.Dataset) -> List[int]:

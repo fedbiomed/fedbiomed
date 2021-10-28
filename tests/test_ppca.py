@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 
-from fedbiomed.researcher.aggregators.mlaggregator import MLaggregator
+from fedbiomed.researcher.aggregators.ppca_aggregator import MLaggregator
 from fedbiomed.common.ppca import PpcaPlan
 
 
