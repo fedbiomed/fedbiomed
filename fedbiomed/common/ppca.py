@@ -262,7 +262,7 @@ class PpcaPlan(PythonModelPlan):
                 M1 += Wk[k].reshape(D_i[k], q).T.dot(Wk[k].reshape(D_i[k],q)) / Sigma2[k]
                 B = np.concatenate((B, (Wk[k].reshape(D_i[k], q)).T / Sigma2[k]), axis=1)
 
-        M = solve(np.eye(q) + M1,np.eye(q))
+        M = solve(np.eye(q) + M1, np.eye(q))
 
         return M, B
 
@@ -301,12 +301,15 @@ class PpcaPlan(PythonModelPlan):
         and the expected LL at each EM or MAP iteration.
           :param N (int): number of samples
           :param Sigma2 (list): list of view-specific sigma2k parameters at previous iteration
-          :param norm2 (list): list of reals, ||tn^kg-mu^k||^2
+          :param norm2 (list): list of reals, ||tn^kg-mu^k||^2, (n: nb of samples,
+          k: nb of features, )
           :param tn_muk (list): list of vectors, (tn^kg-mu^k)
-          :param M (np matrix)
-          :param B (np matrix)
+          :param M (np matrix): M:=inv(I_q+sum_k Wk.TWk/sigma2k)
+          :param B (np matrix): B:= [W1.T/sigma2K,...,W1.T/sigma2K]
           :param ViewsX (list): indicator function for observed views
-          :return moments and expected LL
+          :return tuple(E[X], E[X^2], ) moments and expected LL
+          ie first moment E[X] := M.B.(t_n - mu), second moment E[X^2] := M + E[X].t(E[X]),
+          expected log-likelihood LL = - sum(dk/2 . log(sigma2) + ||tn^kg-mu^k||^2 + 1/(2.sigma2) + ...)
         """
         q = self.n_components
         D_i = self.dim_views
