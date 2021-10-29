@@ -18,7 +18,7 @@ class PpcaPlan(PythonModelPlan):
            :kwargs (dictionary) containing the total number of observed views (tot_views),
                                            the dimension of each view (dim_views), 
                                            the dimension of the latent space (n_components)
-                                           a boolean to decide if data have to be normalized (norm)
+                                           a boolean to decide if data have to be normalized (is_norm)
                                            priors for one or more local parameters (not mandatory)
         """
         # list dependencies of the model
@@ -32,7 +32,7 @@ class PpcaPlan(PythonModelPlan):
         self.K = kwargs['tot_views']
         self.dim_views = kwargs['dim_views']
         self.n_components = kwargs['n_components']
-        self.norm = kwargs['norm']
+        self.norm = kwargs['is_norm']
 
         self.params_dict = {'K': self.K,
                             'dimensions': (self.dim_views,self.n_components),

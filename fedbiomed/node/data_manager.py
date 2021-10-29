@@ -1,6 +1,6 @@
 import csv
 import os.path
-from typing import Union, List
+from typing import Union, List, Tuple
 import uuid
 
 from tinydb import TinyDB, Query
@@ -50,7 +50,8 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         self.db.clear_cache()
         return self.db.search(self.database.tags.all(tags))
 
-    def read_csv(self, csv_file: str, index_col: Union[int, None] = None ) -> pd.DataFrame:
+    def read_csv(self,
+                 csv_file: str) -> Tuple[bool, str]:
         """Reads a *.csv file and ouptuts its data into a pandas DataFrame.
         Finds automatically the csv delimiter by parsing the first line.
 
@@ -60,25 +61,25 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             Set to None if not present. Defaults to 0.
 
         Returns:
-            pd.DataFrame: data contained in csv file.
+            Tuple[bool, str]: 
         """
 
         # Automatically identify separator and header
         sniffer = csv.Sniffer()
         with open(csv_file, 'r') as file:
             delimiter = sniffer.sniff(file.readline()).delimiter
-            header = None if not sniffer.has_header(file.read()) else 0
+            is_header = False if not sniffer.has_header(file.read()) else True
             
-        dataframe = pd.read_csv(csv_file, index_col=index_col, sep=delimiter,
-                                header=header)
-        if header is not None:
-            if 'feature_name' in dataframe.index.values:
-                # case where a multi view csv file has been loaded.
-                # in this case, reload dataset with different header option
-                dataframe = pd.read_csv(csv_file, index_col=index_col,
-                                        sep=delimiter, header=[0,1])
+        # dataframe = pd.read_csv(csv_file, index_col=index_col, sep=delimiter,
+        #                         header=header)
+        # if header is not None:
+        #     if 'feature_name' in dataframe.index.values:
+        #         # case where a multi view csv file has been loaded.
+        #         # in this case, reload dataset with different header option
+        #         dataframe = pd.read_csv(csv_file, index_col=index_col,
+        #                                 sep=delimiter, header=[0,1])
 
-        return dataframe
+        return is_header, delimiter
 
     def get_torch_dataset_shape(self,
                                 dataset: torch.utils.data.Dataset) -> List[int]:
@@ -169,7 +170,11 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         else:
             return self.get_torch_dataset_shape(dataset)
 
-    def load_csv_dataset(self, path) -> pd.DataFrame:
+    def load_csv_dataset(self,
+                         path: str,
+                         delimiter: str = ',',
+                         index_col: Union[int, None] = None,
+                         header: Union[int, None] = None) -> pd.DataFrame:
         """[summary]
 
         Args:
@@ -178,7 +183,12 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         Returns:
             [pd.DataFrame]: Returns pandas DataFrame
         """
-        return self.read_csv(path)
+        is_header, delimiter = self.read_csv(path)
+        dataframe = pd.read_csv(path,
+                                index_col=index_col,
+                                sep=delimiter,
+                                header=header)
+        return dataframe
 
     def add_database(self,
                      name: str,
@@ -186,7 +196,8 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
                      tags: Union[tuple, list],
                      description: str,
                      path: str,
-                     dataset_id: str = None):
+                     dataset_id: str = None,
+                     csv_header: Union[List[int], int] = None):
         """
         Adds a new dataset contained in a file to node
 
@@ -198,7 +209,9 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             description (str): [description]
             path (str): [description]
             dataset_id (str, optional): [description]. Defaults to None.
-
+            csv_header (Union[List[int], int], defaults to None): details
+            csv header for parsing single view csv and multi view
+            csv. Only for csv files.
         Raises:
             NotImplementedError: [description]
         """
@@ -219,9 +232,12 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         if data_type == 'default':
             assert os.path.isdir(path), f'Folder {path} for Default Dataset does not exist.'
             shape = self.load_default_database(name, path)
+
         elif data_type == 'csv':
             assert os.path.isfile(path), f'Path provided ({path}) does not correspond to a CSV file.'
-            dataset = self.load_csv_dataset(path)
+            _, delimiter = self.read_csv(path)
+            dataset = self.load_csv_dataset(path, delimiter=delimiter,
+                                            header=csv_header)
             shape = dataset.shape
             dtypes = self.get_csv_data_types(dataset)
         elif data_type == 'images':
@@ -233,7 +249,8 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         new_database = dict(name=name, data_type=data_type, tags=tags,
                             description=description, shape=shape,
-                            path=path, dataset_id=dataset_id, dtypes=dtypes)
+                            path=path, dataset_id=dataset_id, dtypes=dtypes,
+                            csv_header=csv_header)
         self.db.insert(new_database)
 
     def remove_database(self, tags: Union[tuple, list]):
@@ -318,6 +335,11 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         dataset_path = dataset['path']
         # If path is a file, you will aim to read it with
         if os.path.isfile(dataset_path):
+            _, delimiter = self.read_csv(dataset_path)
+            df = self.load_csv_dataset(dataset_path, 
+                                       delimiter,
+                                       index_col=0,
+                                       )
             df = self.read_csv(dataset_path, index_col=0)
 
             # Load data as requested

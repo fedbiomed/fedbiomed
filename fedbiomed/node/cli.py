@@ -113,7 +113,21 @@ def validated_path_input(data_type):
 
     return path
 
-
+def validate_csv_header(csv_path_file: str):
+    is_header, delimiter = data_manager.read_csv(csv_path_file)
+    if is_header:
+        msg = "CSV header is detected: please specified if it is a single view"\
+        + "dataset (ie standard csv) or multi view dataset :\n" +\
+        "1: single view dataset (default)\n2: multi view dataset"
+        header_type = input(msg)
+        if header_type == 2:
+            print("Multi view dataset selected")
+            header = [0, 1]
+        else:
+            print("Single view dataset selected (default)")
+            header = 0
+    return header
+    
 def add_database(interactive=True, path=''):
 
     print('Welcome to the Fedbiomed CLI data manager')
@@ -122,6 +136,11 @@ def add_database(interactive=True, path=''):
     else:
         data_type = 'default'
 
+    if data_type == 'csv':
+        _csv_header = validate_csv_header(path)
+    else:
+        _csv_header = None
+        
     if data_type == 'default':
         tags = ['#MNIST', "#dataset"]
         if interactive is True:
@@ -147,7 +166,8 @@ def add_database(interactive=True, path=''):
                                   tags=tags,
                                   data_type=data_type,
                                   description=description,
-                                  path=path)
+                                  path=path, 
+                                  csv_header=_csv_header)
     except AssertionError as e:
         if interactive is True:
             try:
