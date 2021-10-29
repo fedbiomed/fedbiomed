@@ -223,7 +223,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         dtypes = [] # empty list for Image datasets
         data_types = ['csv', 'default', 'images']
-        _multi_view = None  # multi view for storing several
+        _multi_view = '-'  # multi view for storing several
         # data modalities (=views) under one tag
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
@@ -257,7 +257,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         new_database = dict(name=name, data_type=data_type, tags=tags,
                             description=description, shape=shape,
                             path=path, dataset_id=dataset_id, dtypes=dtypes,
-                            mulit_view=_multi_view)
+                            multi_view=_multi_view)
         self.db.insert(new_database)
 
     def remove_database(self, tags: Union[tuple, list]):

@@ -134,7 +134,8 @@ def validate_csv_header(csv_path_file: str):
     return header
     
 def add_database(interactive=True, path=''):
-
+    _csv_header = None  # default value for non csv file
+    # or for csv files with no headers
     print('Welcome to the Fedbiomed CLI data manager')
     if interactive is True:
         data_type = validated_data_type_input()
@@ -161,8 +162,7 @@ def add_database(interactive=True, path=''):
         
         if data_type == 'csv':
             _csv_header = validate_csv_header(path)
-        else:
-            _csv_header = None
+            
 
     # Add database
 
