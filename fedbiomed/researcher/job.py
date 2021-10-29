@@ -337,7 +337,6 @@ class Job:
         # training_replies saving facility
         for node_i, node_entry in enumerate(self._training_replies[last_index]):
             node_id = node_entry.get("node_id")
-            #params = self._params_path.get(client_id)
             converted_training_replies[node_i]['params'] = self._params_path.get(node_id)
         return {int(last_index): converted_training_replies}
 
