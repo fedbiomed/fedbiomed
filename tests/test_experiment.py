@@ -71,7 +71,7 @@ class TestStateExp(unittest.TestCase):
         self.test_exp = Experiment(
             'some_tags', model_class=model_file, save_breakpoints=True
         )
-        
+
         self.test_exp._create_breakpoint_exp_folder()
 
         self.test_exp._state_root_folder = VAR_DIR  # changing value of
@@ -235,14 +235,14 @@ class TestStateExp(unittest.TestCase):
                              patch_job_load_training_replies
                              ):
 
-        values = ["/path/to/breakpoint/foler", "my_breakpoint.json"]
+        values = ["/path/to/breakpoint/folder", "my_breakpoint.json"]
         dummy_agg = {"class":None,
                      "Module":None}
         loaded_states = {
             "client_selection_strategy": dummy_agg,
             "aggregator": dummy_agg,
             "tags": ["some_tags"],
-            "client_id": "my_client_id",
+            "node_id": "my_client_id",
             "model_class": "my_model_class",
             "model_path": "/path/to/model/file",
             "model_args": {},

@@ -245,7 +245,7 @@ class TestLogger(unittest.TestCase):
         #
         logger.addMqttHandler(
             mqtt      = self._mqtt,
-            mqtt_id   = self._node_id
+            node_id   = self._node_id
         )
 
         logger.debug("mqtt+console DEBUG message")

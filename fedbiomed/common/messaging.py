@@ -145,7 +145,7 @@ class Messaging:
                 # it may raise a MQTT message (that we prefer not to send)
                 logger.addMqttHandler(
                     mqtt          = self.mqtt,
-                    mqtt_id       = self.messaging_id
+                    node_id       = self.messaging_id
                 )
                 # to get Train/Epoch messages on console and on MQTT
                 logger.setLevel("DEBUG")

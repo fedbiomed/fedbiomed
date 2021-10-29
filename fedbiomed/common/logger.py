@@ -36,9 +36,9 @@ DEFAULT_LOG_TOPIC  = 'general/logger'
 #
 class MqttFormatter(logging.Formatter):
 
-    def __init__(self, mqtt_id):
+    def __init__(self, node_id):
         super().__init__()
-        self._mqtt_id = mqtt_id
+        self._node_id = node_id
 
     # fields of record
     #
@@ -69,7 +69,7 @@ class MqttFormatter(logging.Formatter):
 
         json_message = {
             "asctime"   : record.__dict__["asctime"],
-            "node_id" : self._mqtt_id
+            "node_id"   : self._node_id
         }
         json_message["name"] = record.__dict__["name"]
         json_message["level"] = record.__dict__["levelname"]
@@ -89,7 +89,7 @@ class MqttHandler(logging.Handler):
 
     def __init__(self,
                  mqtt        = None,
-                 mqtt_id     = None,
+                 node_id     = None,
                  topic       = DEFAULT_LOG_TOPIC
                  ):
         """
@@ -97,12 +97,12 @@ class MqttHandler(logging.Handler):
 
         parameters:
         mqtt      : opened MQTT object
-        mqtt_id   : unique MQTT client id
+        node_id   : unique MQTT client id
         topic     : topic/channel to publish to (default to logging.WARNING)
         """
 
         logging.Handler.__init__(self)
-        self._mqtt_id        = mqtt_id
+        self._node_id        = node_id
         self._mqtt           = mqtt
         self._topic          = topic
 
@@ -125,7 +125,7 @@ class MqttHandler(logging.Handler):
             command       = 'log',
             level         = record.__dict__["levelname"],
             msg           = self.format(record),
-            node_id       = self._mqtt_id,
+            node_id       = self._node_id,
             researcher_id = '<unknown>'
         )
         try:
@@ -350,7 +350,7 @@ class _LoggerBase():
 
     def addMqttHandler(self,
                        mqtt        = None,
-                       mqtt_id     = None,
+                       node_id     = None,
                        topic       = DEFAULT_LOG_TOPIC,
                        level       = logging.ERROR
                        ):
@@ -360,7 +360,7 @@ class _LoggerBase():
 
         parameters:
         mqtt        : already opened MQTT object
-        mqtt_id     : unique client id of the caller
+        node_id     : id of the caller (necessary for msg formatting to the researcher)
         topic       : topic to publish to    (non mandatory)
         level       : level of this handler  (non mandatory)
                       level must be lower than ERROR to insure that the
@@ -369,13 +369,13 @@ class _LoggerBase():
 
         handler = MqttHandler(
             mqtt        = mqtt,
-            mqtt_id     = mqtt_id ,
+            node_id     = node_id ,
             topic       = topic
         )
 
         # may be not necessary ?
         handler.setLevel( self._internalLevelTranslator(level) )
-        formatter = MqttFormatter(mqtt_id)
+        formatter = MqttFormatter(node_id)
 
         handler.setFormatter(formatter)
         self._internalAddHandler("MQTT", handler)
