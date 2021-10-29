@@ -33,7 +33,7 @@ if not defined_node_env:
             return cfg
 
         # Create client ID
-        node_id = os.getenv('CLIENT_ID', 'client_' + str(uuid.uuid4()))
+        node_id = os.getenv('CLIENT_ID', 'node_' + str(uuid.uuid4()))
 
         # create network csracteristics from environment or config file
         uploads_ip = os.getenv('UPLOADS_IP')
