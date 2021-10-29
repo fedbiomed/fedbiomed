@@ -29,7 +29,7 @@ class TestPpca(unittest.TestCase):
         pass
 
     def test_init(self):
-        kw = {'tot_views': 3, 'dim_views': [3, 4, 5], 'n_components': 2, 'norm': True}
+        kw = {'tot_views': 3, 'dim_views': [3, 4, 5], 'n_components': 2, 'is_norm': True}
         ppca = PpcaPlan(kw)
         p = ppca.get_model()
         self.assertEqual(p['K'] , 3)
@@ -41,7 +41,7 @@ class TestPpca(unittest.TestCase):
     def test_save_and_load(self):
         randomfile = tempfile.NamedTemporaryFile()
 
-        mvppca = PpcaPlan({'tot_views': 3, 'dim_views': [3, 4, 5], 'n_components': 2, 'norm': True})
+        mvppca = PpcaPlan({'tot_views': 3, 'dim_views': [3, 4, 5], 'n_components': 2, 'is_norm': True})
         mvppca.save(randomfile.name)
 
         self.assertTrue(os.path.exists(randomfile.name) and os.path.getsize(randomfile.name) > 0  )

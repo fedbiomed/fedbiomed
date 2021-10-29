@@ -11,6 +11,7 @@ import argparse
 import tkinter.filedialog
 import tkinter.messagebox
 from tkinter import _tkinter
+import tkinter
 
 from fedbiomed.node.environ import CLIENT_ID
 from fedbiomed.node.data_manager import Data_manager
@@ -57,15 +58,18 @@ def validated_data_type_input():
 
 
 def pick_with_tkinter(mode='file'):
-    """
+    """root = tkinter.Tk()
+root.wm_withdraw()
     Opens a tkinter graphical user interface to select dataset
 
     Args:
         mode (str, optional)
     """
+    
     try:
-        # root = TK()
-        # root.withdraw()
+        
+        root = tkinter.Tk()
+        root.withdraw()
         # root.attributes("-topmost", True)
         if mode == 'file':
             return tkinter.filedialog.askopenfilename(
@@ -86,7 +90,7 @@ def pick_with_tkinter(mode='file'):
             return input('Insert the path of the dataset folder: ')
 
 
-def validated_path_input(data_type):
+def validated_path_input(data_type) -> str:
     while True:
         try:
             if data_type == 'csv':
@@ -115,12 +119,13 @@ def validated_path_input(data_type):
 
 def validate_csv_header(csv_path_file: str):
     is_header, delimiter = data_manager.read_csv(csv_path_file)
+    header = None  # default value
     if is_header:
         msg = "CSV header is detected: please specified if it is a single view"\
         + "dataset (ie standard csv) or multi view dataset :\n" +\
-        "1: single view dataset (default)\n2: multi view dataset"
+        "1: single view dataset (default)\n2: multi view dataset\n"
         header_type = input(msg)
-        if header_type == 2:
+        if header_type == '2':
             print("Multi view dataset selected")
             header = [0, 1]
         else:
@@ -135,12 +140,7 @@ def add_database(interactive=True, path=''):
         data_type = validated_data_type_input()
     else:
         data_type = 'default'
-
-    if data_type == 'csv':
-        _csv_header = validate_csv_header(path)
-    else:
-        _csv_header = None
-        
+    
     if data_type == 'default':
         tags = ['#MNIST', "#dataset"]
         if interactive is True:
@@ -158,6 +158,11 @@ def add_database(interactive=True, path=''):
 
         description = input('Description: ')
         path = validated_path_input(data_type)
+        
+        if data_type == 'csv':
+            _csv_header = validate_csv_header(path)
+        else:
+            _csv_header = None
 
     # Add database
 

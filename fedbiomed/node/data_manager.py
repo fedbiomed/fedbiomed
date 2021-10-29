@@ -183,7 +183,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         Returns:
             [pd.DataFrame]: Returns pandas DataFrame
         """
-        is_header, delimiter = self.read_csv(path)
+        _, delimiter = self.read_csv(path)
         dataframe = pd.read_csv(path,
                                 index_col=index_col,
                                 sep=delimiter,
@@ -223,11 +223,12 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
 
         dtypes = [] # empty list for Image datasets
         data_types = ['csv', 'default', 'images']
+        _multi_view = None  # multi view for storing several
+        # data modalities (=views) under one tag
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
                                       ' a compatible data type. '
                                       f'Compatible data types are: {data_types}')
-
 
         if data_type == 'default':
             assert os.path.isdir(path), f'Folder {path} for Default Dataset does not exist.'
@@ -240,6 +241,12 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
                                             header=csv_header)
             shape = dataset.shape
             dtypes = self.get_csv_data_types(dataset)
+            
+            if isinstance(csv_header, list):
+                # data loaded contained several dataset
+                _multi_view = 'multiview dataset'
+            else:
+                _multi_view = 'single view dataset'
         elif data_type == 'images':
             assert os.path.isdir(path), f'Folder {path} for Images Dataset does not exist.'
             shape = self.load_images_dataset(path)
@@ -250,7 +257,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         new_database = dict(name=name, data_type=data_type, tags=tags,
                             description=description, shape=shape,
                             path=path, dataset_id=dataset_id, dtypes=dtypes,
-                            csv_header=csv_header)
+                            mulit_view=_multi_view)
         self.db.insert(new_database)
 
     def remove_database(self, tags: Union[tuple, list]):
