@@ -74,7 +74,7 @@ class SearchReply(Message):
     success: bool
     databases: list
     count: int
-    client_id: str
+    node_id: str
     command: str
 
     def __post_init__(self):
@@ -97,7 +97,7 @@ class ListReply(Message):
     researcher_id: str
     success: bool
     databases: list
-    client_id: str
+    node_id: str
     command: str
     count: int
 
@@ -115,7 +115,7 @@ class PingReply(Message):
         ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
-    client_id: str
+    node_id: str
     success: bool
     sequence: int
     command: str
@@ -136,7 +136,7 @@ class TrainReply(Message):
     researcher_id: str
     job_id: str
     success: bool
-    client_id: str
+    node_id: str
     dataset_id: str
     params_url: str
     timing: dict
@@ -156,7 +156,7 @@ class AddScalarReply(Message):
         ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
-    client_id: str
+    node_id: str
     job_id: str
     key: str
     value: float
@@ -178,7 +178,7 @@ class LogMessage(Message):
         ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
-    client_id: str
+    node_id: str
     level: str
     msg: str
     command: str

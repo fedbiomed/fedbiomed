@@ -141,12 +141,12 @@ for c in range(len(round_data)):
     print("\t- {id} :\
         \n\t\trtime_training={rtraining:.2f} seconds\
         \n\t\tptime_training={ptraining:.2f} seconds\
-        \n\t\trtime_total={rtotal:.2f} seconds".format(id = round_data[c]['client_id'],
+        \n\t\trtime_total={rtotal:.2f} seconds".format(id = round_data[c]['node_id'],
                 rtraining = round_data[c]['timing']['rtime_training'],
                 ptraining = round_data[c]['timing']['ptime_training'],
                 rtotal = round_data[c]['timing']['rtime_total']))
 print('\n')
-    
+
 print(exp.training_replies[rounds - 1].dataframe)
 
 
@@ -169,10 +169,7 @@ print("\t- parameter data: ", exp.aggregated_params[rounds - 1]['params'].keys()
 #data = r.search(tags)
 #
 #import pandas as pd
-#for client_id in data.keys():
-#    print('\n','Data for ', client_id, '\n\n', pd.DataFrame(data[client_id]))
+#for node_id in data.keys():
+#    print('\n','Data for ', node_id, '\n\n', pd.DataFrame(data[node_id]))
 #
 #print('\n')
-
-
-

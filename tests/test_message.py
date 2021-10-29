@@ -126,7 +126,7 @@ class TestMessage(unittest.TestCase):
             success       = True,
             databases     = [1, 2, 3],
             count         = 666,
-            client_id     = 'titi',
+            node_id       = 'titi',
             command       = 'do_it')
 
 
@@ -159,7 +159,7 @@ class TestMessage(unittest.TestCase):
             message.SearchReply,
             expected_result = False,
 
-            client_id = 'toto')
+            node_id = 'toto')
 
         self.check_class_args(
             message.SearchReply,
@@ -176,7 +176,7 @@ class TestMessage(unittest.TestCase):
             success       = True,
             databases     = [1, 2, 3],
             count         = 666,
-            client_id     = 'titi',
+            node_id       = 'titi',
             command       = 'do_it',
             extra_arg     = "not_allowed"
         )
@@ -190,7 +190,7 @@ class TestMessage(unittest.TestCase):
             success       = True,
             databases     = [1, 2, 3],
             count         = "not_an_integer",
-            client_id     = 'titi',
+            node_id       = 'titi',
             command       = 'do_it')
 
         self.check_class_args(
@@ -201,7 +201,7 @@ class TestMessage(unittest.TestCase):
             success       = True,
             databases     = [1, 2, 3],
             count         = 666,
-            client_id     = 'titi',
+            node_id       = 'titi',
             command       = 'do_it')
 
         self.check_class_args(
@@ -212,7 +212,7 @@ class TestMessage(unittest.TestCase):
             success       = True,
             databases     = [1, 2, 3],
             count         = 666,
-            client_id     = True,
+            node_id       = True,
             command       = 'do_it')
 
         self.check_class_args(
@@ -223,7 +223,7 @@ class TestMessage(unittest.TestCase):
             success       = True,
             databases     = [1, 2, 3],
             count         = 666,
-            client_id     = 'titi',
+            node_id       = 'titi',
             command       = True)
 
         self.check_class_args(
@@ -234,7 +234,7 @@ class TestMessage(unittest.TestCase):
             success       = True,
             databases     = "not a list",
             count         = 666,
-            client_id     = 'titi',
+            node_id       = 'titi',
             command       = 'do_it')
 
         self.check_class_args(
@@ -245,7 +245,7 @@ class TestMessage(unittest.TestCase):
             success       = "not_a_boolean",
             databases     = [],
             count         = 666,
-            client_id     = 'titi',
+            node_id       = 'titi',
             command       = 'do_it')
 
         pass
@@ -260,7 +260,7 @@ class TestMessage(unittest.TestCase):
             expected_result = True,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             sequence      = 100,
             success       = True,
             command       = 'do_it')
@@ -276,7 +276,7 @@ class TestMessage(unittest.TestCase):
             message.PingReply,
             expected_result = False,
 
-            client_id = 'titi')
+            node_id   = 'titi')
 
         self.check_class_args(
             message.PingReply,
@@ -302,7 +302,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id = 'titi',
+            node_id = 'titi',
             success = True,
             sequence = 100,
             command = 'do_it',
@@ -314,7 +314,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = True,
-            client_id     = 'titi',
+            node_id       = 'titi',
             success       = True,
             sequence = 100,
             command       = 'do_it')
@@ -324,7 +324,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = True,
+            node_id       = True,
             success       = True,
             sequence = 100,
             command       = 'do_it')
@@ -334,7 +334,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             success       = 'not_a_bool',
             sequence = 100,
             command       = 'do_it')
@@ -344,7 +344,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             success       = 'not_a_bool',
             sequence      = False,
             command       = 'do_it')
@@ -354,7 +354,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             success       = True,
             command       = True)
 
@@ -371,7 +371,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             job_id        = 'job',
             success       = True,
-            client_id     = 'titi',
+            node_id       = 'titi',
             dataset_id    = 'my_data',
             params_url    = 'string_param',
             timing        = { "t0": 0.0, "t1": 1.0},
@@ -401,7 +401,7 @@ class TestMessage(unittest.TestCase):
             message.TrainReply,
             expected_result = False,
 
-            client_id     = 'titi')
+            node_id       = 'titi')
 
         self.check_class_args(
             message.TrainReply,
@@ -448,7 +448,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             job_id        = 'job',
             success       = True,
-            client_id     = 'titi',
+            node_id       = 'titi',
             dataset_id    = 'my_data',
             params_url    = 'string_param',
             timing        = { "t0": 0.0, "t1": 1.0},
@@ -464,7 +464,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = True,
             job_id        = 'job',
             success       = True,
-            client_id     = 'titi',
+            node_id       = 'titi',
             dataset_id    = 'my_data',
             params_url    = 'string_param',
             timing        = { "t0": 0.0, "t1": 1.0},
@@ -478,7 +478,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             job_id        = True,
             success       = True,
-            client_id     = 'titi',
+            node_id       = 'titi',
             dataset_id    = 'my_data',
             params_url    = 'string_param',
             timing        = { "t0": 0.0, "t1": 1.0},
@@ -492,7 +492,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             job_id        = 'job',
             success       = 'not_a_bool',
-            client_id     = 'titi',
+            node_id       = 'titi',
             dataset_id    = 'my_data',
             params_url    = 'string_param',
             timing        = { "t0": 0.0, "t1": 1.0},
@@ -506,7 +506,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             job_id        = 'job',
             success       = True,
-            client_id     = True,
+            node_id       = True,
             dataset_id    = 'my_data',
             params_url    = 'string_param',
             timing        = { "t0": 0.0, "t1": 1.0},
@@ -520,7 +520,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             job_id        = 'job',
             success       = True,
-            client_id     = 'titi',
+            node_id       = 'titi',
             dataset_id    = True,
             params_url    = 'string_param',
             timing        = { "t0": 0.0, "t1": 1.0},
@@ -534,7 +534,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             job_id        = 'job',
             success       = True,
-            client_id     = 'titi',
+            node_id       = 'titi',
             dataset_id    = 'my_data',
             params_url    = True,
             timing        = { "t0": 0.0, "t1": 1.0},
@@ -548,7 +548,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             job_id        = 'job',
             success       = True,
-            client_id     = 'titi',
+            node_id       = 'titi',
             dataset_id    = 'my_data',
             params_url    = 'string_param',
             timing        = "not_a_dict",
@@ -562,7 +562,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             job_id        = 'job',
             success       = True,
-            client_id     = 'titi',
+            node_id       = 'titi',
             dataset_id    = 'my_data',
             params_url    = 'string_param',
             timing        = { "t0": 0.0, "t1": 1.0},
@@ -576,7 +576,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             job_id        = 'job',
             success       = True,
-            client_id     = 'titi',
+            node_id       = 'titi',
             dataset_id    = 'my_data',
             params_url    = 'string_param',
             timing        = { "t0": 0.0, "t1": 1.0},
@@ -596,7 +596,7 @@ class TestMessage(unittest.TestCase):
             success       = True,
             databases     = [1, 2, 3],
             count         = 666,
-            client_id     = 'titi',
+            node_id       = 'titi',
             command       = 'do_it')
 
 
@@ -629,7 +629,7 @@ class TestMessage(unittest.TestCase):
             message.ListReply,
             expected_result = False,
 
-            client_id = 'toto')
+            node_id = 'toto')
 
         self.check_class_args(
             message.ListReply,
@@ -646,7 +646,7 @@ class TestMessage(unittest.TestCase):
             success       = True,
             databases     = [1, 2, 3],
             count         = 666,
-            client_id     = 'titi',
+            node_id       = 'titi',
             command       = 'do_it',
             extra_arg     = "not_allowed"
         )
@@ -660,7 +660,7 @@ class TestMessage(unittest.TestCase):
             success       = True,
             databases     = [1, 2, 3],
             count         = "not_an_integer",
-            client_id     = 'titi',
+            node_id       = 'titi',
             command       = 'do_it')
 
         self.check_class_args(
@@ -671,7 +671,7 @@ class TestMessage(unittest.TestCase):
             success       = True,
             databases     = [1, 2, 3],
             count         = 666,
-            client_id     = 'titi',
+            node_id       = 'titi',
             command       = 'do_it')
 
         self.check_class_args(
@@ -682,7 +682,7 @@ class TestMessage(unittest.TestCase):
             success       = True,
             databases     = [1, 2, 3],
             count         = 666,
-            client_id     = True,
+            node_id       = True,
             command       = 'do_it')
 
         self.check_class_args(
@@ -693,7 +693,7 @@ class TestMessage(unittest.TestCase):
             success       = True,
             databases     = [1, 2, 3],
             count         = 666,
-            client_id     = 'titi',
+            node_id       = 'titi',
             command       = True)
 
         self.check_class_args(
@@ -704,7 +704,7 @@ class TestMessage(unittest.TestCase):
             success       = True,
             databases     = "not a list",
             count         = 666,
-            client_id     = 'titi',
+            node_id       = 'titi',
             command       = 'do_it')
 
         self.check_class_args(
@@ -715,7 +715,7 @@ class TestMessage(unittest.TestCase):
             success       = "not_a_boolean",
             databases     = [],
             count         = 666,
-            client_id     = 'titi',
+            node_id       = 'titi',
             command       = 'do_it')
 
 
@@ -728,7 +728,7 @@ class TestMessage(unittest.TestCase):
             expected_result = True,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             job_id        = 'tutu',
             key           = 'key',
             value         = 13.34,
@@ -749,7 +749,7 @@ class TestMessage(unittest.TestCase):
             message.AddScalarReply,
             expected_result = False,
 
-            client_id     = 'titi')
+            node_id       = 'titi')
 
 
         self.check_class_args(
@@ -785,7 +785,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             job_id        = 'tutu',
             key           = 3.14,
             iteration     = 666,
@@ -800,7 +800,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = False,
-            client_id     = 'titi',
+            node_id       = 'titi',
             job_id        = 'tutu',
             key           = 3.14,
             iteration     = 666,
@@ -811,7 +811,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = False,
+            node_id       = False,
             job_id        = 'tutu',
             key           = 3.14,
             iteration     = 666,
@@ -822,7 +822,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             job_id        = False,
             key           = 3.14,
             iteration     = 666,
@@ -833,7 +833,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             job_id        = 'tutu',
             key           = "not_a_float",
             iteration     = 666,
@@ -844,7 +844,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             job_id        = 'tutu',
             key           = 3.14,
             iteration     = "no_an_int",
@@ -855,7 +855,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             job_id        = 'tutu',
             key           = 3.14,
             iteration     = 666,
@@ -873,7 +873,7 @@ class TestMessage(unittest.TestCase):
             expected_result = True,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             level         = 'INFO',
             msg           = 'this is an error message',
             command       = 'log'
@@ -891,7 +891,7 @@ class TestMessage(unittest.TestCase):
             message.LogMessage,
             expected_result = False,
 
-            client_id     = 'titi')
+            node_id       = 'titi')
 
         self.check_class_args(
             message.LogMessage,
@@ -916,7 +916,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             level         = 'INFO',
             msg           = 'this is an error message',
             command       = 'log',
@@ -929,7 +929,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = False,
-            client_id     = 'titi',
+            node_id       = 'titi',
             level         = 'INFO',
             msg           = 'this is an error message',
             command       = 'log'
@@ -940,7 +940,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = False,
+            node_id       = False,
             level         = 'INFO',
             msg           = 'this is an error message',
             command       = 'log'
@@ -951,7 +951,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             level         = False,
             msg           = 'this is an error message',
             command       = 'log'
@@ -962,7 +962,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             level         = 'INFO',
             msg           = [ 1 , 2 ],
             command       = 'log')
@@ -972,7 +972,7 @@ class TestMessage(unittest.TestCase):
             expected_result = False,
 
             researcher_id = 'toto',
-            client_id     = 'titi',
+            node_id       = 'titi',
             level         = 'INFO',
             msg           = [ 1 , 2 ],
             command       = False)
@@ -1366,7 +1366,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = False,
             tags          = [ "data", "doto" ],
             command       = 'do_it')
-        
+
         # bad param type
         self.check_class_args(
             message.ListRequest,
@@ -1384,7 +1384,7 @@ class TestMessage(unittest.TestCase):
             "researcher_id" : 'toto',
             "job_id"        : 'job',
             "success"       : True,
-            "client_id"     : 'titi',
+            "node_id"       : 'titi',
             "dataset_id"    : 'my_data',
             "params_url"    : 'string_param',
             "timing"        : { "t0": 0.0, "t1": 1.0},
@@ -1422,7 +1422,7 @@ class TestMessage(unittest.TestCase):
             "success"       : True,
             "databases"     : [ "one", "two" ],
             "count"         : 666,
-            "client_id"     : 'titi',
+            "node_id"       : 'titi',
             "command"       : 'list' }
 
         r = message.ResearcherMessages.reply_create( params )
@@ -1449,7 +1449,7 @@ class TestMessage(unittest.TestCase):
             "success"       : True,
             "databases"     : [ "one", "two" ],
             "count"         : 666,
-            "client_id"     : 'titi',
+            "node_id"       : 'titi',
             "command"       : 'search' }
 
         r = message.ResearcherMessages.reply_create( params )
@@ -1475,7 +1475,7 @@ class TestMessage(unittest.TestCase):
         # ping
         params = {
             "researcher_id" : 'toto' ,
-            "client_id"     : 'titi' ,
+            "node_id"       : 'titi' ,
             "sequence"      : 100,
             "success"       : True,
             "command"       : 'pong'
@@ -1503,7 +1503,7 @@ class TestMessage(unittest.TestCase):
         # error
         params = {
             "researcher_id" : 'toto' ,
-            "client_id"     : 'titi' ,
+            "node_id"       : 'titi' ,
             "level"         : 'INFO',
             "msg"           : 'bim boum badaboum',
             "command"       : 'log'
@@ -1519,7 +1519,7 @@ class TestMessage(unittest.TestCase):
         # addScalar
         params = {
             "researcher_id" : 'toto' ,
-            "client_id"     : 'titi' ,
+            "node_id"       : 'titi' ,
             "job_id"        : 'job_id',
             "key"           : 'key',
             "value"         : 14.34,

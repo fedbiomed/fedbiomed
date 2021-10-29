@@ -221,8 +221,8 @@ class TestLogger(unittest.TestCase):
 
         # try to connect to MQTT
         self._mqtt_is_connected  = False
-        self._client_id          = str(uuid.uuid4())
-        self._mqtt               = mqtt.Client(client_id = self._client_id)
+        self._node_id            = str(uuid.uuid4())
+        self._mqtt               = mqtt.Client(client_id = self._node_id)
         self._mqtt.on_message    = self.on_message
         self._mqtt.on_connect    = self.on_connect
         self._mqtt.on_disconnect = self.on_disconnect
@@ -245,7 +245,7 @@ class TestLogger(unittest.TestCase):
         #
         logger.addMqttHandler(
             mqtt      = self._mqtt,
-            client_id = self._client_id
+            mqtt_id   = self._node_id
         )
 
         logger.debug("mqtt+console DEBUG message")

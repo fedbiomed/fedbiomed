@@ -14,14 +14,14 @@ except NameError:
 
 # python imports should handle that it is only executed once,  but avoid eventual weird cases
 if not defined_node_env:
-    def init_client_config(client_id: Optional[str] = None):
+    def init_client_config(node_id: Optional[str] = None):
         """ This method: reads the config file if exists, otherwise it creates
                 it with the NODE config params
 
 
 
         Args:
-            client_id (str, optional): client id. Defaults to None.
+            node_id (str, optional): client id. Defaults to None.
 
         Returns:
             cfg: content of the config file
@@ -33,7 +33,7 @@ if not defined_node_env:
             return cfg
 
         # Create client ID
-        client_id = os.getenv('CLIENT_ID', 'client_' + str(uuid.uuid4()))
+        node_id = os.getenv('CLIENT_ID', 'client_' + str(uuid.uuid4()))
 
         # create network csracteristics from environment or config file
         uploads_ip = os.getenv('UPLOADS_IP')
@@ -47,7 +47,7 @@ if not defined_node_env:
         uploads_url = os.getenv('UPLOADS_URL', uploads_url)
 
         cfg['default'] = {
-            'client_id': client_id,
+            'node_id': node_id,
             'uploads_url': uploads_url,
         }
 
@@ -95,7 +95,7 @@ if not defined_node_env:
         CONFIG_FILE = os.path.join(CONFIG_DIR, 'config_node.ini')
 
     cfg = init_client_config()
-    CLIENT_ID = os.getenv('CLIENT_ID', cfg.get('default', 'client_id'))
+    CLIENT_ID = os.getenv('CLIENT_ID', cfg.get('default', 'node_id'))
 
     MESSAGES_QUEUE_DIR = os.path.join(VAR_DIR, f'queue_manager_{CLIENT_ID}')
     DB_PATH = os.path.join(VAR_DIR, f'db_{CLIENT_ID}.json')

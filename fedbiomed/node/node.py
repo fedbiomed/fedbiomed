@@ -69,7 +69,7 @@ class Node:
                     NodeMessages.reply_create(
                         {
                             'researcher_id': msg['researcher_id'],
-                            'client_id': CLIENT_ID,
+                            'node_id': CLIENT_ID,
                             'success': True,
                             'sequence': msg['sequence'],
                             'command': 'pong'
@@ -85,7 +85,7 @@ class Node:
                     self.messaging.send_message(NodeMessages.reply_create(
                         {'success': True,
                          "command": "search",
-                         'client_id': CLIENT_ID,
+                         'node_id': CLIENT_ID,
                          'researcher_id': msg['researcher_id'],
                          'databases': databases,
                          'count': len(databases)}).get_dict())
@@ -96,14 +96,14 @@ class Node:
                  for d in databases:
                      for key in remove_key:
                         d.pop(key, None)
-                
+
                  self.messaging.send_message(NodeMessages.reply_create(
                      {'success': True,
                       'command': 'list',
-                      'client_id': CLIENT_ID,
+                      'node_id': CLIENT_ID,
                       'researcher_id': msg['researcher_id'],
                       'databases': databases,
-                      'count' : len(databases), 
+                      'count' : len(databases),
                      }).get_dict())
             else:
                 raise NotImplementedError('Command not found')
@@ -113,7 +113,7 @@ class Node:
             self.messaging.send_message(NodeMessages.reply_create(
                 {'success': False,
                  'command': "error",
-                 'client_id': CLIENT_ID,
+                 'node_id': CLIENT_ID,
                  'researcher_id': resid,
                  'msg': "Not able to deserialize the message"}).get_dict())
         except NotImplementedError:
@@ -122,7 +122,7 @@ class Node:
             self.messaging.send_message(NodeMessages.reply_create(
                 {'success': False,
                  'command': "error",
-                 'client_id': CLIENT_ID,
+                 'node_id': CLIENT_ID,
                  'researcher_id': resid,
                  'msg': f"Command `{command}` is not implemented"}).get_dict())
         except KeyError:
@@ -131,7 +131,7 @@ class Node:
             self.messaging.send_message(NodeMessages.reply_create(
                 {'success': False,
                  'command': "error",
-                 'client_id': CLIENT_ID,
+                 'node_id': CLIENT_ID,
                  'researcher_id': resid,
                  'msg': "'command' property was not found"}).get_dict())
         except TypeError:  # Message was not serializable
@@ -140,7 +140,7 @@ class Node:
             self.messaging.send_message(NodeMessages.reply_create(
                 {'success': False,
                  'command': "error",
-                 'client_id': CLIENT_ID,
+                 'node_id': CLIENT_ID,
                  'researcher_id': resid,
                  'msg': 'Message was not serializable'}).get_dict())
 
@@ -191,7 +191,7 @@ class Node:
                     self.messaging.send_message(NodeMessages.reply_create(
                         {'success': False,
                          'command': "error",
-                         'client_id': CLIENT_ID,
+                         'node_id': CLIENT_ID,
                          'researcher_id': researcher_id,
                          'msg': "Did not found proper data in local datasets"}
                         ).get_dict())
@@ -230,7 +230,7 @@ class Node:
                 # wrong occured
                 self.messaging.send_message(NodeMessages.reply_create({'success': False,
                     "command": "error",
-                    'msg': str(e), 'client_id': CLIENT_ID}).get_dict())
+                    'msg': str(e), 'node_id': CLIENT_ID}).get_dict())
 
     def start_messaging(self, block: Optional[bool] = False):
         """This method calls the start method of messaging class

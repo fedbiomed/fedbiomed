@@ -69,7 +69,7 @@ class MqttFormatter(logging.Formatter):
 
         json_message = {
             "asctime"   : record.__dict__["asctime"],
-            "client_id" : self._mqtt_id
+            "node_id" : self._mqtt_id
         }
         json_message["name"] = record.__dict__["name"]
         json_message["level"] = record.__dict__["levelname"]
@@ -125,7 +125,7 @@ class MqttHandler(logging.Handler):
             command       = 'log',
             level         = record.__dict__["levelname"],
             msg           = self.format(record),
-            client_id     = self._mqtt_id,
+            node_id       = self._mqtt_id,
             researcher_id = '<unknown>'
         )
         try:

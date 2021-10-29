@@ -1,7 +1,7 @@
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 import unittest
-from unittest.mock import patch 
+from unittest.mock import patch
 
 
 class TestRequest(unittest.TestCase):
@@ -17,7 +17,7 @@ class TestRequest(unittest.TestCase):
         self.message_init           = self.req_pathcer1.start()
         self.message_start          = self.req_pathcer2.start()
         self.message_send           = self.req_pathcer3.start()
-        
+
         self.message_init.return_value = None
         self.message_start.return_value = None
         self.message_send.return_value = None
@@ -30,16 +30,16 @@ class TestRequest(unittest.TestCase):
         self.req_pathcer1.stop()
 
         pass
-    
-    
+
+
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     def test_list_function(self, request_get_response):
-        
+
         # Test with single response database
         res = [
-                {'client_id' : 'client-1', 
-                'researcher_id': 'r-xxx', 
-                'databases' : [ 
+                {'node_id' : 'node-1',
+                'researcher_id': 'r-xxx',
+                'databases' : [
                     {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'},
                     {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'}
                 ],
@@ -51,19 +51,19 @@ class TestRequest(unittest.TestCase):
 
         responses = Responses(res)
         request_get_response.return_value = responses
-        try: 
+        try:
             req = Requests()
             result = req.list()
         except:
             self.assertTrue(False, 'List method failed even data is okay')
 
         self.assertIsInstance(result, object)
-        
+
         # Test with multople database response
         res = [
-                {'client_id' : 'client-1', 
-                'researcher_id': 'r-xxx', 
-                'databases' : [ 
+                {'node_id' : 'node-1',
+                'researcher_id': 'r-xxx',
+                'databases' : [
                     {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'},
                     {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'}
                 ],
@@ -71,9 +71,9 @@ class TestRequest(unittest.TestCase):
                 'count' : 2,
                 'command': 'list'
                 },
-                {'client_id' : 'client-2', 
-                'researcher_id': 'r-xxx', 
-                'databases' : [ 
+                {'node_id' : 'node-2',
+                'researcher_id': 'r-xxx',
+                'databases' : [
                     {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'},
                     {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'}
                 ],
@@ -82,11 +82,11 @@ class TestRequest(unittest.TestCase):
                 'command': 'list'
                 }
             ]
-        
+
         responses = Responses(res)
         request_get_response.return_value = responses
 
-        try: 
+        try:
             req = Requests()
             result = req.list()
         except:
@@ -96,9 +96,9 @@ class TestRequest(unittest.TestCase):
 
         # Test with verbose mode
         res = [
-                {'client_id' : 'client', 
-                'researcher_id': 'r-xxx', 
-                'databases' : [ 
+                {'node_id' : 'node',
+                'researcher_id': 'r-xxx',
+                'databases' : [
                     {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'},
                     {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'}
                 ],
@@ -107,22 +107,22 @@ class TestRequest(unittest.TestCase):
                 'command': 'list'
                 },
             ]
-        
+
         responses = Responses(res)
         request_get_response.return_value = responses
 
-        try: 
+        try:
             req = Requests(verbose=True)
             result = req.list()
         except:
             self.assertTrue(False, 'List method failed even data is okay')
 
         self.assertIsInstance(result, object)
-        # Test with client ids
+        # Test with node ids
         res = [
-                {'client_id' : 'client', 
-                'researcher_id': 'r-xxx', 
-                'databases' : [ 
+                {'toto' : 'node',
+                'researcher_id': 'r-xxx',
+                'databases' : [
                     {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'},
                     {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'}
                 ],
@@ -130,9 +130,9 @@ class TestRequest(unittest.TestCase):
                 'count' : 2,
                 'command': 'list'
                 },
-                {'client_id' : 'client-2', 
-                'researcher_id': 'r-xxx', 
-                'databases' : [ 
+                {'node_id' : 'node-2',
+                'researcher_id': 'r-xxx',
+                'databases' : [
                     {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'},
                     {'data_type' : 'csv', 'tags': ['ss' , 'ss'], 'shape' : [1,2], 'name' : 'data'}
                 ],
@@ -141,16 +141,16 @@ class TestRequest(unittest.TestCase):
                 'command': 'list'
                 }
             ]
-        
+
         responses = Responses(res)
         request_get_response.return_value = responses
 
-        try: 
-            req = Requests(clients= ['client-1' , 'client-2'])
+        try:
+            req = Requests(nodes= ['node-1' , 'node-2'])
             result = req.list()
         except:
             self.assertTrue(False, 'List method failed even data is okay')
-            
+
         self.assertIsInstance(result, object)
 
 
