@@ -28,9 +28,9 @@ from fedbiomed.common.torchnn import TorchTrainingPlan
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 
-# Here we define the model to be used. 
+# Here we define the model to be used.
 # You can use any class name (here 'MyTrainingPlan')
-class MyTrainingPlan(TorchTrainingPlan):       
+class MyTrainingPlan(TorchTrainingPlan):
     def __init__(self, kwargs):
         super(MyTrainingPlan, self).__init__()
         # kwargs should match the model arguments to be passed below to the experiment class
@@ -38,7 +38,7 @@ class MyTrainingPlan(TorchTrainingPlan):
         self.out_features = kwargs['out_features']
         self.fc1 = nn.Linear(self.in_features, 5)
         self.fc2 = nn.Linear(5, self.out_features)
-        
+
         # Here we define the custom dependencies that will be needed by our custom Dataloader
         # In this case, we need the torch Dataset and DataLoader classes
         # We need pandas to read the local .csv file at the client side
@@ -60,7 +60,7 @@ class MyTrainingPlan(TorchTrainingPlan):
 
     class csv_Dataset(Dataset):
     # Here we define a custom Dataset class inherited from the general torch Dataset class
-    # This class takes as argument a .csv file path and creates a torch Dataset 
+    # This class takes as argument a .csv file path and creates a torch Dataset
         def __init__(self, dataset_path, x_dim):
             self.input_file = pd.read_csv(dataset_path,sep=';',index_col=False)
             x_train = self.input_file.iloc[:,:x_dim].values
@@ -68,13 +68,13 @@ class MyTrainingPlan(TorchTrainingPlan):
             self.X_train = torch.from_numpy(x_train).float()
             self.Y_train = torch.from_numpy(y_train).float()
 
-        def __len__(self):            
+        def __len__(self):
             return len(self.Y_train)
 
         def __getitem__(self, idx):
 
             return (self.X_train[idx], self.Y_train[idx])
-        
+
     def training_data(self,  batch_size = 48):
     # The training_data creates the Dataloader to be used for training in the general class TorchTrainingPlan of fedbiomed
         dataset = self.csv_Dataset(self.dataset_path, self.in_features)
@@ -83,18 +83,18 @@ class MyTrainingPlan(TorchTrainingPlan):
         return data_loader
 
 
-# model parameters 
+# model parameters
 model_args = {
-    'in_features': 15, 
+    'in_features': 15,
     'out_features': 1
 }
 
-# training parameters 
+# training parameters
 training_args = {
-    'batch_size': 20, 
-    'lr': 1e-3, 
-    'epochs': 10, 
-    'dry_run': False,  
+    'batch_size': 20,
+    'lr': 1e-3,
+    'epochs': 10,
+    'dry_run': False,
     #'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
 
@@ -145,12 +145,12 @@ for c in range(len(round_data)):
     print("\t- {id} :\
     \n\t\trtime_training={rtraining:.2f} seconds\
     \n\t\tptime_training={ptraining:.2f} seconds\
-    \n\t\trtime_total={rtotal:.2f} seconds".format(id = round_data[c]['client_id'],
+    \n\t\trtime_total={rtotal:.2f} seconds".format(id = round_data[c]['node_id'],
         rtraining = round_data[c]['timing']['rtime_training'],
         ptraining = round_data[c]['timing']['ptime_training'],
         rtotal = round_data[c]['timing']['rtime_total']))
 print('\n')
-    
+
 exp.training_replies[rounds - 1].dataframe
 
 
@@ -162,4 +162,3 @@ print("\nList the training rounds : ", exp.aggregated_params.keys())
 print("\nAccess the federated params for the last training round : ")
 print("\t- params_path: ", exp.aggregated_params[rounds - 1]['params_path'])
 print("\t- parameter data: ", exp.aggregated_params[rounds - 1]['params'].keys())
-
