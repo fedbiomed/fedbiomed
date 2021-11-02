@@ -47,7 +47,7 @@ class Experiment:
 
         Args:
             tags (tuple): tuple of string with data tags
-            clients (list, optional): list of client_ids to filter the nodes
+            clients (list, optional): list of node_ids to filter the nodes
                                     to be involved in the experiment.
                                     Defaults to None (no filtering).
             model_class (Union[str, Callable], optional): name of the
@@ -302,12 +302,12 @@ class Experiment:
 
 
         # copy model parameters and model to breakpoint folder
-        for client_id, param_path in state['params_path'].items():
-            copied_param_file = "params_" + client_id + ".pt"
+        for node_id, param_path in state['params_path'].items():
+            copied_param_file = "params_" + node_id + ".pt"
             copied_param_path = os.path.join(breakpoint_path,
                                              copied_param_file)
             shutil.copy2(param_path, copied_param_path)
-            state['params_path'][client_id] = copied_param_path
+            state['params_path'][node_id] = copied_param_path
         copied_model_file = "model_" + str(round) + ".py"
         copied_model_path = os.path.join(breakpoint_path,
                                          copied_model_file)

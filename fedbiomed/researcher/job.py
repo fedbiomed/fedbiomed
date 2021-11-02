@@ -200,7 +200,7 @@ class Job:
             True if waiting for at least one client.
         """
         try:
-            clients_done = set(responses.dataframe['client_id'])
+            clients_done = set(responses.dataframe['node_id'])
         except KeyError:
             clients_done = set()
 
@@ -245,13 +245,13 @@ class Job:
                 # (there should have as many models done as nodes)
 
                 # only consider replies for our request
-                if m['researcher_id'] != RESEARCHER_ID or m['job_id'] != self._id or m['client_id'] not in list(self._clients):
+                if m['researcher_id'] != RESEARCHER_ID or m['job_id'] != self._id or m['node_id'] not in list(self._clients):
                     continue
 
-                rtime_total = time.perf_counter() - time_start[m['client_id']]
+                rtime_total = time.perf_counter() - time_start[m['node_id']]
 
                 # TODO : handle error depending on status
-                logger.info("Downloading model params after training on " + m['client_id'] + ' - from ' + m['params_url'])
+                logger.info("Downloading model params after training on " + m['node_id'] + ' - from ' + m['params_url'])
                 _, params_path = self.repo.download_file(m['params_url'], 'my_model_' + str(uuid.uuid4()) + '.pt')
                 params = self.model_instance.load(params_path, to_params=True)['model_params']
                 # TODO: could choose completely different name/structure for
@@ -261,13 +261,13 @@ class Job:
                 r = Responses({'success': m['success'],
                                'msg': m['msg'],
                                'dataset_id': m['dataset_id'],
-                               'client_id': m['client_id'],
+                               'node_id': m['node_id'],
                                'params_path': params_path,
                                'params': params,
                                'timing': timing})
                 self._training_replies[round].append(r)  # add new replies
 
-                self._params_path[r[0]['client_id']] = params_path
+                self._params_path[r[0]['node_id']] = params_path
 
 
     def update_parameters(self, params: dict) -> str:
@@ -335,10 +335,9 @@ class Job:
                                     self._training_replies[last_index].data
                                     )
         # training_replies saving facility
-        for client_i, client_entry in enumerate(self._training_replies[last_index]):
-            client_id = client_entry.get("client_id")
-            #params = self._params_path.get(client_id)
-            converted_training_replies[client_i]['params'] = self._params_path.get(client_id)
+        for node_i, node_entry in enumerate(self._training_replies[last_index]):
+            node_id = node_entry.get("node_id")
+            converted_training_replies[node_i]['params'] = self._params_path.get(node_id)
         return {int(last_index): converted_training_replies}
 
     def _load_training_replies(self,
@@ -366,14 +365,14 @@ class Job:
             #
             key = int(key)
         loaded_training_replies = {key: Responses([])}
-        for client_id, client_i in zip(params_path.keys(),
+        for node_id, node_i in zip(params_path.keys(),
                                        range(len(training_replies))):
-            training_replies[key][client_i]['params'] = self.model_instance.load(params_path[client_id],
+            training_replies[key][node_i]['params'] = self.model_instance.load(params_path[node_id],
                                                                                  to_params=True)
 
-            training_replies[key][client_i]['params_path'] = params_path[client_id]
+            training_replies[key][node_i]['params_path'] = params_path[node_id]
 
-            loaded_training_replies[key].append(Responses(training_replies[key][client_i]))
+            loaded_training_replies[key].append(Responses(training_replies[key][node_i]))
         #print(loaded_training_replies)
         self._training_replies = loaded_training_replies
 
