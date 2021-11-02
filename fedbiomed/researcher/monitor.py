@@ -6,36 +6,12 @@ from fedbiomed.common.messaging import Messaging, MessagingType
 from fedbiomed.common.message import MonitorMessages
 from fedbiomed.common.logger import logger
 from torch.utils.tensorboard import SummaryWriter
+from fedbiomed.common.singleton import SingletonMeta
 
 from typing import Dict, Any
 
 
-class MonitorMeta(type):
-    """ This class is a thread safe singleton for Monitor, a common design pattern
-    for ensuring only one instance of each class using this metaclass
-    is created in the process
-    """
-
-    _objects = {}
-    _lock_instantiation = Lock()
-
-    def __call__(cls, *args, **kwargs):
-        """ Replace default class creation for classes using this metaclass,
-        executed before the constructor
-        """
-        with cls._lock_instantiation:
-            if cls not in cls._objects:
-                object = super().__call__(*args, **kwargs)
-                cls._objects[cls] = object
-            else:
-                # Change the tensorboard state with given new state if the singleton
-                # class has been already constructed
-                cls._objects[cls].reconstruct(kwargs['tensorboard'])
-
-        return cls._objects[cls]
-
-
-class Monitor(metaclass=MonitorMeta):
+class Monitor(metaclass=SingletonMeta):
 
     """ This is the class that subscribes monitor channel and logs scalar values
     using `logger`. It also writes scalar values to tensorboard log files.
@@ -109,7 +85,9 @@ class Monitor(metaclass=MonitorMeta):
         # Initilize event SummaryWriters
         if client not in self._event_writers:
             self._event_writers[client] = {
-                                    'writer' : SummaryWriter(log_dir=self._log_dir + '/NODE-' + client),
+                                    'writer' : SummaryWriter(
+                                        log_dir=os.path.join(self._log_dir, client)
+                                    ),
                                     'stepper': 0,
                                     'step_state': 0,
                                     'step': 0
