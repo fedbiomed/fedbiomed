@@ -1,3 +1,4 @@
+import sys
 import threading
 
 #
@@ -35,16 +36,45 @@ class SingletonMeta(type):
 
             else:
                 #
-                # some singleton need different behavior, which should
-                # be incorporated here
+                # some singleton need different behavior then
+                # "instanciated" twice
+                #
                 fullclassname = cls.__module__ + "." + cls.__name__
 
                 #
-                # fedbiomed.researcher.monitor.Monitor specific
+                # fedbiomed.researcher.monitor.Monitor specific code
                 #
                 if fullclassname  == 'fedbiomed.researcher.monitor.Monitor':
                     # Change the tensorboard state with given new state if the singleton
                     # class has been already constructed
                     cls._objects[cls].reconstruct(kwargs['tensorboard'])
+
+                #
+                # environment instanciation
+                #
+                # detect that we instanciated fedbiomed.common.config.Config
+                # twice:
+                #
+                # once as fedbiomed.researcher.config
+                # once as fedbiomed.node.config
+                #
+                # this is a coding error, please review the code !!!!
+                #
+                if fullclassname == 'fedbiomed.common.environ.Environ':
+
+                    if 'component' in kwargs:
+                        #
+                        # did we call Environ() with a 'component' argument
+                        # different than the first call to Environ()
+                        #
+                        if not kwargs['component'] == cls._objects[cls]._storage['COMPONENT_TYPE'] :
+                            print("CRITICAL: environment has already been instanciated as a",
+                                  cls._objects[cls]._storage['COMPONENT_TYPE'])
+                            print("Fed-Biomed may behave weird !")
+                            print("You may:")
+                            print("- review the code")
+                            print("- or reset the notebook/notelab")
+                            sys.exit(-1)
+
 
         return cls._objects[cls]
