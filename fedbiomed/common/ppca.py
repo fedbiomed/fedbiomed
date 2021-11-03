@@ -74,7 +74,6 @@ class PpcaPlan(PythonModelPlan):
         #use_cuda = torch.cuda.is_available()
         #device = torch.device("cuda" if use_cuda else "cpu")
         #self.device = "cpu"
-        #breakpoint()
         # labels can be provided or not. Note that to perform optimization, 
         # only data and information on observed views should be provided.
         if len(self.training_data()) == 4:
@@ -107,6 +106,7 @@ class PpcaPlan(PythonModelPlan):
         #     int)]
 
         # training loop
+        
         for i in range(1, n_iterations + 1):
             muk, Wk, Sigma2, ELL = self.EM_Optimization(N,q_i,Xk,Wk,Sigma2,ViewsX)
             # if i in sp_arr:
@@ -126,9 +126,10 @@ class PpcaPlan(PythonModelPlan):
         else:
             col_name = [col.strip() for col in list(dataframe.columns)]
         x = dataframe.values  # returns a numpy array
+        
         min_max_scaler = preprocessing.MinMaxScaler()
         x_scaled = min_max_scaler.fit_transform(x)
-
+        
         norm_dataset = pd.DataFrame(x_scaled,
                                     index=dataframe.index,
                                     columns=col_name)
@@ -148,6 +149,7 @@ class PpcaPlan(PythonModelPlan):
         Sigma2 = []
         for k in range(self.K):
             if ViewsX[k] == 1:
+
                 if ((self.params_dict['tilde_Wk'][k] is None) or (self.params_dict['sigma_til_Wk'][k] is None)):
                     W_k = np.random.uniform(-2,2, size = D_i[k]*q).reshape([D_i[k],q])
                 else:
@@ -164,8 +166,10 @@ class PpcaPlan(PythonModelPlan):
                 Wk.append(W_k)
                 Sigma2.append(s)
             else:
-                Wk.append(np.nan)
-                Sigma2.append(np.nan)
+                #Wk.append(np.nan)
+                #Sigma2.append(np.nan)
+                Wk.append('NaN')
+                Sigma2.append('NaN')
 
         return Wk, Sigma2
 
@@ -184,8 +188,10 @@ class PpcaPlan(PythonModelPlan):
         q = self.n_components
         D_i = self.dim_views
         # mu
+        
         muk = self.eval_muk(N,Xk,Wk,Sigma2,ViewsX)
         # matreces M, B computation
+        
         M, B = self.eval_MB(Wk,Sigma2,ViewsX)
         # ||tn^kg-mu^k)||2, (tn^kg-mu^k)
         norm2, tn_muk = self.compute_access_vectors(Xk, N, muk, ViewsX)
@@ -193,8 +199,8 @@ class PpcaPlan(PythonModelPlan):
         # ================================== #
         # E-step                             #
         # ================================== #
-
         # evaluate mean, second moment for each x_n and expected log-likelihood
+        
         E_X, E_X_2, ELL = self.compute_moments_LL(N, Sigma2, norm2, tn_muk, Wk, M, B, ViewsX)
 
         # ================================== #
@@ -202,6 +208,7 @@ class PpcaPlan(PythonModelPlan):
         # ================================== #
 
         #  W, Sigma2
+        
         Wk, Sigma2_new = self.eval_Wk_Sigma2_new(N, q_i, norm2, tn_muk, E_X, E_X_2, Sigma2, ViewsX)
         # Check Sigma2_new>0
         for k in range(self.K):
@@ -209,7 +216,7 @@ class PpcaPlan(PythonModelPlan):
                 if Sigma2_new[k] > 0:
                     Sigma2[k] = deepcopy(Sigma2_new[k])
                 else:
-                    logger.error(f'Warning: sigma2(%i)<0 (={Sigma2_new[k]})' % (k + 1))
+                    logger.info(f'Warning: sigma2(%i)<0 (={Sigma2_new[k]})' % (k + 1))
 
         return muk, Wk, Sigma2, ELL
 
@@ -240,7 +247,8 @@ class PpcaPlan(PythonModelPlan):
                     term2 = mu_1 + (1 / self.params_dict['sigma_til_muk'][k]) * Cc.dot(self.params_dict['tilde_muk'][k].reshape(D_i[k], 1))
                     muk.append(term1.dot(term2))
             else:
-                muk.append(np.nan)
+                #muk.append(np.nan)
+                muk.append('NaN')
 
         return muk
 
@@ -294,8 +302,10 @@ class PpcaPlan(PythonModelPlan):
                     tn_mu_k.append(Xk[k].iloc[n].values.reshape(D_i[k], 1) - muk[k])
                     norm2_k.append(np.linalg.norm(tn_mu_k[k]) ** 2)
                 else:
-                    norm2_k.append(np.nan)
-                    tn_mu_k.append(np.nan)
+                    # norm2_k.append(np.nan)
+                    # tn_mu_k.append(np.nan)
+                    norm2_k.append('NaN')
+                    tn_mu_k.append('NaN')
             norm2.append(norm2_k)
             tn_muk.append(tn_mu_k)
 
@@ -407,9 +417,10 @@ class PpcaPlan(PythonModelPlan):
                     Sigma2_new.append((sigma2k + 2 * self.params_dict['Beta'][k]) / \
                         (N * D_i[k] + 2 * (self.params_dict['Alpha'][k] + 1)))
             else:
-                Wk.append(np.nan)
-                Sigma2_new.append(np.nan)
-
+                # Wk.append(np.nan)
+                # Sigma2_new.append(np.nan)
+                Wk.append('NaN')
+                Sigma2_new.append('NaN')
         return Wk, Sigma2_new
 
     @staticmethod

@@ -1,6 +1,7 @@
 import sys
 import uuid
 import time
+import traceback
 
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.message import NodeMessages, TrainReply
@@ -133,8 +134,10 @@ class Round:
                 rtime_after = time.perf_counter()
                 ptime_after = time.process_time()
             except Exception as e:
+                
                 is_failed = True
                 error_message = "Cannot train model in round: " + str(e)
+                logger.debug(str(traceback.format_exc()))
 
         if not is_failed:
             # Upload results

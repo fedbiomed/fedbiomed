@@ -118,7 +118,7 @@ class PythonModelPlan():
         self.dataset_path = dataset_path
         logger.debug('Dataset_path' + str(self.dataset_path))
         self.is_multi_view = True if multi_view == "multi_view" else False
-        logger.debug(f'Dataset is multi view ? {self.is_multi_view}')
+        logger.debug(f'is Dataset  multi view ? {self.is_multi_view}')
 
     def get_model(self):
         """
