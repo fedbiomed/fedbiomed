@@ -228,7 +228,7 @@ class TorchTrainingPlan(nn.Module):
 
     # provided by the fedbiomed // should be moved in a DATA
     # manipulation module
-    def set_dataset(self, dataset_path):
+    def set_dataset(self, dataset_path, multi_view=None):
         self.dataset_path = dataset_path
         logger.debug('Dataset_path' + self.dataset_path)
 

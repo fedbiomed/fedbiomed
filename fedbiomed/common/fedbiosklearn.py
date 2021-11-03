@@ -231,7 +231,7 @@ class SGDSkLearnModel():
         file.close()
         return di_ret
 
-    def set_dataset(self, dataset_path):
+    def set_dataset(self, dataset_path:str, mutliview=None):
         """
           :param dataset_path (string)
         """
