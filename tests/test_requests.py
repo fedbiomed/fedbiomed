@@ -1,5 +1,7 @@
+from typing import Callable
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
+from fedbiomed.researcher.monitor import Monitor
 import unittest
 from unittest.mock import patch
 
@@ -154,10 +156,20 @@ class TestRequest(unittest.TestCase):
         self.assertIsInstance(result, object)
 
 
+    def test_add_remove_monitor_callback(self):
 
+        """ Test adding and removing monitor message callbacks """
+        
+        req = Requests()
+        monitor = Monitor()
 
+        # Test adding monitor callback
+        req.add_monitor_callback(monitor.on_message_handler)
+        self.assertIsInstance(req._monitor_message_callback, Callable, "Monitor callback hasn't been added properly")
 
-        pass
-
+        # Test removing monitor callback
+        req.remove_monitor_callback()
+        self.assertIsNone(req._monitor_message_callback, "Monitor callback han't been removed")
+        
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
