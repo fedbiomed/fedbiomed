@@ -60,9 +60,9 @@ class SingletonMeta(type):
                         # did we call Environ() with a 'component' argument
                         # different than the first call to Environ()
                         #
-                        if not kwargs['component'] == cls._objects[cls]._storage['COMPONENT_TYPE'] :
+                        if not kwargs['component'] == cls._objects[cls]._values['COMPONENT_TYPE'] :
                             print("CRITICAL: environment has already been instanciated as a",
-                                  cls._objects[cls]._storage['COMPONENT_TYPE'])
+                                  cls._objects[cls]._values['COMPONENT_TYPE'])
                             print("Fed-Biomed may behave weird !")
                             print("You may:")
                             print("- review/correct the code")
