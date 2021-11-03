@@ -42,23 +42,16 @@ class SingletonMeta(type):
                 fullclassname = cls.__module__ + "." + cls.__name__
 
                 #
-                # fedbiomed.researcher.monitor.Monitor specific code
-                #
-                if fullclassname  == 'fedbiomed.researcher.monitor.Monitor':
-                    # Change the tensorboard state with given new state if the singleton
-                    # class has been already constructed
-                    cls._objects[cls].reconstruct(kwargs['tensorboard'])
-
-                #
                 # environment instanciation
                 #
                 # detect that we instanciated fedbiomed.common.config.Config
                 # twice:
                 #
-                # once as fedbiomed.researcher.config
-                # once as fedbiomed.node.config
+                # once as fedbiomed.researcher.environ
+                # once as fedbiomed.node.environ
                 #
-                # this is a coding error, please review the code !!!!
+                # if this happends, it means that it is a coding error,
+                # please review the code !!!!
                 #
                 if fullclassname == 'fedbiomed.common.environ.Environ':
 
@@ -72,9 +65,8 @@ class SingletonMeta(type):
                                   cls._objects[cls]._storage['COMPONENT_TYPE'])
                             print("Fed-Biomed may behave weird !")
                             print("You may:")
-                            print("- review the code")
-                            print("- or reset the notebook/notelab")
+                            print("- review/correct the code")
+                            print("- or reset the notebook/notelab before executing the cell content")
                             sys.exit(-1)
-
 
         return cls._objects[cls]

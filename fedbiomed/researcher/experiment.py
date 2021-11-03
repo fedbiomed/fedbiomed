@@ -79,9 +79,9 @@ class Experiment:
                                                 experiment. Defaults to False.
 
             tensorboard (bool): Tensorboard flag for displaying scalar values
-                                during tarning in every node. If it is true,
-                                monitor will write scalar logs in the
-                                var/tensorboard directory
+                                during training in every node. If it is true,
+                                monitor will write scalar logs into
+                                `./runs` directory.
         """
 
         self._tags = tags
@@ -121,9 +121,16 @@ class Experiment:
 
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
-        #  folder will be created
-        self._monitor = Monitor(tensorboard=tensorboard)
 
+        #  Monitoring loss values with tensorboard
+        if tensorboard:
+            self._monitor = Monitor()
+            self._reqs.add_monitor_callback(self._monitor.on_message_handler)
+        else:
+            self._monitor = None
+            # Remove callback. Since reqeust class is singleton callback 
+            # function might be already added into request before.   
+            self._reqs.remove_monitor_callback()
 
     @property
     def training_replies(self):
@@ -192,13 +199,11 @@ class Experiment:
             self._aggregated_params[round_i] = {'params': aggregated_params,
                                                 'params_path': aggregated_params_path}
             if self._save_breakpoints:
-                self._save_state(round_i)
+                self._save_state(round_i) 
 
-            # Increase round state in the monitor
-            self._monitor.increase_round()
-
-        # Close SummaryWriters for tensorboard
-        self._monitor.close_writer()
+        if self._monitor is not None:
+            # Close SummaryWriters for tensorboard
+            self._monitor.close_writer()
 
 
     def _create_breakpoint_exp_folder(self):

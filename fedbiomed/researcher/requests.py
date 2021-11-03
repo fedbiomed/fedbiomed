@@ -5,10 +5,9 @@ import signal
 import sys
 import threading
 from time import sleep
-from typing import Any, Dict
+from typing import Any, Dict, Callable
 import uuid
 import tabulate
-
 
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.logger import logger
@@ -17,7 +16,6 @@ from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
 from fedbiomed.common.messaging import Messaging, MessagingType
 from fedbiomed.researcher.environ import TIMEOUT, MESSAGES_QUEUE_DIR, RESEARCHER_ID, TMP_DIR, MQTT_BROKER, MQTT_BROKER_PORT
 from fedbiomed.researcher.responses import Responses
-
 
 class Requests(metaclass=SingletonMeta):
     """This class represents the requests addressed from Researcher to nodes.
@@ -49,6 +47,9 @@ class Requests(metaclass=SingletonMeta):
         # defines the sequence used for ping protocol
         self._sequence = 0
 
+        self._monitor_message_callback = None
+
+
     def get_messaging(self) -> Messaging:
         """returns the messaging object
         """
@@ -68,8 +69,12 @@ class Requests(metaclass=SingletonMeta):
             self.node_log_handling(ResearcherMessages.reply_create(msg).get_dict())
         elif topic == "general/researcher":
             self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
+        elif topic == "general/monitoring":
+            if self._monitor_message_callback is not None: 
+                # Pass message to Monitor's on message handler
+                self._monitor_message_callback(ResearcherMessages.reply_create(msg).get_dict())
         else:
-            log.error("message received on wrong topic ("+ topic +") - IGNORING")
+            logger.error("message received on wrong topic ("+ topic +") - IGNORING")
 
 
     def node_log_handling(self, log: Dict[str, Any]):
@@ -94,7 +99,6 @@ class Requests(metaclass=SingletonMeta):
             # first error  implementation: stop the researcher
             logger.critical("researcher stopped after receiving error/critical log from node: " + log["node_id"])
             os.kill(os.getpid(), signal.SIGTERM)
-
 
     def send_message(self, msg: dict, client=None):
         """
@@ -285,3 +289,25 @@ class Requests(metaclass=SingletonMeta):
                                  " No data has been set up for this node.")
 
         return data_found
+
+    def add_monitor_callback(self, callback: Callable[[Dict], None]): 
+        
+        """ Add callback function for monitor messages  
+
+        Args: 
+            callback (Callable): Callback function for handling monitor messages 
+                                 that comes through 'general/monitoring' channel  
+        """
+
+        self._monitor_message_callback = callback
+
+    def remove_monitor_callback(self): 
+        
+        """ Remove callback function for Monitor class. This method is called
+        for canceling monitoring.  Currently it is used in Experiment when the 
+        tensorboard state is `False`. Since the reqeust class is singleton there 
+        might be callback function already registered before (while running 
+        experiment on Notebook).  
+        """
+
+        self._monitor_message_callback = None
