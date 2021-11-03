@@ -39,12 +39,11 @@ class SingletonMeta(type):
                 # be incorporated here
                 fullclassname = cls.__module__ + "." + cls.__name__
 
-                #
-                # fedbiomed.researcher.monitor.Monitor specific
-                #
-                if fullclassname  == 'fedbiomed.researcher.monitor.Monitor':
-                    # Change the tensorboard state with given new state if the singleton
-                    # class has been already constructed
-                    cls._objects[cls].reconstruct(kwargs['tensorboard'])
+                """ 
+                Example: 
 
+                if fullclassname  == 'fedbiomed.researcher.monitor.Monitor':
+                    # ....
+                """
+                
         return cls._objects[cls]
