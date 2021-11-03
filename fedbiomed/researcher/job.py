@@ -519,7 +519,8 @@ class localJob:
         if not is_failed:
             results = {}
             try:
-                self.model_instance.set_dataset(self.dataset_path)
+                self.model_instance.set_dataset(self.dataset_path,
+                                                self.dataset.get('multi_view'))
                 self.model_instance.training_routine(**self._localjob_training_args)
             except Exception as e:
                 is_failed = True

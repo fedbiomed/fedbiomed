@@ -375,7 +375,7 @@ class TestStateExp(unittest.TestCase):
 
     def test_private_find_breakpoint_raise_err_4(self):
         # test 4 : test if rerror is raised when latest
-        # file has not been foud
+        # file cannot be found
         self.assertRaises(FileNotFoundError,
                           Experiment._find_breakpoint_path,
                           None)

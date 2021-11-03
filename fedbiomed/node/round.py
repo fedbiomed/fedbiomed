@@ -124,7 +124,9 @@ class Round:
                                                     **self.training_kwargs)
                 print(training_kwargs_with_history)
                 logger.info(training_kwargs_with_history)
-                model.set_dataset(self.dataset['path'])
+                model.set_dataset(self.dataset['path'],
+                                  self.dataset.get('multi_view'))
+                
                 rtime_before = time.perf_counter()
                 ptime_before = time.process_time()
                 model.training_routine(**training_kwargs_with_history)

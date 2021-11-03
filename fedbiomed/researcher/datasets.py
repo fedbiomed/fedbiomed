@@ -11,6 +11,12 @@ class FederatedDataSet:
     """
     def __init__(self, data: dict):
         self._data = data
+        # get multiview key
+        is_multi_view = self._data.get('multi_view')
+        if is_multi_view == "multi_view":
+            self._is_multi_view = True
+        else:
+            self._is_multi_view = False
 
     def data(self):
         return self._data

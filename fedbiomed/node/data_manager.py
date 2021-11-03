@@ -244,9 +244,9 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
             
             if isinstance(csv_header, list):
                 # data loaded contained several dataset
-                _multi_view = 'multiview dataset'
+                _multi_view = "multi_view"
             else:
-                _multi_view = 'single view dataset'
+                _multi_view = "single_view"
         elif data_type == 'images':
             assert os.path.isdir(path), f'Folder {path} for Images Dataset does not exist.'
             shape = self.load_images_dataset(path)

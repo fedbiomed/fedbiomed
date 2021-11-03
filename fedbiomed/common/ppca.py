@@ -32,7 +32,7 @@ class PpcaPlan(PythonModelPlan):
         self.K = kwargs['tot_views']
         self.dim_views = kwargs['dim_views']
         self.n_components = kwargs['n_components']
-        self.norm = kwargs['is_norm']
+        self.is_norm = kwargs['is_norm']
 
         self.params_dict = {'K': self.K,
                             'dimensions': (self.dim_views,self.n_components),
@@ -74,7 +74,7 @@ class PpcaPlan(PythonModelPlan):
         #use_cuda = torch.cuda.is_available()
         #device = torch.device("cuda" if use_cuda else "cpu")
         #self.device = "cpu"
-
+        #breakpoint()
         # labels can be provided or not. Note that to perform optimization, 
         # only data and information on observed views should be provided.
         if len(self.training_data()) == 4:
@@ -84,7 +84,7 @@ class PpcaPlan(PythonModelPlan):
         else: 
             raise ValueError(f"unexpeected number of value to unpack (expecting 3 or 4, got {len(self.training_data)}")
 
-        N = X.shape[0]
+        N = X.shape[0]  # nb of samples in dataset
         q = self.n_components
         D_i = self.dim_views
 
@@ -116,16 +116,22 @@ class PpcaPlan(PythonModelPlan):
         #self.load_params({'Wk': Wk, 'muk': muk, 'sigma2k': Sigma2})
         self.update_params({'Wk': Wk, 'muk': muk, 'sigma2k': Sigma2})
 
-    def normalize_data(self,X: pd.DataFrame) -> pd.DataFrame:
+    def normalize_data(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         """
         This function normalize the dataset X using min max scaler.
             :return normalized pandas dataframe norm_dataset
         """
-        col_name = [col.strip() for col in list(X.columns)]
-        x = X.values  # returns a numpy array
+        if self.is_multi_view:
+            col_name = dataframe.columns
+        else:
+            col_name = [col.strip() for col in list(dataframe.columns)]
+        x = dataframe.values  # returns a numpy array
         min_max_scaler = preprocessing.MinMaxScaler()
         x_scaled = min_max_scaler.fit_transform(x)
-        norm_dataset = pd.DataFrame(x_scaled, index=X.index, columns=col_name)
+
+        norm_dataset = pd.DataFrame(x_scaled,
+                                    index=dataframe.index,
+                                    columns=col_name)
         return norm_dataset
 
     def initial_loc_params(self,q_i,ViewsX):
