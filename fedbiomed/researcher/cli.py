@@ -4,7 +4,7 @@ import sys
 import os
 
 from fedbiomed.common.logger import logger
-from fedbiomed.researcher.environ import TENSORBOARD_RESULTS_DIR
+from fedbiomed.researcher.environ import environ
 
 
 class TensorboardSupervisor:
@@ -64,7 +64,7 @@ def launch_tensorboard():
     tb_sup = None
     try:
         print('Starting tensorboard for client monitoring')
-        tb_sup = TensorboardSupervisor(TENSORBOARD_RESULTS_DIR)
+        tb_sup = TensorboardSupervisor(environ['TENSORBOARD_RESULTS_DIR'])
     except KeyboardInterrupt:
         print('Stopping service')
         tb_sup.finalize()

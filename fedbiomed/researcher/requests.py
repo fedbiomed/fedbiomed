@@ -14,7 +14,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
 from fedbiomed.common.messaging import Messaging, MessagingType
-from fedbiomed.researcher.environ import TIMEOUT, MESSAGES_QUEUE_DIR, RESEARCHER_ID, TMP_DIR, MQTT_BROKER, MQTT_BROKER_PORT
+from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
 
 class Requests(metaclass=SingletonMeta):
@@ -32,14 +32,14 @@ class Requests(metaclass=SingletonMeta):
         # Need to ensure unique per researcher instance message queue to avoid conflicts
         # in case several instances of researcher (with same researcher_id ?) are active,
         # eg: a notebook not quitted and launching a script
-        self.queue = TasksQueue(MESSAGES_QUEUE_DIR + '_' + str(uuid.uuid4()), TMP_DIR)
+        self.queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'] + '_' + str(uuid.uuid4()), environ['TMP_DIR'])
 
         if mess is None or type(mess) is not Messaging:
             self.messaging = Messaging(self.on_message,
                                        MessagingType.RESEARCHER,
-                                       RESEARCHER_ID,
-                                       MQTT_BROKER,
-                                       MQTT_BROKER_PORT)
+                                       environ['RESEARCHER_ID'],
+                                       environ['MQTT_BROKER'],
+                                       environ['MQTT_BROKER_PORT'])
             self.messaging.start(block=False)
         else:
             self.messaging = mess
@@ -70,7 +70,7 @@ class Requests(metaclass=SingletonMeta):
         elif topic == "general/researcher":
             self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
         elif topic == "general/monitoring":
-            if self._monitor_message_callback is not None: 
+            if self._monitor_message_callback is not None:
                 # Pass message to Monitor's on message handler
                 self._monitor_message_callback(ResearcherMessages.reply_create(msg).get_dict())
         else:
@@ -111,7 +111,7 @@ class Requests(metaclass=SingletonMeta):
                                 message will be sent.
                                 Defaults to None(all clients)
         """
-        logger.debug(str(RESEARCHER_ID))
+        logger.debug(str(environ['RESEARCHER_ID']))
         self.messaging.send_message(msg, client=client)
 
     def get_messages(self, command: str = None, time: float = .0) -> Responses:
@@ -169,7 +169,7 @@ class Requests(metaclass=SingletonMeta):
                 that have been tagged as successful (ie with field
                 `success=True`). Defaults to True.
         """
-        timeout = timeout or TIMEOUT
+        timeout = timeout or environ['TIMEOUT']
         responses = []
 
         while True:
@@ -197,7 +197,7 @@ class Requests(metaclass=SingletonMeta):
         :return: list of client_id
         """
         self.messaging.send_message(ResearcherMessages.request_create(
-            {'researcher_id': RESEARCHER_ID,
+            {'researcher_id': environ['RESEARCHER_ID'],
              'sequence': self._sequence,
              'command':'ping'}).get_dict())
         self._sequence += 1
@@ -222,14 +222,14 @@ class Requests(metaclass=SingletonMeta):
             logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {clients}')
             for client in clients:
                 self.messaging.send_message(ResearcherMessages.request_create({'tags':tags,
-                                                                               'researcher_id':RESEARCHER_ID,
+                                                                               'researcher_id':environ['RESEARCHER_ID'],
                                                                                "command": "search"}
                                                                                ).get_dict(),
                                                                                client=client)
         else:
             logger.info(f'Searching dataset with data tags: {tags} for all nodes')
             self.messaging.send_message(ResearcherMessages.request_create({'tags':tags,
-                                                                           'researcher_id':RESEARCHER_ID,
+                                                                           'researcher_id':environ['RESEARCHER_ID'],
                                                                            "command": "search"}
                                                                            ).get_dict())
 
@@ -258,13 +258,13 @@ class Requests(metaclass=SingletonMeta):
         # If clients list is provided
         if clients:
             for client in clients:
-                self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':RESEARCHER_ID,
+                self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':environ['RESEARCHER_ID'],
                                                                                 "command": "list"}
                                                                                 ).get_dict() ,
                                                                                 client=client)
             logger.info(f'Listing datasets of given list of nodes : {clients}')
         else:
-            self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':RESEARCHER_ID,
+            self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':environ['RESEARCHER_ID'],
                                                                            "command": "list"}).get_dict())
             logger.info(f'Listing available datasets in all nodes... ')
 
@@ -290,24 +290,24 @@ class Requests(metaclass=SingletonMeta):
 
         return data_found
 
-    def add_monitor_callback(self, callback: Callable[[Dict], None]): 
-        
-        """ Add callback function for monitor messages  
+    def add_monitor_callback(self, callback: Callable[[Dict], None]):
 
-        Args: 
-            callback (Callable): Callback function for handling monitor messages 
-                                 that comes through 'general/monitoring' channel  
+        """ Add callback function for monitor messages
+
+        Args:
+            callback (Callable): Callback function for handling monitor messages
+                                 that comes through 'general/monitoring' channel
         """
 
         self._monitor_message_callback = callback
 
-    def remove_monitor_callback(self): 
-        
+    def remove_monitor_callback(self):
+
         """ Remove callback function for Monitor class. This method is called
-        for canceling monitoring.  Currently it is used in Experiment when the 
-        tensorboard state is `False`. Since the reqeust class is singleton there 
-        might be callback function already registered before (while running 
-        experiment on Notebook).  
+        for canceling monitoring.  Currently it is used in Experiment when the
+        tensorboard state is `False`. Since the reqeust class is singleton there
+        might be callback function already registered before (while running
+        experiment on Notebook).
         """
 
         self._monitor_message_callback = None

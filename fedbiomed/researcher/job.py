@@ -16,7 +16,7 @@ from fedbiomed.common.repository import Repository
 from fedbiomed.common.logger import logger
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
-from fedbiomed.researcher.environ import RESEARCHER_ID, TMP_DIR, CACHE_DIR, UPLOADS_URL
+from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -59,7 +59,7 @@ class Job:
 
         """
         self._id = str(uuid.uuid4())  # creating a unique job id
-        self._researcher_id = RESEARCHER_ID
+        self._researcher_id = environ['RESEARCHER_ID']
         self._repository_args = {}
         self._training_args = training_args
         self._model_args = model_args
@@ -107,11 +107,11 @@ class Job:
             # also handle case where model is an instance of a class
             self.model_instance = model
 
-        self.repo = Repository(UPLOADS_URL, TMP_DIR, CACHE_DIR)
-        tmpdirname = tempfile.mkdtemp(prefix=TMP_DIR)
+        self.repo = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
+        tmpdirname = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
         atexit.register(lambda: shutil.rmtree(tmpdirname))  # remove `tmpdirname`
         # directory when script will end running (replace
-        # `with tempfile.TemporaryDirectory(dir=TMP_DIR) as tmpdirname: `)
+        # `with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmpdirname: `)
         self._model_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.py'
         try:
             self.model_instance.save_code(self._model_file)
@@ -245,7 +245,7 @@ class Job:
                 # (there should have as many models done as nodes)
 
                 # only consider replies for our request
-                if m['researcher_id'] != RESEARCHER_ID or m['job_id'] != self._id or m['node_id'] not in list(self._clients):
+                if m['researcher_id'] != environ['RESEARCHER_ID'] or m['job_id'] != self._id or m['node_id'] not in list(self._clients):
                     continue
 
                 rtime_total = time.perf_counter() - time_start[m['node_id']]
@@ -272,7 +272,7 @@ class Job:
 
     def update_parameters(self, params: dict) -> str:
         """Updates global model parameters after aggregation, by specifying in a
-        temporary file (TMP_DIR + '/researcher_params_<id>.pt', where <id> is a
+        temporary file (environ['TMP_DIR'] + '/researcher_params_<id>.pt', where <id> is a
         unique and random id)
 
         Args:
@@ -285,9 +285,9 @@ class Job:
             # FIXME: should we specify file extension as a local/global variable ?
             # eg:
             # extension = 'pt'
-            # filename = TMP_DIR + '/researcher_params_' + str(uuid.uuid4()) + extension
+            # filename = environ['TMP_DIR'] + '/researcher_params_' + str(uuid.uuid4()) + extension
 
-            filename = TMP_DIR + '/researcher_params_' + str(uuid.uuid4()) + '.pt'
+            filename = environ['TMP_DIR'] + '/researcher_params_' + str(uuid.uuid4()) + '.pt'
             self.model_instance.save(filename, params)
             repo_response = self.repo.upload_file(filename)
             self._repository_args['params_url'] = repo_response['file']
@@ -308,7 +308,7 @@ class Job:
         """
 
         self.state = {
-            'researcher_id': RESEARCHER_ID,
+            'researcher_id': environ['RESEARCHER_ID'],
             'job_id': self._id,
             'training_data': self._data.data(),
             'training_args': self._training_args,
@@ -528,7 +528,7 @@ class localJob:
             try:
                 # TODO : should test status code but not yet returned
                 # by upload_file
-                filename = TMP_DIR + '/local_params_' + str(uuid.uuid4()) + '.pt'
+                filename = environ['TMP_DIR'] + '/local_params_' + str(uuid.uuid4()) + '.pt'
                 self.model_instance.save(filename, results)
             except Exception as e:
                 is_failed = True

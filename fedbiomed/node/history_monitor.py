@@ -2,7 +2,7 @@ from typing import Union
 
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.messaging import Messaging
-from fedbiomed.node.environ import CLIENT_ID
+from fedbiomed.node.environ import environ
 
 
 class HistoryMonitor:
@@ -33,7 +33,7 @@ class HistoryMonitor:
             self.history[key] = {iteration: value}
 
         self.messaging.send_message(NodeMessages.reply_create({
-                                                               'node_id': CLIENT_ID,
+                                                               'node_id': environ['CLIENT_ID'],
                                                                'job_id': self.job_id,
                                                                'researcher_id': self.researcher_id,
                                                                'key' : key,

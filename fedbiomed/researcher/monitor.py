@@ -1,6 +1,6 @@
 import os
 import shutil
-from fedbiomed.researcher.environ import TENSORBOARD_RESULTS_DIR
+from fedbiomed.researcher.environ import environ
 from fedbiomed.common.logger import logger
 from torch.utils.tensorboard import SummaryWriter
 from typing import Dict, Any
@@ -14,11 +14,11 @@ class Monitor():
 
     def __init__(self):
 
-        """ Constructor of the class. Intialize empty event writers object and 
+        """ Constructor of the class. Intialize empty event writers object and
         logs directory. Removes tensorboard logs from previous experiments.
         """
 
-        self._log_dir = TENSORBOARD_RESULTS_DIR
+        self._log_dir = environ['TENSORBOARD_RESULTS_DIR']
         self._event_writers = {}
 
         if os.listdir(self._log_dir):
@@ -28,8 +28,8 @@ class Monitor():
 
     def on_message_handler(self, msg: Dict[str, Any]):
 
-        """Handler for messages received through general/monitoring channel. 
-        This method is used as callback function in Requests class  
+        """Handler for messages received through general/monitoring channel.
+        This method is used as callback function in Requests class
 
         Args:
             msg (Dict[str, Any]): incoming message from Node.
@@ -79,9 +79,9 @@ class Monitor():
         if global_step != 0 and self._event_writers[client]['stepper'] == 0:
             self._event_writers[client]['stepper'] = global_step
 
-        # In every epoch first iteration (global step) will be zero so 
-        # we need to update step_state to not to overwrite steps of 
-        # the previous  epochs 
+        # In every epoch first iteration (global step) will be zero so
+        # we need to update step_state to not to overwrite steps of
+        # the previous  epochs
         if global_step == 0:
             self._event_writers[client]['step_state'] = self._event_writers[client]['step'] + \
                                                         self._event_writers[client]['stepper']

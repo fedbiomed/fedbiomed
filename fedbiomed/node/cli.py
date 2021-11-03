@@ -12,7 +12,7 @@ import tkinter.filedialog
 import tkinter.messagebox
 from tkinter import _tkinter
 
-from fedbiomed.node.environ import CLIENT_ID
+from fedbiomed.node.environ import environ
 from fedbiomed.node.data_manager import Data_manager
 from fedbiomed.node.node import Node
 
@@ -218,8 +218,9 @@ def launch_node():
     Launches node in a process. Process ends when user triggers
     a KeyboardInterrupt exception (CTRL+C).
     """
-    #p = Process(target=manage_node, name='node-' + CLIENT_ID, args=(data_manager,))
-    p = Process(target=manage_node, name='node-' + CLIENT_ID)
+
+    #p = Process(target=manage_node, name='node-' + environ['CLIENT_ID'], args=(data_manager,))
+    p = Process(target=manage_node, name='node-' + environ['CLIENT_ID'])
     p.daemon = True
     p.start()
 
@@ -309,7 +310,7 @@ def launch_cli():
         parser.print_help()
     else:
         print(__intro__)
-        print('\t- 🆔 Your node ID:', CLIENT_ID, '\n')
+        print('\t- 🆔 Your node ID:', environ['CLIENT_ID'], '\n')
 
     if args.add:
         add_database()
