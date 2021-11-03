@@ -1514,7 +1514,7 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.reply_create( params )
         self.assertIsInstance( r, message.LogMessage )
 
-    def test_addscalaremessages(self):
+    def test_addscalarmessages(self):
 
         # addScalar
         params = {
@@ -1527,7 +1527,7 @@ class TestMessage(unittest.TestCase):
             "epoch"         : 12,
             "command"       : 'add_scalar'
         }
-        r = message.MonitorMessages.reply_create( params )
+        r = message.ResearcherMessages.reply_create( params )
         self.assertIsInstance( r, message.AddScalarReply )
 
         r = message.NodeMessages.reply_create( params )
