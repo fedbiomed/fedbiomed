@@ -7,9 +7,9 @@ import json
 from typing import Union
 
 # import a fake environment for tests bafore importing other files
-import testsupport.mock_researcher_environ
+import testsupport.mock_common_environ
 
-from fedbiomed.researcher.environ import BREAKPOINTS_DIR, TMP_DIR, VAR_DIR, UPLOADS_URL
+from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.experiment import Experiment
 
 
@@ -48,7 +48,7 @@ class TestStateExp(unittest.TestCase):
         fds.keys = MagicMock(return_value={})
 
         try:
-            shutil.rmtree(os.path.join(VAR_DIR, "breakpoints"))
+            shutil.rmtree(os.path.join(environ['VAR_DIR'], "breakpoints"))
             # clean up existing breakpoints
         except FileNotFoundError:
             pass
@@ -57,7 +57,7 @@ class TestStateExp(unittest.TestCase):
         self.patcher2 = patch('fedbiomed.researcher.requests.Requests.search',
                               return_value=fds)
         self.patcher3 = patch('fedbiomed.common.repository.Repository.upload_file',
-                              return_value={"file": UPLOADS_URL})
+                              return_value={"file": environ['UPLOADS_URL']})
         self.patcher_monitor = patch('fedbiomed.researcher.experiment.Monitor',
                                      return_value=None)
 
@@ -74,7 +74,7 @@ class TestStateExp(unittest.TestCase):
 
         self.test_exp._create_breakpoint_exp_folder()
 
-        self.test_exp._state_root_folder = VAR_DIR  # changing value of
+        self.test_exp._state_root_folder = environ['VAR_DIR']  # changing value of
         # the root folder
 
     def tearDown(self) -> None:
@@ -84,7 +84,7 @@ class TestStateExp(unittest.TestCase):
         self.patcher3.stop()
         self.patcher_monitor.stop()
         try:
-            shutil.rmtree(os.path.join(VAR_DIR, "breakpoints"))
+            shutil.rmtree(os.path.join(environ['VAR_DIR'], "breakpoints"))
             # (above) remove files created during these unit tests
         except FileNotFoundError:
             pass
@@ -99,7 +99,7 @@ class TestStateExp(unittest.TestCase):
         # Lets mock `client_selection_strategy`
         self.test_exp._client_selection_strategy = MagicMock(return_value=None)
         self.test_exp._client_selection_strategy.save_state = MagicMock(return_value={})
-        with tempfile.TemporaryDirectory(dir=TMP_DIR) as tmpdirname:
+        with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmpdirname:
             def return_state(x=0):
                 '''mimicking job.py 'save_state' method'''
                 pass
@@ -110,7 +110,7 @@ class TestStateExp(unittest.TestCase):
                                         'params_path': {}}
 
             self.test_exp._save_state()
-            exp_path = os.path.join(VAR_DIR,
+            exp_path = os.path.join(environ['VAR_DIR'],
                                     "breakpoints",
                                     "Experiment_0",
                                     'breakpoint_0')
@@ -310,7 +310,7 @@ class TestStateExp(unittest.TestCase):
                                          "another_file"]
         patch_os_path_isdir.return_value = True
         patch_get_latest_file.return_value = "breakpoint"
-        latest_bkpt_folder = os.path.join(BREAKPOINTS_DIR,
+        latest_bkpt_folder = os.path.join(environ['BREAKPOINTS_DIR'],
                                           'breakpoint',
                                           'breakpoint')
 

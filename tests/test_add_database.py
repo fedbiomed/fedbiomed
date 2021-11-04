@@ -1,5 +1,5 @@
-import testsupport.mock_node_environ
-from fedbiomed.node.environ import DB_PATH
+import testsupport.mock_common_environ
+from fedbiomed.node.environ import environ
 from fedbiomed.node.data_manager import Data_manager
 import unittest
 from unittest.mock import MagicMock, patch
@@ -35,7 +35,7 @@ class TestLoadDataSets(unittest.TestCase):
 
     # after the tests
     def tearDown(self):
-        os.remove(DB_PATH)
+        os.remove(environ['DB_PATH'])
         pass
 
     def test_load_csv_dataset(self):

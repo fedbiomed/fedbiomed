@@ -1,7 +1,7 @@
 import os
 from fedbiomed.researcher.monitor import Monitor
-import testsupport.mock_researcher_environ
-from fedbiomed.researcher.environ import TENSORBOARD_RESULTS_DIR
+import testsupport.mock_common_environ
+from fedbiomed.researcher.environ import environ
 import unittest
 
 from unittest.mock import patch, MagicMock
@@ -63,13 +63,13 @@ class TestMonitor(unittest.TestCase):
 
 
     def test_remove_logs(self):
-        
-        """ Test removing log files from directory 
+
+        """ Test removing log files from directory
         using _remove_logs method
         """
 
         monitor = Monitor()
-        log_dir = monitor._log_dir = TENSORBOARD_RESULTS_DIR
+        log_dir = monitor._log_dir = environ['TENSORBOARD_RESULTS_DIR']
         test_file = os.path.join(log_dir, "test_file")
         create_file(test_file)
         monitor._remove_logs()
@@ -104,7 +104,7 @@ class TestMonitor(unittest.TestCase):
         self.assertEqual(monitor._event_writers[node_id]['step'], 3)
         self.assertEqual(monitor._event_writers[node_id]['stepper'], 3)
         self.assertEqual(monitor._event_writers[node_id]['step_state'], 0)
-        
+
         del monitor
 
     @patch('fedbiomed.researcher.monitor.SummaryWriter')
@@ -113,13 +113,13 @@ class TestMonitor(unittest.TestCase):
                                 mocking_summary_writer,
                                 mocking_summary_writer_add_scalar):
 
-        """Test on_message_handler of Monitor class """  
+        """Test on_message_handler of Monitor class """
 
         monitor = Monitor()
         mocking_summary_writer.return_value = MagicMock()
         mocking_summary_writer_add_scalar.return_value = MagicMock()
 
-        try: 
+        try:
             monitor.on_message_handler({
                                     'researcher_id' : '123123',
                                     'node_id' : 'asd123',
@@ -134,7 +134,7 @@ class TestMonitor(unittest.TestCase):
         except:
             is_success = False
 
-        self.assertEqual(is_success, True)    
+        self.assertEqual(is_success, True)
 
     @patch('fedbiomed.researcher.monitor.SummaryWriter')
     @patch('fedbiomed.researcher.monitor.SummaryWriter.add_scalar')
@@ -152,14 +152,14 @@ class TestMonitor(unittest.TestCase):
                                     global_step=-1,
                                     scalar=2,
                                     epoch=3)
-        
-        try: 
+
+        try:
             monitor.close_writer()
             is_success = True
         except:
             is_success = False
 
-        self.assertEqual(is_success, True, 'Summary writers are not closed properly') 
+        self.assertEqual(is_success, True, 'Summary writers are not closed properly')
 
 
 if __name__ == '__main__':  # pragma: no cover

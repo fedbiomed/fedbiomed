@@ -5,9 +5,9 @@ import sys
 import threading
 import time
 
-import testsupport.mock_researcher_environ
+import testsupport.mock_common_environ
 
-from fedbiomed.researcher.environ import MQTT_BROKER, MQTT_BROKER_PORT, RESEARCHER_ID
+from fedbiomed.researcher.environ import environ
 from fedbiomed.common.messaging   import Messaging, MessagingType
 from fedbiomed.common.message     import ResearcherMessages
 
@@ -24,12 +24,13 @@ class TestMessagingResearcher(unittest.TestCase):
         random.seed()
         # verify that a broker is available
         try:
-            print("connecting to:", MQTT_BROKER, "/", MQTT_BROKER_PORT)
+            print("connecting to:", environ['MQTT_BROKER'], "/", environ['MQTT_BROKER_PORT'])
             cls._m = Messaging(cls.on_message,
                                MessagingType.RESEARCHER,
-                               RESEARCHER_ID,
-                               MQTT_BROKER,
-                               MQTT_BROKER_PORT)
+                               environ['RESEARCHER_ID'],
+                               environ['MQTT_BROKER'],
+                               environ['MQTT_BROKER_PORT']
+                            )
 
             cls._m.start()
             cls._broker_ok = True
@@ -74,7 +75,7 @@ class TestMessagingResearcher(unittest.TestCase):
 
         try:
             ping = ResearcherMessages.request_create(
-                {'researcher_id' : RESEARCHER_ID,
+                {'researcher_id' : environ['RESEARCHER_ID'],
                  'sequence'      : random.randint(1, 65535),
                  'command'       :'ping'}).get_dict()
             self._m.send_message(ping)

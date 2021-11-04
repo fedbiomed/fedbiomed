@@ -183,9 +183,6 @@ class TestEnvironCommon(unittest.TestCase):
                     os.remove(config_path)
                 self.reload_environ(env)
 
-                print("== JLS:", env)
-                print("JLS:", os.environ['MQTT_BROKER'])
-                print("JLS:", environ['MQTT_BROKER'])
                 self.assertEqual(ip, environ['MQTT_BROKER'])
 
                 # reload the same config from existing file (not from variable)

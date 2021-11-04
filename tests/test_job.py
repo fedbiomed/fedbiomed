@@ -4,9 +4,9 @@ from unittest.mock import patch, MagicMock
 import os
 
 # import a fake environment for tests bafore importing other files
-import testsupport.mock_researcher_environ
+import testsupport.mock_common_environ
 
-from fedbiomed.researcher.environ import UPLOADS_URL
+from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.responses import Responses
 
@@ -34,7 +34,7 @@ class TestJob(unittest.TestCase):
         self.patcher2 = patch('fedbiomed.researcher.requests.Requests.search',
                               return_value=None)
         self.patcher3 = patch('fedbiomed.common.repository.Repository.upload_file',
-                              return_value={"file": UPLOADS_URL})
+                              return_value={"file": environ['UPLOADS_URL']})
         self.patcher.start()
         self.patcher2.start()
         self.patcher3.start()
