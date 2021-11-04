@@ -126,10 +126,13 @@ class PpcaPlan(PythonModelPlan):
         else:
             col_name = [col.strip() for col in list(dataframe.columns)]
         x = dataframe.values  # returns a numpy array
-        
+
         min_max_scaler = preprocessing.MinMaxScaler()
-        x_scaled = min_max_scaler.fit_transform(x)
-        
+        try:
+            x_scaled = min_max_scaler.fit_transform(x)
+        except ValueError as value_error:
+            raise ValueError(str(value_error) + "\nHint: this error can occur if headers are badly parsed"\
+                             + "(using multiview datasests in single view mode)")
         norm_dataset = pd.DataFrame(x_scaled,
                                     index=dataframe.index,
                                     columns=col_name)
@@ -208,7 +211,6 @@ class PpcaPlan(PythonModelPlan):
         # ================================== #
 
         #  W, Sigma2
-        
         Wk, Sigma2_new = self.eval_Wk_Sigma2_new(N, q_i, norm2, tn_muk, E_X, E_X_2, Sigma2, ViewsX)
         # Check Sigma2_new>0
         for k in range(self.K):
