@@ -24,6 +24,7 @@ import time
 import logging
 import logging.handlers
 
+from fedbiomed.common.singleton import SingletonMeta
 
 # default values
 DEFAULT_LOG_FILE   = 'mylog.log'
@@ -35,9 +36,9 @@ DEFAULT_LOG_TOPIC  = 'general/logger'
 #
 class MqttFormatter(logging.Formatter):
 
-    def __init__(self, client_id):
+    def __init__(self, node_id):
         super().__init__()
-        self._client_id = client_id
+        self._node_id = node_id
 
     # fields of record
     #
@@ -68,7 +69,7 @@ class MqttFormatter(logging.Formatter):
 
         json_message = {
             "asctime"   : record.__dict__["asctime"],
-            "client_id" : self._client_id
+            "node_id"   : self._node_id
         }
         json_message["name"] = record.__dict__["name"]
         json_message["level"] = record.__dict__["levelname"]
@@ -88,7 +89,7 @@ class MqttHandler(logging.Handler):
 
     def __init__(self,
                  mqtt        = None,
-                 client_id   = None,
+                 node_id     = None,
                  topic       = DEFAULT_LOG_TOPIC
                  ):
         """
@@ -96,12 +97,12 @@ class MqttHandler(logging.Handler):
 
         parameters:
         mqtt      : opened MQTT object
-        client_id : unique MQTT client id
+        node_id   : unique MQTT client id
         topic     : topic/channel to publish to (default to logging.WARNING)
         """
 
         logging.Handler.__init__(self)
-        self._client_id      = client_id
+        self._node_id        = node_id
         self._mqtt           = mqtt
         self._topic          = topic
 
@@ -124,7 +125,7 @@ class MqttHandler(logging.Handler):
             command       = 'log',
             level         = record.__dict__["levelname"],
             msg           = self.format(record),
-            client_id     = self._client_id,
+            node_id       = self._node_id,
             researcher_id = '<unknown>'
         )
         try:
@@ -148,18 +149,6 @@ class MqttHandler(logging.Handler):
             sys.exit(-1)
 
 
-#
-# singletonizer: transforms a class to a singleton
-# nothing else to say really !
-class _Singleton(type):
-    _instances = {}
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(_Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
-
-
-#
 class _LoggerBase():
     """
     base class for the logger. it uses python logging module by
@@ -361,7 +350,7 @@ class _LoggerBase():
 
     def addMqttHandler(self,
                        mqtt        = None,
-                       client_id   = None,
+                       node_id     = None,
                        topic       = DEFAULT_LOG_TOPIC,
                        level       = logging.ERROR
                        ):
@@ -371,7 +360,7 @@ class _LoggerBase():
 
         parameters:
         mqtt        : already opened MQTT object
-        client_id   : unique client id of the caller
+        node_id     : id of the caller (necessary for msg formatting to the researcher)
         topic       : topic to publish to    (non mandatory)
         level       : level of this handler  (non mandatory)
                       level must be lower than ERROR to insure that the
@@ -380,13 +369,13 @@ class _LoggerBase():
 
         handler = MqttHandler(
             mqtt        = mqtt,
-            client_id   = client_id ,
+            node_id     = node_id ,
             topic       = topic
         )
 
         # may be not necessary ?
         handler.setLevel( self._internalLevelTranslator(level) )
-        formatter = MqttFormatter(client_id)
+        formatter = MqttFormatter(node_id)
 
         handler.setFormatter(formatter)
         self._internalAddHandler("MQTT", handler)
@@ -461,7 +450,7 @@ class _LoggerBase():
 
 #
 # this is the proper Logger to use
-class _FedLogger(_LoggerBase, metaclass=_Singleton):
+class _FedLogger(_LoggerBase, metaclass=SingletonMeta):
     pass
 
 

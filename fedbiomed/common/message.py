@@ -74,7 +74,7 @@ class SearchReply(Message):
     success: bool
     databases: list
     count: int
-    client_id: str
+    node_id: str
     command: str
 
     def __post_init__(self):
@@ -97,7 +97,7 @@ class ListReply(Message):
     researcher_id: str
     success: bool
     databases: list
-    client_id: str
+    node_id: str
     command: str
     count: int
 
@@ -115,7 +115,7 @@ class PingReply(Message):
         ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
-    client_id: str
+    node_id: str
     success: bool
     sequence: int
     command: str
@@ -136,7 +136,7 @@ class TrainReply(Message):
     researcher_id: str
     job_id: str
     success: bool
-    client_id: str
+    node_id: str
     dataset_id: str
     params_url: str
     timing: dict
@@ -156,9 +156,9 @@ class AddScalarReply(Message):
         ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
-    client_id: str
+    node_id: str
     job_id: str
-    key: str
+    key: str    
     value: float
     epoch: int
     iteration: int
@@ -178,7 +178,7 @@ class LogMessage(Message):
         ValueError: triggered if message's fields validation failed
     """
     researcher_id: str
-    client_id: str
+    node_id: str
     level: str
     msg: str
     command: str
@@ -270,7 +270,8 @@ class ResearcherMessages():
                                                            SearchReply,
                                                            PingReply,
                                                            LogMessage,
-                                                           ListReply]:
+                                                           ListReply,
+                                                           AddScalarReply]:
         """this method is used on message reception (as a mean to reply to
         node requests, such as a Ping request).
         it creates the adequate message, it maps an instruction
@@ -294,7 +295,8 @@ class ResearcherMessages():
                                      'search': SearchReply,
                                      'pong': PingReply,
                                      'log': LogMessage,
-                                     'list': ListReply
+                                     'list': ListReply,
+                                     'add_scalar': AddScalarReply
         }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -421,36 +423,3 @@ class NodeMessages():
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
-class MonitorMessages():
-    """This class allows to create the corresponding class instance from
-    a received/ sent message by the Monitoring
-    """
-    @classmethod
-    def reply_create(cls, params: Dict[str, Any]) -> AddScalarReply:
-        """this method is used on message reception (as a mean to reply to
-        node requests, such as a Ping request).
-        it creates the adequate message, it maps an instruction
-        (given the key "command" in the input dictionary `params`)
-        to a Message object
-        It validates:
-        - the legacy of the message
-        - the structure of the received message
-
-        Raises:
-        ValueError: triggered if the message is not allowed to
-        be received by the researcher
-        KeyError: triggered if 'command' field is not present in `params`
-
-        Returns:
-        An instance of the corresponding Message class
-        """
-        message_type = params['command']
-
-        MESSAGE_TYPE_TO_CLASS_MAP = {
-                                     'add_scalar': AddScalarReply
-        }
-
-        if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            raise ValueError('Bad message type {}'.format(message_type))
-
-        return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)

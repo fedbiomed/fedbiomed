@@ -16,7 +16,6 @@ class MessagingType(Enum):
     """
     RESEARCHER = 1
     NODE = 2
-    MONITOR = 3
 
 
 class Messaging:
@@ -75,9 +74,9 @@ class Messaging:
         self.on_message_handler = on_message  # store the caller's mesg handler
 
         if self.messaging_type is MessagingType.RESEARCHER:
-            self.default_send_topic = 'general/clients'
+            self.default_send_topic = 'general/nodes'
         elif self.messaging_type is MessagingType.NODE:
-            self.default_send_topic = 'general/server'
+            self.default_send_topic = 'general/researcher'
         else:  # should not occur
             self.default_send_topic = None
 
@@ -121,18 +120,20 @@ class Messaging:
             self.is_failed = True
 
         if self.messaging_type is MessagingType.RESEARCHER:
-            result, _ = self.mqtt.subscribe('general/server')
-            if result != mqtt.MQTT_ERR_SUCCESS:
-                logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel general/server")
-                self.is_failed = True
+            for channel in ('general/researcher', 'general/monitoring'):
+                result, _ = self.mqtt.subscribe(channel)
+                if result != mqtt.MQTT_ERR_SUCCESS:
+                    logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel" + str(channel))
+                    self.is_failed = True
 
             # PoC subscibe also to error channel
             result, _ = self.mqtt.subscribe('general/logger')
             if result != mqtt.MQTT_ERR_SUCCESS:
                 logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel general/error")
                 self.is_failed = True
+
         elif self.messaging_type is MessagingType.NODE:
-            for channel in ('general/clients', 'general/' + self.messaging_id):
+            for channel in ('general/nodes', 'general/' + self.messaging_id):
                 result, _ = self.mqtt.subscribe(channel)
                 if result != mqtt.MQTT_ERR_SUCCESS:
                     logger.error("Messaging " + str(self.messaging_id) + " failed subscribe to channel" + str(channel))
@@ -145,16 +146,11 @@ class Messaging:
                 # it may raise a MQTT message (that we prefer not to send)
                 logger.addMqttHandler(
                     mqtt          = self.mqtt,
-                    client_id     = self.messaging_id
+                    node_id       = self.messaging_id
                 )
                 # to get Train/Epoch messages on console and on MQTT
                 logger.setLevel("DEBUG")
                 self.logger_initialized = True
-        elif self.messaging_type is MessagingType.MONITOR:
-            result, _ = self.mqtt.subscribe('general/monitoring')
-            if result != mqtt.MQTT_ERR_SUCCESS:
-                logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel")
-                self.is_failed = True
 
         self.is_connected = True
 
