@@ -2,11 +2,11 @@ import sys
 import threading
 
 #
-# WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+# WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
 #
-# do not import fedbiomed module here, to avoid dependancy loop !
+# do not import *ANY* fedbiomed module here, to avoid dependancy loops!
 #
-# WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+# WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
 #
 
 class SingletonMeta(type):
@@ -44,11 +44,11 @@ class SingletonMeta(type):
                 #
                 # environment instanciation
                 #
-                # detect that we instanciated fedbiomed.common.config.Config
+                # detect that we instanciated fedbiomed.common.environ.Environ
                 # twice:
-                #
-                # once as fedbiomed.researcher.environ
-                # once as fedbiomed.node.environ
+                # - once from fedbiomed.researcher.environ
+                # - once from fedbiomed.node.environ
+                # (order does not matter)
                 #
                 # if this happends, it means that it is a coding error,
                 # please review the code !!!!
@@ -67,6 +67,13 @@ class SingletonMeta(type):
                             print("You may:")
                             print("- review/correct the code")
                             print("- or reset the notebook/notelab before executing the cell content")
-                            sys.exit(-1)
+                    else:
+                        #
+                        # we called directly fedbiomed.common.environ.Environ().values()
+                        # *after* the singleton has already been correctly iniitiated
+                        #
+                        # this is a feature what we may need
+                        # the message is just for debugging purpose
+                        print("DEBUG: singleton environ called as fedbiomed.common.environ.Environ().values()")
 
         return cls._objects[cls]
