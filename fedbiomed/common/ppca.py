@@ -64,11 +64,13 @@ class PpcaPlan(PythonModelPlan):
     #################################################
     def training_routine(self, 
                          n_iterations: int,
+                         log_interval: int = 3,
                          monitor=None):
 
         """ 
         Args:
             n_iterations (int): the number of EM/MAP iterations for the current round.
+            log_interval (int): Interval for iteration to send logs/scalar values 
         """
 
         #use_cuda = torch.cuda.is_available()
@@ -107,10 +109,19 @@ class PpcaPlan(PythonModelPlan):
 
         # training loop
         
-        for i in range(1, n_iterations + 1):
+        for i in range(n_iterations):
             muk, Wk, Sigma2, ELL = self.EM_Optimization(N,q_i,Xk,Wk,Sigma2,ViewsX)
-            # if i in sp_arr:
-            logger.info('Iteration: {}/{}\tExpected LL: {:.6f}'.format(i,n_iterations,ELL))
+            
+            if i % log_interval == 0:
+                logger.info('Iteration: [{}/{}]\tExpected LL: {:.6f}'.format(
+                    i,
+                    n_iterations,
+                    ELL))
+
+                # Send scalar values (ELL) via general/monitoring topic
+                if monitor is not None:
+                    # -1 means no mini-batch (traning with samples samples)
+                    monitor.add_scalar("Log Likelihood", ELL, -1 , i)
 
         # update local parameters
         #self.load_params({'Wk': Wk, 'muk': muk, 'sigma2k': Sigma2})
