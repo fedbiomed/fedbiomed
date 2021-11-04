@@ -68,7 +68,7 @@ class TestEnvironCommon(unittest.TestCase):
                 del sys.modules[m]
 
         # we should also delete the global variable
-        if 'import' in globals():
+        if 'environ' in globals():
             del globals()['environ']
 
         # and reimport the requested module
