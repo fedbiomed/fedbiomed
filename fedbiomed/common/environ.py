@@ -153,7 +153,12 @@ class Environ(metaclass = SingletonMeta):
                 cfg.write(f)
 
         #
-        # values from the config file may be overloaded with
+        # store the CONFIG_FILE in environ (may help to debug)
+        #
+        self._values['CONFIG_FILE'] = CONFIG_FILE
+
+        #
+        # values from the config file may also be overloaded with
         # OS environment variables
         #
 
