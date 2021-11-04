@@ -16,9 +16,11 @@ python -m unittest -v
 or
 ```
 cd tests
-nosetests -v
+nosetests --processes=1 --process-restartworker -v
 ```
 
+Because of the code structure (environ singleton), the tests **must** run
+in separate processes
 
 * run a specific test
 
@@ -27,9 +29,17 @@ cd tests
 python ./test_XXX.py
 ```
 
-Remark: **nose** could also be used to run the test (same test ficles as with
+or
+
+```
+cd tests
+nosetests --tests=test_XXX.py
+```
+
+Remarks: **nose** could also be used to run the test (same test ficles as with
 unittest). One benefit is to have more option to run the test, for example
 have a coverage output, xml output for ci, etc...
+
 
 ### doc on unittest
 
@@ -41,7 +51,7 @@ If you want to check the test coverge, you should use:
 
 ```
 cd tests
-nosetests  --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed
+nosetests --processes=1 --process-restartworker --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed
 coverage html
 ```
 
