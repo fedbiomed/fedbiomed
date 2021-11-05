@@ -149,8 +149,11 @@ class Environ(metaclass = SingletonMeta):
 
             # write the config for future relaunch of the same component
             # (only if the file does not exists)
-            with open(CONFIG_FILE, 'w') as f:
-                cfg.write(f)
+            try:
+                with open(CONFIG_FILE, 'w') as f:
+                    cfg.write(f)
+            except:
+                logger.error("cannot save config file: " + CONFIG_FILE)
 
         #
         # store the CONFIG_FILE in environ (may help to debug)
