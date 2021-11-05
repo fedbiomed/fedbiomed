@@ -15,7 +15,8 @@ class PpcaPlan(PythonModelPlan):
         super(PpcaPlan, self).__init__(kwargs)
         """
            Class initializer.
-           :kwargs (dictionary) containing the total number of observed views (tot_views),
+           :kwargs (dictionary) containing the views id,
+                                           the total number of observed views (tot_views),
                                            the dimension of each view (dim_views), 
                                            the dimension of the latent space (n_components)
                                            a boolean to decide if data have to be normalized (is_norm)
@@ -29,6 +30,7 @@ class PpcaPlan(PythonModelPlan):
 
         self.dataset_path = None
                         
+        self.views_id = kwargs['views_id']
         self.K = kwargs['tot_views']
         self.dim_views = kwargs['dim_views']
         self.n_components = kwargs['n_components']
@@ -164,28 +166,50 @@ class PpcaPlan(PythonModelPlan):
         for k in range(self.K):
             if ViewsX[k] == 1:
 
+                if ((self.params_dict['Alpha'][k] is None) or (self.params_dict['Beta'][k] is None)):
+                    s = self.PCA_init_sigmak(k)
+                else:
+                    s = float(invgamma.rvs(a=self.params_dict['Alpha'][k], scale=self.params_dict['Beta'][k]))
+
                 if ((self.params_dict['tilde_Wk'][k] is None) or (self.params_dict['sigma_til_Wk'][k] is None)):
-                    W_k = np.random.uniform(-2,2, size = D_i[k]*q).reshape([D_i[k],q])
+                    W_k = self.PCA_init_Wk(self,k,s)
                 else:
                     W_k = matrix_normal.rvs(mean=self.params_dict['tilde_Wk'][k].reshape(D_i[k], q),
                                                     rowcov=np.eye(D_i[k]),
                                                     colcov=self.params_dict['sigma_til_Wk'][k]*np.eye(q)).reshape(D_i[k], q)
                 if q_i[k] < q:
                     W_k[:, q_i[k]:q] = 0
-
-                if ((self.params_dict['Alpha'][k] is None) or (self.params_dict['Beta'][k] is None)):
-                    s = np.random.uniform(.1,.5)
-                else:
-                    s = float(invgamma.rvs(a=self.params_dict['Alpha'][k], scale=self.params_dict['Beta'][k]))
                 Wk.append(W_k)
                 Sigma2.append(s)
             else:
-                #Wk.append(np.nan)
-                #Sigma2.append(np.nan)
-                Wk.append('NaN')
-                Sigma2.append('NaN')
+                Wk.append(np.nan)
+                Sigma2.append(np.nan)
+                # Wk.append('NaN')
+                # Sigma2.append('NaN')
 
         return Wk, Sigma2
+
+    def PCA_init_sigmak(self,k):
+        Xk = deepcopy(self.Xk[k])
+        Xk_norm=((Xk - Xk.mean()) / Xk.std()).to_numpy()
+        Sigma2 = Xk_norm.std()
+
+        return Sigma2
+
+    def PCA_init_Wk(self,k,Sigma2):
+        from sklearn.decomposition import PCA
+        Xk = deepcopy(self.Xk[k])
+        Xk_norm=((Xk - Xk.mean()) / Xk.std()).to_numpy()
+        pca = PCA(n_components=self.n_components)
+        pca.fit(Xk_norm)
+        eigenvector = pca.components_.T
+        eigenvalues = pca.explained_variance_
+        sigma_vec = Sigma2*np.ones(self.n_components)
+        eigen_val_Wk = np.subtract(eigenvalues, sigma_vec)
+        Wk = np.dot(eigenvector.reshape(self.dim_views[k], self.n_components),np.diag(eigen_val_Wk))\
+            .reshape(self.dim_views[k], self.n_components)
+
+        return Wk
 
     def EM_Optimization(self,N,q_i,Xk,Wk,Sigma2,ViewsX):
         """
@@ -222,7 +246,7 @@ class PpcaPlan(PythonModelPlan):
         # ================================== #
 
         #  W, Sigma2
-        Wk, Sigma2_new = self.eval_Wk_Sigma2_new(N, q_i, norm2, tn_muk, E_X, E_X_2, Sigma2, ViewsX)
+        Wk, Sigma2_new = self.eval_Wk_Sigma2_new(N, q_i, tn_muk, E_X, E_X_2, Sigma2, ViewsX, M)
         # Check Sigma2_new>0
         for k in range(self.K):
             if ViewsX[k] == 1:
@@ -260,8 +284,8 @@ class PpcaPlan(PythonModelPlan):
                     term2 = mu_1 + (1 / self.params_dict['sigma_til_muk'][k]) * Cc.dot(self.params_dict['tilde_muk'][k].reshape(D_i[k], 1))
                     muk.append(term1.dot(term2))
             else:
-                #muk.append(np.nan)
-                muk.append('NaN')
+                muk.append(np.nan)
+                #muk.append('NaN')
 
         return muk
 
@@ -315,10 +339,10 @@ class PpcaPlan(PythonModelPlan):
                     tn_mu_k.append(Xk[k].iloc[n].values.reshape(D_i[k], 1) - muk[k])
                     norm2_k.append(np.linalg.norm(tn_mu_k[k]) ** 2)
                 else:
-                    # norm2_k.append(np.nan)
-                    # tn_mu_k.append(np.nan)
-                    norm2_k.append('NaN')
-                    tn_mu_k.append('NaN')
+                    norm2_k.append(np.nan)
+                    tn_mu_k.append(np.nan)
+                    # norm2_k.append('NaN')
+                    # tn_mu_k.append('NaN')
             norm2.append(norm2_k)
             tn_muk.append(tn_mu_k)
 
@@ -368,7 +392,7 @@ class PpcaPlan(PythonModelPlan):
 
         return E_X, E_X_2, E_L_c
 
-    def eval_Wk_Sigma2_new(self, N, q_i, norm2, tn_muk, E_X, E_X_2, Sigma2, ViewsX):
+    def eval_Wk_Sigma2_new(self, N, q_i, tn_muk, E_X, E_X_2, Sigma2, ViewsX, M):
         """
         This function optimizes Wk and sigma2k at each EM or MAP iteration step.
           :param N (int): number of samples
@@ -379,6 +403,7 @@ class PpcaPlan(PythonModelPlan):
           :param E_X_2 (list): list of second moments of x_n
           :param Sigma2 (list): list of view-specific sigma2k parameters at previous iteration
           :param ViewsX (list): indicator function for observed views
+          :param M (np matrix): M:=inv(I_q+sum_k Wk.TWk/sigma2k)
           :return optimized Wk and sigma2k
         """
         q = self.n_components
@@ -410,9 +435,8 @@ class PpcaPlan(PythonModelPlan):
 
                 sigma2k = 0.0
                 for n in range(N):
-                    sigma2k += float(norm2[n][k] + np.matrix.trace(
-                        (Wk[k].reshape(D_i[k], q)).T.dot(Wk[k].reshape(D_i[k], q)) * E_X_2[n]) - 2 * E_X[n].T.dot(
-                        (Wk[k].reshape(D_i[k], q)).T).dot(tn_muk[n][k]))
+                    sigma2k += float(np.linalg.norm(tn_muk[n][k]-(Wk[k].reshape(D_i[k], q)).dot(E_X[n]))**2+\
+                        np.matrix.trace((Wk[k].reshape(D_i[k], q)).dot(M.dot((Wk[k].reshape(D_i[k], q)).T))))
                 if self.params_dict['tilde_Sigma2k'][k] is None:
                     var = 1  # variance of the Inverse-Gamma prior
                     alpha = 1.0 / (4 * var) + 2
@@ -430,10 +454,10 @@ class PpcaPlan(PythonModelPlan):
                     Sigma2_new.append((sigma2k + 2 * self.params_dict['Beta'][k]) / \
                         (N * D_i[k] + 2 * (self.params_dict['Alpha'][k] + 1)))
             else:
-                # Wk.append(np.nan)
-                # Sigma2_new.append(np.nan)
-                Wk.append('NaN')
-                Sigma2_new.append('NaN')
+                Wk.append(np.nan)
+                Sigma2_new.append(np.nan)
+                # Wk.append('NaN')
+                # Sigma2_new.append('NaN')
         return Wk, Sigma2_new
 
     @staticmethod
