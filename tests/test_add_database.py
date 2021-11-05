@@ -1,8 +1,14 @@
+# Managing NODE, RESEARCHER environ mock before running tests
+from testsupport.delete_environ import delete_environ
+# Detele environ. It is necessary to rebuild environ for required component
+delete_environ()
 import testsupport.mock_common_environ
-from fedbiomed.node.environ import environ
+# Import environ for node since test will be runing for node component
+from fedbiomed.node.environ    import environ
+
+
 from fedbiomed.node.data_manager import Data_manager
 import unittest
-from unittest.mock import MagicMock, patch
 import os
 import warnings
 
