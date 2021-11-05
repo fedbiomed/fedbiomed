@@ -37,6 +37,7 @@ class Environ(metaclass = SingletonMeta):
 
         # specific configuration values
         if component == ComponentType.RESEARCHER:
+            logger.setLevel("DEBUG")
             self._init_researcher()
 
         if component == ComponentType.NODE:
