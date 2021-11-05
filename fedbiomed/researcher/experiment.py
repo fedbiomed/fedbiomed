@@ -183,7 +183,7 @@ class Experiment:
         for round_i in range(self._round_init, self._rounds):
             # Sample clients using strategy (if given)
             self._job.clients = self._client_selection_strategy.sample_clients(round_i)
-            logger.info('Sampled clients in round ' + str(round_i) + ' ' + str(self._job.clients))
+            logger.info('Sampled nodes in round ' + str(round_i) + ' ' + str(self._job.clients))
             # Trigger training round on sampled clients
             self._job.start_clients_training_round(round=round_i)
 

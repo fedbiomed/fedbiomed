@@ -55,7 +55,7 @@ class DefaultStrategy(Strategy):
 
                 totalrows = sum([val[0]["shape"][0] for (key,val) in self._fds.data().items()])
                 weights = [val[0]["shape"][0] / totalrows for (key,val) in self._fds.data().items()]
-                logger.info('Clients that successfully reply in round ' + str(round_i) + ' ' + str(self._success_node_history[round_i] ))
+                logger.info('Nodes that successfully reply in round ' + str(round_i) + ' ' + str(self._success_node_history[round_i] ))
                 return models_params, weights
 
 

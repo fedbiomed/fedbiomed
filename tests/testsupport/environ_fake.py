@@ -45,7 +45,7 @@ class Environ(metaclass = SingletonMeta):
         if True:
             # values specific to node
             self._values['MESSAGES_QUEUE_DIR'] = "/tmp/var/queue_messages_XXX"
-            self._values['CLIENT_ID']          = "mock_node_XXX"
+            self._values['NODE_ID']          = "mock_node_XXX"
             self._values['DB_PATH']            = '/tmp/var/db_client_mock_node_XXX.json'
 
 

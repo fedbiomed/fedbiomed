@@ -242,7 +242,7 @@ class TestStateExp(unittest.TestCase):
             "client_selection_strategy": dummy_agg,
             "aggregator": dummy_agg,
             "tags": ["some_tags"],
-            "node_id": "my_client_id",
+            "node_id": "m_node_id",
             "model_class": "my_model_class",
             "model_path": "/path/to/model/file",
             "model_args": {},

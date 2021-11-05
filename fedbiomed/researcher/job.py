@@ -45,7 +45,7 @@ class Job:
         Args:
             reqs (Requests, optional): researcher's requests assigned to nodes.
             Defaults to None.
-            clients (dict, optional): a dict of client_id containing the
+            clients (dict, optional): a dict of node_id containing the
             clients used for training
             model (Union[str, Callable], optional): name of the model class
             to use for training

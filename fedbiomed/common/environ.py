@@ -131,7 +131,7 @@ class Environ(metaclass = SingletonMeta):
             else:
                 # we may remove node_id in the future (to simplify the code)
                 # and use id instead
-                node_id = os.getenv('CLIENT_ID', 'node_' + str(uuid.uuid4()))
+                node_id = os.getenv('NODE_ID', 'node_' + str(uuid.uuid4()))
 
                 cfg['default'] = {
                     'node_id': node_id,
@@ -175,12 +175,12 @@ class Environ(metaclass = SingletonMeta):
                                                               'researcher_id'))
             self._values['ID'] = self._values['RESEARCHER_ID']
         else:
-            # we may remove CLIENT_ID in the future (to simplify the code)
+            # we may remove NODE_ID in the future (to simplify the code)
             # and use ID instead
-            self._values['CLIENT_ID']  = os.getenv('CLIENT_ID',
+            self._values['NODE_ID']  = os.getenv('NODE_ID',
                                                    cfg.get('default',
                                                            'node_id'))
-            self._values['ID'] = self._values['CLIENT_ID']
+            self._values['ID'] = self._values['NODE_ID']
 
         # broker location
         self._values['MQTT_BROKER'] = os.getenv('MQTT_BROKER',
@@ -237,12 +237,12 @@ class Environ(metaclass = SingletonMeta):
         """
 
         VAR_DIR   = self._values['VAR_DIR']
-        CLIENT_ID = self._values['CLIENT_ID']
+        NODE_ID = self._values['NODE_ID']
 
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join(VAR_DIR,
-                                                          f'queue_manager_{CLIENT_ID}')
+                                                          f'queue_manager_{NODE_ID}')
         self._values['DB_PATH'] = os.path.join(VAR_DIR,
-                                               f'db_{CLIENT_ID}.json')
+                                               f'db_{NODE_ID}.json')
 
 
 

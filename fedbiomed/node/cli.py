@@ -219,8 +219,8 @@ def launch_node():
     a KeyboardInterrupt exception (CTRL+C).
     """
 
-    #p = Process(target=manage_node, name='node-' + environ['CLIENT_ID'], args=(data_manager,))
-    p = Process(target=manage_node, name='node-' + environ['CLIENT_ID'])
+    #p = Process(target=manage_node, name='node-' + environ['NODE_ID'], args=(data_manager,))
+    p = Process(target=manage_node, name='node-' + environ['NODE_ID'])
     p.daemon = True
     p.start()
 
@@ -310,7 +310,7 @@ def launch_cli():
         parser.print_help()
     else:
         print(__intro__)
-        print('\t- 🆔 Your node ID:', environ['CLIENT_ID'], '\n')
+        print('\t- 🆔 Your node ID:', environ['NODE_ID'], '\n')
 
     if args.add:
         add_database()

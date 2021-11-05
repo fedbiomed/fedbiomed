@@ -195,7 +195,7 @@ class Requests(metaclass=SingletonMeta):
     def ping_clients(self) -> list:
         """
         Pings online nodes
-        :return: list of client_id
+        :return: list of node_id
         """
         self.messaging.send_message(ResearcherMessages.request_create(
             {'researcher_id': environ['RESEARCHER_ID'],
@@ -214,7 +214,7 @@ class Requests(metaclass=SingletonMeta):
         is looking for.
         :clients: optionally filter clients with this list.
         Default : no filter, consider all clients
-        :return: a dict with client_id as keys, and list of dicts describing
+        :return: a dict with node_id as keys, and list of dicts describing
         available data as values
         """
 

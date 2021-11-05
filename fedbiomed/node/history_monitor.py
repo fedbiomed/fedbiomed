@@ -33,7 +33,7 @@ class HistoryMonitor:
             self.history[key] = {iteration: value}
 
         self.messaging.send_message(NodeMessages.reply_create({
-                                                               'node_id': environ['CLIENT_ID'],
+                                                               'node_id': environ['NODE_ID'],
                                                                'job_id': self.job_id,
                                                                'researcher_id': self.researcher_id,
                                                                'key' : key,

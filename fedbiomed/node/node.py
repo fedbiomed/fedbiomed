@@ -26,7 +26,7 @@ class Node:
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
         self.messaging = Messaging(self.on_message, ComponentType.NODE,
-                                   environ['CLIENT_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
+                                   environ['NODE_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
         self.data_manager = data_manager
         self.rounds = []
 
@@ -70,7 +70,7 @@ class Node:
                     NodeMessages.reply_create(
                         {
                             'researcher_id': msg['researcher_id'],
-                            'node_id': environ['CLIENT_ID'],
+                            'node_id': environ['NODE_ID'],
                             'success': True,
                             'sequence': msg['sequence'],
                             'command': 'pong'
@@ -86,7 +86,7 @@ class Node:
                     self.messaging.send_message(NodeMessages.reply_create(
                         {'success': True,
                          "command": "search",
-                         'node_id': environ['CLIENT_ID'],
+                         'node_id': environ['NODE_ID'],
                          'researcher_id': msg['researcher_id'],
                          'databases': databases,
                          'count': len(databases)}).get_dict())
@@ -101,7 +101,7 @@ class Node:
                  self.messaging.send_message(NodeMessages.reply_create(
                      {'success': True,
                       'command': 'list',
-                      'node_id': environ['CLIENT_ID'],
+                      'node_id': environ['NODE_ID'],
                       'researcher_id': msg['researcher_id'],
                       'databases': databases,
                       'count' : len(databases),
@@ -114,7 +114,7 @@ class Node:
             self.messaging.send_message(NodeMessages.reply_create(
                 {'success': False,
                  'command': "error",
-                 'node_id': environ['CLIENT_ID'],
+                 'node_id': environ['NODE_ID'],
                  'researcher_id': resid,
                  'msg': "Not able to deserialize the message"}).get_dict())
         except NotImplementedError:
@@ -123,7 +123,7 @@ class Node:
             self.messaging.send_message(NodeMessages.reply_create(
                 {'success': False,
                  'command': "error",
-                 'node_id': environ['CLIENT_ID'],
+                 'node_id': environ['NODE_ID'],
                  'researcher_id': resid,
                  'msg': f"Command `{command}` is not implemented"}).get_dict())
         except KeyError:
@@ -132,7 +132,7 @@ class Node:
             self.messaging.send_message(NodeMessages.reply_create(
                 {'success': False,
                  'command': "error",
-                 'node_id': environ['CLIENT_ID'],
+                 'node_id': environ['NODE_ID'],
                  'researcher_id': resid,
                  'msg': "'command' property was not found"}).get_dict())
         except TypeError:  # Message was not serializable
@@ -141,7 +141,7 @@ class Node:
             self.messaging.send_message(NodeMessages.reply_create(
                 {'success': False,
                  'command': "error",
-                 'node_id': environ['CLIENT_ID'],
+                 'node_id': environ['NODE_ID'],
                  'researcher_id': resid,
                  'msg': 'Message was not serializable'}).get_dict())
 
@@ -179,8 +179,8 @@ class Node:
         self.rounds = []  # store here rounds associated to each dataset_id
         # (so it is possible to train model on several dataset per round)
 
-        if environ['CLIENT_ID'] in msg.get_param('training_data'):
-            for dataset_id in msg.get_param('training_data')[environ['CLIENT_ID']]:
+        if environ['NODE_ID'] in msg.get_param('training_data'):
+            for dataset_id in msg.get_param('training_data')[environ['NODE_ID']]:
                 alldata = self.data_manager.search_by_id(dataset_id)
                 if len(alldata) != 1 or not 'path' in alldata[0].keys():
                     # TODO: create a data structure for messaging
@@ -192,7 +192,7 @@ class Node:
                     self.messaging.send_message(NodeMessages.reply_create(
                         {'success': False,
                          'command': "error",
-                         'node_id': environ['CLIENT_ID'],
+                         'node_id': environ['NODE_ID'],
                          'researcher_id': researcher_id,
                          'msg': "Did not found proper data in local datasets"}
                         ).get_dict())
@@ -235,7 +235,7 @@ class Node:
                             'success': False,
                             "command": "error",
                             'msg': str(e),
-                            'node_id': environ['CLIENT_ID']
+                            'node_id': environ['NODE_ID']
                         }
                     ).get_dict()
                 )

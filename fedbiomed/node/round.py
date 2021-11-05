@@ -140,7 +140,7 @@ class Round:
             results['job_id'] = self.job_id
             results['model_params'] = model.after_training_params()
             results['history'] = self.monitor.history
-            results['node_id'] = environ['CLIENT_ID']
+            results['node_id'] = environ['NODE_ID']
             try:
                 # TODO : should test status code but not yet returned
                 # by upload_file
@@ -160,7 +160,7 @@ class Round:
             pass
 
         if not is_failed:
-            return NodeMessages.reply_create({'node_id': environ['CLIENT_ID'],
+            return NodeMessages.reply_create({'node_id': environ['NODE_ID'],
                         'job_id': self.job_id,
                         'researcher_id': self.researcher_id,
                         'command': 'train',
@@ -174,7 +174,7 @@ class Round:
                                   }).get_dict()
         else:
             logger.error(error_message)
-            return NodeMessages.reply_create({'node_id': environ['CLIENT_ID'],
+            return NodeMessages.reply_create({'node_id': environ['NODE_ID'],
                         'job_id': self.job_id,
                         'researcher_id': self.researcher_id,
                         'command': 'train',
