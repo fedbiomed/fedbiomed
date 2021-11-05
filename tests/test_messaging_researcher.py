@@ -7,9 +7,10 @@ import time
 
 import testsupport.mock_common_environ
 
-from fedbiomed.researcher.environ import environ
-from fedbiomed.common.messaging   import Messaging, MessagingType
-from fedbiomed.common.message     import ResearcherMessages
+from fedbiomed.researcher.environ    import environ
+from fedbiomed.common.messaging      import Messaging
+from fedbiomed.common.component_type import ComponentType
+from fedbiomed.common.message        import ResearcherMessages
 
 class TestMessagingResearcher(unittest.TestCase):
     '''
@@ -26,7 +27,7 @@ class TestMessagingResearcher(unittest.TestCase):
         try:
             print("connecting to:", environ['MQTT_BROKER'], "/", environ['MQTT_BROKER_PORT'])
             cls._m = Messaging(cls.on_message,
-                               MessagingType.RESEARCHER,
+                               ComponentType.RESEARCHER,
                                environ['RESEARCHER_ID'],
                                environ['MQTT_BROKER'],
                                environ['MQTT_BROKER_PORT']

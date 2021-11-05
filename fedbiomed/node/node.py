@@ -6,7 +6,8 @@ from typing import Optional, Union, Dict, Any
 from fedbiomed.common import json
 from fedbiomed.common.logger import logger
 from fedbiomed.common.tasks_queue import TasksQueue
-from fedbiomed.common.messaging import Messaging,  MessagingType
+from fedbiomed.common.messaging import Messaging
+from fedbiomed.common.component_type import ComponentType
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -24,7 +25,7 @@ class Node:
     def __init__(self, data_manager: Data_manager):
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
-        self.messaging = Messaging(self.on_message, MessagingType.NODE,
+        self.messaging = Messaging(self.on_message, ComponentType.NODE,
                                    environ['CLIENT_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
         self.data_manager = data_manager
         self.rounds = []

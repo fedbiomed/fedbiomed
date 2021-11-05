@@ -13,7 +13,8 @@ from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
-from fedbiomed.common.messaging import Messaging, MessagingType
+from fedbiomed.common.messaging import Messaging
+from fedbiomed.common.component_type import ComponentType
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
 
@@ -36,7 +37,7 @@ class Requests(metaclass=SingletonMeta):
 
         if mess is None or type(mess) is not Messaging:
             self.messaging = Messaging(self.on_message,
-                                       MessagingType.RESEARCHER,
+                                       ComponentType.RESEARCHER,
                                        environ['RESEARCHER_ID'],
                                        environ['MQTT_BROKER'],
                                        environ['MQTT_BROKER_PORT'])
