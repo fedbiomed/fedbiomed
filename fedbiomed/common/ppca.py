@@ -1,3 +1,5 @@
+from typing import List, Tuple
+
 import numpy as np
 import pandas as pd
 from sklearn import preprocessing
@@ -7,7 +9,8 @@ from numpy.linalg import solve
 from math import log
 from fedbiomed.common.logger import logger
 from fedbiomed.common.pythonmodel import PythonModelPlan
-from typing import List, Tuple
+from fedbiomed.common.multiview_parser import MultiViewCSVParser
+
 
 class PpcaPlan(PythonModelPlan):
     def __init__(self,
@@ -56,10 +59,14 @@ class PpcaPlan(PythonModelPlan):
         # The researcher can have prior information only over some parameters
         if (('tilde_muk' in kwargs) and ('sigma_til_muk' in kwargs)):
             self.update_params({'tilde_muk': kwargs['tilde_muk'], 'sigma_til_muk': kwargs['sigma_til_muk']})
+        
         if (('tilde_Wk' in kwargs) and ('sigma_til_Wk' in kwargs)):
             self.update_params({'tilde_Wk': kwargs['tilde_Wk'], 'sigma_til_Wk': kwargs['sigma_til_Wk']})
         if (('sigma_til_sigma2k' in kwargs) and ('Alpha' in kwargs) and ('Beta' in kwargs)):
             self.update_params({'sigma_til_sigma2k': kwargs['sigma_til_sigma2k'], 'Alpha': kwargs['Beta'], 'Beta': kwargs['Beta']})
+        
+        self.views_iterator = range(self.K) if self.K is not None else None
+
 
     #################################################
     def training_routine(self, 
@@ -89,9 +96,9 @@ class PpcaPlan(PythonModelPlan):
         dataset = self.training_data()
         X, Xk, ViewsX, _ = self.parse_input_values(dataset)
         N = X.shape[0]  # nb of samples in dataset
-        q = self.n_components
-        D_i = self.dim_views
-
+        q = self.n_components  # latent dim
+        D_i = self.dim_views  # nb of features per views
+        
         # self.q_i contains the "effective" latent space dimension per view 
         # (at least equal to original view dimension-1)
 
@@ -135,33 +142,42 @@ class PpcaPlan(PythonModelPlan):
                            target: pd.Series = None) -> Tuple[pd.DataFrame,
                                                               List[pd.DataFrame],
                                                               List[int]]:
+                               
+        multiview_df = MultiViewCSVParser(dataset,
+                                          self.is_multi_view,
+                                          self.dim_views)
         Xk = []  # a list containing dataframes (if availaible)
         # or np.nan (if not available)
         ViewsX = []  # specify if views is present in node or not
         ind = 0
-        if self.is_multi_view:
-            # get a list of all view names
-            iterator = sorted(set(dataset.columns.get_level_values(0)))
-            iterator = list(iterator)
-            def pandas_handler(df, x):
-                return df[x]
-        else:
-            iterator = range(self.K)
-            def pandas_handler(df, x):
-                return df.iloc[:, ind:ind + self.dim_views[x]]
-        
+        self.views_iterator = multiview_df.create_iterator()
+        # if self.is_multi_view:
+        #     # get a list of all view names
+        #     iterator = sorted(set(dataset.columns.get_level_values(0)))
+        #     iterator = list(iterator)
+            
+        #     def pandas_handler(df, x):
+        #         return df[x]  
+        # else:
+        #     iterator = range(self.K)
+        #     def pandas_handler(df, x):
+        #         return df.iloc[:, ind:ind + self.dim_views[x]]
+        # self.dim_views = multiview_df.views
         # iterate over number of views
         # the followig is for parsing input values, 
         # dealing with missing data (should be NaN datasets),
         # normalize datasets  and creating Xk and ViewsX
-        for k, iter_elem in enumerate(iterator):
-            if pandas_handler(dataset, iter_elem).isnull().values.any():
+        for k, iter_elem in enumerate(self.views_iterator):
+            if multiview_df[iter_elem].isnull().values.any():
+                # case where a view is missing 
+                # (it should contain an array of nan)
+                
                 Xk.append(np.nan)
                 #Xk.append('NaN')
                 ViewsX.append(0)
             else:
                 # if norm = true, data are normalized with min max scaler
-                X_k = pandas_handler(dataset, iter_elem)
+                X_k = multiview_df[iter_elem]
                 if self.is_norm:
                     X_k = self.normalize_data(X_k) 
                     
@@ -169,7 +185,8 @@ class PpcaPlan(PythonModelPlan):
                 Xk.append(X_k)
                 
                 ViewsX.append(1)
-            ind += self.dim_views[k]
+            ind += self.dim_views[k]  # only used for non multiview datasets
+            # (so to ensure backward compatibility)
 
          # The entire dataset is re-built without empty columns
         Xk_obs = [item for item in Xk if item is not np.nan]
@@ -212,22 +229,23 @@ class PpcaPlan(PythonModelPlan):
 
         Wk = []
         Sigma2 = []
-        for k in range(self.K):
+        
+        for k, k_name in enumerate(self.views_iterator):
             if ViewsX[k] == 1:
 
-                if ((self.params_dict['tilde_Wk'][k] is None) or (self.params_dict['sigma_til_Wk'][k] is None)):
+                if ((self.params_dict['tilde_Wk'][k_name] is None) or (self.params_dict['sigma_til_Wk'][k_name] is None)):
                     W_k = np.random.uniform(-2,2, size = D_i[k]*q).reshape([D_i[k],q])
                 else:
-                    W_k = matrix_normal.rvs(mean=self.params_dict['tilde_Wk'][k].reshape(D_i[k], q),
+                    W_k = matrix_normal.rvs(mean=self.params_dict['tilde_Wk'][k_name].reshape(D_i[k], q),
                                                     rowcov=np.eye(D_i[k]),
-                                                    colcov=self.params_dict['sigma_til_Wk'][k]*np.eye(q)).reshape(D_i[k], q)
+                                                    colcov=self.params_dict['sigma_til_Wk'][k_name]*np.eye(q)).reshape(D_i[k], q)
                 if q_i[k] < q:
                     W_k[:, q_i[k]:q] = 0
 
-                if ((self.params_dict['Alpha'][k] is None) or (self.params_dict['Beta'][k] is None)):
+                if ((self.params_dict['Alpha'][k_name] is None) or (self.params_dict['Beta'][k_name] is None)):
                     s = np.random.uniform(.1,.5)
                 else:
-                    s = float(invgamma.rvs(a=self.params_dict['Alpha'][k], scale=self.params_dict['Beta'][k]))
+                    s = float(invgamma.rvs(a=self.params_dict['Alpha'][k_name], scale=self.params_dict['Beta'][k_name]))
                 Wk.append(W_k)
                 Sigma2.append(s)
             else:
@@ -297,9 +315,9 @@ class PpcaPlan(PythonModelPlan):
         D_i = self.dim_views
         muk = []
 
-        for k in range(self.K):
+        for k, k_name in enumerate(self.views_iterator):
             if ViewsX[k] == 1:
-                if ((self.params_dict['tilde_muk'][k] is None) or (self.params_dict['sigma_til_muk'][k] is None)):
+                if ((self.params_dict['tilde_muk'][k_name] is None) or (self.params_dict['sigma_til_muk'][k_name] is None)):
                     
                     mean_tnk = Xk[k].mean(axis=0).values.reshape(D_i[k], 1)
                     muk.append(mean_tnk)
@@ -307,9 +325,9 @@ class PpcaPlan(PythonModelPlan):
                     mu_1 = np.zeros((D_i[k], 1))
                     for n in range(N):
                         mu_1 += Xk[k].iloc[n].values.reshape(D_i[k], 1)
-                    term1 = self.compute_inv_term1_muck(Wk[k], N, Sigma2[k], self.params_dict['sigma_til_muk'][k])
+                    term1 = self.compute_inv_term1_muck(Wk[k], N, Sigma2[k], self.params_dict['sigma_til_muk'][k_name])
                     Cc = self.compute_Cck(Wk[k], Sigma2[k])
-                    term2 = mu_1 + (1 / self.params_dict['sigma_til_muk'][k]) * Cc.dot(self.params_dict['tilde_muk'][k].reshape(D_i[k], 1))
+                    term2 = mu_1 + (1 / self.params_dict['sigma_til_muk'][k_name]) * Cc.dot(self.params_dict['tilde_muk'][k_name].reshape(D_i[k], 1))
                     muk.append(term1.dot(term2))
             else:
                 muk.append(np.nan)
@@ -439,21 +457,21 @@ class PpcaPlan(PythonModelPlan):
         Wk = []
         Sigma2_new = []
 
-        for k in range(self.K):
+        for k, k_name in enumerate(self.dim_views):
             if ViewsX[k] == 1:
                 W_1_1 = (tn_muk[0][k]).dot(E_X[0].T)
                 W_2_2 = sum(E_X_2)
                 for n in range(1,N):
                     W_1_1 += (tn_muk[n][k]).dot(E_X[n].T)
 
-                if ((self.params_dict['tilde_Wk'][k] is None) or (self.params_dict['sigma_til_Wk'][k] is None)):
+                if ((self.params_dict['tilde_Wk'][k_name] is None) or (self.params_dict['sigma_til_Wk'][k_name] is None)):
                     W_1 = W_1_1
 
                     W_2 = solve(W_2_2, np.eye(q))
                 else:
-                    W_1 = W_1_1 + (Sigma2[k] / self.params_dict['sigma_til_Wk'][k]) * self.params_dict['tilde_Wk'][k]
+                    W_1 = W_1_1 + (Sigma2[k] / self.params_dict['sigma_til_Wk'][k_name]) * self.params_dict['tilde_Wk'][k_name]
 
-                    W_2 = solve(W_2_2 + (Sigma2[k] / self.params_dict['sigma_til_Wk'][k]) * np.eye(q), np.eye(q))
+                    W_2 = solve(W_2_2 + (Sigma2[k] / self.params_dict['sigma_til_Wk'][k_name]) * np.eye(q), np.eye(q))
 
                 W_k = W_1.dot(W_2)
                 if q_i[k] < q:
@@ -479,8 +497,8 @@ class PpcaPlan(PythonModelPlan):
                         print(f'Variance of Inverse-Gamma for sigma2(%i) = {var}' % (k + 1))
                     Sigma2_new.append(sigma2k_N)
                 else:
-                    Sigma2_new.append((sigma2k + 2 * self.params_dict['Beta'][k]) / \
-                        (N * D_i[k] + 2 * (self.params_dict['Alpha'][k] + 1)))
+                    Sigma2_new.append((sigma2k + 2 * self.params_dict['Beta'][k_name]) / \
+                        (N * D_i[k] + 2 * (self.params_dict['Alpha'][k_name] + 1)))
             else:
                 Wk.append(np.nan)
                 Sigma2_new.append(np.nan)

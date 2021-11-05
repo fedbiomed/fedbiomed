@@ -28,17 +28,27 @@ class MLaggregator(Aggregator):
 
         K = model_params[0]['K']
         dim_views,q = model_params[0]['dimensions']
-        for model in model_params:
-            assert model['K']==K
-            d1,q1 = model['dimensions']
+        for model_param in model_params:
+            assert model_param['K']==K
+            d1,q1 = model_param['dimensions']
             assert d1 == dim_views
             assert q1 == q
-
+        
+        if isinstance(model_params[0]['muk'], dict):
+            # case where dictionary of model parameters are passed to aggregator
+            # retrieve names of views specified in model_params
+            # for parameter 'muk'
+            self.views_iterator = list(model_params[0]['muk'].keys())
+        else:
+            # case where list of model parameters are passed to aggregator
+            self.views_iterator = range(K)
+        # default values for numerical computation
         corr_det_inv = 1e-20
         rho = 1e-4
 
         # evaluate total number of centers Ensure compatibility with datahaving measurements for each view
-        Tot_C_k_W, Tot_C_k_mu, Tot_C_k_S = self.count_participating_clients(model_params,K)
+        Tot_C_k_W, Tot_C_k_mu, Tot_C_k_S = self.count_participating_clients(model_params,
+                                                                            self.views_iterator)
 
         # ================================== #
         #           ML OPTIMIZATION          #
@@ -47,7 +57,7 @@ class MLaggregator(Aggregator):
         # obtain model parameters through Maximum likelihood estimation
         tilde_muk, tilde_Wk, tilde_Sigma2k, sigma_til_muk, sigma_til_Wk = \
             self.eval_gauss_global_params(model_params,
-                                          K,
+                                          self.views_iterator,
                                           dim_views,
                                           q,
                                           Tot_C_k_W,
@@ -76,7 +86,7 @@ class MLaggregator(Aggregator):
 
     @staticmethod
     def eval_gauss_global_params(model_params,
-                                 K,
+                                 views_iterator,
                                  D_i,
                                  q,
                                  Tot_C_k_W,
@@ -96,20 +106,22 @@ class MLaggregator(Aggregator):
         tilde_Sigma2k = []
         sigma_til_muk = []
         sigma_til_Wk = []
-        for k in range(K):
+        for k, k_name in enumerate(views_iterator):
+            # `k` and `k_name` are elements used for accessing the same view
+            # (when model parameters are mapped
             tilmuk = np.zeros((D_i[k], 1))
             tilWk = np.zeros((D_i[k], q))
             tilSk = 0.0
             for model in model_params:
                 #if type(model['muk'][k]) is not str:
-                if not np.isnan(model['muk'][k]).any():
-                    tilmuk+=model['muk'][k]
+                if not np.isnan(model['muk'][k_name]).any():
+                    tilmuk+=model['muk'][k_name]
                 #if type(model['Wk'][k]) is not str:  
-                if not np.isnan(model['Wk'][k]).any():
-                    tilWk += model['Wk'][k]
+                if not np.isnan(model['Wk'][k_name]).any():
+                    tilWk += model['Wk'][k_name]
                 #if type(model['sigma2k'][k]) is not str:  
-                if not np.isnan(model['sigma2k'][k]).any():
-                    tilSk += model['sigma2k'][k]
+                if not np.isnan(model['sigma2k'][k_name]).any():
+                    tilSk += model['sigma2k'][k_name]
             
             if Tot_C_k_S[k] >= 1:
                 tilde_Sigma2k.append(tilSk / Tot_C_k_S[k])
@@ -118,13 +130,14 @@ class MLaggregator(Aggregator):
                 tilde_Wk.append(1.0 / Tot_C_k_W[k] * tilWk)
                 sigWk = 0.0
                 for model in model_params:
-                    if type(model['Wk'][k]) is not str:  # not np.isnan(model['Wk'][k]).any():
-                        sigWk += np.matrix.trace((model['Wk'][k] - tilde_Wk[k]).T.dot(model['Wk'][k] - tilde_Wk[k]))
+                    #if type(model['Wk'][k_name]) is not str:  
+                    if not np.isnan(model['Wk'][k_name]).any():
+                        sigWk += np.matrix.trace((model['Wk'][k_name] - tilde_Wk[k]).T.dot(model['Wk'][k_name] - tilde_Wk[k]))
                 if sigWk == 0.0:
                     sigma_til_Wk.append(corr_det_inv)
                 else:
                     sigma_til_Wk_temp = sigWk / (Tot_C_k_W[k] * D_i[k] * q)
-                    sigma_til_Wk.append(sigma_til_Wk_temp*min(1,np.linalg.norm(tilde_Wk[k])/(5*sigma_til_Wk_temp)))
+                    sigma_til_Wk.append(sigma_til_Wk_temp*min(1,np.linalg.norm(tilde_Wk[k_name])/(5*sigma_til_Wk_temp)))
             elif Tot_C_k_W[k] == 1:
                 tilde_Wk.append(1.0 / Tot_C_k_W[k] * tilWk)
                 sigma_til_Wk.append(rho)
@@ -134,8 +147,8 @@ class MLaggregator(Aggregator):
                 sigmuk = 0.0
                 for model in model_params:
                     #if type(model['muk'][k]) is not str:  
-                    if not np.isnan(model['muk'][k]).any():
-                        sigmuk+=float((model['muk'][k]-tilde_muk[k]).T.dot(model['muk'][k]-tilde_muk[k]))
+                    if not np.isnan(model['muk'][k_name]).any():
+                        sigmuk+=float((model['muk'][k_name]-tilde_muk[k]).T.dot(model['muk'][k_name]-tilde_muk[k]))
                 if sigmuk == 0.0:
                     sigma_til_muk.append(corr_det_inv)
                 else:
@@ -156,7 +169,7 @@ class MLaggregator(Aggregator):
         Alpha = []
         Beta = []
         sigma_til_sigma2k = []
-        for k in range(K):
+        for k, k_name in enumerate(self.views_iterator):
             if Tot_C_k_S[k] >= 1:
                 Ck_1 = 0.0
                 Ck_2 = 0.0
@@ -164,10 +177,10 @@ class MLaggregator(Aggregator):
                 for model in model_params:
                     
                     #if type(model['sigma2k'][k]) is not str:  
-                    if not np.isnan(model['sigma2k'][k]).any():
-                        Ck_1 += 1.0 / model['sigma2k'][k]
-                        Ck_2 += log(model['sigma2k'][k])
-                        varSk += (model['sigma2k'][k] - tilde_Sigma2k[k]) ** 2
+                    if not np.isnan(model['sigma2k'][k_name]).any():
+                        Ck_1 += 1.0 / model['sigma2k'][k_name]
+                        Ck_2 += log(model['sigma2k'][k_name])
+                        varSk += (model['sigma2k'][k_name] - tilde_Sigma2k[k]) ** 2
                 Ck = -log(Ck_1) - Ck_2 / Tot_C_k_S[k]
                 if varSk == 0.0:
                     varSk = corr_det_inv
@@ -188,7 +201,7 @@ class MLaggregator(Aggregator):
         return Alpha, Beta, sigma_til_sigma2k
 
     @staticmethod
-    def count_participating_clients(model_params,K):
+    def count_participating_clients(model_params,views_iterator):
         """
         This function evaluates the effective number of participating clients
         per parameter for the current round
@@ -201,19 +214,19 @@ class MLaggregator(Aggregator):
         Tot_C_k_mu = []  #
         Tot_C_k_S = []
 
-        for k in range(K):
+        for  k_name in views_iterator:
             TotCkW = 0
             TotCkmu = 0
             TotCkS = 0
             for model in model_params:
                 #if type(model['Wk'][k]) is not str:  
-                if not np.isnan(model['Wk'][k]).any():
+                if not np.isnan(model['Wk'][k_name]).any():
                     TotCkW += 1
                 #if type(model['muk'][k]) is not str:  
-                if not np.isnan(model['muk'][k]).any():
+                if not np.isnan(model['muk'][k_name]).any():
                     TotCkmu += 1
                 #if type(model['sigma2k'][k]) is not str: 
-                if not np.isnan(model['sigma2k'][k]).any():
+                if not np.isnan(model['sigma2k'][k_name]).any():
                     TotCkS += 1
             Tot_C_k_W.append(TotCkW)
             Tot_C_k_mu.append(TotCkmu)
@@ -225,6 +238,8 @@ class MLaggregator(Aggregator):
     def inv_digamma(y, eps=1e-8, max_iter=100):
         """
         Computes Numerical inverse to the digamma function by root finding.
+        (After Llera & Beckmann, Estimating an inverse gamma distribution,
+        2016)
         :return float
         """
         '''Numerical inverse to the digamma function by root finding'''
