@@ -153,4 +153,3 @@ class PythonModelPlan():
            :return the federated parameters (dictionary)
         """
         return self.params_dict
-

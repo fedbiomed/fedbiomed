@@ -7,7 +7,7 @@ from numpy.linalg import solve
 from math import log
 from fedbiomed.common.logger import logger
 from fedbiomed.common.pythonmodel import PythonModelPlan
-
+from typing import List, Tuple
 
 class PpcaPlan(PythonModelPlan):
     def __init__(self,
@@ -78,13 +78,16 @@ class PpcaPlan(PythonModelPlan):
         #self.device = "cpu"
         # labels can be provided or not. Note that to perform optimization, 
         # only data and information on observed views should be provided.
-        if len(self.training_data()) == 4:
-            X, Xk, ViewsX, y = self.training_data()
-        elif len(self.training_data()) == 3:
-            X, Xk, ViewsX = self.training_data()
-        else: 
-            raise ValueError(f"unexpeected number of value to unpack (expecting 3 or 4, got {len(self.training_data)}")
-
+        
+        
+        # if len(self.training_data()) == 4:
+        #     X, Xk, ViewsX, y = self.training_data()
+        # elif len(self.training_data()) == 3:
+        #     X, Xk, ViewsX = self.training_data()
+        # else: 
+        #     raise ValueError(f"unexpected number of value to unpack (expecting 3 or 4, got {len(self.training_data)}")
+        dataset = self.training_data()
+        X, Xk, ViewsX, _ = self.parse_input_values(dataset)
         N = X.shape[0]  # nb of samples in dataset
         q = self.n_components
         D_i = self.dim_views
@@ -127,6 +130,54 @@ class PpcaPlan(PythonModelPlan):
         #self.load_params({'Wk': Wk, 'muk': muk, 'sigma2k': Sigma2})
         self.update_params({'Wk': Wk, 'muk': muk, 'sigma2k': Sigma2})
 
+    def parse_input_values(self,
+                           dataset: pd.DataFrame,
+                           target: pd.Series = None) -> Tuple[pd.DataFrame,
+                                                              List[pd.DataFrame],
+                                                              List[int]]:
+        Xk = []  # a list containing dataframes (if availaible)
+        # or np.nan (if not available)
+        ViewsX = []  # specify if views is present in node or not
+        ind = 0
+        if self.is_multi_view:
+            # get a list of all view names
+            iterator = sorted(set(dataset.columns.get_level_values(0)))
+            iterator = list(iterator)
+            def pandas_handler(df, x):
+                return df[x]
+        else:
+            iterator = range(self.K)
+            def pandas_handler(df, x):
+                return df.iloc[:, ind:ind + self.dim_views[x]]
+        
+        # iterate over number of views
+        # the followig is for parsing input values, 
+        # dealing with missing data (should be NaN datasets),
+        # normalize datasets  and creating Xk and ViewsX
+        for k, iter_elem in enumerate(iterator):
+            if pandas_handler(dataset, iter_elem).isnull().values.any():
+                Xk.append(np.nan)
+                #Xk.append('NaN')
+                ViewsX.append(0)
+            else:
+                # if norm = true, data are normalized with min max scaler
+                X_k = pandas_handler(dataset, iter_elem)
+                if self.is_norm:
+                    X_k = self.normalize_data(X_k) 
+                    
+                    
+                Xk.append(X_k)
+                
+                ViewsX.append(1)
+            ind += self.dim_views[k]
+
+         # The entire dataset is re-built without empty columns
+        Xk_obs = [item for item in Xk if item is not np.nan]
+        #Xk_obs = [item for item in Xk if type(item) is not str]
+        X_obs = pd.concat(Xk_obs, axis=1)
+        
+        return (X_obs,Xk,ViewsX, target)
+
     def normalize_data(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         """
         This function normalize the dataset X using min max scaler.
@@ -143,7 +194,7 @@ class PpcaPlan(PythonModelPlan):
             x_scaled = min_max_scaler.fit_transform(x)
         except ValueError as value_error:
             raise ValueError(str(value_error) + "\nHint: this error can occur if headers are badly parsed"\
-                             + "(using multiview datasests in single view mode)")
+                             + "(eg using multiview datasests in single view mode)")
         norm_dataset = pd.DataFrame(x_scaled,
                                     index=dataframe.index,
                                     columns=col_name)
@@ -249,6 +300,7 @@ class PpcaPlan(PythonModelPlan):
         for k in range(self.K):
             if ViewsX[k] == 1:
                 if ((self.params_dict['tilde_muk'][k] is None) or (self.params_dict['sigma_til_muk'][k] is None)):
+                    
                     mean_tnk = Xk[k].mean(axis=0).values.reshape(D_i[k], 1)
                     muk.append(mean_tnk)
                 else:
