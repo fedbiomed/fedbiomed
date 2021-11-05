@@ -16,7 +16,7 @@ python -m unittest -v
 or
 ```
 cd tests
-nosetests --processes=1 --process-restartworker -v
+nosetests -v
 ```
 
 Because of the code structure (environ singleton), the tests **must** run
@@ -51,7 +51,7 @@ If you want to check the test coverge, you should use:
 
 ```
 cd tests
-nosetests --processes=1 --process-restartworker --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed
+nosetests --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed
 coverage html
 ```
 
