@@ -33,25 +33,27 @@ class PpcaPlan(PythonModelPlan):
         self.dataset_path = None
                         
         self.K = kwargs['tot_views']
+        self.views_names = kwargs.get('views_names', range(self.K))
         self.dim_views = kwargs['dim_views']
         self.n_components = kwargs['n_components']
         self.is_norm = kwargs['is_norm']
 
         self.params_dict = {'K': self.K,
                             'dimensions': (self.dim_views,self.n_components),
+                            'views_names': self.views_names,
                             # local params:
                             'Wk': None, 
                             'muk': None,
                             'sigma2k': None,
                             # global params:
-                            'tilde_muk': [None for _ in range(self.K)],
-                            'tilde_Wk': [None for _ in range(self.K)],
-                            'tilde_Sigma2k': [None for _ in range(self.K)],
-                            'Alpha': [None for _ in range(self.K)],
-                            'Beta': [None for _ in range(self.K)],
-                            'sigma_til_muk': [None for _ in range(self.K)],
-                            'sigma_til_Wk': [None for _ in range(self.K)],
-                            'sigma_til_sigma2k': [None for _ in range(self.K)]}
+                            'tilde_muk': {key: None for key in self.views_names},
+                            'tilde_Wk': {key: None for key in self.views_names},
+                            'tilde_Sigma2k': {key: None for key in self.views_names},
+                            'Alpha': {key: None for key in self.views_names},
+                            'Beta': {key: None for key in self.views_names},
+                            'sigma_til_muk': {key: None for key in self.views_names},
+                            'sigma_til_Wk': {key: None for key in self.views_names},
+                            'sigma_til_sigma2k': {key: None for key in self.views_names}}
 
         # if priors are given as model args, corresponding global parameter are uploaded
         # and initialization of local parameter are done using prior from the first round,
@@ -66,7 +68,7 @@ class PpcaPlan(PythonModelPlan):
             self.update_params({'sigma_til_sigma2k': kwargs['sigma_til_sigma2k'], 'Alpha': kwargs['Beta'], 'Beta': kwargs['Beta']})
         
         self.views_iterator = range(self.K) if self.K is not None else None
-
+        
 
     #################################################
     def training_routine(self, 
@@ -150,7 +152,7 @@ class PpcaPlan(PythonModelPlan):
         # or np.nan (if not available)
         ViewsX = []  # specify if views is present in node or not
         ind = 0
-        self.views_iterator = multiview_df.create_iterator()
+        self.views_iterator = self.views_names
         # if self.is_multi_view:
         #     # get a list of all view names
         #     iterator = sorted(set(dataset.columns.get_level_values(0)))
@@ -227,8 +229,8 @@ class PpcaPlan(PythonModelPlan):
         q = self.n_components
         D_i = self.dim_views
 
-        Wk = []
-        Sigma2 = []
+        Wk = {}
+        Sigma2 = {}
         
         for k, k_name in enumerate(self.views_iterator):
             if ViewsX[k] == 1:
@@ -246,11 +248,14 @@ class PpcaPlan(PythonModelPlan):
                     s = np.random.uniform(.1,.5)
                 else:
                     s = float(invgamma.rvs(a=self.params_dict['Alpha'][k_name], scale=self.params_dict['Beta'][k_name]))
-                Wk.append(W_k)
-                Sigma2.append(s)
+                Wk[k_name] = W_k
+                Sigma2[k_name] = s
+
             else:
-                Wk.append(np.nan)
-                Sigma2.append(np.nan)
+                Wk[k_name] = np.nan
+                Sigma2[k_name] = np.nan
+                #Wk.append(np.nan)
+                #Sigma2.append(np.nan)
                 #Wk.append('NaN')
                 #Sigma2.append('NaN')
 
@@ -293,12 +298,12 @@ class PpcaPlan(PythonModelPlan):
         #  W, Sigma2
         Wk, Sigma2_new = self.eval_Wk_Sigma2_new(N, q_i, norm2, tn_muk, E_X, E_X_2, Sigma2, ViewsX)
         # Check Sigma2_new>0
-        for k in range(self.K):
+        for k,k_name in enumerate(self.views_iterator):
             if ViewsX[k] == 1:
-                if Sigma2_new[k] > 0:
-                    Sigma2[k] = deepcopy(Sigma2_new[k])
+                if Sigma2_new[k_name] > 0:
+                    Sigma2[k_name] = deepcopy(Sigma2_new[k_name])
                 else:
-                    logger.info(f'Warning: sigma2(%i)<0 (={Sigma2_new[k]})' % (k + 1))
+                    logger.info(f'Warning: sigma2(%i)<0 (={Sigma2_new[k_name]})' % (k + 1))
 
         return muk, Wk, Sigma2, ELL
 
@@ -313,24 +318,27 @@ class PpcaPlan(PythonModelPlan):
           :return optimized muk
         """
         D_i = self.dim_views
-        muk = []
+        muk = {}
 
         for k, k_name in enumerate(self.views_iterator):
             if ViewsX[k] == 1:
                 if ((self.params_dict['tilde_muk'][k_name] is None) or (self.params_dict['sigma_til_muk'][k_name] is None)):
                     
                     mean_tnk = Xk[k].mean(axis=0).values.reshape(D_i[k], 1)
-                    muk.append(mean_tnk)
+                    muk[k_name] = mean_tnk
                 else:
                     mu_1 = np.zeros((D_i[k], 1))
                     for n in range(N):
                         mu_1 += Xk[k].iloc[n].values.reshape(D_i[k], 1)
-                    term1 = self.compute_inv_term1_muck(Wk[k], N, Sigma2[k], self.params_dict['sigma_til_muk'][k_name])
-                    Cc = self.compute_Cck(Wk[k], Sigma2[k])
+                    term1 = self.compute_inv_term1_muck(Wk[k_name],
+                                                        N, Sigma2[k_name],
+                                                        self.params_dict['sigma_til_muk'][k_name])
+                    Cc = self.compute_Cck(Wk[k_name], Sigma2[k_name])
                     term2 = mu_1 + (1 / self.params_dict['sigma_til_muk'][k_name]) * Cc.dot(self.params_dict['tilde_muk'][k_name].reshape(D_i[k], 1))
-                    muk.append(term1.dot(term2))
+                    muk[k_name] = term1.dot(term2)
             else:
-                muk.append(np.nan)
+                muk[k_name] = np.nan
+                #muk.append(np.nan)
                 #muk.append('NaN')
 
         return muk
@@ -349,15 +357,24 @@ class PpcaPlan(PythonModelPlan):
         """
         q = self.n_components
         D_i = self.dim_views
-        index = ViewsX.index(1)  # get all views that has been specified
+        index = ViewsX.index(1)  # get all views that has been specified (here get first occurence)
         # TODO: self.index has not been defined (to be solved with self.ViewsX)
-        M1 = Wk[index].reshape(D_i[index], q).T.dot(Wk[index].reshape(D_i[index],q)) / Sigma2[index]
-        B = Wk[index].reshape(D_i[index], q).T / Sigma2[index]
-        for k in range(index + 1, self.K):
+        # TODO: handle case where there is only one view
+        
+        if self.is_multi_view:
+            index_name = self.views_names[index]
+        else:
+            index_name = index
+        # first computation of M and B
+        M1 = Wk[index_name].reshape(D_i[index], q).T.dot(Wk[index_name].reshape(D_i[index],q)) / Sigma2[index_name]
+        B = Wk[index_name].reshape(D_i[index], q).T / Sigma2[index_name]
+        for k, k_name in zip(range(index + 1, self.K), self.views_iterator[index+1:]):
+            # iterate over next computations 
             if ViewsX[k] == 1:
                 # print(k,Wk[k])
-                M1 += Wk[k].reshape(D_i[k], q).T.dot(Wk[k].reshape(D_i[k],q)) / Sigma2[k]
-                B = np.concatenate((B, (Wk[k].reshape(D_i[k], q)).T / Sigma2[k]), axis=1)
+                print(index_name, index, k_name)
+                M1 += Wk[k_name].reshape(D_i[k], q).T.dot(Wk[k_name].reshape(D_i[k],q)) / Sigma2[k_name]
+                B = np.concatenate((B, (Wk[k_name].reshape(D_i[k], q)).T / Sigma2[k_name]), axis=1)
 
         M = solve(np.eye(q) + M1, np.eye(q))
 
@@ -380,9 +397,9 @@ class PpcaPlan(PythonModelPlan):
         for n in range(N):
             norm2_k = []
             tn_mu_k = []
-            for k in range(self.K):
+            for k, k_name in enumerate(self.views_iterator):
                 if ViewsX[k] == 1:
-                    tn_mu_k.append(Xk[k].iloc[n].values.reshape(D_i[k], 1) - muk[k])
+                    tn_mu_k.append(Xk[k].iloc[n].values.reshape(D_i[k], 1) - muk[k_name])
                     norm2_k.append(np.linalg.norm(tn_mu_k[k]) ** 2)
                 else:
                     norm2_k.append(np.nan)
@@ -429,11 +446,11 @@ class PpcaPlan(PythonModelPlan):
             E_X_2.append(M + E_X[n].dot(E_X[n].T))
 
             E_L_c_k = 0.0
-            for k in range(self.K):
+            for k, k_name in enumerate(self.views_iterator):
                 if ViewsX[k] == 1:
-                    E_L_c_k += - D_i[k] * log(Sigma2[k])/ 2.0 - (norm2[n][k] / 2 + np.matrix.trace(
-                        (Wk[k].reshape(D_i[k], q)).T.dot(Wk[k].reshape(D_i[k], q)) * E_X_2[n]) / 2 - E_X[n].T.dot(
-                        (Wk[k].reshape(D_i[k], q)).T).dot(tn_muk[n][k])) / Sigma2[k]
+                    E_L_c_k += - D_i[k] * log(Sigma2[k_name])/ 2.0 - (norm2[n][k] / 2 + np.matrix.trace(
+                        (Wk[k_name].reshape(D_i[k], q)).T.dot(Wk[k_name].reshape(D_i[k], q)) * E_X_2[n]) / 2 - E_X[n].T.dot(
+                        (Wk[k_name].reshape(D_i[k], q)).T).dot(tn_muk[n][k])) / Sigma2[k_name]
             E_L_c += float(E_L_c_k  - np.matrix.trace(E_X_2[n]) / 2.0)
 
         return E_X, E_X_2, E_L_c
@@ -454,10 +471,10 @@ class PpcaPlan(PythonModelPlan):
         q = self.n_components
         D_i = self.dim_views
 
-        Wk = []
-        Sigma2_new = []
+        Wk = {}
+        Sigma2_new = {}
 
-        for k, k_name in enumerate(self.dim_views):
+        for k, k_name in enumerate(self.views_iterator):
             if ViewsX[k] == 1:
                 W_1_1 = (tn_muk[0][k]).dot(E_X[0].T)
                 W_2_2 = sum(E_X_2)
@@ -469,21 +486,21 @@ class PpcaPlan(PythonModelPlan):
 
                     W_2 = solve(W_2_2, np.eye(q))
                 else:
-                    W_1 = W_1_1 + (Sigma2[k] / self.params_dict['sigma_til_Wk'][k_name]) * self.params_dict['tilde_Wk'][k_name]
+                    W_1 = W_1_1 + (Sigma2[k_name] / self.params_dict['sigma_til_Wk'][k_name]) * self.params_dict['tilde_Wk'][k_name]
 
-                    W_2 = solve(W_2_2 + (Sigma2[k] / self.params_dict['sigma_til_Wk'][k_name]) * np.eye(q), np.eye(q))
+                    W_2 = solve(W_2_2 + (Sigma2[k_name] / self.params_dict['sigma_til_Wk'][k_name]) * np.eye(q), np.eye(q))
 
                 W_k = W_1.dot(W_2)
                 if q_i[k] < q:
                     W_k[:, q_i[k]:q] = 0
-                Wk.append(W_k)
+                Wk[k_name] = W_k
 
                 sigma2k = 0.0
                 for n in range(N):
                     sigma2k += float(norm2[n][k] + np.matrix.trace(
-                        (Wk[k].reshape(D_i[k], q)).T.dot(Wk[k].reshape(D_i[k], q)) * E_X_2[n]) - 2 * E_X[n].T.dot(
-                        (Wk[k].reshape(D_i[k], q)).T).dot(tn_muk[n][k]))
-                if self.params_dict['tilde_Sigma2k'][k] is None:
+                        (Wk[k_name].reshape(D_i[k], q)).T.dot(Wk[k_name].reshape(D_i[k], q)) * E_X_2[n]) - 2 * E_X[n].T.dot(
+                        (Wk[k_name].reshape(D_i[k], q)).T).dot(tn_muk[n][k]))
+                if self.params_dict['tilde_Sigma2k'][k_name] is None:
                     var = 1  # variance of the Inverse-Gamma prior
                     alpha = 1.0 / (4 * var) + 2
                     beta = (alpha - 1) / 2
@@ -495,13 +512,16 @@ class PpcaPlan(PythonModelPlan):
                         sigma2k_N = (sigma2k + 2 * beta) / (N * D_i[k] + 2 * (alpha + 1))  ## prior=inverse gamma
                     if var != 1:
                         print(f'Variance of Inverse-Gamma for sigma2(%i) = {var}' % (k + 1))
-                    Sigma2_new.append(sigma2k_N)
+                    Sigma2_new[k_name]= sigma2k_N
                 else:
-                    Sigma2_new.append((sigma2k + 2 * self.params_dict['Beta'][k_name]) / \
-                        (N * D_i[k] + 2 * (self.params_dict['Alpha'][k_name] + 1)))
+                    sigma2k_N = (sigma2k + 2 * self.params_dict['Beta'][k_name]) / \
+                        (N * D_i[k] + 2 * (self.params_dict['Alpha'][k_name] + 1))
+                    Sigma2_new[k_name] = sigma2k_N
             else:
-                Wk.append(np.nan)
-                Sigma2_new.append(np.nan)
+                Wk[k_name] = np.nan
+                Sigma2_new[k_name] = np.nan
+                #Wk.append(np.nan)
+                #Sigma2_new.append(np.nan)
                 #Wk.append('NaN')
                 #Sigma2_new.append('NaN')
         return Wk, Sigma2_new
@@ -541,4 +561,3 @@ class PpcaPlan(PythonModelPlan):
         inverse_term1 = k*Til_Sigk*(np.eye(dk)-k*Wk.dot(Inverse).dot(Wk.T))
 
         return inverse_term1
-

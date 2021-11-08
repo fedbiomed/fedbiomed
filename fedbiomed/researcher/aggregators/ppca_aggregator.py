@@ -34,14 +34,15 @@ class MLaggregator(Aggregator):
             assert d1 == dim_views
             assert q1 == q
         
-        if isinstance(model_params[0]['muk'], dict):
-            # case where dictionary of model parameters are passed to aggregator
-            # retrieve names of views specified in model_params
-            # for parameter 'muk'
-            self.views_iterator = list(model_params[0]['muk'].keys())
-        else:
-            # case where list of model parameters are passed to aggregator
-            self.views_iterator = range(K)
+        # if isinstance(model_params[0]['views_names'], dict):
+        #     # case where dictionary of model parameters are passed to aggregator
+        #     # retrieve names of views specified in model_params
+        #     # for parameter 'muk'
+        #     self.views_iterator = list(model_params[0]['muk'].keys())
+        # else:
+        #     # case where list of model parameters are passed to aggregator
+        #     self.views_iterator = range(K)
+        self.views_iterator = model_params[0]['views_names']
         # default values for numerical computation
         corr_det_inv = 1e-20
         rho = 1e-4
@@ -190,7 +191,7 @@ class MLaggregator(Aggregator):
                     alphak = (tilde_Sigma2k[k] ** 2) / (varSk / (Tot_C_k_S[k] - 1.0)) + 2
                 for cov in range(10):
                     alphak = self.inv_digamma(y=log(Tot_C_k_S[k]*alphak)+Ck)
-                if alphak<=2:
+                if alphak <= 2:
                     alphak = 2+1e-5
                 betak = (Tot_C_k_S[k] * alphak) / Ck_1
                 var_sigmak = betak ** 2 / (((alphak - 1) ** 2) * (alphak - 2))
@@ -214,7 +215,7 @@ class MLaggregator(Aggregator):
         Tot_C_k_mu = []  #
         Tot_C_k_S = []
 
-        for  k_name in views_iterator:
+        for k, k_name in enumerate(views_iterator):
             TotCkW = 0
             TotCkmu = 0
             TotCkS = 0
