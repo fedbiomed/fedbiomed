@@ -102,7 +102,7 @@ class PpcaPlan(PythonModelPlan):
                 q_i.append(q)
 
         # initialize W and Sigma2 either randomly or using priors if available
-        Wk, Sigma2 = self.initial_loc_params(q_i,ViewsX)
+        Wk, Sigma2 = self.initial_loc_params(Xk,q_i,ViewsX)
 
         # # epochs indices for saving results
         # sp_arr = np.arange(1, n_iterations + 1)[np.round(
@@ -151,7 +151,7 @@ class PpcaPlan(PythonModelPlan):
                                     columns=col_name)
         return norm_dataset
 
-    def initial_loc_params(self,q_i,ViewsX):
+    def initial_loc_params(self,Xk,q_i,ViewsX):
         """
         This function initializes Wk and Sigmak (randomly if no prior is provided, 
         using the global prior distribution otherwise).
@@ -167,12 +167,12 @@ class PpcaPlan(PythonModelPlan):
             if ViewsX[k] == 1:
 
                 if ((self.params_dict['Alpha'][k] is None) or (self.params_dict['Beta'][k] is None)):
-                    s = self.PCA_init_sigmak(k)
+                    s = self.PCA_init_sigmak(Xk,k)
                 else:
                     s = float(invgamma.rvs(a=self.params_dict['Alpha'][k], scale=self.params_dict['Beta'][k]))
 
                 if ((self.params_dict['tilde_Wk'][k] is None) or (self.params_dict['sigma_til_Wk'][k] is None)):
-                    W_k = self.PCA_init_Wk(self,k,s)
+                    W_k = self.PCA_init_Wk(Xk,k,s)
                 else:
                     W_k = matrix_normal.rvs(mean=self.params_dict['tilde_Wk'][k].reshape(D_i[k], q),
                                                     rowcov=np.eye(D_i[k]),
@@ -189,16 +189,16 @@ class PpcaPlan(PythonModelPlan):
 
         return Wk, Sigma2
 
-    def PCA_init_sigmak(self,k):
-        Xk = deepcopy(self.Xk[k])
+    def PCA_init_sigmak(self,Xk,k):
+        Xk = deepcopy(Xk[k])
         Xk_norm=((Xk - Xk.mean()) / Xk.std()).to_numpy()
         Sigma2 = Xk_norm.std()
 
         return Sigma2
 
-    def PCA_init_Wk(self,k,Sigma2):
+    def PCA_init_Wk(self,Xk,k,Sigma2):
         from sklearn.decomposition import PCA
-        Xk = deepcopy(self.Xk[k])
+        Xk = deepcopy(Xk[k])
         Xk_norm=((Xk - Xk.mean()) / Xk.std()).to_numpy()
         pca = PCA(n_components=self.n_components)
         pca.fit(Xk_norm)
