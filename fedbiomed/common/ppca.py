@@ -343,7 +343,10 @@ class PpcaPlan(PythonModelPlan):
 
         return muk
 
-    def eval_MB(self, Wk, Sigma2,ViewsX):
+    def eval_MB(self,
+                Wk: List[np.ndarray],
+                Sigma2: List[np.ndarray],
+                ViewsX: List[int]) -> Tuple[np.ndarray, np.ndarray]:
         """
         This function evaluate matrices M and B at each EM or MAP iteration step. 
         M:=inv(I_q+sum_k Wk.TWk/sigma2k) and B:= [W1.T/sigma2K,...,W1.T/sigma2K].
@@ -368,11 +371,12 @@ class PpcaPlan(PythonModelPlan):
         # first computation of M and B
         M1 = Wk[index_name].reshape(D_i[index], q).T.dot(Wk[index_name].reshape(D_i[index],q)) / Sigma2[index_name]
         B = Wk[index_name].reshape(D_i[index], q).T / Sigma2[index_name]
-        for k, k_name in zip(range(index + 1, self.K), self.views_iterator[index+1:]):
+        for k, k_name in zip(range(index + 1, self.K),
+                             self.views_iterator[index+1:]):
             # iterate over next computations 
             if ViewsX[k] == 1:
                 # print(k,Wk[k])
-                print(index_name, index, k_name)
+                
                 M1 += Wk[k_name].reshape(D_i[k], q).T.dot(Wk[k_name].reshape(D_i[k],q)) / Sigma2[k_name]
                 B = np.concatenate((B, (Wk[k_name].reshape(D_i[k], q)).T / Sigma2[k_name]), axis=1)
 

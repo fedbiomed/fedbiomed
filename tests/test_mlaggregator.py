@@ -25,6 +25,7 @@ class TestMLaggregator(unittest.TestCase):
         muk = [mu_gen1, mu_gen2, mu_gen3]
         sigma2k = [sigma2_gen1, sigma2_gen2, sigma2_gen3]
         self.model = {'K': K,
+                      'views_names': range(K),
                       'dimensions': (D_i,q_gen),
                       'Wk': Wk, 
                       'muk': muk,
@@ -52,6 +53,7 @@ class TestMLaggregator(unittest.TestCase):
         sigma2k = [sigma2_gen1, sigma2_gen2, sigma2_gen3]
         model_param = {'K': K,
                       'dimensions': (D_i,q_gen),
+                      'views_names': range(K),
                       'Wk': Wk, 
                       'muk': muk,
                       'sigma2k': sigma2k}

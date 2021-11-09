@@ -42,7 +42,7 @@ class MLaggregator(Aggregator):
         # else:
         #     # case where list of model parameters are passed to aggregator
         #     self.views_iterator = range(K)
-        self.views_iterator = model_params[0]['views_names']
+        self.views_iterator = model_params[0]['views_names']  # collect multi views names array
         # default values for numerical computation
         corr_det_inv = 1e-20
         rho = 1e-4
@@ -102,11 +102,11 @@ class MLaggregator(Aggregator):
         """
         # ML estimator for gaussian parameters and mean of sigma2
 
-        tilde_muk = []
-        tilde_Wk = []
-        tilde_Sigma2k = []
-        sigma_til_muk = []
-        sigma_til_Wk = []
+        tilde_muk = {}
+        tilde_Wk = {}
+        tilde_Sigma2k = {}
+        sigma_til_muk = {}
+        sigma_til_Wk = {}
         for k, k_name in enumerate(views_iterator):
             # `k` and `k_name` are elements used for accessing the same view
             # (when model parameters are mapped
@@ -125,38 +125,38 @@ class MLaggregator(Aggregator):
                     tilSk += model['sigma2k'][k_name]
             
             if Tot_C_k_S[k] >= 1:
-                tilde_Sigma2k.append(tilSk / Tot_C_k_S[k])
+                tilde_Sigma2k[k_name] = tilSk / Tot_C_k_S[k]
 
             if Tot_C_k_W[k] > 1:
-                tilde_Wk.append(1.0 / Tot_C_k_W[k] * tilWk)
+                tilde_Wk[k_name] = 1.0 / Tot_C_k_W[k] * tilWk
                 sigWk = 0.0
                 for model in model_params:
                     #if type(model['Wk'][k_name]) is not str:  
                     if not np.isnan(model['Wk'][k_name]).any():
-                        sigWk += np.matrix.trace((model['Wk'][k_name] - tilde_Wk[k]).T.dot(model['Wk'][k_name] - tilde_Wk[k]))
+                        sigWk += np.matrix.trace((model['Wk'][k_name] - tilde_Wk[k_name]).T.dot(model['Wk'][k_name] - tilde_Wk[k_name]))
                 if sigWk == 0.0:
-                    sigma_til_Wk.append(corr_det_inv)
+                    sigma_til_Wk[k_name] = corr_det_inv
                 else:
                     sigma_til_Wk_temp = sigWk / (Tot_C_k_W[k] * D_i[k] * q)
-                    sigma_til_Wk.append(sigma_til_Wk_temp*min(1,np.linalg.norm(tilde_Wk[k_name])/(5*sigma_til_Wk_temp)))
+                    sigma_til_Wk[k_name] = sigma_til_Wk_temp*min(1,np.linalg.norm(tilde_Wk[k_name])/(5*sigma_til_Wk_temp))
             elif Tot_C_k_W[k] == 1:
-                tilde_Wk.append(1.0 / Tot_C_k_W[k] * tilWk)
-                sigma_til_Wk.append(rho)
+                tilde_Wk[k_name] = 1.0 / Tot_C_k_W[k] * tilWk
+                sigma_til_Wk[k_name] = rho
 
             if Tot_C_k_mu[k] > 1:
-                tilde_muk.append(1.0/Tot_C_k_mu[k]*tilmuk)
+                tilde_muk[k_name] = 1.0/Tot_C_k_mu[k]*tilmuk
                 sigmuk = 0.0
                 for model in model_params:
                     #if type(model['muk'][k]) is not str:  
                     if not np.isnan(model['muk'][k_name]).any():
                         sigmuk+=float((model['muk'][k_name]-tilde_muk[k]).T.dot(model['muk'][k_name]-tilde_muk[k]))
                 if sigmuk == 0.0:
-                    sigma_til_muk.append(corr_det_inv)
+                    sigma_til_muk[k_name] = corr_det_inv
                 else:
-                    sigma_til_muk.append(sigmuk/(Tot_C_k_mu[k]*D_i[k]))
+                    sigma_til_muk[k_name] = sigmuk/(Tot_C_k_mu[k]*D_i[k])
             elif Tot_C_k_mu[k] == 1:
-                tilde_muk.append(1.0/Tot_C_k_mu[k]*tilmuk)
-                sigma_til_muk.append(rho)
+                tilde_muk[k_name] = 1.0/Tot_C_k_mu[k]*tilmuk
+                sigma_til_muk[k_name] = rho
 
         return tilde_muk, tilde_Wk, tilde_Sigma2k, sigma_til_muk, sigma_til_Wk
 
@@ -167,9 +167,9 @@ class MLaggregator(Aggregator):
         """
         # Alpha, Beta ML method
 
-        Alpha = []
-        Beta = []
-        sigma_til_sigma2k = []
+        Alpha = {}
+        Beta = {}
+        sigma_til_sigma2k = {}
         for k, k_name in enumerate(self.views_iterator):
             if Tot_C_k_S[k] >= 1:
                 Ck_1 = 0.0
@@ -181,23 +181,23 @@ class MLaggregator(Aggregator):
                     if not np.isnan(model['sigma2k'][k_name]).any():
                         Ck_1 += 1.0 / model['sigma2k'][k_name]
                         Ck_2 += log(model['sigma2k'][k_name])
-                        varSk += (model['sigma2k'][k_name] - tilde_Sigma2k[k]) ** 2
+                        varSk += (model['sigma2k'][k_name] - tilde_Sigma2k[k_name]) ** 2
                 Ck = -log(Ck_1) - Ck_2 / Tot_C_k_S[k]
                 if varSk == 0.0:
                     varSk = corr_det_inv
                 if Tot_C_k_S[k] == 1:
-                    alphak = (tilde_Sigma2k[k] ** 2) / (varSk) + 2
+                    alphak = (tilde_Sigma2k[k_name] ** 2) / (varSk) + 2
                 else:
-                    alphak = (tilde_Sigma2k[k] ** 2) / (varSk / (Tot_C_k_S[k] - 1.0)) + 2
+                    alphak = (tilde_Sigma2k[k_name] ** 2) / (varSk / (Tot_C_k_S[k] - 1.0)) + 2
                 for cov in range(10):
                     alphak = self.inv_digamma(y=log(Tot_C_k_S[k]*alphak)+Ck)
                 if alphak <= 2:
                     alphak = 2+1e-5
                 betak = (Tot_C_k_S[k] * alphak) / Ck_1
                 var_sigmak = betak ** 2 / (((alphak - 1) ** 2) * (alphak - 2))
-                Beta.append(betak)
-                Alpha.append(alphak)
-                sigma_til_sigma2k.append(var_sigmak)
+                Beta[k_name] = betak
+                Alpha[k_name] = alphak
+                sigma_til_sigma2k[k_name] = var_sigmak
 
         return Alpha, Beta, sigma_til_sigma2k
 
