@@ -31,7 +31,7 @@ class PpcaPlan(PythonModelPlan):
         self.dataset_path = None
                         
         self.views_id = kwargs['views_id']
-        self.K = kwargs['tot_views']
+        self.K = len(self.views_id)#kwargs['tot_views']
         self.dim_views = kwargs['dim_views']
         self.n_components = kwargs['n_components']
         self.is_norm = kwargs['is_norm']
