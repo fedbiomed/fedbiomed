@@ -46,13 +46,13 @@ class Monitor():
                                         msg['epoch'] )
 
 
-    def _summary_writer(self, client: str, key: str, global_step: int, scalar: float, epoch: int ):
+    def _summary_writer(self, node: str, key: str, global_step: int, scalar: float, epoch: int ):
 
         """ This method is for writing scalar values using torch SummaryWriter
         It creates new summary file for each node.
 
         Args:
-            client (str): node id that sends
+            node (str): node id that sends
             key (str): Name of the scalar value it can be e.g. loss, accuracy
             global_step (int): The index of the current batch proccess during epoch.
                                Batch is all samples if it is -1.
@@ -61,10 +61,10 @@ class Monitor():
         """
 
         # Initialize event SummaryWriters
-        if client not in self._event_writers:
-            self._event_writers[client] = {
+        if node not in self._event_writers:
+            self._event_writers[node] = {
                                     'writer' : SummaryWriter(
-                                        log_dir = os.path.join(self._log_dir, client)
+                                        log_dir = os.path.join(self._log_dir, node)
                                     ),
                                     'stepper': 0,
                                     'step_state': 0,
@@ -76,23 +76,23 @@ class Monitor():
             global_step = epoch
 
         # Operations for finding iteration log interval for the training
-        if global_step != 0 and self._event_writers[client]['stepper'] == 0:
-            self._event_writers[client]['stepper'] = global_step
+        if global_step != 0 and self._event_writers[node]['stepper'] == 0:
+            self._event_writers[node]['stepper'] = global_step
 
         # In every epoch first iteration (global step) will be zero so
         # we need to update step_state to not to overwrite steps of
         # the previous  epochs
         if global_step == 0:
-            self._event_writers[client]['step_state'] = self._event_writers[client]['step'] + \
-                                                        self._event_writers[client]['stepper']
+            self._event_writers[node]['step_state'] = self._event_writers[node]['step'] + \
+                                                        self._event_writers[node]['stepper']
 
         # Increase step by adding global_step to step_state
-        self._event_writers[client]['step'] = self._event_writers[client]['step_state'] + global_step
+        self._event_writers[node]['step'] = self._event_writers[node]['step_state'] + global_step
 
-        self._event_writers[client]['writer'].add_scalar('Metric[{}]'.format(
+        self._event_writers[node]['writer'].add_scalar('Metric[{}]'.format(
                                                             key ),
                                                             scalar,
-                                                            self._event_writers[client]['step'])
+                                                            self._event_writers[node]['step'])
 
     def close_writer(self):
 

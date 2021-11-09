@@ -4,13 +4,13 @@
 # # Fedbiomed Researcher to train a variational autoencoder
 
 #
-# ## Start the network and setting the client up
+# ## Start the network and setting node up
 # 
 # Before running this notebook, you should start the network from fedbiomed-network, as detailed in https://gitlab.inria.fr/fedbiomed/fedbiomed-network
 # Therefore, it is necessary to previously configure a node:
 # 
 # 1. `./scripts/fedbiomed_run node add`
-#   * Select option 2 (default) to add MNIST to the client
+#   * Select option 2 (default) to add MNIST to the node
 #   * Confirm default tags by hitting "y" and ENTER
 #   * Pick the folder where MNIST is downloaded (this is due torch issue https://github.com/pytorch/vision/issues/3549)
 #   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
@@ -112,9 +112,9 @@ training_args = {
 
 
 #    Define an experiment
-#    - search nodes serving data for these `tags`, optionally filter on a list of client ID with `clients`
+#    - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
 #    - run a round of local training on nodes with model defined in `model_class` + federation with `aggregator`
-#    - run for `rounds` rounds, applying the `client_selection_strategy` between the rounds
+#    - run for `rounds` rounds, applying the `node_selection_strategy` between the rounds
 
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -123,17 +123,17 @@ tags =  ['#MNIST', '#dataset']
 rounds = 5
 
 exp = Experiment(tags=tags,
-                #clients=None,
+                #nodes=None,
                 model_class=VariationalAutoencoderPlan,
                 # model_path='/path/to/model_file.py',
                 model_args=model_args,
                 training_args=training_args,
                 rounds=rounds,
                 aggregator=FedAverage(),
-                client_selection_strategy=None)
+                node_selection_strategy=None)
 
 
 # Let's start the experiment.
-# By default, this function doesn't stop until all the `rounds` are done for all the clients
+# By default, this function doesn't stop until all the `rounds` are done for all the nodes
 
 exp.run()

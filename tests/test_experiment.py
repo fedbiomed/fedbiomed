@@ -96,9 +96,9 @@ class TestStateExp(unittest.TestCase):
         2. if state file created is json loadable
         """
 
-        # Lets mock `client_selection_strategy`
-        self.test_exp._client_selection_strategy = MagicMock(return_value=None)
-        self.test_exp._client_selection_strategy.save_state = MagicMock(return_value={})
+        # Lets mock `node_selection_strategy`
+        self.test_exp._node_selection_strategy = MagicMock(return_value=None)
+        self.test_exp._node_selection_strategy.save_state = MagicMock(return_value={})
         with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmpdirname:
             def return_state(x=0):
                 '''mimicking job.py 'save_state' method'''
@@ -239,7 +239,7 @@ class TestStateExp(unittest.TestCase):
         dummy_agg = {"class":None,
                      "Module":None}
         loaded_states = {
-            "client_selection_strategy": dummy_agg,
+            "node_selection_strategy": dummy_agg,
             "aggregator": dummy_agg,
             "tags": ["some_tags"],
             "node_id": "m_node_id",

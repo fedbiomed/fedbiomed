@@ -10,6 +10,7 @@ class HistoryMonitor:
                  job_id: str,
                  researcher_id: str,
                  client: Messaging):
+                 
         self.history = {}
         self.job_id = job_id
         self.researcher_id = researcher_id

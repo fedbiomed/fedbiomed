@@ -108,9 +108,9 @@ class Requests(metaclass=SingletonMeta):
 
         Args:
             msg (dict): the message to send to nodes
-            client ([str], optional): defines the channel to which the
+            node ([str], optional): defines the channel to which the
                                 message will be sent.
-                                Defaults to None(all clients)
+                                Defaults to None(all nodes)
         """
         logger.debug(str(environ['RESEARCHER_ID']))
         self.messaging.send_message(msg, client=client)
@@ -156,8 +156,8 @@ class Requests(metaclass=SingletonMeta):
                       timeout: float = None,
                       only_successful: bool = True) -> Responses:
         """
-        waits for all clients' answers, regarding a specific command
-        returns the list of all clients answers
+        waits for all nodes' answers, regarding a specific command
+        returns the list of all nodes answers
 
         Args:
             look_for_command (str): instruction that has been sent to
@@ -192,7 +192,7 @@ class Requests(metaclass=SingletonMeta):
             responses += new_responses
         return Responses(responses)
 
-    def ping_clients(self) -> list:
+    def ping_nodes(self) -> list:
         """
         Pings online nodes
         :return: list of node_id
@@ -204,29 +204,29 @@ class Requests(metaclass=SingletonMeta):
         self._sequence += 1
 
         # TODO: (below, above) handle exceptions
-        clients_online = [resp['node_id'] for resp in self.get_responses(look_for_command='ping')]
-        return clients_online
+        nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_command='ping')]
+        return nodes_online
 
-    def search(self, tags: tuple, clients: list = None) -> dict:
+    def search(self, tags: tuple, nodes: list = None) -> dict:
         """
         Searches available data by tags
         :param tags: Tuple containing tags associated to the data researcher
         is looking for.
-        :clients: optionally filter clients with this list.
-        Default : no filter, consider all clients
+        :nodes: optionally filter nodes with this list.
+        Default : no filter, consider all nodes
         :return: a dict with node_id as keys, and list of dicts describing
         available data as values
         """
 
-        # Search datasets based on client specifications
-        if clients:
-            logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {clients}')
-            for client in clients:
+        # Search datasets based on node specifications
+        if nodes:
+            logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {nodes}')
+            for node in nodes:
                 self.messaging.send_message(ResearcherMessages.request_create({'tags':tags,
                                                                                'researcher_id':environ['RESEARCHER_ID'],
                                                                                "command": "search"}
                                                                                ).get_dict(),
-                                                                               client=client)
+                                                                               client=node)
         else:
             logger.info(f'Searching dataset with data tags: {tags} for all nodes')
             self.messaging.send_message(ResearcherMessages.request_create({'tags':tags,
@@ -236,45 +236,46 @@ class Requests(metaclass=SingletonMeta):
 
         data_found = {}
         for resp in self.get_responses(look_for_command='search'):
-            if not clients:
+            if not nodes:
                 data_found[resp.get('node_id')] = resp.get('databases')
-            elif resp.get('node_id') in clients:
+            elif resp.get('node_id') in nodes:
                 data_found[resp.get('node_id')] = resp.get('databases')
-                logger.info('Node selected for training -> {}'.format(resp.get('node_id')))
+            
+            logger.info('Node selected for training -> {}'.format(resp.get('node_id')))
 
         if not data_found:
             logger.info("No available dataset has found in nodes with tags: {}".format(tags))
 
         return data_found
 
-    def list(self, clients: list = None, verbose: bool = False) -> dict:
+    def list(self, nodes: list = None, verbose: bool = False) -> dict:
         """ Lists available data in each node
 
         Args:
-            clients (str): Listings datasets by given client ids
+            nodes (str): Listings datasets by given node ids
                             Default is none.
             verbose (bool): If it is true it prints datasets in readable format
         """
 
-        # If clients list is provided
-        if clients:
-            for client in clients:
+        # If nodes list is provided
+        if nodes:
+            for node in nodes:
                 self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':environ['RESEARCHER_ID'],
                                                                                 "command": "list"}
                                                                                 ).get_dict() ,
-                                                                                client=client)
-            logger.info(f'Listing datasets of given list of nodes : {clients}')
+                                                                                client=node)
+            logger.info(f'Listing datasets of given list of nodes : {nodes}')
         else:
             self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':environ['RESEARCHER_ID'],
                                                                            "command": "list"}).get_dict())
             logger.info(f'Listing available datasets in all nodes... ')
 
-        # Get datasets from client responses
+        # Get datasets from node responses
         data_found = {}
         for resp in self.get_responses(look_for_command='list'):
-            if not clients:
+            if not nodes:
                 data_found[resp.get('node_id')] = resp.get('databases')
-            elif resp.get('node_id') in clients:
+            elif resp.get('node_id') in nodes:
                 data_found[resp.get('node_id')] = resp.get('databases')
 
         # Print dataset tables usong data_found object

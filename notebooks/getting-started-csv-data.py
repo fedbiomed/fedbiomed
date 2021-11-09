@@ -3,11 +3,11 @@
 
 # # Fedbiomed Researcher to train a model on a csv dataset
 
-## Start the network and setting the client up
+## Start the network and setting the node up
 # Before running this notebook, you shoud start the network from fedbiomed-network, as detailed in https://gitlab.inria.fr/fedbiomed/fedbiomed-network
 # Therefore, it is necessary to previously configure a node:
 # 1. `./scripts/fedbiomed_run node add`
-#   * Select option 1 to add a csv file to the client
+#   * Select option 1 to add a csv file to the node
 #   * Choose the name, tags and description of the dataset
 #   * Pick the .csv file from your PC (here: pseudo_adni_mod.csv)
 #   * Data must have been added
@@ -41,7 +41,7 @@ class MyTrainingPlan(TorchTrainingPlan):
 
         # Here we define the custom dependencies that will be needed by our custom Dataloader
         # In this case, we need the torch Dataset and DataLoader classes
-        # We need pandas to read the local .csv file at the client side
+        # We need pandas to read the local .csv file at the node side
         deps = ["from torch.utils.data import Dataset, DataLoader",
                 "import pandas as pd"]
         self.add_dependency(deps)
@@ -100,9 +100,9 @@ training_args = {
 
 
 # Define an experiment
-# - search nodes serving data for these `tags`, optionally filter on a list of client ID with `clients`
+# - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
 # - run a round of local training on nodes with model defined in `model_path` + federation with `aggregator`
-# - run for `rounds` rounds, applying the `client_selection_strategy` between the rounds
+# - run for `rounds` rounds, applying the `node_selection_strategy` between the rounds
 
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -112,7 +112,7 @@ tags =  ['test_data']
 rounds = 5
 
 exp = Experiment(tags=tags,
-                 #clients=None,
+                 #nodes=None,
                  model_class=MyTrainingPlan,
                 # model_class=AlterTrainingPlan,
                 # model_path='/path/to/model_file.py',
@@ -120,11 +120,11 @@ exp = Experiment(tags=tags,
                  training_args=training_args,
                  rounds=rounds,
                  aggregator=FedAverage(),
-                 client_selection_strategy=None)
+                 node_selection_strategy=None)
 
 
 # Let's start the experiment.
-# By default, this function doesn't stop until all the `rounds` are done for all the clients
+# By default, this function doesn't stop until all the `rounds` are done for all the nodes
 
 exp.run()
 
@@ -139,7 +139,7 @@ exp.run()
 
 print("\nList the training rounds : ", exp.training_replies.keys())
 
-print("\nList the clients for the last training round and their timings : ")
+print("\nList the nodes for the last training round and their timings : ")
 round_data = exp.training_replies[rounds - 1].data
 for c in range(len(round_data)):
     print("\t- {id} :\

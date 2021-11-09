@@ -29,7 +29,7 @@ class Job:
     """
     def __init__(self,
                  reqs: Requests = None,
-                 clients: dict = None,
+                 nodes: dict = None,
                  model: Union[str, Callable] = None,
                  model_path: str = None,
                  training_args: dict = None,
@@ -45,8 +45,8 @@ class Job:
         Args:
             reqs (Requests, optional): researcher's requests assigned to nodes.
             Defaults to None.
-            clients (dict, optional): a dict of node_id containing the
-            clients used for training
+            nodes (dict, optional): a dict of node_id containing the
+            nodes used for training
             model (Union[str, Callable], optional): name of the model class
             to use for training
             model_path (string, optional) : path to file containing model
@@ -63,7 +63,7 @@ class Job:
         self._repository_args = {}
         self._training_args = training_args
         self._model_args = model_args
-        self._clients = clients
+        self._nodes = nodes
         self._training_replies = {}  # will contain all node replies for every round
         self._model_file = None
 
@@ -167,12 +167,12 @@ class Job:
         return self._reqs
 
     @property
-    def clients(self):
-        return self._clients
+    def nodes(self):
+        return self._nodes
 
-    @clients.setter
-    def clients(self, clients: dict):
-        self._clients = clients
+    @nodes.setter
+    def nodes(self, nodes: dict):
+        self._nodes = nodes
 
     @property
     def training_replies(self):
@@ -188,27 +188,27 @@ class Job:
 
     """ This method should change in sprint8 or as soon as we implement other
     kind of strategies different than DefaultStrategy"""
-    def waiting_for_clients(self, responses: Responses) -> bool:
-        """ this method verifies if all clients involved in the job are
+    def waiting_for_nodes(self, responses: Responses) -> bool:
+        """ this method verifies if all nodes involved in the job are
         present and Responding
 
         Args:
             responses (Responses): contains message answers
 
         Returns:
-            bool: False if all clients are present in the Responses object.
-            True if waiting for at least one client.
+            bool: False if all nodes are present in the Responses object.
+            True if waiting for at least one node.
         """
         try:
-            clients_done = set(responses.dataframe['node_id'])
+            nodes_done = set(responses.dataframe['node_id'])
         except KeyError:
-            clients_done = set()
+            nodes_done = set()
 
-        return not clients_done == set(self._clients)
+        return not nodes_done == set(self._nodes)
 
-    def start_clients_training_round(self, round: int):
+    def start_nodes_training_round(self, round: int):
         """
-        this method sends training task to clients and waits for the responses
+        this method sends training task to nodes and waits for the responses
         Args:
             round (int): current number of round the algorithm is performing
             (a round is considered to be all the
@@ -229,23 +229,23 @@ class Job:
 
         time_start = {}
 
-        for cli in self._clients:
+        for cli in self._nodes:
             msg['training_data'] = { cli: [ ds['dataset_id'] for ds in self._data.data()[cli] ] }
-            logger.info('Send message to client ' + str(cli) + " - " + str(msg))
+            logger.info('Send message to node ' + str(cli) + " - " + str(msg))
             time_start[cli] = time.perf_counter()
             self._reqs.send_message(msg, cli)  # send request to node
 
         # Recollect models trained
         self._training_replies[round] = Responses([])
-        while self.waiting_for_clients(self._training_replies[round]):
+        while self.waiting_for_nodes(self._training_replies[round]):
             # collect nodes responses from researcher request 'train'
-            # (wait for all clients with a ` while true` loop)
+            # (wait for all nodes with a ` while true` loop)
             models_done = self._reqs.get_responses('train')
             for m in models_done.get_data():  # retrieve all models
                 # (there should have as many models done as nodes)
 
                 # only consider replies for our request
-                if m['researcher_id'] != environ['RESEARCHER_ID'] or m['job_id'] != self._id or m['node_id'] not in list(self._clients):
+                if m['researcher_id'] != environ['RESEARCHER_ID'] or m['job_id'] != self._id or m['node_id'] not in list(self._nodes):
                     continue
 
                 rtime_total = time.perf_counter() - time_start[m['node_id']]
@@ -351,7 +351,7 @@ class Job:
             training_replies (Dict[int, List[dict]]): JSON formatted
             `training_replies` entry.
             params_path (Dict[str, str]): dictionary of parameter paths (keys)
-            mapping client ids (entries).
+            mapping node ids (entries).
         """
 
         # get key
@@ -502,7 +502,7 @@ class localJob:
 
     def start_training(self):
         """
-        this method send training task to clients and waits for the responses
+        this method send training task to nodes and waits for the responses
         Args:
             round (int): round of the training
             initial_params (str): url of the init file params

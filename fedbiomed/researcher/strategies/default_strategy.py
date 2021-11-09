@@ -16,15 +16,15 @@ class DefaultStrategy(Strategy):
                 super().__init__(data)
                 self.parameters = None
 
-        def sample_clients(self, round_i: int) -> List[uuid.UUID]:
-                """Samples and selects clients/nodes on which to train local model.
-                        In this strategy we will consider all existing clients
+        def sample_nodes(self, round_i: int) -> List[uuid.UUID]:
+                """Samples and selects nodes on which to train local model.
+                        In this strategy we will consider all existing nodes
 
                 Args:
                         round_i (int): number of round.
 
                 Returns:
-                        node_ids: list of all client ids considered for training during
+                        node_ids: list of all node ids considered for training during
                         this round `round_i.
                 """
                 self._sampling_node_history[round_i] = self._fds.node_ids
@@ -36,7 +36,7 @@ class DefaultStrategy(Strategy):
                 try:
                         # check that all nodes answered
                         cl_answered = [val['node_id'] for val in training_replies.data]
-                        for cl in self.sample_clients(round_i):
+                        for cl in self.sample_nodes(round_i):
                                 if cl not in cl_answered:
                                         raise DefaultStrategyException("At least one node didn't answer " + cl)
 
