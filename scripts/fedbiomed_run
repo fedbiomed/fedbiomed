@@ -104,6 +104,16 @@ case $1 in
                     python -m fedbiomed.node.cli --add-mnist $PARAMS
                     ;;
 
+                register-model|--register-model|-rm)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --register-model $PARAMS
+                    ;;
+
+                list-models|--list-models|-lms)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --list-models $PARAMS
+                    ;;
+                    
                 start|--start|-s)
                     #export MQTT_BROKER=localhost
                     #export MQTT_BROKER_PORT=1883

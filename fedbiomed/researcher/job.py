@@ -247,6 +247,11 @@ class Job:
                 # only consider replies for our request
                 if m['researcher_id'] != RESEARCHER_ID or m['job_id'] != self._id or m['node_id'] not in list(self._clients):
                     continue
+                
+                # Stop experiment if traning is failed
+                if m['success'] is False:
+                    logger.error(m['msg'])
+                    exit(-1)
 
                 rtime_total = time.perf_counter() - time_start[m['node_id']]
 
@@ -265,8 +270,8 @@ class Job:
                                'params_path': params_path,
                                'params': params,
                                'timing': timing})
-                self._training_replies[round].append(r)  # add new replies
 
+                self._training_replies[round].append(r)  # add new replies
                 self._params_path[r[0]['node_id']] = params_path
 
 

@@ -99,7 +99,8 @@ if not defined_node_env:
 
     MESSAGES_QUEUE_DIR = os.path.join(VAR_DIR, f'queue_manager_{CLIENT_ID}')
     DB_PATH = os.path.join(VAR_DIR, f'db_{CLIENT_ID}.json')
-
+    MODEL_DB_PATH = os.path.join(VAR_DIR, f'db_model_{CLIENT_ID}.json')
+    
     MQTT_BROKER = os.getenv('MQTT_BROKER', cfg.get('mqtt', 'broker_ip'))
     MQTT_BROKER_PORT = int(os.getenv('MQTT_BROKER_PORT',
                                      cfg.get('mqtt', 'port')))

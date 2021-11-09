@@ -14,6 +14,7 @@ from tkinter import _tkinter
 
 from fedbiomed.node.environ import CLIENT_ID
 from fedbiomed.node.data_manager import Data_manager
+from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.node import Node
 
 from fedbiomed.common.logger import logger
@@ -38,6 +39,7 @@ __intro__ = """
 logger.setLevel("DEBUG")
 
 data_manager = Data_manager()
+model_manager = ModelManager()
 
 readline.parse_and_bind("tab: complete")
 
@@ -79,6 +81,13 @@ def pick_with_tkinter(mode='file'):
                                    "*.csv")
                                   ]
                         )
+        elif mode == 'py':
+            return tkinter.filedialog.askopenfilename(
+                        filetypes=[
+                                  ("Python files",
+                                   "*.py")
+                                  ]
+                        )
         else:
             return tkinter.filedialog.askdirectory()
 
@@ -91,14 +100,22 @@ def pick_with_tkinter(mode='file'):
             return input('Insert the path of the dataset folder: ')
 
 
-def validated_path_input(data_type):
+def validated_path_input(type):
     while True:
         try:
-            if data_type == 'csv':
+            if type == 'csv':
                 path = pick_with_tkinter(mode='file')
                 logger.debug(path)
                 if not path:
                     logger.critical('No file was selected. Exiting')
+                    exit(1)
+                assert os.path.isfile(path)
+
+            elif type == 'py': # For registering python model 
+                path = pick_with_tkinter(mode='py')
+                logger.debug(path)
+                if not path:
+                    logger.critical('No python file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
             else:
@@ -187,6 +204,9 @@ def manage_node():
 
         logger.info('Launching node')
 
+        logger.info('Loading default models')
+        model_manager.register_default_models()
+
         data_manager = Data_manager()
         logger.info('Starting communication channel with network')
         node = Node(data_manager)
@@ -194,6 +214,8 @@ def manage_node():
 
         logger.info('Starting task manager')
         node.task_manager()  # handling training tasks in queue
+
+
 
     except Exception as e:
         # must send info to the researcher
@@ -279,6 +301,36 @@ def delete_database(interactive: bool = True):
             logger.error('Invalid option. Please, try again.')
 
 
+def register_model(interactive: bool = True):
+
+    print('Welcome to the Fedbiomed CLI data manager')
+
+    name = input('Please enter a model name: ')
+    description = input('Please enter a description for the model: ')
+
+
+    path = validated_path_input(type = "py")
+
+    # Regsiter model 
+    try:
+        model_manager.register_model(name=name,
+                                    description=description,
+                                    path=path)
+        
+    except AssertionError as e:
+        if interactive is True:
+            try:
+                tkinter.messagebox.showwarning(title='Warning', message=str(e))
+            except ModuleNotFoundError:
+                warnings.warn('[ERROR]: {e}')
+        else:
+            warnings.warn(f'[ERROR]: {e}')
+        exit(1)
+
+    print('\nGreat! Take a look at your registered models:')
+    model_manager.list_approved_models(verbose=True)
+
+
 def launch_cli():
 
     parser = argparse.ArgumentParser(description=f'{__intro__}:A CLI app for fedbiomed researchers.',
@@ -303,6 +355,12 @@ def launch_cli():
     parser.add_argument('-s', '--start-node',
                         help='Start fedbiomed node.',
                         action='store_true')
+    parser.add_argument('-r', '--register-model',
+                        help='Start fedbiomed node.',
+                        action='store_true')
+    parser.add_argument('-lms', '--list-models',
+                        help='Start fedbiomed node.',
+                        action='store_true')
     args = parser.parse_args()
 
     if not any(args.__dict__.values()):
@@ -324,6 +382,10 @@ def launch_cli():
         delete_database()
     elif args.delete_mnist:
         delete_database(interactive=False)
+    elif args.register_model:
+        register_model()
+    elif args.list_models:
+        model_manager.list_approved_models(verbose = True)
     elif args.start_node:
         launch_node()
 

@@ -1,4 +1,5 @@
 import sys
+import os
 import uuid
 import time
 
@@ -6,7 +7,7 @@ from fedbiomed.common.repository import Repository
 from fedbiomed.common.message import NodeMessages, TrainReply
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.environ import CACHE_DIR, CLIENT_ID, TMP_DIR, UPLOADS_URL
-
+from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.common.logger import logger
 
 import traceback
@@ -55,6 +56,8 @@ class Round:
         self.monitor = monitor
 
         self.repository = Repository(UPLOADS_URL, TMP_DIR, CACHE_DIR)
+        self.model_manager = ModelManager()
+
 
     def run_model_training(self) -> TrainReply:
         """This method downloads model file; then runs the training of a model
@@ -78,13 +81,19 @@ class Round:
                 is_failed = True
                 error_message = "Cannot download model file: " + self.model_url
             else:
-                status, params_path = self.repository.download_file(
-                    self.params_url,
-                    'my_model_' + str(uuid.uuid4()) + '.pt')
-                if (status != 200) or params_path is None:
+                approved, model = self.model_manager.check_is_model_approved(os.path.join(TMP_DIR, import_module + '.py')) 
+                if not approved:
                     is_failed = True
-                    error_message = "Cannot download param file: "\
-                        + self.params_url
+                    error_message = 'Requested model is not approved by the node'
+                else:
+                    logger.info(f'Model has been approved by the node {model["name"]}')
+                    status, params_path = self.repository.download_file(
+                        self.params_url,
+                        'my_model_' + str(uuid.uuid4()) + '.pt')
+                    if (status != 200) or params_path is None:
+                        is_failed = True
+                        error_message = "Cannot download param file: "\
+                            + self.params_url
         except Exception as e:
             is_failed = True
             error_message = "Cannot download model files:" + str(e)
