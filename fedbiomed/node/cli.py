@@ -202,11 +202,16 @@ def manage_node():
     try:
         signal.signal(signal.SIGTERM, node_signal_handler)
 
-        logger.info('Launching node')
+        logger.info('Launching node...')
 
-        logger.info('Loading default models')
-        model_manager.register_default_models()
-
+        # Register default models and update hashes 
+        if environ["MODEL_APPROVE"]:
+            # This methods updates hashes if security level has changed
+            model_manager.update_hashes()
+            if environ["ALLOW_DEFAULT_MODELS"]:
+                logger.info('Loading default models')
+                model_manager.register_default_models() 
+        
         data_manager = Data_manager()
         logger.info('Starting communication channel with network')
         node = Node(data_manager)
@@ -214,8 +219,6 @@ def manage_node():
 
         logger.info('Starting task manager')
         node.task_manager()  # handling training tasks in queue
-
-
 
     except Exception as e:
         # must send info to the researcher
