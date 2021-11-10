@@ -6,8 +6,8 @@ import time
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.message import NodeMessages, TrainReply
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.environ import CACHE_DIR, CLIENT_ID, TMP_DIR, UPLOADS_URL
 from fedbiomed.node.model_manager import ModelManager
+from fedbiomed.node.environ import environ
 from fedbiomed.common.logger import logger
 
 import traceback
@@ -54,10 +54,9 @@ class Round:
         self.job_id = job_id
         self.researcher_id = researcher_id
         self.monitor = monitor
-
-        self.repository = Repository(UPLOADS_URL, TMP_DIR, CACHE_DIR)
         self.model_manager = ModelManager()
-
+        
+        self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
 
     def run_model_training(self) -> TrainReply:
         """This method downloads model file; then runs the training of a model
@@ -80,20 +79,24 @@ class Round:
             if (status != 200):
                 is_failed = True
                 error_message = "Cannot download model file: " + self.model_url
-            else:
-                approved, model = self.model_manager.check_is_model_approved(os.path.join(TMP_DIR, import_module + '.py')) 
-                if not approved:
-                    is_failed = True
-                    error_message = 'Requested model is not approved by the node'
-                else:
-                    logger.info(f'Model has been approved by the node {model["name"]}')
-                    status, params_path = self.repository.download_file(
-                        self.params_url,
-                        'my_model_' + str(uuid.uuid4()) + '.pt')
-                    if (status != 200) or params_path is None:
+            else:             
+                if environ["MODEL_APPROVE"]:
+                    approved, model = self.model_manager.check_is_model_approved(os.path.join(environ["TMP_DIR"], import_module + '.py')) 
+                    if not approved:
                         is_failed = True
-                        error_message = "Cannot download param file: "\
-                            + self.params_url
+                        error_message = f'Requested model is not approved by the node: {environ["NODE_ID"]}'
+                    else:
+                        logger.info(f'Model has been approved by the node {model["name"]}')
+            
+            if not is_failed:
+                status, params_path = self.repository.download_file(
+                    self.params_url,
+                    'my_model_' + str(uuid.uuid4()) + '.pt')
+                if (status != 200) or params_path is None:
+                    is_failed = True
+                    error_message = "Cannot download param file: "\
+                        + self.params_url
+
         except Exception as e:
             is_failed = True
             error_message = "Cannot download model files:" + str(e)
@@ -101,7 +104,7 @@ class Round:
         # import module, declare the model, load parameters
         if not is_failed:
             try:
-                sys.path.insert(0, TMP_DIR)
+                sys.path.insert(0, environ['TMP_DIR'])
                 # (below) import TrainingPlan created by Researcher on node
                 exec('import ' + import_module,  globals())
                 sys.path.pop(0)
@@ -149,11 +152,11 @@ class Round:
             results['job_id'] = self.job_id
             results['model_params'] = model.after_training_params()
             results['history'] = self.monitor.history
-            results['node_id'] = CLIENT_ID
+            results['node_id'] = environ['NODE_ID']
             try:
                 # TODO : should test status code but not yet returned
                 # by upload_file
-                filename = TMP_DIR + '/node_params_' + str(uuid.uuid4()) + '.pt'
+                filename = environ['TMP_DIR'] + '/node_params_' + str(uuid.uuid4()) + '.pt'
                 model.save(filename, results)
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
@@ -169,7 +172,7 @@ class Round:
             pass
 
         if not is_failed:
-            return NodeMessages.reply_create({'node_id': CLIENT_ID,
+            return NodeMessages.reply_create({'node_id': environ['NODE_ID'],
                         'job_id': self.job_id,
                         'researcher_id': self.researcher_id,
                         'command': 'train',
@@ -183,7 +186,7 @@ class Round:
                                   }).get_dict()
         else:
             logger.error(error_message)
-            return NodeMessages.reply_create({'node_id': CLIENT_ID,
+            return NodeMessages.reply_create({'node_id': environ['NODE_ID'],
                         'job_id': self.job_id,
                         'researcher_id': self.researcher_id,
                         'command': 'train',

@@ -16,7 +16,7 @@ from fedbiomed.common.repository import Repository
 from fedbiomed.common.logger import logger
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
-from fedbiomed.researcher.environ import RESEARCHER_ID, TMP_DIR, CACHE_DIR, UPLOADS_URL
+from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -29,7 +29,7 @@ class Job:
     """
     def __init__(self,
                  reqs: Requests = None,
-                 clients: dict = None,
+                 nodes: dict = None,
                  model: Union[str, Callable] = None,
                  model_path: str = None,
                  training_args: dict = None,
@@ -45,8 +45,8 @@ class Job:
         Args:
             reqs (Requests, optional): researcher's requests assigned to nodes.
             Defaults to None.
-            clients (dict, optional): a dict of client_id containing the
-            clients used for training
+            nodes (dict, optional): a dict of node_id containing the
+            nodes used for training
             model (Union[str, Callable], optional): name of the model class
             to use for training
             model_path (string, optional) : path to file containing model
@@ -59,11 +59,11 @@ class Job:
 
         """
         self._id = str(uuid.uuid4())  # creating a unique job id
-        self._researcher_id = RESEARCHER_ID
+        self._researcher_id = environ['RESEARCHER_ID']
         self._repository_args = {}
         self._training_args = training_args
         self._model_args = model_args
-        self._clients = clients
+        self._nodes = nodes
         self._training_replies = {}  # will contain all node replies for every round
         self._model_file = None
 
@@ -107,11 +107,11 @@ class Job:
             # also handle case where model is an instance of a class
             self.model_instance = model
 
-        self.repo = Repository(UPLOADS_URL, TMP_DIR, CACHE_DIR)
-        tmpdirname = tempfile.mkdtemp(prefix=TMP_DIR)
+        self.repo = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
+        tmpdirname = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
         atexit.register(lambda: shutil.rmtree(tmpdirname))  # remove `tmpdirname`
         # directory when script will end running (replace
-        # `with tempfile.TemporaryDirectory(dir=TMP_DIR) as tmpdirname: `)
+        # `with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmpdirname: `)
         self._model_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.py'
         try:
             self.model_instance.save_code(self._model_file)
@@ -167,12 +167,12 @@ class Job:
         return self._reqs
 
     @property
-    def clients(self):
-        return self._clients
+    def nodes(self):
+        return self._nodes
 
-    @clients.setter
-    def clients(self, clients: dict):
-        self._clients = clients
+    @nodes.setter
+    def nodes(self, nodes: dict):
+        self._nodes = nodes
 
     @property
     def training_replies(self):
@@ -188,27 +188,27 @@ class Job:
 
     """ This method should change in sprint8 or as soon as we implement other
     kind of strategies different than DefaultStrategy"""
-    def waiting_for_clients(self, responses: Responses) -> bool:
-        """ this method verifies if all clients involved in the job are
+    def waiting_for_nodes(self, responses: Responses) -> bool:
+        """ this method verifies if all nodes involved in the job are
         present and Responding
 
         Args:
             responses (Responses): contains message answers
 
         Returns:
-            bool: False if all clients are present in the Responses object.
-            True if waiting for at least one client.
+            bool: False if all nodes are present in the Responses object.
+            True if waiting for at least one node.
         """
         try:
-            clients_done = set(responses.dataframe['node_id'])
+            nodes_done = set(responses.dataframe['node_id'])
         except KeyError:
-            clients_done = set()
+            nodes_done = set()
 
-        return not clients_done == set(self._clients)
+        return not nodes_done == set(self._nodes)
 
-    def start_clients_training_round(self, round: int):
+    def start_nodes_training_round(self, round: int):
         """
-        this method sends training task to clients and waits for the responses
+        this method sends training task to nodes and waits for the responses
         Args:
             round (int): current number of round the algorithm is performing
             (a round is considered to be all the
@@ -229,23 +229,23 @@ class Job:
 
         time_start = {}
 
-        for cli in self._clients:
+        for cli in self._nodes:
             msg['training_data'] = { cli: [ ds['dataset_id'] for ds in self._data.data()[cli] ] }
-            logger.info('Send message to client ' + str(cli) + " - " + str(msg))
+            logger.info('Send message to node ' + str(cli) + " - " + str(msg))
             time_start[cli] = time.perf_counter()
             self._reqs.send_message(msg, cli)  # send request to node
 
         # Recollect models trained
         self._training_replies[round] = Responses([])
-        while self.waiting_for_clients(self._training_replies[round]):
+        while self.waiting_for_nodes(self._training_replies[round]):
             # collect nodes responses from researcher request 'train'
-            # (wait for all clients with a ` while true` loop)
+            # (wait for all nodes with a ` while true` loop)
             models_done = self._reqs.get_responses('train')
             for m in models_done.get_data():  # retrieve all models
                 # (there should have as many models done as nodes)
 
                 # only consider replies for our request
-                if m['researcher_id'] != RESEARCHER_ID or m['job_id'] != self._id or m['node_id'] not in list(self._clients):
+                if m['researcher_id'] != environ['RESEARCHER_ID'] or m['job_id'] != self._id or m['node_id'] not in list(self._nodes):
                     continue
                 
                 # Stop experiment if traning is failed
@@ -277,7 +277,7 @@ class Job:
 
     def update_parameters(self, params: dict) -> str:
         """Updates global model parameters after aggregation, by specifying in a
-        temporary file (TMP_DIR + '/researcher_params_<id>.pt', where <id> is a
+        temporary file (environ['TMP_DIR'] + '/researcher_params_<id>.pt', where <id> is a
         unique and random id)
 
         Args:
@@ -290,9 +290,9 @@ class Job:
             # FIXME: should we specify file extension as a local/global variable ?
             # eg:
             # extension = 'pt'
-            # filename = TMP_DIR + '/researcher_params_' + str(uuid.uuid4()) + extension
+            # filename = environ['TMP_DIR'] + '/researcher_params_' + str(uuid.uuid4()) + extension
 
-            filename = TMP_DIR + '/researcher_params_' + str(uuid.uuid4()) + '.pt'
+            filename = environ['TMP_DIR'] + '/researcher_params_' + str(uuid.uuid4()) + '.pt'
             self.model_instance.save(filename, params)
             repo_response = self.repo.upload_file(filename)
             self._repository_args['params_url'] = repo_response['file']
@@ -313,7 +313,7 @@ class Job:
         """
 
         self.state = {
-            'researcher_id': RESEARCHER_ID,
+            'researcher_id': environ['RESEARCHER_ID'],
             'job_id': self._id,
             'training_data': self._data.data(),
             'training_args': self._training_args,
@@ -356,7 +356,7 @@ class Job:
             training_replies (Dict[int, List[dict]]): JSON formatted
             `training_replies` entry.
             params_path (Dict[str, str]): dictionary of parameter paths (keys)
-            mapping client ids (entries).
+            mapping node ids (entries).
         """
 
         # get key
@@ -507,7 +507,7 @@ class localJob:
 
     def start_training(self):
         """
-        this method send training task to clients and waits for the responses
+        this method send training task to nodes and waits for the responses
         Args:
             round (int): round of the training
             initial_params (str): url of the init file params
@@ -533,7 +533,7 @@ class localJob:
             try:
                 # TODO : should test status code but not yet returned
                 # by upload_file
-                filename = TMP_DIR + '/local_params_' + str(uuid.uuid4()) + '.pt'
+                filename = environ['TMP_DIR'] + '/local_params_' + str(uuid.uuid4()) + '.pt'
                 self.model_instance.save(filename, results)
             except Exception as e:
                 is_failed = True

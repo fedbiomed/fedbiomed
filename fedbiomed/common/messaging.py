@@ -4,18 +4,9 @@ from typing import Any, Callable, Union
 import paho.mqtt.client as mqtt
 
 from fedbiomed.common import json
+from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.logger import logger
 from fedbiomed.common.logger import DEFAULT_LOG_TOPIC
-
-
-class MessagingType(Enum):
-    """Enumeration class, used to characterize
-    context of message handling (whether it is done in
-    a researcher instance or a node instance)
-
-    """
-    RESEARCHER = 1
-    NODE = 2
 
 
 class Messaging:
@@ -24,7 +15,7 @@ class Messaging:
 
     def __init__(self,
                  on_message: Callable[[dict], None],
-                 messaging_type: MessagingType,
+                 messaging_type: ComponentType,
                  messaging_id: Union[int, str],
                  mqtt_broker: str = 'localhost',
                  mqtt_broker_port: int = 80):
@@ -37,7 +28,7 @@ class Messaging:
         Args:
             on_message (Callable): function that should be executed when
             a message is received
-            messaging_type (MessagingType): describes incoming message sender.
+            messaging_type (ComponentType): describes incoming message sender.
             1 for researcher, 2 for node
             messaging_id ([int]): messaging id
             mqtt_broker (str, optional): IP address / URL. Defaults to
@@ -73,9 +64,9 @@ class Messaging:
 
         self.on_message_handler = on_message  # store the caller's mesg handler
 
-        if self.messaging_type is MessagingType.RESEARCHER:
+        if self.messaging_type is ComponentType.RESEARCHER:
             self.default_send_topic = 'general/nodes'
-        elif self.messaging_type is MessagingType.NODE:
+        elif self.messaging_type is ComponentType.NODE:
             self.default_send_topic = 'general/researcher'
         else:  # should not occur
             self.default_send_topic = None
@@ -119,7 +110,7 @@ class Messaging:
             logger.error("Messaging " + str(self.messaging_id) + " could not connect to the message broker, object = " + str(self))
             self.is_failed = True
 
-        if self.messaging_type is MessagingType.RESEARCHER:
+        if self.messaging_type is ComponentType.RESEARCHER:
             for channel in ('general/researcher', 'general/monitoring'):
                 result, _ = self.mqtt.subscribe(channel)
                 if result != mqtt.MQTT_ERR_SUCCESS:
@@ -132,7 +123,7 @@ class Messaging:
                 logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel general/error")
                 self.is_failed = True
 
-        elif self.messaging_type is MessagingType.NODE:
+        elif self.messaging_type is ComponentType.NODE:
             for channel in ('general/nodes', 'general/' + self.messaging_id):
                 result, _ = self.mqtt.subscribe(channel)
                 if result != mqtt.MQTT_ERR_SUCCESS:

@@ -1,7 +1,8 @@
 import os 
 from tinydb import TinyDB, Query
 import hashlib
-from fedbiomed.node.environ import MODEL_DB_PATH, ROOT_DIR
+from fedbiomed.node.environ import environ
+from fedbiomed.common.constants import SecurityLevels
 from fedbiomed.common.logger import logger
 from tabulate import tabulate
 import uuid
@@ -13,7 +14,7 @@ class ModelManager:
 
         """ Class constructur """
 
-        self.db = TinyDB(MODEL_DB_PATH)
+        self.db = TinyDB(environ["MODEL_DB_PATH"])
         self.database = Query()
 
     def _create_hash(self, path):
@@ -21,11 +22,18 @@ class ModelManager:
         """ Method for creating hash with given model file"""
      
         with open(path, "r") as model:
-            hmd5 = hashlib.md5()
-            content = model.read()
-            hmd5.update(content.encode('utf-8'))
+            if environ['SECURITY_LEVEL'] == SecurityLevels.LOW.value:
+                algorithm = 'SHA256'
+                hashing = hashlib.sha256()
+                content = model.read()
+                hashing.update(content.encode('utf-8'))
+            else:
+                algorithm = 'SHA512'
+                hashing = hashlib.sha512()
+                content = model.read()
+                hashing.update(content.encode('utf-8'))
 
-        return hmd5.hexdigest()    
+        return hashing.hexdigest(), algorithm    
     
 
     def register_model(self, 
@@ -39,6 +47,7 @@ class ModelManager:
         if not model_id:
             model_id = 'model_' + str(uuid.uuid4())
 
+
         # Check model path whether is registered before    
         self.db.clear_cache()
         models_path_search = self.db.search(self.database.model_path.all(path))
@@ -48,12 +57,16 @@ class ModelManager:
             pass
   
         # Create hash and save it into db
-        model_hash = self._create_hash(path)
+        model_hash, algorithm = self._create_hash(path)
         model_object = dict( name=name, description=description, 
                              hash=model_hash, model_path=path, 
-                             model_id=model_id ) 
-        self.db.insert(model_object)
+                             model_id=model_id, type='registered', 
+                             algorithm=algorithm) 
 
+        self.db.insert(model_object, doc_id=model_id)
+
+    def update_hashes(self):
+        pass
 
     def check_is_model_approved(self, path):
         
@@ -75,13 +88,13 @@ class ModelManager:
     def register_default_models(self):
 
         """ This method is for registering new default methods"""
-        models_path = os.path.join(ROOT_DIR, 'envs' , 'development' , 'models')
+        models_path = os.path.join(environ["ROOT_DIR"], 'envs' , 'development' , 'default_models')
         default_models = os.listdir(models_path)
         for model_file in default_models:
             model_name = 'default_' + model_file.split('.')[0]
             self.register_model(name = model_name, 
                                 description = "Default model" , 
-                                path = os.path.join(models_path, model_file) )
+                                path = os.path.join(models_path, model_file, type='default') )
 
         
     def list_approved_models(self, verbose: bool = True):

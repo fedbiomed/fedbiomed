@@ -1,6 +1,6 @@
+from fedbiomed.researcher.environ import environ
 
-from fedbiomed.researcher.environ import TMP_DIR
-
+import os
 import torch
 import torch.nn as nn
 from fedbiomed.common.torchnn import TorchTrainingPlan
@@ -69,10 +69,10 @@ class MyTrainingPlan(TorchTrainingPlan):
 
 
 training_args = {
-    'batch_size': 48, 
-    'lr': 1e-3, 
-    'epochs': 1, 
-    'dry_run': False,  
+    'batch_size': 48,
+    'lr': 1e-3,
+    'epochs': 1,
+    'dry_run': False,
     'batch_maxnum': 200 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
 
@@ -110,18 +110,18 @@ transform = transforms.Compose([
             transforms.Normalize((0.1307,), (0.3081,))
         ])
 
-datasets.MNIST(root = TMP_DIR + '/local_mnist.tmp', download = True, train = True, transform = transform)
+datasets.MNIST(root = os.path.join(environ['TMP_DIR'], 'local_mnist.tmp'), download = True, train = True, transform = transform)
 
 # local train on same amount of data as federated with 1 node
 training_args['epochs'] *= rounds
 
 # We create an object localJob, which mimics the functionalities of the class Job to run the model on the input local dataset
 
-local_job = localJob( dataset_path = TMP_DIR + '/local_mnist.tmp',
+local_job = localJob( dataset_path = os.path.join(environ['TMP_DIR'], 'local_mnist.tmp'),
           model_class=MyTrainingPlan,
           #model_path=model_file,
           training_args=training_args)
- 
+
 # Running the localJob and getting the local model
 
 local_job.start_training()
@@ -132,7 +132,7 @@ print(' *** Local training complete *** \nLocal model:\n',local_model)
 
 ## Comparison
 
-# We define a little testing routine to extract the accuracy metrics on the testing dataset 
+# We define a little testing routine to extract the accuracy metrics on the testing dataset
 
 def testing_Accuracy(model, data_loader):
     model.eval()
@@ -141,7 +141,7 @@ def testing_Accuracy(model, data_loader):
     device = 'cpu'
 
     correct = 0
-    
+
     with torch.no_grad():
         for data, target in data_loader:
             data, target = data.to(device), target.to(device)
@@ -159,7 +159,7 @@ def testing_Accuracy(model, data_loader):
 
 # Loading the testing dataset and computing accuracy metrics for local and federated models
 
-test_set = datasets.MNIST(root = TMP_DIR + '/local_mnist_testing.tmp', download = True, train = False, transform = transform)
+test_set = datasets.MNIST(root = os.path.join(environ['TMP_DIR'], 'local_mnist_testing.tmp'), download = True, train = False, transform = transform)
 test_loader = torch.utils.data.DataLoader(test_set, batch_size=64, shuffle=True)
 
 acc_local = testing_Accuracy(local_model, test_loader)
@@ -172,5 +172,4 @@ print('\nError local training: {:.4f}, \nError federated training:  {:.4f}\nDiff
              acc_local[0], acc_federated[0], acc_local[0]-acc_federated[0]))
 
 minscore = 0.95
-assert  acc_local[1] > minscore and acc_federated[1] > minscore and np.abs(acc_local[1]-acc_federated[1]) < 3.0 
-
+assert  acc_local[1] > minscore and acc_federated[1] > minscore and np.abs(acc_local[1]-acc_federated[1]) < 3.0

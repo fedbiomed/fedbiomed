@@ -1,8 +1,14 @@
-import testsupport.mock_node_environ
-from fedbiomed.node.environ import DB_PATH
+# Managing NODE, RESEARCHER environ mock before running tests
+from testsupport.delete_environ import delete_environ
+# Detele environ. It is necessary to rebuild environ for required component
+delete_environ()
+import testsupport.mock_common_environ
+# Import environ for node since test will be runing for node component
+from fedbiomed.node.environ    import environ
+
+
 from fedbiomed.node.data_manager import Data_manager
 import unittest
-from unittest.mock import MagicMock, patch
 import os
 import warnings
 
@@ -35,7 +41,7 @@ class TestLoadDataSets(unittest.TestCase):
 
     # after the tests
     def tearDown(self):
-        os.remove(DB_PATH)
+        os.remove(environ['DB_PATH'])
         pass
 
     def test_load_csv_dataset(self):

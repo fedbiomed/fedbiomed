@@ -60,6 +60,27 @@ case $1 in
                     shift
                     shift
                 ;;
+                enable_model_approve)
+                    export ENABLE_MODEL_APPROVE=True
+                    shift
+                ;;
+
+                allow_default_models)
+                    export ALLOW_DEFAULT_MODELS=True
+                    shift
+                ;;
+
+                security_level)
+                    if [ $3 == "LOW" ] || [ $3 == "HIGH" ]; then
+                        export SECURITY_LEVEL=$3
+                        shift
+                        shift
+                    else
+                        echo "ERROR: Undefiend security level, Please use LOW or HIGH"
+                        exit 1
+                    fi
+                ;;
+
                 *)
                     break
                 ;;

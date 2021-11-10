@@ -10,10 +10,10 @@ class Strategy:
                 self._success_node_history = {}
 
         """
-                1) returns the id of the sampled clients
-                2) TODO: creates the clients weights in case they can all perform their work
+                1) returns the id of the sampled nodes
+                2) TODO: creates the nodes weights in case they can all perform their work
         """
-        def sample_clients(self, round_i: int):
+        def sample_nodes(self, round_i: int):
                 return
 
         """
