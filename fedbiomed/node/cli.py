@@ -81,11 +81,11 @@ def pick_with_tkinter(mode='file'):
                                    "*.csv")
                                   ]
                         )
-        elif mode == 'py':
+        elif mode == 'txt':
             return tkinter.filedialog.askopenfilename(
                         filetypes=[
-                                  ("Python files",
-                                   "*.py")
+                                  ("Text files",
+                                   "*.txt")
                                   ]
                         )
         else:
@@ -112,7 +112,7 @@ def validated_path_input(type):
                 assert os.path.isfile(path)
 
             elif type == 'py': # For registering python model 
-                path = pick_with_tkinter(mode='py')
+                path = pick_with_tkinter(mode='txt')
                 logger.debug(path)
                 if not path:
                     logger.critical('No python file was selected. Exiting')
@@ -319,7 +319,8 @@ def register_model(interactive: bool = True):
     try:
         model_manager.register_model(name=name,
                                     description=description,
-                                    path=path)
+                                    path=path,
+                                    verbose=True)
         
     except AssertionError as e:
         if interactive is True:
@@ -330,10 +331,6 @@ def register_model(interactive: bool = True):
         else:
             warnings.warn(f'[ERROR]: {e}')
         exit(1)
-
-    print('\nGreat! Take a look at your registered models:')
-    model_manager.list_approved_models(verbose=True)
-
 
 def launch_cli():
 

@@ -68,6 +68,11 @@ class ModelManager:
 
             self.db.insert(model_object)
 
+            if verbose: 
+                logger.info('Model has been added successfuly')
+                self.list_approved_models(verbose = True)
+
+
     def update_hashes(self):
 
         self.db.clear_cache()
@@ -97,7 +102,8 @@ class ModelManager:
         
         """ This method checks wheter model is approved by the node"""
         req_model_hash = self._create_hash(path)
-        models = self.list_approved_models(verbose = False)
+        self.db.clear_cache()
+        models = self.db.all()
 
         approved = False
         approved_model = None
@@ -132,6 +138,7 @@ class ModelManager:
 
         for doc in models:
             doc.pop('model_path')
+            doc.pop('hash')
 
         if verbose:
             print(tabulate(models, headers='keys'))   
