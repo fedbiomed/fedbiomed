@@ -6,10 +6,10 @@
 # Use for developing (autoreloads changes made across packages)
 
 
-# ## Setting the client up
+# ## Setting the node up
 # It is necessary to previously configure a node:
 # 1. `./scripts/fedbiomed_run node add`
-#   * Select option 2 (default) to add MNIST to the client
+#   * Select option 2 (default) to add MNIST to the node
 #   * Confirm default tags by hitting "y" and ENTER
 #   * Pick the folder where MNIST is downloaded (this is due torch issue https://github.com/pytorch/vision/issues/3549)
 #   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
@@ -80,8 +80,8 @@ class MyTrainingPlan(TorchTrainingPlan):
 
 
 # This group of arguments correspond respectively:
-# * `model_args`: a dictionary with the arguments related to the model (e.g. number of layers, features, etc.). This will be passed to the model class on the client side.
-# * `training_args`: a dictionary containing the arguments for the training routine (e.g. batch size, learning rate, epochs, etc.). This will be passed to the routine on the client side.
+# * `model_args`: a dictionary with the arguments related to the model (e.g. number of layers, features, etc.). This will be passed to the model class on the node side.
+# * `training_args`: a dictionary containing the arguments for the training routine (e.g. batch size, learning rate, epochs, etc.). This will be passed to the routine on the node side.
 #
 # **NOTE:** typos and/or lack of positional (required) arguments will raise error. 🤓
 
@@ -97,9 +97,9 @@ training_args = {
 
 
 #    Define an experiment
-#    - search nodes serving data for these `tags`, optionally filter on a list of client ID with `clients`
+#    - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
 #    - run a round of local training on nodes with model defined in `model_class` + federation with `aggregator`
-#    - run for `rounds` rounds, applying the `client_selection_strategy` between the rounds
+#    - run for `rounds` rounds, applying the `node_selection_strategy` between the rounds
 
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -108,7 +108,7 @@ tags =  ['#MNIST', '#dataset']
 rounds = 2
 
 exp = Experiment(tags=tags,
-                #clients=None,
+                #nodes=None,
                 model_class=MyTrainingPlan,
                 # model_class=AlterTrainingPlan,
                 # model_path='/path/to/model_file.py',
@@ -116,12 +116,12 @@ exp = Experiment(tags=tags,
                 training_args=training_args,
                 rounds=rounds,
                 aggregator=FedAverage(),
-                client_selection_strategy=None,
+                node_selection_strategy=None,
                 save_breakpoints=True)
 
 
 # Let's start the experiment.
-# By default, this function doesn't stop until all the `rounds` are done for all the clients
+# By default, this function doesn't stop until all the `rounds` are done for all the nodes
 
 exp.run()
 
@@ -137,7 +137,7 @@ exp.run()
 print("______________ original training replies_________________")
 print("\nList the training rounds : ", exp.training_replies.keys())
 
-print("\nList the clients for the last training round and their timings : ")
+print("\nList the nodes for the last training round and their timings : ")
 round_data = exp.training_replies[rounds - 1].data
 for c in range(len(round_data)):
     print("\t- {id} :\
@@ -161,7 +161,7 @@ loaded_exp = Experiment.load_breakpoint()
 print("______________ loaded training replies_________________")
 #print("\nList the training rounds : ", loaded_exp.training_replies.keys())
 
-print("\nList the clients for the last training round and their timings : ")
+print("\nList the nodes for the last training round and their timings : ")
 round_data = loaded_exp.training_replies[rounds - 1].data
 for c in range(len(round_data)):
     #print(round_data[c])

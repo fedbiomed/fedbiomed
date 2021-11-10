@@ -7,7 +7,7 @@ import inspect
 
 from fedbiomed.common.logger import logger
 from typing import Callable, Union, Tuple, Dict, Any, List, TypeVar, Type
-from fedbiomed.researcher.environ import BREAKPOINTS_DIR
+from fedbiomed.researcher.environ import environ
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
 
@@ -29,14 +29,14 @@ class Experiment:
 
     def __init__(self,
                  tags: tuple,
-                 clients: list = None,
+                 nodes: list = None,
                  model_class: Union[str, Callable] = None,
                  model_path: str = None,
                  model_args: dict = {},
                  training_args: dict = None,
                  rounds: int = 1,
                  aggregator: aggregator.Aggregator = fedavg.FedAverage(),
-                 client_selection_strategy: Strategy = None,
+                 node_selection_strategy: Strategy = None,
                  save_breakpoints: bool = False,
                  training_data: dict = None,
                  tensorboard: bool = False
@@ -47,7 +47,7 @@ class Experiment:
 
         Args:
             tags (tuple): tuple of string with data tags
-            clients (list, optional): list of node_ids to filter the nodes
+            nodes (list, optional): list of node_ids to filter the nodes
                                     to be involved in the experiment.
                                     Defaults to None (no filtering).
             model_class (Union[str, Callable], optional): name of the
@@ -62,15 +62,15 @@ class Experiment:
                                             lr, epochs, batch_size...
                                             Defaults to None.
             rounds (int, optional): the number of communication rounds
-                                    (clients <-> central server).
+                                    (nodes <-> central server).
                                     Defaults to 1.
             aggregator (aggregator.Aggregator): class defining the method
                                                 for aggragating local updates.
                                 Default to fedavg.FedAvg().
-            client_selection_strategy (Strategy): class defining how clients
+            node_selection_strategy (Strategy): class defining how nodes
                                                   are sampled at each round
                                                   for training, and how
-                                                  non-responding clients
+                                                  non-responding nodes
                                                   are managed. Defaults to
                                                   None (ie DefaultStrategy)
             save_breakpoints (bool, optional): whether to save breakpoints or
@@ -85,22 +85,22 @@ class Experiment:
         """
 
         self._tags = tags
-        self._clients = clients
+        self._nodes = nodes
         self._reqs = Requests()
         # (below) search for nodes either having tags that matches the tags
-        # the researcher is looking for (`self._tags`) or based on client id
-        # (`self._clients`)
+        # the researcher is looking for (`self._tags`) or based on node id
+        # (`self._nodes`)
         if training_data is None:
             # normal case
             self._training_data = self._reqs.search(self._tags,
-                                                    self._clients)
+                                                    self._nodes)
         else:
             # case where loaded from saved breakpoint
             self._training_data = training_data
 
         self._round_init = 0  # start from round 0
         self._fds = FederatedDataSet(self._training_data)
-        self._client_selection_strategy = client_selection_strategy
+        self._node_selection_strategy = node_selection_strategy
         self._aggregator = aggregator
 
         self._model_class = model_class
@@ -128,8 +128,8 @@ class Experiment:
             self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         else:
             self._monitor = None
-            # Remove callback. Since reqeust class is singleton callback 
-            # function might be already added into request before.   
+            # Remove callback. Since reqeust class is singleton callback
+            # function might be already added into request before.
             self._reqs.remove_monitor_callback()
 
     @property
@@ -161,14 +161,14 @@ class Experiment:
         Raises:
             NotImplementedError: [description]
         """
-        if self._client_selection_strategy is None:
-            # Default sample_clients: train all clients
+        if self._node_selection_strategy is None:
+            # Default sample_nodes: train all nodes
             # Default refine: Raise error with any failure and stop the
             # experiment
-            self._client_selection_strategy = DefaultStrategy(self._fds)
+            self._node_selection_strategy = DefaultStrategy(self._fds)
         else:
-            if inspect.isclass(self._client_selection_strategy):
-                self._client_selection_strategy = self._client_selection_strategy(self._fds)
+            if inspect.isclass(self._node_selection_strategy):
+                self._node_selection_strategy = self._node_selection_strategy(self._fds)
 
         if self._save_breakpoints:
             self._create_breakpoint_exp_folder()
@@ -181,14 +181,14 @@ class Experiment:
             return
 
         for round_i in range(self._round_init, self._rounds):
-            # Sample clients using strategy (if given)
-            self._job.clients = self._client_selection_strategy.sample_clients(round_i)
-            logger.info('Sampled clients in round ' + str(round_i) + ' ' + str(self._job.clients))
-            # Trigger training round on sampled clients
-            self._job.start_clients_training_round(round=round_i)
+            # Sample nodes using strategy (if given)
+            self._job.nodes = self._node_selection_strategy.sample_nodes(round_i)
+            logger.info('Sampled nodes in round ' + str(round_i) + ' ' + str(self._job.nodes))
+            # Trigger training round on sampled nodes
+            self._job.start_nodes_training_round(round=round_i)
 
             # refining/normalizing model weigths received from nodes
-            model_params, weights = self._client_selection_strategy.refine(self._job.training_replies[round_i], round_i)
+            model_params, weights = self._node_selection_strategy.refine(self._job.training_replies[round_i], round_i)
 
             # aggregate model from nodes to a global model
             aggregated_params = self._aggregator.aggregate(model_params,
@@ -199,7 +199,7 @@ class Experiment:
             self._aggregated_params[round_i] = {'params': aggregated_params,
                                                 'params_path': aggregated_params_path}
             if self._save_breakpoints:
-                self._save_state(round_i) 
+                self._save_state(round_i)
 
         if self._monitor is not None:
             # Close SummaryWriters for tensorboard
@@ -213,30 +213,30 @@ class Experiment:
         already run (`x`=0 for the first experiment)
         """
 
-        if not os.path.isdir(BREAKPOINTS_DIR):
+        if not os.path.isdir(environ['BREAKPOINTS_DIR']):
             try:
-                os.makedirs(BREAKPOINTS_DIR, exist_ok=True)
+                os.makedirs(environ['BREAKPOINTS_DIR'], exist_ok=True)
             except (PermissionError, OSError) as err:
                 logger.error(f"Can not save breakpoints files because\
-                    {BREAKPOINTS_DIR} folder could not be created\
+                    {environ['BREAKPOINTS_DIR']} folder could not be created\
                         due to {err}")
                 return
 
         # FIXME: improve method robustness (here nb of exp equals nb of files
         # in directory)
-        all_files = os.listdir(BREAKPOINTS_DIR)
+        all_files = os.listdir(environ['BREAKPOINTS_DIR'])
         if not hasattr(self, "_exp_breakpoint_folder"):
             #
             # in this case, the Experiment object has been created from
             # a breakpoint. We keep the same place to save next steps
             self._exp_breakpoint_folder = "Experiment_" + str(len(all_files))
         try:
-            os.makedirs(os.path.join(BREAKPOINTS_DIR,
+            os.makedirs(os.path.join(environ['BREAKPOINTS_DIR'],
                                      self._exp_breakpoint_folder),
                         exist_ok=True)
         except (PermissionError, OSError) as err:
             logger.error(f"Can not save breakpoints files because\
-                    {BREAKPOINTS_DIR} folder could not be created\
+                    {environ['BREAKPOINTS_DIR']} folder could not be created\
                         due to {err}")
 
     def _create_breakpoint_file_and_folder(self,
@@ -254,7 +254,7 @@ class Experiment:
             contain the state of an experiment.
         """
         breakpoint_folder = "breakpoint_" + str(round)
-        breakpoint_folder_path = os.path.join(BREAKPOINTS_DIR,
+        breakpoint_folder_path = os.path.join(environ['BREAKPOINTS_DIR'],
                                               self._exp_breakpoint_folder,
                                               breakpoint_folder)
         try:
@@ -274,7 +274,7 @@ class Experiment:
          - round_number_due
          - tags
          - 'aggregator'
-         - 'client_selection_strategy'
+         - 'node_selection_strategy'
          - 'round_success'
          - researcher_id
          - job_id
@@ -297,7 +297,7 @@ class Experiment:
             'round_number': round + 1,
             'round_number_due': self._rounds,
             'aggregator': self._aggregator.save_state(),
-            'client_selection_strategy': self._client_selection_strategy.save_state(),
+            'node_selection_strategy': self._node_selection_strategy.save_state(),
             'round_success': True,
             'tags': self._tags
         }
@@ -399,14 +399,14 @@ class Experiment:
                 # retrieve latest experiment
 
                 # content of breakpoint folder
-                _experiment_folders = os.listdir(BREAKPOINTS_DIR)
+                _experiment_folders = os.listdir(environ['BREAKPOINTS_DIR'])
 
                 _latest_exp_folder = Experiment._get_latest_file(
-                    BREAKPOINTS_DIR,
+                    environ['BREAKPOINTS_DIR'],
                     _experiment_folders,
                     only_folder=True)
 
-                _latest_exp_folder = os.path.join(BREAKPOINTS_DIR,
+                _latest_exp_folder = os.path.join(environ['BREAKPOINTS_DIR'],
                                                   _latest_exp_folder)
 
                 _bkpt_folders = os.listdir(_latest_exp_folder)
@@ -419,7 +419,7 @@ class Experiment:
                 breakpoint_folder = os.path.join(_latest_exp_folder,
                                                  breakpoint_folder)
             except FileNotFoundError as err:
-                logger.error("cannot find a breakpoint in:" + BREAKPOINTS_DIR + " - " + err)
+                logger.error("cannot find a breakpoint in:" + environ['BREAKPOINTS_DIR'] + " - " + err)
                 raise FileNotFoundError("Cannot find latest breakpoint \
                     saved. Are you sure you have saved at least one breakpoint?")
             except TypeError as err:
@@ -502,12 +502,12 @@ class Experiment:
         #print(saved_state)
 
 
-        # TODO: for both client sampling strategy & aggregator
+        # TODO: for both node sampling strategy & aggregator
         # deal with saved parameters
 
         # -----  retrieve breakpoint sampling strategy ----
         _bkpt_sampling_strategy_args = saved_state.get(
-            "client_selection_strategy"
+            "node_selection_strategy"
         )
         import_str = cls._instancialize_module(_bkpt_sampling_strategy_args)
         exec(import_str)
@@ -522,14 +522,14 @@ class Experiment:
         # ------ initializing experiment -------
 
         loaded_exp = cls(tags=saved_state.get('tags'),
-                         clients=None,   # list of previous clients is contained in training_data
+                         nodes=None,   # list of previous nodes is contained in training_data
                          model_class=saved_state.get("model_class"),
                          model_path=saved_state.get("model_path"),
                          model_args=saved_state.get("model_args"),
                          training_args=saved_state.get("training_args"),
                          rounds=saved_state.get("round_number_due"),
                          aggregator=bkpt_aggregator(),
-                         client_selection_strategy=_bkpt_sampling_strategy,
+                         node_selection_strategy=_bkpt_sampling_strategy,
                          save_breakpoints=True,
                          training_data = saved_state.get('training_data')
                          )
@@ -561,10 +561,10 @@ class Experiment:
         module_path = args.get("module", "custom")
         if module_path == "custom":
             # case where user is loading its own custom
-            # client sampling strategy
+            # node sampling strategy
             import_str = 'import ' + module_class
         else:
-            # client is using a fedbiomed client sampling strategy
+            # node is using a fedbiomed node sampling strategy
             import_str = 'from ' + module_path + ' import ' + module_class
         logging.debug(f"{module_class} loaded !")
 

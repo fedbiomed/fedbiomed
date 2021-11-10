@@ -15,7 +15,7 @@ class Aggregator:
 
     @staticmethod
     def normalize_weights(weights) -> list:
-        # Load list of weights assigned to each client and
+        # Load list of weights assigned to each node and
         # normalize these weights so they sum up to 1
         norm = [w/sum(weights) for w in weights]
         return norm
