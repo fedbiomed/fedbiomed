@@ -8,6 +8,34 @@ from fedbiomed.common.singleton      import SingletonMeta
 from fedbiomed.common.component_type import ComponentType
 
 
+"""
+Descriptions of global/environment variables 
+
+Resarcher Global Variables: 
+    RESEARCHER_ID           : id of the researcher
+    ID                      : equals to researcher id
+    TENSORBOARD_RESULTS_DIR : path for writing tensorboard log files
+    BREAKPOINTS_DIR         : folder for saving breakpoints 
+    MESSAGES_QUEUE_DIR      : Path for writing queue files
+
+Nodes Global Variables:
+    NODE_ID                 : id of the node
+    ID                      : equals to node id
+    MESSAGES_QUEUE_DIR      : Path for queues
+    DB_PATH                 : TinyDB database path  
+
+Common Global Variables: 
+    COMPONENT_TYPE          : Node or Researcher
+    CONFIG_DIR              : Configuration file path
+    VAR_DIR                 : Var directory of Fed-Biomed
+    CACHE_DIR               : Cache directory of Fed-BioMed
+    TMP_DIR                 : Temporary directory 
+    MQTT_BROKER             : MQTT broker IP address
+    MQTT_BROKER_PORT        : MQTT broker port   
+    UPLOADS_URL             : Upload URL for file repository
+"""
+
+
 class Environ(metaclass = SingletonMeta):
     """
     this (singleton) class contains all variables for researcher or node
@@ -33,7 +61,7 @@ class Environ(metaclass = SingletonMeta):
 
         # must be read before specific configuration values
         # which may beed the ID of the node to be specified
-        self._read_config_file()
+        self._parse_config_file()
 
         # specific configuration values
         if component == ComponentType.RESEARCHER:
@@ -78,7 +106,7 @@ class Environ(metaclass = SingletonMeta):
         pass
 
 
-    def _read_config_file(self):
+    def _parse_config_file(self):
         """
         read the .ini file corresponding to the component
         create the file with default values if it does not exists
@@ -110,55 +138,10 @@ class Environ(metaclass = SingletonMeta):
             # get values from .ini file
             cfg.read(CONFIG_FILE)
         else:
-            # use default values from current OS environment variables
-
-            # repository location
-            uploads_url = "http://localhost:8844/upload/"
-            uploads_ip = os.getenv('UPLOADS_IP')
-            if uploads_ip:
-                uploads_url = "http://" + uploads_ip + ":8844/upload/"
-            uploads_url = os.getenv('UPLOADS_URL', uploads_url)
-
-            # id of the component
-            if self._values['COMPONENT_TYPE'] == ComponentType.RESEARCHER:
-                # we may remove researcher_id in the future (to simplify the code)
-                # and use id instead
-                researcher_id = os.getenv('RESEARCHER_ID', 'researcher_' + str(uuid.uuid4()))
-                cfg['default'] = {
-                    'researcher_id': researcher_id,
-                    'uploads_url': uploads_url
-                }
-            else:
-                # we may remove node_id in the future (to simplify the code)
-                # and use id instead
-                node_id = os.getenv('NODE_ID', 'node_' + str(uuid.uuid4()))
-
-                cfg['default'] = {
-                    'node_id': node_id,
-                    'uploads_url': uploads_url
-                }
-
-            # message broker
-            mqtt_broker = os.getenv('MQTT_BROKER', 'localhost')
-            mqtt_broker_port = int(os.getenv('MQTT_BROKER_PORT', 1883))
-
-            cfg['mqtt'] = {
-                'broker_ip': mqtt_broker,
-                'port': mqtt_broker_port,
-                'keep_alive': 60
-            }
-
-            # write the config for future relaunch of the same component
-            # (only if the file does not exists)
-            try:
-                with open(CONFIG_FILE, 'w') as f:
-                    cfg.write(f)
-            except:
-                logger.error("cannot save config file: " + CONFIG_FILE)
-
-        #
+            self._write_config_file(cfg, CONFIG_FILE)
+        
+    
         # store the CONFIG_FILE in environ (may help to debug)
-        #
         self._values['CONFIG_FILE'] = CONFIG_FILE
 
         #
@@ -236,7 +219,7 @@ class Environ(metaclass = SingletonMeta):
         specific configuration values for node
         """
 
-        VAR_DIR   = self._values['VAR_DIR']
+        VAR_DIR = self._values['VAR_DIR']
         NODE_ID = self._values['NODE_ID']
 
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join(VAR_DIR,
@@ -263,6 +246,55 @@ class Environ(metaclass = SingletonMeta):
         urllib.request.install_opener(opener)
 
         pass
+
+    def _write_config_file(self, cfg, config_file):
+
+        """This method writes new config file"""
+
+        # use default values from current OS environment variables
+
+        # repository location
+        uploads_url = "http://localhost:8844/upload/"
+        uploads_ip = os.getenv('UPLOADS_IP')
+        if uploads_ip:
+            uploads_url = "http://" + uploads_ip + ":8844/upload/"
+        uploads_url = os.getenv('UPLOADS_URL', uploads_url)
+
+        # Write based on component type
+        if self._values['COMPONENT_TYPE'] == ComponentType.RESEARCHER:
+            # we may remove researcher_id in the future (to simplify the code)
+            # and use id instead
+            researcher_id = os.getenv('RESEARCHER_ID', 'researcher_' + str(uuid.uuid4()))
+            cfg['default'] = {
+                'researcher_id': researcher_id,
+                'uploads_url': uploads_url
+            }
+        else:
+            # TODO: We may remove node_id in the future (to simplify the code)
+            node_id = os.getenv('NODE_ID', 'node_' + str(uuid.uuid4()))
+
+            cfg['default'] = {
+                'node_id': node_id,
+                'uploads_url': uploads_url
+            }
+
+        # message broker
+        mqtt_broker = os.getenv('MQTT_BROKER', 'localhost')
+        mqtt_broker_port = int(os.getenv('MQTT_BROKER_PORT', 1883))
+
+        cfg['mqtt'] = {
+            'broker_ip': mqtt_broker,
+            'port': mqtt_broker_port,
+            'keep_alive': 60
+        }
+
+        # write the config for future relaunch of the same component
+        # (only if the file does not exists)
+        try:
+            with open(config_file, 'w') as f:
+                cfg.write(f)
+        except:
+            logger.error("cannot save config file: " + config_file)         
 
     def values(self):
         return self._values
