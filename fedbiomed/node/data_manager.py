@@ -10,7 +10,7 @@ import torch
 from torchvision import datasets
 from torchvision import transforms
 
-from fedbiomed.node.environ import DB_PATH
+from fedbiomed.node.environ import environ
 
 
 class Data_manager: # should this be in camelcase (smthg like DataManager)?
@@ -21,7 +21,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
     def __init__(self):
         """ The constrcutor of the class
         """
-        self.db = TinyDB(DB_PATH)
+        self.db = TinyDB(environ['DB_PATH'])
         self.database = Query()
 
     def search_by_id(self, dataset_id: str) -> List[dict]:

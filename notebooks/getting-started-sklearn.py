@@ -20,7 +20,7 @@ A family of models could be naturally imported in Fed-BioMed, following the same
     latent Dirichlet annotation,
 
 
-Start the network and setting the client up
+Start the network and setting the node up
 
 Before running this notebook:
 
@@ -29,21 +29,21 @@ Before running this notebook:
     You need to configure at least 2 nodes:
 
     Node 1 : ./scripts/fedbiomed_run node add
-        Select option 1 to add a csv file to the client
+        Select option 1 to add a csv file to the node
         Choose the name, tags and description of the dataset (you can write 'sk' always and it will be good)
         Pick the .csv file n1.csv .
         Check that your data has been added in node 1 by executing ./scripts/fedbiomed_run node list
         Run the node using ./scripts/fedbiomed_run node start.
 
     Node 2 : Open a second terminal and run ./scripts/fedbiomed_run node add config n2.ini
-        Select option 1 to add a csv file to the client
+        Select option 1 to add a csv file to the node
         Choose the name, tags and description of the dataset (you can write 'sk' always and it will be good)
         Pick the .csv file n2.csv .
         Check that your data has been added in node 2 by executing ./scripts/fedbiomed_run node list config n2.ini
         Run the node using ./scripts/fedbiomed_run node start config n2.ini.
 
     Node 3 : Open a second terminal and run ./scripts/fedbiomed_run node add config n3.ini
-        Select option 1 to add a csv file to the client
+        Select option 1 to add a csv file to the node
         Choose the name, tags and description of the dataset (you can write 'sk' always and it will be good)
         Pick the .csv file n3.csv .
         Check that your data has been added in node 2 by executing ./scripts/fedbiomed_run node list config n3.ini
@@ -87,14 +87,14 @@ tags =  ['sk']
 rounds = 5
 
 exp = Experiment(tags=tags,
-                 #clients=None,
+                 #nodes=None,
                  #model_path=model_file,
                  model_args=model_args,
                  model_class=SGDRegressorTrainingPlan,
                  training_args=training_args,
                  rounds=rounds,
                  aggregator=FedAverage(),
-                 client_selection_strategy=None,
+                 node_selection_strategy=None,
                  tensorboard=True)
 
 exp.run()

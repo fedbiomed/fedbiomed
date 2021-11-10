@@ -7,7 +7,7 @@
 # for recognition of smiling faces, with a CelebA dataset split over 2 nodes.
 
 
-# ## Setting the client up
+# ## Setting the node up
 #
 # Install the CelebA dataset with the help of the `README.md` file inside `notebooks/data/Celeba`
 # The script create 3 nodes with each their data. The dataset of the node 3 is used in this notebook as a testing set.  
@@ -146,8 +146,8 @@ class Net(TorchTrainingPlan):
 
 
 # This group of arguments correspond respectively:
-# * `model_args`: a dictionary with the arguments related to the model (e.g. number of layers, features, etc.). This will be passed to the model class on the client side.
-# * `training_args`: a dictionary containing the arguments for the training routine (e.g. batch size, learning rate, epochs, etc.). This will be passed to the routine on the client side.
+# * `model_args`: a dictionary with the arguments related to the model (e.g. number of layers, features, etc.). This will be passed to the model class on the node side.
+# * `training_args`: a dictionary containing the arguments for the training routine (e.g. batch size, learning rate, epochs, etc.). This will be passed to the routine on the node side.
 #
 # **NOTE:** typos and/or lack of positional (required) arguments will raise error. 🤓
 
@@ -165,9 +165,9 @@ training_args = {
 # # Train the federated model
 
 #    Define an experiment
-#    - search nodes serving data for these `tags`, optionally filter on a list of client ID with `clients`
+#    - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
 #    - run a round of local training on nodes with model defined in `model_class` + federation with `aggregator`
-#    - run for `rounds` rounds, applying the `client_selection_strategy` between the rounds
+#    - run for `rounds` rounds, applying the `node_selection_strategy` between the rounds
 
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -176,7 +176,7 @@ tags =  ['#celeba']
 rounds = 3
 
 exp = Experiment(tags=tags,
-                #clients=None,
+                #nodes=None,
                 model_class=Net,
                 # model_class=AlterTrainingPlan,
                 # model_path='/path/to/model_file.py',
@@ -184,11 +184,11 @@ exp = Experiment(tags=tags,
                 training_args=training_args,
                 rounds=rounds,
                 aggregator=FedAverage(),
-                client_selection_strategy=None)
+                node_selection_strategy=None)
 
 
 # Let's start the experiment.
-# By default, this function doesn't stop until all the `rounds` are done for all the clients
+# By default, this function doesn't stop until all the `rounds` are done for all the nodes
 
 exp.run()
 

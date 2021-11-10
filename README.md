@@ -39,7 +39,7 @@ $ ./scripts/configure_conda
 
   * fedbiomed-network    : provides environement for HTTP upload/download server and MQQT daemon
   * fedbiomed-researcher : provides environement for the researcher part
-  * fedbiomed-node       : provides environement for the client part
+  * fedbiomed-node       : provides environement for the node part
 
 ### activate the environments
 
@@ -81,7 +81,7 @@ $ ./scripts/fedbiomed_run node start
 
 * this will launch a new node
 
-* you may also upload new data on this client with:
+* you may also upload new data on this node with:
 
 ```
 $ ./scripts/fedbiomed_run node add
@@ -177,14 +177,14 @@ To enable tensorboard during traning routine to see loss values, you need to set
 
 ```
 exp = Experiment(tags=tags,
-                 #clients=None,
+                 #nodes=None,
                  model_path=model_file,
                  model_args=model_args,
                  model_class='MyTrainingPlan',
                  training_args=training_args,
                  rounds=rounds,
                  aggregator=FedAverage(),
-                 client_selection_strategy=None,
+                 node_selection_strategy=None,
                  tensorboard=True
                 )
 ```
