@@ -5,7 +5,7 @@ import uuid
 
 from fedbiomed.common.logger         import logger
 from fedbiomed.common.singleton      import SingletonMeta
-from fedbiomed.common.constants      import ComponentType, SecurityLevels
+from fedbiomed.common.constants      import ComponentType, HashingAlgorithms
 from enum import Enum
 
 
@@ -174,9 +174,13 @@ class Environ(metaclass = SingletonMeta):
                                                                 cfg.get('security', 'model_approve')) \
                                                                     .lower() in ('true', '1', 't', True)
 
-        self._values['SECURITY_LEVEL'] = os.getenv('SECURITY_LEVEL', 
-                                                            cfg.get( 'security', 'level'))
-
+        
+        hashing_algorith = cfg.get( 'security', 'hashing_algorithm')
+        
+        if hashing_algorith in HashingAlgorithms.list():
+            self._values['HASHING_ALGORITHM'] = cfg.get( 'security', 'hashing_algorithm')
+        else:
+            raise Exception(f'Hashing algorithm must on of: {HashingAlgorithms.list()}')
 
 
         # ========= PATCH MNIST Bug torchvision 0.9.0 ===================
@@ -274,14 +278,11 @@ class Environ(metaclass = SingletonMeta):
         }
 
         # Security variables
-        security_level = os.getenv('SECURITY_LEVEL' , SecurityLevels.LOW.value)
         allow_default_models = os.getenv('ALLOW_DEFAULT_MODELS' , False)
         model_approve = os.getenv('ENABLE_MODEL_APPROVE' , False)
 
-        assert security_level in SecurityLevels.list(), f'Undefined security level. Please use one of {SecurityLevels.list()}'
-
         cfg['security'] = {
-            'level': security_level,
+            'hashing_algorithm': HashingAlgorithms.SHA256.value,
             'allow_default_models': allow_default_models,
             'model_approve': model_approve
         }

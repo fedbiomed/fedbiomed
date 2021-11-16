@@ -207,10 +207,10 @@ def manage_node():
         # Register default models and update hashes 
         if environ["MODEL_APPROVE"]:
             # This methods updates hashes if security level has changed
-            model_manager.update_hashes()
+            model_manager.check_hashes_for_registered_models()
             if environ["ALLOW_DEFAULT_MODELS"]:
                 logger.info('Loading default models')
-                model_manager.register_default_models() 
+                model_manager.register_update_default_models() 
         
         data_manager = Data_manager()
         logger.info('Starting communication channel with network')

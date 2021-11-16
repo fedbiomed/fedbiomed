@@ -29,3 +29,12 @@ class SecurityLevels(_BaseEnum):
     LOW = 'LOW'
     HIGH = 'HIGH'
 
+class HashingAlgorithms(_BaseEnum):
+
+    """ Enumeration class, used to characterize the hashing 
+    algorithims
+    """
+
+    SHA256 = 'SHA256'
+    SHA512 = 'SHA512'
+
