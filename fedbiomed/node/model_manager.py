@@ -38,7 +38,7 @@ class ModelManager:
             content = model.read()
             mini_content = minify( content, 
                                    remove_annotations=False, 
-                                   combine_imports=True,
+                                   combine_imports=False,
                                    remove_pass=False, 
                                    hoist_literals=False, 
                                    remove_object_base=True, 

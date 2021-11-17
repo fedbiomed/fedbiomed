@@ -207,10 +207,10 @@ class Experiment:
 
 
 
-    def get_model_file(self, display: bool = True ):
+    def get_final_model_file(self, display: bool = True ):
         
-        """ This method displays saved final model that will be send to
-            node for training. 
+        """ This method displays saved final model for the experiment 
+            that will be send to nodes for training. 
         """
         model_file = self._job.model_file
 
@@ -221,6 +221,17 @@ class Experiment:
                 print(content)
 
         return self._job.model_file
+
+
+    def check_model_is_approved(self):
+        
+        """ Method for checking whether model is approved or not. 
+        This method send `check-approve` request to the nodes. It should
+        be run before running experiment. So, researchers can find out
+        if their model has been approved
+        """
+        
+        pass
 
     def _create_breakpoint_exp_folder(self):
         """Creates a breakpoint folder for the current experiment (ie the
