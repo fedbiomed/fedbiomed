@@ -105,7 +105,13 @@ class ModelManager:
 
     def check_is_model_approved(self, path):
         
-        """ This method checks wheter model is approved by the node"""
+        """ This method checks wheter model is approved by the node
+
+            Args:
+                path (str): The path of requested model file by researcher after downloading
+                            model file from file repository. 
+        """
+
         req_model_hash = self._create_hash(path)
         self.db.clear_cache()
         models = self.db.all()
@@ -123,7 +129,15 @@ class ModelManager:
 
     def register_update_default_models(self):
 
-        """ This method is for registering new default methods"""
+        """ This method registers or updated default methods. When the is started
+        trhorugh CLI if environ['ALLOW_DEFAULT_MODELS'] is enabled. It will check the 
+        files saved into `default_models` directory and update/register them based 
+        on following conditions.
+
+          - Registers: If there is a new modelfile which isn't saved into db
+          - Updates: if model is modified
+          - Updates: if hashing algorithm has changed in config file.   
+        """
 
         models_path = os.path.join(environ["ROOT_DIR"], 'envs' , 'development' , 'default_models')
         
@@ -185,9 +199,12 @@ class ModelManager:
         self.db.clear_cache()
         models = self.db.all()
 
+        # Drop some keys for security reseasons
         for doc in models:
             doc.pop('model_path')
             doc.pop('hash')
+            doc.pop('date_modified')
+            doc.pop('date_created')
 
         if verbose:
             print(tabulate(models, headers='keys'))   

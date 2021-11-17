@@ -307,13 +307,14 @@ def delete_database(interactive: bool = True):
 
 def register_model(interactive: bool = True):
 
-    print('Welcome to the Fedbiomed CLI data manager')
+    """ Method for registring model files through CLI """
 
+    print('Welcome to the Fedbiomed CLI data manager')
     name = input('Please enter a model name: ')
     description = input('Please enter a description for the model: ')
-
-
-    path = validated_path_input(type = "py")
+    
+    # Allow files saved as txt
+    path = validated_path_input(type = "txt")
 
     # Regsiter model 
     try:
@@ -331,6 +332,9 @@ def register_model(interactive: bool = True):
         else:
             warnings.warn(f'[ERROR]: {e}')
         exit(1)
+
+    print('\nGreat! Take a look at your data:')
+    model_manager.list_approved_models(verbose=True)
 
 def launch_cli():
 

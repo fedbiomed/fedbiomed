@@ -41,7 +41,7 @@ case $1 in
 
         while true ; do
             case $2 in
-                # handle optional parameters : config file, network ip
+                # handle optional parameters : config file, network ip, model approve and allow default models
                 config)
                     if [ $# -lt 3 ] ; then
                         echo "ERROR: missing config file name"
@@ -60,25 +60,14 @@ case $1 in
                     shift
                     shift
                 ;;
-                enable_model_approve)
+                enable-model-approve|--enable-model-approve|--emp)
                     export ENABLE_MODEL_APPROVE=True
                     shift
                 ;;
 
-                allow_default_models)
+                allow-default-models|--allow-default-models|-adm )
                     export ALLOW_DEFAULT_MODELS=True
                     shift
-                ;;
-
-                security_level)
-                    if [ $3 == "LOW" ] || [ $3 == "HIGH" ]; then
-                        export SECURITY_LEVEL=$3
-                        shift
-                        shift
-                    else
-                        echo "ERROR: Undefiend security level, Please use LOW or HIGH"
-                        exit 1
-                    fi
                 ;;
 
                 *)
@@ -194,7 +183,7 @@ case $1 in
 usage: fedbiomed_run network
        fedbiomed_run researcher [ip_address IP_ADDRESS]
        fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS]
-                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist) PARAMS
+                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | register-model) PARAMS
 
 
 Runs the fedbiomed components after properly initializing the environments.
