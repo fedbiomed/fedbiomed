@@ -3,8 +3,9 @@ from tinydb import TinyDB, Query
 from datetime import datetime
 import hashlib
 from fedbiomed.node.environ import environ
-from fedbiomed.common.constants import HashingAlgorithms
+from fedbiomed.common.constants import HashingAlgorithms, ModelTypes
 from fedbiomed.common.logger import logger
+from python_minifier import minify
 from tabulate import tabulate
 import uuid
 
@@ -13,7 +14,10 @@ class ModelManager:
 
     def __init__(self):
 
-        """ Class constructur """
+        """ Class constructor for ModelManager. It creates a DB object \
+            for the table named as `Models` and builds a query object to query
+            the database.    
+        """
 
         self.tinydb = TinyDB(environ["DB_PATH"])
         self.db = self.tinydb.table('Models') 
@@ -21,17 +25,47 @@ class ModelManager:
 
     def _create_hash(self, path):
 
-        """ Method for creating hash with given model file"""
+        """ Method for creating hash with given model file
+
+            Args:
+                path (str): Model file path  
+        
+        """
 
         with open(path, "r") as model:
-            if environ['HASHING_ALGORITHM'] == "SHA256":
+            
+            # Minify model file using python_minifier module 
+            content = model.read()
+            mini_content = minify( content, 
+                                   remove_annotations=False, 
+                                   combine_imports=False,
+                                   remove_pass=False, 
+                                   hoist_literals=False, 
+                                   remove_object_base=True, 
+                                   rename_locals=False )
+
+            # Hash model content based on active hashing algorithm
+            if environ['HASHING_ALGORITHM'] == HashingAlgorithms.SHA256.value:
                 hashing = hashlib.sha256()
-                content = model.read()
-                hashing.update(content.encode('utf-8'))
-            else:
+            elif environ['HASHING_ALGORITHM'] == HashingAlgorithms.SHA384.value: 
+                hashing = hashlib.sha384()
+            elif environ['HASHING_ALGORITHM'] == HashingAlgorithms.SHA512.value: 
                 hashing = hashlib.sha512()
-                content = model.read()
-                hashing.update(content.encode('utf-8'))
+            elif environ['HASHING_ALGORITHM'] == HashingAlgorithms.SHA3_256.value: 
+                hashing = hashlib.sha3_256()
+            elif environ['HASHING_ALGORITHM'] == HashingAlgorithms.SHA3_384.value: 
+                hashing = hashlib.sha3_384()
+            elif environ['HASHING_ALGORITHM'] == HashingAlgorithms.SHA3_512.value: 
+                hashing = hashlib.sha3_512()
+            elif environ['HASHING_ALGORITHM'] == HashingAlgorithms.BLAKE2B.value: 
+                hashing = hashlib.blake2b()
+            elif environ['HASHING_ALGORITHM'] == HashingAlgorithms.BLAKE2S.value: 
+                hashing = hashlib.blake2s()
+            else:
+                raise Exception(f'Unkown hashing algorithm in the `environ` {environ["HASHING_ALGORITHM"]}')
+
+        # Create hash from model minified model content and encoded as `utf-8`
+        hashing.update(mini_content.encode('utf-8'))
 
         return hashing.hexdigest(), environ['HASHING_ALGORITHM']    
     
@@ -41,18 +75,33 @@ class ModelManager:
                         description: str, 
                         path: str, 
                         model_type: str = 'registered',
-                        model_id: str = None,
-                        verbose : bool = False):
+                        model_id: str = None
+                        ):
 
-        """ This method is for approving/registering model file"""
+        """ This method approves/registers model file thourgh CLI. 
+
+            Args: 
+                name        (str): Model file name. The name should be unique. Otherwise methods
+                                   throws an Exception
+                descripion  (str): Description fro model file. 
+                path        (str): Exact path for the model that will be registered
+                model_type  (str): Default is `regsitered`. It means that model has been registered 
+                                   by a user/hospital. Other value can be `default` which indicates
+                                   that model is default (models for tutorials/examples)
+
+        """
         
+        # Check model type is valid
+        if model_type not in ModelTypes.list():
+            raise Exception(f'Unkown model type: {model_type}')
+
         if not model_id:
             model_id = 'model_' + str(uuid.uuid4())
 
         # Check model path whether is registered before    
         self.db.clear_cache()
-        models_path_search = self.db.search(self.database.model_path.all(path))
-        models_name_search = self.db.search(self.database.name.all(name))
+        models_path_search = self.db.search(self.database.model_path == path)
+        models_name_search = self.db.search(self.database.name == name)
         if models_path_search: 
             raise Exception(f'This model has been added already: {path}')
         elif models_name_search:
@@ -80,49 +129,59 @@ class ModelManager:
 
     def check_hashes_for_registered_models(self):
         
-        """ This method checks regsitered model to control model files are exist 
-            or hash'ng algortihm has changed
+        """ This method checks regsitered models to make sure model files are exist 
+            and hashing algortihm is matched with specified algorithm in the config
+            file
         """
 
         self.db.clear_cache()
         models = self.db.search(self.database.model_type.all('registered'))
-        algorithm = [doc['algorithm'] for doc in models ]
-
-        if len(algorithm) > 0 and algorithm[0] != environ['HASHING_ALGORITHM']:
-            logger.info("Hashing algorithm has been changed, model hashes is getting updated")
+        logger.info('Checking hashes for registered models...')
+        if not models:
+            logger.info('There is no models registered')
+        else:
             for model in models:
                 # If model file is exists
                 if os.path.isfile(model['model_path']):
-                    hashing, algorithm = self._create_hash(model['model_path'])
-                    self.db.update( {'hash' : hashing, 'algorithm' : algorithm }, 
-                                    self.database.model_id.all(model["model_id"]))
+                    if model['algorithm'] != environ['HASHING_ALGORITHM']:
+                        logger.info(f'Recreating hashing for : {model["name"]} \t {model["model_id"]}')
+                        hashing, algorithm = self._create_hash(model['model_path'])
+                        self.db.update( {'hash' : hashing, 'algorithm' : algorithm }, 
+                                        self.database.model_id.all(model["model_id"]))
                 else:
-                    # Remove doc because its model file is not exist anymore
+                    # Remove doc because model file is not exist anymore
+                    logger.info(f'Model : {model["name"]} could not found in : {model["model_path"]}, will be removed')
                     self.db.remove(doc_ids=[model.doc_id])
-        else:
-            logger.info(f'Current hashing algorithm : {environ["HASHING_ALGORITHM"]}')
-
 
     def check_is_model_approved(self, path):
         
-        """ This method checks wheter model is approved by the node
+        """ This method checks wheter model is approved by the node. It send a query to
+        database to search for hash of requested model. If it the hash matches with one of the
+        models hashes in the DB, it approves requested model.
 
             Args:
                 path (str): The path of requested model file by researcher after downloading
                             model file from file repository. 
         """
 
+        # Create hash for requested model
         req_model_hash = self._create_hash(path)
+
         self.db.clear_cache()
-        models = self.db.all()
 
-        approved = False
-        approved_model = None
+        # If node allows defaults models search hash for all model types
+        # otherwise search only for `registerd` models
+        if environ['ALLOW_DEFAULT_MODELS']:
+            models = self.db.search( self.database.hash == req_model_hash)
+        else:
+            models = self.db.search( (self.database.model_type == 'registered') & (self.database.hash == req_model_hash))
 
-        for model in models:
-            if req_model_hash == model["hash"]:
-                approved = True
-                approved_model = model
+        if models:
+            approved = True
+            approved_model = models[0] # Search request returns an array 
+        else:
+            approved = False
+            approved_model = None
         
         return approved, approved_model
 
@@ -138,14 +197,12 @@ class ModelManager:
           - Updates: if model is modified
           - Updates: if hashing algorithm has changed in config file.   
         """
-
-        models_path = os.path.join(environ["ROOT_DIR"], 'envs' , 'development' , 'default_models')
         
         # Get model files saved in the directory
-        models_file = os.listdir(models_path)
+        models_file = os.listdir(environ['DEFAULT_MODELS_DIR'])
 
         # Get only default models from DB
-        models = self.db.search(self.database.model_type.all('default'))
+        models = self.db.search(self.database.model_type == 'default')
         
         # Get model names from list of models
         models_name_db   = [ model['name'] for model in models]
@@ -161,36 +218,52 @@ class ModelManager:
         for model in models_not_saved:
             self.register_model(name = model, 
                                 description = "Default model" , 
-                                path = os.path.join(models_path, model),
+                                path = os.path.join(environ['DEFAULT_MODELS_DIR'], model),
                                 model_type = 'default')
 
         # Remove models that has been removed from file system
         for model in models_deleted:
-            model = self.db.get(self.database.name.all(model))
+            model = self.db.get(self.database.name == model )
             logger.info(f'Removed default model file has been detected, it will be removed from DB as well: {model}')
             self.db.remove(doc_ids = [model.doc_id])
             
         # Update models 
         for model in models_exists:
-            path = os.path.join(models_path, model)
+            path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
             mtime = datetime.fromtimestamp(os.path.getmtime(path))
-            model_info = self.db.get(self.database.name.all(model))
+            model_info = self.db.get(self.database.name == model)
 
             # Check if hasing algorithm has changed
             if model_info['algorithm'] != environ['HASHING_ALGORITHM']:
-                hash, algorithm = self._create_hash(os.path.join(models_path, model))
+                logger.info(f'Recreating hashing for : {model_info["name"]} \t {model_info["model_id"]}')
+                hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_MODELS_DIR'], model))
                 self.db.update( {'hash' : hash, 'algorithm': algorithm}, 
-                                self.database.model_path.all(path))
+                                self.database.model_path == path)
             # If default model file is modified update hashing 
             elif mtime > datetime.strptime(model_info['date_modified'], "%d-%m-%Y %H:%M:%S.%f"):
                 logger.info(f"Modified default model file has been detected. Hashing will be updated for: {model}")
-                hash, algorithm = self._create_hash(os.path.join(models_path, model))
+                hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_MODELS_DIR'], model))
                 self.db.update( {'hash' : hash, 'algorithm': algorithm}, 
-                                self.database.model_path.all(path))
+                                self.database.model_path == path)
 
 
-    def delete_model(self, model_name: str ):
-        pass
+    def delete_model(self, model_id: str ):
+        
+        """ Remove model file from database. This model does not delete 
+        any registered model file and it only remove `registered` type of models.
+        Default models should be removed from the directory 
+        """
+
+        self.db.clear_cache()
+        model = self.db.get(self.database.model_id == model_id)
+
+        if model['model_type'] == ModelTypes.REGISTERED.value:
+            self.db.remove(doc_ids = [model.doc_id])
+        else:
+            raise Exception(f'For default models please remove model file \
+                                    from `default_models` and restart your node. ')
+
+        return True
 
     def list_approved_models(self, verbose: bool = True):
         

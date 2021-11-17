@@ -248,10 +248,10 @@ class Job:
                 if m['researcher_id'] != environ['RESEARCHER_ID'] or m['job_id'] != self._id or m['node_id'] not in list(self._nodes):
                     continue
                 
-                # Stop experiment if traning is failed
-                if m['success'] is False:
-                    logger.error(m['msg'])
-                    exit(-1)
+                # TODO: Handle success True/False states 
+                # if m['success'] is False:
+                #     logger.error(m['msg'])
+                #     exit(-1)
 
                 rtime_total = time.perf_counter() - time_start[m['node_id']]
 

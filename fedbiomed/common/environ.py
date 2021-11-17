@@ -157,14 +157,15 @@ class Environ(metaclass = SingletonMeta):
 
         VAR_DIR = self._values['VAR_DIR']
         NODE_ID = self._values['NODE_ID']
+        ROOT_DIR = self._values['ROOT_DIR']
 
         self._values['MESSAGES_QUEUE_DIR']  = os.path.join(VAR_DIR, 
                                                             f'queue_manager_{NODE_ID}')
         self._values['DB_PATH']             = os.path.join(VAR_DIR, 
-                                                            f'db_datasets_{NODE_ID}.json')
-        self._values['MODEL_DB_PATH']       = os.path.join(VAR_DIR,
-                                                            f'db_models_{NODE_ID}.json')
+                                                            f'db_{NODE_ID}.json')
 
+        self._values['DEFAULT_MODELS_DIR']  = os.path.join(ROOT_DIR, 
+                                                            'envs' , 'development', 'default_models')
 
         self._values['ALLOW_DEFAULT_MODELS'] = os.getenv('ALLOW_DEFAULT_MODELS', 
                                                                 cfg.get('security', 'allow_default_models')) \

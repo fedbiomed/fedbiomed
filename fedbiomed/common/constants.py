@@ -26,8 +26,8 @@ class SecurityLevels(_BaseEnum):
     algorithims
     """
 
-    LOW = 'LOW'
-    HIGH = 'HIGH'
+    LOW     = 'LOW'
+    HIGH    = 'HIGH'
 
 class HashingAlgorithms(_BaseEnum):
 
@@ -35,6 +35,22 @@ class HashingAlgorithms(_BaseEnum):
     algorithims
     """
 
-    SHA256 = 'SHA256'
-    SHA512 = 'SHA512'
+    SHA256      = 'SHA256'
+    SHA384      = 'SHA384'
+    SHA512      = 'SHA512'
+    SHA3_256    = 'SHA3_256'
+    SHA3_384    = 'SHA3_384'
+    SHA3_512    = 'SHA3_512'
+    BLAKE2B     = 'BLAKE2B'
+    BLAKE2S     = 'BLAKE2S'
 
+
+class ModelTypes(_BaseEnum):
+
+    """ Constant values for model type that will be saved into db. 
+    `regsitered` means model saved by a user/hospital/node. `default` 
+    means model is default model provided by Fed-BioMed. 
+    """
+
+    REGISTERED = 'registered'
+    DEFAULT    = 'default'

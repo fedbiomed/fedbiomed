@@ -13,6 +13,7 @@ import tkinter.messagebox
 from tkinter import _tkinter
 
 from fedbiomed.node.environ import environ
+from fedbiomed.common.constants import ModelTypes
 from fedbiomed.node.data_manager import Data_manager
 from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.node import Node
@@ -111,7 +112,7 @@ def validated_path_input(type):
                     exit(1)
                 assert os.path.isfile(path)
 
-            elif type == 'py': # For registering python model 
+            elif type == 'txt': # For registering python model 
                 path = pick_with_tkinter(mode='txt')
                 logger.debug(path)
                 if not path:
@@ -320,8 +321,7 @@ def register_model(interactive: bool = True):
     try:
         model_manager.register_model(name=name,
                                     description=description,
-                                    path=path,
-                                    verbose=True)
+                                    path=path)
         
     except AssertionError as e:
         if interactive is True:
@@ -335,6 +335,44 @@ def register_model(interactive: bool = True):
 
     print('\nGreat! Take a look at your data:')
     model_manager.list_approved_models(verbose=True)
+
+
+def delete_model():
+
+    """ Deletes registered models 
+    """
+
+    models = model_manager.list_approved_models(verbose=False)
+    models = [ m for m in models  if m['model_type'] == ModelTypes.REGISTERED.value]
+    if not models:
+        logger.warning('No models to delete')
+        return
+
+    options = [m['name'] + '\t Model ID ' + m['model_id'] for m in models]
+    msg = "Select the model to delete:\n"
+    msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
+    msg += "\nSelect: "
+
+    while True:
+        try:
+           
+            opt_idx = int(input(msg)) - 1
+            assert opt_idx >= 0
+            model_id = models[opt_idx]['model_id']
+
+            if not model_id:
+                logger.warning('No matching model to delete')
+                return
+            # Delete model
+            model_manager.delete_model(model_id)
+            logger.info('Model has been removed. Here your other models')
+            model_manager.list_approved_models(verbose=True)
+
+            return
+
+        except (ValueError, IndexError, AssertionError):
+            logger.error('Invalid option. Please, try again.')
+
 
 def launch_cli():
 
@@ -360,8 +398,11 @@ def launch_cli():
     parser.add_argument('-s', '--start-node',
                         help='Start fedbiomed node.',
                         action='store_true')
-    parser.add_argument('-r', '--register-model',
-                        help='Start fedbiomed node.',
+    parser.add_argument('-rmdl', '--register-model',
+                        help='Approve new model files.',
+                        action='store_true')
+    parser.add_argument('-dml', '--delete-model',
+                        help='Deletes models from DB',
                         action='store_true')
     parser.add_argument('-lms', '--list-models',
                         help='Start fedbiomed node.',
@@ -389,6 +430,8 @@ def launch_cli():
         delete_database(interactive=False)
     elif args.register_model:
         register_model()
+    elif args.delete_model:
+        delete_model()
     elif args.list_models:
         model_manager.list_approved_models(verbose = True)
     elif args.start_node:
