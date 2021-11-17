@@ -20,6 +20,7 @@ class Monitor():
 
         self._log_dir = environ['TENSORBOARD_RESULTS_DIR']
         self._event_writers = {}
+        self._round_state = 0
 
         if os.listdir(self._log_dir):
             logger.info('Removing tensorboard logs from previous experiment')
@@ -39,11 +40,11 @@ class Monitor():
 
         # For now monitor can only handle add_scalar messages
         if msg['command'] == 'add_scalar':
-                self._summary_writer(msg['node_id'],
-                                        msg['key'],
-                                        msg['iteration'],
-                                        msg['value'],
-                                        msg['epoch'] )
+            self._summary_writer(msg['node_id'],
+                                    msg['key'],
+                                    msg['iteration'],
+                                    msg['value'],
+                                    msg['epoch'] )
 
 
     def _summary_writer(self, node: str, key: str, global_step: int, scalar: float, epoch: int ):
@@ -66,7 +67,7 @@ class Monitor():
                                     'writer' : SummaryWriter(
                                         log_dir = os.path.join(self._log_dir, node)
                                     ),
-                                    'stepper': 0,
+                                    'stepper': 1,
                                     'step_state': 0,
                                     'step': 0
                                     }
@@ -76,9 +77,10 @@ class Monitor():
             global_step = epoch
 
         # Operations for finding iteration log interval for the training
-        if global_step != 0 and self._event_writers[node]['stepper'] == 0:
+        # stepper : interval betwwen each points in a round that will be displayed
+        if global_step != 0 and self._event_writers[node]['stepper'] <= 1:
             self._event_writers[node]['stepper'] = global_step
-
+        
         # In every epoch first iteration (global step) will be zero so
         # we need to update step_state to not to overwrite steps of
         # the previous  epochs

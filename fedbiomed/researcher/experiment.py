@@ -205,7 +205,6 @@ class Experiment:
             # Close SummaryWriters for tensorboard
             self._monitor.close_writer()
 
-
     def _create_breakpoint_exp_folder(self):
         """Creates a breakpoint folder for the current experiment (ie the
         current run of the model). This folder is located at

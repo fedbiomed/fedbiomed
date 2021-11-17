@@ -13,6 +13,7 @@ class _Capturer(list):
     when the verbose is set to true.
     """
     def __enter__(self):
+        sys.stdout.flush()
         self._stdout = sys.stdout
         sys.stdout = self._stringio = StringIO()
         return self
@@ -43,7 +44,7 @@ class SGDSkLearnModel():
         for p in self.params_sgd:
             setattr(self.m, p, self.params_sgd[p])
 
-    def partial_fit(self,X,y):
+    def partial_fit(self,X,y): # seems unused
         """
             Provide partial fit method of scikit learning model here.
             :param X (ndarray)
@@ -74,6 +75,7 @@ class SGDSkLearnModel():
             :param epochs (integer)
         """
         (data, target) = self.training_data()
+        breakpoint()
         for epoch in range(epochs):
             with _Capturer() as output:
                 if self.model_type == 'MultinomialNB' or self.model_type == 'BernoulliNB' or self.model_type == 'Perceptron' or self.model_type == 'SGDClassifier' or self.model_type == 'PassiveAggressiveClassifier' :
@@ -118,7 +120,7 @@ class SGDSkLearnModel():
            Class initializer.
            :param kwargs (dictionary) containing model parameters
         """
-        self.batch_size = 100
+        self.batch_size = 100  #unused
         self.model_map = {'MultinomialNB', 'BernoulliNB', 'Perceptron', 'SGDClassifier', 'PassiveAggressiveClassifier',
                           'SGDRegressor', 'PassiveAggressiveRegressor', 'MiniBatchKMeans',
                           'MiniBatchDictionaryLearning'}
