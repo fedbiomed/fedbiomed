@@ -38,7 +38,7 @@ class ModelManager:
             content = model.read()
             mini_content = minify( content, 
                                    remove_annotations=False, 
-                                   combine_imports=False,
+                                   combine_imports=True,
                                    remove_pass=False, 
                                    hoist_literals=False, 
                                    remove_object_base=True, 
@@ -165,8 +165,8 @@ class ModelManager:
         """
 
         # Create hash for requested model
-        req_model_hash = self._create_hash(path)
-
+        req_model_hash, _ = self._create_hash(path)
+        print(req_model_hash)
         self.db.clear_cache()
 
         # If node allows defaults models search hash for all model types
@@ -222,10 +222,10 @@ class ModelManager:
                                 model_type = 'default')
 
         # Remove models that has been removed from file system
-        for model in models_deleted:
-            model = self.db.get(self.database.name == model )
-            logger.info(f'Removed default model file has been detected, it will be removed from DB as well: {model}')
-            self.db.remove(doc_ids = [model.doc_id])
+        for model_name in models_deleted:
+            model_doc = self.db.get(self.database.name == model_name )
+            logger.info(f'Removed default model file has been detected, it will be removed from DB as well: {model_name}')
+            self.db.remove(doc_ids = [model_doc.doc_id])
             
         # Update models 
         for model in models_exists:
@@ -243,7 +243,8 @@ class ModelManager:
             elif mtime > datetime.strptime(model_info['date_modified'], "%d-%m-%Y %H:%M:%S.%f"):
                 logger.info(f"Modified default model file has been detected. Hashing will be updated for: {model}")
                 hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_MODELS_DIR'], model))
-                self.db.update( {'hash' : hash, 'algorithm': algorithm}, 
+                self.db.update( {'hash' : hash, 'algorithm': algorithm, 
+                                'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f") }, 
                                 self.database.model_path == path)
 
 

@@ -36,6 +36,8 @@ class MyTrainingPlan(TorchTrainingPlan):
         x = F.relu(x)
         x = self.dropout2(x)
         x = self.fc2(x)
+        
+        
         output = F.log_softmax(x, dim=1)
         return output
 
@@ -52,3 +54,4 @@ class MyTrainingPlan(TorchTrainingPlan):
         output = self.forward(data)
         loss   = torch.nn.functional.nll_loss(output, target)
         return loss
+

@@ -186,6 +186,10 @@ class Job:
     def training_args(self, training_args: dict):
         self._training_args = training_args
 
+    @property
+    def model_file(self):
+        return self._model_file 
+
     """ This method should change in sprint8 or as soon as we implement other
     kind of strategies different than DefaultStrategy"""
     def waiting_for_nodes(self, responses: Responses) -> bool:

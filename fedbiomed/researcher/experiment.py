@@ -206,6 +206,22 @@ class Experiment:
             self._monitor.close_writer()
 
 
+
+    def get_model_file(self, display: bool = True ):
+        
+        """ This method displays saved final model that will be send to
+            node for training. 
+        """
+        model_file = self._job.model_file
+
+        # Displat content so researcher can copy
+        if display:
+            with open(model_file) as file:
+                content = file.read()
+                print(content)
+
+        return self._job.model_file
+
     def _create_breakpoint_exp_folder(self):
         """Creates a breakpoint folder for the current experiment (ie the
         current run of the model). This folder is located at
