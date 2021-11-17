@@ -207,7 +207,7 @@ def manage_node():
 
         # Register default models and update hashes 
         if environ["MODEL_APPROVE"]:
-            # This methods updates hashes if security level has changed
+            # This methods updates hashes if hashing algorithm has changed
             model_manager.check_hashes_for_registered_models()
             if environ["ALLOW_DEFAULT_MODELS"]:
                 logger.info('Loading default models')

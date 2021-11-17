@@ -279,6 +279,7 @@ class Environ(metaclass = SingletonMeta):
         }
 
         # Security variables
+        # Default hashing algorithim is SHA256
         allow_default_models = os.getenv('ALLOW_DEFAULT_MODELS' , False)
         model_approve = os.getenv('ENABLE_MODEL_APPROVE' , False)
 
