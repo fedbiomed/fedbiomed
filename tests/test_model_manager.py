@@ -105,6 +105,8 @@ class TestMonitor(unittest.TestCase):
 
     def test_update_modified_model_files(self):
         
+        """ Testing update of modified default models """
+
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
 
         # Test with only first file 
@@ -131,7 +133,7 @@ class TestMonitor(unittest.TestCase):
 
     def test_register_model(self):
         
-        """ Testng registering new model """
+        """ Testing registering method for new models """
 
         self.model_manager.register_update_default_models()
 
