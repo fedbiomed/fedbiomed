@@ -13,6 +13,7 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.round import Round
 from fedbiomed.node.data_manager import Data_manager
+from fedbiomed.node.model_manager import ModelManager
 
 import validators
 
@@ -22,7 +23,9 @@ class Node:
     with researcher through Messager, and executing / parsing task
     requested by researcher stored in a queue.
     """
-    def __init__(self, data_manager: Data_manager):
+    def __init__( self, 
+                  data_manager: Data_manager, 
+                  model_manager: ModelManager):
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
         self.messaging = Messaging(self.on_message, ComponentType.NODE,

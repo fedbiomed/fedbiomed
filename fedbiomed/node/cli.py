@@ -215,7 +215,7 @@ def manage_node():
         
         data_manager = Data_manager()
         logger.info('Starting communication channel with network')
-        node = Node(data_manager)
+        node = Node(data_manager = data_manager)
         node.start_messaging(block=False)
 
         logger.info('Starting task manager')

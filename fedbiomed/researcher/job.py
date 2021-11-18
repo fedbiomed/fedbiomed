@@ -20,7 +20,7 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.datasets import FederatedDataSet
-
+from fedbiomed.common.message import ResearcherMessages
 
 class Job:
     """
@@ -189,6 +189,7 @@ class Job:
     @property
     def model_file(self):
         return self._model_file 
+ 
 
     """ This method should change in sprint8 or as soon as we implement other
     kind of strategies different than DefaultStrategy"""

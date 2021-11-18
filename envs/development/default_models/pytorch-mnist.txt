@@ -54,4 +54,3 @@ class MyTrainingPlan(TorchTrainingPlan):
         output = self.forward(data)
         loss   = torch.nn.functional.nll_loss(output, target)
         return loss
-

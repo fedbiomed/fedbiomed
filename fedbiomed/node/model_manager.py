@@ -4,6 +4,8 @@ from datetime import datetime
 import hashlib
 from fedbiomed.node.environ import environ
 from fedbiomed.common.constants import HashingAlgorithms, ModelTypes
+from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.repository import Repository
 from fedbiomed.common.logger import logger
 from python_minifier import minify
 from tabulate import tabulate
@@ -22,6 +24,7 @@ class ModelManager:
         self.tinydb = TinyDB(environ["DB_PATH"])
         self.db = self.tinydb.table('Models') 
         self.database = Query()
+        self.repo = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
 
     def _create_hash(self, path):
 
@@ -166,7 +169,6 @@ class ModelManager:
 
         # Create hash for requested model
         req_model_hash, _ = self._create_hash(path)
-        print(req_model_hash)
         self.db.clear_cache()
 
         # If node allows defaults models search hash for all model types
