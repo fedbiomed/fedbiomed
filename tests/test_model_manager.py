@@ -74,8 +74,10 @@ class TestMonitor(unittest.TestCase):
             self.assertIsInstance(hash, str , 'Hash creation is not successful')
             self.assertEqual(algortihm, 'SHA256' , 'Wrong hashing algorithm')
 
-            # Create has with each provided hashing algorithm
 
+            # TODO: Does not work because of the singleton environ  
+            # Can not change hashing algorithm  
+            # Create has with each provided hashing algorithm
             # algortihms = HashingAlgorithms.list()
             # for algo in algortihms:
             #     environ['HASHING_ALGORITHM'] = algo
@@ -88,7 +90,8 @@ class TestMonitor(unittest.TestCase):
             #     with self.assertRaises(Exception):
             #         hash, algortihm = self.model_manager._create_hash(full_path)  
           
-    # # Does not work because of the singleton environ                
+    # TODO: Does not work because of the singleton environ  
+    # Can not change hashing algorithm              
     # def test_update_default_hashes_when_algo_is_changed(self):
 
     #     """  Testing method for update/register default models when hashing
@@ -232,7 +235,6 @@ class TestMonitor(unittest.TestCase):
         """ Testing delete opration for model manager """
 
         model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
-        model_file_2 = os.path.join(self.testdir, 'test-model-2.txt')
 
         self.model_manager.register_model(
             name = 'test-model-1',
