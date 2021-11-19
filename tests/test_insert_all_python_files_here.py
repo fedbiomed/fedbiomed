@@ -24,6 +24,7 @@ import fedbiomed.node.environ
 import fedbiomed.node.history_monitor
 import fedbiomed.node.node
 import fedbiomed.node.round
+import fedbiomed.node.model_manager
 import fedbiomed.researcher.aggregators.aggregator
 import fedbiomed.researcher.aggregators.fedavg
 import fedbiomed.researcher.aggregators.functional

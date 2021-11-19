@@ -207,7 +207,7 @@ class ModelManager:
                 reply = { **header, 
                             'success': False,  
                             'approval_obligation' : False,  
-                            'model_approved' : False, 
+                            'is_approved' : False, 
                             'msg': f'Can not download model file. {msg["model_url"]}'}
             else:             
                 if environ["MODEL_APPROVAL"]:
@@ -235,12 +235,13 @@ class ModelManager:
                 reply = { **header, 
                             'success': False,  
                             'approval_obligation' : False,  
-                            'model_approved' : False, 
+                            'is_approved' : False, 
                             'msg': f'An error occured when downloading model file. {msg["model_url"]} , {e}'}
 
         # Send check model status answer to researher 
         messaging.send_message( NodeMessages.reply_create(reply).get_dict())
 
+        return
 
     def register_update_default_models(self):
 
@@ -253,7 +254,7 @@ class ModelManager:
           - Updates: if model is modified
           - Updates: if hashing algorithm has changed in config file.   
         """
-        
+        print(environ['HASHING_ALGORITHM'])
         # Get model files saved in the directory
         models_file = os.listdir(environ['DEFAULT_MODELS_DIR'])
 

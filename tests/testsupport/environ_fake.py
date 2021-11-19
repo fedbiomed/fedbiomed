@@ -63,11 +63,9 @@ class Environ(metaclass = SingletonMeta):
             self._values['NODE_ID']          = "mock_node_XXX"
             self._values['DB_PATH']            = '/tmp/var/db_node_mock_node_XXX.json'
             
-
-
             
             self._values['ALLOW_DEFAULT_MODELS'] = True
-            self._values['MODEL_APPROVE'] = True
+            self._values['MODEL_APPROVAL'] = True
             self._values['HASHING_ALGORITHM'] = 'SHA256'
 
         #if component == ComponentType.RESEARCHER:

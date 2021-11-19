@@ -266,8 +266,6 @@ For starting node with disabled model approval and default models;
 ./scripts/fedbiomed_run node config config-n1.ini --disable-model-approval --disable-default-models start
 ```
 
-```
-
 #### Default Models
 
 Default models has been located at the `env/development/default_models/` directory as `txt` files. Each time when the node started with the `model_approve = True` and `allow_default_model = True` modes, hashing of the model files are get checked to detect if the file is modified, the hashing algorithm has changed or is there any new model file added. If model files are modified `ModelManager` updates hashes for these models in the database. If the hashing algoritmh of the model is different that the active hashing algorithm, hashes also get updated. This process only occurs when both `model-approval` and `allow-default-models` modes are activated. To add new default model for the examples or for testing, model files should be saved as `txt` and copied into the `envs/development/default_models` directory. After the copy/save oparation node should be restarted. 
@@ -275,16 +273,16 @@ Default models has been located at the `env/development/default_models/` directo
 
 #### Registering New Models 
 
-New models can be registered usinf `fedbiomed_run` scripts with `register-model` option. 
+New models can be registered using `fedbiomed_run` scripts with `register-model` option. 
 
 ```shell
 ./scripts/fedbiomed_run node config config-n1.ini register-model
 ```
-The CLI will ask for name of the model, description and the path where model file is stored. Model files should saved as txt in the file system for registiration. 
+The CLI will ask for name of the model, description and the path where model file is stored. **Model files should saved as txt in the file system for registiration.** This because these files are for only hashing purposes not for loading modules. 
 
 #### Deleting Registered Models 
 
-Follwing command is used for deleting registered models. 
+Following command is used for deleting registered models. 
 
 ```
 ./scripts/fedbiomed_run node config config-n1.ini delete-model
@@ -319,6 +317,8 @@ exp = Experiment(tags=tags,
 exp.get_model_file()
 
 ```
+
+
 
 
 
