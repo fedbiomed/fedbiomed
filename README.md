@@ -210,5 +210,88 @@ Run following command to start tensorboard
 `tensorboard --logdir $PYTHONPATH/runs`
 
 
+## Model Hashing and Enabling Model Approve 
+
+Fed-BioMed offers optional model approval feature to approve the models requested by the researcher. This model approval process is done by hashing/checksum oparation by the ModelManager of node instance. When the `MODEL_APPROVE` mode is enabled, node should register/approve model files before performing the training. For testing and easy development, there are already presented default models by Fed-BioMed for the tutorials that we provide in the `notebooks` directory. However, node can also enable or disable the mode for allowing default models to perform training.    
+
+### Config file for security parameters
+
+Enabling model approval mode, allowing default Fed-BioMed models and the hashing algorithm that will be performed for the checksum oparation can be configurred from the config file of the node. The following code snippet represents an example security section of config file with default values.
+
+```
+[default]
+# ....
+
+[mqtt]
+# ....
+
+[security]
+hashing_algorithm = SHA256
+allow_default_models = True
+model_approve = False
+
+```
+
+By default, when node is started/add-data for the first time without additional security parameters, `model_approve` mode comes as disable. If `model_approve` is disabled the status of `allow_defaults_models` will have no effect. To enable `model_approve` you should set `model_approve` to `True` and if it is desired `allow_default_models` can be set to `False` to not accepting models of default Fed-BioMed examples. 
+
+The default hashing algorithm is `SHA256` and it can also be changed to other hashing algorithms that are provided by Fed-BioMed. You can see the list of Hashing algorithms in the following section.
+
+
+### Hashing Algorithms 
+
+`ModelManager` provides different hashing algorithms, and the algorithm can be changed through the config file of the node. The name of the algorithms should typed with capital letters. However, after changing hashing algorithm node should be restarted because it checks/updates hashing algorithms of the register/default models during the starting process. 
+
+Provided hashing algorithms are `SHA256`, `SHA384`, `SHA512`, `SHA3_256`, `SHA3_384`, `SHA3_512`, `BLAKE2B` and `BLAKE2S`. These are the algorithms that has been guaranteed by `hashlib` library of Python.  
+
+
+### Starting nodes with different modes
+
+To enable `model_approve` mode and `allow_default_models` node can be started following command. 
+
+```shell
+./scripts/fedbiomed_run node config config-n1.ini --enable-model-approve --allow-default-models start
+```
+This command will start the node with in model approval mode even the config file has been set as `model_aprove = False`.However it doesn't change the config file. If there is no config file named `config-n1.ini` it creates a config file for the node with enabled model approved mode. 
+
+```
+[security]
+hashing_algorithm = SHA256
+allow_default_models = True
+model_approve = True
+
+```
+
+### Registering New Models 
+
+New models can be registered usinf `fedbiomed_run` scripts with `register-model` option. 
+
+```shell
+./scripts/fedbiomed_run node config config-n1.ini register-model
+```
+The CLI will ask for name of the model, description and the path where model file is stored. Model files should saved as txt in the file system for registiration. 
+
+### Deleting Registered Models 
+
+Follwing command is used for deleting registered models. 
+
+```
+./scripts/fedbiomed_run node config config-n1.ini delete-model
+```
+
+Output of this command will list registered models with their name and id. It will ask to select model file you would like to remove. For example, in the follwing example, typing `1` and entering will remove the `MyModel` from registered/approved list of models. 
+
+```
+Select the model to delete:
+1) MyModel	 Model ID model_98a1e68d-7938-4889-bc46-357e4ce8b6b5
+Select: 
+
+```
+
+
+
+
+
+
+
 
 
