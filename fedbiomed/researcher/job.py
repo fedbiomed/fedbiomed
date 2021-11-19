@@ -300,7 +300,7 @@ class Job:
     def save_state(self, round: int=0):
         """Creates attribute `self.state` containing a
         first state of the job. State will be completed by
-        other methods called fro; `Experiment`.
+        other methods called from `Experiment`.
 
         Args:
             round (int, optional): number of round iteration.
