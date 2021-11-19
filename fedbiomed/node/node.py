@@ -31,6 +31,7 @@ class Node:
         self.messaging = Messaging(self.on_message, ComponentType.NODE,
                                    environ['NODE_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
         self.data_manager = data_manager
+        self.model_manager = model_manager
         self.rounds = []
 
     def add_task(self, task: dict):
@@ -109,6 +110,10 @@ class Node:
                       'databases': databases,
                       'count' : len(databases),
                      }).get_dict())
+            elif command == 'model-status':
+                # Check is model approved                
+                self.model_manager.reply_model_status_request(request, self.messaging)
+
             else:
                 raise NotImplementedError('Command not found')
         except decoder.JSONDecodeError:

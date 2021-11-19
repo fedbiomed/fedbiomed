@@ -60,13 +60,20 @@ case $1 in
                     shift
                     shift
                 ;;
-                enable-model-approve|--enable-model-approve|--emp)
-                    export ENABLE_MODEL_APPROVE=True
+                enable-model-approval|--enable-model-approve|-emp)
+                    export ENABLE_MODEL_APPROVAL=True
                     shift
                 ;;
-
+                disable-model-approval|--disable-model-approval|-dmp)
+                    export ENABLE_MODEL_APPROVAL=False
+                    shift
+                ;;
                 allow-default-models|--allow-default-models|-adm )
                     export ALLOW_DEFAULT_MODELS=True
+                    shift
+                ;;
+                disable-default-models|--disable-default-models|-ddm )
+                    export ALLOW_DEFAULT_MODELS=False
                     shift
                 ;;
 

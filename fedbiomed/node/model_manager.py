@@ -187,6 +187,60 @@ class ModelManager:
         
         return approved, approved_model
 
+    def reply_model_status_request(self, msg, messaging):
+        
+        # Main header for the model status request
+        header = {
+            'researcher_id': msg['researcher_id'],
+            'node_id': environ['NODE_ID'],
+            'job_id': msg['job_id'],
+            'model_url': msg['model_url'],
+            'command': 'model-status'
+        }
+
+        try: 
+
+            # Create model file with id and downlioad
+            model_name = 'my_model_' + str(uuid.uuid4().hex)
+            status, _ = self.repo.download_file(msg['model_url'], model_name + '.py')
+            if (status != 200):
+                reply = { **header, 
+                            'success': False,  
+                            'approval_obligation' : False,  
+                            'model_approved' : False, 
+                            'msg': f'Can not download model file. {msg["model_url"]}'}
+            else:             
+                if environ["MODEL_APPROVAL"]:
+                    is_approved, _ = self.check_is_model_approved(os.path.join(environ["TMP_DIR"], model_name + '.py')) 
+                    if not is_approved:
+                        reply = { **header,
+                                'success' : True, 
+                                'approval_obligation' : True,  
+                                'is_approved' : False, 
+                                'msg' : 'Model is not approved by the node' }
+                    else:
+                        reply = { **header,
+                                'success' : True, 
+                                'approval_obligation' : True,  
+                                'is_approved' : True, 
+                                'msg' : 'Model is approved by the node'}
+                else:
+                    reply = { **header, 
+                            'success' : True,
+                            'approval_obligation' : False,  
+                            'is_approved' : False , 
+                            'msg' : 'This node does not require model approval (maybe for debuging purposes). '}
+
+        except Exception as e:
+                reply = { **header, 
+                            'success': False,  
+                            'approval_obligation' : False,  
+                            'model_approved' : False, 
+                            'msg': f'An error occured when downloading model file. {msg["model_url"]} , {e}'}
+
+        # Send check model status answer to researher 
+        messaging.send_message( NodeMessages.reply_create(reply).get_dict())
+
 
     def register_update_default_models(self):
 

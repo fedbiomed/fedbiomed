@@ -171,8 +171,8 @@ class Environ(metaclass = SingletonMeta):
                                                                 cfg.get('security', 'allow_default_models')) \
                                                                     .lower() in ('true', '1', 't', True)
 
-        self._values['MODEL_APPROVE'] = os.getenv('ENABLE_MODEL_APPROVE', 
-                                                                cfg.get('security', 'model_approve')) \
+        self._values['MODEL_APPROVAL'] = os.getenv('ENABLE_MODEL_APPROVAL', 
+                                                                cfg.get('security', 'model_approval')) \
                                                                     .lower() in ('true', '1', 't', True)
 
         
@@ -281,12 +281,12 @@ class Environ(metaclass = SingletonMeta):
         # Security variables
         # Default hashing algorithim is SHA256
         allow_default_models = os.getenv('ALLOW_DEFAULT_MODELS' , False)
-        model_approve = os.getenv('ENABLE_MODEL_APPROVE' , False)
+        model_approval = os.getenv('ENABLE_MODEL_APPROVAL' , False)
 
         cfg['security'] = {
             'hashing_algorithm': HashingAlgorithms.SHA256.value,
             'allow_default_models': allow_default_models,
-            'model_approve': model_approve
+            'model_approval': model_approval
         }
 
 

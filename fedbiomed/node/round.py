@@ -80,7 +80,7 @@ class Round:
                 is_failed = True
                 error_message = "Cannot download model file: " + self.model_url
             else:             
-                if environ["MODEL_APPROVE"]:
+                if environ["MODEL_APPROVAL"]:
                     approved, model = self.model_manager.check_is_model_approved(os.path.join(environ["TMP_DIR"], import_module + '.py')) 
                     if not approved:
                         is_failed = True

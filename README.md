@@ -249,7 +249,7 @@ Provided hashing algorithms are `SHA256`, `SHA384`, `SHA512`, `SHA3_256`, `SHA3_
 To enable `model_approve` mode and `allow_default_models` node can be started following command. 
 
 ```shell
-./scripts/fedbiomed_run node config config-n1.ini --enable-model-approve --allow-default-models start
+./scripts/fedbiomed_run node config config-n1.ini --enable-model-approval --allow-default-models start
 ```
 This command will start the node with in model approval mode even the config file has been set as `model_aprove = False`.However it doesn't change the config file. If there is no config file named `config-n1.ini` it creates a config file for the node with enabled model approved mode. 
 
@@ -258,6 +258,13 @@ This command will start the node with in model approval mode even the config fil
 hashing_algorithm = SHA256
 allow_default_models = True
 model_approve = True
+
+
+For starting node with disabled model approval and default models;
+
+```shell
+./scripts/fedbiomed_run node config config-n1.ini --disable-model-approval --disable-default-models start
+```
 
 ```
 

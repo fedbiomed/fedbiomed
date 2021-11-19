@@ -206,16 +206,20 @@ def manage_node():
         logger.info('Launching node...')
 
         # Register default models and update hashes 
-        if environ["MODEL_APPROVE"]:
+        if environ["MODEL_APPROVAL"]:
             # This methods updates hashes if hashing algorithm has changed
             model_manager.check_hashes_for_registered_models()
             if environ["ALLOW_DEFAULT_MODELS"]:
                 logger.info('Loading default models')
                 model_manager.register_update_default_models() 
-        
+        else:
+            logger.warning('Model approval for train request is not activated. ' + \
+                            'This might cause security problems. Please, consider to enable model approval.')
+
         data_manager = Data_manager()
         logger.info('Starting communication channel with network')
-        node = Node(data_manager = data_manager)
+        node = Node(data_manager = data_manager,
+                    model_manager = model_manager)
         node.start_messaging(block=False)
 
         logger.info('Starting task manager')
