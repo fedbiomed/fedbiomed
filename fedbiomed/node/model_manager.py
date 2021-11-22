@@ -269,7 +269,8 @@ class ModelManager:
           - Updates: if model is modified
           - Updates: if hashing algorithm has changed in config file.   
         """
-
+        self.db.clear_cache()
+        
         # Get model files saved in the directory
         models_file = os.listdir(environ['DEFAULT_MODELS_DIR'])
 
