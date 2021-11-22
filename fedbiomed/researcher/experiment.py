@@ -506,13 +506,13 @@ class Experiment:
         _bkpt_sampling_strategy_args = saved_state.get(
             "node_selection_strategy"
         )
-        import_str = cls._instancialize_module(_bkpt_sampling_strategy_args)
+        import_str = cls._instantiate_module(_bkpt_sampling_strategy_args)
         exec(import_str)
         _bkpt_sampling_strategy = eval(_bkpt_sampling_strategy_args.get("class"))
 
         # ----- retrieve federator -----
         bkpt_aggregator_args = saved_state.get("aggregator")
-        import_str = cls._instancialize_module(bkpt_aggregator_args)
+        import_str = cls._instantiate_module(bkpt_aggregator_args)
         exec(import_str)
         bkpt_aggregator = eval(bkpt_aggregator_args.get("class"))
 
@@ -549,7 +549,7 @@ class Experiment:
         return loaded_exp
 
     @staticmethod
-    def _instancialize_module(args: Dict[str, Any]):
+    def _instantiate_module(args: Dict[str, Any]):
         """
         ???
         """

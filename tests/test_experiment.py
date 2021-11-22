@@ -192,20 +192,20 @@ class TestStateExp(unittest.TestCase):
                           files,
                           only_folder=False)
 
-    def test_private_instancialize_module(self):
+    def test_private_instantiate_module(self):
         args = {"class": "myclass",
                 "module": "module.containing.my.class",
                 "parameters": None}
 
         # test 1: default
-        import_str = Experiment._instancialize_module(args)
+        import_str = Experiment._instantiate_module(args)
         self.assertEqual(import_str,
                          'from module.containing.my.class import myclass')
         # test 2: custom module
         args = {"class": "myclass",
                 "module": "custom",
                 "parameters": None}
-        import_str = Experiment._instancialize_module(args)
+        import_str = Experiment._instantiate_module(args)
         self.assertEqual(import_str, 'import myclass')
 
     @patch('fedbiomed.researcher.job.Job._load_training_replies')
@@ -221,7 +221,7 @@ class TestStateExp(unittest.TestCase):
     @patch('fedbiomed.researcher.job.Job._load_training_replies')
     @patch('fedbiomed.researcher.job.Job.__init__')
     @patch('fedbiomed.researcher.experiment.eval')
-    @patch('fedbiomed.researcher.experiment.Experiment._instancialize_module')
+    @patch('fedbiomed.researcher.experiment.Experiment._instantiate_module')
     @patch('json.load')
     @patch("builtins.open")
     @patch('fedbiomed.researcher.experiment.Experiment._find_breakpoint_path')
@@ -229,7 +229,7 @@ class TestStateExp(unittest.TestCase):
                              patch_find_breakpoint_path,
                              patch_builtin_open,
                              patch_json_load,
-                             patch_instancialize_module,
+                             patch_instantiate_module,
                              patch_builtin_eval,
                              patch_job_init,
                              patch_job_load_training_replies
@@ -259,7 +259,7 @@ class TestStateExp(unittest.TestCase):
         patch_find_breakpoint_path.return_value = values
         patch_builtin_open.return_value = MagicMock()
         patch_json_load.return_value = loaded_states
-        patch_instancialize_module.return_value = "import abc"  # not sure it is a good idea
+        patch_instantiate_module.return_value = "import abc"  # not sure it is a good idea
         patch_builtin_eval.return_value = MagicMock()
         patch_job_init.return_value = None
         patch_job_load_training_replies.return_value = MagicMock()
