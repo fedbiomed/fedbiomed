@@ -540,10 +540,7 @@ class Experiment:
         loaded_exp._job._data = FederatedDataSet(
             saved_state.get('training_data')
         )
-        loaded_exp._load_training_replies(
-            saved_state.get('training_replies'),
-            saved_state.get("params_path")
-        )
+        loaded_exp._job._load_training_replies(saved_state.get('training_replies'))
         loaded_exp._job._researcher_id = saved_state.get('researcher_id')
         logging.debug(f"reloading from {breakpoint_folder} successful!")
         return loaded_exp
@@ -567,8 +564,3 @@ class Experiment:
 
         return import_str
 
-    def _load_training_replies(self,
-                               training_replies: Dict[int, List[dict]],
-                               params_path: Dict[str, str]):
-        self._job._load_training_replies(training_replies,
-                                         params_path)

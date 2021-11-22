@@ -319,61 +319,69 @@ class Job:
             'training_replies': self._save_training_replies()
         }
 
-    def _save_training_replies(self) -> Dict[int, List[dict]]:
-        """saves last values training replies variable, and replace
-        pytroch tensor / numpy arrays by path files pointing to
-        tensor files (these tensor files contain pytorch tensor / numpy arrays)
+    def _save_training_replies(self) -> List[Dict[int, List[dict]]]:
+        """extracts a copy of `self._training_replies` and
+        prepares it for saving in breakpoint
+        - strip unwanted fields
+        - structure as list/dict so it can be saved with JSON
 
         Returns:
-            list: `_training_replies` variable containing path files towards
-            pytorch / numpy arrays instead of Tensors/Arrays values (so it can
-            be saved with JSON).
+            List[Dict[int, List[dict]]]: formatted extract from `self._training_replies`
         """
-        last_index = max(self._training_replies.keys())
-        converted_training_replies = copy.deepcopy(
-                                    self._training_replies[last_index].data
-                                    )
-        # training_replies saving facility
-        for node_i, node_entry in enumerate(self._training_replies[last_index]):
-            node_id = node_entry.get("node_id")
-            converted_training_replies[node_i]['params'] = self._params_path.get(node_id)
-        return {int(last_index): converted_training_replies}
+        converted_training_replies = []
+        
+        for round in self._training_replies.keys():
+            training_reply = copy.deepcopy(self._training_replies[round].data)
+            # we want to strip some fields for the breakpoint
+            for node in training_reply:
+                del node['params']
+            converted_training_replies.append(training_reply)
 
-    def _load_training_replies(self,
-                               training_replies: Dict[int, List[dict]],
-                               params_path: Dict[str, str]):
+        return converted_training_replies
+
+    def _load_training_replies(self, training_replies: List[Dict[int, List[dict]]]):
         """Loads training replies from a formatted JSON file,
         so it behaves like a real `training_replies`.
-        Gathers parameters values instead of path to paramater files.
+        Gathers parameters values from `params_path`.
 
         Args:
-            training_replies (Dict[int, List[dict]]): JSON formatted
-            `training_replies` entry.
-            params_path (Dict[str, str]): dictionary of parameter paths (keys)
-            mapping node ids (entries).
+            training_replies (List[Dict[int, List[dict]]]): JSON formatted
+            `training_replies` entry partial extraction.
         """
 
-        # get key
-        key = tuple(training_replies.keys())[0]
-        if key != int(key):
-            # convert string key to integer (converting into JSON
-            # change every key type into str type)
+        self._training_replies = []
+        for round in training_replies:
+            loaded_training_reply = Responses(round)
+            # reload parameters from params_path
+            for node in loaded_training_reply:
+                node['params'] = self.model_instance.load(
+                    node['params_path'], to_params=True)
 
-            training_replies[int(key)] = training_replies[key]
-            #training_replies.pop(key)
-            #
-            key = int(key)
-        loaded_training_replies = {key: Responses([])}
-        for node_id, node_i in zip(params_path.keys(),
-                                       range(len(training_replies))):
-            training_replies[key][node_i]['params'] = self.model_instance.load(params_path[node_id],
-                                                                                 to_params=True)
+            self._training_replies.append(loaded_training_reply)
 
-            training_replies[key][node_i]['params_path'] = params_path[node_id]
+        # TODO : CONTENT OF PARAMS
 
-            loaded_training_replies[key].append(Responses(training_replies[key][node_i]))
-        #print(loaded_training_replies)
-        self._training_replies = loaded_training_replies
+        ## get key
+        #key = tuple(training_replies.keys())[0]
+        #if key != int(key):
+        #    # convert string key to integer (converting into JSON
+        #    # change every key type into str type)
+#
+        #    training_replies[int(key)] = training_replies[key]
+        #    #training_replies.pop(key)
+        #    #
+        #    key = int(key)
+        #loaded_training_replies = {key: Responses([])}
+        #for node_id, node_i in zip(params_path.keys(),
+        #                               range(len(training_replies))):
+        #    training_replies[key][node_i]['params'] = self.model_instance.load(params_path[node_id],
+        #                                                                         to_params=True)
+#
+        #    training_replies[key][node_i]['params_path'] = params_path[node_id]
+#
+        #    loaded_training_replies[key].append(Responses(training_replies[key][node_i]))
+        ##print(loaded_training_replies)
+        #self._training_replies = loaded_training_replies
 
     def check_data_quality(self):
 
