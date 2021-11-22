@@ -313,7 +313,6 @@ class Job:
             'training_data': self._data.data(),
             'training_args': self._training_args,
             'model_args': self._model_args,
-            'command': 'train',
             'model_path': self._model_file,
             'params_path': self._params_path,
             'model_class': self._repository_args.get('model_class'),

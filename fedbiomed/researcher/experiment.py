@@ -275,13 +275,11 @@ class Experiment:
          - tags
          - 'aggregator'
          - 'node_selection_strategy'
-         - 'round_success'
          - researcher_id
          - job_id
          - training_data
          - training_args
          - model_args
-         - command
          - model_path
          - params_path
          - model_class
@@ -298,7 +296,6 @@ class Experiment:
             'round_number_due': self._rounds,
             'aggregator': self._aggregator.save_state(),
             'node_selection_strategy': self._node_selection_strategy.save_state(),
-            'round_success': True,
             'tags': self._tags
         }
 
