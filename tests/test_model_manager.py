@@ -1,20 +1,16 @@
+
 # Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-# Detele environ. It is necessary to rebuild environ for required component
-delete_environ()
-import testsupport.mock_common_environ
-# Import environ for node, since tests will be runing for node component
 from fedbiomed.node.environ import environ
-
-
+from testsupport.environ_fake import Environ
 from fedbiomed.common.constants import HashingAlgorithms
 import os
 from fedbiomed.node.model_manager import ModelManager
 import unittest
 import inspect
 from unittest.mock import patch, MagicMock
+from fedbiomed.common.logger import logger
 
-class TestMonitor(unittest.TestCase):
+class TestModelManager(unittest.TestCase):
     """
     Test `Monitormanager` 
     Args:
@@ -24,8 +20,30 @@ class TestMonitor(unittest.TestCase):
     # before the tests
     def setUp(self):
         
-        # Set dummy db path
-        environ['DB_PATH']  = '/tmp/var/db_node_mock_node_XXX.json'
+        # This part important for setting fake values for environ -----------------
+        # and properly mocking values in environ Since environ is singleton, 
+        # you should also mock environ objects that is called from modolues e.g 
+        # fedbiomed.node.model_manager.environ you should use another mock for 
+        # the environ object used in test functions
+        self.values = Environ().values()
+        def side_effect(arg):
+            return self.values[arg]
+
+        def side_effect_set_item(key, value):
+            self.values[key] = value
+
+        self.environ_patch = patch('fedbiomed.node.environ.environ')
+        self.environ_model_manager_patch = patch('fedbiomed.node.model_manager.environ')
+
+        self.environ = self.environ_patch.start()
+        self.environ_model = self.environ_model_manager_patch.start()
+
+        self.environ.__getitem__.side_effect = side_effect
+        self.environ.__setitem__.side_effect = side_effect_set_item
+
+        self.environ_model.__getitem__.side_effect = side_effect
+        self.environ_model.__setitem__.side_effect = side_effect_set_item
+        # ---------------------------------------------------------------------------
 
         # Build ModelManger    
         self.model_manager = ModelManager()
@@ -41,78 +59,83 @@ class TestMonitor(unittest.TestCase):
 
     # after the tests
     def tearDown(self):
-
-        # Set default 
-        environ['HASHING_ALGORITHM'] = "SHA256"
-
         # DB should be removed after each test to
         # have clear database for tests
+        self.environ_patch.stop()
+        self.environ_model_manager_patch.stop()
         
         self.model_manager.tinydb.drop_table('Models')
-        self.model_manager = ModelManager()
 
         pass
-
 
     def test_create_default_model_hashes(self):
 
         """ Testing whether created hash for model files are okay 
         or not. It also tests every default with each provided hashing algorithim 
         """
-        default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
+        # We should import environ to get fake values 
+        from fedbiomed.node.environ import environ
 
+
+        self.model_manager = ModelManager()
+        default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
+        logger.info('Controlling Models Dir')
+        logger.info(environ['DEFAULT_MODELS_DIR'])
         for model in default_models:
             
             #set default hashing algorithm
             environ['HASHING_ALGORITHM'] = 'SHA256'
-
-
             full_path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
             
+
             # Create has with default hashing algorithm
             hash, algortihm = self.model_manager._create_hash(full_path)    
             self.assertIsInstance(hash, str , 'Hash creation is not successful')
             self.assertEqual(algortihm, 'SHA256' , 'Wrong hashing algorithm')
 
+            algortihms = HashingAlgorithms.list()
+            for algo in algortihms:
+                self.values['HASHING_ALGORITHM'] = algo
+                hash, algortihm = self.model_manager._create_hash(full_path)    
+                self.assertIsInstance(hash, str , 'Hash creation is not successful')
+                self.assertEqual(algortihm, algo , 'Wrong hashing algorithm')
 
-            # TODO: Does not work because of the singleton environ  
-            # Can not change hashing algorithm  
-            # Create has with each provided hashing algorithm
-            # algortihms = HashingAlgorithms.list()
-            # for algo in algortihms:
-            #     environ['HASHING_ALGORITHM'] = algo
-            #     hash, algortihm = self.model_manager._create_hash(full_path)    
-            #     self.assertIsInstance(hash, str , 'Hash creation is not successful')
-            #     self.assertEqual(algortihm, algo , 'Wrong hashing algorithm')
+                # Test unkown hashing algorithm 
+                with self.assertRaises(Exception):
+                    hash, algortihm = self.model_manager._create_hash(full_path, 'sss')  
+                        
+    def test_update_default_hashes_when_algo_is_changed(self):
 
-            #     # Test unkown hashing algorithm
-            #     environ['HASHING_ALGORITHM'] = 'sss' # Undefined hashing algorithm
-            #     with self.assertRaises(Exception):
-            #         hash, algortihm = self.model_manager._create_hash(full_path)  
-          
-    # TODO: Does not work because of the singleton environ  
-    # Can not change hashing algorithm              
-    # def test_update_default_hashes_when_algo_is_changed(self):
-
-    #     """  Testing method for update/register default models when hashing
-    #          algorithm has changed
-    #     """
-
-    #     # Single test with default hash algorithm 
-    #     self.model_manager.register_update_default_models()
-
-    #     # # Multiple test with different hashing algorithms
-    #     algortihms = HashingAlgorithms.list()
-    #     for algo in algortihms:
-    #         environ['HASHING_ALGORITHM'] = algo
-    #         self.model_manager.register_update_default_models()
-    #         doc = self.model_manager.db.get(self.model_manager.database.model_type == "default")
-    #         self.assertEqual(doc["algorithm"], algo, 'Hashes are not properly updated after hashing algorithm is changed')
+        """  Testing method for update/register default models when hashing
+             algorithm has changed
+        """
+        # We should import environ to get fake values 
+        from fedbiomed.node.environ import environ
         
+
+
+        # Single test with default hash algorithm 
+        self.model_manager.register_update_default_models()
+
+        # # Multiple test with different hashing algorithms
+        algortihms = HashingAlgorithms.list()
+        for algo in algortihms:
+            self.values['HASHING_ALGORITHM'] = algo
+            self.model_manager.register_update_default_models()
+            doc = self.model_manager.db.get(self.model_manager.database.model_type == "default")
+            logger.info(doc)
+            self.assertEqual(doc["algorithm"], algo, 'Hashes are not properly updated after hashing algorithm is changed')
 
     def test_update_modified_model_files(self):
         
         """ Testing update of modified default models """
+        
+        # We should import environ to get fake values 
+        from fedbiomed.node.environ import environ
+
+        logger.info('Print Infoooo')
+        logger.info(environ['DB_PATH'])
+        self.model_manager = ModelManager()
 
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
 
@@ -123,7 +146,7 @@ class TestMonitor(unittest.TestCase):
             file_path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
             self.model_manager.register_update_default_models()
             doc = self.model_manager.db.get(self.model_manager.database.model_path == file_path)
-
+            
             # Open the file in append & read mode ('a+')
             with open(file_path, "a+") as file:
                 lines = file.readlines()     # lines is list of line, each element '...\n'
@@ -141,6 +164,9 @@ class TestMonitor(unittest.TestCase):
     def test_register_model(self):
         
         """ Testing registering method for new models """
+
+        # We should import environ to get fake values 
+        from fedbiomed.node.environ import environ
 
         self.model_manager.register_update_default_models()
 
@@ -195,6 +221,7 @@ class TestMonitor(unittest.TestCase):
     def test_checking_model_approve(self):
 
         """ Testing check model is approved or not """
+        from fedbiomed.node.environ import environ
 
         model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
         model_file_2 = os.path.join(self.testdir, 'test-model-2.txt')
@@ -233,6 +260,8 @@ class TestMonitor(unittest.TestCase):
     def test_delete_registered_models(self):
 
         """ Testing delete opration for model manager """
+        from fedbiomed.node.environ import environ
+
 
         model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
 
@@ -280,6 +309,9 @@ class TestMonitor(unittest.TestCase):
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
     def test_reply_model_status_request(self, mock_checking , mock_download):
+        
+        from fedbiomed.node.environ import environ
+
 
         messaging = MagicMock()
         messaging.send_message.return_value = None

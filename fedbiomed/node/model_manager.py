@@ -20,7 +20,6 @@ class ModelManager:
             for the table named as `Models` and builds a query object to query
             the database.    
         """
-
         self.tinydb = TinyDB(environ["DB_PATH"])
         self.db = self.tinydb.table('Models') 
         self.database = Query()
@@ -34,6 +33,7 @@ class ModelManager:
                 path (str): Model file path  
         
         """
+        hash_algo = environ['HASHING_ALGORITHM']
 
         with open(path, "r") as model:
             
@@ -48,21 +48,21 @@ class ModelManager:
                                    rename_locals=False )
 
             # Hash model content based on active hashing algorithm
-            if environ['HASHING_ALGORITHM'] == HashingAlgorithms.SHA256.value:
+            if hash_algo == HashingAlgorithms.SHA256.value:
                 hashing = hashlib.sha256()
-            elif environ['HASHING_ALGORITHM'] == HashingAlgorithms.SHA384.value: 
+            elif hash_algo == HashingAlgorithms.SHA384.value: 
                 hashing = hashlib.sha384()
-            elif environ['HASHING_ALGORITHM'] == HashingAlgorithms.SHA512.value: 
+            elif hash_algo == HashingAlgorithms.SHA512.value: 
                 hashing = hashlib.sha512()
-            elif environ['HASHING_ALGORITHM'] == HashingAlgorithms.SHA3_256.value: 
+            elif hash_algo == HashingAlgorithms.SHA3_256.value: 
                 hashing = hashlib.sha3_256()
-            elif environ['HASHING_ALGORITHM'] == HashingAlgorithms.SHA3_384.value: 
+            elif hash_algo == HashingAlgorithms.SHA3_384.value: 
                 hashing = hashlib.sha3_384()
-            elif environ['HASHING_ALGORITHM'] == HashingAlgorithms.SHA3_512.value: 
+            elif hash_algo == HashingAlgorithms.SHA3_512.value: 
                 hashing = hashlib.sha3_512()
-            elif environ['HASHING_ALGORITHM'] == HashingAlgorithms.BLAKE2B.value: 
+            elif hash_algo == HashingAlgorithms.BLAKE2B.value: 
                 hashing = hashlib.blake2b()
-            elif environ['HASHING_ALGORITHM'] == HashingAlgorithms.BLAKE2S.value: 
+            elif hash_algo == HashingAlgorithms.BLAKE2S.value: 
                 hashing = hashlib.blake2s()
             else:
                 raise Exception(f'Unkown hashing algorithm in the `environ` {environ["HASHING_ALGORITHM"]}')
@@ -70,7 +70,7 @@ class ModelManager:
         # Create hash from model minified model content and encoded as `utf-8`
         hashing.update(mini_content.encode('utf-8'))
 
-        return hashing.hexdigest(), environ['HASHING_ALGORITHM']    
+        return hashing.hexdigest(), hash_algo    
     
 
     def register_model(self, 
@@ -254,7 +254,7 @@ class ModelManager:
           - Updates: if model is modified
           - Updates: if hashing algorithm has changed in config file.   
         """
-        print(environ['HASHING_ALGORITHM'])
+
         # Get model files saved in the directory
         models_file = os.listdir(environ['DEFAULT_MODELS_DIR'])
 
