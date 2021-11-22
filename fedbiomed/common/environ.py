@@ -176,9 +176,9 @@ class Environ(metaclass = SingletonMeta):
                                                                     .lower() in ('true', '1', 't', True)
 
         
-        hashing_algorith = cfg.get( 'security', 'hashing_algorithm')
+        hashing_algorithm = cfg.get( 'security', 'hashing_algorithm')
         
-        if hashing_algorith in HashingAlgorithms.list():
+        if hashing_algorithm in HashingAlgorithms.list():
             self._values['HASHING_ALGORITHM'] = cfg.get( 'security', 'hashing_algorithm')
         else:
             raise Exception(f'Hashing algorithm must on of: {HashingAlgorithms.list()}')
@@ -280,7 +280,7 @@ class Environ(metaclass = SingletonMeta):
 
         # Security variables
         # Default hashing algorithim is SHA256
-        allow_default_models = os.getenv('ALLOW_DEFAULT_MODELS' , False)
+        allow_default_models = os.getenv('ALLOW_DEFAULT_MODELS' , True)
         model_approval = os.getenv('ENABLE_MODEL_APPROVAL' , False)
 
         cfg['security'] = {

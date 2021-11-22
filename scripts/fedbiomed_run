@@ -60,7 +60,7 @@ case $1 in
                     shift
                     shift
                 ;;
-                enable-model-approval|--enable-model-approve|-emp)
+                enable-model-approval|--enable-model-approval|-emp)
                     export ENABLE_MODEL_APPROVAL=True
                     shift
                 ;;

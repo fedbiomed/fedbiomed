@@ -91,6 +91,8 @@ class ModelManager:
                 model_type  (str): Default is `regsitered`. It means that model has been registered 
                                    by a user/hospital. Other value can be `default` which indicates
                                    that model is default (models for tutorials/examples)
+                model_id    (str): Pre-defined id for model. Default is None. When it is Nonde method
+                                    creates unique id for the model. 
 
         """
         
@@ -189,6 +191,19 @@ class ModelManager:
 
     def reply_model_status_request(self, msg, messaging):
         
+        """ This method is called directly from Node.py when 
+        it recevies ModelStatusRequest. It checks requested model file
+        whether it is approved or not and sends ModelStatusReply to 
+        researcher. 
+
+        Args: 
+
+            msg         (dict): Message that is receivied from researcher. 
+                                Formatted as ModelStatusRequest
+            messaging   (MQTT):  MQTT client to send reply  to researcher
+        """
+
+
         # Main header for the model status request
         header = {
             'researcher_id': msg['researcher_id'],
@@ -325,7 +340,12 @@ class ModelManager:
 
     def list_approved_models(self, verbose: bool = True):
         
-        """Method for listing approved model files"""
+        """ Method for listing approved model files
+
+            Args: 
+                verbose (bool): Default is True. When it is True, print 
+                                list of model in tabular format. 
+        """
 
         self.db.clear_cache()
         models = self.db.all()
