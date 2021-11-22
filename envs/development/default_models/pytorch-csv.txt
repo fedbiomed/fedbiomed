@@ -1,0 +1,60 @@
+from fedbiomed.common.torchnn import TorchTrainingPlan
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+from torch.utils.data import Dataset, DataLoader
+import pandas as pd
+
+class MyTrainingPlan(TorchTrainingPlan):       
+    def __init__(self, kwargs):
+        super(MyTrainingPlan, self).__init__()
+        # kwargs should match the model arguments to be passed below to the experiment class
+        self.in_features = kwargs['in_features']
+        self.out_features = kwargs['out_features']
+        self.fc1 = nn.Linear(self.in_features, 5)
+        self.fc2 = nn.Linear(5, self.out_features)
+        
+        # Here we define the custom dependencies that will be needed by our custom Dataloader
+        # In this case, we need the torch Dataset and DataLoader classes
+        # We need pandas to read the local .csv file at the node side
+        deps = ["from torch.utils.data import Dataset, DataLoader",
+                "import pandas as pd"]
+        self.add_dependency(deps)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.fc2(x)
+        return x
+
+    def training_step(self, data, target):
+        output = self.forward(data).float()
+        criterion = torch.nn.MSELoss()
+        loss   = criterion(output, target.unsqueeze(1))
+        return loss
+
+    class csv_Dataset(Dataset):
+    # Here we define a custom Dataset class inherited from the general torch Dataset class
+    # This class takes as argument a .csv file path and creates a torch Dataset 
+        def __init__(self, dataset_path, x_dim):
+            self.input_file = pd.read_csv(dataset_path,sep=';',index_col=False)
+            x_train = self.input_file.iloc[:,:x_dim].values
+            y_train = self.input_file.iloc[:,-1].values
+            self.X_train = torch.from_numpy(x_train).float()
+            self.Y_train = torch.from_numpy(y_train).float()
+
+        def __len__(self):            
+            return len(self.Y_train)
+
+        def __getitem__(self, idx):
+
+            return (self.X_train[idx], self.Y_train[idx])
+        
+    def training_data(self,  batch_size = 48):
+    # The training_data creates the Dataloader to be used for training in the general class TorchTrainingPlan of fedbiomed
+        dataset = self.csv_Dataset(self.dataset_path, self.in_features)
+        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+        data_loader = DataLoader(dataset, **train_kwargs)
+        return data_loader
