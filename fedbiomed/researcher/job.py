@@ -349,39 +349,16 @@ class Job:
             `training_replies` entry partial extraction.
         """
 
-        self._training_replies = []
-        for round in training_replies:
-            loaded_training_reply = Responses(round)
+        self._training_replies = {}
+        for round in range(len(training_replies)):
+            loaded_training_reply = Responses(training_replies[round])
             # reload parameters from params_path
             for node in loaded_training_reply:
                 node['params'] = self.model_instance.load(
-                    node['params_path'], to_params=True)
+                    node['params_path'], to_params=True)['model_params']
 
-            self._training_replies.append(loaded_training_reply)
+            self._training_replies[round] = loaded_training_reply
 
-        # TODO : CONTENT OF PARAMS
-
-        ## get key
-        #key = tuple(training_replies.keys())[0]
-        #if key != int(key):
-        #    # convert string key to integer (converting into JSON
-        #    # change every key type into str type)
-#
-        #    training_replies[int(key)] = training_replies[key]
-        #    #training_replies.pop(key)
-        #    #
-        #    key = int(key)
-        #loaded_training_replies = {key: Responses([])}
-        #for node_id, node_i in zip(params_path.keys(),
-        #                               range(len(training_replies))):
-        #    training_replies[key][node_i]['params'] = self.model_instance.load(params_path[node_id],
-        #                                                                         to_params=True)
-#
-        #    training_replies[key][node_i]['params_path'] = params_path[node_id]
-#
-        #    loaded_training_replies[key].append(Responses(training_replies[key][node_i]))
-        ##print(loaded_training_replies)
-        #self._training_replies = loaded_training_replies
 
     def check_data_quality(self):
 
