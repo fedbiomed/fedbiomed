@@ -338,7 +338,15 @@ class Experiment:
         return aggregated_params
 
     def _load_aggregated_params(self, aggregated_params: Dict[int, dict]) -> Dict[int, dict]:
-        """???
+        """Reconstruct experiment results aggregated params structure
+        from a breakpoint so that it is identical to a classical `_aggregated_params`
+
+        Args:
+            aggregated_params (Dict[int, dict]): JSON formatted aggregated_params
+              extract from a breakpoint
+
+        Returns:
+            Dict[int, dict] : reconstructed `aggregated_params` from breakpoint
         """
         # needed for iteration on dict for renaming keys
         keys = [ key for key in aggregated_params.keys() ]
