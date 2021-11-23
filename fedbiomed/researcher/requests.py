@@ -60,15 +60,24 @@ class Requests(metaclass=SingletonMeta):
         """
         This handler is called by the Messaging class (Messager),
         when a message is received on researcher side.
-        Adds to queue this incoming message.
+
+        It is run in the communication process and must ba as quick as possible:
+        - it deals with quick messages (eg: ping/pong)
+        - it store the replies of the nodes to the task queue, the message will bee
+        treated by the main (computing) thread.
+
         Args:
             msg (Dict[str, Any]): de-serialized msg
             topic (str)         : topic name (eg MQTT channel)
         """
 
         if topic == "general/logger":
+            #
+            # forward the teatment to node_log_handling() (same thread)
             self.node_log_handling(ResearcherMessages.reply_create(msg).get_dict())
         elif topic == "general/researcher":
+            #
+            # *Reply messages (SearchReply, TrainReply) added to the TaskQueue
             self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
         elif topic == "general/monitoring":
             if self._monitor_message_callback is not None:
@@ -81,6 +90,12 @@ class Requests(metaclass=SingletonMeta):
     def node_log_handling(self, log: Dict[str, Any]):
         """
         manage log/error handling
+
+        It is run on the communication process and must be as quick as possible:
+        - all logs (coming from the nodes) are forwarded to the researcher logger
+        (immediate display on console/file/whatever)
+        - then error/critical it is also stored into the TaskQueue for later treatment
+        by the main (computing) thread
         """
 
         # log contains the original message sent by the node
@@ -97,9 +112,11 @@ class Requests(metaclass=SingletonMeta):
         node_msg_level = original_msg["level"]
 
         if node_msg_level == "ERROR" or node_msg_level == "CRITICAL":
-            # first error  implementation: stop the researcher
-            logger.critical("researcher stopped after receiving error/critical log from node: " + log["node_id"])
-            os.kill(os.getpid(), signal.SIGTERM)
+            ## first error  implementation: stop the researcher
+            #logger.critical("researcher stopped after receiving error/critical log from node: " + log["node_id"])
+            #os.kill(os.getpid(), signal.SIGTERM)
+            logger.log(log["level"], "DEBUG: log stored in TaskQueue")
+            self.queue.add(log)
 
     def send_message(self, msg: dict, client=None):
         """
@@ -240,7 +257,7 @@ class Requests(metaclass=SingletonMeta):
                 data_found[resp.get('node_id')] = resp.get('databases')
             elif resp.get('node_id') in nodes:
                 data_found[resp.get('node_id')] = resp.get('databases')
-            
+
             logger.info('Node selected for training -> {}'.format(resp.get('node_id')))
 
         if not data_found:
