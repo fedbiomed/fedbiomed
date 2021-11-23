@@ -284,6 +284,7 @@ class Experiment:
          - params_path
          - model_class
          - training_replies
+         - aggregated_params
 
         Args:
             round (int, optional): number of rounds already executed.
@@ -296,7 +297,8 @@ class Experiment:
             'round_number_due': self._rounds,
             'aggregator': self._aggregator.save_state(),
             'node_selection_strategy': self._node_selection_strategy.save_state(),
-            'tags': self._tags
+            'tags': self._tags,
+            'aggregated_params': self._save_aggregated_params()
         }
 
         state.update(job_state)
@@ -321,6 +323,34 @@ class Experiment:
             json.dump(state, bkpt)
         logger.info(f"breakpoint for round {round} saved at \
             {os.path.dirname(breakpoint_path)}")
+
+
+    def _save_aggregated_params(self) -> Dict[int, dict]:
+        """Extracts and format fields from aggregated_params that need
+        to be saved in breakpoint
+
+        Returns:
+            Dict[int, dict] : extract from `self._aggregated_params`
+        """
+        aggregated_params = { key: { 'params_path': value.get('params_path') } 
+            for key, value in self._aggregated_params.items() }
+
+        return aggregated_params
+
+    def _load_aggregated_params(self, aggregated_params: Dict[int, dict]) -> Dict[int, dict]:
+        """???
+        """
+        # needed for iteration on dict for renaming keys
+        keys = [ key for key in aggregated_params.keys() ]
+        # JSON converted all keys from int to string, need to revert
+        for key in keys:
+            aggregated_params[int(key)] = aggregated_params.pop(key)
+
+        for aggreg in aggregated_params.values():
+            aggreg['params'] = self.model_instance.load(
+                aggreg['params_path'], to_params=True)
+
+        return aggregated_params
 
     @staticmethod
     def _get_latest_file(pathfile: str,
@@ -535,6 +565,8 @@ class Experiment:
         loaded_exp._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
         loaded_exp._round_init = saved_state.get('round_number', 0)
         loaded_exp._rounds = saved_state.get('round_number_due', 1)
+        loaded_exp._aggregated_params = \
+            loaded_exp._load_aggregated_params(saved_state.get('aggregated_params'))
         # ------- changing `Job` attributes -------
         loaded_exp._job._id = saved_state.get('job_id')
         loaded_exp._job._data = FederatedDataSet(
