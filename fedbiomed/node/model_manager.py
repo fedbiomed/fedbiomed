@@ -270,7 +270,7 @@ class ModelManager:
           - Updates: if hashing algorithm has changed in config file.   
         """
         self.db.clear_cache()
-        
+
         # Get model files saved in the directory
         models_file = os.listdir(environ['DEFAULT_MODELS_DIR'])
 
@@ -320,18 +320,57 @@ class ModelManager:
                                 'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f") }, 
                                 self.database.model_path == path)
 
-
-    def delete_model(self, model_id: str ):
+    def update_model(self, model_id: str, path: str):
         
-        """ Remove model file from database. This model does not delete 
-        any registered model file and it only remove `registered` type of models.
-        Default models should be removed from the directory 
+        """ Method for updating model files. Updates models hash value with provided
+            model file. It also update `data_modified`, `date_created` and
+            `model_path` in case of provided different model file than the other one. 
+
+            Args: 
+
+                model_id (str): Id of the model 
+                path     (str): The path where model file is stored
         """
 
         self.db.clear_cache()
         model = self.db.get(self.database.model_id == model_id)
 
         if model['model_type'] == ModelTypes.REGISTERED.value:
+            
+            # Get modification date
+            mtime = datetime.fromtimestamp(os.path.getmtime(path))
+            # Get creation date
+            ctime = datetime.fromtimestamp(os.path.getctime(path))
+
+            hash, algorithm = self._create_hash(path)
+            self.db.update( {'hash' : hash, 'algorithm': algorithm, 
+                            'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
+                            'date_created' : ctime.strftime("%d-%m-%Y %H:%M:%S.%f"),
+                            'model_path' :  path },
+                            self.database.model_id == model_id)
+        else:
+            raise Exception(f'You can not update default models. Please update them thorugh their files \
+                                    saved in `default_models` directory and restart your node. ')
+
+        return True
+
+    def delete_model(self, model_id: str ):
+        
+        """ Remove model file from database. This model does not delete 
+        any registered model file and it only remove `registered` type of models.
+        Default models should be removed from the directory 
+
+        Args:
+
+            model_id  (str): The id of the registered model
+
+        """
+
+        self.db.clear_cache()
+        model = self.db.get(self.database.model_id == model_id)
+
+        if model['model_type'] == ModelTypes.REGISTERED.value:
+
             self.db.remove(doc_ids = [model.doc_id])
         else:
             raise Exception(f'For default models please remove model file \

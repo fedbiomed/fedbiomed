@@ -228,11 +228,11 @@ Enabling model approval mode, allowing default Fed-BioMed models and the hashing
 [security]
 hashing_algorithm = SHA256
 allow_default_models = True
-model_approve = False
+model_approval = False
 
 ```
 
-By default, when node is started/add-data for the first time without additional security parameters, `model_approve` mode comes as disable. If `model_approve` is disabled the status of `allow_defaults_models` will have no effect. To enable `model_approve` you should set `model_approve` to `True` and if it is desired `allow_default_models` can be set to `False` to not accepting models of default Fed-BioMed examples. 
+By default, when node is started/add-data for the first time without additional security parameters, `model_approval` mode comes as disable. If `model_approval` is disabled the status of `allow_defaults_models` will have no effect. To enable `model_approval` you should set `model_approval` to `True` and if it is desired `allow_default_models` can be set to `False` to not accepting models of default Fed-BioMed examples. 
 
 The default hashing algorithm is `SHA256` and it can also be changed to other hashing algorithms that are provided by Fed-BioMed. You can see the list of Hashing algorithms in the following section.
 
@@ -246,7 +246,7 @@ Provided hashing algorithms are `SHA256`, `SHA384`, `SHA512`, `SHA3_256`, `SHA3_
 
 #### Starting nodes with different modes
 
-To enable `model_approve` mode and `allow_default_models` node can be started following command. 
+To enable `model_approval` mode and `allow_default_models` node can be started following command. 
 
 ```shell
 ./scripts/fedbiomed_run node config config-n1.ini --enable-model-approval --allow-default-models start
@@ -257,7 +257,7 @@ This command will start the node with in model approval mode even the config fil
 [security]
 hashing_algorithm = SHA256
 allow_default_models = True
-model_approve = True
+model_approval = True
 
 
 For starting node with disabled model approval and default models;
@@ -268,7 +268,7 @@ For starting node with disabled model approval and default models;
 
 #### Default Models
 
-Default models has been located at the `env/development/default_models/` directory as `txt` files. Each time when the node started with the `model_approve = True` and `allow_default_model = True` modes, hashing of the model files are get checked to detect if the file is modified, the hashing algorithm has changed or is there any new model file added. If model files are modified `ModelManager` updates hashes for these models in the database. If the hashing algoritmh of the model is different that the active hashing algorithm, hashes also get updated. This process only occurs when both `model-approval` and `allow-default-models` modes are activated. To add new default model for the examples or for testing, model files should be saved as `txt` and copied into the `envs/development/default_models` directory. After the copy/save oparation node should be restarted. 
+Default models has been located at the `env/development/default_models/` directory as `txt` files. Each time when the node started with the `model_approval = True` and `allow_default_model = True` modes, hashing of the model files are get checked to detect if the file is modified, the hashing algorithm has changed or is there any new model file added. If model files are modified `ModelManager` updates hashes for these models in the database. If the hashing algoritmh of the model is different that the active hashing algorithm, hashes also get updated. This process only occurs when both `model-approval` and `allow-default-models` modes are activated. To add new default model for the examples or for testing, model files should be saved as `txt` and copied into the `envs/development/default_models` directory. After the copy/save oparation node should be restarted. 
 
 
 #### Registering New Models 
@@ -299,24 +299,17 @@ Select:
 
 Default models can not be removed using fedbiomed CLI. They should be removed from the `envs/development/default_models` directory. After restarting the node, deleted model files will be also removed from the `Models` table of the node DB. 
 
-#### Getting Model File from the Experiment Class 
 
-Model files for the registiration/approval should be obtained from the experiment. `get_model_file()` method prints the final model which is going to be send to the nodes. Its return value is also equal to the path where model file is saved.  Therefore, instade of using model file which is typed/coded by you, the model file which is saved by the experiment should be registered. 
+#### Updating Registered model 
 
-```
-exp = Experiment(tags=tags,
-                 #nodes=None,
-                 model_path=model_file,
-                 model_args=model_args,
-                 model_class='MyTrainingPlan',
-                 training_args=training_args,
-                 rounds=rounds,
-                 aggregator=FedAverage(),
-                 node_selection_strategy=None)
-
-exp.get_model_file()
+Following command is used for updating registered models. It updates chosen model with provided new model file. User also 
+can provide same model file to update its content.
 
 ```
+./scripts/fedbiomed_run node config config-n1.ini update-model
+```
+
+
 
 
 
