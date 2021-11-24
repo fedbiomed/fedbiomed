@@ -2,8 +2,8 @@ from enum import Enum
 
 
 class _BaseEnum(Enum):
-    """ Parent class to pass default methods to 
-        enumaration classes 
+    """ Parent class to pass default methods to
+        enumaration classes
     """
 
     @classmethod
@@ -23,8 +23,8 @@ class ComponentType(_BaseEnum):
 
 class HashingAlgorithms(_BaseEnum):
 
-    """ Enumeration class, used to characterize the hashing 
-    algorithims
+    """ Enumeration class, used to characterize the hashing
+    algorithms
     """
 
     SHA256      = 'SHA256'
@@ -39,9 +39,9 @@ class HashingAlgorithms(_BaseEnum):
 
 class ModelTypes(_BaseEnum):
 
-    """ Constant values for model type that will be saved into db. 
-    `regsitered` means model saved by a user/hospital/node. `default` 
-    means model is default model provided by Fed-BioMed. 
+    """ Constant values for model type that will be saved into db.
+    `regsitered` means model saved by a user/hospital/node. `default`
+    means model is default model provided by Fed-BioMed.
     """
 
     REGISTERED = 'registered'
