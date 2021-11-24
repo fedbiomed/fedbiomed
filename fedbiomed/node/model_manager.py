@@ -112,7 +112,7 @@ class ModelManager:
         if models_path_search:
             raise Exception(f'This model has been added already: {path}')
         elif models_name_search:
-            raise Exception(f'There already a model added by same name: {name}. Please use different name')
+            raise Exception(f'There is already a model added with same name: {name}. Please use different name')
         else:
 
             # Create hash and save it into db
@@ -351,8 +351,7 @@ class ModelManager:
                             'model_path' :  path },
                             self.database.model_id == model_id)
         else:
-            raise Exception(f'You can not update default models. Please update them thorugh their files \
-                                    saved in `default_models` directory and restart your node. ')
+            raise Exception(f'You cannot update default models. Please update them through their files saved in `default_models` directory and restart your node')
 
         return True
 
@@ -375,8 +374,7 @@ class ModelManager:
 
             self.db.remove(doc_ids = [model.doc_id])
         else:
-            raise Exception(f'For default models please remove model file \
-                                    from `default_models` and restart your node. ')
+            raise Exception(f'For default models, please remove model file from `default_models` and restart your node')
 
         return True
 
