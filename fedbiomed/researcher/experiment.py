@@ -206,7 +206,7 @@ class Experiment:
             self._monitor.close_writer()
 
 
-    def get_model_file(self, display: bool = True ):
+    def model_file(self, display: bool = True ):
         
         """ This method displays saved final model for the experiment 
             that will be send to the nodes for training. 

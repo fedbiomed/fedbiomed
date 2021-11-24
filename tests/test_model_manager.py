@@ -64,7 +64,7 @@ class TestModelManager(unittest.TestCase):
         self.environ_patch.stop()
         self.environ_model_manager_patch.stop()
         
-        self.model_manager.tinydb.drop_table('Models')
+        self.model_manager._tinydb.drop_table('Models')
 
         pass
 
@@ -122,7 +122,7 @@ class TestModelManager(unittest.TestCase):
         for algo in algortihms:
             self.values['HASHING_ALGORITHM'] = algo
             self.model_manager.register_update_default_models()
-            doc = self.model_manager.db.get(self.model_manager.database.model_type == "default")
+            doc = self.model_manager._db.get(self.model_manager._database.model_type == "default")
             logger.info(doc)
             self.assertEqual(doc["algorithm"], algo, 'Hashes are not properly updated after hashing algorithm is changed')
 
@@ -145,7 +145,7 @@ class TestModelManager(unittest.TestCase):
 
             file_path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
             self.model_manager.register_update_default_models()
-            doc = self.model_manager.db.get(self.model_manager.database.model_path == file_path)
+            doc = self.model_manager._db.get(self.model_manager._database.model_path == file_path)
             
             # Open the file in append & read mode ('a+')
             with open(file_path, "a+") as file:
@@ -155,7 +155,7 @@ class TestModelManager(unittest.TestCase):
                 file.writelines(lines)
             
             self.model_manager.register_update_default_models()
-            docAfter = self.model_manager.db.get(self.model_manager.database.model_path == file_path)
+            docAfter = self.model_manager._db.get(self.model_manager._database.model_path == file_path)
 
             self.assertNotEqual(doc['hash'] , docAfter['hash'] , "Hash couldn't updated after file has modified")
 
@@ -273,13 +273,13 @@ class TestModelManager(unittest.TestCase):
         )
 
         # Get registered model
-        model_1 = self.model_manager.db.get(self.model_manager.database.name == 'test-model-1')
+        model_1 = self.model_manager._db.get(self.model_manager._database.name == 'test-model-1')
        
         # Delete model 
         self.model_manager.delete_model(model_1['model_id'])
         
         # Check model is removed
-        model_1_r = self.model_manager.db.get(self.model_manager.database.name == 'test-model-1')
+        model_1_r = self.model_manager._db.get(self.model_manager._database.name == 'test-model-1')
         self.assertEqual(model_1_r , None , "Registered model is not removed")
 
         # Load default models 
@@ -288,7 +288,7 @@ class TestModelManager(unittest.TestCase):
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
         for model in default_models:
             model_path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
-            model = self.model_manager.db.get(self.model_manager.database.model_path == model_path)
+            model = self.model_manager._db.get(self.model_manager._database.model_path == model_path)
             
             # Check delete method removed default models (it shouldnt)
             with self.assertRaises(Exception):
