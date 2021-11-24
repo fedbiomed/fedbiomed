@@ -196,8 +196,7 @@ class Experiment:
                                                            weights)
             # write results of the aggregated model in a temp file
             aggregated_params_path = self._job.update_parameters(aggregated_params)
-            logger.info('Saved aggregated params for round {i} in {file}'.
-                format(i=round_i, file=aggregated_params_path))
+            logger.info('Saved aggregated params for round {round_i} in {aggregated_params_path}')
 
             self._aggregated_params[round_i] = {'params': aggregated_params,
                                                 'params_path': aggregated_params_path}
@@ -294,8 +293,7 @@ class Experiment:
             round (int, optional): number of rounds already executed.
             Starts from 0. Defaults to 0.
         """
-        self._job.save_state(round)  # create attribute `_job.state`
-        job_state = self._job.state
+        job_state = self._job.save_state(round)
         state = {
             'round_number': round + 1,
             'round_number_due': self._rounds,
@@ -574,21 +572,17 @@ class Experiment:
                          training_data = saved_state.get('training_data')
                          )
 
+        # ------- changing `Experiment` attributes -------
         # get experiment folder for breakpoint
         loaded_exp._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
         loaded_exp._round_init = saved_state.get('round_number', 0)
         loaded_exp._rounds = saved_state.get('round_number_due', 1)
         loaded_exp._aggregated_params = \
             loaded_exp._load_aggregated_params(saved_state.get('aggregated_params'))
+
         # ------- changing `Job` attributes -------
-        loaded_exp._job._id = saved_state.get('job_id')
-        loaded_exp._job._data = FederatedDataSet(
-            saved_state.get('training_data')
-        )
-        params = loaded_exp._job.model.load(saved_state.get('model_params_path'), to_params=True)
-        loaded_exp._job.update_parameters(params)
-        loaded_exp._job._load_training_replies(saved_state.get('training_replies'))
-        loaded_exp._job._researcher_id = saved_state.get('researcher_id')
+        loaded_exp._job.load_state(saved_state)
+
         logging.debug(f"reloading from {breakpoint_folder} successful!")
         return loaded_exp
 

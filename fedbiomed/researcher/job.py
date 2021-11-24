@@ -300,16 +300,17 @@ class Job:
         return filename
 
     def save_state(self, round: int=0):
-        """Creates attribute `self.state` containing a
-        first state of the job. State will be completed by
-        other methods called from `Experiment`.
+        """Creates current state of the job to be included in a breakpoint.
 
         Args:
             round (int, optional): number of round iteration.
             Defaults to 0.
+
+        Returns:
+            dict: job current state information for breakpoint
         """
 
-        self.state = {
+        state = {
             'researcher_id': environ['RESEARCHER_ID'],
             'job_id': self._id,
             'training_data': self._data.data(),
@@ -321,6 +322,21 @@ class Job:
             'model_params_path': self._model_params_file,
             'training_replies': self._save_training_replies()
         }
+        return state
+
+    def load_state(self, saved_state: dict=None):
+        """Load breakpoint status for a Job from a saved state
+
+        Args:
+            saved_state (dict): breakpoint content
+        """
+        self._id = saved_state.get('job_id')
+        self._data = FederatedDataSet(saved_state.get('training_data'))
+        params = self.model.load(saved_state.get('model_params_path'), to_params=True)
+        self.update_parameters(params)
+        self._load_training_replies(saved_state.get('training_replies'))
+        self._researcher_id = saved_state.get('researcher_id')
+
 
     def _save_training_replies(self) -> List[Dict[int, List[dict]]]:
         """extracts a copy of `self._training_replies` and
