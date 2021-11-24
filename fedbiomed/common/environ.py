@@ -10,30 +10,30 @@ from enum import Enum
 
 
 """
-Descriptions of global/environment variables 
+Descriptions of global/environment variables
 
-Resarcher Global Variables: 
+Resarcher Global Variables:
     RESEARCHER_ID           : id of the researcher
     ID                      : equals to researcher id
     TENSORBOARD_RESULTS_DIR : path for writing tensorboard log files
-    BREAKPOINTS_DIR         : folder for saving breakpoints 
+    BREAKPOINTS_DIR         : folder for saving breakpoints
     MESSAGES_QUEUE_DIR      : Path for writing queue files
 
 Nodes Global Variables:
     NODE_ID                 : id of the node
     ID                      : equals to node id
     MESSAGES_QUEUE_DIR      : Path for queues
-    DB_PATH                 : TinyDB database path where datasets are saved 
-    MODEL_DB_PATH           : Database where registered model are saved 
+    DB_PATH                 : TinyDB database path where datasets are saved
+    MODEL_DB_PATH           : Database where registered model are saved
 
-Common Global Variables: 
+Common Global Variables:
     COMPONENT_TYPE          : Node or Researcher
     CONFIG_DIR              : Configuration file path
     VAR_DIR                 : Var directory of Fed-Biomed
     CACHE_DIR               : Cache directory of Fed-BioMed
-    TMP_DIR                 : Temporary directory 
+    TMP_DIR                 : Temporary directory
     MQTT_BROKER             : MQTT broker IP address
-    MQTT_BROKER_PORT        : MQTT broker port   
+    MQTT_BROKER_PORT        : MQTT broker port
     UPLOADS_URL             : Upload URL for file repository
 """
 
@@ -67,8 +67,11 @@ class Environ(metaclass = SingletonMeta):
             self._init_researcher()
 
         if component == ComponentType.NODE:
+            logger.setLevel("INFO")
             self._init_node()
 
+        # display some information on the present environment
+        self.info()
 
 
     def _init_common(self):
@@ -109,7 +112,7 @@ class Environ(metaclass = SingletonMeta):
         """
         # Parse config file
         cfg = self._parse_config_file()
-        
+
         # Initialize network configurations for Researcher component
         self._init_network_configurations(cfg)
 
@@ -159,25 +162,25 @@ class Environ(metaclass = SingletonMeta):
         NODE_ID = self._values['NODE_ID']
         ROOT_DIR = self._values['ROOT_DIR']
 
-        self._values['MESSAGES_QUEUE_DIR']  = os.path.join(VAR_DIR, 
+        self._values['MESSAGES_QUEUE_DIR']  = os.path.join(VAR_DIR,
                                                             f'queue_manager_{NODE_ID}')
-        self._values['DB_PATH']             = os.path.join(VAR_DIR, 
+        self._values['DB_PATH']             = os.path.join(VAR_DIR,
                                                             f'db_{NODE_ID}.json')
 
-        self._values['DEFAULT_MODELS_DIR']  = os.path.join(ROOT_DIR, 
+        self._values['DEFAULT_MODELS_DIR']  = os.path.join(ROOT_DIR,
                                                             'envs' , 'development', 'default_models')
 
-        self._values['ALLOW_DEFAULT_MODELS'] = os.getenv('ALLOW_DEFAULT_MODELS', 
+        self._values['ALLOW_DEFAULT_MODELS'] = os.getenv('ALLOW_DEFAULT_MODELS',
                                                                 cfg.get('security', 'allow_default_models')) \
                                                                     .lower() in ('true', '1', 't', True)
 
-        self._values['MODEL_APPROVAL'] = os.getenv('ENABLE_MODEL_APPROVAL', 
+        self._values['MODEL_APPROVAL'] = os.getenv('ENABLE_MODEL_APPROVAL',
                                                                 cfg.get('security', 'model_approval')) \
                                                                     .lower() in ('true', '1', 't', True)
 
-        
+
         hashing_algorithm = cfg.get( 'security', 'hashing_algorithm')
-        
+
         if hashing_algorithm in HashingAlgorithms.list():
             self._values['HASHING_ALGORITHM'] = cfg.get( 'security', 'hashing_algorithm')
         else:
@@ -238,7 +241,7 @@ class Environ(metaclass = SingletonMeta):
                 self._create_researcher_config_file(cfg, CONFIG_FILE)
             else:
                 self._create_node_config_file(cfg, CONFIG_FILE)
-            
+
 
         # store the CONFIG_FILE in environ (may help to debug)
         self._values['CONFIG_FILE'] = CONFIG_FILE
@@ -247,15 +250,15 @@ class Environ(metaclass = SingletonMeta):
 
     def _create_node_config_file(self, cfg, config_file):
 
-        """ Creates new config file for node 
-        
-        Args: 
-            config_file (str): The path indicated where config file 
+        """ Creates new config file for node
+
+        Args:
+            config_file (str): The path indicated where config file
                                should be saved.
-        
+
         """
 
-        # get uploads url 
+        # get uploads url
         uploads_url = self._get_uploads_url()
 
 
@@ -301,10 +304,10 @@ class Environ(metaclass = SingletonMeta):
         pass
 
     def _create_researcher_config_file(self, cfg, config_file):
-        
+
         """ Create config file for researcher """
 
-        # get uploads url 
+        # get uploads url
         uploads_url = self._get_uploads_url()
 
         # Default configuration
@@ -335,7 +338,7 @@ class Environ(metaclass = SingletonMeta):
 
 
     def _init_network_configurations(self, cfg):
-        
+
         """ Initialize network configurations """
 
         # broker location
@@ -363,7 +366,7 @@ class Environ(metaclass = SingletonMeta):
 
     @staticmethod
     def _get_uploads_url():
-        
+
         """ Gets uploads url from env """
 
         # use default values from current OS environment variables
@@ -384,7 +387,19 @@ class Environ(metaclass = SingletonMeta):
         return self._values
 
     def print_component_type(self):
-        
+
         """ Salutation function (for debug purpose mainly) """
-        
+
         print("I am a:", self._values['COMPONENT_TYPE'])
+
+    def info(self):
+        """Print useful information at environment creation"""
+
+        logger.info("Component environment:")
+        if self._values['COMPONENT_TYPE'] == ComponentType.RESEARCHER:
+            logger.info("- type = " + str(self._values['COMPONENT_TYPE']))
+
+        if self._values['COMPONENT_TYPE'] == ComponentType.NODE:
+            logger.info("- type                = " + str(self._values['COMPONENT_TYPE']))
+            logger.info("- model_approval      = " + str(self._values['MODEL_APPROVAL']))
+            logger.info("- allow_default_model = " + str(self._values['ALLOW_DEFAULT_MODELS']))
