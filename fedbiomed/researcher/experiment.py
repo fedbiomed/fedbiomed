@@ -121,6 +121,7 @@ class Experiment:
 
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
+        self._exp_breakpoint_folder = ''
 
         #  Monitoring loss values with tensorboard
         if tensorboard:
@@ -195,6 +196,8 @@ class Experiment:
                                                            weights)
             # write results of the aggregated model in a temp file
             aggregated_params_path = self._job.update_parameters(aggregated_params)
+            logger.info('Saved aggregated params for round {i} in {file}'.
+                format(i=round_i, file=aggregated_params_path))
 
             self._aggregated_params[round_i] = {'params': aggregated_params,
                                                 'params_path': aggregated_params_path}
@@ -225,10 +228,10 @@ class Experiment:
         # FIXME: improve method robustness (here nb of exp equals nb of files
         # in directory)
         all_files = os.listdir(environ['BREAKPOINTS_DIR'])
-        if not hasattr(self, "_exp_breakpoint_folder"):
+        if not self._exp_breakpoint_folder:
             #
-            # in this case, the Experiment object has been created from
-            # a breakpoint. We keep the same place to save next steps
+            # in this case, the Experiment object has not been created from
+            # a breakpoint. We create a new directory to save next steps
             self._exp_breakpoint_folder = "Experiment_" + str(len(all_files))
         try:
             os.makedirs(os.path.join(environ['BREAKPOINTS_DIR'],
