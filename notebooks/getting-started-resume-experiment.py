@@ -170,7 +170,7 @@ del exp
 # 
 # and then use `.run` method as you would do with an existing experiment.
 # 
-# **To load a specific breakpoint** specify breakpoint folder when using `Experiment.load_breakpoint("breakpoints/Experiment_xx/breakpoint_yy)`. Replace `xx` and `yy` by the real values.
+# **To load a specific breakpoint** specify breakpoint folder when using `Experiment.load_breakpoint("./var/breakpoints/Experiment_xx/breakpoint_yy)`. Replace `xx` and `yy` by the real values.
 # 
 
 loaded_exp = Experiment.load_breakpoint()
