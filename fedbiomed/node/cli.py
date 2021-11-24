@@ -340,10 +340,56 @@ def register_model(interactive: bool = True):
     print('\nGreat! Take a look at your data:')
     model_manager.list_approved_models(verbose=True)
 
+def update_model():
+
+    """ Method for updating model files. User can either different 
+        model file (different path) to update model or same model file   
+    """
+    models = model_manager.list_approved_models(verbose=False)
+
+    # Select only registered model to update
+    models = [ m for m in models  if m['model_type'] == ModelTypes.REGISTERED.value]
+    if not models:
+        logger.warning('No registered models has been found to update')
+        return
+
+    options = [m['name'] + '\t Model ID ' + m['model_id'] for m in models]
+    msg = "Select the model to delete:\n"
+    msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
+    msg += "\nSelect: "
+
+    while True:
+        try:
+            
+            # Get the selection
+            opt_idx = int(input(msg)) - 1
+            assert opt_idx >= 0
+            model_id = models[opt_idx]['model_id']
+
+            if not model_id:
+                logger.warning('No matching model to delete')
+                return
+
+            # Get the new file or same file.  User can ]provide same model file 
+            # with updated content or new model file. 
+            path = validated_path_input(type = "txt")
+
+            # Update model through model manager
+            model_manager.update_model(model_id, path)
+
+            logger.info('Model has been updated. Here all your models')
+            model_manager.list_approved_models(verbose=True)
+
+            return
+
+        except (ValueError, IndexError, AssertionError):
+            logger.error('Invalid option. Please, try again.')
+
 
 def delete_model():
 
-    """ Deletes registered models 
+    """ Deletes only registered models, for default models 
+    should be removed directly from the file system
     """
 
     models = model_manager.list_approved_models(verbose=False)
@@ -402,8 +448,11 @@ def launch_cli():
     parser.add_argument('-s', '--start-node',
                         help='Start fedbiomed node.',
                         action='store_true')
-    parser.add_argument('-rmdl', '--register-model',
+    parser.add_argument('-rml', '--register-model',
                         help='Approve new model files.',
+                        action='store_true')
+    parser.add_argument('-uml', '--update-model',
+                        help='Update model file.',
                         action='store_true')
     parser.add_argument('-dml', '--delete-model',
                         help='Deletes models from DB',
@@ -434,6 +483,8 @@ def launch_cli():
         delete_database(interactive=False)
     elif args.register_model:
         register_model()
+    elif args.update_model:
+        update_model()
     elif args.delete_model:
         delete_model()
     elif args.list_models:

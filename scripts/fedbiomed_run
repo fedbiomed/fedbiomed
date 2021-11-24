@@ -121,9 +121,14 @@ case $1 in
                     python -m fedbiomed.node.cli --add-mnist $PARAMS
                     ;;
 
-                register-model|--register-model|-rm)
+                register-model|--register-model|-rml)
                     source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --register-model $PARAMS
+                    ;;
+
+                update-model|--update-model|-uml)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --update-model $PARAMS
                     ;;
 
                 list-models|--list-models|-lms)
@@ -131,7 +136,7 @@ case $1 in
                     python -m fedbiomed.node.cli --list-models $PARAMS
                     ;;
 
-                delete-model|--delete-model|-dlm)
+                delete-model|--delete-model|-dml)
                     source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --delete-model $PARAMS
                     ;;
@@ -194,8 +199,8 @@ case $1 in
         cat <<EOF
 usage: fedbiomed_run network
        fedbiomed_run researcher [ip_address IP_ADDRESS]
-       fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS]
-                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | register-model) PARAMS
+       fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-model-approval | disable-model-approval | allow-default-models | disable-default-models ]
+                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | register-model | delete-model | update-model) PARAMS
 
 
 Runs the fedbiomed components after properly initializing the environments.
@@ -213,13 +218,22 @@ node      : a second arguement is mandatory
             - add/list/delete deal with dataset
             - add-mnist PATH_TO_DATASET directly adds a mnist dataset
             - delete-mnist directly removes a mnist dataset
-
+            - register-model  | --register-model    : To register new model files
+            - update-model    | --update-model      : To update registered models 
+            
             an optional config file CONFIG_NAME can be given it will be used instead of the default one (config.ini)
 
             an optional IP_ADDRESS can be used to join the network component instead of
                 the default localhost
 
             optional additional PARAMS are passed to fedbiomed
+
+            Option that should be used with start or add command to manage node modes. 
+
+            - enable-model-approval     | --enable-model-approval   : to enable model approval mode 
+            - allow-default-models      | --allow-default-models    : to allow default model for model approval mode
+            - disable-model-approval    | --disable-model-approval  : to disable model approval mode
+            - disable-default-models    | --disable-default-models  : to disable default models for model approval mode
 
 EOF
         ;;
