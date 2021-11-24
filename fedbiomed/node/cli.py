@@ -14,7 +14,7 @@ from tkinter import _tkinter
 
 from fedbiomed.node.environ import environ
 from fedbiomed.common.constants import ModelTypes
-from fedbiomed.node.data_manager import Data_manager
+from fedbiomed.node.data_manager import DataManager
 from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.node import Node
 
@@ -39,7 +39,7 @@ __intro__ = """
 # this may be changed on command line or in the config_node.ini
 logger.setLevel("DEBUG")
 
-data_manager = Data_manager()
+data_manager = DataManager()
 model_manager = ModelManager()
 
 readline.parse_and_bind("tab: complete")
@@ -112,7 +112,7 @@ def validated_path_input(type):
                     exit(1)
                 assert os.path.isfile(path)
 
-            elif type == 'txt': # For registering python model 
+            elif type == 'txt': # For registering python model
                 path = pick_with_tkinter(mode='txt')
                 logger.debug(path)
                 if not path:
@@ -205,18 +205,18 @@ def manage_node():
 
         logger.info('Launching node...')
 
-        # Register default models and update hashes 
+        # Register default models and update hashes
         if environ["MODEL_APPROVAL"]:
             # This methods updates hashes if hashing algorithm has changed
             model_manager.check_hashes_for_registered_models()
             if environ["ALLOW_DEFAULT_MODELS"]:
                 logger.info('Loading default models')
-                model_manager.register_update_default_models() 
+                model_manager.register_update_default_models()
         else:
             logger.warning('Model approval for train request is not activated. ' + \
                             'This might cause security problems. Please, consider to enable model approval.')
 
-        data_manager = Data_manager()
+        data_manager = DataManager()
         logger.info('Starting communication channel with network')
         node = Node(data_manager = data_manager,
                     model_manager = model_manager)
@@ -317,16 +317,16 @@ def register_model(interactive: bool = True):
     print('Welcome to the Fedbiomed CLI data manager')
     name = input('Please enter a model name: ')
     description = input('Please enter a description for the model: ')
-    
+
     # Allow files saved as txt
     path = validated_path_input(type = "txt")
 
-    # Regsiter model 
+    # Regsiter model
     try:
         model_manager.register_model(name=name,
                                     description=description,
                                     path=path)
-        
+
     except AssertionError as e:
         if interactive is True:
             try:
@@ -342,8 +342,8 @@ def register_model(interactive: bool = True):
 
 def update_model():
 
-    """ Method for updating model files. User can either different 
-        model file (different path) to update model or same model file   
+    """ Method for updating model files. User can either different
+        model file (different path) to update model or same model file
     """
     models = model_manager.list_approved_models(verbose=False)
 
@@ -360,7 +360,7 @@ def update_model():
 
     while True:
         try:
-            
+
             # Get the selection
             opt_idx = int(input(msg)) - 1
             assert opt_idx >= 0
@@ -370,8 +370,8 @@ def update_model():
                 logger.warning('No matching model to delete')
                 return
 
-            # Get the new file or same file.  User can ]provide same model file 
-            # with updated content or new model file. 
+            # Get the new file or same file.  User can ]provide same model file
+            # with updated content or new model file.
             path = validated_path_input(type = "txt")
 
             # Update model through model manager
@@ -388,7 +388,7 @@ def update_model():
 
 def delete_model():
 
-    """ Deletes only registered models, for default models 
+    """ Deletes only registered models, for default models
     should be removed directly from the file system
     """
 
@@ -405,7 +405,7 @@ def delete_model():
 
     while True:
         try:
-           
+
             opt_idx = int(input(msg)) - 1
             assert opt_idx >= 0
             model_id = models[opt_idx]['model_id']
