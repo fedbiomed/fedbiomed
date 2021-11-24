@@ -283,6 +283,7 @@ class Experiment:
          - model_path
          - params_path
          - model_class
+         - model_params_path
          - training_replies
          - aggregated_params
 
@@ -580,6 +581,8 @@ class Experiment:
         loaded_exp._job._data = FederatedDataSet(
             saved_state.get('training_data')
         )
+        params = loaded_exp._job.model.load(saved_state.get('model_params_path'), to_params=True)
+        loaded_exp._job.update_parameters(params)
         loaded_exp._job._load_training_replies(saved_state.get('training_replies'))
         loaded_exp._job._researcher_id = saved_state.get('researcher_id')
         logging.debug(f"reloading from {breakpoint_folder} successful!")

@@ -65,7 +65,8 @@ class Job:
         self._model_args = model_args
         self._nodes = nodes
         self._training_replies = {}  # will contain all node replies for every round
-        self._model_file = None
+        self._model_file = None # path to local file containing model code
+        self._model_params_file = None # path to local file containing current version of aggregated params
 
         if reqs is None:
             self._reqs = Requests()
@@ -124,15 +125,15 @@ class Job:
 
         self._repository_args['model_url'] = repo_response['file']
 
-        params_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.pt'
+        self._model_params_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.pt'
         try:
-            self.model_instance.save(params_file)
+            self.model_instance.save(self._model_params_file)
         except Exception as e:
             logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
             return
 
         # upload my_model_xxx.pt on HTTP server (contains model parameters)
-        repo_response = self.repo.upload_file(params_file)
+        repo_response = self.repo.upload_file(self._model_params_file)
         self._repository_args['params_url'] = repo_response['file']
 
         # (below) regex: matches a character not present among "^", "\", "."
@@ -291,6 +292,7 @@ class Job:
             self.model_instance.save(filename, params)
             repo_response = self.repo.upload_file(filename)
             self._repository_args['params_url'] = repo_response['file']
+            self._model_params_file = filename
         except Exception as e:
             e = sys.exc_info()
             logger.error("Cannot update parameters - Error: " + str(e))
@@ -316,6 +318,7 @@ class Job:
             'model_path': self._model_file,
             'params_path': self._params_path,
             'model_class': self._repository_args.get('model_class'),
+            'model_params_path': self._model_params_file,
             'training_replies': self._save_training_replies()
         }
 
