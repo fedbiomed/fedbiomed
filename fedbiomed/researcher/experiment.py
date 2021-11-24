@@ -206,6 +206,32 @@ class Experiment:
             self._monitor.close_writer()
 
 
+    def model_file(self, display: bool = True ):
+        
+        """ This method displays saved final model for the experiment 
+            that will be send to the nodes for training. 
+        """
+        model_file = self._job.model_file
+
+        # Displat content so researcher can copy
+        if display:
+            with open(model_file) as file:
+                content = file.read()
+                file.close()
+                print(content)
+
+        return self._job.model_file
+
+    def check_model_status(self):
+        
+        """ Method for checking model status whether it is approved or 
+            not by the nodes
+        """
+        responses = self._job.check_model_is_approved_by_nodes()
+
+        return responses
+
+
     def _create_breakpoint_exp_folder(self):
         """Creates a breakpoint folder for the current experiment (ie the
         current run of the model). This folder is located at

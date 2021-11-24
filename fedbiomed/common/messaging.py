@@ -4,7 +4,7 @@ from typing import Any, Callable, Union
 import paho.mqtt.client as mqtt
 
 from fedbiomed.common import json
-from fedbiomed.common.component_type import ComponentType
+from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.logger import logger
 from fedbiomed.common.logger import DEFAULT_LOG_TOPIC
 
