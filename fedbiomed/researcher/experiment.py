@@ -530,7 +530,7 @@ class Experiment:
 
         # get breakpoint folder path (if it is None) and
         # state file
-        breakpoint_folder, state_file = Experiment._find_breakpoint_path(breakpoint_folder)
+        breakpoint_folder, state_file = cls._find_breakpoint_path(breakpoint_folder)
         breakpoint_folder = os.path.abspath(breakpoint_folder)
 
         # TODO: check if all elements needed for breakpoint are present
