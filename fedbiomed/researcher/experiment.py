@@ -273,22 +273,19 @@ class Experiment:
     def _save_state(self, round: int=0):
         """
         Saves a state of the training at a current round.
-        The following attributes will be saved:
-         - 'round_number'
+        The following Experiment attributes will be saved:
+         - round_number
          - round_number_due
          - tags
-         - 'aggregator'
-         - 'node_selection_strategy'
-         - researcher_id
-         - job_id
+         - aggregator
+         - node_selection_strategy
          - training_data
          - training_args
          - model_args
          - model_path
          - model_class
-         - model_params_path
-         - training_replies
          - aggregated_params
+        Attributes returned by the Job will also be saved
 
         Args:
             round (int, optional): number of rounds already executed.
@@ -296,6 +293,16 @@ class Experiment:
         """
         job_state = self._job.save_state(round)
         state = {
+            ## these are both Experiment and Job attributes : should be set also
+            ## in Experiment to better split breakpoint between the two classes
+            #'training_data': self._training_data,
+            #'training_args': self._training_args,
+            #'model_args': self._model_args,
+            #'model_path': self.job._model_file, # may not exist in Experiment with current version
+            #'model_class': self._job._repository_args.get('model_class'), # not properly
+            #                  # formatted in Experiment with current version
+            #
+            # these are pure Experiment attributes
             'round_number': round + 1,
             'round_number_due': self._rounds,
             'aggregator': self._aggregator.save_state(),
