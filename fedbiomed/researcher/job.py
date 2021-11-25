@@ -77,7 +77,7 @@ class Job:
         self._data = data
 
         # Check dataset quality
-        if data is not None:
+        if self._data is not None:
 
             self.check_data_quality()
 
@@ -216,7 +216,6 @@ class Job:
             training steps of a federated model between 2 aggregations).
 
         """
-        self._params_path = {}
         headers = {
             'researcher_id': self._researcher_id,
             'job_id': self._id,
@@ -268,16 +267,18 @@ class Job:
                                'timing': timing})
                 self._training_replies[round].append(r)  # add new replies
 
-                self._params_path[r[0]['node_id']] = params_path
 
-
-    def update_parameters(self, params: dict) -> str:
-        """Updates global model parameters after aggregation, by specifying in a
-        temporary file (environ['TMP_DIR'] + '/researcher_params_<id>.pt', where <id> is a
-        unique and random id)
+    def update_parameters(self, params: dict={}, filename: str=None) -> str:
+        """Updates global model parameters after aggregation, by saving them
+        to a file (unless it already exists) and upload them to the repository
+        so that they are ready to be sent to the nodes for the next training round.
+        If a `filename` is given (file exists) it has precedence over `params`.
 
         Args:
-            params (dict): [description]
+            params (dict, optional): data structure containing the
+                new version of the aggregated parameters for this job,
+            filename (str, optional) : path to the file containing the
+                new version of the aggregated parameters for this job,
 
         Returns:
             str: filename
@@ -288,8 +289,12 @@ class Job:
             # extension = 'pt'
             # filename = environ['TMP_DIR'] + '/researcher_params_' + str(uuid.uuid4()) + extension
 
-            filename = environ['TMP_DIR'] + '/researcher_params_' + str(uuid.uuid4()) + '.pt'
-            self.model_instance.save(filename, params)
+            if not filename:
+                if not params:
+                    raise ValueError('Bad arguments for update_parameters, filename or params is needed')
+                filename = environ['TMP_DIR'] + '/researcher_params_' + str(uuid.uuid4()) + '.pt'
+                self.model_instance.save(filename, params)
+            
             repo_response = self.repo.upload_file(filename)
             self._repository_args['params_url'] = repo_response['file']
             self._model_params_file = filename
@@ -311,13 +316,12 @@ class Job:
         """
 
         state = {
-            'researcher_id': environ['RESEARCHER_ID'],
+            'researcher_id': self._researcher_id,
             'job_id': self._id,
             'training_data': self._data.data(),
             'training_args': self._training_args,
             'model_args': self._model_args,
             'model_path': self._model_file,
-            'params_path': self._params_path,
             'model_class': self._repository_args.get('model_class'),
             'model_params_path': self._model_params_file,
             'training_replies': self._save_training_replies()
@@ -331,9 +335,7 @@ class Job:
             saved_state (dict): breakpoint content
         """
         self._id = saved_state.get('job_id')
-        self._data = FederatedDataSet(saved_state.get('training_data'))
-        params = self.model.load(saved_state.get('model_params_path'), to_params=True)
-        self.update_parameters(params)
+        self.update_parameters(filename=saved_state.get('model_params_path'))
         self._load_training_replies(saved_state.get('training_replies'))
         self._researcher_id = saved_state.get('researcher_id')
 
@@ -361,7 +363,6 @@ class Job:
     def _load_training_replies(self, training_replies: List[Dict[int, List[dict]]]):
         """Loads training replies from a formatted JSON file,
         so it behaves like a real `training_replies`.
-        Gathers parameters values from `params_path`.
 
         Args:
             training_replies (List[Dict[int, List[dict]]]): JSON formatted
@@ -371,7 +372,7 @@ class Job:
         self._training_replies = {}
         for round in range(len(training_replies)):
             loaded_training_reply = Responses(training_replies[round])
-            # reload parameters from params_path
+            # reload parameters from file params_path
             for node in loaded_training_reply:
                 node['params'] = self.model_instance.load(
                     node['params_path'], to_params=True)['model_params']

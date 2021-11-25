@@ -77,7 +77,9 @@ class Experiment:
                                                 not. Breakpoints can be used
                                                 for resuming a crashed
                                                 experiment. Defaults to False.
-
+            training_data (dict, optional): dict of the node_id of nodes providing
+                    datasets for the experiment. Datasets for a node_id are
+                    described as a list of dict, one dict per dataset.
             tensorboard (bool): Tensorboard flag for displaying scalar values
                                 during training in every node. If it is true,
                                 monitor will write scalar logs into
@@ -283,7 +285,6 @@ class Experiment:
          - training_args
          - model_args
          - model_path
-         - params_path
          - model_class
          - model_params_path
          - training_replies
@@ -306,19 +307,14 @@ class Experiment:
         state.update(job_state)
         breakpoint_path, breakpoint_file_name = self._create_breakpoint_file_and_folder(round)
 
-
-        # copy model parameters and model to breakpoint folder
-        for node_id, param_path in state['params_path'].items():
-            copied_param_file = "params_" + node_id + ".pt"
-            copied_param_path = os.path.join(breakpoint_path,
-                                             copied_param_file)
-            shutil.copy2(param_path, copied_param_path)
-            state['params_path'][node_id] = copied_param_path
+        # TODO: optimize - one copy for the experiment is enough
+        # Need a file with a restricted characters set in name to be able to import as module
         copied_model_file = "model_" + str(round) + ".py"
         copied_model_path = os.path.join(breakpoint_path,
                                          copied_model_file)
         shutil.copy2(state["model_path"], copied_model_path)
         state["model_path"] = copied_model_path
+
         # save state into a json file.
         breakpoint_path = os.path.join(breakpoint_path, breakpoint_file_name)
         with open(breakpoint_path, 'w') as bkpt:
@@ -544,16 +540,16 @@ class Experiment:
         # deal with saved parameters
 
         # -----  retrieve breakpoint sampling strategy ----
-        _bkpt_sampling_strategy_args = saved_state.get(
+        bkpt_sampling_strategy_args = saved_state.get(
             "node_selection_strategy"
         )
-        import_str = cls._instantiate_module(_bkpt_sampling_strategy_args)
+        import_str = cls._import_module(bkpt_sampling_strategy_args)
         exec(import_str)
-        _bkpt_sampling_strategy = eval(_bkpt_sampling_strategy_args.get("class"))
+        bkpt_sampling_strategy = eval(bkpt_sampling_strategy_args.get("class"))
 
         # ----- retrieve federator -----
         bkpt_aggregator_args = saved_state.get("aggregator")
-        import_str = cls._instantiate_module(bkpt_aggregator_args)
+        import_str = cls._import_module(bkpt_aggregator_args)
         exec(import_str)
         bkpt_aggregator = eval(bkpt_aggregator_args.get("class"))
 
@@ -567,7 +563,7 @@ class Experiment:
                          training_args=saved_state.get("training_args"),
                          rounds=saved_state.get("round_number_due"),
                          aggregator=bkpt_aggregator(),
-                         node_selection_strategy=_bkpt_sampling_strategy,
+                         node_selection_strategy=bkpt_sampling_strategy,
                          save_breakpoints=True,
                          training_data = saved_state.get('training_data')
                          )
@@ -575,8 +571,7 @@ class Experiment:
         # ------- changing `Experiment` attributes -------
         # get experiment folder for breakpoint
         loaded_exp._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
-        loaded_exp._round_init = saved_state.get('round_number', 0)
-        loaded_exp._rounds = saved_state.get('round_number_due', 1)
+        loaded_exp._round_init = saved_state.get('round_number')
         loaded_exp._aggregated_params = \
             loaded_exp._load_aggregated_params(saved_state.get('aggregated_params'))
 
@@ -587,9 +582,12 @@ class Experiment:
         return loaded_exp
 
     @staticmethod
-    def _instantiate_module(args: Dict[str, Any]):
-        """
-        ???
+    def _import_module(args: Dict[str, Any]):
+        """Build string containing module import command to run before
+        instantiating an object of the type described in args
+        
+        Return:
+          str: import command to be run
         """
 
         module_class = args.get("class")
