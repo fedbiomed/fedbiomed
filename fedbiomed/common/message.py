@@ -59,6 +59,45 @@ class Message(object):
                 ret = False
         return ret
 
+@dataclass
+class ModelStatusReply(Message):
+
+    """This class describes a model approve status check message sent 
+       by the node
+
+    Args:
+        Message ([type]): Parent class allows to get and set message params
+
+    Raises:
+        ValueError: triggered if message's fields validation failed
+
+    Keys: 
+        researcher_id       : Id of the researcher that sends the request 
+        node_id             : Node id that replys the request
+        job_id              : job id related to the experiment
+        succes              : True if the node process the request as expected, false 
+                              if any execption occurs
+        approval_obligation : Approval mode for node. True, if model approval is enabled/required
+                              in the node for training. 
+        is_approved         : True, if the requested model is one of the approved model by the node
+        msg                 : Message from node based on state of the reply
+        model_url           : The model that has been checked for approval
+        command             : Reply command
+    """
+
+    researcher_id: str
+    node_id: str
+    job_id: str
+    success : bool
+    approval_obligation : bool
+    is_approved : bool
+    msg: str
+    model_url: str
+    command: str
+
+    def __post_init__(self):
+        if not self.validate(self.__dataclass_fields__.items()):
+            raise ValueError('Wrong types')
 
 @dataclass
 class SearchReply(Message):
@@ -189,6 +228,36 @@ class LogMessage(Message):
 
 
 @dataclass
+class ModelStatusRequest(Message):
+
+    """This class describes a model approve status check message sent 
+       by the researcher
+
+    Args:
+        Message ([type]): Parent class allows to get and set message params
+
+    Raises:
+        ValueError: triggered if message's fields validation failed
+
+
+    Keys: 
+        researcher_id   : Id of the researcher that sends the request 
+        job_id          : job id related to the experiment.
+        model_url       : The model that is going to be checked for approval
+        command         : Request command
+    """
+
+    researcher_id: str
+    job_id: str
+    model_url: str
+    command: str
+
+    def __post_init__(self):
+        if not self.validate(self.__dataclass_fields__.items()):
+            raise ValueError('Wrong types')
+
+
+@dataclass
 class SearchRequest(Message):
     """
     This class describes a search message sent by the researcher
@@ -271,7 +340,8 @@ class ResearcherMessages():
                                                            PingReply,
                                                            LogMessage,
                                                            ListReply,
-                                                           AddScalarReply]:
+                                                           AddScalarReply,
+                                                           ModelStatusReply]:
         """this method is used on message reception (as a mean to reply to
         node requests, such as a Ping request).
         it creates the adequate message, it maps an instruction
@@ -296,7 +366,8 @@ class ResearcherMessages():
                                      'pong': PingReply,
                                      'log': LogMessage,
                                      'list': ListReply,
-                                     'add_scalar': AddScalarReply
+                                     'add_scalar': AddScalarReply,
+                                     'model-status': ModelStatusReply
         }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -308,7 +379,8 @@ class ResearcherMessages():
     def request_create(cls, params: Dict[str, Any]) -> Union[TrainRequest,
                                                              SearchRequest,
                                                              PingRequest,
-                                                             ListRequest]:
+                                                             ListRequest,
+                                                             ModelStatusRequest]:
 
         """This method creates the adequate message/request,
         it maps an instruction (given the key "command" in
@@ -333,7 +405,8 @@ class ResearcherMessages():
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainRequest,
                                      'search': SearchRequest,
                                      'ping': PingRequest,
-                                     'list': ListRequest
+                                     'list': ListRequest,
+                                     'model-status': ModelStatusRequest
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -352,7 +425,8 @@ class NodeMessages():
     def request_create(cls, params: dict) -> Union[TrainRequest,
                                                    SearchRequest,
                                                    PingRequest,
-                                                   ListRequest]:
+                                                   ListRequest,
+                                                   ModelStatusRequest]:
         """
         This method creates the adequate message/ request to send
         to researcher, it maps an instruction (given the key "command" in the
@@ -376,7 +450,8 @@ class NodeMessages():
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainRequest,
                                      'search': SearchRequest,
                                      'ping': PingRequest,
-                                     'list': ListRequest
+                                     'list': ListRequest,
+                                     'model-status': ModelStatusRequest
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -390,7 +465,8 @@ class NodeMessages():
                                                  PingReply,
                                                  LogMessage,
                                                  AddScalarReply,
-                                                 ListReply]:
+                                                 ListReply,
+                                                 ModelStatusReply]:
         """this method is used on message reception.
         It creates the adequate message reply to send to the researcher,
         it maps an instruction (given the key "command" in the
@@ -414,7 +490,8 @@ class NodeMessages():
                                      'pong': PingReply,
                                      'log': LogMessage,
                                      'add_scalar': AddScalarReply,
-                                     'list': ListReply
+                                     'list': ListReply,
+                                     'model-status': ModelStatusReply
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:

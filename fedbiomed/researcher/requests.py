@@ -14,7 +14,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
 from fedbiomed.common.messaging import Messaging
-from fedbiomed.common.component_type import ComponentType
+from fedbiomed.common.constants import ComponentType
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
 
