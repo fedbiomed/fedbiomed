@@ -13,7 +13,7 @@ from torchvision import transforms
 from fedbiomed.node.environ import environ
 
 
-class Data_manager: # should this be in camelcase (smthg like DataManager)?
+class DataManager: # should this be in camelcase (smthg like DataManager)?
     """Interface over TinyDB database.
     Facility fot storing, retrieving data and get data info
     on the data stored into TinyDB database.

@@ -33,7 +33,9 @@ class TestMessage(unittest.TestCase):
             message.PingRequest,
             message.TrainRequest,
             message.ListReply,
-            message.ListRequest
+            message.ListRequest,
+            message.ModelStatusReply,
+            message.ModelStatusRequest
             ]
 
         # test minimal python (only affectation) to insure
@@ -864,6 +866,114 @@ class TestMessage(unittest.TestCase):
 
         pass
 
+    def test_modelstatusreply(self):
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = True,
+
+            researcher_id           = 'toto',
+            node_id                 = 'titi',
+            job_id                  = 'titi',
+            success                 = True,
+            approval_obligation     = True,
+            is_approved             = True,
+            msg                     =  'sdrt',
+            model_url               = 'url',
+            command                 = 'do_it')
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = False,
+
+            researcher_id           = 'toto',
+            node_id                 = 12334,
+            job_id                  = 'titi',
+            success                 = True,
+            approval_obligation     = True,
+            is_approved             = True,
+            msg                     = 'sdrt',
+            model_url               = 'url',
+            command                 = 'do_it')
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = False,
+
+            researcher_id           = 12344,
+            node_id                 = '12334',
+            job_id                  = 'titi',
+            success                 = True,
+            approval_obligation     = True,
+            is_approved             = True,
+            msg                     =  'sdrt',
+            model_url               = 'url',
+            command                 = 'do_it')
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = False,
+
+            researcher_id           = '12344',
+            node_id                 = '12334',
+            job_id                  = 'titi',
+            success                 = True,
+            approval_obligation     = True,
+            is_approved             = 'True',
+            msg                     =  'sdrt',
+            model_url               = 'url',
+            command                 = 'do_it')
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = False,
+
+            researcher_id           = '12344',
+            node_id                 = '12334',
+            job_id                  = 'titi',
+            success                 = True,
+            approval_obligation     = 'True',
+            is_approved             =  True,
+            msg                     =  'sdrt',
+            model_url               = 'url',
+            command                 = 'do_it')
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = False,
+
+            researcher_id           = 333,
+            node_id                 = 1212,
+            job_id                  = False,
+            success                 = 'not a bool',
+            approval_obligation     = True,
+            is_approved             = True,
+            msg                     =  'sdrt',
+            model_url               = 123123,
+            command                 = True)
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = False,
+
+            researcher_id           = 333,
+            node_id                 = 1212,
+            job_id                  = False,
+            success                 = 'not a bool',
+            approval_obligation     = True,
+            is_approved             = True,
+            msg                     =  'sdrt')
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = False,
+
+            success                 = 'not a bool',
+            approval_obligation     = True,
+            is_approved             = True,
+            msg                     =  'sdrt')
+
+
 
     def test_logmessage(self):
 
@@ -1376,6 +1486,55 @@ class TestMessage(unittest.TestCase):
 
         pass
 
+
+    def test_modelstatusrequest(self):
+
+        self.check_class_args(
+            message.ModelStatusRequest,
+            expected_result = True,
+
+            researcher_id   = 'toto',
+            job_id          = 'sdsd',
+            model_url       = 'do_it',
+            command         = 'command-dummy' )
+    
+
+        self.check_class_args(
+            message.ModelStatusRequest,
+            expected_result = False,
+
+            researcher_id   = True,
+            job_id          = 'sdsd',
+            model_url       = 'do_it',
+            command         = 'command-dummy' )
+
+        self.check_class_args(
+            message.ModelStatusRequest,
+            expected_result = False,
+
+            researcher_id   = 'toto',
+            job_id          = 122323,
+            model_url       = 'do_it',
+            command         = 'command-dummy' )
+
+        self.check_class_args(
+            message.ModelStatusRequest,
+            expected_result = False,
+
+            researcher_id   = 'toto',
+            job_id          = 'sdsd',
+            model_url       = 12323,
+            command         = 'command-dummy' )
+
+        self.check_class_args(
+            message.ModelStatusRequest,
+            expected_result = False,
+
+            researcher_id   = 'ttot',
+            job_id          = 'sdsd',
+            model_url       = 'do_it',
+            command         = False )
+
     # test ResearcherMessage and NodeMessagess classes
     # (next 9 tests)
     def test_trainmessages(self):
@@ -1576,7 +1735,39 @@ class TestMessage(unittest.TestCase):
             # should be reached
             self.assertTrue( True, "unknown request message type for node detected")
         pass
+    
+    def test_model_status_messages(self):
 
+        params_reply =  {
+            'researcher_id'           : 'toto',
+            'node_id'                 : 'titi',
+            'job_id'                  : 'titi',
+            'success'                 : True,
+            'approval_obligation'     : True,
+            'is_approved'             : True,
+            'msg'                     :  'sdrt',
+            'model_url'               : 'url',
+            'command'                 : 'model-status'
+        }
+
+        r = message.ResearcherMessages.reply_create( params_reply )
+        self.assertIsInstance( r, message.ModelStatusReply )
+
+        r = message.NodeMessages.reply_create( params_reply )
+        self.assertIsInstance( r, message.ModelStatusReply )
+
+        params_request = {
+            'researcher_id'   : 'toto',
+            "job_id"          : 'titi',
+            "model_url"       : 'url-dummy',
+            "command"         : 'model-status'
+            }
+
+        r = message.ResearcherMessages.request_create( params_request )
+        self.assertIsInstance( r, message.ModelStatusRequest )
+
+        r = message.NodeMessages.request_create( params_request )
+        self.assertIsInstance( r, message.ModelStatusRequest )
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
