@@ -310,7 +310,7 @@ class TestStateExp(unittest.TestCase):
                                          "another_file"]
         patch_os_path_isdir.return_value = True
         patch_get_latest_file.return_value = "breakpoint"
-        latest_bkpt_folder = os.path.join(environ['BREAKPOINTS_DIR'],
+        latest_bkpt_folder = os.path.join(environ['EXPERIMENTS_DIR'],
                                           'breakpoint',
                                           'breakpoint')
 

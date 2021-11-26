@@ -73,10 +73,10 @@ class Environ(metaclass = SingletonMeta):
             # values specific to researcher
             self._values['MESSAGES_QUEUE_DIR']      = "/tmp/var/queue_messages"
             self._values['RESEARCHER_ID']           = "mock_researcher_XXX"
-            self._values['BREAKPOINTS_DIR']         = '/tmp/var/breakpoints'
+            self._values['EXPERIMENTS_DIR']         = '/tmp/var/experiments'
             self._values['TENSORBOARD_RESULTS_DIR'] = "/tmp/runs"
 
-            os.makedirs(self._values['BREAKPOINTS_DIR']        , exist_ok=True)
+            os.makedirs(self._values['EXPERIMENTS_DIR']        , exist_ok=True)
             os.makedirs(self._values['TENSORBOARD_RESULTS_DIR'], exist_ok=True)
 
 

@@ -123,7 +123,7 @@ class Experiment:
 
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
-        self._exp_breakpoint_folder = ''
+        self._experimentation_folder = ''
 
         #  Monitoring loss values with tensorboard
         if tensorboard:
@@ -217,7 +217,7 @@ class Experiment:
         """
         model_file = self._job.model_file
 
-        # Displat content so researcher can copy
+        # Display content so researcher can copy
         if display:
             with open(model_file) as file:
                 content = file.read()
@@ -239,35 +239,35 @@ class Experiment:
     def _create_breakpoint_exp_folder(self):
         """Creates a breakpoint folder for the current experiment (ie the
         current run of the model). This folder is located at
-        `BREAKPOINTS_DIR/Experiment_x` where `x-1` is the number of experiments
+        `EXPERIMENTS_DIR/Experiment_x` where `x-1` is the number of experiments
         already run (`x`=0 for the first experiment)
         """
 
-        if not os.path.isdir(environ['BREAKPOINTS_DIR']):
+        if not os.path.isdir(environ['EXPERIMENTS_DIR']):
             try:
-                os.makedirs(environ['BREAKPOINTS_DIR'], exist_ok=True)
+                os.makedirs(environ['EXPERIMENTS_DIR'], exist_ok=True)
             except (PermissionError, OSError) as err:
                 logger.error(f"Can not save breakpoints files because\
-                    {environ['BREAKPOINTS_DIR']} folder could not be created\
+                    {environ['EXPERIMENTS_DIR']} folder could not be created\
                         due to {err}")
                 return
 
         # FIXME: improve method robustness (here nb of exp equals nb of files
         # in directory)
-        all_files = os.listdir(environ['BREAKPOINTS_DIR'])
-        if not self._exp_breakpoint_folder:
+        all_files = os.listdir(environ['EXPERIMENTS_DIR'])
+        if not self._experimentation_folder:
             #
             # in this case, the Experiment object has not been created from
             # a breakpoint. We create a new directory to save next steps
-            self._exp_breakpoint_folder = "Experiment_" + str(len(all_files))
+            self._experimentation_folder = "Experiment_" + str(len(all_files))
         try:
-            os.makedirs(os.path.join(environ['BREAKPOINTS_DIR'],
-                                     self._exp_breakpoint_folder),
+            os.makedirs(os.path.join(environ['EXPERIMENTS_DIR'],
+                                     self._experimentation_folder),
                         exist_ok=True)
         except (PermissionError, OSError) as err:
             logger.error(f"Can not save breakpoints files because\
-                    {environ['BREAKPOINTS_DIR']} folder could not be created\
-                        due to {err}")
+                    {environ['EXPERIMENTS_DIR']}/{self._experimentation_folder} \
+                    folder could not be created due to {err}")
 
     def _create_breakpoint_file_and_folder(self,
                                            round: int = 0) -> Tuple[str, str]:
@@ -284,8 +284,8 @@ class Experiment:
             contain the state of an experiment.
         """
         breakpoint_folder = "breakpoint_" + str(round)
-        breakpoint_folder_path = os.path.join(environ['BREAKPOINTS_DIR'],
-                                              self._exp_breakpoint_folder,
+        breakpoint_folder_path = os.path.join(environ['EXPERIMENTS_DIR'],
+                                              self._experimentation_folder,
                                               breakpoint_folder)
         try:
             os.makedirs(breakpoint_folder_path, exist_ok=True)
@@ -465,14 +465,14 @@ class Experiment:
                 # retrieve latest experiment
 
                 # content of breakpoint folder
-                _experiment_folders = os.listdir(environ['BREAKPOINTS_DIR'])
+                _experiment_folders = os.listdir(environ['EXPERIMENTS_DIR'])
 
                 _latest_exp_folder = Experiment._get_latest_file(
-                    environ['BREAKPOINTS_DIR'],
+                    environ['EXPERIMENTS_DIR'],
                     _experiment_folders,
                     only_folder=True)
 
-                _latest_exp_folder = os.path.join(environ['BREAKPOINTS_DIR'],
+                _latest_exp_folder = os.path.join(environ['EXPERIMENTS_DIR'],
                                                   _latest_exp_folder)
 
                 _bkpt_folders = os.listdir(_latest_exp_folder)
@@ -485,7 +485,7 @@ class Experiment:
                 breakpoint_folder = os.path.join(_latest_exp_folder,
                                                  breakpoint_folder)
             except FileNotFoundError as err:
-                logger.error("cannot find a breakpoint in:" + environ['BREAKPOINTS_DIR'] + " - " + err)
+                logger.error("cannot find a breakpoint in:" + environ['EXPERIMENTS_DIR'] + " - " + err)
                 raise FileNotFoundError("Cannot find latest breakpoint \
                     saved. Are you sure you have saved at least one breakpoint?")
             except TypeError as err:
@@ -603,7 +603,7 @@ class Experiment:
 
         # ------- changing `Experiment` attributes -------
         # get experiment folder for breakpoint
-        loaded_exp._exp_breakpoint_folder = os.path.dirname(breakpoint_folder)
+        loaded_exp._experimentation_folder = os.path.dirname(breakpoint_folder)
         loaded_exp._round_init = saved_state.get('round_number')
         loaded_exp._aggregated_params = \
             loaded_exp._load_aggregated_params(saved_state.get('aggregated_params'))

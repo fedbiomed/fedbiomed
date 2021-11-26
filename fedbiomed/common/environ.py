@@ -16,7 +16,7 @@ Resarcher Global Variables:
     RESEARCHER_ID           : id of the researcher
     ID                      : equals to researcher id
     TENSORBOARD_RESULTS_DIR : path for writing tensorboard log files
-    BREAKPOINTS_DIR         : folder for saving breakpoints
+    EXPERIMENTS_DIR         : folder for saving experiments
     MESSAGES_QUEUE_DIR      : Path for writing queue files
 
 Nodes Global Variables:
@@ -130,9 +130,9 @@ class Environ(metaclass = SingletonMeta):
 
         # more directories
         self._values['TENSORBOARD_RESULTS_DIR'] = os.path.join(ROOT_DIR, 'runs')
-        self._values['BREAKPOINTS_DIR'] = os.path.join(VAR_DIR, "breakpoints")
+        self._values['EXPERIMENTS_DIR'] = os.path.join(VAR_DIR, "experiments")
 
-        for _key in 'TENSORBOARD_RESULTS_DIR', 'BREAKPOINTS_DIR':
+        for _key in 'TENSORBOARD_RESULTS_DIR', 'EXPERIMENTS_DIR':
             dir = self._values[_key]
             if not os.path.isdir(dir):
                 try:
