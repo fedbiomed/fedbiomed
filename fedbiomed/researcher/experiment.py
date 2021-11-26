@@ -461,13 +461,13 @@ class Experiment:
         return latest_folder
 
     @staticmethod
-    def _find_breakpoint_path(breakpoint_folder: str = None) -> Tuple[str, str]:
+    def _find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
         """Finds breakpoint path, regarding if
         user specifies a specific breakpoint path or
         considers only the latest breakpoint.
 
         Args:
-            breakpoint_folder (str, optional):path towards breakpoint. If None,
+            breakpoint_folder_path (str, optional):path towards breakpoint. If None,
             (default), consider latest breakpoint saved on default path
             (provided at least one breakpoint exists). Defaults to None.
 
@@ -483,30 +483,30 @@ class Experiment:
             str: latest experiment and breakpoint folder.
         """
         # First, let's test if folder is a real folder path
-        if breakpoint_folder is None:
+        if breakpoint_folder_path is None:
             try:
                 # retrieve latest experiment
 
                 # content of breakpoint folder
-                _experiment_folders = os.listdir(environ['EXPERIMENTS_DIR'])
+                experiment_folders = os.listdir(environ['EXPERIMENTS_DIR'])
 
-                _latest_exp_folder = Experiment._get_latest_file(
+                latest_exp_folder = Experiment._get_latest_file(
                     environ['EXPERIMENTS_DIR'],
-                    _experiment_folders,
+                    experiment_folders,
                     only_folder=True)
 
-                _latest_exp_folder = os.path.join(environ['EXPERIMENTS_DIR'],
-                                                  _latest_exp_folder)
+                latest_exp_folder = os.path.join(environ['EXPERIMENTS_DIR'],
+                                                  latest_exp_folder)
 
-                _bkpt_folders = os.listdir(_latest_exp_folder)
+                bkpt_folders = os.listdir(latest_exp_folder)
 
-                breakpoint_folder = Experiment._get_latest_file(
-                    _latest_exp_folder,
-                    _bkpt_folders,
+                breakpoint_folder_path = Experiment._get_latest_file(
+                    latest_exp_folder,
+                    bkpt_folders,
                     only_folder=True)
 
-                breakpoint_folder = os.path.join(_latest_exp_folder,
-                                                 breakpoint_folder)
+                breakpoint_folder_path = os.path.join(latest_exp_folder,
+                                                 breakpoint_folder_path)
             except FileNotFoundError as err:
                 logger.error("cannot find a breakpoint in:" + environ['EXPERIMENTS_DIR'] + " - " + err)
                 raise FileNotFoundError("Cannot find latest breakpoint \
@@ -516,12 +516,12 @@ class Experiment:
                 # Fails (ie return `None`)
                 logger.error(err)
 
-                #### REVIEW: _latest_exp_folder may be undefined here (it try block breaks before its definition)
+                #### REVIEW: latest_exp_folder may be undefined here (it try block breaks before its definition)
                 raise FileNotFoundError(f"found an empty breakpoint folder\
-                    at {_latest_exp_folder}")
+                    at {latest_exp_folder}")
         else:
-            if not os.path.isdir(breakpoint_folder):
-                raise FileNotFoundError(f"{breakpoint_folder} is not a folder")
+            if not os.path.isdir(breakpoint_folder_path):
+                raise FileNotFoundError(f"{breakpoint_folder_path} is not a folder")
 
             # check if folder is a valid breakpoint
 
@@ -531,7 +531,7 @@ class Experiment:
         #
         # verify the validity of the breakpoint content
         # TODO: be more robust
-        all_breakpoint_materials = os.listdir(breakpoint_folder)
+        all_breakpoint_materials = os.listdir(breakpoint_folder_path)
         if len(all_breakpoint_materials) == 0:
             raise Exception("breakpoint folder is empty !")
 
@@ -549,15 +549,15 @@ class Experiment:
 
         if state_file is None:
             logging.error(f"Cannot find JSON file containing\
-                model state at {breakpoint_folder}. Aborting")
+                model state at {breakpoint_folder_path}. Aborting")
             raise FileNotFoundError(f"Cannot find JSON file containing\
-                model state at {breakpoint_folder}. Aborting")
+                model state at {breakpoint_folder_path}. Aborting")
             #sys.exit(-1)
-        return breakpoint_folder, state_file
+        return breakpoint_folder_path, state_file
 
     @classmethod
     def load_breakpoint(cls: Type[_E],
-                        breakpoint_folder: str = None ) -> _E:
+                        breakpoint_folder_path: str = None ) -> _E:
         """
         Loads breakpoint (provided a breakpoint has been saved)
         so experience can be resumed. Useful if training has crashed
@@ -565,8 +565,8 @@ class Experiment:
 
         Args:
             cls (Type[_E]): Experiment class
-            breakpoint_folder (str, optional): path of the breakpoint folder.
-            Path should be: "breakpoints/Experiment_xx/breakpoints_xx".
+            breakpoint_folder_path (str, optional): path of the breakpoint folder.
+            Path can be absolute or relative eg: "var/experiments/Experiment_xx/breakpoints_xx".
             If None, loads latest breakpoint of the latest experiment.
             Defaults to None.
 
@@ -578,11 +578,11 @@ class Experiment:
 
         # get breakpoint folder path (if it is None) and
         # state file
-        breakpoint_folder, state_file = cls._find_breakpoint_path(breakpoint_folder)
-        breakpoint_folder = os.path.abspath(breakpoint_folder)
+        breakpoint_folder_path, state_file = cls._find_breakpoint_path(breakpoint_folder_path)
+        breakpoint_folder_path = os.path.abspath(breakpoint_folder_path)
 
         # TODO: check if all elements needed for breakpoint are present
-        with open(os.path.join(breakpoint_folder, state_file), "r") as f:
+        with open(os.path.join(breakpoint_folder_path, state_file), "r") as f:
             saved_state = json.load(f)
         #print(saved_state)
 
@@ -621,9 +621,6 @@ class Experiment:
                          )
 
         # ------- changing `Experiment` attributes -------
-        # get experiment folder for breakpoint
-        #loaded_exp._experimentation_folder = os.path.dirname(breakpoint_folder)
-        #loaded_exp._experimentation_folder = saved_state.get('experimentation_folder')
         loaded_exp._round_init = saved_state.get('round_number')
         loaded_exp._aggregated_params = \
             loaded_exp._load_aggregated_params(saved_state.get('aggregated_params'))
@@ -631,7 +628,7 @@ class Experiment:
         # ------- changing `Job` attributes -------
         loaded_exp._job.load_state(saved_state)
 
-        logging.debug(f"reloading from {breakpoint_folder} successful!")
+        logging.debug(f"reloading from {breakpoint_folder_path} successful!")
         return loaded_exp
 
     @staticmethod
