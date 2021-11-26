@@ -39,7 +39,8 @@ class Experiment:
                  node_selection_strategy: Strategy = None,
                  save_breakpoints: bool = False,
                  training_data: dict = None,
-                 tensorboard: bool = False
+                 tensorboard: bool = False,
+                 experimentation_folder: str = None
                  ):
 
         """ Constructor of the class.
@@ -84,6 +85,14 @@ class Experiment:
                                 during training in every node. If it is true,
                                 monitor will write scalar logs into
                                 `./runs` directory.
+            experimentation_folder (str, optional): choose a specific name for the
+                    folder where experimentation result files and breakpoints are stored.
+                    This should just contain a name not a path.
+                    Caveat : this experimentation will not be detected as last
+                    experimentation by `load_breakpoint`
+                    Caveat : do not use a `experimentation_folder` name finishing
+                    with numbers ([0-9]+) as this would confuse the last experimentation
+                    detection heuristic by `load_breakpoint`.
         """
 
         self._tags = tags
@@ -105,6 +114,9 @@ class Experiment:
         self._node_selection_strategy = node_selection_strategy
         self._aggregator = aggregator
 
+        self._experimentation_folder = experimentation_folder
+        self._create_experimentation_folder()
+
         self._model_class = model_class
         self._model_path = model_path
         self._model_args = model_args
@@ -123,7 +135,6 @@ class Experiment:
 
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
-        self._experimentation_folder = ''
 
         #  Monitoring loss values with tensorboard
         if tensorboard:
@@ -135,19 +146,26 @@ class Experiment:
             # function might be already added into request before.
             self._reqs.remove_monitor_callback()
 
+
     @property
     def training_replies(self):
         return self._job.training_replies
-
 
     @property
     def aggregated_params(self):
         return self._aggregated_params
 
-
     @property
     def model_instance(self):
         return self._job.model
+
+    @property
+    def experimentation_folder(self):
+        return self._experimentation_folder
+
+    @property
+    def experimentation_path(self):
+        return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
 
 
     def run(self, sync=True):
@@ -173,8 +191,6 @@ class Experiment:
             if inspect.isclass(self._node_selection_strategy):
                 self._node_selection_strategy = self._node_selection_strategy(self._fds)
 
-        if self._save_breakpoints:
-            self._create_breakpoint_exp_folder()
         if not sync:
             raise NotImplementedError("One day....")
 
@@ -236,36 +252,41 @@ class Experiment:
         return responses
 
 
-    def _create_breakpoint_exp_folder(self):
-        """Creates a breakpoint folder for the current experiment (ie the
-        current run of the model). This folder is located at
-        `EXPERIMENTS_DIR/Experiment_x` where `x-1` is the number of experiments
-        already run (`x`=0 for the first experiment)
+    def _create_experimentation_folder(self):
+        """Creates a folder for the current experiment (ie the current run of the model).
+        Experiment file to keep are stored here: model file, all versions of node parameters,
+        all versions of aggregated parameters, breakpoints.
+        This folder is located at `EXPERIMENTS_DIR/Experiment_x` where `x-1`
+        is the number of experiments already run (`x`=0 for the first experiment)
         """
 
         if not os.path.isdir(environ['EXPERIMENTS_DIR']):
             try:
                 os.makedirs(environ['EXPERIMENTS_DIR'], exist_ok=True)
             except (PermissionError, OSError) as err:
-                logger.error(f"Can not save breakpoints files because\
+                logger.error(f"Can not save experiment files because\
                     {environ['EXPERIMENTS_DIR']} folder could not be created\
                         due to {err}")
                 return
 
-        # FIXME: improve method robustness (here nb of exp equals nb of files
-        # in directory)
-        all_files = os.listdir(environ['EXPERIMENTS_DIR'])
+        # if no name is given for the experiment folder we choose one
         if not self._experimentation_folder:
-            #
-            # in this case, the Experiment object has not been created from
-            # a breakpoint. We create a new directory to save next steps
+             # FIXME: improve method robustness (here nb of exp equals nb of files
+            # in directory)
+            all_files = os.listdir(environ['EXPERIMENTS_DIR'])
             self._experimentation_folder = "Experiment_" + str(len(all_files))
+        else:
+            if os.path.basename(self._experimentation_folder) != self._experimentation_folder:
+                # experimentation folder cannot be a path
+                raise ValueError("Bad experimentation folder {experimentation_folder} - \
+                    it cannot be a path")
+
         try:
             os.makedirs(os.path.join(environ['EXPERIMENTS_DIR'],
                                      self._experimentation_folder),
                         exist_ok=True)
         except (PermissionError, OSError) as err:
-            logger.error(f"Can not save breakpoints files because\
+            logger.error(f"Can not save experiment files because\
                     {environ['EXPERIMENTS_DIR']}/{self._experimentation_folder} \
                     folder could not be created due to {err}")
 
@@ -303,6 +324,7 @@ class Experiment:
          - round_number
          - round_number_due
          - tags
+         - experimentation_folder
          - aggregator
          - node_selection_strategy
          - training_data
@@ -331,6 +353,7 @@ class Experiment:
             # these are pure Experiment attributes
             'round_number': round + 1,
             'round_number_due': self._rounds,
+            'experimentation_folder': self._experimentation_folder,
             'aggregator': self._aggregator.save_state(),
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             'tags': self._tags,
@@ -498,13 +521,8 @@ class Experiment:
                     at {_latest_exp_folder}")
         else:
             if not os.path.isdir(breakpoint_folder):
-                if os.path.isfile(breakpoint_folder):
-                    raise FileNotFoundError(f"{breakpoint_folder} \
-                        is not a folder but a file")
-                else:
+                raise FileNotFoundError(f"{breakpoint_folder} is not a folder")
 
-                    # trigger an exception
-                    raise FileNotFoundError(f"Cannot find {breakpoint_folder}!")
             # check if folder is a valid breakpoint
 
             # get breakpoint material
@@ -598,12 +616,14 @@ class Experiment:
                          aggregator=bkpt_aggregator(),
                          node_selection_strategy=bkpt_sampling_strategy,
                          save_breakpoints=True,
-                         training_data = saved_state.get('training_data')
+                         training_data=saved_state.get('training_data'),
+                         experimentation_folder=saved_state.get('experimentation_folder')
                          )
 
         # ------- changing `Experiment` attributes -------
         # get experiment folder for breakpoint
-        loaded_exp._experimentation_folder = os.path.dirname(breakpoint_folder)
+        #loaded_exp._experimentation_folder = os.path.dirname(breakpoint_folder)
+        #loaded_exp._experimentation_folder = saved_state.get('experimentation_folder')
         loaded_exp._round_init = saved_state.get('round_number')
         loaded_exp._aggregated_params = \
             loaded_exp._load_aggregated_params(saved_state.get('aggregated_params'))
