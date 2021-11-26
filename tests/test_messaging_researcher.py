@@ -14,7 +14,7 @@ from fedbiomed.researcher.environ    import environ
 
 
 from fedbiomed.common.messaging      import Messaging
-from fedbiomed.common.component_type import ComponentType
+from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.message        import ResearcherMessages
 
 class TestMessagingResearcher(unittest.TestCase):

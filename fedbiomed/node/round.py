@@ -1,12 +1,13 @@
 import sys
+import os
 import uuid
 import time
 
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.message import NodeMessages, TrainReply
 from fedbiomed.node.history_monitor import HistoryMonitor
+from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.environ import environ
-
 from fedbiomed.common.logger import logger
 
 import traceback
@@ -53,7 +54,8 @@ class Round:
         self.job_id = job_id
         self.researcher_id = researcher_id
         self.monitor = monitor
-
+        self.model_manager = ModelManager()
+        
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
 
     def run_model_training(self) -> TrainReply:
@@ -77,7 +79,16 @@ class Round:
             if (status != 200):
                 is_failed = True
                 error_message = "Cannot download model file: " + self.model_url
-            else:
+            else:             
+                if environ["MODEL_APPROVAL"]:
+                    approved, model = self.model_manager.check_is_model_approved(os.path.join(environ["TMP_DIR"], import_module + '.py')) 
+                    if not approved:
+                        is_failed = True
+                        error_message = f'Requested model is not approved by the node: {environ["NODE_ID"]}'
+                    else:
+                        logger.info(f'Model has been approved by the node {model["name"]}')
+            
+            if not is_failed:
                 status, params_path = self.repository.download_file(
                     self.params_url,
                     'my_model_' + str(uuid.uuid4()) + '.pt')
@@ -85,6 +96,7 @@ class Round:
                     is_failed = True
                     error_message = "Cannot download param file: "\
                         + self.params_url
+
         except Exception as e:
             is_failed = True
             error_message = "Cannot download model files:" + str(e)
