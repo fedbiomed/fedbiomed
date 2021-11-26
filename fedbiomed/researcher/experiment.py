@@ -293,14 +293,14 @@ class Experiment:
         """
         job_state = self._job.save_state(round)
         state = {
-            ## these are both Experiment and Job attributes : should be set also
-            ## in Experiment to better split breakpoint between the two classes
-            #'training_data': self._training_data,
-            #'training_args': self._training_args,
-            #'model_args': self._model_args,
-            #'model_path': self.job._model_file, # may not exist in Experiment with current version
-            #'model_class': self._job._repository_args.get('model_class'), # not properly
-            #                  # formatted in Experiment with current version
+            # these are both Experiment and Job attributes : should be set also
+            # in Experiment to better split breakpoint between the two classes
+            'training_data': self._training_data,
+            'training_args': self._training_args,
+            'model_args': self._model_args,
+            'model_path': self._job._model_file, # may not exist in Experiment with current version
+            'model_class': self._job._repository_args.get('model_class'), # not properly
+                              # formatted in Experiment with current version
             #
             # these are pure Experiment attributes
             'round_number': round + 1,
