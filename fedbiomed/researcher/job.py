@@ -188,18 +188,18 @@ class Job:
 
     @property
     def model_file(self):
-        return self._model_file 
-    
+        return self._model_file
 
 
-    # TODO: After refactoring experiment this method can be created 
-    # directly in the Experiment class. Since it requires 
+
+    # TODO: After refactoring experiment this method can be created
+    # directly in the Experiment class. Since it requires
     # node ids and model_url to send model approve status it is created
-    # in job class  
+    # in job class
     def check_model_is_approved_by_nodes(self):
 
-        """ Method for checking whether model is approved or not.  This method send 
-            `model-status` request to the nodes. It should be run before running experiment. 
+        """ Method for checking whether model is approved or not.  This method send
+            `model-status` request to the nodes. It should be run before running experiment.
             So, researchers can find out if their model has been approved
         """
 
@@ -208,7 +208,7 @@ class Job:
             'job_id': self._id,
             'model_url' : self._repository_args['model_url'],
             'command': 'model-status'
-        }  
+        }
 
         responses = []
         replied_nodes = []
@@ -219,15 +219,15 @@ class Job:
             logger.info('Sending request to node ' + \
                                     str(cli) + " to check model is approved or not")
             self._reqs.send_message(
-                        ResearcherMessages.request_create(message).get_dict(), 
-                        cli) 
+                        ResearcherMessages.request_create(message).get_dict(),
+                        cli)
 
         # Wait for responses
-        for resp in self._reqs.get_responses(look_for_command='model-status', only_successful = False):
+        for resp in self._reqs.get_responses(look_for_commands=['model-status'], only_successful = False):
             responses.append(resp)
             replied_nodes.append(resp.get('node_id'))
 
-            if resp.get('success') == True: 
+            if resp.get('success') == True:
                 if resp.get('approval_obligation') == True:
                     if resp.get('is_approved') == True:
                         logger.info(f'Model has been approved by the node: {resp.get("node_id")}')
@@ -235,7 +235,7 @@ class Job:
                         logger.warning(f'Model has NOT been approved by the node: {resp.get("node_id")}')
                 else:
                     logger.info(f'Model approval is not required by the node: {resp.get("node_id")}')
-            else: 
+            else:
                 logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
 
         # Get the nodes that haven't replied model-status request

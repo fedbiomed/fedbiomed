@@ -132,12 +132,12 @@ class Requests(metaclass=SingletonMeta):
         logger.debug(str(environ['RESEARCHER_ID']))
         self.messaging.send_message(msg, client=client)
 
-    def get_messages(self, command: str = None, time: float = .0) -> Responses:
+    def get_messages(self, commands: list = [], time: float = .0) -> Responses:
         """ This method goes through the queue and gets messages with the
         specific command
 
         Args:
-            command (str, optional): checks if message is containing the
+            command (list of str, optional): checks if message is containing the
             expecting command (the message  is discarded if it doesnot).
             Defaults to None (no command message checking, meaning all
             incoming messages are considered).
@@ -156,8 +156,8 @@ class Requests(metaclass=SingletonMeta):
                 item = self.queue.get(block=False)
                 self.queue.task_done()
 
-                if command is None or \
-                        ('command' in item.keys() and item['command'] == command):
+                if not commands or \
+                   ('command' in item.keys() and item['command'] in commands):
                     answers.append(item)
                 else:
                     # currently trash all other messages
@@ -169,7 +169,7 @@ class Requests(metaclass=SingletonMeta):
         return Responses(answers)
 
     def get_responses(self,
-                      look_for_command: str,
+                      look_for_commands: list,
                       timeout: float = None,
                       only_successful: bool = True) -> Responses:
         """
@@ -177,7 +177,7 @@ class Requests(metaclass=SingletonMeta):
         returns the list of all nodes answers
 
         Args:
-            look_for_command (str): instruction that has been sent to
+            look_for_commands (list): instruction that has been sent to
             node. Can be either ping, search or train.
             timeout (float, optional): wait for a specific duration
                 before collecting nodes messages. Defaults to None.
@@ -193,7 +193,7 @@ class Requests(metaclass=SingletonMeta):
         while True:
             sleep(timeout)
             new_responses = []
-            for resp in self.get_messages(command=look_for_command, time=0):
+            for resp in self.get_messages(commands=look_for_commands, time=0):
                 try:
                     if not only_successful:
                         new_responses.append(resp)
@@ -221,7 +221,7 @@ class Requests(metaclass=SingletonMeta):
         self._sequence += 1
 
         # TODO: (below, above) handle exceptions
-        nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_command='ping')]
+        nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_commands=['ping'])]
         return nodes_online
 
     def search(self, tags: tuple, nodes: list = None) -> dict:
@@ -252,7 +252,7 @@ class Requests(metaclass=SingletonMeta):
                                                                            ).get_dict())
 
         data_found = {}
-        for resp in self.get_responses(look_for_command='search'):
+        for resp in self.get_responses(look_for_commands=['search']):
             if not nodes:
                 data_found[resp.get('node_id')] = resp.get('databases')
             elif resp.get('node_id') in nodes:
@@ -289,7 +289,7 @@ class Requests(metaclass=SingletonMeta):
 
         # Get datasets from node responses
         data_found = {}
-        for resp in self.get_responses(look_for_command='list'):
+        for resp in self.get_responses(look_for_commands=['list']):
             if not nodes:
                 data_found[resp.get('node_id')] = resp.get('databases')
             elif resp.get('node_id') in nodes:
