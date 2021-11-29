@@ -62,7 +62,7 @@ class Message(object):
 @dataclass
 class ModelStatusReply(Message):
 
-    """This class describes a model approve status check message sent 
+    """This class describes a model approve status check message sent
        by the node
 
     Args:
@@ -71,14 +71,14 @@ class ModelStatusReply(Message):
     Raises:
         ValueError: triggered if message's fields validation failed
 
-    Keys: 
-        researcher_id       : Id of the researcher that sends the request 
+    Keys:
+        researcher_id       : Id of the researcher that sends the request
         node_id             : Node id that replys the request
         job_id              : job id related to the experiment
-        succes              : True if the node process the request as expected, false 
+        succes              : True if the node process the request as expected, false
                               if any execption occurs
         approval_obligation : Approval mode for node. True, if model approval is enabled/required
-                              in the node for training. 
+                              in the node for training.
         is_approved         : True, if the requested model is one of the approved model by the node
         msg                 : Message from node based on state of the reply
         model_url           : The model that has been checked for approval
@@ -197,7 +197,7 @@ class AddScalarReply(Message):
     researcher_id: str
     node_id: str
     job_id: str
-    key: str    
+    key: str
     value: float
     epoch: int
     iteration: int
@@ -228,9 +228,28 @@ class LogMessage(Message):
 
 
 @dataclass
+class ErrorMessage(Message):
+    """
+    This class describes an error message sent by the node
+
+    Raises:
+        ValueError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    node_id: str
+    errnum: int
+    msg: str
+    command: str
+
+    def __post_init__(self):
+        if not self.validate(self.__dataclass_fields__.items()):
+            raise ValueError('Wrong types')
+
+
+@dataclass
 class ModelStatusRequest(Message):
 
-    """This class describes a model approve status check message sent 
+    """This class describes a model approve status check message sent
        by the researcher
 
     Args:
@@ -240,8 +259,8 @@ class ModelStatusRequest(Message):
         ValueError: triggered if message's fields validation failed
 
 
-    Keys: 
-        researcher_id   : Id of the researcher that sends the request 
+    Keys:
+        researcher_id   : Id of the researcher that sends the request
         job_id          : job id related to the experiment.
         model_url       : The model that is going to be checked for approval
         command         : Request command
@@ -339,6 +358,7 @@ class ResearcherMessages():
                                                            SearchReply,
                                                            PingReply,
                                                            LogMessage,
+                                                           ErrorMessage,
                                                            ListReply,
                                                            AddScalarReply,
                                                            ModelStatusReply]:
@@ -365,6 +385,7 @@ class ResearcherMessages():
                                      'search': SearchReply,
                                      'pong': PingReply,
                                      'log': LogMessage,
+                                     'error': ErrorMessage,
                                      'list': ListReply,
                                      'add_scalar': AddScalarReply,
                                      'model-status': ModelStatusReply
@@ -464,6 +485,7 @@ class NodeMessages():
                                                  SearchReply,
                                                  PingReply,
                                                  LogMessage,
+                                                 ErrorMessage,
                                                  AddScalarReply,
                                                  ListReply,
                                                  ModelStatusReply]:
@@ -489,6 +511,7 @@ class NodeMessages():
                                      'search': SearchReply,
                                      'pong': PingReply,
                                      'log': LogMessage,
+                                     'error': ErrorMessage,
                                      'add_scalar': AddScalarReply,
                                      'list': ListReply,
                                      'model-status': ModelStatusReply
@@ -498,5 +521,3 @@ class NodeMessages():
             raise ValueError('Bad message type {}'.format(message_type))
 
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
-
-

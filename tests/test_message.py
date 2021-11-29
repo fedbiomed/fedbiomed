@@ -29,6 +29,7 @@ class TestMessage(unittest.TestCase):
             message.TrainReply,
             message.AddScalarReply,
             message.LogMessage,
+            message.ErrorMessage,
             message.SearchRequest,
             message.PingRequest,
             message.TrainRequest,
@@ -1090,6 +1091,121 @@ class TestMessage(unittest.TestCase):
 
         pass
 
+    def test_errormessage(self):
+
+        # well formatted message
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = True,
+
+            researcher_id = 'toto',
+            node_id       = 'titi',
+            errnum        = 100,
+            msg           = 'this is an error message',
+            command       = 'log'
+        )
+
+
+        # bad param number
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            node_id       = 'titi')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            errnum       = 100)
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            msg           = 'this is an error message')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            command       = 'log')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            node_id       = 'titi',
+            errnum        = 100,
+            msg           = 'this is an error message',
+            command       = 'log',
+            extra_arg     = '???' )
+
+
+        # bad param type
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = False,
+            node_id       = 'titi',
+            errnum        = 100,
+            msg           = 'this is an error message',
+            command       = 'log'
+        )
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            node_id       = False,
+            errnum        = 100,
+            msg           = 'this is an error message',
+            command       = 'log'
+        )
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            node_id       = 'titi',
+            errnum        = False,
+            msg           = 'this is an error message',
+            command       = 'log'
+        )
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            node_id       = 'titi',
+            errnum        = 100,
+            msg           = [ 1 , 2 ],
+            command       = 'log')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            node_id       = 'titi',
+            errnum        = 100,
+            msg           = [ 1 , 2 ],
+            command       = False)
+
+
+        pass
+
 
     def test_searchrequest(self):
         # well formatted message
@@ -1497,7 +1613,7 @@ class TestMessage(unittest.TestCase):
             job_id          = 'sdsd',
             model_url       = 'do_it',
             command         = 'command-dummy' )
-    
+
 
         self.check_class_args(
             message.ModelStatusRequest,
@@ -1657,7 +1773,7 @@ class TestMessage(unittest.TestCase):
         self.assertIsInstance( r, message.PingRequest )
 
 
-    def test_errormessages(self):
+    def test_logmessages(self):
 
         # error
         params = {
@@ -1672,6 +1788,22 @@ class TestMessage(unittest.TestCase):
 
         r = message.NodeMessages.reply_create( params )
         self.assertIsInstance( r, message.LogMessage )
+
+    def test_errormessages(self):
+
+        # error
+        params = {
+            "researcher_id" : 'toto' ,
+            "node_id"       : 'titi' ,
+            "errnum"        : 100,
+            "msg"           : 'bim boum badaboum',
+            "command"       : 'error'
+        }
+        r = message.ResearcherMessages.reply_create( params )
+        self.assertIsInstance( r, message.ErrorMessage )
+
+        r = message.NodeMessages.reply_create( params )
+        self.assertIsInstance( r, message.ErrorMessage )
 
     def test_addscalarmessages(self):
 
@@ -1735,7 +1867,7 @@ class TestMessage(unittest.TestCase):
             # should be reached
             self.assertTrue( True, "unknown request message type for node detected")
         pass
-    
+
     def test_model_status_messages(self):
 
         params_reply =  {

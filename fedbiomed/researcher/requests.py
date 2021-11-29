@@ -156,11 +156,19 @@ class Requests(metaclass=SingletonMeta):
                 item = self.queue.get(block=False)
                 self.queue.task_done()
 
+                print("=== DEBUG TEST START get_messages")
+                print("commands=", commands)
+                print("item.keys=", item.keys())
+                print("item[command]=", item['command'])
+                print("item=", item)
+
                 if not commands or \
                    ('command' in item.keys() and item['command'] in commands):
+                    print("=== DEBUG TEST KEEP  get_messages")
                     answers.append(item)
                 else:
                     # currently trash all other messages
+                    print("=== DEBUG TEST TRASH get_messages")
                     pass
                     #self.queue.add(item)
             except exceptionsEmpty:
