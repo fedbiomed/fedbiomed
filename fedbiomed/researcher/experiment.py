@@ -1,7 +1,6 @@
 import logging
 import os
 import json
-import shutil
 import re
 import inspect
 
@@ -253,8 +252,8 @@ class Experiment:
 
         return responses
 
-
-    def _create_experimentation_folder(self, experimentation_folder=None):
+    @staticmethod
+    def _create_experimentation_folder(experimentation_folder=None) -> str:
         """Creates a folder for the current experiment (ie the current run of the model).
         Experiment files to keep are stored here: model file, all versions of node parameters,
         all versions of aggregated parameters, breakpoints.
@@ -336,6 +335,44 @@ class Experiment:
         breakpoint_file = breakpoint_folder + ".json"
         return breakpoint_folder_path, breakpoint_file
 
+
+    def _create_unique_link(self, breakpoint_folder_path: str,
+            link_src_prefix: str,
+            link_src_postfix: str,
+            link_target_path: str) -> str:
+        """Find a non existing name in `breakpoint_folder_path` and create
+        a symbolic link to a given target name.
+        
+        Args:
+            breakpoint_folder_path (str): directory for the source link
+            link_src_prefix (str): beginning of the name for the source link (before unique id)
+            link_src_postfix (str): end of the name for the source link (after unique id)
+            link_target_path (str): target for the symbolic link
+
+        Returns:
+            str: source path of the created link
+        """
+
+        stub = 0
+        link_src_path = os.path.join(breakpoint_folder_path,
+                            link_src_prefix + link_src_postfix)
+        
+        # Need to ensure unique name for link (eg when replaying from non-last breakpoint)
+        while(os.path.exists(link_src_path)):
+            stub += 1
+            link_src_path = os.path.join(breakpoint_folder_path,
+                                link_src_prefix + '_' + str(stub) + link_src_postfix)
+
+        try:
+            os.symlink(link_target_path, link_src_path)
+        except(FileExistsError, PermissionError, OSError) as err:
+            logger.error(f"Can not create link to experiment file {link_target_path}\
+                from {link_src_path} due to error {err}")
+            raise
+
+        return link_src_path
+
+
     def _save_state(self, round: int=0):
         """
         Saves a state of the training at a current round.
@@ -382,13 +419,14 @@ class Experiment:
         state.update(job_state)
         breakpoint_path, breakpoint_file_name = self._create_breakpoint_file_and_folder(round)
 
-        # TODO: optimize - one copy for the experiment is enough
-        # Need a file with a restricted characters set in name to be able to import as module
-        copied_model_file = "model_" + str(round) + ".py"
-        copied_model_path = os.path.join(breakpoint_path,
-                                         copied_model_file)
-        shutil.copy2(state["model_path"], copied_model_path)
-        state["model_path"] = copied_model_path
+        state["model_path"] = self._create_unique_link(
+            breakpoint_path,
+            # - Need a file with a restricted characters set in name to be able to import as module
+            "model_" + str(round), ".py",
+            # - Prefer relative path, eg for using experiment result after
+            # experiment in a different tree
+            os.path.join('..', os.path.basename(state["model_path"]))
+            )
 
         # save state into a json file.
         breakpoint_path = os.path.join(breakpoint_path, breakpoint_file_name)
