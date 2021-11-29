@@ -18,7 +18,7 @@ def get_node_id(config_file: str):
     if os.path.isfile(config_file):
         cfg.read(config_file)
     else:
-        raise Exception(f'Config file does not exist, con not start flask {config_file}')
+        raise Exception(f'Config file does not exist, can not start flask app. Please check follwing folder in your file system {config_file}')
 
     # Get node id from config file 
     node_id = cfg.get('default', 'node_id')

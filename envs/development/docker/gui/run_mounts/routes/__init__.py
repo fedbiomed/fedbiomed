@@ -7,7 +7,5 @@ api = Blueprint('api', 'api', url_prefix='/api')
 
 # Uses default `/` prefix for index and static
 from .index import *
-
-# Uses `/api` prefix 
-from .list import *
-from .upload import *
+from .config import *
+from .datasets import *

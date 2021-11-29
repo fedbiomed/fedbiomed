@@ -2,8 +2,6 @@ import os
 import sys
 from utils import get_node_id
 from flask import Flask
-from tinydb import TinyDB
-
 
 
 # Create Flask Application
@@ -25,7 +23,7 @@ app.config['DATA_PATH']               = os.getenv('DATA_PATH' ,
                                                             'data') )
 
 app.config['NODE_ID']                 = get_node_id(app.config['NODE_CONFIG_FILE_PATH'])
-app.config['NODE_DB_PATH']            = os.path.join(app.config['NODE_FEDBIOMED_ROOT'], 'var', db_prefix + app.config['NODE_ID'])
+app.config['NODE_DB_PATH']            = os.path.join(app.config['NODE_FEDBIOMED_ROOT'], 'var', db_prefix + app.config['NODE_ID'] + '.json')
 app.config['DEBUG']                   = os.getenv('DEBUG', 'True').lower() in ('true' , 1, True, 'yes')
 app.config['PORT']                    = os.getenv('PORT', 8484)
 app.config['HOST']                    = os.getenv('HOST', '0.0.0.0')
@@ -41,8 +39,6 @@ app.logger.info(f'Services are going to be configured for the node {app.config["
 sys.path.append(app.config['NODE_FEDBIOMED_ROOT'])
 
 
-# Create DB connection for specified node
-DATABASE = TinyDB(app.config['NODE_DB_PATH'])
 
 
 # Import api route blueprint before importing routes 
@@ -52,8 +48,6 @@ app.register_blueprint(api)
 
 
 
-# Import all routes 
-from routes import *
 
 
 if __name__ == '__main__':

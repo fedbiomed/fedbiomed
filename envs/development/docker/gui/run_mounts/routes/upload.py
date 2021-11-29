@@ -1,9 +1,11 @@
-from app import app, DATABASE
+from app import app
 from flask import request, jsonify
 import pandas as pd
 import csv
 import os
 import uuid
+
+from db import database
 
 # @app.route("/" , methods=['POST', 'GET'])
 # def hello_world_2():
@@ -45,7 +47,7 @@ def upload_file():
         data = pd.read_csv(path, index_col=None, sep=delimiter, header=header)
         shape = data.shape
 
-        table = DATABASE.table('_default')
+        table = database.table('_default')
         dataset_id = 'dataset_' + str(uuid.uuid4())
         types = [str(t) for t in data.dtypes]
 
@@ -63,6 +65,6 @@ def upload_file():
 @app.route('/list-datasets', methods=['GET'])
 def list_datasets():
 
-    table = DATABASE.table('_default')
+    table = database.table('_default')
     result = table.all()
     return jsonify(result)
