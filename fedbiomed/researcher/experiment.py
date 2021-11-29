@@ -215,7 +215,7 @@ class Experiment:
                                                            weights)
             # write results of the aggregated model in a temp file
             aggregated_params_path = self._job.update_parameters(aggregated_params)
-            logger.info('Saved aggregated params for round {round_i} in {aggregated_params_path}')
+            logger.info(f'Saved aggregated params for round {round_i} in {aggregated_params_path}')
 
             self._aggregated_params[round_i] = {'params': aggregated_params,
                                                 'params_path': aggregated_params_path}
@@ -565,7 +565,7 @@ class Experiment:
                 breakpoint_folder_path = os.path.join(latest_exp_folder,
                                                  breakpoint_folder_path)
             except FileNotFoundError as err:
-                logger.error("cannot find a breakpoint in:" + environ['EXPERIMENTS_DIR'] + " - " + err)
+                logger.error("Cannot find a breakpoint in:" + environ['EXPERIMENTS_DIR'] + " - " + err)
                 raise FileNotFoundError("Cannot find latest breakpoint \
                     saved. Are you sure you have saved at least one breakpoint?")
             except TypeError as err:
