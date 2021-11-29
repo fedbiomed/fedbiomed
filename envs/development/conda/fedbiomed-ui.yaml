@@ -1,0 +1,17 @@
+name: fedbiomed-ui
+
+channels:
+  - conda-forge
+  
+dependencies:
+  # common
+  - python >=3.9,<4.0
+  - flask >= 2.0.0,<2.0.2
+  - pip
+  # tests
+  - tinydb >=4.4.0,<5.0.0
+  - tabulate >=0.8.9,<0.9.0
+  - pip:
+    - pandas >=1.2.3,<2.0.0
+
+  
