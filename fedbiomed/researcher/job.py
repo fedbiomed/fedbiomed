@@ -138,7 +138,7 @@ class Job:
         except Exception as e:
             logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
             return
-        # upload my_model_xxx.pt on HTTP server (contains model parameters)
+        # upload aggregated_params_init_xxx.pt on HTTP server (contains model parameters)
         repo_response = self.repo.upload_file(self._model_params_file)
         self._repository_args['params_url'] = repo_response['file']
 
