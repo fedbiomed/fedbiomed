@@ -34,3 +34,20 @@ services:
     ports:
       - "1883:1883"
       - "9001:9001"
+
+  gui:
+    container_name: fedbiomed-dev-gui
+    build:
+      context: ../../..
+      dockerfile: envs/development/docker/gui/build_files/Dockerfile
+    image: fedbiomed-dev/node-gui
+    environment: 
+      - DATA_HOST_PATH=${ROOT_DIR}
+    volumes: 
+      - ./gui/run_mounts:/app
+      - ../../../etc:/fedbiomed/etc
+      - ../../../var:/fedbiomed/var
+      - ../../../data:/fedbiomed/data
+
+    ports:
+      - "5000:5000"
