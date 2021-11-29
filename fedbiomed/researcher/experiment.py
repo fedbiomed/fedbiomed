@@ -87,10 +87,11 @@ class Experiment:
                                 `./runs` directory.
             experimentation_folder (str, optional): choose a specific name for the
                     folder where experimentation result files and breakpoints are stored.
-                    This should just contain a name not a path.
-                    Caveat : this experimentation will not be detected as last
-                    experimentation by `load_breakpoint`
-                    Caveat : do not use a `experimentation_folder` name finishing
+                    This should just contain the name for the folder not a path.
+                    The name is used as a subdirectory of `environ[EXPERIMENTS_DIR])`.
+                    - Caveat : if using a specific name this experimentation will not be
+                    automatically detected as the last experimentation by `load_breakpoint`
+                    - Caveat : do not use a `experimentation_folder` name finishing
                     with numbers ([0-9]+) as this would confuse the last experimentation
                     detection heuristic by `load_breakpoint`.
         """
@@ -114,8 +115,8 @@ class Experiment:
         self._node_selection_strategy = node_selection_strategy
         self._aggregator = aggregator
 
-        self._experimentation_folder = experimentation_folder
-        self._create_experimentation_folder()
+        self._experimentation_folder = \
+            self._create_experimentation_folder(experimentation_folder)
 
         self._model_class = model_class
         self._model_path = model_path
@@ -252,12 +253,26 @@ class Experiment:
         return responses
 
 
-    def _create_experimentation_folder(self):
+    def _create_experimentation_folder(self, experimentation_folder=None):
         """Creates a folder for the current experiment (ie the current run of the model).
-        Experiment file to keep are stored here: model file, all versions of node parameters,
+        Experiment files to keep are stored here: model file, all versions of node parameters,
         all versions of aggregated parameters, breakpoints.
-        This folder is located at `EXPERIMENTS_DIR/Experiment_x` where `x-1`
-        is the number of experiments already run (`x`=0 for the first experiment)
+
+        The created folder is a subdirectory of environ[EXPERIMENTS_DIR]
+
+        Args:
+            experimentation_folder (str, optional): optionaly provide an experimentation
+                folder name. This should just contain the name of the folder not a path.
+                Default: if no folder name is given, generate a `Experiment_x` name where `x-1`
+                is the number of experiments already run (`x`=0 for the first experiment)
+
+        Raises:
+            PermissionError: cannot create experimentation folder
+            OSError: cannot create experimentation folder
+            ValueError: bad `experimentation_folder` argument
+
+        Returns:
+            str: experimentation folder
         """
 
         if not os.path.isdir(environ['EXPERIMENTS_DIR']):
@@ -267,28 +282,31 @@ class Experiment:
                 logger.error(f"Can not save experiment files because\
                     {environ['EXPERIMENTS_DIR']} folder could not be created\
                         due to {err}")
-                return
+                raise
 
         # if no name is given for the experiment folder we choose one
-        if not self._experimentation_folder:
+        if not experimentation_folder:
              # FIXME: improve method robustness (here nb of exp equals nb of files
             # in directory)
             all_files = os.listdir(environ['EXPERIMENTS_DIR'])
-            self._experimentation_folder = "Experiment_" + str(len(all_files))
+            experimentation_folder = "Experiment_" + str(len(all_files))
         else:
-            if os.path.basename(self._experimentation_folder) != self._experimentation_folder:
+            if os.path.basename(experimentation_folder) != experimentation_folder:
                 # experimentation folder cannot be a path
                 raise ValueError("Bad experimentation folder {experimentation_folder} - \
                     it cannot be a path")
 
         try:
-            os.makedirs(os.path.join(environ['EXPERIMENTS_DIR'],
-                                     self._experimentation_folder),
+            os.makedirs(os.path.join(environ['EXPERIMENTS_DIR'], experimentation_folder),
                         exist_ok=True)
         except (PermissionError, OSError) as err:
             logger.error(f"Can not save experiment files because\
-                    {environ['EXPERIMENTS_DIR']}/{self._experimentation_folder} \
+                    {environ['EXPERIMENTS_DIR']}/{experimentation_folder} \
                     folder could not be created due to {err}")
+            raise
+        
+        return experimentation_folder
+
 
     def _create_breakpoint_file_and_folder(self,
                                            round: int = 0) -> Tuple[str, str]:
