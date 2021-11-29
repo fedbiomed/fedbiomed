@@ -34,7 +34,8 @@ class Job:
                  model_path: str = None,
                  training_args: dict = None,
                  model_args: dict = None,
-                 data: FederatedDataSet = None):
+                 data: FederatedDataSet = None,
+                 keep_files_dir: str = None):
 
         """ Constructor of the class.
 
@@ -56,6 +57,9 @@ class Job:
             model_args (dict, optional): contains output and input feature
                                         dimension.Defaults to None.
             data (FederatedDataset, optional): . Defaults to None.
+            keep_files_dir(str, optional): directory for storing files created by the job
+                that we want to keep beyond the execution of the job.
+                Defaults to None, files are not kept after the end of the job.
 
         """
         self._id = str(uuid.uuid4())  # creating a unique job id
@@ -67,6 +71,14 @@ class Job:
         self._training_replies = {}  # will contain all node replies for every round
         self._model_file = None # path to local file containing model code
         self._model_params_file = None # path to local file containing current version of aggregated params
+
+        if keep_files_dir:
+            self._keep_files_dir = keep_files_dir
+        else:
+            self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
+            atexit.register(lambda: shutil.rmtree(self._keep_files_dir)) # remove directory
+                # when script ends running (replace
+                # `with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as self._keep_files_dir: `)
 
         if reqs is None:
             self._reqs = Requests()
@@ -108,30 +120,24 @@ class Job:
             # also handle case where model is an instance of a class
             self.model_instance = model
 
-        self.repo = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
-        tmpdirname = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
-        atexit.register(lambda: shutil.rmtree(tmpdirname))  # remove `tmpdirname`
-        # directory when script will end running (replace
-        # `with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmpdirname: `)
-        self._model_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.py'
+        self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
+        
+        self._model_file = self._keep_files_dir + '/my_model_' + str(uuid.uuid4()) + '.py'
         try:
             self.model_instance.save_code(self._model_file)
         except Exception as e:
             logger.error("Cannot save the model to a local tmp dir : " + str(e))
             return
-
         # upload my_model_xxx.py on HTTP server (contains model definition)
         repo_response = self.repo.upload_file(self._model_file)
-
         self._repository_args['model_url'] = repo_response['file']
 
-        self._model_params_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.pt'
+        self._model_params_file = self._keep_files_dir + '/aggregated_params_init_' + str(uuid.uuid4()) + '.pt'
         try:
             self.model_instance.save(self._model_params_file)
         except Exception as e:
             logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
             return
-
         # upload my_model_xxx.pt on HTTP server (contains model parameters)
         repo_response = self.repo.upload_file(self._model_params_file)
         self._repository_args['params_url'] = repo_response['file']
@@ -314,7 +320,7 @@ class Job:
 
                 # TODO : handle error depending on status
                 logger.info("Downloading model params after training on " + m['node_id'] + ' - from ' + m['params_url'])
-                _, params_path = self.repo.download_file(m['params_url'], 'my_model_' + str(uuid.uuid4()) + '.pt')
+                _, params_path = self.repo.download_file(m['params_url'], 'node_params_' + str(uuid.uuid4()) + '.pt')
                 params = self.model_instance.load(params_path, to_params=True)['model_params']
                 # TODO: could choose completely different name/structure for
                 # job-level data
@@ -346,15 +352,10 @@ class Job:
             str: filename
         """
         try:
-            # FIXME: should we specify file extension as a local/global variable ?
-            # eg:
-            # extension = 'pt'
-            # filename = environ['TMP_DIR'] + '/researcher_params_' + str(uuid.uuid4()) + extension
-
             if not filename:
                 if not params:
                     raise ValueError('Bad arguments for update_parameters, filename or params is needed')
-                filename = environ['TMP_DIR'] + '/researcher_params_' + str(uuid.uuid4()) + '.pt'
+                filename = self._keep_files_dir + '/aggregated_params_' + str(uuid.uuid4()) + '.pt'
                 self.model_instance.save(filename, params)
             
             repo_response = self.repo.upload_file(filename)
@@ -364,7 +365,7 @@ class Job:
             e = sys.exc_info()
             logger.error("Cannot update parameters - Error: " + str(e))
             sys.exit(-1)
-        return filename
+        return self._model_params_file
 
     def save_state(self, round: int=0):
         """Creates current state of the job to be included in a breakpoint.

@@ -128,7 +128,8 @@ class Experiment:
                         model_path=self._model_path,
                         model_args=self._model_args,
                         training_args=self._training_args,
-                        data=self._fds)
+                        data=self._fds,
+                        keep_files_dir=self.experimentation_path)
 
         # structure (dict ?) for additional parameters to the strategy
         # currently unused, to be defined when needed
