@@ -1,22 +1,19 @@
-from app import app, database
-from flask import json, render_template, request, jsonify
+from app import app, DATABASE
+from flask import request, jsonify
 import pandas as pd
 import csv
 import os
 import uuid
 
+# @app.route("/" , methods=['POST', 'GET'])
+# def hello_world_2():
 
-host_root = os.getenv('DATA_HOST_PATH')
-
-
-print(host_root)
-@app.route("/")
-def hello_world():
-
-    table = database.table('_default')
-    result = table.all()
+#     # table = DATABASE.table('_default')
+#     # result = table.all()
     
-    return jsonify(result)
+#     return 'HELLO WORLD'
+
+
 
 @app.route('/upload-csv', methods=['POST'])
 def upload_file():
@@ -37,7 +34,7 @@ def upload_file():
         }
 
         path = os.path.join('/fedbiomed', 'data' , file.filename)
-        path_host = os.path.join(host_root , 'data' , file.filename)
+        path_host = os.path.join(app.config['NODE_FEDBIOMED_ROOT'] , 'data' , file.filename)
         file = file.save(os.path.join('/fedbiomed/data' , file.filename))
         sniffer = csv.Sniffer()
 
@@ -48,7 +45,7 @@ def upload_file():
         data = pd.read_csv(path, index_col=None, sep=delimiter, header=header)
         shape = data.shape
 
-        table = database.table('_default')
+        table = DATABASE.table('_default')
         dataset_id = 'dataset_' + str(uuid.uuid4())
         types = [str(t) for t in data.dtypes]
 
@@ -66,6 +63,6 @@ def upload_file():
 @app.route('/list-datasets', methods=['GET'])
 def list_datasets():
 
-    table = database.table('_default')
+    table = DATABASE.table('_default')
     result = table.all()
     return jsonify(result)

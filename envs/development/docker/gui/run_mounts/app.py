@@ -1,13 +1,66 @@
+import os
 import sys
-from flask import Flask, request, abort
+from utils import get_node_id
+from flask import Flask
 from tinydb import TinyDB
 
-sys.path.append('/fedbiomed')
 
+
+# Create Flask Application
 app = Flask(__name__)
-database = TinyDB('/fedbiomed/var/db_node_0e284192-5648-4a99-9074-2727876dec75.json')
 
-#  Import uploads routes
-import routes.upload 
+# DB prefix 
+db_prefix = 'db_'
 
-  
+# Configuration of Flask APP to able to access Fed-BioMed node information
+app.config['NODE_FEDBIOMED_ROOT']     = os.getenv('FEDBIOMED_ROOT' , '/fedbiomed')
+app.config['NODE_CONFIG_FILE']        = os.getenv('NODE_CONFIG_FILE', 'config_node.ini')
+app.config['NODE_CONFIG_FILE_PATH']   = os.path.join(app.config['NODE_FEDBIOMED_ROOT'], 
+                                                    'etc' , app.config['NODE_CONFIG_FILE'])
+
+# Data path where datafiles are stored. 
+app.config['DATA_PATH']               = os.getenv('DATA_PATH' , 
+                                                    os.path.join(
+                                                            app.config['NODE_FEDBIOMED_ROOT'], 
+                                                            'data') )
+
+app.config['NODE_ID']                 = get_node_id(app.config['NODE_CONFIG_FILE_PATH'])
+app.config['NODE_DB_PATH']            = os.path.join(app.config['NODE_FEDBIOMED_ROOT'], 'var', db_prefix + app.config['NODE_ID'])
+app.config['DEBUG']                   = os.getenv('DEBUG', 'True').lower() in ('true' , 1, True, 'yes')
+app.config['PORT']                    = os.getenv('PORT', 8484)
+app.config['HOST']                    = os.getenv('HOST', '0.0.0.0')
+
+# Log information for setting up a node connection
+app.logger.info(f'Fedbiomed Node root dir has been set as {app.config["NODE_FEDBIOMED_ROOT"]}')
+app.logger.info(f'Fedbiomed Node config file is {app.config["NODE_CONFIG_FILE"]}')
+app.logger.info(f'Services are going to be configured for the node {app.config["NODE_ID"]}')
+
+
+
+# Append fedbiomed root dir as a python path
+sys.path.append(app.config['NODE_FEDBIOMED_ROOT'])
+
+
+# Create DB connection for specified node
+DATABASE = TinyDB(app.config['NODE_DB_PATH'])
+
+
+# Import api route blueprint before importing routes 
+# and register as blue prnt
+from routes import api
+app.register_blueprint(api)
+
+
+
+# Import all routes 
+from routes import *
+
+
+if __name__ == '__main__':
+
+    # Start Flask
+    app.run(host = app.config['HOST'], 
+            port = app.config['PORT'])  
+
+   
+   
