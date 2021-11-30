@@ -365,7 +365,7 @@ class Experiment:
             link_target_path (str): target for the symbolic link
 
         Returns:
-            str: source path of the created link
+            str: path of the created link
         """
 
         stub = 0
@@ -386,6 +386,48 @@ class Experiment:
             raise
 
         return link_src_path
+
+    @staticmethod
+    def _create_unique_file_link(breakpoint_folder_path: str,
+            file_path: str) -> str:
+        """Create a symbolic link in `breakpoint_folder_path` with a non existing name
+        derived from basename of `file_path`. The symbolic link points to `file_path`
+
+        Args:
+            breakpoint_folder_path (str): directory for the source link
+            file_path (str): path to the target of the link
+
+        Raises:
+            ValueError: bad name for link source or destination
+
+        Returns:
+            str: path of the created link
+        """
+        try:
+            # - use relative path for link target for portability
+            # - link to the real file, not to a link-to-the-file
+            link_target = os.path.relpath(os.path.realpath(file_path),
+                            start=os.path.realpath(breakpoint_folder_path))
+        except ValueError as err:
+            logger.error(f'Saving breakpoint error, \
+                cannot get relative path to {file_path} from {breakpoint_folder_path}, \
+                due to error {err}')
+            raise
+        # heuristic : assume limited set of characters un filename postfix
+        link_src_prefix = re.search("(.*)\.[a-zA-Z]+$",
+                            os.path.basename(file_path)).group(1)
+        link_src_postfix = re.search(".*(\.[a-zA-Z]+)$",
+                            os.path.basename(file_path)).group(1)
+        if not link_src_prefix or not link_src_postfix:
+            error_message = f'Saving breakpoint error, \
+                bad filename {file_path} gives \
+                prefix {link_src_prefix} and postfix {link_src_postfix}'
+            logger.error(error_message)
+            raise ValueError(error_message)
+        
+        return Experiment._create_unique_link(breakpoint_folder_path,
+                link_src_prefix, link_src_postfix,
+                link_target)
 
 
     def _save_state(self, round: int=0):
@@ -469,43 +511,18 @@ class Experiment:
             breakpoint_path (str): path to the directory where breakpoints files
                 and links will be saved
 
-        Raises:
-            ValueError: bad name for link source or destination
-
         Returns:
             Dict[int, dict] : extract from `aggregated_params`
         """
         aggregated_params = {}
         for key, value in aggregated_params_init.items():
-            try:
-                # - use relative path for link target for portability
-                # - link to the real file, not to a link-to-the-file
-                link_target = os.path.relpath(os.path.realpath(value.get('params_path')),
-                                start=os.path.realpath(breakpoint_path))
-            except ValueError as err:
-                logger.error(f'Saving breakpoint error, \
-                    cannot get relative path to {link_target} from {breakpoint_path}, \
-                    due to error {err}')
-                raise
-
-            link_src_prefix = re.search("(.*)\.[a-zA-Z]+$",
-                                os.path.basename(value.get('params_path'))).group(1)
-            link_src_postfix = re.search(".*(\.[a-zA-Z]+)$",
-                                os.path.basename(value.get('params_path'))).group(1)
-            if not link_src_prefix or not link_src_postfix:
-                error_message = f'Saving breakpoint error, \
-                    bad params_path {value.get("params_path")} gives \
-                    prefix {link_src_prefix} and postfix {link_src_postfix}'
-                logger.error(error_message)
-                raise ValueError(error_message)
             
-            aggregated_params[key] = {
-                'params_path': Experiment._create_unique_link(breakpoint_path,
-                    link_src_prefix, link_src_postfix,
-                    link_target)
-                }
+            params_path = Experiment._create_unique_file_link(breakpoint_path,
+                                            value.get('params_path'))
+            aggregated_params[key] = { 'params_path': params_path }
 
         return aggregated_params
+
 
     def _load_aggregated_params(self, aggregated_params: Dict[int, dict]) -> Dict[int, dict]:
         """Reconstruct experiment results aggregated params structure
