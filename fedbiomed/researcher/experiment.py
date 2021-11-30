@@ -253,7 +253,7 @@ class Experiment:
         return responses
 
     @staticmethod
-    def _create_experimentation_folder(experimentation_folder=None) -> str:
+    def _create_experimentation_folder(experimentation_folder: str =None) -> str:
         """Creates a folder for the current experiment (ie the current run of the model).
         Experiment files to keep are stored here: model file, all versions of node parameters,
         all versions of aggregated parameters, breakpoints.
@@ -293,7 +293,7 @@ class Experiment:
         else:
             if os.path.basename(experimentation_folder) != experimentation_folder:
                 # experimentation folder cannot be a path
-                raise ValueError("Bad experimentation folder {experimentation_folder} - \
+                raise ValueError(f"Bad experimentation folder {experimentation_folder} - \
                     it cannot be a path")
 
         try:
@@ -308,13 +308,21 @@ class Experiment:
         return experimentation_folder
 
 
-    def _create_breakpoint_file_and_folder(self,
-                                           round: int = 0) -> Tuple[str, str]:
-        """It creates a breakpoint file for each round.
+    @staticmethod
+    def _create_breakpoint_file_and_folder(
+                experimentation_folder: str,
+                round: int = 0) -> Tuple[str, str]:
+        """It creates a breakpoint folder and chooses a breakpoint file name for each round.
 
         Args:
             round (int, optional): the current number of rounds minus one.
-            Starts from 0. Defaults to 0.
+                Starts from 0. Defaults to 0.
+            experimentation_folder (str): indicates the experimentation folder name.
+                This should just contain the name of the folder not a full path.
+
+        Raises:
+            PermissionError: cannot create experimentation folder
+            OSError: cannot create experimentation folder
 
         Returns:
             breakpoint_folder_path (str): name of the created folder that
@@ -324,24 +332,31 @@ class Experiment:
         """
         breakpoint_folder = "breakpoint_" + str(round)
         breakpoint_folder_path = os.path.join(environ['EXPERIMENTS_DIR'],
-                                              self._experimentation_folder,
+                                              experimentation_folder,
                                               breakpoint_folder)
         try:
             os.makedirs(breakpoint_folder_path, exist_ok=True)
         except (PermissionError, OSError) as err:
             logger.error(f"Can not save breakpoint folder at\
-                {breakpoint_folder_path} due to some error {err} ")
+                {breakpoint_folder_path} due to some error {err}")
+            raise
 
         breakpoint_file = breakpoint_folder + ".json"
         return breakpoint_folder_path, breakpoint_file
 
 
-    def _create_unique_link(self, breakpoint_folder_path: str,
+    @staticmethod
+    def _create_unique_link(breakpoint_folder_path: str,
             link_src_prefix: str,
             link_src_postfix: str,
             link_target_path: str) -> str:
         """Find a non existing name in `breakpoint_folder_path` and create
         a symbolic link to a given target name.
+
+        Raises:
+            PermissionError: cannot create symlink
+            OSError: cannot create symlink
+            FileExistsError: cannot create symlink
         
         Args:
             breakpoint_folder_path (str): directory for the source link
@@ -395,6 +410,10 @@ class Experiment:
             round (int, optional): number of rounds already executed.
             Starts from 0. Defaults to 0.
         """
+
+        breakpoint_path, breakpoint_file_name = \
+            self._create_breakpoint_file_and_folder(self._experimentation_folder, round)
+
         job_state = self._job.save_state(round)
         state = {
             # these are both Experiment and Job attributes : should be set also
@@ -413,20 +432,21 @@ class Experiment:
             'aggregator': self._aggregator.save_state(),
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             'tags': self._tags,
-            'aggregated_params': self._save_aggregated_params()
+            'aggregated_params': self._save_aggregated_params(self._aggregated_params, breakpoint_path)
         }
-
         state.update(job_state)
-        breakpoint_path, breakpoint_file_name = self._create_breakpoint_file_and_folder(round)
 
+        # rewrite paths in breakpoint : use the links in breakpoint directory
         state["model_path"] = self._create_unique_link(
             breakpoint_path,
             # - Need a file with a restricted characters set in name to be able to import as module
             "model_" + str(round), ".py",
             # - Prefer relative path, eg for using experiment result after
             # experiment in a different tree
-            os.path.join('..', os.path.basename(state["model_path"]))
+            # - Want to point the file, not a link to the file
+            os.path.join('..', os.path.basename(os.path.realpath(state["model_path"])))
             )
+        
 
         # save state into a json file.
         breakpoint_path = os.path.join(breakpoint_path, breakpoint_file_name)
@@ -436,15 +456,51 @@ class Experiment:
             {os.path.dirname(breakpoint_path)}")
 
 
-    def _save_aggregated_params(self) -> Dict[int, dict]:
+    @staticmethod
+    def _save_aggregated_params(aggregated_params_init: dict, breakpoint_path: str) -> Dict[int, dict]:
         """Extracts and format fields from aggregated_params that need
-        to be saved in breakpoint
+        to be saved in breakpoint. Creates link to the params file from the `breakpoint_path`
+        and use them to reference the params files.
+
+        Args:
+            breakpoint_path (str): path to the directory where breakpoints files
+                and links will be saved
+
+        Raises:
+            ValueError: bad name for link source or destination
 
         Returns:
-            Dict[int, dict] : extract from `self._aggregated_params`
+            Dict[int, dict] : extract from `aggregated_params`
         """
-        aggregated_params = { key: { 'params_path': value.get('params_path') } 
-            for key, value in self._aggregated_params.items() }
+        aggregated_params = {}
+        for key, value in aggregated_params_init.items():
+            try:
+                # - use relative path for link target for portability
+                # - link to the real file, not to a link-to-the-file
+                link_target = os.path.relpath(os.path.realpath(value.get('params_path')),
+                                start=os.path.realpath(breakpoint_path))
+            except ValueError as err:
+                logger.error(f'Saving breakpoint error, \
+                    cannot get relative path to {link_target} from {breakpoint_path}, \
+                    due to error {err}')
+                raise
+
+            link_src_prefix = re.search("(.*)\.[a-zA-Z]+$",
+                                os.path.basename(value.get('params_path'))).group(1)
+            link_src_postfix = re.search(".*(\.[a-zA-Z]+)$",
+                                os.path.basename(value.get('params_path'))).group(1)
+            if not link_src_prefix or not link_src_postfix:
+                error_message = f'Saving breakpoint error, \
+                    bad params_path {value.get("params_path")} gives \
+                    prefix {link_src_prefix} and postfix {link_src_postfix}'
+                logger.error(error_message)
+                raise ValueError(error_message)
+            
+            aggregated_params[key] = {
+                'params_path': Experiment._create_unique_link(breakpoint_path,
+                    link_src_prefix, link_src_postfix,
+                    link_target)
+                }
 
         return aggregated_params
 
