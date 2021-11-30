@@ -2,9 +2,14 @@ import json
 
 from typing import Union
 
+from fedbiomed.common.constants import ErrorNumbers
+
 """
 This module defines message serializer and deserializer
 for sending / recieving / parsing messages through Messager.
+
+it deals with data types which are not serialized by default
+(eg: enumerations)
 """
 
 
@@ -14,7 +19,24 @@ def deserialize_msg(msg: Union[str, bytes]) -> dict:
     :param msg: message in JSON format but encoded as string or bytes
     :return: parsed message as python dictionary.
     """
-    return json.loads(msg)
+    decode = json.loads(msg)
+
+    # errnum is present in ErrorMessage and is an Enum
+    # which need to be deserialized
+    if 'errnum' in decode:
+        errnum = decode['errnum']
+        found = False
+        for e in ErrorNumbers:
+            if e.value[0] == errnum:
+                found = True
+                decode['errnum'] = e
+                break
+        if not found:
+            # error code sent by the node is unknown
+            decode['errnum'] = ErrorNumbers.FB500
+        print("JSON deserialize/replacing:", errnum, "by:", decode['errnum'])
+
+    return decode
 
 
 def serialize_msg(msg: dict) -> str:
@@ -23,4 +45,10 @@ def serialize_msg(msg: dict) -> str:
     :param msg: dict-like object containing the message to send.
     :return: JSON parsed message ready to transmit.
     """
+
+    # errnum is present in ErrorMessage and is an Enum
+    # which need to be serialized
+    if 'errnum' in msg:
+        print("replacing:", msg['errnum'], "by:", msg['errnum'].value[0])
+        msg['errnum'] = msg['errnum'].value[0]
     return json.dumps(msg)

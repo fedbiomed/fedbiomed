@@ -7,7 +7,7 @@ from fedbiomed.common import json
 from fedbiomed.common.logger import logger
 from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.messaging import Messaging
-from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -255,3 +255,14 @@ class Node:
             block (bool, optional): Defaults to False.
         """
         self.messaging.start(block)
+
+
+    def send_error(self, errnum: ErrorNumbers, msg: str):
+        """
+        send an error message through MQTT
+
+        (it is a wrapper of Messaging.send_error() )
+        """
+
+        #
+        self.messaging.send_error(errnum, msg = msg)
