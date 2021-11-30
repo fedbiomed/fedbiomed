@@ -206,6 +206,8 @@ class Requests(metaclass=SingletonMeta):
                     if not only_successful:
                         new_responses.append(resp)
                     elif resp['success']:
+                        # TODO: test if 'success'key exists
+                        # what do we do if not ?
                         new_responses.append(resp)
                 except Exception:
                     logger.error('Incorrect message received:' + str(resp))
