@@ -12,10 +12,12 @@ import copy
 
 import validators
 
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.logger import logger
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.researcher.exceptions import TrainingException
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
@@ -310,9 +312,31 @@ class Job:
             for m in models_done.get_data():  # retrieve all models
                 # (there should have as many models done as nodes)
 
-                # manage error messages
-                if 'errnum' in m:
-                    print("=== DEBUG start_nodes_training_round - ERROR MESSAGE RECEIVED:", m['errnum'])
+                # manage error messages during training
+                if 'errnum' in m:  # TODO: need a stronger filter
+                    logger.setLevel("DEBUG")
+                    logger.debug("Error message received during training:" +
+                                 str(m['errnum'].value[0]) +
+                                 " - " +
+                                 str(m['errnum'].value[1]) +
+                                 " - " +
+                                 str(m['msg'])
+                                 )
+                    # remove the faulty node from the list
+                    faulty_node = m['node_id']
+
+                    if faulty_node not in list(self._nodes):
+                        logger.warning("Error message from " +
+                                       faulty_node +
+                                       " ignored, since this node is not part ot the training anymode")
+                        continue
+
+                    self._nodes.remove(faulty_node)
+
+                    # stop if no nodes remain
+                    if len(self._nodes) == 0:
+                        logger.error(str(ErrorNumbers.FB407.value[1]))
+                        raise TrainingException(str(ErrorNumbers.FB407.value[1]))
                     continue
 
                 # only consider replies for our request
