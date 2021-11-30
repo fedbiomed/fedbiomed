@@ -303,13 +303,17 @@ class Job:
             # collect nodes responses from researcher request 'train'
             # (wait for all nodes with a ` while true` loop)
             #models_done = self._reqs.get_responses(look_for_commands=['train'])
-            models_done = self._reqs.get_responses(look_for_commands=['train', 'log'], only_successful = False)
-            print("=== DEBUG START start_nodes_training_round")
-            print(models_done)
-            print("=== DEBUG STOP  start_nodes_training_round")
-            print(models_done)
+            models_done = self._reqs.get_responses(look_for_commands=['train', 'error'], only_successful = False)
+            #print("=== DEBUG START start_nodes_training_round")
+            #print(models_done)
+            #print("=== DEBUG STOP  start_nodes_training_round")
             for m in models_done.get_data():  # retrieve all models
                 # (there should have as many models done as nodes)
+
+                # manage error messages
+                if 'errnum' in m:
+                    print("=== DEBUG start_nodes_training_round - ERROR MESSAGE RECEIVED:", m['errnum'])
+                    continue
 
                 # only consider replies for our request
                 if m['researcher_id'] != environ['RESEARCHER_ID'] or m['job_id'] != self._id or m['node_id'] not in list(self._nodes):
