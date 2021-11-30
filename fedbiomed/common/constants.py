@@ -99,5 +99,8 @@ class ErrorNumbers(_BaseEnum):
     # node problem detected by researcher
 
     FB500 = [ 500, "undetermined node error, detected by server" ]
-    FB501 = [ 501, "unknown error code sent by the node"]
-    FB502 = [ 502, "node not reacheable"]
+    FB501 = [ 501, "node not reacheable"]
+
+    # oops
+
+    FB999 = [ 999, "unknown error code sent by the node"]

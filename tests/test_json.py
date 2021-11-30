@@ -46,6 +46,12 @@ class TestJson(unittest.TestCase):
             json2dict = js.deserialize_msg(dict2json)
             self.assertEqual( e , json2dict['errnum'])
 
+        # test also unknow error
+        serial='{"errnum": 123456789}'
+        json2dict = js.deserialize_msg(serial)
+        self.assertEqual( json2dict['errnum'], ErrorNumbers.FB999)
+
+
         pass
 
 if __name__ == '__main__':  # pragma: no cover

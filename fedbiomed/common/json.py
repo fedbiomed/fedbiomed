@@ -33,7 +33,7 @@ def deserialize_msg(msg: Union[str, bytes]) -> dict:
                 break
         if not found:
             # error code sent by the node is unknown
-            decode['errnum'] = ErrorNumbers.FB500
+            decode['errnum'] = ErrorNumbers.FB999
 
     return decode
 
