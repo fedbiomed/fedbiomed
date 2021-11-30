@@ -487,11 +487,19 @@ class Experiment:
             # experiment in a different tree
             os.path.join('..', os.path.basename(state["model_path"]))
             )
+
+        # TODO : move to Job()
         state['model_params_path'] = self._create_unique_link(
             breakpoint_path,
             'aggregated_params_current', '.pt',
             os.path.join('..', os.path.basename(state["model_params_path"]))
             )
+        # TODO : move to Job()
+        for round_replies in state['training_replies']:
+            for response in round_replies:
+                node_params_path = Experiment._create_unique_file_link(breakpoint_path,
+                                            response['params_path'])
+                response['params_path'] = node_params_path
 
         # save state into a json file.
         breakpoint_path = os.path.join(breakpoint_path, breakpoint_file_name)
