@@ -437,16 +437,19 @@ class Experiment:
         state.update(job_state)
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
-        state["model_path"] = self._create_unique_link(
+        state['model_path'] = self._create_unique_link(
             breakpoint_path,
             # - Need a file with a restricted characters set in name to be able to import as module
-            "model_" + str(round), ".py",
+            'model_' + str(round), '.py',
             # - Prefer relative path, eg for using experiment result after
             # experiment in a different tree
-            # - Want to point the file, not a link to the file
-            os.path.join('..', os.path.basename(os.path.realpath(state["model_path"])))
+            os.path.join('..', os.path.basename(state["model_path"]))
             )
-        
+        state['model_params_path'] = self._create_unique_link(
+            breakpoint_path,
+            'aggregated_params_current', '.pt',
+            os.path.join('..', os.path.basename(state["model_params_path"]))
+            )
 
         # save state into a json file.
         breakpoint_path = os.path.join(breakpoint_path, breakpoint_file_name)
