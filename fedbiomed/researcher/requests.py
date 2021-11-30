@@ -74,7 +74,7 @@ class Requests(metaclass=SingletonMeta):
         if topic == "general/logger":
             #
             # forward the teatment to node_log_handling() (same thread)
-            self.node_log_handling(ResearcherMessages.reply_create(msg).get_dict())
+            self.print_node_log_message(ResearcherMessages.reply_create(msg).get_dict())
         elif topic == "general/researcher":
             #
             # *Reply messages (SearchReply, TrainReply) added to the TaskQueue
@@ -87,15 +87,13 @@ class Requests(metaclass=SingletonMeta):
             logger.error("message received on wrong topic ("+ topic +") - IGNORING")
 
 
-    def node_log_handling(self, log: Dict[str, Any]):
+    def print_node_log_message(self, log: Dict[str, Any]):
         """
-        manage log/error handling
+        print logger messages coming from the node
 
         It is run on the communication process and must be as quick as possible:
         - all logs (coming from the nodes) are forwarded to the researcher logger
         (immediate display on console/file/whatever)
-        - then error/critical it is also stored into the TaskQueue for later treatment
-        by the main (computing) thread
         """
 
         # log contains the original message sent by the node
@@ -103,20 +101,10 @@ class Requests(metaclass=SingletonMeta):
 
         logger.info("log from: " +
                     log["node_id"] +
-                    " - " +
+                    " / " +
                     log["level"] +
-                    " " +
+                    " - " +
                     original_msg["message"])
-
-        # deal with error/critical messages from a node
-        node_msg_level = original_msg["level"]
-
-        if node_msg_level == "ERROR" or node_msg_level == "CRITICAL":
-            ## first error  implementation: stop the researcher
-            #logger.critical("researcher stopped after receiving error/critical log from node: " + log["node_id"])
-            #os.kill(os.getpid(), signal.SIGTERM)
-            logger.log(log["level"], "DEBUG: log stored in TaskQueue")
-            self.queue.add(log)
 
     def send_message(self, msg: dict, client=None):
         """
