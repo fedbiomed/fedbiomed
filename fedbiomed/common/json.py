@@ -6,10 +6,10 @@ from fedbiomed.common.constants import ErrorNumbers
 
 """
 This module defines message serializer and deserializer
-for sending / recieving / parsing messages through Messager.
+for sending / receiving / parsing messages through Messager.
 
-it deals with data types which are not serialized by default
-(eg: enumerations)
+compared to the usual json module, it deals with some fedbiomed
+data types which are not serialized by default (eg: enumerations)
 """
 
 
@@ -34,7 +34,6 @@ def deserialize_msg(msg: Union[str, bytes]) -> dict:
         if not found:
             # error code sent by the node is unknown
             decode['errnum'] = ErrorNumbers.FB500
-        print("JSON deserialize/replacing:", errnum, "by:", decode['errnum'])
 
     return decode
 
@@ -49,6 +48,5 @@ def serialize_msg(msg: dict) -> str:
     # errnum is present in ErrorMessage and is an Enum
     # which need to be serialized
     if 'errnum' in msg:
-        print("replacing:", msg['errnum'], "by:", msg['errnum'].value[0])
         msg['errnum'] = msg['errnum'].value[0]
     return json.dumps(msg)
