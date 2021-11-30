@@ -55,7 +55,7 @@ class Validator:
         if self._type == 'json':
             self._schema(request.json)
         else:
-            raise Exception('Unspoorted validator type')
+            raise Exception('Unsupported schema validator type')
 
 
 
@@ -90,20 +90,24 @@ class JsonSchema(object):
 class AddTabularData(Validator):
     
     """ Schema for reqeustion json data for adding new csv datasets """
+
     type   = 'json' 
     schema = JsonSchema({
             'type': 'object',
             'properties': {
                 'name': {'type': 'string'},
-                'path': {'type': 'string'},
+                'path': {'type': 'array'},
                 'tags': {'type': 'array' },
+                'desc': {'type': 'string'} 
             },
-            'required': ['name', 'path', 'tags']
+            'required': ['name', 'path', 'tags', 'desc']
         }, message = None)
 
 
 
 class ListDataFolder(Validator):
+
+    """  JSON schema for request of /api/repository/list """
 
     type = 'json'
     schema = JsonSchema({
@@ -112,4 +116,17 @@ class ListDataFolder(Validator):
             "path" : {'type' : 'array' , 'default' : [] }
         },
         "required" : []
+    })
+
+class RemoveDatasetRequest(Validator):
+
+    """  JSON schema for request of /api/datasets/remove """
+
+    type = 'json'
+    schema = JsonSchema({
+        'type' : "object",
+        "properties": {
+            "dataset_id" : {'type' : 'string' }
+        },
+        "required" : ["dataset_id"]
     })

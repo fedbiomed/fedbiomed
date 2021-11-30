@@ -1,6 +1,7 @@
 import os
 import sys
 import configparser
+import copy
 from importlib import reload
 from posixpath import join
 from . import api 
@@ -11,7 +12,8 @@ from .helper import success, error
 
 import fedbiomed.node.environ
 import fedbiomed.common.environ
-
+import fedbiomed.node.data_manager
+import app
 
 @api.route('/config/change-node-config', methods = ['POST'])
 def change_node_config():
@@ -25,7 +27,7 @@ def change_node_config():
 
     req = request.json 
     if req['config-file']:
-        fullpath = os.path.join(app.config['NODE_FEDBIOMED_ROOT'], 'etc', req['config-file'])
+        fullpath = os.path.join(app.app.config['NODE_FEDBIOMED_ROOT'], 'etc', req['config-file'])
         if os.path.isfile(fullpath):
             node_id = get_node_id(fullpath)
 
@@ -33,6 +35,8 @@ def change_node_config():
             os.environ['CONFIG_FILE'] = fullpath
             reload(fedbiomed.common.environ)
             reload(fedbiomed.node.environ)
+            reload(fedbiomed.node.data_manager)
+            reload(app)
 
             app.config.update(
                 NODE_CONFIG_FILE = req['config-file'],
@@ -70,7 +74,7 @@ def fedibomed_environ():
                   200. 
     """
 
-    res = fedbiomed.node.environ.environ
+    res = copy.deepcopy(fedbiomed.node.environ.environ)
     pops = ['COMPONENT_TYPE']
     for p in pops:
         res.pop(p)

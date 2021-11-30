@@ -1,4 +1,7 @@
+from app import app
 from tinydb import TinyDB, Query
+
+
 class Database:
 
     def __init__(self):
@@ -13,9 +16,10 @@ class Database:
     @property
     def query(self):
         if self._db:
+            self._query = Query()
             return self._query
         else:
-            raise Exception('Please initialize database first with database.db')
+            raise Exception('Please initialize your database by calling `database.db`')
 
     def table(self, name : str = '_default'):
         """ Method for selecting table 
@@ -31,11 +35,9 @@ class Database:
 
     def close(self):
 
-        """This method remove TinyDB object to save some memory"""
+        """This method removes TinyDB object to save some memory"""
         
         self.__dict__.pop('_db',None)
     
-
-
 
 database = Database()
