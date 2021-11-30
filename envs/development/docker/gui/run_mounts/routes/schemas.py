@@ -1,5 +1,38 @@
 from flask import request
 import jsonschema
+from jsonschema import Draft7Validator, validators
+
+
+def extend_validator(validator_class):
+
+    """ Extending json validator to set default values 
+        if it is specified in the schema 
+
+        @source: https://readthedocs.org/projects/python-jsonschema/downloads/pdf/latest/
+    """
+
+    validate_properties = validator_class.VALIDATORS["properties"]
+
+    def set_defaults(validator, properties, instance, schema):
+
+        """ Setting default values for requested dict object to validate """
+
+        for property, subschema in properties.items():
+            if "default" in subschema:
+                instance.setdefault(property, subschema["default"])
+            
+        for error in validate_properties(
+            validator, properties, instance, schema):
+
+            yield error
+
+    return validators.extend(
+        validator_class, {"properties" : set_defaults},
+    )
+
+
+# Extend Draft7Validator 
+JsonBaseValidator = extend_validator(Draft7Validator)
 
 
 class Validator:
@@ -45,7 +78,7 @@ class JsonSchema(object):
 
     def __call__(self, data):
         try:
-            jsonschema.validate(data, self._schema)
+            JsonBaseValidator(self._schema).validate(data)
         except jsonschema.ValidationError as e:
             if self._message:
                 raise jsonschema.ValidationError(self._message)
@@ -70,3 +103,13 @@ class AddTabularData(Validator):
 
 
 
+class ListDataFolder(Validator):
+
+    type = 'json'
+    schema = JsonSchema({
+        'type' : "object",
+        "properties": {
+            "path" : {'type' : 'array' , 'default' : [] }
+        },
+        "required" : []
+    })

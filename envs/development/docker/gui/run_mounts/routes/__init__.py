@@ -9,3 +9,4 @@ api = Blueprint('api', 'api', url_prefix='/api')
 from .index import *
 from .config import *
 from .datasets import *
+from .repository import *
