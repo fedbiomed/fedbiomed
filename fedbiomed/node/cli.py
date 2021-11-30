@@ -197,7 +197,10 @@ def node_signal_handler(signum, frame):
     # get the (running) Node object
     global node
 
-    node.send_error(ErrorNumbers.FB301, "Node stopped in SIGTERM signal handler")
+    if node:
+        node.send_error(ErrorNumbers.FB301, "Node stopped in SIGTERM signal handler")
+    else:
+        logger.error("Cannot send error message to researcher (node not initialized yet)")
     logger.critical("Node stopped in signal_handler, probably by user decision (Ctrl C)")
     time.sleep(1)
     sys.exit(signum)
