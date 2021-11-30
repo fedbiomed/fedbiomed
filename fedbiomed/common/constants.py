@@ -48,7 +48,7 @@ class ModelTypes(_BaseEnum):
     DEFAULT    = 'default'
 
 
-class ErrorHandling(_BaseEnum):
+class ErrorNumbers(_BaseEnum):
 
     """
     list of all error messages types

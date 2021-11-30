@@ -2,6 +2,7 @@ import unittest
 from dataclasses import dataclass
 
 import fedbiomed.common.message as message
+from fedbiomed.common.constants import ErrorNumbers
 
 class TestMessage(unittest.TestCase):
     '''
@@ -1100,7 +1101,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = 'toto',
             node_id       = 'titi',
-            errnum        = 100,
+            errnum        = ErrorNumbers.FB100,
             msg           = 'this is an error message',
             command       = 'log'
         )
@@ -1123,7 +1124,7 @@ class TestMessage(unittest.TestCase):
             message.ErrorMessage,
             expected_result = False,
 
-            errnum       = 100)
+            errnum       = ErrorNumbers.FB100)
 
         self.check_class_args(
             message.ErrorMessage,
@@ -1143,7 +1144,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = 'toto',
             node_id       = 'titi',
-            errnum        = 100,
+            errnum        = ErrorNumbers.FB100,
             msg           = 'this is an error message',
             command       = 'log',
             extra_arg     = '???' )
@@ -1156,7 +1157,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = False,
             node_id       = 'titi',
-            errnum        = 100,
+            errnum        = ErrorNumbers.FB100,
             msg           = 'this is an error message',
             command       = 'log'
         )
@@ -1167,7 +1168,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = 'toto',
             node_id       = False,
-            errnum        = 100,
+            errnum        = ErrorNumbers.FB100,
             msg           = 'this is an error message',
             command       = 'log'
         )
@@ -1189,7 +1190,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = 'toto',
             node_id       = 'titi',
-            errnum        = 100,
+            errnum        = ErrorNumbers.FB100,
             msg           = [ 1 , 2 ],
             command       = 'log')
 
@@ -1199,7 +1200,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id = 'toto',
             node_id       = 'titi',
-            errnum        = 100,
+            errnum        = ErrorNumbers.FB100,
             msg           = [ 1 , 2 ],
             command       = False)
 
@@ -1795,7 +1796,7 @@ class TestMessage(unittest.TestCase):
         params = {
             "researcher_id" : 'toto' ,
             "node_id"       : 'titi' ,
-            "errnum"        : 100,
+            "errnum"        : ErrorNumbers.FB100,
             "msg"           : 'bim boum badaboum',
             "command"       : 'error'
         }

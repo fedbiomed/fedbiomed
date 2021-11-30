@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Dict, Any, List, Union
 
 from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import ErrorNumbers
 
 class Message(object):
     """
@@ -237,7 +238,7 @@ class ErrorMessage(Message):
     """
     researcher_id: str
     node_id: str
-    errnum: int
+    errnum: ErrorNumbers
     msg: str
     command: str
 
