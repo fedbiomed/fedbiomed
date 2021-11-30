@@ -24,3 +24,4 @@ def get_node_id(config_file: str):
     node_id = cfg.get('default', 'node_id')
 
     return node_id
+

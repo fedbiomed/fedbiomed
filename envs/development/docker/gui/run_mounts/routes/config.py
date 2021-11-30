@@ -1,28 +1,17 @@
 import os
+import sys
 import configparser
+from importlib import reload
 from posixpath import join
 from . import api 
 from app import app, db_prefix
 from flask import request, jsonify
 from utils import get_node_id
+from .helper import success, error
 
-def return_error(msg:str):
+import fedbiomed.node.environ
+import fedbiomed.common.environ
 
-    return jsonify(
-        {
-            'success' : False,
-            'message' : msg
-        }
-    )
-
-def return_success(msg:str):
-
-    return jsonify(
-        {
-            'success' : True,
-            'message' : msg
-        }
-    )
 
 @api.route('/config/change-node-config', methods = ['POST'])
 def change_node_config():
@@ -39,6 +28,12 @@ def change_node_config():
         fullpath = os.path.join(app.config['NODE_FEDBIOMED_ROOT'], 'etc', req['config-file'])
         if os.path.isfile(fullpath):
             node_id = get_node_id(fullpath)
+
+            # Reload environ after updating CONFIG_FILE environment variable
+            os.environ['CONFIG_FILE'] = fullpath
+            reload(fedbiomed.common.environ)
+            reload(fedbiomed.node.environ)
+
             app.config.update(
                 NODE_CONFIG_FILE = req['config-file'],
                 NODE_CONFIG_FILE_PATH = fullpath,
@@ -46,17 +41,18 @@ def change_node_config():
                 NODE_DB_PATH  = os.path.join(app.config['NODE_FEDBIOMED_ROOT'], 'var', db_prefix + node_id + '.json') 
             )
 
-            return return_success('Node configuration has succesfully changed')
+            return success('Node configuration has succesfully changed')
         else:
-           return return_error('Config file is does not exist. Please make sure \
-               you type your config file correctly')                 
+           return error('Config file is does not exist. Please make sure' + \
+                                    ' you type your config file correctly')                 
     else:
-        return return_error('Missing config-file parameter')
+        return error('Missing config-file parameter')
 
 @api.route('/config/node-id', methods = ['GET'])
 def node_id():
 
     """ API enpoint to get node id which GUI will be working for """
+
     result = { 
             'success' : True,
             'node_id' : app.config['NODE_ID']
@@ -64,4 +60,19 @@ def node_id():
 
     return jsonify(result)
 
+@api.route('/config/node-environ')
+def fedibomed_environ():
 
+    """ Endpoint that return current configuration for node 
+    
+        Returns: 
+            res : Json formated environ object of the node, with status code 
+                  200. 
+    """
+
+    res = fedbiomed.node.environ.environ
+    pops = ['COMPONENT_TYPE']
+    for p in pops:
+        res.pop(p)
+
+    return jsonify(res), 200

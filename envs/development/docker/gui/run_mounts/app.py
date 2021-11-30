@@ -16,6 +16,9 @@ app.config['NODE_CONFIG_FILE']        = os.getenv('NODE_CONFIG_FILE', 'config_no
 app.config['NODE_CONFIG_FILE_PATH']   = os.path.join(app.config['NODE_FEDBIOMED_ROOT'], 
                                                     'etc' , app.config['NODE_CONFIG_FILE'])
 
+# Set config file path to mkae fedbiomed.common.environ to parse correct config file
+os.environ["CONFIG_FILE"] = app.config['NODE_CONFIG_FILE_PATH']
+
 # Data path where datafiles are stored. 
 app.config['DATA_PATH']               = os.getenv('DATA_PATH' , 
                                                     os.path.join(
