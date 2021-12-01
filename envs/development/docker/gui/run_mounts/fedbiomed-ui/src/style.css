@@ -11,3 +11,81 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+
+body .App {
+  height: 100vh;
+  max-height: 100vh;
+  position: relative;
+  background: #eee;
+  width: 100%;
+  display: block;
+}
+
+/* Main Layout START----------------------------------------------------------------------------------------*/
+
+.App .layout-wrapper {
+  position: relative;
+  display: flex;
+}
+
+.App .main-router {
+  width: 80%;
+  background-color: transparent;
+  height: 100vh;
+  max-height: 100vh;
+ 
+}
+
+.App .main-side-bar {
+  width: 20%;
+  background-color: #003366;
+  height: 100vh;
+  max-height: 100vh;
+  position: relative;
+}
+
+
+
+/* Main Layout END----------------------------------------------------------------------------------------*/
+
+
+/* Side Bar Navigation -------------------------------------------------------------------------------*/
+
+.side-nav {
+  width: 100%;
+  height: fit-content;
+}
+
+.side-nav .brand {
+  height: 80px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  background: #fff;
+}
+
+.side-nav .brand img {
+  width: 40px;
+  margin: 10px;
+}
+
+.side-nav .brand h1 {
+  font-size: 16px;
+  color: #003366;
+}
+
+.side-nav  .nav-items .nav-item {
+  width: 100%;
+  text-align: left;
+  color: #333;
+  background: #eee;
+  padding: 15px 0px 15px 5px;
+}
+
+.side-nav  .nav-items .nav-item a{
+  text-decoration: none;
+  color: #333;
+}
