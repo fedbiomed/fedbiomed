@@ -87,9 +87,9 @@ class JsonSchema(object):
 
 
 
-class AddDataSet(Validator):
+class AddDataSetRequest(Validator):
     
-    """ Schema for reqeustion json data for adding new csv datasets """
+    """ Json Schema for reqeust of adding new datasets """
 
     type   = 'json' 
     schema = JsonSchema({
@@ -101,7 +101,7 @@ class AddDataSet(Validator):
                 'type': {'type' : 'string', 
                          'oneOf': [ 
                                     {"enum": ['csv','images'] } 
-                                                            ]
+                                ]
                         },
                 'desc': {'type': 'string'} 
             },

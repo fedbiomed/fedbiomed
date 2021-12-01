@@ -62,6 +62,29 @@ def success(msg:str):
         }
     )
 
+def response(data : dict, endpoint:str):
+
+    """ Global response function that returns jsonfied 
+        dictionary. It is used when the API endpoint returns
+        data. 
+
+    Args:
+
+        data (dict): Data that will be send as a reponse of the 
+                      API
+        endpoint (str): API endpoint
+
+    """    
+
+    res = {
+        'success': True,
+        'result' : data,
+        'endpoint': endpoint,
+        'message': None
+    }
+
+    return jsonify(res) 
+
 
 def validate_json(function):
 

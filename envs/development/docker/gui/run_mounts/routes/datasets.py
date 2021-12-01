@@ -5,8 +5,8 @@ from app import app
 from db import database
 
 from . import api 
-from utils import success, error, validate_json, validate_request_data
-from schemas import AddDataSet, RemoveDatasetRequest
+from utils import success, error, validate_json, validate_request_data, response 
+from schemas import AddDataSetRequest, RemoveDatasetRequest
 from fedbiomed.node.data_manager import DataManager
 
 # Initialize Fed-BioMed DataManager
@@ -20,10 +20,11 @@ def list():
         List all datasets saved into database
     """
 
-    table = database.db.table('_default')
-    datasets = table.all()
+    table = database.db().table('_default')
+    res = table.all()
+    database.close()
 
-    return jsonify(datasets)
+    return response(res, '/api/datasets/add-csv'), 200
 
 @api.route('/datasets/remove' , methods=['DELETE'])
 @validate_json
@@ -41,8 +42,8 @@ def remove():
 
     if req['dataset_id']:
 
-        table = database.db.table('_default')
-        query = database.query
+        table = database.db().table('_default')
+        query = database.query()
         dataset = table.get(query.dataset_id == req['dataset_id'])
         
         
@@ -64,7 +65,7 @@ def remove():
 
 @api.route('/datasets/add-csv', methods=['POST'])
 @validate_json
-@validate_request_data(schema=AddDataSet)
+@validate_request_data(schema=AddDataSetRequest)
 def add_csv_dataset():
 
     """ API endpoint to add single dataset to the database. Currently it 
@@ -95,9 +96,9 @@ def add_csv_dataset():
     except Exception as e:
         return error(str(e))
 
-    table = database.db.table('_default')
-    query = database.query
+    table = database.db().table('_default')
+    query = database.query()
     res = table.get(query.dataset_id == dataset_id)
     
-    return jsonify(res)
+    return response(res, '/api/datasets/add-csv'), 200
 

@@ -8,12 +8,10 @@ class Database:
         self._db = None
         self._query = None
 
-    @property
     def db(self): 
         self._db = TinyDB(app.config['NODE_DB_PATH'])      
-        return self._db 
+        return self
 
-    @property
     def query(self):
         if self._db:
             self._query = Query()
@@ -31,12 +29,11 @@ class Database:
                             write data into `_dafualt` table 
         """
 
-        return self.db.table(name)
+        return self._db.table(name)
 
     def close(self):
 
         """This method removes TinyDB object to save some memory"""
-        
         self.__dict__.pop('_db',None)
     
 
