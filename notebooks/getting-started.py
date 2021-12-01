@@ -129,11 +129,8 @@ exp = Experiment(tags=tags,
 
 try:
     exp.run()
-except TrainingException as e:
-    logger.critical("Error during training: "+str(e))
-    sys.exit(-1)
-except:
-    logger.critical("Other execption: "+str(e))
+except Exception as e:
+    logger.critical("Error during experiment.run(): "+str(e))
     sys.exit(-1)
 
 # Local training results for each round and each node are available in `exp.training_replies` (index 0 to (`rounds` - 1) ).
