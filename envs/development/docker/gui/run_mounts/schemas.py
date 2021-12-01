@@ -87,7 +87,7 @@ class JsonSchema(object):
 
 
 
-class AddTabularData(Validator):
+class AddDataSet(Validator):
     
     """ Schema for reqeustion json data for adding new csv datasets """
 
@@ -98,9 +98,14 @@ class AddTabularData(Validator):
                 'name': {'type': 'string'},
                 'path': {'type': 'array'},
                 'tags': {'type': 'array' },
+                'type': {'type' : 'string', 
+                         'oneOf': [ 
+                                    {"enum": ['csv','images'] } 
+                                                            ]
+                        },
                 'desc': {'type': 'string'} 
             },
-            'required': ['name', 'path', 'tags', 'desc']
+            'required': ['name', 'path', 'tags', 'desc', 'type']
         }, message = None)
 
 

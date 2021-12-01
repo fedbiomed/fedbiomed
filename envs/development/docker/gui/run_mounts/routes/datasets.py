@@ -5,8 +5,8 @@ from app import app
 from db import database
 
 from . import api 
-from .helper import success, error, validate_json, validate_request_data
-from .schemas import AddTabularData, RemoveDatasetRequest
+from utils import success, error, validate_json, validate_request_data
+from schemas import AddDataSet, RemoveDatasetRequest
 from fedbiomed.node.data_manager import DataManager
 
 # Initialize Fed-BioMed DataManager
@@ -64,16 +64,19 @@ def remove():
 
 @api.route('/datasets/add-csv', methods=['POST'])
 @validate_json
-@validate_request_data(schema=AddTabularData)
+@validate_request_data(schema=AddDataSet)
 def add_csv_dataset():
 
-    """ API endpoint to add single dataset to the database 
+    """ API endpoint to add single dataset to the database. Currently it 
+        uses some of the methods of datamanager. 
 
     Request.Json: 
 
         name (str): Name for the dataset
         tags (array): Tags for the dataset
-        path (str): Datapath where dataset is saved
+        path (array): Datapath where dataset is saved
+        desc (string): Description for dataset
+        type (string): Type of the dataset, CSV or Images
 
     """
     base_data_path = app.config['DATA_PATH']
@@ -81,54 +84,20 @@ def add_csv_dataset():
 
     data_path = os.path.join(base_data_path, *input['path'])
 
-  
-    table = database.db.table('_default')
-    query = database.query
-
-    table.clear_cache()
-    
-    # Check tags already exist
-    taged = table.search(query.tags.all(input['tags']))
-    if len(taged) > 0:
-        return error('Data tags must be unique')
-
     try:
-        dataset = datamanager.load_csv_dataset(data_path)
-        dtypes = datamanager.get_csv_data_types(dataset)
-
+        dataset_id = datamanager.add_database(
+                    name          = input['name'],
+                    data_type     = input['type'],
+                    tags          = input['tags'],
+                    description   = input['desc'],
+                    path          = data_path,
+        )
     except Exception as e:
         return error(str(e))
 
-
-    dataset_id = 'dataset_' + str(uuid.uuid4())
-    dataset = dict(
-        name          = input['name'],
-        data_type     = 'csv',
-        tags          = input['tags'],
-        description   = input['desc'],
-        path          = data_path,
-        dataset_id    = dataset_id,
-        dtypes        = dtypes,
-        shape         = dataset.shape
-    )
-
-    table.insert(dataset)
+    table = database.db.table('_default')
+    query = database.query
     res = table.get(query.dataset_id == dataset_id)
     
     return jsonify(res)
 
-
-
-
-@api.route('/datasets/add-image-dataset', methods=['POST'])
-def add_image_dataset():
-
-    """ API endpoint to add image dataset 
-
-    Request.Json: 
-
-        name (str): Name for the dataset
-        tags (array): Tags for the dataset
-        path (str): Datapath where images are saved
-
-    """
