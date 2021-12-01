@@ -333,12 +333,6 @@ class Job:
 
                     self._nodes.remove(faulty_node)
 
-                    # stop if no nodes remain
-                    if len(self._nodes) == 0:
-                        logger.error(str(ErrorNumbers.FB407.value[1]))
-                        raise TrainingException(str(ErrorNumbers.FB407.value[1]))
-                    continue
-
                 # only consider replies for our request
                 if m['researcher_id'] != environ['RESEARCHER_ID'] or m['job_id'] != self._id or m['node_id'] not in list(self._nodes):
                     continue
@@ -364,6 +358,9 @@ class Job:
                 self._training_replies[round].append(r)  # add new replies
                 self._params_path[r[0]['node_id']] = params_path
 
+        # return the list of nodes which answered
+        # (because nodes in error have been removed)
+        return self._nodes
 
     def update_parameters(self, params: dict) -> str:
         """Updates global model parameters after aggregation, by specifying in a
