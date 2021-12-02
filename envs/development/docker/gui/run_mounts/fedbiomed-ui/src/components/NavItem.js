@@ -3,7 +3,16 @@ import {Link} from 'react-router-dom'
 const NavItem  = (props) => {
     return (
         <div className="nav-item">
-            <Link to={{pathname: props.path}}>{props.label}</Link>
+            <Link to={{pathname: props.path}}>
+                <div className="nav-item-inner">
+                    <div className="nav-icon">
+                        <props.icon/>
+                    </div>
+                    <div className="nav-label">
+                        {props.label}
+                    </div>
+                </div>
+            </Link>
         </div>
     );
 }

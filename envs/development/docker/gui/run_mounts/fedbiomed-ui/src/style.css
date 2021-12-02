@@ -39,15 +39,32 @@ body .App {
 
 .App .main-side-bar {
   width: 20%;
-  background-color: #003366;
+  /* background-color: #003366; */
+  background-color: #fff;
   height: 100vh;
   max-height: 100vh;
   position: relative;
+  box-shadow: 5px 0px 15px -8px rgba(0,0,0,0.75);
+  -webkit-box-shadow: 5px 0px 15px -8px rgba(0,0,0,0.75);
+  -moz-box-shadow: 5px 0px 15px -8px rgba(0,0,0,0.75);
 }
 
 
 
 /* Main Layout END----------------------------------------------------------------------------------------*/
+
+/* Header CSS START ------------------------------------------------------------------------------------*/
+
+.header {
+  display: block;
+  height: 60px;
+  background-color: #fff;
+  z-index: 12;
+}
+
+
+
+/* Header CSS END ------------------------------------------------------------------------------------*/
 
 
 /* Side Bar Navigation -------------------------------------------------------------------------------*/
@@ -58,13 +75,13 @@ body .App {
 }
 
 .side-nav .brand {
-  height: 80px;
+  height: 60px;
   position: relative;
   overflow: hidden;
   display: flex;
   width: 100%;
   align-items: center;
-  background: #fff;
+  background: #003366;
 }
 
 .side-nav .brand img {
@@ -74,18 +91,61 @@ body .App {
 
 .side-nav .brand h1 {
   font-size: 16px;
-  color: #003366;
+  color: #fff;
+}
+
+.side-nav  .nav-items {
+  overflow: hidden;
 }
 
 .side-nav  .nav-items .nav-item {
   width: 100%;
   text-align: left;
   color: #333;
-  background: #eee;
-  padding: 15px 0px 15px 5px;
+  padding: 10px 0px 10px 0px;
+  margin-bottom:1px;
+  transition: all 0.3s ease-in-out;
+  border-bottom: 1px solid transparent;
 }
 
 .side-nav  .nav-items .nav-item a{
+
+  height: fit-content;
   text-decoration: none;
   color: #333;
+  height: fit-content;
+  display: block;
+  padding: 0px 5px 0px 15px;
+}
+
+.side-nav  .nav-items .nav-item .nav-item-inner{
+  display: table;
+  width: 100%
+}
+
+.side-nav  .nav-items .nav-item .nav-icon{
+  display: table-cell;
+  height: fit-content;
+  width:20px;
+  vertical-align: middle;
+}
+
+.side-nav  .nav-items .nav-item .nav-icon svg{
+  color: #fff;
+  fill : #333;
+}
+
+.side-nav  .nav-items .nav-item .nav-label{
+  display: table-cell;
+  height: inherit;
+  max-width: calc(100% - 20px);
+  vertical-align: middle;
+  padding: 10px 0px 10px 10px;
+  color: #333;
+}
+
+.side-nav  .nav-items .nav-item:hover {
+  transform: translateX(15px);
+  border-bottom: 1px solid #333;
+  width: calc(100% - 15px);
 }
