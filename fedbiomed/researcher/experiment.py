@@ -34,10 +34,10 @@ class Experiment:
                  model_args: dict = {},
                  training_args: dict = None,
                  rounds: int = 1,
-                 aggregator: aggregator.Aggregator = fedavg.FedAverage(),
-                 node_selection_strategy: Strategy = None,
+                 aggregator: Type[aggregator.Aggregator] = None,
+                 node_selection_strategy: Type[Strategy] = None,
                  save_breakpoints: bool = False,
-                 training_data: dict = None,
+                 training_data: Union [dict, Type[FederatedDataSet]] = None,
                  tensorboard: bool = False,
                  experimentation_folder: str = None
                  ):
@@ -64,15 +64,16 @@ class Experiment:
             rounds (int, optional): the number of communication rounds
                                     (nodes <-> central server).
                                     Defaults to 1.
-            aggregator (aggregator.Aggregator): class defining the method
-                                                for aggragating local updates.
-                                Default to fedavg.FedAvg().
-            node_selection_strategy (Strategy): class defining how nodes
+            aggregator (aggregator.Aggregator): class or object defining the method
+                                    for aggragating local updates.
+                                    Default to None (uses fedavg.FedAverage() for training)
+            node_selection_strategy (Strategy): class or object defining how nodes
                                                   are sampled at each round
                                                   for training, and how
                                                   non-responding nodes
                                                   are managed. Defaults to
-                                                  None (ie DefaultStrategy)
+                                                  None (uses DefaultStrategy
+                                                  for training)
             save_breakpoints (bool, optional): whether to save breakpoints or
                                                 not. Breakpoints can be used
                                                 for resuming a crashed
@@ -98,12 +99,17 @@ class Experiment:
         self._tags = tags
         self._nodes = nodes
         self._reqs = Requests()
-        # (below) search for nodes either having tags that matches the tags
-        # the researcher is looking for (`self._tags`) or based on node id
-        # (`self._nodes`)
+
         if training_data is None:
+            # no data passed : search for nodes either having tags that matches the tags
+            # the researcher is looking for (`self._tags`) or based on node id
+            # (`self._nodes`)
             training_data = self._reqs.search(self._tags, self._nodes)
-        self._fds = FederatedDataSet(training_data)
+        if type(training_data).__name__ is not 'FederatedDataSet':
+            # convert data to a data object if needed
+            self._fds = FederatedDataSet(training_data)
+        else:
+            self._fds = training_data
 
         self._round_init = 0  # start from round 0
         self._node_selection_strategy = node_selection_strategy
@@ -178,6 +184,12 @@ class Experiment:
         Raises:
             NotImplementedError: [description]
         """
+        if self._aggregator is None:
+            self._aggregator = fedavg.FedAverage()
+        else:
+            if inspect.isclass(self._aggregator):
+                self._aggregator = self._aggregator()
+        
         if self._node_selection_strategy is None:
             # Default sample_nodes: train all nodes
             # Default refine: Raise error with any failure and stop the
@@ -723,9 +735,9 @@ class Experiment:
         #print(saved_state)
 
 
-        # TODO: for both node sampling strategy & aggregator
-        # deal with saved parameters
-
+        # -----  retrieve breakpoint training data ---
+        bkpt_fds = FederatedDataSet(saved_state.get('training_data'))
+        
         # -----  retrieve breakpoint sampling strategy ----
         bkpt_sampling_strategy_args = saved_state.get(
             "node_selection_strategy"
@@ -733,6 +745,7 @@ class Experiment:
         import_str = cls._import_module(bkpt_sampling_strategy_args)
         exec(import_str)
         bkpt_sampling_strategy = eval(bkpt_sampling_strategy_args.get("class"))
+        bkpt_sampling_strategy = bkpt_sampling_strategy(bkpt_fds)
         bkpt_sampling_strategy.load_state(bkpt_sampling_strategy_args)
 
         # ----- retrieve federator -----
@@ -740,6 +753,7 @@ class Experiment:
         import_str = cls._import_module(bkpt_aggregator_args)
         exec(import_str)
         bkpt_aggregator = eval(bkpt_aggregator_args.get("class"))
+        bkpt_aggregator = bkpt_aggregator()
         bkpt_aggregator.load_state(bkpt_aggregator_args)
 
         # ------ initializing experiment -------
@@ -751,10 +765,10 @@ class Experiment:
                          model_args=saved_state.get("model_args"),
                          training_args=saved_state.get("training_args"),
                          rounds=saved_state.get("round_number_due"),
-                         aggregator=bkpt_aggregator(),
+                         aggregator=bkpt_aggregator,
                          node_selection_strategy=bkpt_sampling_strategy,
                          save_breakpoints=True,
-                         training_data=saved_state.get('training_data'),
+                         training_data=bkpt_fds,
                          experimentation_folder=saved_state.get('experimentation_folder')
                          )
 
