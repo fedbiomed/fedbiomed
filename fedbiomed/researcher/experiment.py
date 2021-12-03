@@ -102,15 +102,10 @@ class Experiment:
         # the researcher is looking for (`self._tags`) or based on node id
         # (`self._nodes`)
         if training_data is None:
-            # normal case
-            self._training_data = self._reqs.search(self._tags,
-                                                    self._nodes)
-        else:
-            # case where loaded from saved breakpoint
-            self._training_data = training_data
+            training_data = self._reqs.search(self._tags, self._nodes)
+        self._fds = FederatedDataSet(training_data)
 
         self._round_init = 0  # start from round 0
-        self._fds = FederatedDataSet(self._training_data)
         self._node_selection_strategy = node_selection_strategy
         self._aggregator = aggregator
 
@@ -460,7 +455,7 @@ class Experiment:
         state = {
             # these are both Experiment and Job attributes : should be set also
             # in Experiment to better split breakpoint between the two classes
-            'training_data': self._training_data,
+            'training_data': self._fds.data(),
             'training_args': self._training_args,
             'model_args': self._model_args,
             'model_path': self._job._model_file, # may not exist in Experiment with current version
