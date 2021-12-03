@@ -739,6 +739,7 @@ class Experiment:
         import_str = cls._import_module(bkpt_aggregator_args)
         exec(import_str)
         bkpt_aggregator = eval(bkpt_aggregator_args.get("class"))
+        bkpt_aggregator.load_state(bkpt_aggregator_args)
 
         # ------ initializing experiment -------
 

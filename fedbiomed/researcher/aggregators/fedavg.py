@@ -27,10 +27,3 @@ class FedAverage(Aggregator):
         weights = self.normalize_weights(weights)
         return federated_averaging(model_params, weights)
 
-    def save_state(self) -> Dict[str, Any]:
-        state = {
-            "class": type(self).__name__,
-            "module": self.__module__,
-            "parameters": self.aggregator_params
-        }
-        return state
