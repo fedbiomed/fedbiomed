@@ -59,10 +59,3 @@ class DefaultStrategy(Strategy):
                 return models_params, weights
 
 
-        def save_state(self) -> Dict[str, Any]:
-                state = {
-                        "class": type(self).__name__,
-                        "module": self.__module__,
-                        "parameters": self.parameters
-                }
-                return state

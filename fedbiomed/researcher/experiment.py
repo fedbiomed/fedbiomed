@@ -733,6 +733,7 @@ class Experiment:
         import_str = cls._import_module(bkpt_sampling_strategy_args)
         exec(import_str)
         bkpt_sampling_strategy = eval(bkpt_sampling_strategy_args.get("class"))
+        bkpt_sampling_strategy.load_state(bkpt_sampling_strategy_args)
 
         # ----- retrieve federator -----
         bkpt_aggregator_args = saved_state.get("aggregator")

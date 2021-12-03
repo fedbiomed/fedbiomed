@@ -32,6 +32,5 @@ class Aggregator:
         }
         return state
 
-
     def load_state(self, state: Dict[str, Any]=None):
         pass

@@ -27,7 +27,12 @@ class Strategy:
                 return
 
         def save_state(self) -> Dict[str, Any]:
-                return None
+                state = {
+                        "class": type(self).__name__,
+                        "module": self.__module__,
+                        "parameters": self.parameters
+                }
+                return state
 
-        def load_state(self):
+        def load_state(self,  state: Dict[str, Any]=None):
                 pass
