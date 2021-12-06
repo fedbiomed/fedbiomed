@@ -29,15 +29,15 @@ class Experiment:
     def __init__(self,
                  tags: tuple,
                  nodes: list = None,
-                 model_class: Union[str, Callable] = None,
+                 model_class: Union[Type[Callable], Callable] = None,
                  model_path: str = None,
                  model_args: dict = {},
                  training_args: dict = None,
                  rounds: int = 1,
-                 aggregator: Type[aggregator.Aggregator] = None,
-                 node_selection_strategy: Type[Strategy] = None,
+                 aggregator: Union[Type[aggregator.Aggregator], aggregator.Aggregator] = None,
+                 node_selection_strategy: Union[Type[Strategy], Strategy] = None,
                  save_breakpoints: bool = False,
-                 training_data: Union [dict, Type[FederatedDataSet]] = None,
+                 training_data: Union [dict, FederatedDataSet] = None,
                  tensorboard: bool = False,
                  experimentation_folder: str = None
                  ):
@@ -50,9 +50,10 @@ class Experiment:
             nodes (list, optional): list of node_ids to filter the nodes
                                     to be involved in the experiment.
                                     Defaults to None (no filtering).
-            model_class (Union[str, Callable], optional): name of the
-                                    model class to use for training. Should
-                                    be a str type when using jupyter notebook
+            model_class (Union[Type[Callable], Callable], optional): name or
+                                    instance (object) of the model class to use
+                                    for training.
+                                    Should be a str type when using jupyter notebook
                                     or a Callable when using a simple python
                                     script.
             model_path (string, optional) : path to file containing model code
@@ -64,23 +65,23 @@ class Experiment:
             rounds (int, optional): the number of communication rounds
                                     (nodes <-> central server).
                                     Defaults to 1.
-            aggregator (aggregator.Aggregator): class or object defining the method
-                                    for aggragating local updates.
+            aggregator (Union[Type[aggregator.Aggregator], aggregator.Aggregator], optional):
+                                    class or object defining the method
+                                    for aggregating local updates.
                                     Default to None (uses fedavg.FedAverage() for training)
-            node_selection_strategy (Strategy): class or object defining how nodes
-                                                  are sampled at each round
-                                                  for training, and how
-                                                  non-responding nodes
-                                                  are managed. Defaults to
-                                                  None (uses DefaultStrategy
-                                                  for training)
+            node_selection_strategy (Union[Type[Strategy], Strategy], optional):
+                                    class or object defining how nodes are sampled at each round
+                                    for training, and how non-responding nodes are managed.
+                                    Defaults to None (uses DefaultStrategy for training)
             save_breakpoints (bool, optional): whether to save breakpoints or
                                                 not. Breakpoints can be used
                                                 for resuming a crashed
                                                 experiment. Defaults to False.
-            training_data (dict, optional): dict of the node_id of nodes providing
-                    datasets for the experiment. Datasets for a node_id are
-                    described as a list of dict, one dict per dataset.
+            training_data (Union [dict, FederatedDataSet], optional):
+                    FederatedDataSet object or
+                    dict of the node_id of nodes providing datasets for the experiment,
+                    datasets for a node_id are described as a list of dict, one dict per dataset.
+                    Defaults to None, datasets are searched from `tags` and `nodes`.
             tensorboard (bool): Tensorboard flag for displaying scalar values
                                 during training in every node. If it is true,
                                 monitor will write scalar logs into
