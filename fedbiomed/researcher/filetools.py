@@ -1,9 +1,9 @@
 import logging
 import os
 import re
+from typing import Tuple, List
 
 from fedbiomed.common.logger import logger
-from typing import Tuple, List
 from fedbiomed.researcher.environ import environ
 
 """
@@ -93,7 +93,8 @@ def choose_bkpt_file(
     return breakpoint_folder_path, breakpoint_file
 
 
-def create_unique_link(breakpoint_folder_path: str,
+def create_unique_link(
+        breakpoint_folder_path: str,
         link_src_prefix: str,
         link_src_postfix: str,
         link_target_path: str) -> str:
@@ -131,11 +132,10 @@ def create_unique_link(breakpoint_folder_path: str,
     return link_src_path
 
 
-def create_unique_file_link(breakpoint_folder_path: str,
-        file_path: str) -> str:
+def create_unique_file_link(breakpoint_folder_path: str, file_path: str) -> str:
     """Create a symbolic link in `breakpoint_folder_path` with a non existing name
     derived from basename of `file_path`. The symbolic link points to the real file
-    behind `file_path`
+    targeted by `file_path`
     Args:
         breakpoint_folder_path (str): directory for the source link
         file_path (str): path to the target of the link
@@ -173,9 +173,10 @@ def create_unique_file_link(breakpoint_folder_path: str,
             link_target)
 
 
-def _get_latest_file(pathfile: str,
-                     list_name_file: List[str],
-                     only_folder: bool = False) -> str:
+def _get_latest_file(
+            pathfile: str,
+            list_name_file: List[str],
+            only_folder: bool = False) -> str:
     """Gets latest file from folder specified in `list_name_file`
     from the following convention:
         the more recent folder is the file written as `myfile_xx`

@@ -2,9 +2,9 @@ import logging
 import os
 import json
 import inspect
+from typing import Callable, Union, Dict, Any, TypeVar, Type
 
 from fedbiomed.common.logger import logger
-from typing import Callable, Union, Dict, Any, TypeVar, Type
 from fedbiomed.researcher.environ import environ
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
