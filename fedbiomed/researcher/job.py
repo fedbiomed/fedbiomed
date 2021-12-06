@@ -49,7 +49,7 @@ class Job:
             nodes (dict, optional): a dict of node_id containing the
             nodes used for training
             model (Union[Type[Callable], Callable], optional): name of the model class
-            or object (instance of the model class) to use for training
+            or object (instance of the model class) to use for training.
             model_path (string, optional) : path to file containing model
             class code
             training_args (dict, optional): contains training parameters:
