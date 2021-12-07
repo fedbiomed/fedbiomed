@@ -96,6 +96,12 @@ class Job:
             self.check_data_quality()
 
 
+        # Model is mandatory
+        if model is None:
+            mess = "Missing model class name or instance in Job arguments"
+            logger.critical(mess)
+            raise NameError(mess)
+
         # handle case when model is in a file
         if model_path is not None:
             try:
@@ -111,6 +117,14 @@ class Job:
                 logger.critical("Cannot import class " + model + " from path " +  model_path + " - Error: " + str(e))
                 sys.exit(-1)
 
+        # check class is defined
+        try:
+            _ = inspect.isclass(model)
+        except NameError as e:
+            mess = f"Cannot find training plan for Job, model class {model} is not defined"
+            logger.critical(mess)
+            raise NameError(mess)
+
         # create/save model instance (ie TrainingPlan)
         if inspect.isclass(model):
             # case if `model` is a class
@@ -121,6 +135,7 @@ class Job:
         else:
             # also handle case where model is an instance of a class
             self.model_instance = model
+
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
