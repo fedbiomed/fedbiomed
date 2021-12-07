@@ -107,7 +107,7 @@ class Experiment:
             # the researcher is looking for (`self._tags`) or based on node id
             # (`self._nodes`)
             training_data = self._reqs.search(self._tags, self._nodes)
-        if type(training_data).__name__ is not 'FederatedDataSet':
+        if type(training_data).__name__ != 'FederatedDataSet':
             # convert data to a data object if needed
             self._fds = FederatedDataSet(training_data)
         else:
@@ -407,7 +407,7 @@ class Experiment:
         # ------- changing `Job` attributes -------
         loaded_exp._job.load_state(saved_state)
 
-        logging.debug(f"reloading from {breakpoint_folder_path} successful!")
+        logging.info(f"experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp
 
 
@@ -479,7 +479,6 @@ class Experiment:
         else:
             # node is using a fedbiomed node sampling strategy
             import_str = 'from ' + module_path + ' import ' + module_class
-        logging.debug(f"{module_class} loaded !")
 
         return import_str
 
