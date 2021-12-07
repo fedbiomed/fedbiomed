@@ -287,7 +287,7 @@ class Experiment:
         breakpoint_path, breakpoint_file_name = \
             choose_bkpt_file(self._experimentation_folder, round)
 
-        job_state = self._job.save_state(round)
+        job_state = self._job.save_state(breakpoint_path, round)
         state = {
             # these are both Experiment and Job attributes : should be set also
             # in Experiment to better split breakpoint between the two classes
@@ -319,25 +319,12 @@ class Experiment:
             os.path.join('..', os.path.basename(state["model_path"]))
             )
 
-        # TODO : move to Job()
-        state['model_params_path'] = create_unique_link(
-            breakpoint_path,
-            'aggregated_params_current', '.pt',
-            os.path.join('..', os.path.basename(state["model_params_path"]))
-            )
-        # TODO : move to Job()
-        for round_replies in state['training_replies']:
-            for response in round_replies:
-                node_params_path = create_unique_file_link(breakpoint_path,
-                                            response['params_path'])
-                response['params_path'] = node_params_path
-
         # save state into a json file.
-        breakpoint_path = os.path.join(breakpoint_path, breakpoint_file_name)
-        with open(breakpoint_path, 'w') as bkpt:
+        breakpoint_file_path = os.path.join(breakpoint_path, breakpoint_file_name)
+        with open(breakpoint_file_path, 'w') as bkpt:
             json.dump(state, bkpt)
         logger.info(f"breakpoint for round {round} saved at \
-            {os.path.dirname(breakpoint_path)}")
+            {os.path.dirname(breakpoint_file_path)}")
 
 
     @staticmethod

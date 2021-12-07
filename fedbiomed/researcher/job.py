@@ -16,6 +16,8 @@ from fedbiomed.common.repository import Repository
 from fedbiomed.common.logger import logger
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.researcher.filetools import  create_unique_link, \
+            create_unique_file_link
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
@@ -337,9 +339,9 @@ class Job:
 
 
     def update_parameters(self, params: dict={}, filename: str=None) -> str:
-        """Updates global model parameters after aggregation, by saving them
-        to a file (unless it already exists) and upload them to the repository
-        so that they are ready to be sent to the nodes for the next training round.
+        """Updates global model aggregated parameters in `params`, by saving them
+        to a file `filename` (unless it already exists), then upload file to the repository
+        so that params are ready to be sent to the nodes for the next training round.
         If a `filename` is given (file exists) it has precedence over `params`.
 
         Args:
@@ -367,10 +369,12 @@ class Job:
             sys.exit(-1)
         return self._model_params_file
 
-    def save_state(self, round: int=0):
+    def save_state(self, breakpoint_path: str, round: int=0):
         """Creates current state of the job to be included in a breakpoint.
+        Includes creating links to files included in the job state.
 
         Args:
+            breakpoint_path (str): path to the existing breakpoint directory
             round (int, optional): number of round iteration.
             Defaults to 0.
 
@@ -387,8 +391,22 @@ class Job:
             'model_path': self._model_file,
             'model_class': self._repository_args.get('model_class'),
             'model_params_path': self._model_params_file,
-            'training_replies': self._save_training_replies()
+            'training_replies': self._save_training_replies(self._training_replies)
         }
+
+        state['model_params_path'] = create_unique_link(
+            breakpoint_path,
+            'aggregated_params_current', '.pt',
+            os.path.join('..', os.path.basename(state["model_params_path"]))
+            )
+
+        for round_replies in state['training_replies']:
+            for response in round_replies:
+                node_params_path = create_unique_file_link(breakpoint_path,
+                                            response['params_path'])
+                response['params_path'] = node_params_path
+
+
         return state
 
     def load_state(self, saved_state: dict=None):
@@ -399,23 +417,30 @@ class Job:
         """
         self._id = saved_state.get('job_id')
         self.update_parameters(filename=saved_state.get('model_params_path'))
-        self._load_training_replies(saved_state.get('training_replies'))
+        self._training_replies = \
+            self._load_training_replies(saved_state.get('training_replies'))
         self._researcher_id = saved_state.get('researcher_id')
 
 
-    def _save_training_replies(self) -> List[Dict[int, List[dict]]]:
-        """extracts a copy of `self._training_replies` and
+    @staticmethod
+    def _save_training_replies(training_replies: Dict[int, Responses]) \
+                -> List[List[dict]]:
+        """Extracts a copy of `training_replies` and
         prepares it for saving in breakpoint
         - strip unwanted fields
         - structure as list/dict so it can be saved with JSON
 
+        Args:
+            - training_replies (Dict[int, Responses]) : training replies of
+              already executed rounds of the job
+
         Returns:
-            List[Dict[int, List[dict]]]: formatted extract from `self._training_replies`
+            List[List[dict]] : extract from `training_replies` formatted for breakpoint
         """
         converted_training_replies = []
         
-        for round in self._training_replies.keys():
-            training_reply = copy.deepcopy(self._training_replies[round].data)
+        for round in training_replies.keys():
+            training_reply = copy.deepcopy(training_replies[round].data)
             # we want to strip some fields for the breakpoint
             for node in training_reply:
                 del node['params']
@@ -423,25 +448,30 @@ class Job:
 
         return converted_training_replies
 
-    def _load_training_replies(self, training_replies: List[Dict[int, List[dict]]]):
-        """Loads training replies from a formatted JSON file,
-        so it behaves like a real `training_replies`.
+    def _load_training_replies(self, bkpt_training_replies: List[List[dict]]) \
+                -> Dict[int, Responses]:
+        """Read training replies from a formatted breakpoint file,
+        and build a job training replies structure .
 
         Args:
-            training_replies (List[Dict[int, List[dict]]]): JSON formatted
-            `training_replies` entry partial extraction.
+            - training_replies (List[List[dict]]): extract from
+              `training_replies` formatted for breakpoint
+
+        Returns: 
+            Dict[int, Responses] : training replies of already executed rounds of the job
         """
 
-        self._training_replies = {}
-        for round in range(len(training_replies)):
-            loaded_training_reply = Responses(training_replies[round])
+        training_replies = {}
+        for round in range(len(bkpt_training_replies)):
+            loaded_training_reply = Responses(bkpt_training_replies[round])
             # reload parameters from file params_path
             for node in loaded_training_reply:
                 node['params'] = self.model_instance.load(
                     node['params_path'], to_params=True)['model_params']
 
-            self._training_replies[round] = loaded_training_reply
+            training_replies[round] = loaded_training_reply
 
+        return training_replies
 
     def check_data_quality(self):
 
