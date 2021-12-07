@@ -417,8 +417,10 @@ class Job:
         """
         self._id = saved_state.get('job_id')
         self.update_parameters(filename=saved_state.get('model_params_path'))
-        self._training_replies = \
-            self._load_training_replies(saved_state.get('training_replies'))
+        self._training_replies = self._load_training_replies(
+                    saved_state.get('training_replies'),
+                    self.model_instance.load
+                    )
         self._researcher_id = saved_state.get('researcher_id')
 
 
@@ -448,14 +450,19 @@ class Job:
 
         return converted_training_replies
 
-    def _load_training_replies(self, bkpt_training_replies: List[List[dict]]) \
-                -> Dict[int, Responses]:
+    @staticmethod
+    def _load_training_replies(
+                bkpt_training_replies: List[List[dict]],
+                func_load_params: Callable
+                ) -> Dict[int, Responses]:
         """Read training replies from a formatted breakpoint file,
-        and build a job training replies structure .
+        and build a job training replies data structure .
 
         Args:
             - training_replies (List[List[dict]]): extract from
-              `training_replies` formatted for breakpoint
+              training replies saved in breakpoint
+            - func_load_params (Callable) : function for loading parameters
+              from file to training replies data structure
 
         Returns: 
             Dict[int, Responses] : training replies of already executed rounds of the job
@@ -466,7 +473,7 @@ class Job:
             loaded_training_reply = Responses(bkpt_training_replies[round])
             # reload parameters from file params_path
             for node in loaded_training_reply:
-                node['params'] = self.model_instance.load(
+                node['params'] = func_load_params(
                     node['params_path'], to_params=True)['model_params']
 
             training_replies[round] = loaded_training_reply
