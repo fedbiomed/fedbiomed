@@ -128,3 +128,4 @@ def validate_request_data(schema: Validator):
             return controller(*args, **kw)
         return wrapper
     return decorator
+

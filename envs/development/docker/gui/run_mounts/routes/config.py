@@ -6,7 +6,7 @@ from . import api
 from app import app, db_prefix
 from flask import request, jsonify
 from utils import get_node_id
-from utils import success, error
+from utils import success, error, response
 
 import fedbiomed.node.environ
 import fedbiomed.common.environ
@@ -27,14 +27,15 @@ def node_id():
 
     return jsonify(result)
 
-@api.route('/config/node-environ')
+
+@api.route('/config/node-environ', methods=['POST'])
 def fedibomed_environ():
 
     """ Endpoint that return current configuration for node 
-    
-        Returns: 
+
+        Returns:
             res : Json formated environ object of the node, with status code 
-                  200. 
+                  200.
     """
 
     res = copy.deepcopy(fedbiomed.node.environ.environ)
@@ -42,12 +43,13 @@ def fedibomed_environ():
     for p in pops:
         res.pop(p)
 
-    return jsonify(res), 200
+    return response(res, '/api/config/node-environ'), 200
+
 
 # TODO: Should be used when it is requeired to manage multiple nodes 
 # from single GUI. Currently when the config is changed some of the 
 # Fedbiomed APIs still use previous node config e.g. DataManager.
-@api.route('/config/change-node-config', methods = ['POST'])
+@api.route('/config/change-node-config', methods=['POST'])
 def change_node_config():
 
     """ Change config file that is going to be used 

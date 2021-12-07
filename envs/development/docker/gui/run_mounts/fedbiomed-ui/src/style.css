@@ -17,10 +17,16 @@ body .App {
   height: 100vh;
   max-height: 100vh;
   position: relative;
-  background: #eee;
   width: 100%;
   display: block;
 }
+
+.row {
+  display: block;
+  max-width: 100%;
+  display: flex;
+}
+
 
 /* Main Layout START----------------------------------------------------------------------------------------*/
 
@@ -29,7 +35,7 @@ body .App {
   display: flex;
 }
 
-.App .main-router {
+.App .main-frame {
   width: 80%;
   background-color: transparent;
   height: 100vh;
@@ -49,9 +55,96 @@ body .App {
   -moz-box-shadow: 5px 0px 15px -8px rgba(0,0,0,0.75);
 }
 
+.App .main-frame .router-frame {
+  width : 100%;
+  height: calc(100vh - 60px);
+  max-height: calc(100vh - 60px);
+  overflow: hidden;
+}
 
+.App .main-frame .router-frame .inner {
+  padding: 20px 20px 0px 20px;
+  display: flex;
+  flex-flow: column;
+  position: relative;
+  height: calc(100vh - 80px);
+}
+
+.router-frame .inner .frame-header {
+    flex: 0 1 auto;
+    /* The above is shorthand for:
+    flex-grow: 0,
+    flex-shrink: 1,
+    flex-basis: auto
+    */
+}
+
+.router-frame .inner .frame-content {
+  flex: 1 1 auto;
+  overflow-y: scroll;
+  padding: 10px;
+}
+
+.router-frame .inner .frame-footer {
+  flex: 0 1 40px;
+}
+
+
+.center {
+  text-align: center;
+}
 
 /* Main Layout END----------------------------------------------------------------------------------------*/
+
+
+/* Butons CSS Start----------------------------------------------------------------------------------*/
+.button {
+  display: flex;
+  align-items: center;
+  max-width: 150px;
+  background: #eee;
+  padding: 5px;
+  text-align: center;
+  justify-content: center;
+  border-radius: 5px;
+  cursor:pointer
+}
+
+.button div.icon , .button div.text {
+  text-align: center;
+  margin: 5px;  /* and that, will result in a 10px gap */
+}
+
+.button .icon {
+  width: 25px !important;
+}
+
+/* Button CSS Start --------------------------------------------- */
+
+.button {
+  width: auto;
+  padding: 10px;
+  color: #fff;
+  background-color: #0b6881;
+  cursor: pointer;
+  margin: 5px;  
+  border-radius: 5px;
+}
+
+.button:hover {
+  background-color: #888;
+}
+
+.button.negative {
+  background-color: #da334f;
+}
+
+.button.negative:hover {
+  background-color: #d3586d;
+}
+
+/* Butons CSS END----------------------------------------------------------------------------------*/
+
 
 /* Header CSS START ------------------------------------------------------------------------------------*/
 
@@ -60,6 +153,9 @@ body .App {
   height: 60px;
   background-color: #fff;
   z-index: 12;
+  box-shadow: 1px 3px 6px -1px rgba(0,0,0,0.52);
+-webkit-box-shadow: 1px 3px 6px -1px rgba(0,0,0,0.52);
+-moz-box-shadow: 1px 3px 6px -1px rgba(0,0,0,0.52);
 }
 
 
@@ -149,3 +245,357 @@ body .App {
   border-bottom: 1px solid #333;
   width: calc(100% - 15px);
 }
+
+/* Repository CSS Start ---------------------------------------------------------------------------------*/
+
+.main-repository {
+  max-width: 100%;
+  border-left: 1px solid #ddd;
+  border-top:1px solid #ddd;
+  position: relative;
+  display: block;
+  height: 100%;
+  text-align: left;
+  display: flex;
+  background: #fff;
+}
+
+
+.main-repository .repository-bar{
+  width: 350px;
+  min-width: 350px;
+  background: #f9f9f9;
+  height: 100%;
+  border-right: 1px solid #ddd;
+  border-radius: 5px;
+  overflow-y: scroll;
+}
+
+.repository-bar .repository-item {
+  height: 50px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  cursor:pointer;
+  position: relative;
+}
+
+.repository-bar .repository-item .icon{
+  width: 20px;
+  margin: 0px 8px;
+} 
+.repository-bar .repository-item .icon.action-add, .repository-bar .repository-item .icon.action-display {
+  opacity: 0;
+  cursor:pointer;
+  z-index: 12;
+} 
+
+.repository-bar .repository-item .icon.action-display {
+  opacity: 1;
+}
+
+.repository-bar .repository-item .icon.right {
+  margin-left:auto;
+}
+.repository-bar .repository-item .icon .dot{
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background-color:green
+
+} 
+
+.repository-bar .repository-item .name{
+  width: 75%;
+  font-size:14px
+} 
+
+
+.repository-bar .repository-item:hover {
+  background-color: #ddd;
+}
+
+.repository-bar .repository-item:hover > .icon.action-add {
+  opacity: 1;
+}
+
+.repository-item .repo-item-info {
+  position: absolute;
+  opacity: 0;
+  width: 200px;
+  height: 100px;
+}
+
+.repository-item .repo-item-info.active {
+  opacity: 1;
+}
+
+/* Repository CSS Ends ---------------------------------------------------------------------------------*/
+
+
+/* Datasets CSS Starts =-----------------------------------------------------------------------------------*/
+
+table.datasets, table.data, table.info {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table.datasets tr, table.data tr, table.info tr{
+  border-bottom: 1px solid #e6e4e4;
+  padding : 10px 0px;
+}
+
+table.datasets tr td, th{
+  text-align: left;
+  padding : 10px 10px;
+}
+
+table.datasets tr:hover {
+  background: #eee;
+  
+}
+table.datasets tr td .icon {
+  width: 100%;
+  text-align: center;
+  cursor:pointer
+}
+
+
+table.datasets tr td .icon{
+  width: 20px;
+}
+table.datasets tr td.center {
+  display: flex;
+  justify-content: center;
+}
+
+table.datasets tr td .icon  {
+  cursor:pointer
+}
+table.datasets tr td .icon.delete:hover  {
+  fill : red
+}
+
+table td .action-buttons {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  width: 100%;
+}
+
+div.tag {
+  display: inline-block;
+  width: auto;
+  padding:3px;
+  font-size: 12px;
+  background: #0099cc;
+  color:#fff;
+  border-radius: 3px;
+  margin: 3px;
+}
+
+
+table.data tr td{
+  padding : 10px;
+}
+
+table.info tr td{
+  padding : 10px;
+}
+
+table.info tr td.title{
+  background: #003366;
+  color:#fff
+}
+
+
+div.table {
+  width: 100%;
+  overflow-x: scroll;
+  margin: 10px 0px
+}
+
+
+
+
+
+
+/* Datasets CSS Ends =-----------------------------------------------------------------------------------*/
+
+
+/* MODAL CSS ------------------------------------------------ */
+
+.modal-overlay {
+  position: fixed;
+  display:flex;
+  z-index: 1;
+  justify-content: center;
+  align-items: center;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+  background: rgba(255,255,255,0.8);
+}
+
+.modal-overlay .modal-inner{
+  position: relative;
+  display: flex;
+  flex-flow: column;
+  background-color: #fff;
+  border:1px solid #eee;
+  width: 50%;
+  height: auto;
+  padding: 10px;
+  text-align: left;
+  max-height: calc(100vh - 40px);
+  overflow : hidden;
+}
+
+
+.modal-overlay .modal-inner.shadow {
+  box-shadow: 10px 14px 18px -12px rgba(0,0,0,0.75);
+  -webkit-box-shadow: 10px 14px 18px -12px rgba(0,0,0,0.75);
+  -moz-box-shadow: 10px 14px 18px -12px rgba(0,0,0,0.75);
+}
+
+.modal-inner .close {
+  right: 0px;
+  top: 0px;
+  position: absolute;
+  padding: 10px;
+  color: #888;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.modal-overlay .modal-inner .modal-header{
+flex: 1 0 auto;
+overflow-y: scroll;
+}
+
+.modal-overlay .modal-inner .modal-content{
+flex: 1 1 auto;
+overflow-y: scroll;
+}
+
+.modal-overlay .modal-inner .modal-footer{
+flex: 0 1 40px;
+display: inherit;
+flex-wrap: wrap;
+justify-content: flex-end;
+}
+
+.modal-overlay .modal-inner .modal-footer.float-left{
+justify-content: flex-start;
+}
+
+
+/* MODAL CSS Ends------------------------------------------------ */
+
+
+/* Inputs CSS Starts --------------- Inputs ----------------*/
+
+.form-control {
+  width: calc(100% - 40px);
+margin: 20px;
+}
+
+
+input.input {
+  width: 100%;
+  height: 40px;
+  outline: none;
+  border: 1px solid #d0d0d0;
+  color : #333
+}
+
+select.select {
+  width: 100%;
+  height: 40px;
+  outline: none;
+  border: 1px solid #d0d0d0;
+  color : #333
+}
+
+input.input:focus {
+  border: 1px solid #2427df;
+}
+
+
+.tags-input{
+  width: auto;
+  background-color: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  border: 1px solid #d0d0d0;
+  height: auto;
+  flex-wrap: wrap;
+  min-width: 40px;
+}
+
+.tags-input:focus-within {
+  border: 1px solid #2427df;
+
+}
+
+.tags-input input[type="text"] {
+  border: none;
+  background-color: transparent;
+  color: #333;
+  float: right;
+  margin-left: 5px;
+  border: 0px !important;
+  height: 40px;
+  font-size:16px;
+  outline: none;
+  width: 120px;
+}
+
+.tag {
+  background-color: #0061f1;
+  color: white;
+  height: 20px;
+  width: auto;
+  border-radius: 10px;
+  font-size: 0.7em;
+  padding: 0px;
+  margin: 3px;
+  display: flex;
+  align-items: center;
+}
+
+.tags {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 30px;
+  width: auto;
+}
+.tags .close {
+  border: none;
+  border-radius: 13px;
+  padding: 3px;
+  background: #fff;
+  font-size: 8px;
+  margin: 0px 5px;
+  width: 15px;
+}
+
+.tags .close:hover {
+  background-color: white;
+  cursor: pointer;
+}
+
+label.input-label {
+  display: block;
+  margin-bottom: 10px;
+  margin-top: 15px;
+}
+
+textarea.input {
+  width: 100%;
+}
+
+/* Inputs CSS Ends --------------- Inputs ----------------*/

@@ -6,7 +6,7 @@ from jsonschema import Draft7Validator, validators
 def extend_validator(validator_class):
 
     """ Extending json validator to set default values 
-        if it is specified in the schema 
+        if it is specified in the schema
 
         @source: https://readthedocs.org/projects/python-jsonschema/downloads/pdf/latest/
     """
@@ -20,18 +20,17 @@ def extend_validator(validator_class):
         for property, subschema in properties.items():
             if "default" in subschema:
                 instance.setdefault(property, subschema["default"])
-            
-        for error in validate_properties(
-            validator, properties, instance, schema):
 
+        for error in validate_properties(validator, properties,
+                                         instance, schema):
             yield error
 
     return validators.extend(
-        validator_class, {"properties" : set_defaults},
+        validator_class, {"properties": set_defaults},
     )
 
 
-# Extend Draft7Validator 
+# Extend Draft7Validator
 JsonBaseValidator = extend_validator(Draft7Validator)
 
 
@@ -43,12 +42,11 @@ class Validator:
             for application/json type request. in feature it can be 
             extenden to other types of request such as form,url-encoded etc.
         """
-        self._request   = request
-        self._schema    = getattr(self, 'schema')
-        self._type      = getattr(self, 'type') 
+        self._request = request
+        self._schema = getattr(self, 'schema')
+        self._type = getattr(self, 'type')
 
     def validate(self):
-        
         """ Validation function for for provided schema currenly 
             it is only allowed to json schemas
         """
@@ -58,18 +56,17 @@ class Validator:
             raise Exception('Unsupported schema validator type')
 
 
-
 class JsonSchema(object):
 
     def __init__(self, schema, message: str = None):
 
-        """ Schema class 
+        """Schema class 
 
-        Args: 
-            schema (dict): A dictiory represent the valid schema 
+        Args:
+            schema (dict): A dictiory represent the valid schema
                             for JSON object
             message (str): Message that will be return if the validation
-                            is not successfull. If it is `None` it will return 
+                            is not successfull. If it is `None` it will return
                             default `jsonschema` validation error message
         """
 
@@ -86,28 +83,22 @@ class JsonSchema(object):
             raise jsonschema.ValidationError(e.message)
 
 
-
 class AddDataSetRequest(Validator):
-    
     """ Json Schema for reqeust of adding new datasets """
 
-    type   = 'json' 
+    type = 'json'
     schema = JsonSchema({
             'type': 'object',
             'properties': {
                 'name': {'type': 'string'},
                 'path': {'type': 'array'},
-                'tags': {'type': 'array' },
-                'type': {'type' : 'string', 
-                         'oneOf': [ 
-                                    {"enum": ['csv','images'] } 
-                                ]
-                        },
-                'desc': {'type': 'string'} 
+                'tags': {'type': 'array'},
+                'type': {'type': 'string',
+                         'oneOf': [{"enum": ['csv', 'images']}]},
+                'desc': {'type': 'string'}
             },
             'required': ['name', 'path', 'tags', 'desc', 'type']
-        }, message = None)
-
+        }, message=None)
 
 
 class ListDataFolder(Validator):
@@ -116,12 +107,13 @@ class ListDataFolder(Validator):
 
     type = 'json'
     schema = JsonSchema({
-        'type' : "object",
+        'type': "object",
         "properties": {
-            "path" : {'type' : 'array' , 'default' : [] }
+            "path": {'type': 'array', 'default': []}
         },
-        "required" : []
+        "required": []
     })
+
 
 class RemoveDatasetRequest(Validator):
 
@@ -129,9 +121,39 @@ class RemoveDatasetRequest(Validator):
 
     type = 'json'
     schema = JsonSchema({
-        'type' : "object",
+        'type': "object",
         "properties": {
-            "dataset_id" : {'type' : 'string' }
+            "dataset_id": {'type': 'string'}
         },
-        "required" : ["dataset_id"]
+        "required": ["dataset_id"]
+    })
+
+
+class PreviewDatasetRequest(Validator):
+
+    """  JSON schema for request of /api/datasets/preview """
+
+    type = 'json'
+    schema = JsonSchema({
+        'type': "object",
+        "properties": {
+            "dataset_id": {'type': 'string'}
+        },
+        "required": ["dataset_id"]
+    })
+
+
+class UpdateDatasetRequest(Validator):
+
+    """  JSON schema for request of /api/datasets/update """
+
+    type = 'json'
+    schema = JsonSchema({
+        'type': "object",
+        "properties": {"name": {'type': 'string'},
+                       "dataset_id": {'type': 'string'},
+                       "path": {'type': 'array'},
+                       "tags": {'type': 'array'},
+                       "desc": {'type': 'string'}},
+        "required": ["dataset_id", "tags", "desc"]
     })

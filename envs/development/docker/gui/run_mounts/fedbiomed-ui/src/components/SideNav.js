@@ -11,9 +11,9 @@ import {ReactComponent as HomeIcon}  from '../assets/img/home.svg'
 // Define menu items
 const items = [
     { key: '1', label: 'Home', path: '/', icon: HomeIcon },
-    { key: '1', label: 'Repository', path: '/repository', icon: FolderIcon },
-    { key: '2', label: 'Add Dataset', path: '/add-dataset', icon: DataIcon},
-    { key: '3', label: 'Node Configuration', path: '/configuration', icon: ConfIcon },
+    { key: '2', label: 'Repository', path: '/repository', icon: FolderIcon },
+    { key: '3', label: 'Datasets', path: '/datasets', icon: DataIcon },
+    { key: '4', label: 'Node Configuration', path: '/configuration', icon: ConfIcon },
   ]
 
 
