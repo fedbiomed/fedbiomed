@@ -294,8 +294,8 @@ class Experiment:
             'training_data': self._fds.data(),
             'training_args': self._training_args,
             'model_args': self._model_args,
-            'model_path': self._job._model_file, # may not exist in Experiment with current version
-            'model_class': self._job._repository_args.get('model_class'), # not properly
+            'model_path': self._job.model_file, # may not exist in Experiment with current version
+            'model_class': self._job.model_class, # not properly
                               # formatted in Experiment with current version
             #
             # these are pure Experiment attributes

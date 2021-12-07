@@ -122,6 +122,10 @@ class Job:
             # also handle case where model is an instance of a class
             self.model_instance = model
 
+        # find the name of the class in any case
+        # (it is `model` only in the case where `model` is not an instance)
+        self._model_class = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
+
         self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
         
         self._model_file = self._keep_files_dir + '/my_model_' + str(uuid.uuid4()) + '.py'
@@ -146,7 +150,7 @@ class Job:
 
         # (below) regex: matches a character not present among "^", "\", "."
         # characters at the end of string.
-        self._repository_args['model_class'] = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
+        self._repository_args['model_class'] = self._model_class
 
         # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args,
@@ -170,6 +174,14 @@ class Job:
     @property
     def model(self):
         return self.model_instance
+
+    @property
+    def model_class(self):
+        return self._model_class
+
+    @property
+    def model_file(self):
+        return self._model_file
 
     @property
     def requests(self):
