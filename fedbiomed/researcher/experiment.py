@@ -287,6 +287,7 @@ class Experiment:
         breakpoint_path, breakpoint_file_name = \
             choose_bkpt_file(self._experimentation_folder, round)
 
+        # TODO: fully separate Job state from Experiment state (cf strategy, aggregator)
         job_state = self._job.save_state(breakpoint_path, round)
         state = {
             # these are both Experiment and Job attributes : should be set also

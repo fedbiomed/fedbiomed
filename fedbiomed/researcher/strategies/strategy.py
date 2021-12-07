@@ -31,9 +31,11 @@ class Strategy:
                 state = {
                         "class": type(self).__name__,
                         "module": self.__module__,
-                        "parameters": self.parameters
+                        "parameters": self.parameters,
+                        "fds": self._fds.data()
                 }
                 return state
 
         def load_state(self,  state: Dict[str, Any]=None):
-                pass
+                # fds may be modified and diverge from Experiment
+                self._fds = FederatedDataSet(state.get('fds'))
