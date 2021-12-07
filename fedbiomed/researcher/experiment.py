@@ -305,7 +305,8 @@ class Experiment:
             'aggregator': self._aggregator.save_state(),
             'node_selection_strategy': self._node_selection_strategy.save_state(),
             'tags': self._tags,
-            'aggregated_params': self._save_aggregated_params(self._aggregated_params, breakpoint_path)
+            'aggregated_params': self._save_aggregated_params(
+                                        self._aggregated_params, breakpoint_path)
         }
         state.update(job_state)
 
@@ -325,53 +326,6 @@ class Experiment:
             json.dump(state, bkpt)
         logger.info(f"breakpoint for round {round} saved at \
             {os.path.dirname(breakpoint_file_path)}")
-
-
-    @staticmethod
-    def _save_aggregated_params(aggregated_params_init: dict, breakpoint_path: str) -> Dict[int, dict]:
-        """Extracts and format fields from aggregated_params that need
-        to be saved in breakpoint. Creates link to the params file from the `breakpoint_path`
-        and use them to reference the params files.
-
-        Args:
-            breakpoint_path (str): path to the directory where breakpoints files
-                and links will be saved
-
-        Returns:
-            Dict[int, dict] : extract from `aggregated_params`
-        """
-        aggregated_params = {}
-        for key, value in aggregated_params_init.items():
-            
-            params_path = create_unique_file_link(breakpoint_path,
-                                            value.get('params_path'))
-            aggregated_params[key] = { 'params_path': params_path }
-
-        return aggregated_params
-
-
-    def _load_aggregated_params(self, aggregated_params: Dict[int, dict]) -> Dict[int, dict]:
-        """Reconstruct experiment results aggregated params structure
-        from a breakpoint so that it is identical to a classical `_aggregated_params`
-
-        Args:
-            aggregated_params (Dict[int, dict]): JSON formatted aggregated_params
-              extract from a breakpoint
-
-        Returns:
-            Dict[int, dict] : reconstructed `aggregated_params` from breakpoint
-        """
-        # needed for iteration on dict for renaming keys
-        keys = [ key for key in aggregated_params.keys() ]
-        # JSON converted all keys from int to string, need to revert
-        for key in keys:
-            aggregated_params[int(key)] = aggregated_params.pop(key)
-
-        for aggreg in aggregated_params.values():
-            aggreg['params'] = self.model_instance.load(
-                aggreg['params_path'], to_params=True)
-
-        return aggregated_params
 
 
     @classmethod
@@ -445,14 +399,67 @@ class Experiment:
 
         # ------- changing `Experiment` attributes -------
         loaded_exp._round_init = saved_state.get('round_number')
-        loaded_exp._aggregated_params = \
-            loaded_exp._load_aggregated_params(saved_state.get('aggregated_params'))
+        loaded_exp._aggregated_params = loaded_exp._load_aggregated_params(
+                                            saved_state.get('aggregated_params'),
+                                            loaded_exp.model_instance.load
+                                            )
 
         # ------- changing `Job` attributes -------
         loaded_exp._job.load_state(saved_state)
 
         logging.debug(f"reloading from {breakpoint_folder_path} successful!")
         return loaded_exp
+
+
+    @staticmethod
+    def _save_aggregated_params(aggregated_params_init: dict, breakpoint_path: str) -> Dict[int, dict]:
+        """Extracts and format fields from aggregated_params that need
+        to be saved in breakpoint. Creates link to the params file from the `breakpoint_path`
+        and use them to reference the params files.
+
+        Args:
+            breakpoint_path (str): path to the directory where breakpoints files
+                and links will be saved
+
+        Returns:
+            Dict[int, dict] : extract from `aggregated_params`
+        """
+        aggregated_params = {}
+        for key, value in aggregated_params_init.items():
+            
+            params_path = create_unique_file_link(breakpoint_path,
+                                            value.get('params_path'))
+            aggregated_params[key] = { 'params_path': params_path }
+
+        return aggregated_params
+
+
+    @staticmethod
+    def _load_aggregated_params(aggregated_params: Dict[int, dict], func_load_params: Callable
+                ) -> Dict[int, dict]:
+        """Reconstruct experiment results aggregated params structure
+        from a breakpoint so that it is identical to a classical `_aggregated_params`
+
+        Args:
+            - aggregated_params (Dict[int, dict]) : JSON formatted aggregated_params
+              extract from a breakpoint
+            - func_load_params (Callable) : function for loading parameters
+              from file to aggregated params data structure
+
+        Returns:
+            Dict[int, dict] : reconstructed aggregated params from breakpoint
+        """
+        # needed for iteration on dict for renaming keys
+        keys = [ key for key in aggregated_params.keys() ]
+        # JSON converted all keys from int to string, need to revert
+        for key in keys:
+            aggregated_params[int(key)] = aggregated_params.pop(key)
+
+        for aggreg in aggregated_params.values():
+            aggreg['params'] = func_load_params(aggreg['params_path'], to_params=True)
+
+        return aggregated_params
+
 
     @staticmethod
     def _import_module(args: Dict[str, Any]):
