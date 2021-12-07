@@ -3,7 +3,6 @@
 max_line_length = 120
 max-complexity = 10
 
-# E501 is not flexible enough, we're using B950 instead
 ignore =
     # whitespace before and after ( )
     E201,
