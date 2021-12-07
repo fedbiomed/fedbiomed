@@ -364,22 +364,12 @@ class Experiment:
         bkpt_fds = FederatedDataSet(saved_state.get('training_data'))
         
         # -----  retrieve breakpoint sampling strategy ----
-        bkpt_sampling_strategy_args = saved_state.get(
-            "node_selection_strategy"
-        )
-        import_str = cls._import_module(bkpt_sampling_strategy_args)
-        exec(import_str)
-        bkpt_sampling_strategy = eval(bkpt_sampling_strategy_args.get("class"))
-        bkpt_sampling_strategy = bkpt_sampling_strategy(bkpt_fds)
-        bkpt_sampling_strategy.load_state(bkpt_sampling_strategy_args)
+        bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
+        bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, bkpt_fds)
 
         # ----- retrieve federator -----
         bkpt_aggregator_args = saved_state.get("aggregator")
-        import_str = cls._import_module(bkpt_aggregator_args)
-        exec(import_str)
-        bkpt_aggregator = eval(bkpt_aggregator_args.get("class"))
-        bkpt_aggregator = bkpt_aggregator()
-        bkpt_aggregator.load_state(bkpt_aggregator_args)
+        bkpt_aggregator = cls._create_object(bkpt_aggregator_args)
 
         # ------ initializing experiment -------
 
@@ -461,28 +451,36 @@ class Experiment:
         return aggregated_params
 
 
+    # TODO: factorize code with Job and node
+    # TODO: add signal handling for error cases
     @staticmethod
-    def _import_module(args: Dict[str, Any]):
-        """Build string containing module import command to run before
-        instantiating an object of the type described in args
-        
+    def _create_object(args: Dict[str, Any], object_args: Any = None) -> Callable:
+        """
+        Instantiate a class object from breakpoint arguments.
+
         Args:
-            - args (Dict[str, Any]) : breakpoint arguments containing info
-              for module import
+            - args (Dict[str, Any]) : breakpoint definition of a class with `class` (classname),
+              `module` (module path) and optional additional parameters containing object state
+            - object_args (Any, optional) : optional arguments for object constructor
 
         Returns:
-            -  str: import command to be run
+            - Callable: object of the class defined by `args` with state restored from breakpoint
         """
-
         module_class = args.get("class")
         module_path = args.get("module")
-        # node is using a fedbiomed node sampling strategy
         import_str = 'from ' + module_path + ' import ' + module_class
 
-        return import_str
+        # import module
+        exec(import_str)
+        # create a class variable
+        object_class = eval(module_class)
+        # instantiate object from module
+        if object_args is None:
+            object_instance = object_class()
+        else:
+            object_instance = object_class(object_args)
+        
+        # load breakpoint state for object
+        object_instance.load_state(args)
 
-    @staticmethod
-    def _create_object(args: Dict[str, Any]) -> Callable:
-        """
-        ???
-        """
+        return object_instance
