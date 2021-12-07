@@ -8,6 +8,7 @@ class Strategy:
                 self._fds = data
                 self._sampling_node_history = {}
                 self._success_node_history = {}
+                self.parameters = None
 
         """
                 1) returns the id of the sampled nodes

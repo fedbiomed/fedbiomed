@@ -280,8 +280,8 @@ class Experiment:
         Attributes returned by the Job will also be saved
 
         Args:
-            round (int, optional): number of rounds already executed.
-            Starts from 0. Defaults to 0.
+            - round (int, optional): number of rounds already executed.
+              Starts from 0. Defaults to 0.
         """
 
         breakpoint_path, breakpoint_file_name = \
@@ -337,15 +337,15 @@ class Experiment:
         researcher side or if user wants to resume experiment.
 
         Args:
-            cls (Type[_E]): Experiment class
-            breakpoint_folder_path (str, optional): path of the breakpoint folder.
-            Path can be absolute or relative eg: "var/experiments/Experiment_xx/breakpoints_xx".
-            If None, loads latest breakpoint of the latest experiment.
-            Defaults to None.
+            - cls (Type[_E]): Experiment class
+            - breakpoint_folder_path (str, optional): path of the breakpoint folder.
+              Path can be absolute or relative eg: "var/experiments/Experiment_xx/breakpoints_xx".
+              If None, loads latest breakpoint of the latest experiment.
+              Defaults to None.
 
         Returns:
-            _E: Reinitialized experiment. With given object,
-            user can then use `.run()` method to pursue model training.
+            - _E: Reinitialized experiment. With given object,
+              user can then use `.run()` method to pursue model training.
         """
 
 
@@ -418,11 +418,11 @@ class Experiment:
         and use them to reference the params files.
 
         Args:
-            breakpoint_path (str): path to the directory where breakpoints files
+            - breakpoint_path (str): path to the directory where breakpoints files
                 and links will be saved
 
         Returns:
-            Dict[int, dict] : extract from `aggregated_params`
+            - Dict[int, dict] : extract from `aggregated_params`
         """
         aggregated_params = {}
         for key, value in aggregated_params_init.items():
@@ -447,7 +447,7 @@ class Experiment:
               from file to aggregated params data structure
 
         Returns:
-            Dict[int, dict] : reconstructed aggregated params from breakpoint
+            - Dict[int, dict] : reconstructed aggregated params from breakpoint
         """
         # needed for iteration on dict for renaming keys
         keys = [ key for key in aggregated_params.keys() ]
@@ -466,19 +466,23 @@ class Experiment:
         """Build string containing module import command to run before
         instantiating an object of the type described in args
         
-        Return:
-          str: import command to be run
+        Args:
+            - args (Dict[str, Any]) : breakpoint arguments containing info
+              for module import
+
+        Returns:
+            -  str: import command to be run
         """
 
         module_class = args.get("class")
-        module_path = args.get("module", "custom")
-        if module_path == "custom":
-            # case where user is loading its own custom
-            # node sampling strategy
-            import_str = 'import ' + module_class
-        else:
-            # node is using a fedbiomed node sampling strategy
-            import_str = 'from ' + module_path + ' import ' + module_class
+        module_path = args.get("module")
+        # node is using a fedbiomed node sampling strategy
+        import_str = 'from ' + module_path + ' import ' + module_class
 
         return import_str
 
+    @staticmethod
+    def _create_object(args: Dict[str, Any]) -> Callable:
+        """
+        ???
+        """
