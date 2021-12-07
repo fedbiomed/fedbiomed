@@ -17,16 +17,16 @@ def create_exp_folder(experimentation_folder: str =None) -> str:
     all versions of aggregated parameters, breakpoints.
     The created folder is a subdirectory of environ[EXPERIMENTS_DIR]
     Args:
-        experimentation_folder (str, optional): optionaly provide an experimentation
+        - experimentation_folder (str, optional): optionaly provide an experimentation
             folder name. This should just contain the name of the folder not a path.
             Default: if no folder name is given, generate a `Experiment_x` name where `x-1`
             is the number of experiments already run (`x`=0 for the first experiment)
     Raises:
-        PermissionError: cannot create experimentation folder
-        OSError: cannot create experimentation folder
-        ValueError: bad `experimentation_folder` argument
+        - PermissionError: cannot create experimentation folder
+        - OSError: cannot create experimentation folder
+        - ValueError: bad `experimentation_folder` argument
     Returns:
-        str: experimentation folder
+        - str: experimentation folder
     """
     if not os.path.isdir(environ['EXPERIMENTS_DIR']):
         try:
@@ -64,18 +64,18 @@ def choose_bkpt_file(
             round: int = 0) -> Tuple[str, str]:
     """It creates a breakpoint folder and chooses a breakpoint file name for each round.
     Args:
-        round (int, optional): the current number of rounds minus one.
+        - round (int, optional): the current number of rounds minus one.
             Starts from 0. Defaults to 0.
-        experimentation_folder (str): indicates the experimentation folder name.
+        - experimentation_folder (str): indicates the experimentation folder name.
             This should just contain the name of the folder not a full path.
     Raises:
-        PermissionError: cannot create experimentation folder
-        OSError: cannot create experimentation folder
+        - PermissionError: cannot create experimentation folder
+        - OSError: cannot create experimentation folder
     Returns:
-        breakpoint_folder_path (str): name of the created folder that
-        will contain all data for the current round
-        breakpoint_file (str): name of the file that will
-        contain the state of an experiment.
+        - breakpoint_folder_path (str): name of the created folder that
+          will contain all data for the current round
+        - breakpoint_file (str): name of the file that will
+          contain the state of an experiment.
     """
     breakpoint_folder = "breakpoint_" + str(round)
     breakpoint_folder_path = os.path.join(environ['EXPERIMENTS_DIR'],
@@ -101,17 +101,17 @@ def create_unique_link(
     """Find a non existing name in `breakpoint_folder_path` and create
     a symbolic link to a given target name.
     Raises:
-        PermissionError: cannot create symlink
-        OSError: cannot create symlink
-        FileExistsError: cannot create symlink
+        - PermissionError: cannot create symlink
+        - OSError: cannot create symlink
+        - FileExistsError: cannot create symlink
     
     Args:
-        breakpoint_folder_path (str): directory for the source link
-        link_src_prefix (str): beginning of the name for the source link (before unique id)
-        link_src_postfix (str): end of the name for the source link (after unique id)
-        link_target_path (str): target for the symbolic link
+        - breakpoint_folder_path (str): directory for the source link
+        - link_src_prefix (str): beginning of the name for the source link (before unique id)
+        - link_src_postfix (str): end of the name for the source link (after unique id)
+        - link_target_path (str): target for the symbolic link
     Returns:
-        str: path of the created link
+        - str: path of the created link
     """
     stub = 0
     link_src_path = os.path.join(breakpoint_folder_path,
@@ -137,12 +137,12 @@ def create_unique_file_link(breakpoint_folder_path: str, file_path: str) -> str:
     derived from basename of `file_path`. The symbolic link points to the real file
     targeted by `file_path`
     Args:
-        breakpoint_folder_path (str): directory for the source link
-        file_path (str): path to the target of the link
+        - breakpoint_folder_path (str): directory for the source link
+        - file_path (str): path to the target of the link
     Raises:
-        ValueError: bad name for link source or destination
+        - ValueError: bad name for link source or destination
     Returns:
-        str: path of the created link
+        - str: path of the created link
     """
 
     try:
@@ -151,10 +151,11 @@ def create_unique_file_link(breakpoint_folder_path: str, file_path: str) -> str:
         link_target = os.path.relpath(os.path.realpath(file_path),
                         start=os.path.realpath(breakpoint_folder_path))
     except ValueError as err:
-        logger.error(f'Saving breakpoint error, \
+        mess = f'Saving breakpoint error, \
             cannot get relative path to {file_path} from {breakpoint_folder_path}, \
-            due to error {err}')
-        raise
+            due to error {err}'
+        logger.error(mess)
+        raise ValueError(mess)
 
     # heuristic : assume limited set of characters in filename postfix
     link_src_prefix = re.search("(.*)\.[a-zA-Z]+$",
@@ -179,19 +180,21 @@ def _get_latest_file(
             only_folder: bool = False) -> str:
     """Gets latest file from folder specified in `list_name_file`
     from the following convention:
-        the more recent folder is the file written as `myfile_xx`
-        where `xx` is the higher integer amongst files in `list_name_file`
+    the more recent folder is the file written as `myfile_xx`
+    where `xx` is the higher integer amongst files in `list_name_file`
     Args:
-        pathfile (str): path towards folder on system
-        list_name_file (List[str]): a list containing files
-        only_folder (bool, optional): whether to consider only
-        folder names or to consider both  file and folder names.
-        Defaults to False.
+        - pathfile (str): path towards folder on system
+        - list_name_file (List[str]): a list containing files
+        - only_folder (bool, optional): whether to consider only
+          folder names or to consider both  file and folder names.
+          Defaults to False.
+
     Raises:
-        FileNotFoundError: triggered if none of the names
-        in folder doesnot match with naming convention.
+        - FileNotFoundError: triggered if none of the names
+          in folder does not match with naming convention.
+
     Returns:
-        str: More recent file name given naming convention.
+        - str: More recent file name given naming convention.
     """
     latest_nb = 0
     latest_folder = None
@@ -209,29 +212,30 @@ def _get_latest_file(
                     latest_nb = order
                     latest_folder = exp_folder
     
-    if latest_folder is None and len(list_name_file) != 0:
-        raise FileNotFoundError("None of those are breakpoints{}".format(", ".join(list_name_file)))
-    
+    if latest_folder is None: 
+        if len(list_name_file) != 0:
+            raise FileNotFoundError("None of those are breakpoints{}".format(", ".join(list_name_file)))
+        else:
+            raise ("No files to search for breakpoint")
+
     return latest_folder
 
 
 def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
-    """Finds breakpoint path, regarding if
-    user specifies a specific breakpoint path or
-    considers only the latest breakpoint.
+    """Finds breakpoint folder path and file, depending if
+    user specifies a specific breakpoint path (unchanged in this case) or not
+    (try to guess the latest breakpoint).
     Args:
-        breakpoint_folder_path (str, optional):path towards breakpoint. If None,
-        (default), consider latest breakpoint saved on default path
-        (provided at least one breakpoint exists). Defaults to None.
+        - breakpoint_folder_path (str, optional): path towards breakpoint. If None,
+          (default), consider latest breakpoint saved on default path
+          (provided at least one breakpoint exists). Defaults to None.
     Raises:
-        FileNotFoundError: triggered either if breakpoint cannot be found,
-        or cannot be parsed
-        Exception: triggered if breakpoint folder is empty.
-        FileNotFoundError: [description]
+        - FileNotFoundError: triggered either if breakpoint cannot be found,
+          folder is empty or file cannot be parsed
     Returns:
-        str: folder location toward breakpoint (unchanged if
-        specified by user)
-        str: latest experiment and breakpoint folder.
+        - str: path to breakpoint folder (unchanged if
+          specified by user)
+        - str: breakpoint file.
     """
     
     # First, let's test if folder is a real folder path
@@ -259,17 +263,9 @@ def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
             breakpoint_folder_path = os.path.join(latest_exp_folder,
                                              breakpoint_folder_path)
         except FileNotFoundError as err:
-            logger.error("Cannot find a breakpoint in:" + environ['EXPERIMENTS_DIR'] + " - " + err)
+            logger.error("Cannot find a breakpoint in:" + environ['EXPERIMENTS_DIR'] + " - " + str(err))
             raise FileNotFoundError("Cannot find latest breakpoint \
                 saved. Are you sure you have saved at least one breakpoint?")
-        except TypeError as err:
-            # case where `_get_latest_file`
-            # Fails (ie return `None`)
-            logger.error(err)
-
-            #### REVIEW: latest_exp_folder may be undefined here (it try block breaks before its definition)
-            raise FileNotFoundError(f"found an empty breakpoint folder\
-                at {latest_exp_folder}")
     else:
         if not os.path.isdir(breakpoint_folder_path):
             raise FileNotFoundError(f"{breakpoint_folder_path} is not a folder")
@@ -284,14 +280,15 @@ def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
     # TODO: be more robust
     all_breakpoint_materials = os.listdir(breakpoint_folder_path)
     if len(all_breakpoint_materials) == 0:
-        raise Exception("breakpoint folder is empty !")
+        raise FileNotFoundError("breakpoint folder is empty !")
     
     state_file = None
     for breakpoint_material in all_breakpoint_materials:
         # look for the json file containing experiment state
-        # (it should be named `brekpoint_xx.json`)
+        # (it should be named `breakpoint_xx.json`)
         json_match = re.fullmatch(r'breakpoint_\d*\.json',
                                   breakpoint_material)
+        # there should be at most one - TODO: verify
         if json_match is not None:
             logging.debug(f"found json file containing states at\
                 {breakpoint_material}")
