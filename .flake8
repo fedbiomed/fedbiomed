@@ -1,0 +1,41 @@
+[flake8]
+#select = B,C,E,F,N,P,T4,W,B9
+max_line_length = 120
+max-complexity = 10
+
+# E501 is not flexible enough, we're using B950 instead
+ignore =
+    # whitespace before and after ( )
+    E201,
+    E202,
+
+    # whitespace before ':' ','etc..
+    E203,
+
+    # multiple spaces before operator
+    E221,
+
+    # unexpected spaces around keyword / parameter equals
+    E251,
+
+    # too many blanck lines
+    E303,
+
+    # do not use bare 'except'
+    E722,
+
+    # trailing whitespace
+    W291,
+
+    # line break after binary operator
+    W504,
+
+per_file_ignores =
+    # unused import
+    __init__.py: F401,
+
+    # escape sequence in splash screen
+    # ignore complexity (arg parsing)
+    fedbiomed/node/cli.py: , W605, C901
+
+exclude = .git, __pycache__
