@@ -14,8 +14,6 @@ Add the following features:
   import logging in caller's code) just as in the initial python logger
 """
 
-import paho.mqtt.publish as publish
-
 import copy
 import json  # we do not use fedbiomed.common.json to avoid dependancy loops
 import sys
