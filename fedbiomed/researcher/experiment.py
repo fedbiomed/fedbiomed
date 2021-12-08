@@ -277,7 +277,7 @@ class Experiment:
          - model_path
          - model_class
          - aggregated_params
-        Attributes returned by the Job will also be saved
+         - job (attributes returned by the Job, aka job state)
 
         Args:
             - round (int, optional): number of rounds already executed.
@@ -287,29 +287,26 @@ class Experiment:
         breakpoint_path, breakpoint_file_name = \
             choose_bkpt_file(self._experimentation_folder, round)
 
-        # TODO: fully separate Job state from Experiment state (cf strategy, aggregator)
-        job_state = self._job.save_state(breakpoint_path, round)
+
         state = {
-            # these are both Experiment and Job attributes : should be set also
-            # in Experiment to better split breakpoint between the two classes
             'training_data': self._fds.data(),
             'training_args': self._training_args,
             'model_args': self._model_args,
-            'model_path': self._job.model_file, # may not exist in Experiment with current version
-            'model_class': self._job.model_class, # not properly
+            'model_path': self._job.model_file, # only in Job we always model saved to a file
+                              # with current version
+            'model_class': self._job.model_class, # not always available properly
                               # formatted in Experiment with current version
-            #
-            # these are pure Experiment attributes
             'round_number': round + 1,
             'round_number_due': self._rounds,
             'experimentation_folder': self._experimentation_folder,
-            'aggregator': self._aggregator.save_state(),
+            'aggregator': self._aggregator.save_state(), # aggregator state
             'node_selection_strategy': self._node_selection_strategy.save_state(),
+                              # strategy state
             'tags': self._tags,
             'aggregated_params': self._save_aggregated_params(
-                                        self._aggregated_params, breakpoint_path)
+                                        self._aggregated_params, breakpoint_path),
+            'job': self._job.save_state(breakpoint_path, round) # job state
         }
-        state.update(job_state)
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
         state['model_path'] = create_unique_link(
@@ -358,7 +355,6 @@ class Experiment:
         # TODO: check if all elements needed for breakpoint are present
         with open(os.path.join(breakpoint_folder_path, state_file), "r") as f:
             saved_state = json.load(f)
-        #print(saved_state)
 
 
         # -----  retrieve breakpoint training data ---
@@ -396,7 +392,7 @@ class Experiment:
                                             )
 
         # ------- changing `Job` attributes -------
-        loaded_exp._job.load_state(saved_state)
+        loaded_exp._job.load_state(saved_state.get('job'))
 
         logging.info(f"experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp

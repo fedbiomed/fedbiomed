@@ -409,14 +409,11 @@ class Job:
             dict: job current state information for breakpoint
         """
 
+        # Note: some of the state is passed to __init__() thus is not managed
+        # as job state but as experiment state in current version
         state = {
             'researcher_id': self._researcher_id,
             'job_id': self._id,
-            'training_data': self._data.data(),
-            'training_args': self._training_args,
-            'model_args': self._model_args,
-            'model_path': self._model_file,
-            'model_class': self._repository_args.get('model_class'),
             'model_params_path': self._model_params_file,
             'training_replies': self._save_training_replies(self._training_replies)
         }
