@@ -73,7 +73,7 @@ class ErrorNumbers(_BaseEnum):
     # application error on node
 
     FB300 = "FB300: undetermined node error"
-    FB301 = "FB301: protocol error"
+    FB301 = "FB301: Protocol error"
     FB302 = "FB302: TrainingPlan class does not load"
     FB303 = "FB303: TrainingPlan class does not contain expected methods"
     FB304 = "FB304: TrainingPlan method crashes"

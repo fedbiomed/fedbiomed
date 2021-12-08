@@ -119,39 +119,28 @@ class Node:
         except decoder.JSONDecodeError:
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.messaging.send_message(NodeMessages.reply_create(
-                {'success': False,
-                 'command': "error",
-                 'node_id': environ['NODE_ID'],
-                 'researcher_id': resid,
-                 'msg': "Not able to deserialize the message"}).get_dict())
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg = "Not able to deserialize the message",
+                            researcher_id= resid)
         except NotImplementedError:
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.messaging.send_message(NodeMessages.reply_create(
-                {'success': False,
-                 'command': "error",
-                 'node_id': environ['NODE_ID'],
-                 'researcher_id': resid,
-                 'msg': f"Command `{command}` is not implemented"}).get_dict())
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg = f"Command `{command}` is not implemented",
+                            researcher_id= resid)
         except KeyError:
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.messaging.send_message(NodeMessages.reply_create(
-                {'success': False,
-                 'command': "error",
-                 'node_id': environ['NODE_ID'],
-                 'researcher_id': resid,
-                 'msg': "'command' property was not found"}).get_dict())
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg = "'command' property was not found",
+                            researcher_id= resid)
         except TypeError:  # Message was not serializable
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.messaging.send_message(NodeMessages.reply_create(
-                {'success': False,
-                 'command': "error",
-                 'node_id': environ['NODE_ID'],
-                 'researcher_id': resid,
-                 'msg': 'Message was not serializable'}).get_dict())
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg = 'Message was not serializable',
+                            researcher_id= resid)
+
 
     def parser_task(self, msg: Union[bytes, str, Dict[str, Any]]):
         """ This method parses a given task message to create a round instance
@@ -257,7 +246,7 @@ class Node:
         self.messaging.start(block)
 
 
-    def send_error(self, errnum: ErrorNumbers, extra_msg: str = ""):
+    def send_error(self, errnum: ErrorNumbers, extra_msg: str = "", researcher_id : str = "<unknown>"):
         """
         send an error message through MQTT
 
@@ -265,4 +254,4 @@ class Node:
         """
 
         #
-        self.messaging.send_error(errnum, extra_msg = extra_msg)
+        self.messaging.send_error(errnum, extra_msg = extra_msg, researcher_id = researcher_id)

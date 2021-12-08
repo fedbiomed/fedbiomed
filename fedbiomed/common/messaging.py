@@ -236,7 +236,7 @@ class Messaging:
         else:
             logger.warning("send_message: channel must be specifiec (None at the moment)")
 
-    def send_error(self, errnum: ErrorNumbers, extra_msg: str = ""):
+    def send_error(self, errnum: ErrorNumbers, extra_msg: str = "", researcher_id: str = "<unknown>"):
         """
         node sends error through mqtt
 
@@ -265,8 +265,8 @@ class Messaging:
             errnum        = errnum,
             node_id       = self.messaging_id,
             extra_msg     = extra_msg,
-            researcher_id = '<unknown>'
+            researcher_id = researcher_id
         )
 
-        r = message.NodeMessages.reply_create( msg )
+        r = message.NodeMessages.reply_create(msg)
         self.mqtt.publish("general/researcher", json.serialize_msg(msg))
