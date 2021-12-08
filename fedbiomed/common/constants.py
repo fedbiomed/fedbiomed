@@ -73,11 +73,11 @@ class ErrorNumbers(_BaseEnum):
     # application error on node
 
     FB300 = "FB300: undetermined node error"
-    FB301 = "FB301: Node killed/stopped by a human"
+    FB301 = "FB301: protocol error"
     FB302 = "FB302: TrainingPlan class does not load"
     FB303 = "FB303: TrainingPlan class does not contain expected methods"
-    FB304 = "FB304: a TrainingPlan method crashes"
-    FB305 = "FB305: a TrainingPlan loops indefinitely"
+    FB304 = "FB304: TrainingPlan method crashes"
+    FB305 = "FB305: TrainingPlan loops indefinitely"
     FB306 = "FB306: bad URL (.py) for TrainingPlan"
     FB307 = "FB307: bad URL (.pt) for training params"
     FB308 = "FB308: bad training request ().json"
@@ -96,7 +96,7 @@ class ErrorNumbers(_BaseEnum):
     FB405 = "FB405: received delayed answer for previous computation round"
     FB406 = "FB406: list of nodes is empty at data lookup phase"
     FB407 = "FB407: list of nodes became empty then training"
-    FB408 = "FB408: a node did not answer during training"
+    FB408 = "FB408: node did not answer during training"
     FB409 = "FB409: node sent Status=Error during training"
 
     # node problem detected by researcher
