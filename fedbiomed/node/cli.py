@@ -13,7 +13,7 @@ import tkinter.messagebox
 from tkinter import _tkinter
 
 from fedbiomed.node.environ import environ
-from fedbiomed.common.constants import ModelTypes
+from fedbiomed.common.constants import ModelTypes, ErrorNumbers
 from fedbiomed.node.data_manager import DataManager
 from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.node import Node
@@ -108,6 +108,7 @@ def validated_path_input(type):
                 path = pick_with_tkinter(mode='file')
                 logger.debug(path)
                 if not path:
+                    # node is not in computation mode, MQQT message cannot be sent
                     logger.critical('No file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
@@ -116,6 +117,7 @@ def validated_path_input(type):
                 path = pick_with_tkinter(mode='txt')
                 logger.debug(path)
                 if not path:
+                    # node is not in computation mode, MQQT message cannot be sent
                     logger.critical('No python file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
@@ -123,6 +125,7 @@ def validated_path_input(type):
                 path = pick_with_tkinter(mode='dir')
                 logger.debug(path)
                 if not path:
+                    # node is not in computation mode, MQQT message cannot be sent
                     logger.critical('No directory was selected. Exiting')
                     exit(1)
                 assert os.path.isdir(path)
@@ -190,6 +193,14 @@ def node_signal_handler(signum, frame):
     Catch the temination signal then user stops the process
     and send SystemExit(0) to be trapped later
     """
+
+    # get the (running) Node object
+    global node
+
+    if node:
+        node.send_error(ErrorNumbers.FB312)
+    else:
+        logger.error("Cannot send error message to researcher (node not initialized yet)")
     logger.critical("Node stopped in signal_handler, probably by user decision (Ctrl C)")
     time.sleep(1)
     sys.exit(signum)
@@ -199,6 +210,8 @@ def manage_node():
     Instantiates a node and data manager objects. Then, node starts
     messaging with the Network
     """
+
+    global node
 
     try:
         signal.signal(signal.SIGTERM, node_signal_handler)
@@ -227,6 +240,7 @@ def manage_node():
 
     except Exception as e:
         # must send info to the researcher
+        node.send_error(ErrorNumbers.FB300, extra_msg = "Error = " + str(e))
         logger.critical("Node stopped. Error = " + str(e))
 
     finally:

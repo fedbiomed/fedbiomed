@@ -17,12 +17,12 @@ from colorama import Fore, Style, init, deinit
 from datetime import datetime
 
 import getopt
-import json
 import paho.mqtt.client as mqtt
 import sys
 import time
 import yaml
 
+from fedbiomed.common import json
 
 class MqttSpy:
     """
@@ -96,7 +96,7 @@ class MqttSpy:
         print("topic  :", Fore.CYAN + message.topic + Style.RESET_ALL)
 
         # decode some output
-        data = json.loads(message.payload)
+        data = json.deserialize_msg(message.payload)
 
         # colorize output
         k = "command"
