@@ -314,14 +314,16 @@ class Job:
 
                 # manage error messages during training
                 if 'errnum' in m:  # TODO: need a stronger filter
-                    logger.setLevel("DEBUG")
-                    logger.debug("Error message received during training:" +
-                                 str(m['errnum'].value[0]) +
-                                 " - " +
-                                 str(m['errnum'].value[1]) +
-                                 " - " +
-                                 str(m['msg'])
-                                 )
+
+                    if m['extra_msg']:
+                        logger.info("Error message received during training: " +
+                                     str(m['errnum'].value) +
+                                     " - " +
+                                     str(m['extra_msg']))
+                    else:
+                        logger.info("Error message received during training: " +
+                                     str(m['errnum'].value))
+
                     # remove the faulty node from the list
                     faulty_node = m['node_id']
 

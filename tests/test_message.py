@@ -1102,7 +1102,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             node_id       = 'titi',
             errnum        = ErrorNumbers.FB100,
-            msg           = 'this is an error message',
+            extra_msg     = 'this is an error message',
             command       = 'log'
         )
 
@@ -1130,7 +1130,7 @@ class TestMessage(unittest.TestCase):
             message.ErrorMessage,
             expected_result = False,
 
-            msg           = 'this is an error message')
+            extra_msg       = 'this is an error message')
 
         self.check_class_args(
             message.ErrorMessage,
@@ -1145,7 +1145,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             node_id       = 'titi',
             errnum        = ErrorNumbers.FB100,
-            msg           = 'this is an error message',
+            extra_msg     = 'this is an error message',
             command       = 'log',
             extra_arg     = '???' )
 
@@ -1158,7 +1158,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = False,
             node_id       = 'titi',
             errnum        = ErrorNumbers.FB100,
-            msg           = 'this is an error message',
+            extra_msg     = 'this is an error message',
             command       = 'log'
         )
 
@@ -1169,7 +1169,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             node_id       = False,
             errnum        = ErrorNumbers.FB100,
-            msg           = 'this is an error message',
+            extra_msg     = 'this is an error message',
             command       = 'log'
         )
 
@@ -1180,7 +1180,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             node_id       = 'titi',
             errnum        = False,
-            msg           = 'this is an error message',
+            extra_msg     = 'this is an error message',
             command       = 'log'
         )
 
@@ -1191,7 +1191,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             node_id       = 'titi',
             errnum        = ErrorNumbers.FB100,
-            msg           = [ 1 , 2 ],
+            extra_msg     = [ 1 , 2 ],
             command       = 'log')
 
         self.check_class_args(
@@ -1201,7 +1201,7 @@ class TestMessage(unittest.TestCase):
             researcher_id = 'toto',
             node_id       = 'titi',
             errnum        = ErrorNumbers.FB100,
-            msg           = [ 1 , 2 ],
+            extra_msg     = [ 1 , 2 ],
             command       = False)
 
 
@@ -1797,7 +1797,7 @@ class TestMessage(unittest.TestCase):
             "researcher_id" : 'toto' ,
             "node_id"       : 'titi' ,
             "errnum"        : ErrorNumbers.FB100,
-            "msg"           : 'bim boum badaboum',
+            "extra_msg"     : 'bim boum badaboum',
             "command"       : 'error'
         }
         r = message.ResearcherMessages.reply_create( params )

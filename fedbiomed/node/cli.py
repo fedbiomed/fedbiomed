@@ -198,7 +198,7 @@ def node_signal_handler(signum, frame):
     global node
 
     if node:
-        node.send_error(ErrorNumbers.FB301, "Node stopped in SIGTERM signal handler")
+        node.send_error(ErrorNumbers.FB312)
     else:
         logger.error("Cannot send error message to researcher (node not initialized yet)")
     logger.critical("Node stopped in signal_handler, probably by user decision (Ctrl C)")
@@ -240,7 +240,7 @@ def manage_node():
 
     except Exception as e:
         # must send info to the researcher
-        node.send_error(ErrorNumbers.FB300, "Error = " + str(e))
+        node.send_error(ErrorNumbers.FB300, extra_msg = "Error = " + str(e))
         logger.critical("Node stopped. Error = " + str(e))
 
     finally:

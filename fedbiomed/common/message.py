@@ -239,7 +239,7 @@ class ErrorMessage(Message):
     researcher_id: str
     node_id: str
     errnum: ErrorNumbers
-    msg: str
+    extra_msg: str
     command: str
 
     def __post_init__(self):

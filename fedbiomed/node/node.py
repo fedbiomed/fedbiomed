@@ -257,7 +257,7 @@ class Node:
         self.messaging.start(block)
 
 
-    def send_error(self, errnum: ErrorNumbers, msg: str):
+    def send_error(self, errnum: ErrorNumbers, extra_msg: str = ""):
         """
         send an error message through MQTT
 
@@ -265,4 +265,4 @@ class Node:
         """
 
         #
-        self.messaging.send_error(errnum, msg = msg)
+        self.messaging.send_error(errnum, extra_msg = extra_msg)

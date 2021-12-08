@@ -27,7 +27,7 @@ def deserialize_msg(msg: Union[str, bytes]) -> dict:
         errnum = decode['errnum']
         found = False
         for e in ErrorNumbers:
-            if e.value[0] == errnum:
+            if e.value == errnum:
                 found = True
                 decode['errnum'] = e
                 break
@@ -48,5 +48,5 @@ def serialize_msg(msg: dict) -> str:
     # errnum is present in ErrorMessage and is an Enum
     # which need to be serialized
     if 'errnum' in msg:
-        msg['errnum'] = msg['errnum'].value[0]
+        msg['errnum'] = msg['errnum'].value
     return json.dumps(msg)

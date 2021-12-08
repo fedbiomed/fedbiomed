@@ -236,7 +236,7 @@ class Messaging:
         else:
             logger.warning("send_message: channel must be specifiec (None at the moment)")
 
-    def send_error(self, errnum: ErrorNumbers, msg: str = "<no info>"):
+    def send_error(self, errnum: ErrorNumbers, extra_msg: str = ""):
         """
         node sends error through mqtt
 
@@ -258,12 +258,13 @@ class Messaging:
                            ")")
             return
 
+
         # format error message and send it
         msg = dict(
             command       = 'error',
             errnum        = errnum,
-            msg           = msg,
             node_id       = self.messaging_id,
+            extra_msg     = extra_msg,
             researcher_id = '<unknown>'
         )
 

@@ -51,7 +51,7 @@ class DefaultStrategy(Strategy):
                 answers_count += 1
             else:
                 # this node did not answer
-                logger.error(ErrorNumbers.FB408.value[1] +
+                logger.error(ErrorNumbers.FB408.value +
                              " (node = " +
                              cl +
                              ")"
@@ -60,10 +60,10 @@ class DefaultStrategy(Strategy):
         if len(self.sample_nodes(round_i)) != answers_count :
             if answers_count == 0 :
                 # none of the nodes answered
-                logger.error(ErrorNumbers.FB407.value[1])
+                logger.error(ErrorNumbers.FB407.value)
                 error = ErrorNumbers.FB407
 
-            raise DefaultStrategyException(ErrorNumbers.FB402.value[1])
+            raise DefaultStrategyException(ErrorNumbers.FB402.value)
 
         # check that all nodes that answer could successfully train
         self._success_node_history[round_i] = []
@@ -76,14 +76,14 @@ class DefaultStrategy(Strategy):
             else:
                 # node did not succeed
                 all_success = False
-                logger.error(ErrorNumbers.FB409.value[1] +
+                logger.error(ErrorNumbers.FB409.value +
                              " (node = " +
                              tr['node_id'] +
                              ")"
                              )
 
         if not all_success:
-            raise DefaultStrategyException(ErrorNumbers.FB402.value[1])
+            raise DefaultStrategyException(ErrorNumbers.FB402.value)
 
 
         # so far, everything is OK
