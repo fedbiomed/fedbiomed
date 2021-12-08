@@ -366,7 +366,7 @@ class Experiment:
         
         # -----  retrieve breakpoint sampling strategy ----
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
-        bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, bkpt_fds)
+        bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=bkpt_fds)
 
         # ----- retrieve federator -----
         bkpt_aggregator_args = saved_state.get("aggregator")
@@ -455,14 +455,14 @@ class Experiment:
     # TODO: factorize code with Job and node
     # TODO: add signal handling for error cases
     @staticmethod
-    def _create_object(args: Dict[str, Any], object_args: Any = None) -> Callable:
+    def _create_object(args: Dict[str, Any], **object_kwargs) -> Callable:
         """
         Instantiate a class object from breakpoint arguments.
 
         Args:
             - args (Dict[str, Any]) : breakpoint definition of a class with `class` (classname),
               `module` (module path) and optional additional parameters containing object state
-            - object_args (Any, optional) : optional arguments for object constructor
+            - **object_kwargs : optional named arguments for object constructor
 
         Returns:
             - Callable: object of the class defined by `args` with state restored from breakpoint
@@ -476,10 +476,10 @@ class Experiment:
         # create a class variable
         object_class = eval(module_class)
         # instantiate object from module
-        if object_args is None:
+        if object_kwargs is None:
             object_instance = object_class()
         else:
-            object_instance = object_class(object_args)
+            object_instance = object_class(**object_kwargs)
         
         # load breakpoint state for object
         object_instance.load_state(args)
