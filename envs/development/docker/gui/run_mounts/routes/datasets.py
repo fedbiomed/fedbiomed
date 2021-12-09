@@ -116,9 +116,10 @@ def update_dataset():
     table.update({"tags": input["tags"],
                   "description": input["desc"],
                   "name": input["name"]},
-                 query.dataset_id == input['dataset_id'])
+               query.dataset_id == input['dataset_id'])
+    res = table.get(query.dataset_id == input['dataset_id'])
 
-    return None, 200
+    return response(res, ''), 200
 
 
 @api.route('/datasets/preview', methods=['POST'])

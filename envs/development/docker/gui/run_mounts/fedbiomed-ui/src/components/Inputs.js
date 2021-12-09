@@ -28,6 +28,7 @@ export const Text = (props) => {
             id          = {props.id}
             onChange    = {props.onChange}
             onKeyDown   = {props.onKeyDown}
+            value       = {props.value ? props.value : null}
             ></input>
     )
 }
@@ -58,7 +59,7 @@ export const TextArea = (props) => {
 export const Tag = (props) => {
 
     const [currentTagText, setCurrentTagText] = React.useState("");
-    const [tags, setTags] = React.useState([]);
+    const [tags, setTags] = React.useState(props.tags ? props.tags : []);
 
 
     /**
@@ -77,8 +78,8 @@ export const Tag = (props) => {
                 
                 // Let parent componenet know that the 
                 // tags has been chaged or new one added
-                if(props.onTagsEntered){
-                    props.onTagsEntered(tags_update)
+                if(props.onTagsChange){
+                    props.onTagsChange(tags_update)
                 }
             }
         }
@@ -105,6 +106,9 @@ export const Tag = (props) => {
         const newTagArray = tags;
         newTagArray.splice(index, 1);
         setTags([...newTagArray]);
+         if(props.onTagsChange){
+            props.onTagsChange( newTagArray)
+        }
     };
 
 

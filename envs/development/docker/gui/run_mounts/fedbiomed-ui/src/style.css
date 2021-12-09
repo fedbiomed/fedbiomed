@@ -1,3 +1,9 @@
+:root{
+  --error-color : #f44949;
+  --primary-color: #003366;
+}
+
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -27,6 +33,12 @@ body .App {
   display: flex;
 }
 
+hr {
+  border-bottom: 1px solid #eee;
+  background: transparent;
+  height: 0px;
+  border-top: 0px;
+}
 
 /* Main Layout START----------------------------------------------------------------------------------------*/
 
@@ -68,6 +80,7 @@ body .App {
   flex-flow: column;
   position: relative;
   height: calc(100vh - 80px);
+  overflow-y: scroll;
 }
 
 .router-frame .inner .frame-header {
@@ -97,6 +110,13 @@ body .App {
 /* Main Layout END----------------------------------------------------------------------------------------*/
 
 
+/* BOXES ------------------------------------------------------------------------------------------*/
+.error-box {
+    padding: 10px;
+    background: var(--error-color);
+    color: #fff;
+}
+
 /* Butons CSS Start----------------------------------------------------------------------------------*/
 .button {
   display: flex;
@@ -118,8 +138,6 @@ body .App {
 .button .icon {
   width: 25px !important;
 }
-
-/* Button CSS Start --------------------------------------------- */
 
 .button {
   width: auto;
@@ -143,6 +161,14 @@ body .App {
   background-color: #d3586d;
 }
 
+
+.buttons-wrapper {
+  display: flex;
+}
+
+.buttons-wrapper.float-right {
+  justify-content: flex-end;
+}
 /* Butons CSS END----------------------------------------------------------------------------------*/
 
 
@@ -395,8 +421,19 @@ div.tag {
 }
 
 
-table.data tr td{
+table.data tr td, table.data tr th {
   padding : 10px;
+  min-width: 100px;
+  max-width: 100px;
+  text-align: center;
+}
+
+table.data tbody tr:nth-child(1) {
+  border-bottom:3px solid var(--primary-color)
+}
+
+table.data tr th {
+  background-color: #eee;
 }
 
 table.info tr td{

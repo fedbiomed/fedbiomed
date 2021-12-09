@@ -45,9 +45,6 @@ export const RepositoryItem = (props) => {
                     <PlusIcon/>
                 </div>
             )}
-            <div className={`repo-item-info ${hover === true ? '' : ''}`}  >
-                Hey yo this is info box
-            </div>
         </div>
     );
 }

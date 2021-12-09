@@ -8,4 +8,13 @@ export const Button = (props) => {
     )
 }
 
+export const ButtonsWrapper = (props) => {
+    return(
+        <div className={`buttons-wrapper ${props.className}`}>
+            {props.children}
+        </div>
+    )
+}
+
+
 export default Button
