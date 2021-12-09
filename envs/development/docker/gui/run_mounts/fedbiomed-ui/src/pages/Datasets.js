@@ -19,6 +19,7 @@ export const Datasets = (props) => {
     React.useEffect(() => {
         // Get list of datasets
         listDatasetsAction()
+
     }, [])
 
     const parseTags = (tags) => {
@@ -48,7 +49,7 @@ export const Datasets = (props) => {
         setModal({
             show : true,
             header: 'Delete Dataset',
-            content: 'Dataset will be remvoed. Are you sure?',
+            content: 'Dataset will be removed. Are you sure?',
             approve: 'Remove',
             action : 'remove',
             data   : data
@@ -71,9 +72,6 @@ export const Datasets = (props) => {
         <React.Fragment>
             <div className="frame-header">
                 <p>List of datasets loaded in the node</p>
-                <Link to="/datasets/add-dataset">
-                    <Button variant="primary" style={{float:'right'}}>Add Dataset</Button>
-                </Link>
             </div>
             <hr/>
             <div className="frame-content">
@@ -113,7 +111,9 @@ export const Datasets = (props) => {
 
             </div>
             <div className="frame-footer">
-
+                 <Link to="/datasets/add-dataset">
+                    <Button variant="primary" style={{float:'right'}}>Add Dataset</Button>
+                </Link>
             </div>
             <Modal show={modal.show} width="35%" onModalClose={handleClose} >
                 <Modal.Header>

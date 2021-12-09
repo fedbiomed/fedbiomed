@@ -8,9 +8,9 @@ from db import database
 from . import api
 from utils import success, error, validate_json, validate_request_data, response
 from schemas import AddDataSetRequest, \
-                    RemoveDatasetRequest, \
-                    UpdateDatasetRequest, \
-                    PreviewDatasetRequest
+    RemoveDatasetRequest, \
+    UpdateDatasetRequest, \
+    PreviewDatasetRequest
 
 from fedbiomed.node.data_manager import DataManager
 
@@ -20,7 +20,6 @@ datamanager = DataManager()
 
 @api.route('/datasets/list', methods=['POST'])
 def list():
-
     """
         List all datasets saved into database
     """
@@ -37,8 +36,7 @@ def list():
 @validate_json
 @validate_request_data(schema=RemoveDatasetRequest)
 def remove():
-
-    """ API endpoint to remove single dataset from database. 
+    """ API endpoint to remove single dataset from database.
     This method removed dataset from database not from file system.
 
     Request.Json:
@@ -65,19 +63,18 @@ def remove():
         return error('Missing `dataset_id` attribute.'), 400
 
 
-@api.route('/datasets/add-csv', methods=['POST'])
+@api.route('/datasets/add', methods=['POST'])
 @validate_json
 @validate_request_data(schema=AddDataSetRequest)
-def add_csv_dataset():
-
-    """ API endpoint to add single dataset to the database. Currently it 
-        uses some of the methods of datamanager.
+def add_dataset():
+    """ API endpoint to add single dataset to the database. Currently it
+        uses some methods of datamanager.
 
     Request.Json:
 
         name (str): Name for the dataset
         tags (array): Tags for the dataset
-        path (array): Datapath where dataset is saved
+        path (array): Data path where dataset is saved
         desc (string): Description for dataset
         type (string): Type of the dataset, CSV or Images
 
@@ -89,14 +86,14 @@ def add_csv_dataset():
 
     try:
         dataset_id = datamanager.add_database(
-                    name=input['name'],
-                    data_type=input['type'],
-                    tags=input['tags'],
-                    description=input['desc'],
-                    path=data_path,
+            name=input['name'],
+            data_type=input['type'],
+            tags=input['tags'],
+            description=input['desc'],
+            path=data_path,
         )
     except Exception as e:
-        return error(str(e))
+        return error(str(e)), 400
 
     table = database.db().table('_default')
     query = database.query()
@@ -116,7 +113,7 @@ def update_dataset():
     table.update({"tags": input["tags"],
                   "description": input["desc"],
                   "name": input["name"]},
-               query.dataset_id == input['dataset_id'])
+                 query.dataset_id == input['dataset_id'])
     res = table.get(query.dataset_id == input['dataset_id'])
 
     return response(res, ''), 200
@@ -126,7 +123,6 @@ def update_dataset():
 @validate_json
 @validate_request_data(schema=PreviewDatasetRequest)
 def get_preview_dataset():
-
     input = request.json
     table = database.db().table('_default')
     query = database.query()
@@ -143,3 +139,10 @@ def get_preview_dataset():
 
     else:
         return error('No data has been found with this id'), 400
+
+
+@api.route('/datasets/add-default-dataset', methods=['POST'])
+@validate_json
+@validate_request_data(schema=PreviewDatasetRequest)
+def add_default_dataset():
+    pass

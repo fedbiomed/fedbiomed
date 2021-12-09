@@ -20,12 +20,16 @@ export const Label = (props) => {
  * @returns 
  */
 export const Text = (props) => {
+
+    const ref = React.useRef()
+    console.log(ref)
     return (
         <input 
             className="input"
             type        = {props.type} 
             name        = {props.name}
             id          = {props.id}
+            ref         = {ref}
             onChange    = {props.onChange}
             onKeyDown   = {props.onKeyDown}
             value       = {props.value ? props.value : null}
@@ -45,6 +49,7 @@ export const TextArea = (props) => {
             type = {props.type} 
             name = {props.name}
             id   = {props.id}
+            ref  = {props.ref}
             onChange = {props.onChange}
             value = {props.value ? props.value : null}
         ></textarea>
@@ -60,7 +65,7 @@ export const Tag = (props) => {
 
     const [currentTagText, setCurrentTagText] = React.useState("");
     const [tags, setTags] = React.useState(props.tags ? props.tags : []);
-
+    const refInput = React.useRef()
 
     /**
      * On event click lıke space or enter get tag 
@@ -81,12 +86,21 @@ export const Tag = (props) => {
                 if(props.onTagsChange){
                     props.onTagsChange(tags_update)
                 }
+                if(props.onChange){
+                    props.onChange({
+                         target: {
+                             name : props.name,
+                             value : tags_update
+                         }
+                    })
+                }
             }
         }
-
-
-
     };
+
+    const onInputClick = () => {
+        refInput.current.focus()
+    }
 
     /**
      * When new tag text ıs entered
@@ -107,13 +121,21 @@ export const Tag = (props) => {
         newTagArray.splice(index, 1);
         setTags([...newTagArray]);
          if(props.onTagsChange){
-            props.onTagsChange( newTagArray)
+            props.onTagsChange( props.name, newTagArray)
         }
+         if(props.onChange){
+             props.onChange({
+                 target: {
+                     name : props.name,
+                     value : newTagArray
+                 }
+             })
+         }
     };
 
 
     return (
-        <div className="tags-input">
+        <div className="tags-input" onClick={onInputClick}>
           <div
             className="tags"
             style={{ display: tags.length > 0 ? "flex" : "none" }}
@@ -136,6 +158,7 @@ export const Tag = (props) => {
               onKeyDown={handleKeyDown}
               onChange={handleTagChange}
               value={currentTagText}
+              ref  = {refInput}
             />
           </div>
         </div>
@@ -149,13 +172,14 @@ export const Tag = (props) => {
  * @returns 
  */
 export const Select = (props) => {
-    
+
     return (
         <select 
             className="select"
             type = {props.type} 
             name = {props.name}
             id   = {props.id}
+            ref = {props.ref}
             onChange = {props.onChange}
         >
 

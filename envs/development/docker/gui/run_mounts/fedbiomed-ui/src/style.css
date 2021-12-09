@@ -40,6 +40,13 @@ hr {
   border-top: 0px;
 }
 
+
+.header h1 {
+  margin: 0px 20px;
+  font-size: 20px;
+  padding: 15px 0px;
+}
+
 /* Main Layout START----------------------------------------------------------------------------------------*/
 
 .App .layout-wrapper {
@@ -85,6 +92,7 @@ hr {
 
 .router-frame .inner .frame-header {
     flex: 0 1 auto;
+    padding:10px;
     /* The above is shorthand for:
     flex-grow: 0,
     flex-shrink: 1,
@@ -169,6 +177,15 @@ hr {
 .buttons-wrapper.float-right {
   justify-content: flex-end;
 }
+.select-sm-button {
+  padding: 5px 5px 5px 5px;
+  background: var(--primary-color);
+  color: #fff;
+  border-radius: 5px;
+  font-size:10px;
+  text-align: center;
+  }
+
 /* Butons CSS END----------------------------------------------------------------------------------*/
 
 
@@ -266,11 +283,13 @@ hr {
   color: #333;
 }
 
-.side-nav  .nav-items .nav-item:hover {
+.side-nav  .nav-items .nav-item:hover, .side-nav  .nav-items .nav-item.active {
   transform: translateX(15px);
   border-bottom: 1px solid #333;
   width: calc(100% - 15px);
 }
+
+
 
 /* Repository CSS Start ---------------------------------------------------------------------------------*/
 
@@ -280,7 +299,7 @@ hr {
   border-top:1px solid #ddd;
   position: relative;
   display: block;
-  height: 100%;
+  height: 98%;
   text-align: left;
   display: flex;
   background: #fff;
@@ -306,6 +325,10 @@ hr {
   position: relative;
 }
 
+.repository-bar .repository-item.active {
+  background-color: #ddd;
+}
+
 .repository-bar .repository-item .icon{
   width: 20px;
   margin: 0px 8px;
@@ -329,7 +352,11 @@ hr {
   border-radius: 5px;
   background-color:green
 
-} 
+}
+
+.repository-bar .repository-item .icon.width-auto {
+  width:40px;
+}
 
 .repository-bar .repository-item .name{
   width: 75%;
@@ -535,7 +562,7 @@ justify-content: flex-start;
 
 .form-control {
   width: calc(100% - 40px);
-margin: 20px;
+  margin: 20px 10px;
 }
 
 
@@ -634,5 +661,27 @@ label.input-label {
 textarea.input {
   width: 100%;
 }
+.repository-select {
+  display: flex;
+  align-items: center;
+}
+.repository-select .button {
+  width: 30%;
+  height: 50px;
+  padding: 0px;
+  margin: 0px;
+}
+
+.repository-select .path {
+  display: flex;
+  width: 70%;
+  height: 50px;
+  border: 1px solid #eee;
+  border-left:0px;
+  align-items: center;
+  padding-left: 20px;
+}
+
+
 
 /* Inputs CSS Ends --------------- Inputs ----------------*/

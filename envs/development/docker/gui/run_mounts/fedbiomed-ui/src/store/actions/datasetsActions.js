@@ -1,6 +1,27 @@
 import axios from "axios"
+import {EP_DATASET_ADD , EP_DATASET_UPDATE} from "../../constants";
 
-    
+export const addNewDataset = (data) => {
+    return (dispatch, getState) => {
+
+        axios.post(EP_DATASET_ADD, {
+            ...data
+        }).then(res => {
+            if(res.status === 200){
+                dispatch({type: 'NEW_DATASET_ADD_SUCCESS' , payload: res.data.result})
+            }else{
+                dispatch({type: 'NEW_DATASET_ADD_ERROR' , payload:res.data.result.message})
+            }
+        }).catch(error => {
+            if(error.response){
+                dispatch({type: 'NEW_DATASET_ADD_ERROR', payload: 'Error while adding new dataset: ' + error.response.data.message})
+            }else{
+                dispatch({type: 'NEW_DATASET_ADD_ERROR', payload: 'Unexpected Error:' + error.toString()})
+            }
+        })
+    }
+}
+
 /**
  * Request action for listing all datasets in the node  
  * @param {object} data  Object that pass to POST

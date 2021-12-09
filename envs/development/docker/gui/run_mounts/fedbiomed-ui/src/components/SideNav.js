@@ -6,25 +6,35 @@ import {ReactComponent as ConfIcon}  from '../assets/img/configuration.svg'
 import {ReactComponent as DataIcon}  from '../assets/img/database.svg' 
 import {ReactComponent as FolderIcon}  from '../assets/img/folder.svg' 
 import {ReactComponent as HomeIcon}  from '../assets/img/home.svg' 
+import {ReactComponent as PlusIcon}  from '../assets/img/plus.svg'
+import {useNavigate, useLocation} from "react-router-dom";
 
 
 // Define menu items
 const items = [
-    { key: '1', label: 'Home', path: '/', icon: HomeIcon },
-    { key: '2', label: 'Repository', path: '/repository', icon: FolderIcon },
-    { key: '3', label: 'Datasets', path: '/datasets', icon: DataIcon },
+    { key: '1', label: 'Home', path: '/', icon: HomeIcon},
+    { key: '2', label: 'List Data Files', path: '/repository', icon: FolderIcon},
+    { key: '3', label: 'Display Datasets', path: '/datasets', icon: DataIcon },
+    { key: '5', label: 'Add New Dataset', path: '/datasets/add-dataset', icon: PlusIcon },
     { key: '4', label: 'Node Configuration', path: '/configuration', icon: ConfIcon },
   ]
 
 
 const SideNav  = (props) => {
 
-    //const location = React.useLocation()
-    //const history = React.useHistory()
+    const location = useLocation()
+    const history = useNavigate()
 
-    //const [selectedKey, setSelectedKey] = React.useState(items.find(_item => location.pathname.startsWith(_item.path)).key)
+    const [selectedKey, setSelectedKey] = React.useState(items.find(_item => location.pathname.startsWith(_item.path)).key)
 
 
+    React.useEffect(() => {
+        let item = items.find(_item => location.pathname == _item.path)
+        if(item){
+            setSelectedKey(item.key)
+            props.activePage(item.label)
+        }
+    })
 
     return (
         <div className="side-nav">
@@ -35,9 +45,14 @@ const SideNav  = (props) => {
                 </div>
                 <div className="nav-items">
                     {
-                        items.map((item) => {
+                        items.map((item,key) => {
                             return (
-                                <NavItem key={item.key} label={item.label} path={item.path} icon={item.icon}/>
+                                <NavItem
+                                    key={item.key}
+                                    label={item.label}
+                                    active={selectedKey == item.key ? true : false}
+                                    path={item.path} icon={item.icon}
+                                />
                             )
                         })
                     }

@@ -19,6 +19,9 @@ export const DatasetPreview = (props) => {
 
     React.useEffect( ()=>{
         get_dataset_preview(dataset_id)
+        if(props.setHeader){
+            props.setHeader('Dataset Preview')
+        }
     },[])
 
     /**
@@ -44,7 +47,7 @@ export const DatasetPreview = (props) => {
      * When tags input value has changed
      * @param tags
      */
-    const onTagsChange = (tags) => {
+    const onTagsChange = (name, tags) => {
 
         setPreview({
             ...preview,

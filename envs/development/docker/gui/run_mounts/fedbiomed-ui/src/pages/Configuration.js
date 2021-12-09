@@ -29,11 +29,21 @@ const Configuration = (props) => {
                     alert(error.response.data.message)
                 })
     }
+
+    const parse_config = () => {
+
+        let obj = {}
+        Object.keys(config).forEach( item => {
+            obj[item] = {value : config[item]}
+        })
+
+        return obj
+    }
     return (
         <React.Fragment>
             {
                 config ? (
-                    <TableInfo info={config}/>
+                    <TableInfo info={parse_config(config)}/>
                 ) : null
             }
         </React.Fragment>

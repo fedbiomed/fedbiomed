@@ -40,6 +40,13 @@ export const repositoryReducer = (state = initialStateRepository , action) => {
 
 const initialStateDataSets = {
     datasets : [],
+    new_dataset : [],
+    add_dataset : {
+        error : null,
+        message : null,
+        success : null,
+        result : null,
+    },
     error : false,
     message : null
 }
@@ -61,15 +68,65 @@ export const datasetsreducer = (state = initialStateDataSets, action) => {
                 error : false,
                 datasets : action.payload
             }
-        
-        case "UPDATE_DATASETS":
+        case "NEW_DATASET_TO_ADD":
+            return {
+                ...state,
+                new_dataset : {
+                    ...state.new_dataset,
+                    path : action.payload.path,
+                    extension: action.payload.extension
+                },
+                error : false,
 
+            }
+        case "RESET_NEW_DATASET":
+            return {
+                ...state,
+                new_dataset : {
+                    path : null,
+                    extension: null,
+                },
+                error : false,
+
+            }
+        case "RESET_ADD_DATASET_RESULT": {
+           return{
+                ...state,
+                add_dataset : {
+                    error : null,
+                    success : null,
+                    message : null,
+                    result : null
+                }
+            }
+        }
+        case "NEW_DATASET_ADD_ERROR":
+            return{
+                ...state,
+                add_dataset : {
+                    error : true,
+                    success : false,
+                    message : action.payload,
+                    result : null
+                }
+            }
+        case "NEW_DATASET_ADD_SUCCESS":
+            return {
+                ...state,
+                add_dataset : {
+                    error : false,
+                    success : true,
+                    message : "Dataset has been successfully added",
+                    result : action.payload,
+                }
+            }
+
+        case "UPDATE_DATASETS":
             return {
                 ...state,
                 error:false,
                 datasets : action.payload
-            } 
-        
+            }
         case "DATASET_ERROR":
             return {
                 ...state,

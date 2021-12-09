@@ -44,21 +44,23 @@ def list_data_path():
 
         for file in pathfiles:
             fullpath = os.path.join(dpath, file)
-            print(fullpath)
             # Get dataset registered with full path
             dataset = table.get(query.path == fullpath)
-            print(dataset)
             # This is the path that will be displayed on the GUI 
             # It is create as list to be able use it with `os.path.join` 
             exact_path = [*req_path, file]
+            extension = os.path.splitext(fullpath)[1]
 
-            if os.path.isdir(fullpath):
-                res['files'].append({"type": 'dir', "name": file, "path": exact_path, 'registered': dataset})
-            elif os.path.isfile(fullpath):
-                res['files'].append({"type": 'file', "name": file, "path": exact_path, 'registered': dataset})
+            path_type = 'file' if os.path.isfile(fullpath) else 'dir'
+
+            res['files'].append({"type": path_type,
+                                 "name": file,
+                                 "path": exact_path,
+                                 "extension": extension,
+                                 'registered': dataset})
 
         return jsonify(res), 200
 
     else:
 
-        return error(f'Reqeusted path does not exist or it is not a directory. {req_path}')
+        return error(f'Requested path does not exist or it is not a directory. {req_path}')
