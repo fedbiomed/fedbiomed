@@ -14,8 +14,6 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.responses import Responses
 
-
-
 import torch
 import numpy as np
 
@@ -116,6 +114,7 @@ class TestJob(unittest.TestCase):
                 ])
             }
 
+        # action
         new_training_replies = test_job._save_training_replies(training_replies)
 
         # check if `training_replies` is  saved accordingly
@@ -125,7 +124,13 @@ class TestJob(unittest.TestCase):
         self.assertEqual(new_training_replies[1][1].get('dataset_id'), 'id_node_2')
 
 
-    def test_private_load_training_replies(self):
+    @patch('fedbiomed.researcher.responses.Responses.__getitem__')
+    @patch('fedbiomed.researcher.responses.Responses.__init__')
+    def test_private_load_training_replies(
+            self,
+            patch_responses_init,
+            patch_responses_getitem
+            ):
         """tests if `_load_training_replies` is loading file content from path file.
         """
 
@@ -170,6 +175,21 @@ class TestJob(unittest.TestCase):
                                         ]
                                     ]
 
+        # mock Responses
+        #
+        # nota: works fine with one instance of Response active at a time
+        # (which is not the case in `test_save_private_training_replies`)
+        def side_responses_init(data):
+            self.responses_data = data
+        patch_responses_init.side_effect = side_responses_init
+        patch_responses_init.return_value = None
+
+        def side_responses_getitem(arg):
+            return self.responses_data[arg]
+        patch_responses_getitem.side_effect = side_responses_getitem
+
+
+        # action
         torch_training_replies = test_job_torch._load_training_replies(
                                     loaded_training_replies,
                                     func_torch_loadparams
