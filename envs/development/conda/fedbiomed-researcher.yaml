@@ -41,3 +41,4 @@ dependencies:
       - pandas >=1.2.3,<2.0.0
       - tensorboard
       - JSON-log-formatter
+      - python-minifier ==2.5.0

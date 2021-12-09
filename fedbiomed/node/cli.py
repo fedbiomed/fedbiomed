@@ -13,7 +13,9 @@ import tkinter.messagebox
 from tkinter import _tkinter
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.data_manager import Data_manager
+from fedbiomed.common.constants import ModelTypes, ErrorNumbers
+from fedbiomed.node.data_manager import DataManager
+from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.node import Node
 
 from fedbiomed.common.logger import logger
@@ -37,7 +39,8 @@ __intro__ = """
 # this may be changed on command line or in the config_node.ini
 logger.setLevel("DEBUG")
 
-data_manager = Data_manager()
+data_manager = DataManager()
+model_manager = ModelManager()
 
 readline.parse_and_bind("tab: complete")
 
@@ -79,6 +82,13 @@ def pick_with_tkinter(mode='file'):
                                    "*.csv")
                                   ]
                         )
+        elif mode == 'txt':
+            return tkinter.filedialog.askopenfilename(
+                        filetypes=[
+                                  ("Text files",
+                                   "*.txt")
+                                  ]
+                        )
         else:
             return tkinter.filedialog.askdirectory()
 
@@ -91,20 +101,31 @@ def pick_with_tkinter(mode='file'):
             return input('Insert the path of the dataset folder: ')
 
 
-def validated_path_input(data_type):
+def validated_path_input(type):
     while True:
         try:
-            if data_type == 'csv':
+            if type == 'csv':
                 path = pick_with_tkinter(mode='file')
                 logger.debug(path)
                 if not path:
+                    # node is not in computation mode, MQQT message cannot be sent
                     logger.critical('No file was selected. Exiting')
+                    exit(1)
+                assert os.path.isfile(path)
+
+            elif type == 'txt': # For registering python model
+                path = pick_with_tkinter(mode='txt')
+                logger.debug(path)
+                if not path:
+                    # node is not in computation mode, MQQT message cannot be sent
+                    logger.critical('No python file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
             else:
                 path = pick_with_tkinter(mode='dir')
                 logger.debug(path)
                 if not path:
+                    # node is not in computation mode, MQQT message cannot be sent
                     logger.critical('No directory was selected. Exiting')
                     exit(1)
                 assert os.path.isdir(path)
@@ -172,6 +193,14 @@ def node_signal_handler(signum, frame):
     Catch the temination signal then user stops the process
     and send SystemExit(0) to be trapped later
     """
+
+    # get the (running) Node object
+    global node
+
+    if node:
+        node.send_error(ErrorNumbers.FB312)
+    else:
+        logger.error("Cannot send error message to researcher (node not initialized yet)")
     logger.critical("Node stopped in signal_handler, probably by user decision (Ctrl C)")
     time.sleep(1)
     sys.exit(signum)
@@ -182,14 +211,28 @@ def manage_node():
     messaging with the Network
     """
 
+    global node
+
     try:
         signal.signal(signal.SIGTERM, node_signal_handler)
 
-        logger.info('Launching node')
+        logger.info('Launching node...')
 
-        data_manager = Data_manager()
+        # Register default models and update hashes
+        if environ["MODEL_APPROVAL"]:
+            # This methods updates hashes if hashing algorithm has changed
+            model_manager.check_hashes_for_registered_models()
+            if environ["ALLOW_DEFAULT_MODELS"]:
+                logger.info('Loading default models')
+                model_manager.register_update_default_models()
+        else:
+            logger.warning('Model approval for train request is not activated. ' + \
+                            'This might cause security problems. Please, consider to enable model approval.')
+
+        data_manager = DataManager()
         logger.info('Starting communication channel with network')
-        node = Node(data_manager)
+        node = Node(data_manager = data_manager,
+                    model_manager = model_manager)
         node.start_messaging(block=False)
 
         logger.info('Starting task manager')
@@ -197,6 +240,7 @@ def manage_node():
 
     except Exception as e:
         # must send info to the researcher
+        node.send_error(ErrorNumbers.FB300, extra_msg = "Error = " + str(e))
         logger.critical("Node stopped. Error = " + str(e))
 
     finally:
@@ -280,6 +324,120 @@ def delete_database(interactive: bool = True):
             logger.error('Invalid option. Please, try again.')
 
 
+def register_model(interactive: bool = True):
+
+    """ Method for registring model files through CLI """
+
+    print('Welcome to the Fedbiomed CLI data manager')
+    name = input('Please enter a model name: ')
+    description = input('Please enter a description for the model: ')
+
+    # Allow files saved as txt
+    path = validated_path_input(type = "txt")
+
+    # Regsiter model
+    try:
+        model_manager.register_model(name=name,
+                                    description=description,
+                                    path=path)
+
+    except AssertionError as e:
+        if interactive is True:
+            try:
+                tkinter.messagebox.showwarning(title='Warning', message=str(e))
+            except ModuleNotFoundError:
+                warnings.warn('[ERROR]: {e}')
+        else:
+            warnings.warn(f'[ERROR]: {e}')
+        exit(1)
+
+    print('\nGreat! Take a look at your data:')
+    model_manager.list_approved_models(verbose=True)
+
+def update_model():
+
+    """ Method for updating model files. User can either different
+        model file (different path) to update model or same model file
+    """
+    models = model_manager.list_approved_models(verbose=False)
+
+    # Select only registered model to update
+    models = [ m for m in models  if m['model_type'] == ModelTypes.REGISTERED.value]
+    if not models:
+        logger.warning('No registered models has been found to update')
+        return
+
+    options = [m['name'] + '\t Model ID ' + m['model_id'] for m in models]
+    msg = "Select the model to delete:\n"
+    msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
+    msg += "\nSelect: "
+
+    while True:
+        try:
+
+            # Get the selection
+            opt_idx = int(input(msg)) - 1
+            assert opt_idx >= 0
+            model_id = models[opt_idx]['model_id']
+
+            if not model_id:
+                logger.warning('No matching model to delete')
+                return
+
+            # Get the new file or same file.  User can ]provide same model file
+            # with updated content or new model file.
+            path = validated_path_input(type = "txt")
+
+            # Update model through model manager
+            model_manager.update_model(model_id, path)
+
+            logger.info('Model has been updated. Here all your models')
+            model_manager.list_approved_models(verbose=True)
+
+            return
+
+        except (ValueError, IndexError, AssertionError):
+            logger.error('Invalid option. Please, try again.')
+
+
+def delete_model():
+
+    """ Deletes only registered models, for default models
+    should be removed directly from the file system
+    """
+
+    models = model_manager.list_approved_models(verbose=False)
+    models = [ m for m in models  if m['model_type'] == ModelTypes.REGISTERED.value]
+    if not models:
+        logger.warning('No models to delete')
+        return
+
+    options = [m['name'] + '\t Model ID ' + m['model_id'] for m in models]
+    msg = "Select the model to delete:\n"
+    msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
+    msg += "\nSelect: "
+
+    while True:
+        try:
+
+            opt_idx = int(input(msg)) - 1
+            assert opt_idx >= 0
+            model_id = models[opt_idx]['model_id']
+
+            if not model_id:
+                logger.warning('No matching model to delete')
+                return
+            # Delete model
+            model_manager.delete_model(model_id)
+            logger.info('Model has been removed. Here your other models')
+            model_manager.list_approved_models(verbose=True)
+
+            return
+
+        except (ValueError, IndexError, AssertionError):
+            logger.error('Invalid option. Please, try again.')
+
+
 def launch_cli():
 
     parser = argparse.ArgumentParser(description=f'{__intro__}:A CLI app for fedbiomed researchers.',
@@ -304,6 +462,18 @@ def launch_cli():
     parser.add_argument('-s', '--start-node',
                         help='Start fedbiomed node.',
                         action='store_true')
+    parser.add_argument('-rml', '--register-model',
+                        help='Approve new model files.',
+                        action='store_true')
+    parser.add_argument('-uml', '--update-model',
+                        help='Update model file.',
+                        action='store_true')
+    parser.add_argument('-dml', '--delete-model',
+                        help='Deletes models from DB',
+                        action='store_true')
+    parser.add_argument('-lms', '--list-models',
+                        help='Start fedbiomed node.',
+                        action='store_true')
     args = parser.parse_args()
 
     if not any(args.__dict__.values()):
@@ -325,6 +495,14 @@ def launch_cli():
         delete_database()
     elif args.delete_mnist:
         delete_database(interactive=False)
+    elif args.register_model:
+        register_model()
+    elif args.update_model:
+        update_model()
+    elif args.delete_model:
+        delete_model()
+    elif args.list_models:
+        model_manager.list_approved_models(verbose = True)
     elif args.start_node:
         launch_node()
 

@@ -1,0 +1,17 @@
+from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
+import inspect
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import SGDRegressor
+
+class SGDRegressorTrainingPlan(SGDSkLearnModel):
+    def __init__(self, kwargs):
+        super(SGDRegressorTrainingPlan, self).__init__(kwargs)
+        self.add_dependency(["from sklearn.linear_model import SGDRegressor"])
+    
+    def training_data(self):
+        NUMBER_COLS = 5
+        dataset = pd.read_csv(self.dataset_path,header=None,delimiter=',')
+        X = dataset.iloc[:,0:NUMBER_COLS].values
+        y = dataset.iloc[:,NUMBER_COLS]
+        return (X,y.values)

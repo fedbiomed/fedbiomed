@@ -41,7 +41,7 @@ case $1 in
 
         while true ; do
             case $2 in
-                # handle optional parameters : config file, network ip
+                # handle optional parameters : config file, network ip, model approve and allow default models
                 config)
                     if [ $# -lt 3 ] ; then
                         echo "ERROR: missing config file name"
@@ -60,6 +60,23 @@ case $1 in
                     shift
                     shift
                 ;;
+                enable-model-approval|--enable-model-approval|-emp)
+                    export ENABLE_MODEL_APPROVAL=True
+                    shift
+                ;;
+                disable-model-approval|--disable-model-approval|-dmp)
+                    export ENABLE_MODEL_APPROVAL=False
+                    shift
+                ;;
+                allow-default-models|--allow-default-models|-adm )
+                    export ALLOW_DEFAULT_MODELS=True
+                    shift
+                ;;
+                disable-default-models|--disable-default-models|-ddm )
+                    export ALLOW_DEFAULT_MODELS=False
+                    shift
+                ;;
+
                 *)
                     break
                 ;;
@@ -104,6 +121,26 @@ case $1 in
                     python -m fedbiomed.node.cli --add-mnist $PARAMS
                     ;;
 
+                register-model|--register-model|-rml)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --register-model $PARAMS
+                    ;;
+
+                update-model|--update-model|-uml)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --update-model $PARAMS
+                    ;;
+
+                list-models|--list-models|-lms)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --list-models $PARAMS
+                    ;;
+
+                delete-model|--delete-model|-dml)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --delete-model $PARAMS
+                    ;;
+                    
                 start|--start|-s)
                     #export MQTT_BROKER=localhost
                     #export MQTT_BROKER_PORT=1883
@@ -162,8 +199,8 @@ case $1 in
         cat <<EOF
 usage: fedbiomed_run network
        fedbiomed_run researcher [ip_address IP_ADDRESS]
-       fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS]
-                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist) PARAMS
+       fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-model-approval | disable-model-approval | allow-default-models | disable-default-models ]
+                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | register-model | delete-model | update-model) PARAMS
 
 
 Runs the fedbiomed components after properly initializing the environments.
@@ -181,13 +218,22 @@ node      : a second arguement is mandatory
             - add/list/delete deal with dataset
             - add-mnist PATH_TO_DATASET directly adds a mnist dataset
             - delete-mnist directly removes a mnist dataset
-
+            - register-model  | --register-model    : To register new model files
+            - update-model    | --update-model      : To update registered models 
+            
             an optional config file CONFIG_NAME can be given it will be used instead of the default one (config.ini)
 
             an optional IP_ADDRESS can be used to join the network component instead of
                 the default localhost
 
             optional additional PARAMS are passed to fedbiomed
+
+            Option that should be used with start or add command to manage node modes. 
+
+            - enable-model-approval     | --enable-model-approval   : to enable model approval mode 
+            - allow-default-models      | --allow-default-models    : to allow default model for model approval mode
+            - disable-model-approval    | --disable-model-approval  : to disable model approval mode
+            - disable-default-models    | --disable-default-models  : to disable default models for model approval mode
 
 EOF
         ;;

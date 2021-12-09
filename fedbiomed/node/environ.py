@@ -1,4 +1,4 @@
-from fedbiomed.common.component_type import ComponentType
+from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.environ        import Environ
 
 # global dictionnary which contains all environment for the NODE

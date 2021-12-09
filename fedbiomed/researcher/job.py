@@ -12,15 +12,17 @@ import copy
 
 import validators
 
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.logger import logger
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.researcher.exceptions import TrainingException
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.datasets import FederatedDataSet
-
+from fedbiomed.common.message import ResearcherMessages
 
 class Job:
     """
@@ -186,6 +188,68 @@ class Job:
     def training_args(self, training_args: dict):
         self._training_args = training_args
 
+    @property
+    def model_file(self):
+        return self._model_file
+
+
+
+    # TODO: After refactoring experiment this method can be created
+    # directly in the Experiment class. Since it requires
+    # node ids and model_url to send model approve status it is created
+    # in job class
+    def check_model_is_approved_by_nodes(self):
+
+        """ Method for checking whether model is approved or not.  This method send
+            `model-status` request to the nodes. It should be run before running experiment.
+            So, researchers can find out if their model has been approved
+        """
+
+        message = {
+            'researcher_id': self._researcher_id,
+            'job_id': self._id,
+            'model_url' : self._repository_args['model_url'],
+            'command': 'model-status'
+        }
+
+        responses = []
+        replied_nodes = []
+        node_ids = self._data.node_ids
+
+        # Send message to each node that has been found after dataset search reqeust
+        for cli in node_ids:
+            logger.info('Sending request to node ' + \
+                                    str(cli) + " to check model is approved or not")
+            self._reqs.send_message(
+                        ResearcherMessages.request_create(message).get_dict(),
+                        cli)
+
+        # Wait for responses
+        for resp in self._reqs.get_responses(look_for_commands=['model-status'], only_successful = False):
+            responses.append(resp)
+            replied_nodes.append(resp.get('node_id'))
+
+            if resp.get('success') == True:
+                if resp.get('approval_obligation') == True:
+                    if resp.get('is_approved') == True:
+                        logger.info(f'Model has been approved by the node: {resp.get("node_id")}')
+                    else:
+                        logger.warning(f'Model has NOT been approved by the node: {resp.get("node_id")}')
+                else:
+                    logger.info(f'Model approval is not required by the node: {resp.get("node_id")}')
+            else:
+                logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
+
+        # Get the nodes that haven't replied model-status request
+        non_replied_nodes = list(set(node_ids) - set(replied_nodes))
+        if non_replied_nodes:
+            logger.warning(f"Request for checking model status hasn't been replied \
+                             by the nodes: {non_replied_nodes}. You might get error \
+                                 while runing your experiment. ")
+
+        return responses
+
+
     """ This method should change in sprint8 or as soon as we implement other
     kind of strategies different than DefaultStrategy"""
     def waiting_for_nodes(self, responses: Responses) -> bool:
@@ -240,9 +304,36 @@ class Job:
         while self.waiting_for_nodes(self._training_replies[round]):
             # collect nodes responses from researcher request 'train'
             # (wait for all nodes with a ` while true` loop)
-            models_done = self._reqs.get_responses('train')
+            #models_done = self._reqs.get_responses(look_for_commands=['train'])
+            models_done = self._reqs.get_responses(look_for_commands=['train', 'error'], only_successful = False)
+            #print("=== DEBUG START start_nodes_training_round")
+            #print(models_done)
+            #print("=== DEBUG STOP  start_nodes_training_round")
             for m in models_done.get_data():  # retrieve all models
                 # (there should have as many models done as nodes)
+
+                # manage error messages during training
+                if 'errnum' in m:  # TODO: need a stronger filter
+
+                    if m['extra_msg']:
+                        logger.info("Error message received during training: " +
+                                     str(m['errnum'].value) +
+                                     " - " +
+                                     str(m['extra_msg']))
+                    else:
+                        logger.info("Error message received during training: " +
+                                     str(m['errnum'].value))
+
+                    # remove the faulty node from the list
+                    faulty_node = m['node_id']
+
+                    if faulty_node not in list(self._nodes):
+                        logger.warning("Error message from " +
+                                       faulty_node +
+                                       " ignored, since this node is not part ot the training anymode")
+                        continue
+
+                    self._nodes.remove(faulty_node)
 
                 # only consider replies for our request
                 if m['researcher_id'] != environ['RESEARCHER_ID'] or m['job_id'] != self._id or m['node_id'] not in list(self._nodes):
@@ -265,10 +356,13 @@ class Job:
                                'params_path': params_path,
                                'params': params,
                                'timing': timing})
-                self._training_replies[round].append(r)  # add new replies
 
+                self._training_replies[round].append(r)  # add new replies
                 self._params_path[r[0]['node_id']] = params_path
 
+        # return the list of nodes which answered
+        # (because nodes in error have been removed)
+        return self._nodes
 
     def update_parameters(self, params: dict) -> str:
         """Updates global model parameters after aggregation, by specifying in a
