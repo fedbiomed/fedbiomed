@@ -213,7 +213,7 @@ class Experiment:
             self._job.nodes = self._node_selection_strategy.sample_nodes(round_i)
             logger.info('Sampled nodes in round ' + str(round_i) + ' ' + str(self._job.nodes))
             # Trigger training round on sampled nodes
-            self._job.start_nodes_training_round(round=round_i)
+            answering_nodes = self._job.start_nodes_training_round(round=round_i)
 
             # refining/normalizing model weigths received from nodes
             model_params, weights = self._node_selection_strategy.refine(self._job.training_replies[round_i], round_i)
@@ -236,9 +236,9 @@ class Experiment:
 
 
     def model_file(self, display: bool = True ):
-        
-        """ This method displays saved final model for the experiment 
-            that will be send to the nodes for training. 
+
+        """ This method displays saved final model for the experiment
+            that will be send to the nodes for training.
         """
         model_file = self._job.model_file
 
@@ -252,8 +252,8 @@ class Experiment:
         return self._job.model_file
 
     def check_model_status(self):
-        
-        """ Method for checking model status whether it is approved or 
+
+        """ Method for checking model status whether it is approved or
             not by the nodes
         """
         responses = self._job.check_model_is_approved_by_nodes()

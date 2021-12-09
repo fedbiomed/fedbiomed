@@ -23,6 +23,7 @@ class FederatedDataSet:
     @property
     def sample_sizes(self) -> List[int]:
         """Returns a list with data sample sizes"""
+        # TODO
         pass
 
     @property
