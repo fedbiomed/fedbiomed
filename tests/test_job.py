@@ -1,3 +1,4 @@
+import copy
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -152,11 +153,26 @@ class TestJob(unittest.TestCase):
         model_torch.save = MagicMock(return_value=None)
         func_torch_loadparams = MagicMock(return_value=pytorch_params)
 
+        # mock Responses
+        #
+        # nota: works fine only with one instance of Response active at a time thus
+        # - cannot be used in `test_save_private_training_replies`
+        # - if testing on more than 1 round, only the last round can be used for Asserts
+        def side_responses_init(data, *args):
+            self.responses_data = data
+        def side_responses_getitem(arg, *args):
+            return self.responses_data[arg]
+
+        patch_responses_init.side_effect = side_responses_init
+        patch_responses_init.return_value = None
+        patch_responses_getitem.side_effect = side_responses_getitem
+
+
         # instantiate job
         test_job_torch = Job(model=model_torch,
                              data=fds)
         # second create a `training_replies` variable
-        loaded_training_replies =  [
+        loaded_training_replies_torch =  [
                                         [
                                         {"success": True,
                                          "msg": "",
@@ -175,23 +191,10 @@ class TestJob(unittest.TestCase):
                                         ]
                                     ]
 
-        # mock Responses
-        #
-        # nota: works fine with one instance of Response active at a time
-        # (which is not the case in `test_save_private_training_replies`)
-        def side_responses_init(data):
-            self.responses_data = data
-        patch_responses_init.side_effect = side_responses_init
-        patch_responses_init.return_value = None
-
-        def side_responses_getitem(arg):
-            return self.responses_data[arg]
-        patch_responses_getitem.side_effect = side_responses_getitem
-
 
         # action
         torch_training_replies = test_job_torch._load_training_replies(
-                                    loaded_training_replies,
+                                    loaded_training_replies_torch,
                                     func_torch_loadparams
                                     )
 
@@ -199,7 +202,7 @@ class TestJob(unittest.TestCase):
         # heuristic check `training_replies` for existing field in input
         self.assertEqual(
             torch_training_replies[0][0]['node_id'],
-            loaded_training_replies[0][0]['node_id'])
+            loaded_training_replies_torch[0][0]['node_id'])
         # check `training_replies` for pytorch models
         self.assertTrue(torch.isclose(torch_training_replies[0][1]['params'],
                         pytorch_params['model_params']).all())
@@ -208,7 +211,27 @@ class TestJob(unittest.TestCase):
         self.assertTrue(isinstance(torch_training_replies[0], Responses))
 
 
-        ##### REPRODUCE TESTS BUT FOR SKLEARN MODELS
+        ##### REPRODUCE TESTS BUT FOR SKLEARN MODELS AND 2 ROUNDS
+        
+        # create a `training_replies` variable
+        loaded_training_replies_sklearn =  [
+                                        [
+                                        {
+                                            # dummy
+                                            "params_path": "/path/to/file/param_sklearn.pt"
+                                         }
+                                        ], 
+                                        [
+                                        {"success": False,
+                                         "msg": "",
+                                         "dataset_id": "dataset_8888",
+                                         "node_id": "node_8888",
+                                         "params_path": "/path/to/file/param2_sklearn.pt",
+                                         "timing": {"time": 6}
+                                         }
+                                        ]
+                                    ]
+
         # mock sklearn model object
         model_sklearn = MagicMock(return_value=None)
         model_sklearn.save = MagicMock(return_value=None)
@@ -217,20 +240,22 @@ class TestJob(unittest.TestCase):
         test_job_sklearn = Job(model=model_sklearn,
                                data=fds)
         
+
+        # action
         sklearn_training_replies = test_job_sklearn._load_training_replies(
-                                        loaded_training_replies,
+                                        loaded_training_replies_sklearn,
                                         func_sklearn_loadparams
                                         )
 
         # heuristic check `training_replies` for existing field in input
         self.assertEqual(
-            sklearn_training_replies[0][0]['node_id'],
-            loaded_training_replies[0][0]['node_id'])
+            sklearn_training_replies[1][0]['node_id'],
+            loaded_training_replies_sklearn[1][0]['node_id'])
         # check `training_replies` for sklearn models
-        self.assertTrue(np.allclose(sklearn_training_replies[0][1]['params'],
+        self.assertTrue(np.allclose(sklearn_training_replies[1][0]['params'],
                         sklearn_params['model_params']))
-        self.assertTrue(sklearn_training_replies[0][1]['params_path'],
-                        "/path/to/file/param2.pt")
+        self.assertTrue(sklearn_training_replies[1][0]['params_path'],
+                        "/path/to/file/param2_sklearn.pt")
         self.assertTrue(isinstance(sklearn_training_replies[0],
                                    Responses))
 
