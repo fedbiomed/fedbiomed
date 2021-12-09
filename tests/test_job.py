@@ -132,7 +132,8 @@ class TestJob(unittest.TestCase):
             patch_responses_init,
             patch_responses_getitem
             ):
-        """tests if `_load_training_replies` is loading file content from path file.
+        """tests if `_load_training_replies` is loading file content from path file
+        and is building a proper training replies structure from breakpoint info
         """
 
         # first test with a model done with pytorch
@@ -258,6 +259,116 @@ class TestJob(unittest.TestCase):
                         "/path/to/file/param2_sklearn.pt")
         self.assertTrue(isinstance(sklearn_training_replies[0],
                                    Responses))
+
+
+    @patch('fedbiomed.researcher.job.Job._load_training_replies')
+    @patch('fedbiomed.researcher.job.Job.update_parameters')
+    def test_load_state(
+            self,
+            patch_job_update_parameters,
+            patch_job_load_training_replies
+            ):
+        """
+        test if the job state values correctly initialize job
+        """
+
+        job_state = {
+            'researcher_id': 'my_researcher_id_123456789',
+            'job_id': 'my_job_id_abcdefghij',
+            'model_params_path': '/path/to/my/model_file.py',
+            'training_replies': { 0: 'un', 1: 'deux' }
+        }
+        new_training_replies = { 2: 'trois', 3: 'quatre' }
+
+        # patch `update_parameters`
+        patch_job_update_parameters.return_value = "dummy_string"
+
+        # patch `_load_training_replies`
+        patch_job_load_training_replies.return_value = new_training_replies
+
+        # mock FederatedDataSet
+        fds = MagicMock()
+        fds.data = MagicMock(return_value={})
+
+        # mock Pytorch model object
+        model_object = MagicMock(return_value=None)
+        model_object.save = MagicMock(return_value=None)
+
+        # instantiate job
+        test_job_torch = Job(model=model_object,
+                             data=fds)
+
+
+        
+        # action
+        test_job_torch.load_state(job_state)
+
+        self.assertEqual(test_job_torch._researcher_id, job_state['researcher_id'])
+        self.assertEqual(test_job_torch._id, job_state['job_id'])
+        self.assertEqual(test_job_torch._training_replies, new_training_replies)
+
+
+## TODO : add save/test links
+    @patch('fedbiomed.researcher.job.create_unique_link')
+    @patch('fedbiomed.researcher.job.create_unique_file_link')
+    @patch('fedbiomed.researcher.job.Job._save_training_replies')
+    def test_save_state(
+            self,
+            patch_job_save_training_replies,
+            patch_create_unique_file_link,
+            patch_create_unique_link
+            ):
+        """
+        test that job breakpoint state structure + file links are created
+        """
+
+        new_training_replies = [
+            [
+                { 'params_path': '/path/to/job_test_save_state_params0.pt' }
+            ],
+            [
+                { 'params_path': '/path/to/job_test_save_state_params1.pt' }
+            ]
+        ]
+        file_link_path = '/path/to/job_test_save_state_params_file_link.pt'
+        link_path = '/path/to/job_test_save_state_params_link.pt'
+
+        # patches configuration
+        patch_create_unique_link.return_value = link_path
+        patch_create_unique_file_link.return_value = file_link_path
+        patch_job_save_training_replies.return_value = new_training_replies
+
+
+        # mock FederatedDataSet
+        fds = MagicMock()
+        fds.data = MagicMock(return_value={})
+
+        # mock Pytorch model object
+        model_object = MagicMock(return_value=None)
+        model_object.save = MagicMock(return_value=None)
+
+        # instantiate job
+        test_job_torch = Job(model=model_object,
+                             data=fds)
+
+        # choose arguments for saving state
+        round = 3
+        breakpoint_path = 'xxx'
+
+
+        # action
+        save_state = test_job_torch.save_state(breakpoint_path, round)
+
+        self.assertEqual(environ['RESEARCHER_ID'], save_state['researcher_id'])
+        self.assertEqual(test_job_torch._id, save_state['job_id'])
+        self.assertEqual(link_path, save_state['model_params_path'])
+        # check transformation of training replies
+        for round_i, round in enumerate(new_training_replies):
+            for response_i, _ in enumerate(round):
+                self.assertEqual(
+                    save_state['training_replies'][round_i][response_i]['params_path'], 
+                    file_link_path)
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
