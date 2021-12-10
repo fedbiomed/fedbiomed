@@ -1,6 +1,15 @@
 import axios from "axios"
-import {EP_DATASET_ADD , EP_DATASET_UPDATE} from "../../constants";
+import {EP_DATASET_ADD ,
+        EP_DATASET_UPDATE,
+        EP_DEFAULT_DATASET_ADD
+    } from "../../constants";
 
+
+/**
+ * Action for adding new dataset
+ * @param data
+ * @returns {(function(*, *): void)|*}
+ */
 export const addNewDataset = (data) => {
     return (dispatch, getState) => {
 
@@ -18,6 +27,33 @@ export const addNewDataset = (data) => {
             }else{
                 dispatch({type: 'NEW_DATASET_ADD_ERROR', payload: 'Unexpected Error:' + error.toString()})
             }
+        })
+    }
+}
+
+
+export const addDefaultDataset = (data) => {
+
+    return (dispatch) => {
+
+        // Notify it is requested
+        dispatch({type: 'DEFAULT_DATASET_ADD_REQUEST'})
+
+        axios.post(EP_DEFAULT_DATASET_ADD, {
+            name:'mnist'
+        }).then( res => {
+                if(res.status === 200){
+                    dispatch({type: 'DEFAULT_DATASET_ADD_SUCCESS' , payload: res.data.result })
+                }else{
+                    dispatch({type: 'DEFAULT_DATASET_ADD_ERROR' , payload: res.data.message })
+                }
+
+        }).catch( error => {
+                if(error.response){
+                dispatch({type: 'DEFAULT_DATASET_ADD_ERROR', payload: 'Error while adding default dataset: ' + error.response.data.message})
+                }else{
+                    dispatch({type: 'DEFAULT_DATASET_ADD_ERROR', payload: 'Unexpected error:' + error.toString()})
+                }
         })
     }
 }

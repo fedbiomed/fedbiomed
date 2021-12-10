@@ -1,10 +1,8 @@
 import React from 'react';
 import {connect} from "react-redux"
 import {Link} from "react-router-dom"
-import { listDatasets } from '../store/actions/datasetsActions';
-import { removeDataset } from '../store/actions/datasetsActions';
+import { listDatasets,  removeDataset, addDefaultDataset } from '../store/actions/datasetsActions';
 import {ReactComponent as GarbageLogo} from '../assets/img/garbage.svg'
-import {ReactComponent as PlusLogo} from '../assets/img/plus.svg'
 import {ReactComponent as LaunchIcon} from '../assets/img/launch.svg'
 import Modal from '../components/Modal';
 import Button from '../components/Button'
@@ -19,9 +17,34 @@ export const Datasets = (props) => {
     React.useEffect(() => {
         // Get list of datasets
         listDatasetsAction()
-
     }, [])
 
+
+    /**
+     * Hook for default dataset result
+     */
+    React.useEffect(() => {
+
+        if(props.datasets.default_dataset.error){
+            //Popup fail
+        }else if(props.datasets.default_dataset.success){
+            //Popup success
+        }else if(props.datasets.default_dataset.waiting){
+            //Display loading
+        }
+
+    }, [  props.datasets.default_dataset.error,
+                props.datasets.default_dataset.success,
+                props.datasets.default_dataset.waiting,
+    ])
+
+
+
+    /**
+     * Parse tags array to div of tags
+     * @param tags
+     * @returns List[{JSX.Element}]
+     */
     const parseTags = (tags) => {
         
         let tag_result = tags.map((item) => {
@@ -35,6 +58,9 @@ export const Datasets = (props) => {
         return tag_result
     }
 
+    /**
+     * Handles modal window close action
+     */
     const handleClose = () => {
         setModal({...modal, show:false})
     }
@@ -68,10 +94,49 @@ export const Datasets = (props) => {
         }
     }
 
+    /**
+     * Checks is there any default dataset registered
+     * in the list of datasets
+     * @returns {boolean}
+     */
+    const defaultDataStatus = () => {
+        console.log(props.datasets.datasets)
+        if(props.datasets.datasets){
+            let dlist = props.datasets.datasets
+            let index = dlist.findIndex( x =>  x.data_type === 'default')
+
+            if(index > -1){
+                return true
+            }else{
+                return false
+            }
+        }
+    }
+
+    /**
+     * Handle on add default dataset button
+     * clicked. Send request to add MNIST dataset
+     */
+    const onAddDefaultDataset = () => {
+
+        // Send empty data by default
+        // it will be MNIST
+        props.addDefaultDataset({})
+    }
+
     return (
         <React.Fragment>
             <div className="frame-header">
-                <p>List of datasets loaded in the node</p>
+                <div className={`row`}>
+                    <p>List of datasets loaded in the node</p>
+                    {
+                        defaultDataStatus() === false ? (
+                            <Button style={{'margin-left':'auto'}} onClick={onAddDefaultDataset}>
+                                Add MNIST Dataset
+                            </Button>
+                        ) : null
+                    }
+                </div>
             </div>
             <hr/>
             <div className="frame-content">
@@ -84,7 +149,7 @@ export const Datasets = (props) => {
                         <th>Description</th>
                         <th class="center">Action</th>
                     </tr>
-                    { props.datasets.datasets.map( (item,key) => {
+                    { props.datasets.datasets && props.datasets.datasets.map( (item,key) => {
                         return (    
                             <tr key={key}>
                                 <td> {item.name}</td>
@@ -125,7 +190,7 @@ export const Datasets = (props) => {
                         Cancel
                     </Button>
                     <Button onClick={handleModalApprove}>
-                        {modal.approve}
+                                {modal.approve}
                     </Button>
                 </Modal.Footer>
             </Modal>
@@ -142,7 +207,8 @@ export const Datasets = (props) => {
 const mapDispatchToProps = (dispatch) => {
     return {
         listDataSetsAction : (data) => dispatch(listDatasets(data)),
-        removeDatasetAction : (data) => dispatch(removeDataset(data))
+        removeDatasetAction : (data) => dispatch(removeDataset(data)),
+        addDefaultDataset: (data) => dispatch(addDefaultDataset(data))
     }
 }
 

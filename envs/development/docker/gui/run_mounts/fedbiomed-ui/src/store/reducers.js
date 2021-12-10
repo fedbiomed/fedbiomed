@@ -39,13 +39,21 @@ export const repositoryReducer = (state = initialStateRepository , action) => {
 
 
 const initialStateDataSets = {
-    datasets : [],
+    datasets : null,
     new_dataset : [],
     add_dataset : {
         error : null,
         message : null,
         success : null,
         result : null,
+    },
+    default_dataset: {
+        error : null,
+        message : null,
+        success : null,
+        result : null,
+        requested : false,
+        waiting : false
     },
     error : false,
     message : null
@@ -120,6 +128,46 @@ export const datasetsreducer = (state = initialStateDataSets, action) => {
                     result : action.payload,
                 }
             }
+        case "DEFAULT_DATASET_ADD_SUCCESS":
+
+            return {
+                ...state,
+                default_dataset: {
+                    ...state.default_dataset,
+                    error: false,
+                    success: true,
+                    waiting: false,
+                    result: action.payload
+                }
+            }
+
+        case "DEFAULT_DATASET_ADD_ERROR":
+
+            return {
+                ...state,
+                default_dataset: {
+                    ...state.default_dataset,
+                    error: true,
+                    success: false,
+                    waiting: false,
+                    message : action.payload,
+                    result: null
+                }
+            }
+
+        case "DEFAULT_DATASET_ADD_REQUEST":
+
+            return {
+                ...state,
+                default_dataset: {
+                    ...state.default_dataset,
+                    error : null,
+                    success : null,
+                    waiting : true,
+                    result : null,
+                    message : null
+                }
+            }
 
         case "UPDATE_DATASETS":
             return {
@@ -127,6 +175,7 @@ export const datasetsreducer = (state = initialStateDataSets, action) => {
                 error:false,
                 datasets : action.payload
             }
+
         case "DATASET_ERROR":
             return {
                 ...state,
