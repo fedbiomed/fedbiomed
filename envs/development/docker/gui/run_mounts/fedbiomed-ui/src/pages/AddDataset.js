@@ -133,14 +133,6 @@ export const AddDataset = (props) => {
                     </div>
                 </div>
                 <div className="row">
-                    <div className="form-control" >
-                        <Label>Enter tags for dataset</Label>
-                        <Tag
-                            name={"tags"}
-                            type="text"
-                            onChange={onInputValueChange}
-                            placeholder="Enter name for dataset" />
-                    </div>
                     <div className="form-control">
                         <Label>Dataset Name</Label>
                         <Text
@@ -148,6 +140,14 @@ export const AddDataset = (props) => {
                             type="text"
                             placeholder="Enter name for dataset"
                             onChange={onInputValueChange} />
+                    </div>
+                    <div className="form-control" >
+                        <Label>Enter tags for dataset</Label>
+                        <Tag
+                            name={"tags"}
+                            type="text"
+                            onChange={onInputValueChange}
+                            placeholder="Enter name for dataset" />
                     </div>
                 </div>
                 <div className={`row`}>

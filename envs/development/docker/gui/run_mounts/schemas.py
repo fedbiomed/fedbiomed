@@ -157,3 +157,14 @@ class UpdateDatasetRequest(Validator):
                        "desc": {'type': 'string'}},
         "required": ["dataset_id", "tags", "desc"]
     })
+
+
+class AddDefaultDatasetRequest(Validator):
+
+    type = 'json'
+    schema = JsonSchema({
+        'type': "object",
+        "properties": {"name": {'type': 'string',
+                                "default": 'mnist'}},
+        "required": []
+    })
