@@ -18,7 +18,14 @@ class Aggregator:
         Load list of weights assigned to each node and
         normalize these weights so they sum up to 1
         """
-        norm = [w/sum(weights) for w in weights]
+        l = len(weights)
+        if l == 0:
+            return []
+        s = sum(weights)
+        if s == 0:
+            norm = [ 1.0 / l ] * l
+        else:
+            norm = [w/s for w in weights]
         return norm
 
     def aggregate(self,  model_params: list, weights: list) -> Dict: # pragma: no cover
