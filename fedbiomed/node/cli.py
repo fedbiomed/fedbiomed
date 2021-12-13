@@ -484,6 +484,11 @@ def launch_cli():
                         help='Add MNIST local dataset (non-interactive)',
                         type=str, nargs='?', const='', metavar='path_mnist',
                         action='store')
+    # this option provides a json file describing the data to add
+    parser.add_argument('-adf', '--add-dataset-file',
+                        help='Add a local dataset described by json file (non-interactive)',
+                        type=str,
+                        action='store')
     parser.add_argument('-d', '--delete',
                         help='Delete existing local dataset (interactive)',
                         action='store_true')
@@ -519,7 +524,11 @@ def launch_cli():
     if args.add:
         add_database()
     elif args.add_mnist is not None:
+        print("MNIST provided")
         add_database(interactive=False, path=args.add_mnist)
+    elif args.add_dataset_file is not None:
+        print("ADF provided")
+        exit
     elif args.list:
         print('Listing your data available')
         data = data_manager.list_my_data(verbose=True)
