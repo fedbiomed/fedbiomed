@@ -365,12 +365,11 @@ class TestJob(unittest.TestCase):
                              data=fds)
 
         # choose arguments for saving state
-        round = 3
         breakpoint_path = 'xxx'
 
 
         # action
-        save_state = test_job_torch.save_state(breakpoint_path, round)
+        save_state = test_job_torch.save_state(breakpoint_path)
 
         self.assertEqual(environ['RESEARCHER_ID'], save_state['researcher_id'])
         self.assertEqual(test_job_torch._id, save_state['job_id'])

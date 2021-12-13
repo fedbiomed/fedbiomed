@@ -305,7 +305,7 @@ class Experiment:
             'tags': self._tags,
             'aggregated_params': self._save_aggregated_params(
                                         self._aggregated_params, breakpoint_path),
-            'job': self._job.save_state(breakpoint_path, round) # job state
+            'job': self._job.save_state(breakpoint_path) # job state
         }
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
