@@ -140,34 +140,68 @@ def validated_path_input(type):
     return path
 
 
-def add_database(interactive=True, path=''):
+def add_database(interactive=True,
+                 path=None,
+                 name=None,
+                 tags=None,
+                 description=None,
+                 data_type=None):
 
-    print('Welcome to the Fedbiomed CLI data manager')
-    if interactive is True:
-        data_type = validated_data_type_input()
-    else:
-        data_type = 'default'
+    # if all args are provided, just try to load the data
+    # if not, ask the user more informations
+    if interactive or \
+       path is None or \
+       name is None or \
+       tags is None or \
+       description is None or \
+       data_type is None :
 
-    if data_type == 'default':
-        tags = ['#MNIST', "#dataset"]
+
+        print('Welcome to the Fedbiomed CLI data manager')
+
         if interactive is True:
-            while input(f'MNIST will be added with tags {tags} [y/N]').lower() != 'y':
-                pass
+            data_type = validated_data_type_input()
+        else:
+            data_type = 'default'
+
+        if data_type == 'default':
+            tags = ['#MNIST', "#dataset"]
+            if interactive is True:
+                while input(f'MNIST will be added with tags {tags} [y/N]').lower() != 'y':
+                    pass
+                path = validated_path_input(data_type)
+            name = 'MNIST'
+            description = 'MNIST database'
+
+        else:
+
+            name = input('Name of the database: ')
+
+            tags = input('Tags (separate them by comma and no spaces): ')
+            tags = tags.replace(' ', '').split(',')
+
+            description = input('Description: ')
+
             path = validated_path_input(data_type)
-        name = 'MNIST'
-        description = 'MNIST database'
 
     else:
-        name = input('Name of the database: ')
+        # all data have been provided at call
+        # check few things
 
-        tags = input('Tags (separate them by comma and no spaces): ')
-        tags = tags.replace(' ', '').split(',')
+        # transform a string with coma(s) as a string list
+        tags = str(tags).split(',')
 
-        description = input('Description: ')
-        path = validated_path_input(data_type)
+        name=str(name)
+        description=str(description)
+
+        data_type=str(data_type).lower()
+        if data_type not in [ 'csv', 'default', 'images' ]:
+            data_type = 'default'
+
+        if not os.path.exists(path):
+            logger.critical("provided path does not exists: " + path)
 
     # Add database
-
     try:
         data_manager.add_database(name=name,
                                   tags=tags,
