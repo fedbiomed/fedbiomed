@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 import sys
@@ -524,11 +525,29 @@ def launch_cli():
     if args.add:
         add_database()
     elif args.add_mnist is not None:
-        print("MNIST provided")
         add_database(interactive=False, path=args.add_mnist)
     elif args.add_dataset_file is not None:
-        print("ADF provided")
-        exit
+        print("Dataset description file provided: adding these data")
+        try:
+            with open(args.add_dataset_file) as json_file:
+                data = json.load(json_file)
+
+            # if path (in json) is relative, add the topdir in front of it
+            if not data["path"].startswith("/") :
+                data["path"] = os.path.join(environ["ROOT_DIR"],data["path"])
+
+        except:
+            logger.critical("cannot read json file: " + args.add_dataset_file)
+            sys.exit(-1)
+
+        add_database(interactive=False,
+                     path        = data["path"],
+                     data_type   = data["data_type"],
+                     description = data["description"],
+                     tags        = data["tags"],
+                     name        = data["name"]
+                     )
+
     elif args.list:
         print('Listing your data available')
         data = data_manager.list_my_data(verbose=True)
