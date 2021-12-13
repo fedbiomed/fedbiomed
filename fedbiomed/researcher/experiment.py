@@ -98,7 +98,18 @@ class Experiment:
                     detection heuristic by `load_breakpoint`.
         """
 
-        self._tags = tags
+        # verify that tags is a list
+        # force a list if a simple string is provided (for convenience)
+        # raise an error if not
+        if isinstance(tags, str):
+            self._tags = [ tags ]
+        else:
+            self._tags = tags
+
+        if not isinstance(self._tags, list):
+            logger.critical("experiment parameter tags is not a string list or string list")
+            return
+
         self._nodes = nodes
         self._reqs = Requests()
 
@@ -190,7 +201,7 @@ class Experiment:
         else:
             if inspect.isclass(self._aggregator):
                 self._aggregator = self._aggregator()
-        
+
         if self._node_selection_strategy is None:
             # Default sample_nodes: train all nodes
             # Default refine: Raise error with any failure and stop the
@@ -359,7 +370,7 @@ class Experiment:
 
         # -----  retrieve breakpoint training data ---
         bkpt_fds = FederatedDataSet(saved_state.get('training_data'))
-        
+
         # -----  retrieve breakpoint sampling strategy ----
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=bkpt_fds)
@@ -413,7 +424,7 @@ class Experiment:
         """
         aggregated_params = {}
         for key, value in aggregated_params_init.items():
-            
+
             params_path = create_unique_file_link(breakpoint_path,
                                             value.get('params_path'))
             aggregated_params[key] = { 'params_path': params_path }
@@ -476,7 +487,7 @@ class Experiment:
             object_instance = object_class()
         else:
             object_instance = object_class(**object_kwargs)
-        
+
         # load breakpoint state for object
         object_instance.load_state(args)
 
