@@ -82,7 +82,7 @@ hr {
 }
 
 .App .main-frame .router-frame .inner {
-  padding: 20px 20px 0px 20px;
+  padding: 0px 20px 0px 20px;
   display: flex;
   flex-flow: column;
   position: relative;
@@ -294,7 +294,7 @@ hr {
 /* Repository CSS Start ---------------------------------------------------------------------------------*/
 
 .main-repository {
-  max-width: 100%;
+  width: fit-content;
   border-left: 1px solid #ddd;
   border-top:1px solid #ddd;
   position: relative;
@@ -314,6 +314,12 @@ hr {
   border-right: 1px solid #ddd;
   border-radius: 5px;
   overflow-y: scroll;
+}
+
+.repository-bar .end {
+  padding: 20px;
+  background: #c15c5c;
+  color: #fff;
 }
 
 .repository-bar .repository-item {
@@ -346,13 +352,24 @@ hr {
 .repository-bar .repository-item .icon.right {
   margin-left:auto;
 }
-.repository-bar .repository-item .icon .dot{
+.dot{
   width: 10px;
   height: 10px;
   border-radius: 5px;
   background-color:green
 
 }
+
+.dot.empty{
+
+  background: transparent;
+  border: 2px solid green;
+  border-radius: 10px;
+  width:8px;
+  height: 8px;
+
+}
+
 
 .repository-bar .repository-item .icon.width-auto {
   width:40px;
@@ -683,5 +700,95 @@ textarea.input {
 }
 
 
-
 /* Inputs CSS Ends --------------- Inputs ----------------*/
+
+
+/* Note View ----------------------------------------------*/
+
+.note {
+  background: #d4eef7;
+  position: relative;
+  color: #666;
+  padding: 20px;
+      padding-left: 20px;
+  border-radius: 10px;
+  padding-left: 35px;
+  margin: 10px 0px 10px 0px;
+}
+
+.note p{
+    margin-bottom: 0px !important;
+    margin-top: 3px !important;
+    margin-left: 10px !important;
+}
+
+.note::before {
+    content: "!";
+    position: absolute;
+    left: 10px;
+    background: #fff;
+    border-radius: 10px;
+    width: 15px;
+    height: 15px;
+    padding: 5px;
+    text-align: center;
+    font-weight: bold;
+    color: var(--primary-hover);
+}
+
+/* --- Notes ENDS --------------------------------------------------*/
+
+/* --- CSS LOADER ------------------------------------------------*/
+
+.loader-frame {
+  display: none;
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  left: 0px;
+  bottom: 0px;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.7);
+  z-index: 15;
+}
+
+.loader-frame.active {
+    display: flex;
+}
+
+.lds-ring {
+  display: inline-block;
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+.lds-ring div {
+  box-sizing: border-box;
+  display: block;
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  margin: 8px;
+  border: 8px solid #fff;
+  border-radius: 50%;
+  animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  border-color: var(--primary-color) transparent transparent transparent;
+}
+.lds-ring div:nth-child(1) {
+  animation-delay: -0.45s;
+}
+.lds-ring div:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.lds-ring div:nth-child(3) {
+  animation-delay: -0.15s;
+}
+@keyframes lds-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}

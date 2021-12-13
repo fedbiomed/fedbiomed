@@ -30,24 +30,35 @@ def list_data_path():
 
     # Check if the path is exist or it is a directory
     if os.path.exists(dpath) and os.path.isdir(dpath):
-        base = '/' if len(req_path) == 0 else os.path.join(*req_path)
-        pathfiles = os.listdir(dpath)
+        base = os.sep if len(req_path) == 0 else os.path.join(*req_path)
+        files = os.listdir(dpath)
+
         res = {
             'level': len(req_path),
             'base': base,
-            'files': []
+            'files': [],
+            'number': len(files),
+            'displays': len(files) if len(files) <= 100 else 100
         }
+
+        files = files if len(files) <= 100 else files[0:100]
 
         table = database.db().table('_default')
         query = database.query()
         table.clear_cache()
 
-        for file in pathfiles:
+        for file in files:
             fullpath = os.path.join(dpath, file)
             # Get dataset registered with full path
             dataset = table.get(query.path == fullpath)
+
+            # Folder that includes any data file
+            includes = []
+            if not dataset and os.path.isdir(fullpath):
+                includes = table.search(query.path.matches('^' + os.path.join(fullpath, '')))
+
             # This is the path that will be displayed on the GUI 
-            # It is create as list to be able use it with `os.path.join` 
+            # It is created as list to be able to use it with `os.path.join`
             exact_path = [*req_path, file]
             extension = os.path.splitext(fullpath)[1]
 
@@ -57,7 +68,8 @@ def list_data_path():
                                  "name": file,
                                  "path": exact_path,
                                  "extension": extension,
-                                 'registered': dataset})
+                                 'registered': dataset,
+                                 'includes': includes})
 
         return jsonify(res), 200
 

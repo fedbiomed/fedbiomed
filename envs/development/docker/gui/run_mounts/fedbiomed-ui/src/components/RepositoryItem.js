@@ -72,14 +72,19 @@ export const RepositoryItem = (props) => {
                         </Link>
                     </div>
                 </React.Fragment>
-            ) : (
-                <div title="Add as dataset" style={{width:'auto'}} className="icon right action-add"
-                     onClick={(event) => onAdd(event,props.item)}>
-                    <div className={"select-sm-button"}>
-                        {props.actionText}
-                    </div>
+            ) :  props.item.includes.length > 0 ? (
+                <div className="icon right action-display" title="This item is registered as dataset">
+                    <div className="dot empty"/>
                 </div>
-            )}
+            ) : props.displayAdd ? (
+                        <div title="Add as dataset" style={{width:'auto'}} className="icon right action-add"
+                             onClick={(event) => onAdd(event,props.item)}>
+                            <div className={"select-sm-button"}>
+                                {props.actionText}
+                            </div>
+                        </div>
+                    ) : null
+            }
         </div>
     );
 }

@@ -6,6 +6,7 @@ import {EP_DATASET_PREVIEW, DATA_NOTFOUND, EP_DATASET_UPDATE} from '../constants
 import {Text, Tag, TextArea} from '../components/Inputs'
 import {Button, ButtonsWrapper} from '../components/Button'
 import axios from 'axios';
+import Repository from "./Repository";
 
 export const DatasetPreview = (props) => {
 
@@ -153,6 +154,7 @@ export const DatasetPreview = (props) => {
         setEdit(false)
     }
 
+    console.log(preview)
 
     return (
         <div className="data-preview">
@@ -166,14 +168,16 @@ export const DatasetPreview = (props) => {
                             ) : null
 
                         }
-                        { edit ? (
-                            <ButtonsWrapper className={"float-right"}>
+                         <ButtonsWrapper className={"float-right"}>
+                            { edit ? (
+                               <>
                                 <Button type={"negative"} onClick={editCanceled}>Cancel</Button>
                                 <Button onClick={updateDataset}>Update</Button>
-                            </ButtonsWrapper>
-                        ) : (
-                           <Button onClick={onEditClick}>Edit</Button>
-                        )}
+                               </>
+                            ) : (
+                               <Button onClick={onEditClick}>Edit</Button>
+                            )}
+                        </ButtonsWrapper>
                         <hr/>
                         <h4>Dataset Preview</h4>
                         {
@@ -181,7 +185,13 @@ export const DatasetPreview = (props) => {
                                 preview.data_type === "csv" ? (
                                     <TableData table={preview.data_preview}/>
                                 ) : (
-                                    <div className={`repository`}></div>
+                                    <div className={`repository`}>
+                                        <Repository
+                                            path={preview.data_preview}
+                                            after={preview.data_preview.length}
+                                            mode={`preview`}
+                                        />
+                                    </div>
                                 ) : (
                                     <div className={`error-box`}>
                                         {DATA_NOTFOUND}

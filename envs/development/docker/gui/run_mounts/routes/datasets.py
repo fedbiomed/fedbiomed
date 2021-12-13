@@ -1,5 +1,4 @@
 import os
-import uuid
 
 from flask import jsonify, request
 from app import app
@@ -161,6 +160,11 @@ def get_preview_dataset():
             df = datamanager.read_csv(dataset['path'])
             data_preview = df.head().to_dict('split')
             dataset['data_preview'] = data_preview
+        elif os.path.isdir(dataset['path']):
+            dataset['data_preview'] = os.listdir(dataset['path'])
+            path_root = os.path.normpath(app.config["DATA_PATH"]).split(os.sep)
+            path = os.path.normpath(dataset['path']).split(os.sep)
+            dataset['data_preview'] = path[len(path_root):len(path)]
         else:
             dataset['data_preview'] = None
         return response(dataset, '/api/datasets/preview'), 200
@@ -204,13 +208,16 @@ def add_default_dataset():
         return error('Default MNIST dataset is already exist'), 400
     else:
         default_dir = os.path.join(app.config["DATA_PATH"], 'defaults')
+        mnist_dir = os.path.join(default_dir, 'mnist')
         if not os.path.exists(default_dir):
             os.mkdir(default_dir)
+        if not os.path.exists(os.path.join(default_dir, 'mnist')):
+            os.mkdir(mnist_dir)
 
         try:
             dataset_id = datamanager.add_database(name="mnist",
                                                   data_type="default",
-                                                  path=default_dir,
+                                                  path=mnist_dir,
                                                   tags=['#MNIST', "#dataset"],
                                                   description='MNIST Dataset'
                                                   )

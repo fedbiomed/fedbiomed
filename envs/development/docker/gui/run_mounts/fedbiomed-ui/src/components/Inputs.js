@@ -22,7 +22,6 @@ export const Label = (props) => {
 export const Text = (props) => {
 
     const ref = React.useRef()
-    console.log(ref)
     return (
         <input 
             className="input"

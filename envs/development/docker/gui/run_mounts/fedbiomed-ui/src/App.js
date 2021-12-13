@@ -14,8 +14,13 @@ import SideNav from './components/SideNav';
 import Datasets from './pages/Datasets';
 import AddDataset from './pages/AddDataset';
 import DatasetPreview from './pages/DatasetPreview';
+import Modal from "./components/Modal"
+import {connect, useDispatch} from 'react-redux'
+import Button, {ButtonsWrapper} from "./components/Button";
 
-function App() {
+function App(props) {
+
+  const dispatch = useDispatch()
 
   const [headerName, setHeaderName] = React.useState('Home')
 
@@ -27,6 +32,10 @@ function App() {
       setHeaderName(val)
   }
 
+
+  const onResultModalClose = () => {
+    dispatch({type:'RESET_GLOBAL_MODAL'})
+  }
 
   return (
     <div className="App">
@@ -47,13 +56,43 @@ function App() {
                     <Route path="/datasets/add-dataset" element={<AddDataset/>} />
                     <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview setHeader={setHeader}/>} />
                   </Routes>
+                  <div className={`loader-frame ${props.result.loading ?  'active' : ''}`}>
+                    <div className="lds-ring">
+                      <div></div>
+                      <div></div>
+                      <div></div>
+                      <div></div>
+                    </div>
+                  </div>
                 </div>
               </div>
           </div>
         </div>
       </Router>
+      <Modal show={props.result.show} onModalClose={onResultModalClose}>
+         <Modal.Header>
+           { props.result.error ? (
+               "Error"
+           ) : "Success"}
+         </Modal.Header>
+        <Modal.Content>
+            {props.result.message}
+        </Modal.Content>
+        <Modal.Footer>
+               <ButtonsWrapper className={"float-right"}>
+                        <Button onClick={onResultModalClose}>Close</Button>
+                </ButtonsWrapper>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }
 
-export default App;
+
+const mapStateToProps = (state) => {
+  return {
+    result : state.resultModal
+  }
+}
+
+export default connect(mapStateToProps,null)(App);

@@ -14,7 +14,7 @@ import {useNavigate, useLocation} from "react-router-dom";
 const items = [
     { key: '1', label: 'Home', path: '/', icon: HomeIcon},
     { key: '2', label: 'List Data Files', path: '/repository', icon: FolderIcon},
-    { key: '3', label: 'Display Datasets', path: '/datasets', icon: DataIcon },
+    { key: '3', label: 'Manage Datasets', path: '/datasets', icon: DataIcon },
     { key: '5', label: 'Add New Dataset', path: '/datasets/add-dataset', icon: PlusIcon },
     { key: '4', label: 'Node Configuration', path: '/configuration', icon: ConfIcon },
   ]

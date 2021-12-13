@@ -16,16 +16,19 @@ export const AddDataset = (props) => {
     const [newDataset, setNewDataset] = React.useState({})
     const selectDataType = React.useRef(null)
     const dispatch = useDispatch()
-    const [resultModal, setResultModal] = React.useState(false)
     const navigator = useNavigate()
 
     React.useEffect(() => {
-        if(props.addDatasetResult.error === true){
-            setResultModal(true)
-        }else if(props.addDatasetResult.success === true){
-            setResultModal(true)
+        if(props.addDatasetResult.success === true && props.addDatasetResult.waiting == false ){
+            dispatch({type : 'RESET_ADD_DATASET_RESULT'})
+            navigator('/datasets')
         }
-    }, [props.addDatasetResult.error,  props.addDatasetResult.success])
+
+        return () => {
+            dispatch({type : 'RESET_NEW_DATASET'})
+        }
+
+    }, [props.addDatasetResult.success])
 
 
     /**
@@ -39,17 +42,6 @@ export const AddDataset = (props) => {
     const handleModalClose = () => {
         setRepoModal(false)
     }
-
-    const onResultModalClose = () => {
-        if(props.addDatasetResult.error === true){
-            setResultModal(false)
-            dispatch({type : 'RESET_ADD_DATASET_RESULT'})
-        }else{
-            dispatch({type : 'RESET_NEW_DATASET'})
-            navigator('/datasets')
-        }
-    }
-
 
     /**
      * Selected file from repository, can be folder too
@@ -86,7 +78,6 @@ export const AddDataset = (props) => {
         if( props.new_dataset.extension === ".csv"){
             dataset.type = 'csv'
         }
-        console.log(dataset)
         props.addNewDataset(dataset)
     }
 
@@ -174,27 +165,9 @@ export const AddDataset = (props) => {
                     <Repository
                         onItemAddClick={onItemAddClick}
                         onSelect={onFolderFileSelect}
+                        mode={'file-browser'}
                     />
                 </Modal.Content>
-            </Modal>
-            <Modal show={resultModal} onModalClose={onResultModalClose}>
-                <Modal.Header>
-                    {
-                        props.addDatasetResult.error ? (
-                            <h3>Error!</h3>
-                        ) : (
-                             <h3>Success</h3>
-                        )
-                    }
-                </Modal.Header>
-                <Modal.Content>
-                    {props.addDatasetResult.message}
-                </Modal.Content>
-                <Modal.Footer>
-                    <ButtonsWrapper className={"float-right"}>
-                        <Button onClick={onResultModalClose}>Close</Button>
-                    </ButtonsWrapper>
-                </Modal.Footer>
             </Modal>
         </React.Fragment>
     );

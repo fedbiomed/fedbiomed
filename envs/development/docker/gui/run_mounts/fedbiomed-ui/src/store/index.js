@@ -1,9 +1,15 @@
 import { combineReducers } from "redux";
-import { repositoryReducer, datasetsreducer, datasetPreviewReducer } from "./reducers";
+import { repositoryReducer,
+         datasetsReducer,
+         datasetPreviewReducer,
+         resultReducer} from "./reducers";
+
+
 
 export default combineReducers({
     repository : repositoryReducer,
-    datasets   : datasetsreducer,
-    preview    : datasetPreviewReducer
+    datasets   : datasetsReducer,
+    preview    : datasetPreviewReducer,
+    resultModal: resultReducer
     
   })

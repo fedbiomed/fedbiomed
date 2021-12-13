@@ -1,9 +1,51 @@
+// --------------------------------------------------------------------------------------------------------------------
+const resultState = {
+    error : false,
+    success : false,
+    message : null,
+    show : false,
+    loading: false,
+
+}
+export const resultReducer = ( state = resultState, action) => {
+
+    switch (action.type){
+        case "SET_LOADING":
+            return {
+                ...state,
+                loading: action.payload
+            }
+        case "ERROR_MODAL":
+            return {
+                error:true,
+                show: true,
+                success: false,
+                message : action.payload,
+                loading:false
+            }
+        case "SUCCESS_MODAL":
+            return{
+                error:false,
+                show: true,
+                success:true,
+                message:action.payload,
+                loading:false
+            }
+        case "RESET_GLOBAL_MODAL":
+            return resultState
+        default:
+            return state
+    }
+}
+
+
+// --------------------------------------------------------------------------------------------------------------------
 const initialStateRepository = {
     files : {},
+    folders: {},
     error : false,
     message : null
 }
-
 
 /**
  * Reducer for listing repository. 
@@ -20,17 +62,10 @@ export const repositoryReducer = (state = initialStateRepository , action) => {
             return {
                 ...state,
                 files : action.payload.files,
+                fodlers:action.payload.folders,
                 error : false,
                 message : null
             }
-        case "ERROR":
-
-            return {
-                files : [],
-                error : true,
-                message : action.payload
-            }
-            
         default: 
             
             return state
@@ -38,27 +73,27 @@ export const repositoryReducer = (state = initialStateRepository , action) => {
 }
 
 
+// --------------------------------------------------------------------------------------------------------------------
 const initialStateDataSets = {
-    datasets : null,
+    datasets : [],
     new_dataset : [],
     add_dataset : {
-        error : null,
-        message : null,
         success : null,
+        message : null,
         result : null,
     },
     default_dataset: {
-        error : null,
-        message : null,
         success : null,
         result : null,
-        requested : false,
         waiting : false
+    },
+    remove_dataset : {
+        success:false,
+        waiting:false,
     },
     error : false,
     message : null
 }
-
 
 /**
  * Reducer for listing datasets 
@@ -66,7 +101,7 @@ const initialStateDataSets = {
  * @param {object} action 
  * @returns {object}
  */
-export const datasetsreducer = (state = initialStateDataSets, action) => {
+export const datasetsReducer = (state = initialStateDataSets, action) => {
 
     switch (action.type) {
 
@@ -76,6 +111,7 @@ export const datasetsreducer = (state = initialStateDataSets, action) => {
                 error : false,
                 datasets : action.payload
             }
+
         case "NEW_DATASET_TO_ADD":
             return {
                 ...state,
@@ -87,6 +123,7 @@ export const datasetsreducer = (state = initialStateDataSets, action) => {
                 error : false,
 
             }
+
         case "RESET_NEW_DATASET":
             return {
                 ...state,
@@ -108,66 +145,49 @@ export const datasetsreducer = (state = initialStateDataSets, action) => {
                 }
             }
         }
-        case "NEW_DATASET_ADD_ERROR":
-            return{
-                ...state,
-                add_dataset : {
-                    error : true,
-                    success : false,
-                    message : action.payload,
-                    result : null
-                }
-            }
-        case "NEW_DATASET_ADD_SUCCESS":
+
+        case "ADD_DATASET_RESULT":
             return {
                 ...state,
+                datasets: [...state.datasets, action.payload],
                 add_dataset : {
-                    error : false,
-                    success : true,
-                    message : "Dataset has been successfully added",
-                    result : action.payload,
+                         success:true,
+                         waiting:false
                 }
             }
-        case "DEFAULT_DATASET_ADD_SUCCESS":
 
+        case "DEFAULT_DATASET_ADD_SUCCESS":
             return {
                 ...state,
                 default_dataset: {
                     ...state.default_dataset,
-                    error: false,
-                    success: true,
+                    success : true,
                     waiting: false,
                     result: action.payload
                 }
             }
 
-        case "DEFAULT_DATASET_ADD_ERROR":
-
+        case "REMOVE_DATASET_ERROR":
             return {
                 ...state,
-                default_dataset: {
-                    ...state.default_dataset,
-                    error: true,
-                    success: false,
-                    waiting: false,
-                    message : action.payload,
-                    result: null
+                remove_dataset : {
+                    error:true,
+                    success:false,
+                    result: action.payload
                 }
             }
 
-        case "DEFAULT_DATASET_ADD_REQUEST":
-
+        case "REMOVE_DATASET_SUCCESS":
             return {
                 ...state,
-                default_dataset: {
-                    ...state.default_dataset,
-                    error : null,
-                    success : null,
-                    waiting : true,
-                    result : null,
-                    message : null
+                remove_dataset : {
+                    success:true,
+                    error:false,
+                    result: action.payload
                 }
             }
+
+
 
         case "UPDATE_DATASETS":
             return {
@@ -190,7 +210,7 @@ export const datasetsreducer = (state = initialStateDataSets, action) => {
 
 }
 
-
+// ---------------------------------------------------------------------------------------------------------------------
 const initialStateDataSetPreview = {
     data : null,
     error : false,

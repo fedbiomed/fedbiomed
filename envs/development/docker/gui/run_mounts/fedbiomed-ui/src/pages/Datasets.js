@@ -25,15 +25,14 @@ export const Datasets = (props) => {
      */
     React.useEffect(() => {
 
-        if(props.datasets.default_dataset.error){
-            //Popup fail
-        }else if(props.datasets.default_dataset.success){
+        if(props.datasets.default_dataset.success){
             //Popup success
+            listDatasetsAction()
         }else if(props.datasets.default_dataset.waiting){
             //Display loading
         }
 
-    }, [  props.datasets.default_dataset.error,
+    }, [
                 props.datasets.default_dataset.success,
                 props.datasets.default_dataset.waiting,
     ])
