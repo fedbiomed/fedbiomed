@@ -308,7 +308,7 @@ class TestJob(unittest.TestCase):
         self.assertEqual(test_job_torch._training_replies, new_training_replies)
 
 
-## TODO : add save/test links
+
     @patch('fedbiomed.researcher.job.create_unique_link')
     @patch('fedbiomed.researcher.job.create_unique_file_link')
     @patch('fedbiomed.researcher.job.Job._save_training_replies')
@@ -330,12 +330,25 @@ class TestJob(unittest.TestCase):
                 { 'params_path': '/path/to/job_test_save_state_params1.pt' }
             ]
         ]
-        file_link_path = '/path/to/job_test_save_state_params_file_link.pt'
+        # expected transformed values of new_training_replies for save state
+        new_training_replies_state = [
+            [
+                { 'params_path': 'xxx/job_test_save_state_params0.pt' }
+            ],
+            [
+                { 'params_path': 'xxx/job_test_save_state_params1.pt' }
+            ]
+        ]
+        
         link_path = '/path/to/job_test_save_state_params_link.pt'
 
         # patches configuration
         patch_create_unique_link.return_value = link_path
-        patch_create_unique_file_link.return_value = file_link_path
+        
+        def side_create_ufl(breakpoint_folder_path, file_path):
+            return os.path.join(breakpoint_folder_path, os.path.basename(file_path))
+        patch_create_unique_file_link.side_effect = side_create_ufl
+
         patch_job_save_training_replies.return_value = new_training_replies
 
 
@@ -367,7 +380,7 @@ class TestJob(unittest.TestCase):
             for response_i, _ in enumerate(round):
                 self.assertEqual(
                     save_state['training_replies'][round_i][response_i]['params_path'], 
-                    file_link_path)
+                    new_training_replies_state[round_i][response_i]['params_path'])
 
 
 if __name__ == '__main__':  # pragma: no cover
