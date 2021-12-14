@@ -127,7 +127,8 @@ export const Datasets = (props) => {
         <React.Fragment>
             <div className="frame-header">
                 <div className={`row`}>
-                    <p>List of datasets loaded in the node</p>
+                    <p>This page displays loaded datasets in the node.
+                    </p>
                     {
                         defaultDataStatus() === false ? (
                             <Button style={{'margin-left':'auto'}} onClick={onAddDefaultDataset}>
@@ -136,8 +137,16 @@ export const Datasets = (props) => {
                         ) : null
                     }
                 </div>
+                <div className={"note"}>
+                    <p>
+                    Please click on
+                    <div style={{display:'inline-block', marginLeft:10, marginRight: 10}} className="icon"><LaunchIcon width={"15px"} height={"15px"}/></div>
+                    button to display details of the dataset. To remove the dataset, please click on
+                    <div style={{display:'inline-block', marginLeft:10, marginRight: 10}} className="icon"><GarbageLogo width={"15px"} height={"15px"}/></div>
+                    button.
+                    </p>
+                </div>
             </div>
-            <hr/>
             <div className="frame-content">
 
                 <table className="datasets">

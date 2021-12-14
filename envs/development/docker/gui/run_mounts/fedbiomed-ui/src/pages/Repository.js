@@ -16,6 +16,10 @@ const Repository = (props) => {
     const frameContent = React.useRef(null)
     const mainRepository = React.useRef(null)
 
+
+    /**
+     * Hook for getting files in the repository
+     */
     React.useEffect(() => {
         if(path){
             props.getFiles({path : path})
@@ -27,7 +31,7 @@ const Repository = (props) => {
 
 
     /**
-     * Scroll effect when repository width is greater than
+     * Hook for scroll effect when repository width is greater than
      * frame width
      */
     React.useEffect( () => {
@@ -134,9 +138,9 @@ const Repository = (props) => {
                                     })}
                                     {
                                         props.repository.folders[itemBar].displays <  props.repository.folders[itemBar].number ? (
-                                                <div className={"end"}>
-                                                    Only displaying {props.repository.folders[itemBar].displays} out of {props.repository.folders[itemBar].number}
-                                                </div>
+                                            <div className={"end"}>
+                                                Only displaying {props.repository.folders[itemBar].displays} out of {props.repository.folders[itemBar].number}
+                                            </div>
                                         ) : null
                                     }
                                 </RepositoryBar>
@@ -175,19 +179,21 @@ const Repository = (props) => {
     );
 }
 
+// Default props
 Repository.defaultProps = {
     after : 0,
     path  : null,
     mode  : null,
 }
 
-
+// Redux state to props
 const mapStateToProps = (state) => {
     return {
         repository : state.repository
     }
 }
 
+// Redux dispatch functions to props
 const mapDispatchToProps = (dispatch) => {
     return {
         getFiles: (data) => dispatch(getFilesFromRepository(data))
