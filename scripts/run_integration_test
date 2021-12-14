@@ -1,0 +1,211 @@
+#!/bin/bash
+#
+# Integration test (can also be used on ci.inria.fr)
+#
+# This script runs all components necessary for a single test:
+# - a dockerized network
+# - a node
+# - a researcher
+#
+# the researcher runs the given script (python ot python notebook)
+# the dataset is loaded into local DB of the node
+# everything is cleaned at the end of the run.
+#
+# Arguments:
+# -s script     python script or a notebook to run
+# -d dataset    location of required dataset (directory)
+#
+# Example:
+# ./scripts/run_integration_test -s ./notebooks/getting-started.py \
+#                                -d ./tests/datasets/mnist.json
+#
+
+
+# timeout in seconds for aborting the test
+TEST_TIMEOUT=900
+
+# locate into topdir of the distribution
+basedir=$(cd $(dirname $0)/.. || exit -1 ; pwd)
+cd $basedir || exit -1
+
+# usage
+usage() {
+    echo "\
+Usage: ${0##*/} -s file -d dataset.json
+
+  -h, --help                  this help
+  -s, --script  <file>        script to ryn (.py or .ipynb)
+  -d, --dataset <json-file>   dataset description
+
+Remark: only dataset avaibility is checked. Coherence between
+provided script and dataset is not validated by this launcher
+"
+    exit 0
+}
+
+bad_usage () {
+    local name=$1
+    shift
+    echo >&2 "\
+** ${name##*/}: Bad Usage: $*
+** Cf: $name --help"
+    exit -1
+}
+
+# find all suprocesses of a given pid
+# (should be as portable as pgrep is)
+subprocess() {
+    parent=$1
+
+    pids=$(/usr/bin/pgrep -P $parent)
+
+    if [ -z "pids" ]
+    then
+        echo ""
+    fi
+
+    list=""
+    for i in $pids
+    do
+        list+="$i $(subprocess $i) "
+    done
+
+    echo "$list"
+}
+
+
+# ----------
+# ** main **
+# ----------
+
+# prerequisite: OS specific commands
+UNAME=$(uname)
+case $UNAME in
+    Linux )
+        CMD_TIMEOUT=/usr/bin/timeout
+        ;;
+    Darwin )
+        CMD_TIMEOUT=/usr/local/bin/gtimeout
+        if [ ! -x "${CMD_TIMEOUT}" ]
+        then
+            echo "Please install ${CMD_TIMEOUT} using: brew install coreutils"
+            exit -1
+        fi
+        ;;
+    *)
+        echo "This script is only supported on Linux and Apple Mac OSX"
+        exit
+        ;;
+esac
+
+# argument decoding
+SCRIPT=""
+DATASET=""
+while (($# > 0)); do
+    case $1 in
+        -h|--help )
+            usage
+            ;;
+        -s | --script )
+            (($# >= 2 )) || { bad_usage "$0" "$1"; }
+            SCRIPT="$2"
+            shift
+            ;;
+
+        -d | --dataset )
+            (($# >= 2 )) || { bad_usage "$0" "$1"; }
+            DATASET="$2"
+            shift
+            ;;
+
+        -* )
+            bad_usage "$PROG" "Unknown option: $1"
+            ;;
+        * )
+            break
+            ;;
+    esac
+    shift
+done
+
+# mandatory arguments
+[[ $SCRIPT ]] || bad_usage "$0" "providing a script is mandatory"
+[[ $DATASET ]] || bad_usage "$0" "providing a dataset json description is mandatory"
+
+# is script ok ?
+# TODO add python test and notebook to python converter
+if [ ! -f "$SCRIPT" ]
+then
+    echo "ERROR: script is not a valid"
+    exit -1
+fi
+
+# path to dataset
+if [ ! -f "$DATASET" ]
+then
+    echo "ERROR: dataset is not a valid"
+    exit -1
+fi
+
+##### try to run this thing....
+
+
+# launch network
+echo "** INFO: launching fedbiomed network"
+$basedir/scripts/fedbiomed_run network
+sleep 3
+
+# populate node
+echo "** INFO: populating fedbiomed node"
+$basedir/scripts/fedbiomed_run node -adff $DATASET
+
+# launch node
+echo "** INFO: launching fedbiomed node"
+$basedir/scripts/fedbiomed_run node start &
+npid=$!
+sleep 10
+
+# find all processes forked at node start
+all_pids=$npid
+all_pids+=" $(subprocess $npid)"
+
+# launch test and wait for completion
+echo "** INFO: launching fedbiomed researcher"
+
+if [ -x "$SCRIPT" ]
+then
+    source $basedir/scripts/fedbiomed_environment researcher
+    ${CMD_TIMEOUT} --preserve-status --signal=HUP --kill-after=10 $TEST_TIMEOUT $SCRIPT
+else
+    # TODO has to be checked before launching everything
+    echo "INFO: script $SCRIPT is not executable, skipping"
+fi
+status=$?
+
+##clean running node
+if [ -z "$all_pids" ]
+then
+    echo "** INFO: no node process to kill"
+else
+    echo "** INFO: killing node processes: $all_pids"
+    kill -15 $all_pids
+    sleep 3
+    kill -9 $all_pids 2> /dev/null
+fi
+
+# kill the docker containers
+( cd $basedir/envs/development/docker ; docker-compose down )
+
+#
+# clean all datasets
+$basedir/scripts/fedbiomed_run node --delete-all
+
+## exit code
+if [ $status -eq 0 ]
+then
+    echo "** Success"
+    exit 0
+else
+    echo "** Failure with status: $status"
+    exit 1
+fi
