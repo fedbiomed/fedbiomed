@@ -40,15 +40,13 @@ Usage: ${0##*/} -s file -d dataset.json
 Remark: only dataset avaibility is checked. Coherence between
 provided script and dataset is not validated by this launcher
 "
-    exit 0
 }
 
 bad_usage () {
-    local name=$1
-    shift
-    echo >&2 "\
-** ${name##*/}: Bad Usage: $*
-** Cf: $name --help"
+    echo "\
+ERROR: $*
+"
+    usage
     exit -1
 }
 
@@ -79,8 +77,7 @@ subprocess() {
 # ----------
 
 # prerequisite: OS specific commands
-UNAME=$(uname)
-case $UNAME in
+case $(uname) in
     Linux )
         CMD_TIMEOUT=/usr/bin/timeout
         ;;
@@ -105,45 +102,47 @@ while (($# > 0)); do
     case $1 in
         -h|--help )
             usage
+            exit 0
             ;;
         -s | --script )
-            (($# >= 2 )) || { bad_usage "$0" "$1"; }
+            (($# >= 2 )) || { bad_usage "$1"; }
             SCRIPT="$2"
             shift
             ;;
 
         -d | --dataset )
-            (($# >= 2 )) || { bad_usage "$0" "$1"; }
+            (($# >= 2 )) || { bad_usage "$1"; }
             DATASET="$2"
             shift
             ;;
 
         -* )
-            bad_usage "$PROG" "Unknown option: $1"
+            bad_usage "Unknown option: $1"
             ;;
         * )
-            break
+            bad_usage "no parameter allowed: $1"
             ;;
     esac
     shift
 done
 
 # mandatory arguments
-[[ $SCRIPT ]] || bad_usage "$0" "providing a script is mandatory"
-[[ $DATASET ]] || bad_usage "$0" "providing a dataset json description is mandatory"
+[[ $SCRIPT ]] || bad_usage "providing a script is mandatory"
+[[ $DATASET ]] || bad_usage "providing a dataset json description is mandatory"
 
 # is script ok ?
 # TODO add python test and notebook to python converter
 if [ ! -f "$SCRIPT" ]
 then
-    echo "ERROR: script is not a valid"
+    echo "ERROR: script $SCRIPT is not a valid"
     exit -1
 fi
 
 # path to dataset
+# TODO test if is is json file (? or trust node/cli.py to do it)
 if [ ! -f "$DATASET" ]
 then
-    echo "ERROR: dataset is not a valid"
+    echo "ERROR: dataset $DATASET is not a valid"
     exit -1
 fi
 
