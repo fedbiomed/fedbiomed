@@ -24,9 +24,9 @@
 # timeout in seconds for aborting the test
 TEST_TIMEOUT=900
 
-# locate into topdir of the distribution
+# locate the topdir of the distribution
 basedir=$(cd $(dirname $0)/.. || exit -1 ; pwd)
-cd $basedir || exit -1
+#cd $basedir || exit -1
 
 # usage
 usage() {
@@ -71,6 +71,59 @@ subprocess() {
     echo "$list"
 }
 
+
+script_executor() {
+    #
+    # return the command necessary to run the script
+    #
+    script=$1
+
+    case $script in
+        *.py)
+            if [ -x $script ]
+            then
+                echo "$script"
+            else
+                echo "python $script"
+            fi
+            ;;
+        *.ipynb)
+            # converting notebook to sctring to run
+            output="${script##*/}.$RANDOM"
+            convert=$(jupyter nbconvert --output-dir=/tmp --output=$output --to script $script 2> /dev/null)
+            if [ $? == 0 ]
+            then
+                # conversion did well
+                echo "ipython /tmp/$output.py"
+            else
+                # must quit
+                echo "$script: CANNOT RUN THIS SCRIPT"
+                return -1
+            fi
+            ;;
+        *)
+            file=$(file $script| grep -i python)
+            if [ -z "$file" ]
+            then
+                if [ -x "$script" ]
+                then
+                    echo "$script"
+                else
+                    echo "$script: CANNOT RUN THIS SCRIPT"
+                    return -1
+                fi
+            else
+                if [ -x $script ]
+                then
+                    echo "$script"
+                else
+                    echo "python $script"
+                fi
+            fi
+            ;;
+    esac
+    return 0
+}
 
 # ----------
 # ** main **
@@ -131,10 +184,13 @@ done
 [[ $DATASET ]] || bad_usage "providing a dataset json description is mandatory"
 
 # is script ok ?
-# TODO add python test and notebook to python converter
-if [ ! -f "$SCRIPT" ]
+CMD_TO_RUN=$(script_executor $SCRIPT)
+if [  $? == 0 ]
 then
-    echo "ERROR: script $SCRIPT is not a valid"
+    echo $CMD_TO_RUN
+else
+    echo "ERROR: I do not know how to launch: $SCRIPT"
+    echo "       I need a python/notebook or at least an executable"
     exit -1
 fi
 
@@ -169,16 +225,9 @@ all_pids=$npid
 all_pids+=" $(subprocess $npid)"
 
 # launch test and wait for completion
-echo "** INFO: launching fedbiomed researcher"
-
-if [ -x "$SCRIPT" ]
-then
-    source $basedir/scripts/fedbiomed_environment researcher
-    ${CMD_TIMEOUT} --preserve-status --signal=HUP --kill-after=10 $TEST_TIMEOUT $SCRIPT
-else
-    # TODO has to be checked before launching everything
-    echo "INFO: script $SCRIPT is not executable, skipping"
-fi
+echo "** INFO: launching fedbiomed researcher ($CMD_TO_RUN)"
+source $basedir/scripts/fedbiomed_environment researcher
+${CMD_TIMEOUT} --preserve-status --signal=HUP --kill-after=10 $TEST_TIMEOUT $CMD_TO_RUN
 status=$?
 
 ##clean running node
