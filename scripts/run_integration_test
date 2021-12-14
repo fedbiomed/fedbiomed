@@ -25,8 +25,10 @@
 TEST_TIMEOUT=900
 
 # locate the topdir of the distribution
+# WARNING: providing a relative dataset.json file containing a relative 'path' value  will not work
+# TODO: fix this
 basedir=$(cd $(dirname $0)/.. || exit -1 ; pwd)
-#cd $basedir || exit -1
+cd $basedir || exit -1
 
 # usage
 usage() {
