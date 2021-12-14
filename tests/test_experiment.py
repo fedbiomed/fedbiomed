@@ -1,3 +1,4 @@
+from copy import deepcopy
 import unittest
 from unittest.mock import patch, MagicMock, mock_open, Mock, PropertyMock
 import os
@@ -6,7 +7,10 @@ import shutil
 import json
 from typing import Union
 
-# import a fake environment for tests bafore importing other files
+# be sure to start from clean environment
+from testsupport.delete_environ import delete_environ
+delete_environ()
+# use the test fake environ
 import testsupport.mock_common_environ
 
 from fedbiomed.researcher.environ import environ
@@ -23,20 +27,21 @@ from fedbiomed.researcher.experiment import Experiment
 #        f.write("this is a test- file. \
 #            This file should be removed at the end of unit tests")
 #
-#def load_json(file: str) -> Union[None, Exception]:
-#    """tests if a JSON file is parsable
-#
-#    Args:
-#        file (str): path name of the json file to load
-#    Returns:
-#
-#    """
-#    try:
-#        with open(file, "r") as f:
-#            json.load(f)
-#        return None
-#    except Exception as err:
-#        return err
+
+def load_json(file: str) -> Union[None, Exception]:
+    """tests if a JSON file is parsable
+
+    Args:
+        file (str): path name of the json file to load
+    Returns:
+
+    """
+    try:
+        with open(file, "r") as f:
+            json.load(f)
+        return None
+    except Exception as err:
+        return err
 
 
 class TestStateExp(unittest.TestCase):
@@ -50,8 +55,10 @@ class TestStateExp(unittest.TestCase):
             pass
         
         # folder name for experimentation in EXPERIMENT_DIR
-        self.experiment_folder = 'Experiment_101'
-        os.makedirs(os.path.join(environ['EXPERIMENTS_DIR'], self.experiment_folder)) 
+        self.experimentation_folder = 'Experiment_101'
+        self.experimentation_folder_path = \
+            os.path.join(environ['EXPERIMENTS_DIR'], self.experimentation_folder)
+        os.makedirs(self.experimentation_folder_path) 
 
         self.patchers = [
             patch('fedbiomed.researcher.requests.Requests.__init__',
@@ -61,7 +68,7 @@ class TestStateExp(unittest.TestCase):
             patch('fedbiomed.researcher.datasets.FederatedDataSet.__init__',
                             return_value=None),
             patch('fedbiomed.researcher.experiment.create_exp_folder',
-                            return_value=self.experiment_folder),
+                            return_value=self.experimentation_folder),
             patch('fedbiomed.researcher.job.Job.__init__',
                             return_value=None),
             patch('fedbiomed.researcher.monitor.Monitor.__init__',
@@ -72,11 +79,17 @@ class TestStateExp(unittest.TestCase):
                             return_value=None)
         ]
 
-        #self.patcher.start()
         for patcher in self.patchers:
             patcher.start()
 
-        self.test_exp = Experiment(['some_tags'], tensorboard=True, save_breakpoints=True)
+        self.rounds = 4
+        self.tags = ['some_tag', 'more_tag']
+
+        self.test_exp = Experiment(
+            tags = self.tags,
+            rounds = self.rounds,
+            tensorboard=True,
+            save_breakpoints=True)
 
 
     def tearDown(self) -> None:
@@ -91,38 +104,124 @@ class TestStateExp(unittest.TestCase):
             pass
 
 
-    def test_save_states(self):
+    @patch('fedbiomed.researcher.experiment.create_unique_file_link')
+    @patch('fedbiomed.researcher.experiment.create_unique_link')
+    @patch('fedbiomed.researcher.job.Job.save_state')
+    @patch('fedbiomed.researcher.job.Job.model_class')
+    @patch('fedbiomed.researcher.job.Job.model_file')
+    @patch('fedbiomed.researcher.datasets.FederatedDataSet.data')
+    @patch('fedbiomed.researcher.experiment.choose_bkpt_file')
+    # testing save_states + _save_aggregated_params
+    def test_save_states(
+            self,
+            patch_choose_bkpt_file,
+            patch_fds_data,
+            patch_job_model_file,
+            patch_job_model_class,
+            patch_job_save_state,
+            patch_create_ul,
+            patch_create_ufl
+            ):
         """tests `save_states` private method:
-        1. if model file is copied from temporary folder to breakpoint folder
-        2. if state file created is json loadable
+        1. if state file created is json loadable
+        2. if state file content looks correct
         """
 
-        # Lets mock `node_selection_strategy`
-        self.test_exp._node_selection_strategy = MagicMock(return_value=None)
-        self.test_exp._node_selection_strategy.save_state = MagicMock(return_value={})
-        with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmpdirname:
-            def return_state(x=0):
-                '''mimicking job.py 'save_state' method'''
-                pass
-            tempfile_path = os.path.join(tmpdirname, 'test_save')
-            create_file(tempfile_path)
-            self.test_exp._job.save_state = return_state
-            self.test_exp._job.state = {"model_path": str(tempfile_path),
-                                        'params_path': {}}
+        # name to for breakpoint file
+        bkpt_file = 'my_breakpoint'
+        # training data
+        training_data = { 'node1': 'dataset1', 'node2': 'dataset2' }
+        # we want to test with non null values
+        training_args = { 'trarg1': 'my_string', 'trarg2': 444, 'trarg3': True }
+        self.test_exp._training_args = training_args
+        model_args = { 'modelarg1': 'value1', 'modelarg2': 234, 'modelarg3': False }
+        self.test_exp._model_args = model_args
+        model_file = '/path/to/my/model_file.py'
+        model_class = 'MyOwnTrainingPlan'
+        round_number = 2
+        aggregator_state = { 'aggparam1': 'param_value', 'aggparam2': 987, 'aggparam3': True }
+        strategy_state = { 'stratparam1': False, 'stratparam2': 'my_strategy', 'aggparam3': 0.45 }
+        job_state = { 'jobparam1': { 'sub1': 1, 'sub2': 'two'}, 'jobparam2': 'myjob_value' }
 
-            self.test_exp._save_state()
-            exp_path = os.path.join(environ['VAR_DIR'],
-                                    "breakpoints",
-                                    "Experiment_0",
-                                    'breakpoint_0')
-            self.assertTrue(os.path.isdir(exp_path))  # test if folder used
-            # for saving the breakpoint exists
-            test_model_path = os.path.join(exp_path, "breakpoint_0.json")
+        # aggregated_params
+        agg_params = {
+            'entry1': { 'params_path': '/dummy/path/to/aggparams/params_path.pt' },
+            'entry2': { 'params_path': '/yet/another/path/other_params_path.pt' } 
+        }
+        self.test_exp._aggregated_params = agg_params
 
-        # test if file containing state of experiment in breakpoint folder
-        # is JSON loadable
-        val = load_json(test_model_path)
-        self.assertIs(val, None)
+        # patch choose_bkpt_file create_unique_{file_}link  with minimal functions
+        def side_bkpt_file(exp_folder, round):
+            # save directly in experiment folder to avoir creating additional dirs
+            return self.experimentation_folder_path, bkpt_file
+        patch_choose_bkpt_file.side_effect = side_bkpt_file
+
+        def side_create_ul(bkpt_folder_path, link_src_prefix, link_src_postfix, link_target_path):
+            return os.path.join(bkpt_folder_path, link_src_prefix + link_src_postfix)
+        patch_create_ul.side_effect = side_create_ul
+
+        def side_create_ufl(bkpt_folder_path, file_path):
+            return os.path.join(bkpt_folder_path, os.path.basename(file_path))
+        patch_create_ufl.side_effect = side_create_ufl
+
+        # patch FederatedDataSet.data, Job state
+        patch_fds_data.return_value = training_data
+        patch_job_save_state.return_value  = job_state
+
+        # patch Job model_class / model_file
+        #patch_job_model_file.return_value = model_file
+        #patch_job_model_class.return_value = model_class
+        self.test_exp._job.model_file = model_file
+        self.test_exp._job.model_class = model_class
+
+        # build minimal objects, needed to extract state by calling object method
+        # (cannot just patch a method of a non existing object)
+        class Aggregator():
+            def save_state(self):
+                return aggregator_state
+        self.test_exp._aggregator = Aggregator()
+
+        class Strategy():
+            def save_state(self):
+                return strategy_state
+        self.test_exp._node_selection_strategy = Strategy()
+
+
+        # action
+        self.test_exp._save_breakpoint(round_number)
+        
+
+        # verification
+        final_model_path = os.path.join(
+            self.experimentation_folder_path, 
+            'model_' + str(round_number) + '.py')
+        final_agg_params = {
+            'entry1': {
+                'params_path': os.path.join(self.experimentation_folder_path, 'params_path.pt')
+                },
+            'entry2': {
+                'params_path': os.path.join(self.experimentation_folder_path, 'other_params_path.pt')
+                } 
+        }
+        # better : catch exception if cannot read file or not json
+        with open(os.path.join(self.experimentation_folder_path, bkpt_file), "r") as f:
+            final_state = json.load(f)
+
+        self.assertEqual(final_state['training_data'], training_data)
+        self.assertEqual(final_state['training_args'], training_args)
+        self.assertEqual(final_state['model_args'], model_args)
+        self.assertEqual(final_state['model_path'], final_model_path)
+        self.assertEqual(final_state['model_class'], model_class)
+        self.assertEqual(final_state['round_number'], round_number + 1)
+        self.assertEqual(final_state['round_number_due'], self.rounds)
+        self.assertEqual(final_state['experimentation_folder'], self.experimentation_folder)
+        self.assertEqual(final_state['aggregator'], aggregator_state)
+        self.assertEqual(final_state['node_selection_strategy'], strategy_state)
+        self.assertEqual(final_state['tags'], self.tags)
+        self.assertEqual(final_state['aggregated_params'], final_agg_params)
+        self.assertEqual(final_state['job'], job_state)
+        
+
 
 #    def test_create_breakpoint(self,
 #                               breakpoint_folder_name: str="breakpoint_"):

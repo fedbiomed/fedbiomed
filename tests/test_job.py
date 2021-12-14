@@ -1,14 +1,14 @@
-import copy
 import unittest
 from unittest.mock import patch, MagicMock
 
 import os
 
-# Managing NODE, RESEARCHER environ mock before running tests
+# be sure to start from clean environment
 from testsupport.delete_environ import delete_environ
-# Delete environ. It is necessary to rebuild environ for required component
 delete_environ()
+# use the test fake environ
 import testsupport.mock_common_environ
+
 # Import environ for node, since tests will be runing for node component
 from fedbiomed.researcher.environ import environ
 

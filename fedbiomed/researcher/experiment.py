@@ -239,7 +239,7 @@ class Experiment:
             self._aggregated_params[round_i] = {'params': aggregated_params,
                                                 'params_path': aggregated_params_path}
             if self._save_breakpoints:
-                self._save_state(round_i)
+                self._save_breakpoint(round_i)
 
         if self._monitor is not None:
             # Close SummaryWriters for tensorboard
@@ -272,9 +272,9 @@ class Experiment:
         return responses
 
 
-    def _save_state(self, round: int=0):
+    def _save_breakpoint(self, round: int=0):
         """
-        Saves a state of the training at a current round.
+        Saves breakpoint with the state of the training at a current round.
         The following Experiment attributes will be saved:
          - round_number
          - round_number_due
