@@ -359,6 +359,21 @@ def delete_database(interactive: bool = True):
             logger.error('Invalid option. Please, try again.')
 
 
+def delete_all_database():
+    my_data = data_manager.list_my_data(verbose=False)
+
+    if not my_data:
+        logger.warning('No dataset to delete')
+        return
+
+    for ds in my_data:
+        tags = ds['tags']
+        data_manager.remove_database(tags)
+        logger.info('Dataset removed for tags:' + str(tags))
+
+    return
+
+
 def register_model(interactive: bool = True):
 
     """ Method for registring model files through CLI """
@@ -486,12 +501,15 @@ def launch_cli():
                         type=str, nargs='?', const='', metavar='path_mnist',
                         action='store')
     # this option provides a json file describing the data to add
-    parser.add_argument('-adf', '--add-dataset-file',
+    parser.add_argument('-adff', '--add-dataset-from-file',
                         help='Add a local dataset described by json file (non-interactive)',
                         type=str,
                         action='store')
     parser.add_argument('-d', '--delete',
                         help='Delete existing local dataset (interactive)',
+                        action='store_true')
+    parser.add_argument('-da', '--delete-all',
+                        help='Delete all existing local datasets (non interactive)',
                         action='store_true')
     parser.add_argument('-dm', '--delete-mnist',
                         help='Delete existing MNIST local dataset (non-interactive)',
@@ -526,10 +544,10 @@ def launch_cli():
         add_database()
     elif args.add_mnist is not None:
         add_database(interactive=False, path=args.add_mnist)
-    elif args.add_dataset_file is not None:
+    elif args.add_dataset_from_file is not None:
         print("Dataset description file provided: adding these data")
         try:
-            with open(args.add_dataset_file) as json_file:
+            with open(args.add_dataset_from_file) as json_file:
                 data = json.load(json_file)
 
             # if path (in json) is relative, add the topdir in front of it
@@ -537,7 +555,7 @@ def launch_cli():
                 data["path"] = os.path.join(environ["ROOT_DIR"],data["path"])
 
         except:
-            logger.critical("cannot read json file: " + args.add_dataset_file)
+            logger.critical("cannot read json file: " + args.add_dataset_from_file)
             sys.exit(-1)
 
         add_database(interactive=False,
@@ -555,6 +573,8 @@ def launch_cli():
             print('No data has been set up.')
     elif args.delete:
         delete_database()
+    elif args.delete_all:
+        delete_all_database()
     elif args.delete_mnist:
         delete_database(interactive=False)
     elif args.register_model:

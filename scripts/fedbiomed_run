@@ -106,6 +106,11 @@ case $1 in
                     python -m fedbiomed.node.cli --delete $PARAMS
                     ;;
 
+                del-all|delete-all|--del-all|--delete-all|-da)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --delete-all $PARAMS
+                    ;;
+
                 delete-mnist|--delete-mnist|-dm)
                     source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --delete-mnist $PARAMS
@@ -121,9 +126,9 @@ case $1 in
                     python -m fedbiomed.node.cli --add-mnist $PARAMS
                     ;;
 
-                add-dataset-file|--add-dataset-file|-adf)
+                add-dataset-from-file|--add-dataset-from-file|-adff)
                     source ./scripts/fedbiomed_environment node $IP_ADDRESS
-                    python -m fedbiomed.node.cli -adf $PARAMS
+                    python -m fedbiomed.node.cli -adff $PARAMS
                     ;;
 
                 register-model|--register-model|-rml)
