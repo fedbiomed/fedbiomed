@@ -6,6 +6,7 @@ import tempfile
 import shutil
 import json
 from typing import Union
+from fedbiomed.researcher.datasets import FederatedDataSet
 
 # be sure to start from clean environment
 from testsupport.delete_environ import delete_environ
@@ -15,33 +16,6 @@ import testsupport.mock_common_environ
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.experiment import Experiment
-
-
-#def create_file(file_name: str):
-#    """creates a file in the specified path `file_name`
-#
-#    Args:
-#        file_name (str): path of the file
-#    """
-#    with open(file_name, "w") as f:
-#        f.write("this is a test- file. \
-#            This file should be removed at the end of unit tests")
-#
-
-def load_json(file: str) -> Union[None, Exception]:
-    """tests if a JSON file is parsable
-
-    Args:
-        file (str): path name of the json file to load
-    Returns:
-
-    """
-    try:
-        with open(file, "r") as f:
-            json.load(f)
-        return None
-    except Exception as err:
-        return err
 
 
 class TestStateExp(unittest.TestCase):
@@ -60,13 +34,21 @@ class TestStateExp(unittest.TestCase):
             os.path.join(environ['EXPERIMENTS_DIR'], self.experimentation_folder)
         os.makedirs(self.experimentation_folder_path) 
 
+        # build minimal objects, needed to extract state by calling object method
+        class FederatedDataSetMock():
+            def __init__(self, data):
+                self._data = data
+            def data(self):
+                return self._data
+
         self.patchers = [
             patch('fedbiomed.researcher.requests.Requests.__init__',
                             return_value=None),
             patch('fedbiomed.researcher.requests.Requests.search',
                             return_value={}),
-            patch('fedbiomed.researcher.datasets.FederatedDataSet.__init__',
-                            return_value=None),
+            # patch the whole class
+            patch('fedbiomed.researcher.datasets.FederatedDataSet',
+                            FederatedDataSetMock),
             patch('fedbiomed.researcher.experiment.create_exp_folder',
                             return_value=self.experimentation_folder),
             patch('fedbiomed.researcher.job.Job.__init__',
@@ -78,13 +60,14 @@ class TestStateExp(unittest.TestCase):
             patch('fedbiomed.researcher.requests.Requests.add_monitor_callback',
                             return_value=None)
         ]
-
+        
         for patcher in self.patchers:
             patcher.start()
 
         self.rounds = 4
         self.tags = ['some_tag', 'more_tag']
 
+        # useful for all tests, except load_breakpoint
         self.test_exp = Experiment(
             tags = self.tags,
             rounds = self.rounds,
@@ -109,22 +92,21 @@ class TestStateExp(unittest.TestCase):
     @patch('fedbiomed.researcher.job.Job.save_state')
     @patch('fedbiomed.researcher.job.Job.model_class')
     @patch('fedbiomed.researcher.job.Job.model_file')
-    @patch('fedbiomed.researcher.datasets.FederatedDataSet.data')
     @patch('fedbiomed.researcher.experiment.choose_bkpt_file')
-    # testing save_states + _save_aggregated_params
-    def test_save_states(
+    # testing _save_breakpoint + _save_aggregated_params
+    # (not exactly a unit test, but probably more interesting)
+    def test_save_breakpoint(
             self,
             patch_choose_bkpt_file,
-            patch_fds_data,
             patch_job_model_file,
             patch_job_model_class,
             patch_job_save_state,
             patch_create_ul,
             patch_create_ufl
             ):
-        """tests `save_states` private method:
+        """tests `save_breakpoint` private method:
         1. if state file created is json loadable
-        2. if state file content looks correct
+        2. if state file content is correct
         """
 
         # name to for breakpoint file
@@ -164,13 +146,10 @@ class TestStateExp(unittest.TestCase):
             return os.path.join(bkpt_folder_path, os.path.basename(file_path))
         patch_create_ufl.side_effect = side_create_ufl
 
-        # patch FederatedDataSet.data, Job state
-        patch_fds_data.return_value = training_data
+        # patch Job state
         patch_job_save_state.return_value  = job_state
 
         # patch Job model_class / model_file
-        #patch_job_model_file.return_value = model_file
-        #patch_job_model_class.return_value = model_class
         self.test_exp._job.model_file = model_file
         self.test_exp._job.model_class = model_class
 
@@ -186,6 +165,8 @@ class TestStateExp(unittest.TestCase):
                 return strategy_state
         self.test_exp._node_selection_strategy = Strategy()
 
+        # use the mocked FederatedDataSet
+        self.test_exp._fds = FederatedDataSet(training_data)
 
         # action
         self.test_exp._save_breakpoint(round_number)
@@ -220,7 +201,103 @@ class TestStateExp(unittest.TestCase):
         self.assertEqual(final_state['tags'], self.tags)
         self.assertEqual(final_state['aggregated_params'], final_agg_params)
         self.assertEqual(final_state['job'], job_state)
+
+
+    @patch('fedbiomed.researcher.job.Job.load_state')
+    @patch('fedbiomed.researcher.experiment.Experiment.model_instance.load')
+    @patch('fedbiomed.researcher.experiment.Experiment.model_instance')
+    @patch('fedbiomed.researcher.experiment.Experiment._create_object')
+    @patch('fedbiomed.researcher.experiment.find_breakpoint_path')
+    # test load_breakpoint + _load_aggregated_params + Experiment constructor
+    # (not exactly a unit test, but probably more interesting)
+    def test_load_breakpoint(self,
+                             patch_find_breakpoint_path,
+                             patch_create_object,
+                             patch_model_instance,
+                             patch_model_instance_load,
+                             patch_job_load_state
+                             ):
+        """ test `load_breakpoint` :
+            1. if breakpoint file is json loadable
+            2. if experiment is correctly configured from breakpoint
+        """
+
+        # breakpoint values
+        bkpt_file = 'file_4_breakpoint'
+
+        training_data = { 'train_node1': 'my_first_dataset', 2: 243 }
+        training_args = { 1: 'my_first arg', 'training_arg2': 123.45 }
+        model_args = { 'modarg1': True, 'modarg2': 7.12, 'modarg3': 'model_param_foo' }
+        model_path = '/path/to/breakpoint_model_file.py'
+        model_class = 'ThisIsTheTrainingPlan'
+        round_current = 1
+        experimentation_folder = 'My_experiment_folder_258'
+        aggregator = { 'aggreg1': False, 'aggreg2': 'dummy_agg_param', 18: 'agg_param18' }
+        strategy = { 'strat1': 'test_strat_param', 'strat2': 421, 3: 'strat_param3' }
+        aggregated_params = {
+            '1': { 'params_path': '/path/to/my/params_path_1.pt' },
+            '2': { 'params_path': '/path/to/my/params_path_2.pt' }
+        }
+        job = { 1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999 }
+
+        # breakpoint structure
+        state = {
+            'training_data': training_data,
+            'training_args': training_args,
+            'model_args': model_args,
+            'model_path': model_path,
+            'model_class': model_class,
+            'round_number': round_current + 1,
+            'round_number_due': self.rounds,
+            'experimentation_folder': experimentation_folder,
+            'aggregator': aggregator,
+            'node_selection_strategy': strategy,
+            'tags': self.tags,
+            'aggregated_params': aggregated_params,
+            'job': job
+        }
+        # create breakpoint file
+        with open(os.path.join(self.experimentation_folder_path, bkpt_file), "w") as f:
+            json.dump(state, f)
+
+        # mocked model params
+        model_params = { 'something.bias': [12, 14], 'something.weight': [13, 15] }
+
+        # target aggregated params
+        final_aggregated_params = deepcopy(aggregated_params)
+        for aggpar in final_aggregated_params.values():
+            aggpar['params'] = model_params
+
+        # patch functions for loading breakpoint
+        patch_find_breakpoint_path.return_value = self.experimentation_folder_path, bkpt_file
+        def side_create_object(args, **kwargs):
+            return args
+        patch_create_object.side_effect = side_create_object
+        patch_model_instance_load.return_value = model_params
+
+        # keep job state to ensure it was properly initialized
+        self.job_state = None
+        def side_job_load_state(job_state):
+            self.job_state = job_state
+        patch_job_load_state.side_effect = side_job_load_state
+
         
+        # action
+        loaded_exp = Experiment.load_breakpoint(self.experimentation_folder_path)
+
+        # TODO : assertions
+        print(type(loaded_exp))
+
+        ## tests
+        #patch_json_load.assert_called_once()  # check if patched
+        ## json has been called
+        #self.assertTrue(isinstance(loaded_exp, Experiment))
+        #self.assertEqual(loaded_exp._round_init,
+        #                 loaded_states.get('round_number'))
+        #self.assertEqual(loaded_exp._job._id,
+        #                 loaded_states.get('job_id'))
+        #self.assertEqual(loaded_exp._rounds,
+        #                 loaded_states.get('round_number_due'))
 
 
 #    def test_create_breakpoint(self,

@@ -118,7 +118,7 @@ class Experiment:
             # the researcher is looking for (`self._tags`) or based on node id
             # (`self._nodes`)
             training_data = self._reqs.search(self._tags, self._nodes)
-        if type(training_data).__name__ != 'FederatedDataSet':
+        if not isinstance(training_data, FederatedDataSet):
             # convert data to a data object if needed
             self._fds = FederatedDataSet(training_data)
         else:
@@ -433,13 +433,13 @@ class Experiment:
 
 
     @staticmethod
-    def _load_aggregated_params(aggregated_params: Dict[int, dict], func_load_params: Callable
+    def _load_aggregated_params(aggregated_params: Dict[str, dict], func_load_params: Callable
                 ) -> Dict[int, dict]:
         """Reconstruct experiment results aggregated params structure
         from a breakpoint so that it is identical to a classical `_aggregated_params`
 
         Args:
-            - aggregated_params (Dict[int, dict]) : JSON formatted aggregated_params
+            - aggregated_params (Dict[str, dict]) : JSON formatted aggregated_params
               extract from a breakpoint
             - func_load_params (Callable) : function for loading parameters
               from file to aggregated params data structure
@@ -480,13 +480,13 @@ class Experiment:
 
         # import module
         exec(import_str)
-        # create a class variable
-        object_class = eval(module_class)
+        # create a class variable containing the class
+        class_code = eval(module_class)
         # instantiate object from module
         if object_kwargs is None:
-            object_instance = object_class()
+            object_instance = class_code()
         else:
-            object_instance = object_class(**object_kwargs)
+            object_instance = class_code(**object_kwargs)
 
         # load breakpoint state for object
         object_instance.load_state(args)
