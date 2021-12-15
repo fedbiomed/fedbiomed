@@ -21,14 +21,20 @@
 #
 
 
+# ---------------
+# ** variables **
+# ---------------
+
 # timeout in seconds for aborting the test
 TEST_TIMEOUT=900
 
-# locate the topdir of the distribution
-# WARNING: providing a relative dataset.json file containing a relative 'path' value  will not work
-# TODO: fix this
-basedir=$(cd $(dirname $0)/.. || exit -1 ; pwd)
-cd $basedir || exit -1
+# file to remove after the run
+FILES_TO_CLEAN=""
+
+# ---------------
+# ** functions **
+# ---------------
+
 
 # usage
 usage() {
@@ -49,7 +55,7 @@ bad_usage () {
 ERROR: $*
 "
     usage
-    exit -1
+    exit 1
 }
 
 # find all suprocesses of a given pid
@@ -76,7 +82,7 @@ subprocess() {
 
 script_executor() {
     #
-    # return the command necessary to run the script
+    # return the command necessary to run the script (.py, .ipynb, any executable)
     #
     script=$1
 
@@ -95,6 +101,7 @@ script_executor() {
             convert=$(jupyter nbconvert --output-dir=/tmp --output=$output --to script $script 2> /dev/null)
             if [ $? == 0 ]
             then
+                FILES_TO_CLEAN+=" $output"
                 # conversion did well
                 echo "ipython /tmp/$output.py"
             else
@@ -127,9 +134,63 @@ script_executor() {
     return 0
 }
 
-# ----------
-# ** main **
-# ----------
+cleaning() {
+    #
+    # do all cleaning here (normal ending or trapped signal)
+    #
+    echo "** INFO: cleaning before quitting - please wait"
+
+    # clean files
+    if [ ! -z "$FILES_TO_CLEAN" ]
+    then
+        /bin/rm -fr $FILES_TO_CLEAN
+    fi
+
+    # clean running node processes
+    if [ -z "$all_pids" ]
+    then
+        echo "** INFO: no node process to kill"
+    else
+        echo "** INFO: killing node processes: $all_pids"
+        /usr/local/bin/pstree $npid
+        kill -15 $all_pids
+        sleep 3
+        kill -9 $all_pids 2> /dev/null
+    fi
+
+    # kill the docker containers
+    ( cd $basedir/envs/development/docker ; docker-compose down )
+
+    #
+    # clean all datasets
+    $basedir/scripts/fedbiomed_run node --delete-all
+}
+
+cleaning_trap() {
+    #
+    # script interruption
+    #
+
+    # avoid multiple CTLR-C from impatient users
+    trap '' INT TERM
+
+    cleaning
+    echo "** Failure: script was interrupted"
+    exit 1
+}
+
+# ---------------
+# **   main    **
+# ---------------
+
+# trap some signals
+trap cleaning_trap INT
+
+# locate the topdir of the distribution
+# WARNING: providing a relative dataset.json file containing a relative 'path' value  will not work
+# TODO: fix this
+basedir=$(cd $(dirname $0)/.. || exit -1 ; pwd)
+cd $basedir || exit -1
 
 # prerequisite: OS specific commands
 case $(uname) in
@@ -141,12 +202,12 @@ case $(uname) in
         if [ ! -x "${CMD_TIMEOUT}" ]
         then
             echo "Please install ${CMD_TIMEOUT} using: brew install coreutils"
-            exit -1
+            exit 1
         fi
         ;;
     *)
         echo "This script is only supported on Linux and Apple Mac OSX"
-        exit
+        exit 1
         ;;
 esac
 
@@ -193,7 +254,7 @@ then
 else
     echo "ERROR: I do not know how to launch: $SCRIPT"
     echo "       I need a python/notebook or at least an executable"
-    exit -1
+    exit 1
 fi
 
 # path to dataset
@@ -201,7 +262,7 @@ fi
 if [ ! -f "$DATASET" ]
 then
     echo "ERROR: dataset $DATASET is not a valid"
-    exit -1
+    exit 1
 fi
 
 ##### try to run this thing....
@@ -232,25 +293,10 @@ source $basedir/scripts/fedbiomed_environment researcher
 ${CMD_TIMEOUT} --preserve-status --signal=HUP --kill-after=10 $TEST_TIMEOUT $CMD_TO_RUN
 status=$?
 
-##clean running node
-if [ -z "$all_pids" ]
-then
-    echo "** INFO: no node process to kill"
-else
-    echo "** INFO: killing node processes: $all_pids"
-    kill -15 $all_pids
-    sleep 3
-    kill -9 $all_pids 2> /dev/null
-fi
+# do the cleaning before exit
+cleaning
 
-# kill the docker containers
-( cd $basedir/envs/development/docker ; docker-compose down )
-
-#
-# clean all datasets
-$basedir/scripts/fedbiomed_run node --delete-all
-
-## exit code
+## propagate exit code
 if [ $status -eq 0 ]
 then
     echo "** Success"
