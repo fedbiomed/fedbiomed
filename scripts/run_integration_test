@@ -173,16 +173,7 @@ cleaning_trap() {
     # avoid multiple CTLR-C from impatient users
     trap '' INT TERM
 
-    echo '#'
-    echo '#'
-    echo '#'
-    echo '#'
-    echo '# TRAP !!!!!'
-    echo '#'
-    echo '#'
-    echo '#'
-    echo '#'
-
+    echo "** INFO: test interrupted"
     cleaning
     echo "** Failure: script was interrupted"
     exit 1
