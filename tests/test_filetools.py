@@ -19,7 +19,7 @@ class TestFiletools(unittest.TestCase):
 
     def setUp(self):
 
-        self.testdir = environ['TMP_DIR']
+        self.testdir = environ['EXPERIMENTS_DIR']
 
         # delete and re-create empty the test directory
         try:
@@ -46,13 +46,54 @@ class TestFiletools(unittest.TestCase):
             pass
 
 
+    def test_create_exp_folder(self):
+        """
+        Tests method `create_exp_folder`
+        """
+
+        # OK giving a folder name
+        exp_folder = 'my_exp_folder'
+        self.assertEqual(exp_folder, filetools.create_exp_folder(exp_folder))
+        self.assertTrue(os.path.isdir(os.path.join(self.testdir, exp_folder)))
+
+        # KO folder cannot be created
+        os.chmod(self.testdir, 0o500)
+        exp_folder = 'bad_luck_for_you'
+        self.assertRaises(PermissionError, filetools.create_exp_folder, exp_folder)
+        os.chmod(self.testdir, 0o700)
+        print('toto')
+
+        # OK not choosing folder name, receiving default
+        return_folder = filetools.create_exp_folder()
+        self.assertEqual(return_folder, 'Experiment_1')
+        self.assertTrue(os.path.isdir(os.path.join(self.testdir, return_folder)))
+
+        # KO giving a path instead of folder name
+        exp_folders = [
+            './toto/dir',
+            'a/b',
+            '/tmp/var/',
+            self.testdir
+        ]
+        for testpath in exp_folders:
+            self.assertRaises(ValueError, filetools.create_exp_folder, testpath)
+
+        # KO cannot create EXPERIMENTS_DIR
+        saved_expdir = environ['EXPERIMENTS_DIR']
+        environ['EXPERIMENTS_DIR'] = os.path.join(self.testdir, 'subdir')
+        os.chmod(self.testdir, 0o500)
+        self.assertRaises(PermissionError, filetools.create_exp_folder, 'a_good_folder')
+        os.chmod(self.testdir, 0o700)
+        environ['EXPERIMENTS_DIR'] = saved_expdir
+
+
     def test_choose_bkpt_file(self):
         """
         Tests method `choose_bkpt_file`.
         Checks the correct spelling of breakpoint and state file.
         """
 
-        breakpoint_folder_name = "dummy_dir_"
+        breakpoint_folder_name = "breakpoint_"
 
         bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round=0)
 
@@ -60,6 +101,7 @@ class TestFiletools(unittest.TestCase):
                          breakpoint_folder_name + str(0))
         self.assertEqual(bkpt_file,
                          breakpoint_folder_name + str(0) + ".json")
+        self.assertTrue(os.path.isdir(bkpt_folder))
 
         bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round=2)
 
@@ -67,6 +109,62 @@ class TestFiletools(unittest.TestCase):
                          breakpoint_folder_name + str(2))
         self.assertEqual(bkpt_file,
                          breakpoint_folder_name + str(2) + ".json")
+        self.assertTrue(os.path.isdir(bkpt_folder))
+
+
+    def test_create_unique_link(self):
+        """
+        Test method `create_unique_link`
+        """
+
+        # OK creating links
+        link_prefix = 'link_name'
+        link_suffix = '_tutu'
+        
+        link_path = filetools.create_unique_link(
+                self.testdir,
+                link_prefix,
+                link_suffix,
+                'any_target_is_ok')
+        self.assertEqual(
+                link_path,
+                os.path.join(self.testdir, link_prefix + link_suffix))
+        self.assertTrue(os.path.islink(link_path))
+
+        for index in range(1, 4):
+            link_path = filetools.create_unique_link(
+                self.testdir,
+                link_prefix,
+                link_suffix,
+                'any_target_is_ok'
+            )
+            self.assertEqual(
+                link_path,
+                os.path.join(self.testdir, link_prefix + '_' + str(index) + link_suffix))
+            self.assertTrue(os.path.islink(link_path))
+
+        # KO cannot create link
+        bkpt_folder = 'subdir'
+        bkpt_folder_path = os.path.join(self.testdir, bkpt_folder)
+        self.assertRaises(
+            FileNotFoundError,
+            filetools.create_unique_link,
+            bkpt_folder_path,
+            link_prefix,
+            link_suffix,
+            'a_target_name')
+        
+        os.makedirs(bkpt_folder_path, mode=0o500)
+        self.assertRaises(
+            PermissionError,
+            filetools.create_unique_link,
+            bkpt_folder_path,
+            link_prefix,
+            link_suffix,
+            'a_target_name')
+        os.chmod(bkpt_folder_path, 0o700)
+
+
 
 #    def test_private_get_latest_file(self):
 #        """tests if `_get_latest_file` returns more recent
@@ -112,15 +210,6 @@ class TestFiletools(unittest.TestCase):
 #                          files,
 #                          only_folder=False)
 #
-#    @patch('fedbiomed.researcher.job.Job._load_training_replies')
-#    def test_private_load_training_replies(self,
-#                                           path_job_load_training_replies):
-#        path_job_load_training_replies.return_value = None
-#        tr_replies = {1: [{"foo": "bar"}]}
-#        pr_path = ["/path/to/file", "/path/to/file"]
-#        self.test_exp._load_training_replies(tr_replies, pr_path)
-#        # test if Job's `_load_training_replies` has been called once
-#        path_job_load_training_replies.assert_called_once()
 #
 #    @patch('os.path.isdir')
 #    @patch('os.listdir')

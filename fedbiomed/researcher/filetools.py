@@ -104,6 +104,7 @@ def create_unique_link(
         - PermissionError: cannot create symlink
         - OSError: cannot create symlink
         - FileExistsError: cannot create symlink
+        - FileNotFoundError : non existent directory
     
     Args:
         - breakpoint_folder_path (str): directory for the source link
@@ -118,13 +119,13 @@ def create_unique_link(
                         link_src_prefix + link_src_postfix)
     
     # Need to ensure unique name for link (eg when replaying from non-last breakpoint)
-    while(os.path.exists(link_src_path)):
+    while(os.path.exists(link_src_path) or os.path.islink(link_src_path)):
         stub += 1
         link_src_path = os.path.join(breakpoint_folder_path,
                             link_src_prefix + '_' + str(stub) + link_src_postfix)
     try:
         os.symlink(link_target_path, link_src_path)
-    except(FileExistsError, PermissionError, OSError) as err:
+    except(FileExistsError, PermissionError, OSError, FileNotFoundError) as err:
         logger.error(f"Can not create link to experiment file {link_target_path}\
             from {link_src_path} due to error {err}")
         raise
