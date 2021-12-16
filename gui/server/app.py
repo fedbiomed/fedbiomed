@@ -2,8 +2,11 @@ import os
 import sys
 from flask import Flask, render_template, send_from_directory
 
+
+build_dir = os.getenv('BUILD_DIR', '../ui/build')
+
 # Create Flask Application
-app = Flask(__name__, static_folder="./ui/build")
+app = Flask(__name__, static_folder=build_dir)
 
 # DB prefix 
 db_prefix = os.getenv('DB_PREFIX', 'db_')

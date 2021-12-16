@@ -59,7 +59,7 @@ export  const getFilesFromRepository = (data) => {
             ).catch( (error) => {
                 dispatch({type:'SET_LOADING', payload: false})
                 if(error.response){
-                    dispatch({type: 'ERROR_MODAL', payload: 'Error while adding new dataset: ' + error.response.data.message})
+                    dispatch({type: 'ERROR_MODAL', payload: 'Error while listing files: ' + error.response.data.message})
                 }else{
                     dispatch({type: 'ERROR_MODAL', payload: 'Unexpected Error:' + error.toString()})
                 }

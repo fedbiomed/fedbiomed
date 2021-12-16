@@ -112,6 +112,7 @@ export const AddDataset = (props) => {
                                          <option value="csv">CSV Dataset</option>
                                     ) : (
                                         <>
+                                            <option>Please select...</option>
                                             <option value="csv">CSV Dataset</option>
                                             <option value="images">Image Dataset</option>
                                         </>

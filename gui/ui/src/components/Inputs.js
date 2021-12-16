@@ -75,7 +75,7 @@ export const Tag = (props) => {
         if(tags.length <=3) {
 
             setCurrentTagText(element.target.value);
-            if ( (element.keyCode === 13 && currentTagText) ||  (element.keyCode === 32 && currentTagText)  ) {
+            if ( (element.keyCode === 13 && currentTagText) ||  (element.keyCode === 32 && currentTagText) || element.keyCode === 9 && currentTagText ) {
                 let tags_update = [...tags, currentTagText]
                 setTags((prevTags) => {return [...prevTags, currentTagText] });
                 setCurrentTagText('');
@@ -97,6 +97,10 @@ export const Tag = (props) => {
         }
     };
 
+    /**
+     * When user click on input box this function
+     * automatically focus to input field
+     */
     const onInputClick = () => {
         refInput.current.focus()
     }
@@ -141,13 +145,13 @@ export const Tag = (props) => {
           >
             {tags.map((tag, index) => {
               return (
-              <div key={index} className="tag">
-                 <button
-                    onClick={() => removeTag(index)}
-                    className="close"
-                  >X</button>
-                  {tag}
-              </div>
+                      <div key={index} className="tag">
+                         <button
+                            onClick={() => removeTag(index)}
+                            className="close"
+                          >X</button>
+                          {tag}
+                      </div>
                )
             })}
           </div>
@@ -166,7 +170,7 @@ export const Tag = (props) => {
 
 
 /**
- * 
+ * Select box component
  * @param {*} props 
  * @returns 
  */
