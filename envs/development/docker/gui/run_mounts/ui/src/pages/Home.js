@@ -6,8 +6,8 @@ const Home = (props) => {
     return (
         <React.Fragment>
             <div className="frame-header">
-                <p>Welcome to Fed-BioMed Node application. In this applicaltion, you can manage your data
-                    files that are deployed in the node and load new datasets.  </p>
+                <p>Welcome to Fed-BioMed Node application. In this application, you can manage your data
+                    files that are deployed in the node or load new datasets into the node.  </p>
             </div>
             <div className="frame-content">
                 <div className={"fed-box"}>
@@ -28,7 +28,5 @@ const Home = (props) => {
         </React.Fragment>
     )
 }
-
-
 
 export default Home

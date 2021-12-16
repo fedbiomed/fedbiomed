@@ -10,24 +10,24 @@ import {useNavigate} from "react-router-dom";
 const Repository = (props) => {
 
     const [selected, setSelected] = React.useState(null)
-    const [path , setPath ] = React.useState(props.path)
+    const [path] = React.useState(props.path)
     const navigator = useNavigate()
     const dispatch = useDispatch()
     const frameContent = React.useRef(null)
     const mainRepository = React.useRef(null)
-
+    const getFiles = props.getFiles
 
     /**
      * Hook for getting files in the repository
      */
     React.useEffect(() => {
         if(path){
-            props.getFiles({path : path})
+            getFiles({path : path})
         }else{
-            props.getFiles({path : []})
+            getFiles({path : []})
         }
 
-    }, [props.repository.files.length])
+    }, [getFiles, path, props.repository.files.length])
 
 
     /**

@@ -1,7 +1,6 @@
 import React from 'react';
 import { ReactComponent as FolderIcon } from '../assets/img/folder.svg';
 import { ReactComponent as FileIcon } from '../assets/img/file.svg';
-import { ReactComponent as PlusIcon } from '../assets/img/plus.svg';
 import { ReactComponent as LaunchIcon} from '../assets/img/launch.svg'
 import {Link} from "react-router-dom"
 import {useNavigate} from "react-router-dom";
@@ -10,7 +9,6 @@ import {connect} from 'react-redux'
 
 export const RepositoryItem = (props) => {
 
-    const [hover, setHover] = React.useState(false)
     const navigator = useNavigate()
 
     const onAdd = (e, item) => {
@@ -28,20 +26,6 @@ export const RepositoryItem = (props) => {
             }
     }
 
-    /**
-     * Get file extension
-     * @param path
-     * @returns {string|*}
-     */
-    const get_extension = (path) => {
-
-        let file = path[path.length-1].split('.')
-        if(file.length > 1){
-            return file[file.length-1]
-        }else {
-            return '/'
-        }
-    }
     return (
         <div 
             className={`repository-item ${props.active ? 'active' : ''}`}

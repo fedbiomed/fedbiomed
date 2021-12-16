@@ -6,20 +6,16 @@ class Database:
 
     def __init__(self):
         self._db = None
-        self._query = None
+        self._query = Query()
 
-    def db(self): 
-        self._db = TinyDB(app.config['NODE_DB_PATH'])      
+    def db(self):
+        self._db = TinyDB(app.config['NODE_DB_PATH'])
         return self
 
     def query(self):
-        if self._db:
-            self._query = Query()
-            return self._query
-        else:
-            raise Exception('Please initialize your database by calling `database.db`')
+        return self._query
 
-    def table(self, name : str = '_default'):
+    def table(self, name: str = '_default'):
         """ Method for selecting table 
 
         Args: 
@@ -29,11 +25,15 @@ class Database:
                             write data into `_dafualt` table 
         """
 
+        if self._db is None:
+            raise Exception('Please initialize database first')
+
         return self._db.table(name)
 
     def close(self):
 
         """This method removes TinyDB object to save some memory"""
+
         self.__dict__.pop('_db',None)
     
 

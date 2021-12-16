@@ -26,7 +26,7 @@ def list_data_path():
     req_path = input['path']
 
     # Full path by including the base DATA_PATH
-    dpath = os.path.join(app.config["DATA_PATH"], *req_path)
+    dpath = os.path.join(app.config["DATA_PATH_RW"], *req_path)
 
     # Check if the path is exist or it is a directory
     if os.path.exists(dpath) and os.path.isdir(dpath):

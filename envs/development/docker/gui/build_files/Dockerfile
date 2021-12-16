@@ -22,7 +22,7 @@ RUN wget -q --directory-prefix=$HOME https://repo.anaconda.com/miniconda/Minicon
 ENV PATH=${PATH}:/miniconda/bin
 
 WORKDIR /fedbiomed
-RUN conda env update --file ./envs/development/conda/fedbiomed-ui.yaml
+RUN conda env update --file ./envs/development/conda/ui.yaml
 
 EXPOSE 5000
 ENTRYPOINT ["tail", "-f", "/dev/null"]

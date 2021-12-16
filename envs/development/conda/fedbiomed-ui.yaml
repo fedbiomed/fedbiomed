@@ -1,4 +1,4 @@
-name: fedbiomed-ui
+name: ui
 
 channels:
   - conda-forge

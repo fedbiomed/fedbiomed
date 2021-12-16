@@ -7,7 +7,7 @@ import {ReactComponent as DataIcon}  from '../assets/img/database.svg'
 import {ReactComponent as FolderIcon}  from '../assets/img/folder.svg' 
 import {ReactComponent as HomeIcon}  from '../assets/img/home.svg' 
 import {ReactComponent as PlusIcon}  from '../assets/img/plus.svg'
-import {useNavigate, useLocation} from "react-router-dom";
+import {useLocation} from "react-router-dom";
 
 
 // Define menu items
@@ -23,18 +23,17 @@ const items = [
 const SideNav  = (props) => {
 
     const location = useLocation()
-    const history = useNavigate()
 
     const [selectedKey, setSelectedKey] = React.useState(items.find(_item => location.pathname.startsWith(_item.path)).key)
-
+    const activePage = props.activePage
 
     React.useEffect(() => {
-        let item = items.find(_item => location.pathname == _item.path)
+        let item = items.find(_item => location.pathname === _item.path)
         if(item){
             setSelectedKey(item.key)
-            props.activePage(item.label)
+            activePage(item.label)
         }
-    })
+    }, [setSelectedKey, activePage, location.pathname, ])
 
     return (
         <div className="side-nav">
@@ -50,7 +49,7 @@ const SideNav  = (props) => {
                                 <NavItem
                                     key={item.key}
                                     label={item.label}
-                                    active={selectedKey == item.key ? true : false}
+                                    active={selectedKey === item.key ? true : false}
                                     path={item.path} icon={item.icon}
                                 />
                             )

@@ -17,7 +17,8 @@ export const Datasets = (props) => {
     React.useEffect(() => {
         // Get list of datasets
         listDatasetsAction()
-    }, [])
+
+    }, [listDatasetsAction])
 
 
     /**
@@ -35,6 +36,7 @@ export const Datasets = (props) => {
     }, [
                 props.datasets.default_dataset.success,
                 props.datasets.default_dataset.waiting,
+                listDatasetsAction
     ])
 
 
@@ -88,6 +90,7 @@ export const Datasets = (props) => {
         switch (modal.action) {
             case 'remove':  
                 props.removeDatasetAction(modal.data)
+                break;
             default:
                 handleClose()
         }
@@ -148,7 +151,6 @@ export const Datasets = (props) => {
                 </div>
             </div>
             <div className="frame-content">
-
                 <table className="datasets">
                     <tr>
                         <th>Name</th>

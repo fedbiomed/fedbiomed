@@ -1,5 +1,4 @@
 import React from 'react';
-import {Text} from '../components/Inputs'
 
 export const TableInfo = (props) => {
 
@@ -37,16 +36,14 @@ export const TableInfo = (props) => {
 export const TableData = (props) => {
 
 
-
+    /**
+     * Return DOM <td> elements
+     * @returns {*[]}
+     */
     const return_rows = () => {
-
-        
-        let row = [] 
         let result = []
-
         for(let i=0; i<props.table.index.length; i++){
-            
-            row = []
+            let row = []
             props.table.data[i].forEach( (item, key) => {
                 row.push( <td>{item}</td>)
             })           
@@ -64,7 +61,7 @@ export const TableData = (props) => {
                 <table className="data">
                     <tbody>
                         <tr>
-                            {props.table.columns.map((key , item) => {
+                            {props.table.columns.map((item, key) => {
                                 return (
                                     <th key={key}>{item}</th> 
                                 )

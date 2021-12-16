@@ -1,5 +1,6 @@
 import os
-
+import uuid
+import re
 from flask import jsonify, request
 from app import app
 from db import database
@@ -89,24 +90,52 @@ def add_dataset():
 
 
     """
-    base_data_path = app.config['DATA_PATH']
-    input = request.json
+    table = database.db().table('_default')
+    query = database.query()
 
-    data_path = os.path.join(base_data_path, *input['path'])
+    data_path_rw = app.config['DATA_PATH_RW']
+    req = request.json
+
+    # Data path that the files will be read
+    data_path = os.path.join(data_path_rw, *req['path'])
+
+    # Data path that will be saved in the DB
+    data_path_save = os.path.join('DATA_PATH_SAVE', *req['path'])
+
+    # Get image dataset information from datamanager
+    if req['type'] == 'image':
+        try:
+            shape = datamanager.load_images_dataset(data_path)
+            types = []
+        except Exception as e:
+            return error(str(e)), 400
+    # Get csv dataset information from datamanager
+    elif req['type'] == 'csv':
+        try:
+            data = datamanager.load_csv_dataset(data_path)
+            shape = data.shape
+            types = datamanager.get_csv_data_types(data)
+        except Exception as e:
+            return error(str(e)), 400
+
+    # Create unique id for the dataset
+    dataset_id = 'dataset_' + str(uuid.uuid4())
 
     try:
-        dataset_id = datamanager.add_database(
-            name=input['name'],
-            data_type=input['type'],
-            tags=input['tags'],
-            description=input['desc'],
-            path=data_path,
-        )
+        table.insert({
+            "name": req['name'],
+            "path": data_path_save,
+            "data_type": req['type'],
+            "dtypes": types,
+            "shape": shape,
+            "tags": req['tags'],
+            "description": req['desc'],
+            "dataset_id": dataset_id
+        })
     except Exception as e:
         return error(str(e)), 400
 
-    table = database.db().table('_default')
-    query = database.query()
+    # Get saved dataset document
     res = table.get(query.dataset_id == dataset_id)
 
     return response(res, '/api/datasets/add-csv'), 200
@@ -115,15 +144,15 @@ def add_dataset():
 @api.route('/datasets/update', methods=['POST'])
 @validate_request_data(schema=UpdateDatasetRequest)
 def update_dataset():
-    input = request.json
+    req = request.json
     table = database.db().table('_default')
     query = database.query()
 
-    table.update({"tags": input["tags"],
-                  "description": input["desc"],
-                  "name": input["name"]},
-                 query.dataset_id == input['dataset_id'])
-    res = table.get(query.dataset_id == input['dataset_id'])
+    table.update({"tags": req["tags"],
+                  "description": req["desc"],
+                  "name": req["name"]},
+                 query.dataset_id == req['dataset_id'])
+    res = table.get(query.dataset_id == req['dataset_id'])
 
     return response(res, ''), 200
 
@@ -155,18 +184,24 @@ def get_preview_dataset():
     query = database.query()
     dataset = table.get(query.dataset_id == input['dataset_id'])
 
+    # Extract data path where the files are save into local repository
+    rexp = re.match('^' + app.config['DATA_PATH_SAVE'], dataset['path'])
+
+    data_path = dataset['path'].replace(rexp.group(0), app.config['DATA_PATH_RW'])
+
     if dataset:
-        if os.path.isfile(dataset['path']):
-            df = datamanager.read_csv(dataset['path'])
+        if os.path.isfile(data_path):
+            df = datamanager.read_csv(data_path)
             data_preview = df.head().to_dict('split')
             dataset['data_preview'] = data_preview
-        elif os.path.isdir(dataset['path']):
-            dataset['data_preview'] = os.listdir(dataset['path'])
-            path_root = os.path.normpath(app.config["DATA_PATH"]).split(os.sep)
-            path = os.path.normpath(dataset['path']).split(os.sep)
+        elif os.path.isdir(data_path):
+            path_root = os.path.normpath(app.config["DATA_PATH_RW"]).split(os.sep)
+            path = os.path.normpath(data_path).split(os.sep)
             dataset['data_preview'] = path[len(path_root):len(path)]
         else:
+            print(data_path)
             dataset['data_preview'] = None
+
         return response(dataset, '/api/datasets/preview'), 200
 
     else:
@@ -207,25 +242,42 @@ def add_default_dataset():
     if default_dataset:
         return error('Default MNIST dataset is already exist'), 400
     else:
-        default_dir = os.path.join(app.config["DATA_PATH"], 'defaults')
+        default_dir = os.path.join(app.config["DATA_PATH_RW"], 'defaults')
         mnist_dir = os.path.join(default_dir, 'mnist')
         if not os.path.exists(default_dir):
             os.mkdir(default_dir)
         if not os.path.exists(os.path.join(default_dir, 'mnist')):
             os.mkdir(mnist_dir)
 
+        data_path = os.path.join(app.config['DATA_PATH_SAVE'], 'defaults', 'mnist')
+
         try:
-            dataset_id = datamanager.add_database(name="mnist",
-                                                  data_type="default",
-                                                  path=mnist_dir,
-                                                  tags=['#MNIST', "#dataset"],
-                                                  description='MNIST Dataset'
-                                                  )
+            shape = datamanager.load_default_database(name="MNIST",
+                                                      path=mnist_dir,
+                                                      as_dataset=False)
         except Exception as e:
             return error(str(e)), 400
 
+        # Create database connection
         table = database.db().table('_default')
         query = database.query()
+
+        # Create unique id for the dataset
+        dataset_id = 'dataset_' + str(uuid.uuid4())
+
+        try:
+            table.insert({
+                "name": 'MNIST',
+                "path": data_path,
+                "data_type": 'default',
+                "dtypes": [],
+                "shape": shape,
+                "tags": ['#MNIST', '#dataset'],
+                "description": 'Default MNIST dataset',
+                "dataset_id": dataset_id})
+        except Exception as e:
+            return error(str(e)), 400
+
         res = table.get(query.dataset_id == dataset_id)
 
         return response(res, '/datasets/add-default-dataset'), 200

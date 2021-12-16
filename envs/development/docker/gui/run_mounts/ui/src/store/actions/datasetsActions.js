@@ -1,6 +1,5 @@
 import axios from "axios"
 import {EP_DATASET_ADD ,
-        EP_DATASET_UPDATE,
         EP_DEFAULT_DATASET_ADD
     } from "../../constants";
 

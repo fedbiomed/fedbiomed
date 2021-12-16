@@ -1,7 +1,6 @@
 import React from 'react';
-import Modal from '../components/Modal'
 import {TableData, TableInfo} from "../components/Tables"
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams} from 'react-router-dom';
 import {EP_DATASET_PREVIEW, DATA_NOTFOUND, EP_DATASET_UPDATE} from '../constants'
 import {Text, Tag, TextArea} from '../components/Inputs'
 import {Button, ButtonsWrapper} from '../components/Button'
@@ -16,14 +15,14 @@ export const DatasetPreview = (props) => {
     const [loading, setLoading] = React.useState(true)
     const [edit , setEdit] = React.useState(false)
     const { dataset_id } = useParams();
-
+    const setHeader = props.setHeader
 
     React.useEffect( ()=>{
         get_dataset_preview(dataset_id)
-        if(props.setHeader){
-            props.setHeader('Dataset Preview')
+        if(setHeader){
+            setHeader('Dataset Preview')
         }
-    },[])
+    },[dataset_id, setHeader])
 
     /**
      * Activate edit view

@@ -2,10 +2,8 @@ import React from 'react';
 import {Label, Text, Tag, TextArea, Select} from '../components/Inputs'
 import Modal from '../components/Modal'
 import Button, {ButtonsWrapper} from '../components/Button'
-import {connect, useSelector, useDispatch} from 'react-redux'
+import {connect, useDispatch} from 'react-redux'
 import Repository from "../pages/Repository"
-import {EP_DATASET_ADD} from "../constants";
-import axios from 'axios'
 import {addNewDataset} from "../store/actions/datasetsActions";
 import {useNavigate} from "react-router-dom";
 
@@ -19,7 +17,7 @@ export const AddDataset = (props) => {
     const navigator = useNavigate()
 
     React.useEffect(() => {
-        if(props.addDatasetResult.success === true && props.addDatasetResult.waiting == false ){
+        if(props.addDatasetResult.success === true && props.addDatasetResult.waiting === false ){
             dispatch({type : 'RESET_ADD_DATASET_RESULT'})
             navigator('/datasets')
         }
@@ -28,7 +26,7 @@ export const AddDataset = (props) => {
             dispatch({type : 'RESET_NEW_DATASET'})
         }
 
-    }, [props.addDatasetResult.success])
+    }, [props.addDatasetResult.success, dispatch, navigator, props.addDatasetResult.waiting])
 
 
     /**
