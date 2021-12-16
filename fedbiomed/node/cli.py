@@ -549,15 +549,40 @@ def launch_cli():
         try:
             with open(args.add_dataset_from_file) as json_file:
                 data = json.load(json_file)
-
-            # if path (in json) is relative, add the topdir in front of it
-            if not data["path"].startswith("/") :
-                data["path"] = os.path.join(environ["ROOT_DIR"],data["path"])
-
         except:
-            logger.critical("cannot read json file: " + args.add_dataset_from_file)
+            logger.critical("cannot read dataset json file: " + args.add_dataset_from_file)
             sys.exit(-1)
 
+        # verify that json file is complete
+        for k in [ "path", "data_type", "description", "tags", "name"]:
+            if not k in data:
+                logger.critical("dataset json file corrupted: " + args.add_dataset_from_file )
+
+        # dataset path can be defined:
+        # - as an absolute path -> take it as it is
+        # - as a relative path  -> add the ROOT_DIR in front of it
+        # - using an OS environment variable -> transform it
+        #
+        elements = data["path"].split(os.path.sep)
+        if elements[0].startswith("$") :
+            # expand OS environment variable
+            var = elements[0][1:]
+            if var in os.environ:
+                var = os.environ[var]
+                elements[0] = var
+            else:
+                logger.info("Unknown env var: " + var)
+                elements[0] = ""
+        elif elements[0]:
+            # p is relative (does not start with /)
+            # prepend with topdir
+            elements = [ environ["ROOT_DIR"] ] + elements
+
+        # rebuild the path with these (eventually) new elements
+        data["path"] = os.path.join(os.path.sep, *elements)
+        print("******************** NEW PATH = ", data["path"], "\n")
+
+        # add the dataset to local database (not interactive)
         add_database(interactive=False,
                      path        = data["path"],
                      data_type   = data["data_type"],
