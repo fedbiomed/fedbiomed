@@ -96,24 +96,24 @@ const Repository = (props) => {
                     <div style={{margin:'0px 0px'}} className={`header-content`}>
                         <p>Following view displays the datafiles saved in the file system where node runs. To load the datafile, please click on Load Dataset button that comes up when you hover the items in the following list.</p>
                         <div className={'note'}>
-                            <p>
+                            <div>
                                 <div style={{display:'inline-block', marginRight: 10}} className="dot"/>
                                 Datasets loaded in the node.
                                 <div style={{display:'inline-block', marginRight: 10, marginLeft:10}} className="dot empty"/>
                                 Folders that includes dataset loaded in the node
-                            </p>
+                            </div>
                         </div>
                     </div>
                 </div>
             ) : null}
 
             <div ref={frameContent} className="frame-content">
-                <div ref={mainRepository} className="main-repository">
+                <div ref={mainRepository} className="main-repository" style={{height: props.maxHeight ? props.maxHeight : '99%' }}>
                     {Object.keys(props.repository.files).map( (itemBar, key) => {
 
                         if (itemBar >= props.after ){
                              return (
-                                <RepositoryBar key={`bat-${key}`}>
+                                <RepositoryBar key={`bat-${key}`} style={{height: props.maxHeight ? props.maxHeight : 'unset' }}>
                                     {props.repository.files[itemBar].map( (item,keyChild) => {
 
                                         if(props.mode === "file-browser" && item.registered ){

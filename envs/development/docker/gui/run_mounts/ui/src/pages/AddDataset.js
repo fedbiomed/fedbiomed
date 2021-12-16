@@ -12,7 +12,6 @@ export const AddDataset = (props) => {
 
     const [repoModal, setRepoModal] = React.useState(false)
     const [newDataset, setNewDataset] = React.useState({})
-    const selectDataType = React.useRef(null)
     const dispatch = useDispatch()
     const navigator = useNavigate()
 
@@ -106,7 +105,7 @@ export const AddDataset = (props) => {
                     </div>
                     <div className="form-control">
                         <Label>Please select data type</Label>
-                        <Select ref={selectDataType} name="type" onChange={onInputValueChange}>
+                        <Select name="type" onChange={onInputValueChange}>
                             {
                                 props.new_dataset.extension === ".csv" ?
                                     (
@@ -164,6 +163,7 @@ export const AddDataset = (props) => {
                         onItemAddClick={onItemAddClick}
                         onSelect={onFolderFileSelect}
                         mode={'file-browser'}
+                        maxHeight="400px"
                     />
                 </Modal.Content>
             </Modal>

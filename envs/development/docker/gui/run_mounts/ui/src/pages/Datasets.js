@@ -48,9 +48,9 @@ export const Datasets = (props) => {
      */
     const parseTags = (tags) => {
         
-        let tag_result = tags.map((item) => {
+        let tag_result = tags.map((item, key) => {
             return (
-            <div className="tag">
+            <div key={key} className="tag">
                 {item}
             </div> 
             )
@@ -102,7 +102,6 @@ export const Datasets = (props) => {
      * @returns {boolean}
      */
     const defaultDataStatus = () => {
-        console.log(props.datasets.datasets)
         if(props.datasets.datasets){
             let dlist = props.datasets.datasets
             let index = dlist.findIndex( x =>  x.data_type === 'default')
@@ -134,54 +133,55 @@ export const Datasets = (props) => {
                     </p>
                     {
                         defaultDataStatus() === false ? (
-                            <Button style={{'margin-left':'auto'}} onClick={onAddDefaultDataset}>
+                            <Button style={{marginLeft:'auto'}} onClick={onAddDefaultDataset}>
                                 Add MNIST Dataset
                             </Button>
                         ) : null
                     }
                 </div>
                 <div className={"note"}>
-                    <p>
+                    <div>
                     Please click on
                     <div style={{display:'inline-block', marginLeft:10, marginRight: 10}} className="icon"><LaunchIcon width={"15px"} height={"15px"}/></div>
                     button to display details of the dataset. To remove the dataset, please click on
                     <div style={{display:'inline-block', marginLeft:10, marginRight: 10}} className="icon"><GarbageLogo width={"15px"} height={"15px"}/></div>
                     button.
-                    </p>
+                    </div>
                 </div>
             </div>
             <div className="frame-content">
                 <table className="datasets">
-                    <tr>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Tags</th>
-                        <th>Description</th>
-                        <th class="center">Action</th>
-                    </tr>
-                    { props.datasets.datasets && props.datasets.datasets.map( (item,key) => {
-                        return (    
-                            <tr key={key}>
-                                <td> {item.name}</td>
-                                <td> {item.data_type}</td>
-                                <td> {parseTags(item.tags)}</td>
-                                <td> {item.description}</td>
-                                <td class="center">
-                                    <div className="action-buttons">
-                                        <div className="icon" >
-                                            <Link to={{pathname: `preview/${item.dataset_id}`}}>
-                                                <LaunchIcon/>
-                                            </Link>
+                    <tbody>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Tags</th>
+                            <th>Description</th>
+                            <th className="center">Action</th>
+                        </tr>
+                        { props.datasets.datasets && props.datasets.datasets.map( (item,key) => {
+                            return (
+                                <tr key={key}>
+                                    <td> {item.name}</td>
+                                    <td> {item.data_type}</td>
+                                    <td> {parseTags(item.tags)}</td>
+                                    <td> {item.description}</td>
+                                    <td className="center">
+                                        <div className="action-buttons">
+                                            <div className="icon" >
+                                                <Link to={{pathname: `preview/${item.dataset_id}`}}>
+                                                    <LaunchIcon/>
+                                                </Link>
+                                            </div>
+                                            <div className="icon delete" onClick={(event) => openModalOnDelete(event, item)}>
+                                                <GarbageLogo/>
+                                            </div>
                                         </div>
-                                        <div className="icon delete" onClick={(event) => openModalOnDelete(event, item)}>
-                                            <GarbageLogo/>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        )
-                    })}
-
+                                    </td>
+                                </tr>
+                            )
+                        })}
+                    </tbody>
                 </table>
 
             </div>

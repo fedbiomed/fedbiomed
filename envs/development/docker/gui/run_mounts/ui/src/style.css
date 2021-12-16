@@ -1,6 +1,7 @@
 :root{
   --error-color : #f44949;
   --primary-color: #003366;
+  --secondary-color:#0099cc;
 }
 
 
@@ -716,7 +717,7 @@ textarea.input {
   margin: 10px 0px 10px 0px;
 }
 
-.note p{
+.note div{
     margin-bottom: 0px !important;
     margin-top: 3px !important;
     margin-left: 10px !important;
@@ -737,6 +738,59 @@ textarea.input {
 }
 
 /* --- Notes ENDS --------------------------------------------------*/
+
+/* Information Boxes --------------------------------------------------------------*/
+
+.fed-box {
+  max-width: 250px;
+  display: block;
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid var(--secondary-color);
+  margin: 20px 50px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+}
+
+.fed-box:hover {
+  transform: scale(1.1);
+}
+
+a.fed-box-link{
+  text-decoration: none;
+}
+
+.fed-box .title {
+  color: #333;
+  font-weight: 600;
+  text-align: center;
+  margin: 16px 0px 10px 0px;
+  margin: 0px;
+  padding: 20px 0px;
+  border-bottom: 1px solid var(--secondary-color);
+}
+
+.fed-box .icon svg {
+  width: 50px;
+  margin: 0 auto;
+  display: block;
+}
+
+.fed-box div {
+  margin: 10px 0px 10px 0px;
+}
+
+.fed-box .text {
+  color:#888;
+  text-align:center;
+  border-top: 1px solid #fff;
+  padding: 10px;
+  min-height: 70px ;
+}
+
+
 
 /* --- CSS LOADER ------------------------------------------------*/
 
@@ -792,3 +846,5 @@ textarea.input {
     transform: rotate(360deg);
   }
 }
+
+

@@ -2,7 +2,7 @@ import React from 'react'
 
 export const Button = (props) => {
     return (
-        <div style={props.style} class={`button ${props.type ? props.type : ''}`} onClick={props.onClick}>
+        <div style={props.style} className={`button ${props.type ? props.type : ''}`} onClick={props.onClick}>
             {props.children}
         </div>
     )

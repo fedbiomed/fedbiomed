@@ -1,26 +1,103 @@
 import React from 'react'
+import {Link} from 'react-router-dom'
+import {ReactComponent as DocIcon} from "../assets/img/doc.svg";
+import {ReactComponent as FileIcon} from "../assets/img/file.svg";
+import {ReactComponent as DataIcon} from "../assets/img/database.svg";
+import {ReactComponent as PlusIcon} from "../assets/img/plus.svg";
+import {ReactComponent as ConfIcon} from "../assets/img/configuration.svg";
 
 
 const Home = (props) => {
 
+    //
+    const boxes = [
+        [{
+             title : 'Documentation',
+             icon : DocIcon,
+             link : 'https://fedbiomed.gitlabpages.inria.fr/',
+             text: 'Visit our documentation page to know more about Fed-BioMed Nodes and management.',
+             internal: false,
+         },
+         {
+             title : 'List of Files',
+             icon : FileIcon,
+             link : '/repository',
+             text: 'List data files stored in the server.',
+             internal: true,
+         },
+         {
+             title : 'Dataset Management',
+             icon : DataIcon,
+             link : '/datasets',
+             text: 'You can manage the datasets loaded in the node.',
+             internal: true,
+         }
+        ],
+        [{
+            title : 'Load Datasets',
+            icon : PlusIcon,
+            link : '/datasets/add-dataset',
+            text: 'Select the dataset and load deploy them on the node',
+            internal: true,
+        },
+        {
+            title : 'Configuration',
+            icon : ConfIcon,
+            link : '/configuration',
+            text: 'Visit our documentation page to know more about Fed-BioMed Nodes and management.',
+            internal: true,
+        }
+        ]
+
+    ]
+
     return (
         <React.Fragment>
-            <div className="frame-header">
+            <div className="frame-header" style={{textAlign:'center'}}>
+                <h2>Fed-BioMed Node GUI</h2>
                 <p>Welcome to Fed-BioMed Node application. In this application, you can manage your data
                     files that are deployed in the node or load new datasets into the node.  </p>
             </div>
             <div className="frame-content">
-                <div className={"fed-box"}>
-                    <div className={"title"}>
-
-                    </div>
-                    <div className={"icon"}>
-
-                    </div>
-                    <div className={"text"}>
-
-                    </div>
-                </div>
+                {boxes.map( (row, key1) => {
+                    return (
+                        <div key={key1} className={'row'} style={{justifyContent:'center'}}>
+                            {row.map((item, key2) => {
+                                return(
+                                   item.internal ? (
+                                       <Link key={key2} className="fed-box-link" to={{ pathname: item.link}}>
+                                            <div className={'fed-box'}>
+                                                <div className={"title"}>
+                                                    {item.title}
+                                                </div>
+                                                <div className={"icon"}>
+                                                    {<item.icon/>}
+                                                </div>
+                                                <div className={"text"}>
+                                                    {item.text}
+                                                </div>
+                                            </div>
+                                       </Link>
+                                   ) : (
+                                      <a key={key2} className="fed-box-link" href={item.link}  rel="noopener noreferrer" target='_blank'>
+                                            <div className={'fed-box'}>
+                                                <div className={"title"}>
+                                                    {item.title}
+                                                </div>
+                                                <div className={"icon"}>
+                                                    {<item.icon/>}
+                                                </div>
+                                                <div className={"text"}>
+                                                    {item.text}
+                                                </div>
+                                            </div>
+                                        </a>
+                                   )
+                                )
+                             })}
+                        </div>
+                    )
+                })}
             </div>
             <div className="frame-footer">
 

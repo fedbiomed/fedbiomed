@@ -6,7 +6,7 @@ export const Label = (props) => {
     return (
         <label 
             className="input-label"
-            for={props.for}  
+            htmlFor={props.for}
         >
             {props.children}
         </label>
@@ -31,7 +31,7 @@ export const Text = (props) => {
             ref         = {ref}
             onChange    = {props.onChange}
             onKeyDown   = {props.onKeyDown}
-            value       = {props.value ? props.value : null}
+            value       = {props.value ? props.value : undefined}
             ></input>
     )
 }
@@ -50,7 +50,7 @@ export const TextArea = (props) => {
             id   = {props.id}
             ref  = {props.ref}
             onChange = {props.onChange}
-            value = {props.value ? props.value : null}
+            value = {props.value ? props.value : undefined}
         ></textarea>
     )
 }
@@ -141,7 +141,7 @@ export const Tag = (props) => {
           >
             {tags.map((tag, index) => {
               return (
-              <div className="tag">
+              <div key={index} className="tag">
                  <button
                     onClick={() => removeTag(index)}
                     className="close"

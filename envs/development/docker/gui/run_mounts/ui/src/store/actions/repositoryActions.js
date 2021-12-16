@@ -52,17 +52,20 @@ export  const getFilesFromRepository = (data) => {
                     }
                     dispatch({type:'LIST_REPOSITORY', payload : {files : files, folders:folders, base: data.base, message : null}})
                 }else{
-                    console.log(response)
+                    dispatch({type: 'ERROR_MODAL' , payload: response.data.result.message})
                 }
             }
 
             ).catch( (error) => {
-                alert(error)
                 dispatch({type:'SET_LOADING', payload: false})
+                if(error.response){
+                    dispatch({type: 'ERROR_MODAL', payload: 'Error while adding new dataset: ' + error.response.data.message})
+                }else{
+                    dispatch({type: 'ERROR_MODAL', payload: 'Unexpected Error:' + error.toString()})
+                }
             })
         }
 
-        console.log(folders)
 
     }
 }

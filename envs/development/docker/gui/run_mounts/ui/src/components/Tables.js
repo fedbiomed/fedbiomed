@@ -4,13 +4,13 @@ export const TableInfo = (props) => {
 
     return (
         <div className="table">
-            <table class="info">
+            <table className="info">
                 <tbody>
                     {Object.keys(props.info).map((item, key) => {
                         if(props.info[item].editable && props.edit){
                             return (
                                 <tr key={key}>
-                                    <td class="title">{item}</td>
+                                    <td className="title">{item}</td>
                                     <td>
                                         {props.info[item].input}
                                     </td>
@@ -19,7 +19,7 @@ export const TableInfo = (props) => {
                         }else{
                             return (
                                 <tr key={key}>
-                                    <td class="title">{item}</td>
+                                    <td className="title">{item}</td>
                                     <td>{props.info[item].value.toString()}</td>
                                 </tr>
                             )
