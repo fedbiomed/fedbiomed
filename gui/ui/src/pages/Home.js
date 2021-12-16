@@ -29,7 +29,7 @@ const Home = (props) => {
              title : 'Dataset Management',
              icon : DataIcon,
              link : '/datasets',
-             text: 'You can manage the datasets loaded in the node.',
+             text: 'Manage datasets that are deployed on the node.',
              internal: true,
          }
         ],
@@ -37,14 +37,14 @@ const Home = (props) => {
             title : 'Load Datasets',
             icon : PlusIcon,
             link : '/datasets/add-dataset',
-            text: 'Select the dataset and load deploy them on the node',
+            text: 'Select dataset and deploy on the node',
             internal: true,
         },
         {
             title : 'Configuration',
             icon : ConfIcon,
             link : '/configuration',
-            text: 'Visit our documentation page to know more about Fed-BioMed Nodes and management.',
+            text: 'Display details of node configurations',
             internal: true,
         }
         ]

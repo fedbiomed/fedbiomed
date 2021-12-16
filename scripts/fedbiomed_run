@@ -40,6 +40,10 @@ case $1 in
         source ./scripts/fedbiomed_environment gui
         cd ./gui/ui && npm install
         npm run build
+        if [ -d "$basedir/var/gui-build" ];then
+          rm -Rf "$basedir/var/gui-build";
+        fi
+        mv "$basedir/gui/ui/build/" "$basedir/var/gui-build"
         cd ../server
         FEDBIOMED_ROOT="$basedir" NODE_CONFIG_FILE=config-n1.ini BUILD_DIR="$basedir/var/gui-build" python app.py
       ;;
