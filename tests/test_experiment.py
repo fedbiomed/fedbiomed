@@ -6,7 +6,6 @@ import tempfile
 import shutil
 import json
 from typing import Union
-from fedbiomed.researcher.datasets import FederatedDataSet
 
 # be sure to start from clean environment
 from testsupport.delete_environ import delete_environ
@@ -15,6 +14,8 @@ delete_environ()
 import testsupport.mock_common_environ
 
 from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.experiment import Experiment
 
 
@@ -236,7 +237,7 @@ class TestStateExp(unittest.TestCase):
         strategy = { 'strat1': 'test_strat_param', 'strat2': 421, 3: 'strat_param3' }
         aggregated_params = {
             '1': { 'params_path': '/path/to/my/params_path_1.pt' },
-            '2': { 'params_path': '/path/to/my/params_path_2.pt' }
+            2: { 'params_path': '/path/to/my/params_path_2.pt' }
         }
         job = { 1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999 }
 
@@ -263,10 +264,21 @@ class TestStateExp(unittest.TestCase):
         # mocked model params
         model_params = { 'something.bias': [12, 14], 'something.weight': [13, 15] }
 
+
         # target aggregated params
-        final_aggregated_params = deepcopy(aggregated_params)
+        final_aggregated_params = {
+            1: { 'params_path': '/path/to/my/params_path_1.pt' },
+            2: { 'params_path': '/path/to/my/params_path_2.pt' }
+        }
         for aggpar in final_aggregated_params.values():
             aggpar['params'] = model_params
+        # target breakpoint element arguments
+        final_training_data = { 'train_node1': 'my_first_dataset', '2': 243 }
+        final_training_args = { '1': 'my_first arg', 'training_arg2': 123.45 }
+        final_aggregator = { 'aggreg1': False, 'aggreg2': 'dummy_agg_param', '18': 'agg_param18' }
+        final_strategy = { 'strat1': 'test_strat_param', 'strat2': 421, '3': 'strat_param3' }
+        final_job = { '1': 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999 }
+
 
         # patch functions for loading breakpoint
         patch_find_breakpoint_path.return_value = self.experimentation_folder_path, bkpt_file
@@ -285,8 +297,25 @@ class TestStateExp(unittest.TestCase):
         # action
         loaded_exp = Experiment.load_breakpoint(self.experimentation_folder_path)
 
-        # TODO : assertions
-        print(type(loaded_exp))
+        # verification
+        self.assertTrue(isinstance(loaded_exp, Experiment))
+        self.assertTrue(isinstance(loaded_exp._fds, FederatedDataSet))
+        self.assertEqual(loaded_exp._fds.data(), final_training_data)
+        self.assertEqual(loaded_exp._training_args, final_training_args)
+        self.assertEqual(loaded_exp._model_args, model_args)
+        self.assertEqual(loaded_exp._model_path, model_path)
+        self.assertEqual(loaded_exp._model_class, model_class)
+        self.assertEqual(loaded_exp._round_init, round_current + 1)
+        self.assertEqual(loaded_exp._rounds, self.rounds)
+        self.assertEqual(loaded_exp._experimentation_folder, self.experimentation_folder)
+        self.assertEqual(loaded_exp._aggregator, final_aggregator)
+        self.assertEqual(loaded_exp._node_selection_strategy, final_strategy)
+        self.assertEqual(loaded_exp._tags, self.tags)
+        self.assertEqual(loaded_exp._aggregated_params, final_aggregated_params)
+        self.assertTrue(isinstance(loaded_exp._job, Job))
+        self.assertEqual(self.job_state, final_job)
+
+
 
         ## tests
         #patch_json_load.assert_called_once()  # check if patched
