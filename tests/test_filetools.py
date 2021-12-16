@@ -165,6 +165,85 @@ class TestFiletools(unittest.TestCase):
         os.chmod(bkpt_folder_path, 0o700)
 
 
+    @patch('fedbiomed.researcher.filetools.create_unique_link')
+    def test_create_unique_file_link(
+        self,
+        patch_create_ul):
+        """
+        Test `create_unique_file_link` method
+        """
+
+        def side_create_ul(bkpt_folder_path, link_src_prefix, link_src_postfix, link_target):
+            return os.path.join(bkpt_folder_path, link_src_prefix + link_src_postfix)
+        patch_create_ul.side_effect = side_create_ul
+
+        # OK choosing link source in same dir with good name
+        src_folder = self.testdir
+        target_file_names = [
+            'this_is_the_name.py',
+            'another243.tutu',
+            'my_dummy.1.2.3.ok',
+            'another.name.with.dots'
+        ]
+        for name in target_file_names:
+            target_file_path = os.path.join(self.testdir, name)
+            
+            link_path = filetools.create_unique_file_link(src_folder, target_file_path)
+           
+            self.assertEqual( link_path, target_file_path)
+
+        # OK choosing link source in subdir with good name
+        src_folder = os.path.join(self.testdir, 'yet_another_dir')
+        os.makedirs(src_folder)
+        target_file = 'this_name_is.good'
+        target_file_path = os.path.join(self.testdir, target_file)
+       
+        link_path = filetools.create_unique_file_link(src_folder, target_file_path)
+        
+        self.assertEqual( link_path, os.path.join(src_folder, target_file))
+
+
+        # KO choosing link source in same dir with bad name
+        src_folder = self.testdir
+        target_file_names = [
+            'bad_name',
+            'this_is_the_name.',
+            '.alsobad',
+            'not.a.good.1',
+            'does_not.match_ok'
+        ]
+        for name in target_file_names:
+            target_file_path = os.path.join(self.testdir, name)
+
+            self.assertRaises(
+                ValueError, 
+                filetools.create_unique_file_link,
+                src_folder,
+                target_file_path)
+
+        # KO choosing a file path not in subfolder
+        os.symlink('tutu', os.path.join(self.testdir, 'hanging_link'))
+        file_paths = [
+            os.path.join(self.testdir, 'not_existing_dir/src_link'),
+            os.path.join(self.testdir, 'hanging_link/src_link'),
+            os.path.join(self.testdir, 'file.ok'),
+            os.path.join(self.testdir, 'file.ok')
+        ]
+        bkpt_folder_paths = [
+            self.testdir,
+            self.testdir,
+            os.path.join(self.testdir, 'not_existing_dir'),
+            os.path.join(self.testdir, 'hanging_link')
+        ]
+        
+        for file, folder in zip(file_paths, bkpt_folder_paths):
+            self.assertRaises(
+                ValueError, 
+                filetools.create_unique_file_link,
+                folder,
+                file)
+
+
 
 #    def test_private_get_latest_file(self):
 #        """tests if `_get_latest_file` returns more recent

@@ -147,10 +147,14 @@ def create_unique_file_link(breakpoint_folder_path: str, file_path: str) -> str:
     """
 
     try:
+        real_file_path = os.path.realpath(file_path)
+        real_bkpt_folder_path = os.path.realpath(breakpoint_folder_path)
+        if not os.path.isdir(real_bkpt_folder_path) \
+                or not os.path.isdir(os.path.dirname(real_file_path)):
+            raise ValueError
         # - use relative path for link target for portability
         # - link to the real file, not to a link-to-the-file
-        link_target = os.path.relpath(os.path.realpath(file_path),
-                        start=os.path.realpath(breakpoint_folder_path))
+        link_target = os.path.relpath(real_file_path, start=real_bkpt_folder_path)
     except ValueError as err:
         mess = f'Saving breakpoint error, \
             cannot get relative path to {file_path} from {breakpoint_folder_path}, \
@@ -159,17 +163,20 @@ def create_unique_file_link(breakpoint_folder_path: str, file_path: str) -> str:
         raise ValueError(mess)
 
     # heuristic : assume limited set of characters in filename postfix
-    link_src_prefix = re.search("(.*)\.[a-zA-Z]+$",
-                        os.path.basename(file_path)).group(1)
-    link_src_postfix = re.search(".*(\.[a-zA-Z]+)$",
-                        os.path.basename(file_path)).group(1)
-    if not link_src_prefix or not link_src_postfix:
+    re_src_prefix = re.search("(.+)\.[a-zA-Z]+$",
+                        os.path.basename(file_path))
+    re_src_postfix = re.search(".+(\.[a-zA-Z]+)$",
+                        os.path.basename(file_path))
+    if not re_src_prefix or not re_src_postfix:
         error_message = f'Saving breakpoint error, \
             bad filename {file_path} gives \
-            prefix {link_src_prefix} and postfix {link_src_postfix}'
+            prefix {re_src_prefix} and postfix {re_src_postfix}'
         logger.error(error_message)
         raise ValueError(error_message)
-    
+
+    link_src_prefix = re_src_prefix.group(1)
+    link_src_postfix = re_src_postfix.group(1)
+
     return create_unique_link(breakpoint_folder_path,
             link_src_prefix, link_src_postfix,
             link_target)
