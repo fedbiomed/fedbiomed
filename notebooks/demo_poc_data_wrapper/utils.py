@@ -8,7 +8,7 @@ import os
 import dateutil
 from dateutil.parser._parser import ParserError
 
-from data_type import DataType
+from demo_poc_data_wrapper.data_type import  DataType
 
 class ExcelSignatures(Enum):
     XLSX = (b'\x50\x4B\x05\x06', 2, -22, 4)

@@ -5,7 +5,7 @@ from typing import Union, Callable, List
 from sklearn.impute import KNNImputer
 import pandas as pd
 import numpy as np
-from data_type import QuantitativeDataType, CategoricalDataType
+from demo_poc_data_wrapper.data_type import QuantitativeDataType, CategoricalDataType
 
 # imputation methods
 
