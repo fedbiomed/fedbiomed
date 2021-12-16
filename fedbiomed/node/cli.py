@@ -580,7 +580,6 @@ def launch_cli():
 
         # rebuild the path with these (eventually) new elements
         data["path"] = os.path.join(os.path.sep, *elements)
-        print("******************** NEW PATH = ", data["path"], "\n")
 
         # add the dataset to local database (not interactive)
         add_database(interactive=False,
