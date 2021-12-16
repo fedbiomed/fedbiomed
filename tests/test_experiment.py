@@ -19,7 +19,7 @@ from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.experiment import Experiment
 
 
-class TestStateExp(unittest.TestCase):
+class TestExperiment(unittest.TestCase):
 
     def setUp(self):
 
