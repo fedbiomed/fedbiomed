@@ -100,7 +100,7 @@ def add_dataset():
     data_path = os.path.join(data_path_rw, *req['path'])
 
     # Data path that will be saved in the DB
-    data_path_save = os.path.join('DATA_PATH_SAVE', *req['path'])
+    data_path_save = os.path.join(app.config['DATA_PATH_SAVE'], *req['path'])
 
     # Get image dataset information from datamanager
     if req['type'] == 'image':
@@ -186,7 +186,6 @@ def get_preview_dataset():
 
     # Extract data path where the files are save into local repository
     rexp = re.match('^' + app.config['DATA_PATH_SAVE'], dataset['path'])
-
     data_path = dataset['path'].replace(rexp.group(0), app.config['DATA_PATH_RW'])
 
     if dataset:
@@ -199,7 +198,6 @@ def get_preview_dataset():
             path = os.path.normpath(data_path).split(os.sep)
             dataset['data_preview'] = path[len(path_root):len(path)]
         else:
-            print(data_path)
             dataset['data_preview'] = None
 
         return response(dataset, '/api/datasets/preview'), 200

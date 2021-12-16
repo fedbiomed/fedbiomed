@@ -41,7 +41,7 @@ case $1 in
         cd ./gui/ui && npm install
         npm run build
         cd ../server
-        FEDBIOMED_ROOT=$basedir NODE_CONFIG_FILE=config-n1.ini BUILD_DIR="$basedir/var/gui-build" python app.py
+        FEDBIOMED_ROOT="$basedir" NODE_CONFIG_FILE=config-n1.ini BUILD_DIR="$basedir/var/gui-build" python app.py
       ;;
     node)
 

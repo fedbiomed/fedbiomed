@@ -2,7 +2,6 @@ import os
 import sys
 from flask import Flask, render_template, send_from_directory
 
-
 build_dir = os.getenv('BUILD_DIR', '../ui/gui-build')
 
 # Create Flask Application
@@ -25,15 +24,12 @@ if docker_status:
 else:
     # Configuration of Flask APP to able to access Fed-BioMed node information
     app.config['NODE_FEDBIOMED_ROOT'] = os.getenv('FEDBIOMED_ROOT', '/fedbiomed')
-
     # Data path where datafiles are stored.
     app.config['DATA_PATH_RW'] = \
         os.getenv('DATA_PATH',
                   os.path.join(app.config['NODE_FEDBIOMED_ROOT'],
                                'data'))
     app.config['DATA_PATH_SAVE'] = app.config['DATA_PATH_RW']
-
-
 
 # Get name of the config file defaul is "config_node.ini"
 app.config['NODE_CONFIG_FILE'] = os.getenv('NODE_CONFIG_FILE',
@@ -73,6 +69,7 @@ app.logger.info(f'Services are going to be configured for the node \
 # Import api route blueprint before importing routes
 # and register as blueprint
 from routes import api
+
 app.register_blueprint(api)
 
 
@@ -101,7 +98,6 @@ def static_react():
 
 # Run the applicaiton
 if __name__ == '__main__':
-
     # Start Flask
     app.run(host=app.config['HOST'],
             port=app.config['PORT'])

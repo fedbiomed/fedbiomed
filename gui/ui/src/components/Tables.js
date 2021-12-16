@@ -45,7 +45,7 @@ export const TableData = (props) => {
         for(let i=0; i<props.table.index.length; i++){
             let row = []
             props.table.data[i].forEach( (item, key) => {
-                row.push( <td>{item}</td>)
+                row.push( <td>{item.toString().substring(0,12)}</td>)
             })           
             result.push(<tr>{row}</tr>)
         }

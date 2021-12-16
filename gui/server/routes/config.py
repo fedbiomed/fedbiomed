@@ -45,8 +45,6 @@ def fedibomed_environ():
     for key, val in res.items():
         matched = re.match('^' + app.config['NODE_FEDBIOMED_ROOT'], str(val))
         if matched:
-            print(key)
-            print(app.config['NODE_FEDBIOMED_ROOT'])
             res[key] = res[key].replace(app.config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_ROOT')
 
     return response(res, '/api/config/node-environ'), 200
