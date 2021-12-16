@@ -105,7 +105,7 @@ script_executor() {
                 echo "ipython /tmp/$output.py"
             else
                 # must quit
-                echo "CANNOT RUN THIS SCRIPT: $script"
+                echo "ERROR: CANNOT RUN THIS SCRIPT: $script"
                 return -1
             fi
             ;;
@@ -117,7 +117,7 @@ script_executor() {
                 then
                     echo "$script"
                 else
-                    echo "$script: CANNOT RUN THIS SCRIPT"
+                    echo "ERROR: $script: CANNOT RUN THIS SCRIPT"
                     return -1
                 fi
             else
@@ -137,6 +137,10 @@ cleaning() {
     #
     # do all cleaning here (normal ending or trapped signal)
     #
+
+    # avoid multiple CTLR-C from impatient users
+    trap '' INT TERM
+
     echo "** INFO: cleaning before quitting - please wait"
 
     # clean files
@@ -162,7 +166,7 @@ cleaning() {
 
     #
     # clean all datasets
-    $basedir/scripts/fedbiomed_run node --delete-all
+    $basedir/scripts/fedbiomed_run node config test-config-for-integration.ini --delete-all
 }
 
 cleaning_trap() {
@@ -262,11 +266,19 @@ case $DATASET in
         ;;
 esac
 
+# Activate researcher conda environment
+source $basedir/scripts/fedbiomed_environment researcher
+
 # is script ok ?
 CMD_TO_RUN=$(script_executor $SCRIPT)
 
 # if CMD_TO_RUN is an ipython script, we should clean the file at the end
 case $CMD_TO_RUN in
+    ERROR*)
+      cleaning
+      echo "** $CMD_TO_RUN"
+      exit 1
+    ;;
     ipython*)
         FILES_TO_CLEAN+="${CMD_TO_RUN##* }"
     ;;
@@ -296,11 +308,11 @@ sleep 3
 
 # populate node
 echo "** INFO: populating fedbiomed node"
-$basedir/scripts/fedbiomed_run node -adff $DATASET
+$basedir/scripts/fedbiomed_run node config test-config-for-integration.ini -adff $DATASET
 
 # launch node
 echo "** INFO: launching fedbiomed node"
-$basedir/scripts/fedbiomed_run node start &
+$basedir/scripts/fedbiomed_run node config test-config-for-integration.ini start &
 npid=$!
 sleep 10
 
@@ -310,7 +322,6 @@ all_pids+=" $(subprocess $npid)"
 
 # launch test and wait for completion
 echo "** INFO: launching fedbiomed researcher ($CMD_TO_RUN)"
-source $basedir/scripts/fedbiomed_environment researcher
 ${CMD_TIMEOUT} --preserve-status --signal=HUP --kill-after=10 --foreground  $TEST_TIMEOUT $CMD_TO_RUN
 status=$?
 
