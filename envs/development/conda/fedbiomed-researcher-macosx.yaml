@@ -43,6 +43,7 @@ dependencies:
   - conda-forge::joblib #>=1.0.1
   # nn
   - pip:
+      - monai
       - torch #>=1.8.0,<2.0.0
       - torchvision #>=0.9.0,<0.10.0
       - persist-queue #>=0.5.1,<0.6.0
