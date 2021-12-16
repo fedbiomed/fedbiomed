@@ -4,7 +4,7 @@
 #
 
 # list of env to find/intialise
-fed_envs=(network node researcher)
+fed_envs=(network node researcher gui)
 
 # detect how the file is run
 ([[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||

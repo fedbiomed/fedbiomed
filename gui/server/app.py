@@ -3,14 +3,14 @@ import sys
 from flask import Flask, render_template, send_from_directory
 
 
-build_dir = os.getenv('BUILD_DIR', '../ui/build')
+build_dir = os.getenv('BUILD_DIR', '../ui/gui-build')
 
 # Create Flask Application
 app = Flask(__name__, static_folder=build_dir)
 
 # DB prefix 
 db_prefix = os.getenv('DB_PREFIX', 'db_')
-docker_status = os.getenv('DOCKER', 'False') .lower() in ('true', '1')
+docker_status = os.getenv('DOCKER', 'False').lower() in ('true', '1')
 
 if docker_status:
     # If application is launched in docker container

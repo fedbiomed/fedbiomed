@@ -36,7 +36,13 @@ case $1 in
           docker-compose build restful mqtt
         docker-compose up -d restful mqtt
         ;;
-
+    gui)
+        source ./scripts/fedbiomed_environment gui
+        cd ./gui/ui && npm install
+        npm run build
+        cd ../server
+        FEDBIOMED_ROOT=$basedir NODE_CONFIG_FILE=config-n1.ini BUILD_DIR="$basedir/var/gui-build" python app.py
+      ;;
     node)
 
         while true ; do

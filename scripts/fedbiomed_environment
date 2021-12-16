@@ -87,6 +87,13 @@ activate_researcher() {
     [[ ! -z "$verbose" ]] && environment_info
 }
 
+activate_gui() {
+    verbose=$1
+    [[ ! -z "$verbose" ]] && echo "** Activating fedbiomed-gui environment"
+    conda activate fedbiomed-gui
+    unset PYTHONPATH
+    [[ ! -z "$verbose" ]] && environment_info
+}
 
 #
 # main
@@ -160,12 +167,19 @@ case $1 in
         activate_researcher verbose
         ;;
 
+    gui)
+        conda deactivate
+        environment_reset
+        development_env $2
+        activate_gui verbose
+        ;;
+
     *)
         cat <<EOF
 Usage: fedbiomed_environment network|node [IP_ADDRESS] |researcher [IP_ADDRESS] |reset|clean
 
 Please specify:
-- network, node [IP_ADDRESS], researcher [IP_ADDRESS] : to activate an environment
+- network, gui, node [IP_ADDRESS], researcher [IP_ADDRESS] : to activate an environment
         with optional IP_ADDRESS (eg 10.1.2.3 or host.foo) for joining network
         components (default: localhost)
 - reset                     : to leave the current environment
