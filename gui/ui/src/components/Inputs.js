@@ -83,7 +83,7 @@ export const Tag = (props) => {
                 // Let parent componenet know that the 
                 // tags has been chaged or new one added
                 if(props.onTagsChange){
-                    props.onTagsChange(tags_update)
+                    props.onTagsChange(props.name, tags_update)
                 }
                 if(props.onChange){
                     props.onChange({

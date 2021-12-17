@@ -48,7 +48,6 @@ export const DatasetPreview = (props) => {
      * @param tags
      */
     const onTagsChange = (name, tags) => {
-
         setPreview({
             ...preview,
             tags : tags
