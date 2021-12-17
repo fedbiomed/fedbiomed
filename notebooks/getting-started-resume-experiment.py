@@ -122,6 +122,8 @@ exp = Experiment(tags=tags,
 
 # Let's start the experiment.
 # By default, this function doesn't stop until all the `rounds` are done for all the nodes
+# You can interrupt the exp.run() after one round,
+# and then reload the breakpoint and continue the training.
 
 exp.run()
 
@@ -174,6 +176,13 @@ del exp
 # 
 
 loaded_exp = Experiment.load_breakpoint()
+
+print(f'Experimention folder: {loaded_exp.experimentation_folder}')
+print(f'Loaded experiment path: {loaded_exp.experimentation_path}')
+
+# Continue training for the experiment loaded from breakpoint.
+# If you ran all the rounds and load the last breakpoint, there won't be any more round to run.
+
 loaded_exp.run()
 
 
