@@ -5,7 +5,7 @@ from typing import Union, Callable, List
 from sklearn.impute import KNNImputer
 import pandas as pd
 import numpy as np
-from demo_poc_data_wrapper.data_type import QuantitativeDataType, CategoricalDataType
+from fedbiomed.common.data_tool.data_type import QuantitativeDataType, CategoricalDataType
 
 # imputation methods
 
@@ -78,7 +78,7 @@ class ImputationMethods(Enum):
                        CategoricalDataType, None)
     KNN_IMPUTATION = (partial(impute_missing_values_knn),
                       CategoricalDataType, ['k'])
-    INTERPOLATION_IMPUTATION = (partial(impute_missing_values_interpolate),
+    LINEAR_INTERPOLATION_IMPUTATION = (partial(impute_missing_values_interpolate),
                                 QuantitativeDataType, None)
     
     def __init__(self, method: Callable,

@@ -1,4 +1,4 @@
-from pre_processing_checker import PreProcessingChecks, DataSanityCheckException
+from fedbiomed.common.data_tool.pre_processing_checker import PreProcessingChecks, DataSanityCheckException
 
 
 class WarningReportLogger:
@@ -58,8 +58,6 @@ class WarningReportLogger:
             self._n_feature += 1
         
         self._report[self._current_entry].append(_new_entry)
-        
-    
 
     def get_report(self):
         print(f'number of warnings: {self._n_warnings}\nNumber of error: {self._n_exception}')

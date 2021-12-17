@@ -5,126 +5,15 @@ import pandas as pd
 import numpy as np
 from typing import List, Union, Dict
 
-import utils
-from data_type import DataType
-
-
-class MissingDataException(Exception):
-    def __init__(self,message:str=""):
-        self._message = message
-        super().__init__(message)
-        
-    def __str__(self):
-        return 'MissingDataException: ' + self._message
-
-
-class MinimumSamplesViolatedException(Exception):
-    def __init__(self, message: str=""):
-        self._message = message
-        super().__init__(message)
-        
-    def __str__(self):
-        return 'MinimumSamplesViolatedException: ' + self._message
-
-
-class MissingFeatureException(Exception):
-    def __init__(self, message: str = ""):
-        self._message = message
-        super().__init__(message)
-        
-    def __str__(self):
-        return 'MissingFeatureException: ' + self._message
-
-
-class MissingViewException(Exception):
-    def __init__(self, message: str=""):
-        self._message = message
-        super().__init__(message)
-        
-    def __str__(self):
-        return 'MissingViewException' + self._message
-
-
-class DataSanityCheckException(Exception):
-    def __init__(self, exceptions: List[Exception]):
-        message  = "\n".join([str(exception) for exception in exceptions])
-        super().__init__(message)
-
-
-class WarningType(Enum):
-    REGULAR_WARNING = 1
-    CRITICAL_WARNING = 2
-
-
-class PreProcessingChecks(Enum):
-    INCORRECT_FORMAT_FILE = ("Format File %s is incorrect: cannot parse variable %s", WarningType.CRITICAL_WARNING,
-                            )
-    KEY_UNICITY_VIOLATED = ("Key Variable %s violated unicity of data", WarningType.CRITICAL_WARNING, 
-                           )
-    MISSING_DATA_NOT_ALLOWED = ("Variable %s must not have missing data, but some were found",
-                                MissingDataException, 
-                               )
-    MISSING_DATA_ALLOWED = ("Missing data found in variable %s", WarningType.REGULAR_WARNING 
-                           )
-    INCORRECT_STRUCTURE_DATA_TYPE = ("Data Type %s has an incorrect structure: %s", WarningType.CRITICAL_WARNING)
-    DATA_TYPE_MISMATCH = ("Data Type  %s mismatch: %s is not a subtype of %s",
-                           WarningType.REGULAR_WARNING)
-    
-    INCORRECT_DATA_TYPE = ('Variable named %s should be a %s variable, but it contains %s type',
-                          WarningType.REGULAR_WARNING)
-    INCORRECT_DATETIME_DATA = ("Variable %s has been defined as a DATETIME variable, but samples are not parsable as date",
-                               WarningType.CRITICAL_WARNING)
-    
-    OUTLIER_DETECTION_LOWER_BOUND = ("Detected outliers for Variable %s: samples violate lower bound %s",
-                                   WarningType.CRITICAL_WARNING)
-    
-    OUTLIER_DETECTION_UPPER_BOUND = ("Detected outliers for Varaiable %s: samples violate upper bound %s",
-                                   WarningType.CRITICAL_WARNING)
-    
-    INCORRECT_VALUES_CATEGORICAL_DATA = ("Found at least one sample with incorrect label in Categorical Vraiable %s. Expected data are %s, but found %s",
-                                        WarningType.CRITICAL_WARNING)
-    
-    N_MISSING_DATA_ABOVE_THRESHOLD = ("Found too many missing samples in variable %s, threshold is set at %s",
-                                     WarningType.CRITICAL_WARNING)
-    
-    N_SAMPLES_BELOW_THRESHOLD = ("Number of samples contained in dataset %s is below threshold (expected at least %s samples, found %s samples)",
-                                MinimumSamplesViolatedException)
-    MISSING_FEATURE = ("Feature %s has not been found in dataset, but is needed for experiment",
-                       MissingFeatureException)
-    
-    #MISSING_VIEW = ("View %s not found in dataset, but needed for experiment")
-    
-    def __init__(self, message: str,  warning_type: Union[WarningType, Exception]):
-        self._message = message
-        #self._additional_message = additional_message
-        self._warning_type = warning_type
-        #self._is_exception = is_exception
-        
-    @property
-    def error_message(self):
-        return self._message
-
-    @property
-    def warning_type(self):
-        return self._warning_type
-    
-    @property
-    def additional_message(self):
-        return self._additional_message
-    
-    def __call__(self, *kwargs) -> Union[str, Exception]:
-        
-        msg = self.error_message % kwargs
-        if isinstance(self.warning_type, WarningType):
-            
-            return msg
-        elif issubclass(self.warning_type, Exception):
-            
-            return self.warning_type(message=msg)
+import fedbiomed.common.data_tool.utils as utils
+from fedbiomed.common.data_tool.data_type import DataType
+from fedbiomed.common.data_tool.pre_processing_checks  import PreProcessingChecks
+#from demo_poc_data_wrapper.warning_logger import WarningReportLogger
+import fedbiomed.common.data_tool.pre_processing_warnings_exceptions as check_exception
 
     
-def raise_warning(warning: PreProcessingChecks, *kwargs) -> str:
-    if isinstance(warning.warning_type, WarningType):
+def raise_warning(warning: checks.PreProcessingChecks, *kwargs) -> str:
+    if isinstance(warning.warning_type, check_exception.WarningType):
         #warning.warning_type.value(warning_disclosure)
         
         return warning.error_message % kwargs
@@ -132,19 +21,20 @@ def raise_warning(warning: PreProcessingChecks, *kwargs) -> str:
         
         raise warning(*kwargs)
 
-MIN_NB_SAMPLES = 30  # TODO: specify it in data formt file (clinician should define it)
+
 
 class PreProcessingChecker:
     def __init__(self, file_format_ref:dict,
                 data_frame: pd.DataFrame,
                 file_format_ref_name:str, 
-                warning_logger: WarningReportLogger):
+                warning_logger, 
+                min_nb_samples: int = 30):
         self._file_format_ref = file_format_ref
         self._data_frame = data_frame
         self._file_format_ref_name = file_format_ref_name
         self._warning_logger = warning_logger
         self._new_features_name = None
-        
+        self._min_nb_samples = min_nb_samples
         self._view_feature_names = {v: [f for f in file_format_ref[v].keys()] for v in file_format_ref.keys()}
         self._features = None
         
@@ -190,7 +80,7 @@ class PreProcessingChecker:
             # define here test that happens on whole dataset
             
             ###
-            self.check_number_of_samples(MIN_NB_SAMPLES, _view)
+            self.check_number_of_samples(self._min_nb_samples, _view)
             
             
             ####
@@ -238,7 +128,7 @@ class PreProcessingChecker:
             try:
                 warning_msg = raise_warning(PreProcessingChecks.N_SAMPLES_BELOW_THRESHOLD,
                                             view_name, min_nb_samples, sample_count)
-            except MinimumSamplesViolatedException as err:
+            except check_exception.MinimumSamplesViolatedException as err:
                 print(err)
                 self._warning_logger.add_exception(err)
                 warning_msg = str(err)
@@ -266,7 +156,7 @@ class PreProcessingChecker:
             try:
                 raise_warning(PreProcessingChecks.MISSING_FEATURE,
                                         feature_name)
-            except MissingFeatureException as exc:
+            except check_exception.MissingFeatureException as exc:
                 warning_msg = str(exc)
                 self._warning_logger.add_exception(exc)
             self._warning_logger.write_checking_result(success, warning_msg, feature_name)
@@ -389,7 +279,7 @@ class PreProcessingChecker:
                 try:
                     warning_msg = raise_warning(PreProcessingChecks.MISSING_DATA_NOT_ALLOWED,
                                                feature_name)
-                except MissingDataException as err:
+                except check_exception.MissingDataException as err:
                     print(err)
                     self._warning_logger.add_exception(err)
                     warning_msg = str(err)

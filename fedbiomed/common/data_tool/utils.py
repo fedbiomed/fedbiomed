@@ -8,7 +8,8 @@ import os
 import dateutil
 from dateutil.parser._parser import ParserError
 
-from demo_poc_data_wrapper.data_type import  DataType
+from fedbiomed.common.data_tool.data_type import DataType
+
 
 class ExcelSignatures(Enum):
     XLSX = (b'\x50\x4B\x05\x06', 2, -22, 4)

@@ -5,9 +5,9 @@ import pprint
 
 import pandas as pd
 
-from notebooks.demo_poc_data_wrapper.data_imputation_methods import ImputationMethods
-from demo_poc_data_wrapper import utils
-from demo_poc_data_wrapper.data_type import DataType, CategoricalDataType, DataTypeProperties
+from fedbiomed.common.data_tool.data_imputation_methods import ImputationMethods
+from fedbiomed.common.data_tool import utils
+from fedbiomed.common.data_tool.data_type import DataType, CategoricalDataType, DataTypeProperties
 
 def get_yes_no_msg() -> str:
     msg_yes_or_no_question = '1) YES\n2) NO\n'   
@@ -23,7 +23,7 @@ def get_data_type_selection_msg(available_data_type:List[Enum],
                                ign_msg: str = 'ignore this column') ->Tuple[str, int]:
     
     
-    n_available_data_type = len(available_data_type)
+    #n_available_data_type = len(available_data_type)
     msg = ''
 
     
@@ -51,7 +51,7 @@ def get_data_imputation_methods_msg(d_type: type = None) -> Tuple[str, Dict[str,
     select_action = {}
     i = 1
     
-    for  imput_method in ImputationMethods:
+    for imput_method in ImputationMethods:
         if d_type is not None:
             
             is_d_type_in_sub_type = utils.check_data_type_consistancy(imput_method.data_type, 

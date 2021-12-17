@@ -6,8 +6,7 @@ from typing import List, Callable
 import numpy as np
 import pandas as pd
 
-
-
+import aenum
 
 # the use of Enum classes will prevent incorrect combination of values
 class QuantitativeDataType(Enum):
@@ -98,4 +97,8 @@ class DataTypeProperties(Enum):
         return self._allow_missing_values
 
 
+def extend_data_type_properties(name, value):
+    aenum.extend_enum(DataTypeProperties, name, value)
 
+def extend_data_type(name, value):
+    aenum.extend_enum(DataType, name, value)
