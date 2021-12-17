@@ -1,0 +1,111 @@
+import os
+import sys
+from utils import get_node_id
+
+
+class Config:
+
+    def __init__(self, docker_status: bool = False):
+        """
+            Config class to update configuration for Flask
+
+            Args:
+                docker_status (bool): Indicates whether GUI
+                running on docker container
+        """
+        self.docker_status = docker_status
+        self.configuration = {}
+
+    @property
+    def config(self):
+        return self.configuration
+
+    def generate_config(self):
+        """
+            This methods gets ENV variable from `os` and
+            generates configuration object
+
+            returns (dict): Dict of configurati0n
+
+        """
+        # Configuring data path both for RW and SAVE by
+        # considering docker status. Docker status means, Is gui
+        # runs in a docker container
+        if self.docker_status:
+            # If application is launched in docker container
+            # Fed-BioMed root will be /fedbiomed
+            self.configuration['NODE_FEDBIOMED_ROOT'] = '/fedbiomed'
+
+            # Data path where datafiles are stored.
+            self.configuration['DATA_PATH_RW'] = '/data'
+            # Data path for saving dataset
+            self.configuration['DATA_PATH_SAVE'] = os.getenv('DATA_PATH', '/data')
+
+        else:
+            # Configuration of Flask APP to able to access Fed-BioMed node information
+            self.configuration['NODE_FEDBIOMED_ROOT'] = os.getenv('FEDBIOMED_ROOT', '/fedbiomed')
+
+            data_path = os.getenv('DATA_PATH')
+            if not data_path:
+                data_path = '/data'
+            else:
+                if data_path.startswith('/'):
+                    assert os.path.isdir(
+                        data_path), f'Given absolute "{data_path}" does not exist or it is not a directory.'
+                else:
+                    data_path = os.path.join(self.configuration['NODE_FEDBIOMED_ROOT'], data_path)
+                    assert os.path.isdir(data_path), f'{data_path} has not been found in Fed-BioMed root directory or ' \
+                                                     f'it is not a directory. Please make sure that the folder is exist.'
+
+            # Data path where datafiles are stored. Since node and gui
+            # works in same machine without docker, path for writing and reading
+            # will be same for saving into database
+            self.configuration['DATA_PATH_RW'] = data_path
+            self.configuration['DATA_PATH_SAVE'] = data_path
+
+        # Get name of the config file default is "config_node.ini"
+        self.configuration['NODE_CONFIG_FILE'] = os.getenv('NODE_CONFIG_FILE',
+                                                    "config_node.ini")
+
+        # Exact configuration file path
+        self.configuration['NODE_CONFIG_FILE_PATH'] = \
+            os.path.join(self.configuration["NODE_FEDBIOMED_ROOT"],
+                         'etc',
+                         self.configuration['NODE_CONFIG_FILE'])
+
+        # Append fedbiomed root dir as a python path
+        sys.path.append(self.configuration['NODE_FEDBIOMED_ROOT'])
+
+        # Set config file path to make fedbiomed.common.environ to parse
+        # correct config file
+        os.environ["CONFIG_FILE"] = self.configuration['NODE_CONFIG_FILE_PATH']
+
+        node_id = get_node_id(self.configuration['NODE_CONFIG_FILE_PATH'])
+        # Set node NODE_DI
+        self.configuration['NODE_ID'] = node_id
+
+        # Set DB_PATH based on given node id
+        self.configuration['NODE_DB_PATH'] = \
+            os.path.join(self.configuration["NODE_FEDBIOMED_ROOT"],
+                         'var',
+                         'db_' + self.configuration['NODE_ID'] + '.json')
+
+        # Enable debug mode
+        self.configuration['DEBUG'] = os.getenv('DEBUG', 'True').lower() in \
+                               ('true', 1, True, 'yes')
+        # Set Port
+        self.configuration['PORT'] = os.getenv('PORT', 8484)
+
+        # Set host
+        self.configuration['HOST'] = os.getenv('HOST', '0.0.0.0')
+
+        # Log information for setting up a node connection
+        print(f'Fedbiomed Node root dir has been set as \
+                {self.configuration["NODE_FEDBIOMED_ROOT"]}')
+        print(f'Fedbiomed Node config file is \
+                {self.configuration["NODE_CONFIG_FILE"]}')
+        print(f'Services are going to be configured for the node \
+                {self.configuration["NODE_ID"]}')
+
+        return self.configuration
+

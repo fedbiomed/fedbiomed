@@ -1,8 +1,7 @@
 import os
 import configparser
-from flask import json, jsonify, request
+from flask import jsonify, request
 from functools import wraps
-
 from schemas import Validator
 
 

@@ -75,7 +75,9 @@ export const Tag = (props) => {
         if(tags.length <=3) {
 
             setCurrentTagText(element.target.value);
-            if ( (element.keyCode === 13 && currentTagText) ||  (element.keyCode === 32 && currentTagText) || (element.keyCode === 9 && currentTagText) ) {
+            if ( (element.keyCode === 13 && currentTagText && /\S/.test(currentTagText)) ||
+                 (element.keyCode === 32 && currentTagText && /\S/.test(currentTagText)) ||
+                 (element.keyCode === 9 && currentTagText && /\S/.test(currentTagText)) ) {
                 let tags_update = [...tags, currentTagText]
                 setTags((prevTags) => {return [...prevTags, currentTagText] });
                 setCurrentTagText('');
