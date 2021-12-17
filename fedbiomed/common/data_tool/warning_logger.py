@@ -1,4 +1,5 @@
-from fedbiomed.common.data_tool.pre_processing_checker import PreProcessingChecks, DataSanityCheckException
+from fedbiomed.common.data_tool.pre_processing_checker import PreProcessingChecks
+from fedbiomed.common.data_tool.pre_processing_warnings_exceptions import  DataSanityCheckException
 
 
 class WarningReportLogger:

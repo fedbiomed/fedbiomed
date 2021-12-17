@@ -70,23 +70,26 @@ def impute_missing_values_interpolate(data):
     except Exception as err:
         print(err)
         print('Error encountered in imputing missing values - interpolate')
-        
+
+     
 class ImputationMethods(Enum):
     MEAN_IMPUTATION = (partial(impute_missing_values_mean),
-                       QuantitativeDataType, None)
+                       QuantitativeDataType, None, False)
     MODE_IMPUTATION = (partial(impute_missing_values_mode),
-                       CategoricalDataType, None)
+                       CategoricalDataType, None, False)
     KNN_IMPUTATION = (partial(impute_missing_values_knn),
-                      CategoricalDataType, ['k'])
+                      CategoricalDataType, ['k'], True)
     LINEAR_INTERPOLATION_IMPUTATION = (partial(impute_missing_values_interpolate),
-                                QuantitativeDataType, None)
+                                QuantitativeDataType, None, True)
     
     def __init__(self, method: Callable,
                  data_type: Enum,
-                 parameters_to_ask_user: List[str]):
+                 parameters_to_ask_user: List[str],
+                 ask_variable_to_perform_imputation: bool):
         self._method = method
         self._data_type = data_type
         self._parameters_to_ask_user = parameters_to_ask_user
+        self._ask_variable_to_perform_imputation = ask_variable_to_perform_imputation
     
     def __call__(self, *args):
         """method avoiding to specify `value` when using an enum class"""
@@ -104,3 +107,7 @@ class ImputationMethods(Enum):
     @property
     def parameters_to_ask_user(self):
         return self._parameters_to_ask_user
+    
+    @property
+    def ask_variable_to_perform_imputation(self):
+        return self._ask_variable_to_perform_imputation

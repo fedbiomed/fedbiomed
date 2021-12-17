@@ -132,8 +132,7 @@ def create_multi_view_dataframe_from_dataframe(dataframe: pd.DataFrame,
     _header = pd.MultiIndex.from_arrays([ _new_views_names, _all_features_names],
                                         names=_header_labels)
     
-    print('BUG',_all_features_names, dataframe[_all_features_names].values.shape, dataframe.shape)
-    print(_header)
+
     multi_view_dataframe = pd.DataFrame(dataframe[_all_features_names].values, columns=_header)
     
     if primary_key is not None:
@@ -254,3 +253,38 @@ def select_data_from_format_file_ref(datasets: Dict[str, Dict[str, Any]],
             print(f'error!: missing view {view} in dataset')
             
     return updated_dataset
+
+def create_dictionary_multi_view_dataset(dataframe: pd.DataFrame,
+                                         views_features_mapping: Dict[str, List[str]],
+                                         primary_key: str=None) -> Dict[str, pd.DataFrame]:
+    _primary_key_label = 'primary_key'
+    
+    multi_view_dataset = {}
+    
+    if primary_key is not None:
+        _key_values = dataframe[primary_key].values  # storing primary key values
+
+    _all_features_names = []
+    _new_views_names = []
+    for view_name in views_features_mapping.keys():
+        # get all columns name for each view, and remove primary key
+        _features_names = list(views_features_mapping[view_name])
+        
+        if primary_key is not None:
+            _features_names.remove(primary_key)
+        _tmp_dataframe = dataframe[_features_names[0]].values
+        _tmp_dataframe = _tmp_dataframe.reshape(-1, 1)  # need to reshape,
+        #(otherwise concatenation wont work)
+        for feature in _features_names[1:]:
+            # iterate over the remaining items in _feature_name
+            # need to do it that way because indexing dataframe is somehow broken
+            
+            _new_feature = dataframe[feature].to_numpy()
+            _new_feature = _new_feature.reshape(-1, 1)
+            _tmp_dataframe = np.concatenate([_tmp_dataframe, _new_feature], axis=1)
+            
+        multi_view_dataset[view_name] =pd.DataFrame( _tmp_dataframe, columns=_features_names)
+    
+    if primary_key is not None:
+        multi_view_dataset[primary_key] = dataframe[primary_key]
+    return multi_view_dataset

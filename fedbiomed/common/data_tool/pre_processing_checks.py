@@ -1,15 +1,15 @@
-    """Definition of the checks performed as data sanity checks
+"""Definition of the checks performed as data sanity checks
 
-    """
+"""
 from enum import Enum
 from typing import Union, List
 import fedbiomed.common.data_tool.pre_processing_warnings_exceptions as check_exception
 
     
 class PreProcessingChecks(Enum):
-    INCORRECT_FORMAT_FILE = ("Format File %s is incorrect: cannot parse variable %s", WarningType.CRITICAL_WARNING,
+    INCORRECT_FORMAT_FILE = ("Format File %s is incorrect: cannot parse variable %s", check_exception.WarningType.CRITICAL_WARNING,
                             )
-    KEY_UNICITY_VIOLATED = ("Key Variable %s violated unicity of data", check_exception.WarningType.CRITICAL_WARNING, 
+    KEY_UNIQUENESS_VIOLATED = ("Key Variable %s violated uniqueness of data", check_exception.WarningType.CRITICAL_WARNING, 
                            )
     MISSING_DATA_NOT_ALLOWED = ("Variable %s must not have missing data, but some were found",
                                 check_exception.MissingDataException, 

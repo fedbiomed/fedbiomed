@@ -12,7 +12,7 @@ from fedbiomed.common.data_tool.pre_processing_checks  import PreProcessingCheck
 import fedbiomed.common.data_tool.pre_processing_warnings_exceptions as check_exception
 
     
-def raise_warning(warning: checks.PreProcessingChecks, *kwargs) -> str:
+def raise_warning(warning: PreProcessingChecks, *kwargs) -> str:
     if isinstance(warning.warning_type, check_exception.WarningType):
         #warning.warning_type.value(warning_disclosure)
         
@@ -20,7 +20,6 @@ def raise_warning(warning: checks.PreProcessingChecks, *kwargs) -> str:
     elif issubclass(warning.warning_type, Exception):
         
         raise warning(*kwargs)
-
 
 
 class PreProcessingChecker:
@@ -477,3 +476,4 @@ class PreProcessingChecker:
                                                      feature_name) 
 
         return are_datetime_parsables
+    
