@@ -152,8 +152,6 @@ export const DatasetPreview = (props) => {
         setEdit(false)
     }
 
-    console.log(preview)
-
     return (
         <div className="data-preview">
             {!loading ?

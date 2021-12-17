@@ -24,7 +24,53 @@ eval "$(conda shell.bash hook)"
 basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit
 
-#
+# Colors
+RED='\033[0;31m' #red
+YLW='\033[1;33m' #yellow
+NC='\033[0m' #no color
+
+# Script for starting GUI
+function start_gui() {
+    # Check config file status
+    if [ -n "$CONFIG_FILE" ]; then
+      echo -e "${YLW}INFO${NC}: Using $CONFIG_FILE file as GUI node config"
+    else
+      CONFIG_FILE="config_node.ini"
+      echo -e "${YLW}INFO${NC}: Config file has not been provided, defualt config 'config_node.ini' will be used for GUI"
+    fi
+
+    if [ ! -n "$DATA_PATH" ]; then
+      DATA_PATH="data"
+      echo -e "${YLW}INFO${NC}: Data path has not been provided. Trying to use FEDBIOMED_ROOT/data dir"
+      if [ ! -d "$basedir/$DATA_PATH" ]; then
+        echo "ERROR: 'data' folder is not exist in Fed-BioMed root"
+        exit 1
+      fi
+    fi
+
+    # Activate fedbiomed GUI environment
+    source ./scripts/fedbiomed_environment gui
+
+    # Install npm modules
+    echo -e "${YLW}INFO${NC}: Installing node modules...."
+    cd ./gui/ui && npm install
+    # Build the project
+    echo -e "${YLW}INFO${NC}: Building front-end bundle..."
+    npm run build
+    if [ -d "$basedir/var/gui-build" ];then
+      rm -Rf "$basedir/var/gui-build";
+    fi
+    mv "$basedir/gui/ui/build/" "$basedir/var/gui-build"
+    cd ../server
+
+    echo -e "${YLW}INFO:${NC} Starting Flask Server and API services...."
+    FEDBIOMED_ROOT="$basedir" \
+    NODE_CONFIG_FILE="$CONFIG_FILE" \
+    BUILD_DIR="$basedir/var/gui-build" \
+    DATA_PATH="$DATA_PATH" \
+    python app.py
+}
+
 case $1 in
 
     network)
@@ -37,17 +83,58 @@ case $1 in
         docker-compose up -d restful mqtt
         ;;
     gui)
-        source ./scripts/fedbiomed_environment gui
-        # Install npm modules
-        cd ./gui/ui && npm install
-        # Build the project
-        npm run build
-        if [ -d "$basedir/var/gui-build" ];then
-          rm -Rf "$basedir/var/gui-build";
-        fi
-        mv "$basedir/gui/ui/build/" "$basedir/var/gui-build"
-        cd ../server
-        FEDBIOMED_ROOT="$basedir" NODE_CONFIG_FILE=config-n1.ini BUILD_DIR="$basedir/var/gui-build" python app.py
+        while true ; do
+            case $2 in
+              config)
+                    if [ $# -lt 3 ] ; then
+                        echo -e "${RED}ERROR${NC}: missing config file name"
+                        exit 1
+                    fi
+                    CONFIG_FILE=$3
+                    shift
+                    shift
+              ;;
+              data_folder)
+                  if [ $# -lt 3 ] ; then
+                      echo -e "${RED}ERROR${NC}: missing data folder path"
+                      exit 1
+                  fi
+
+                  if [[ $3 == /* ]]; then
+                      if [[ ! -d "$3" ]]; then
+                        echo -e "${RED}ERROR${NC}: folder '${3}' is not exist. Can not continue.\n"
+                        exit 1
+                      else
+                        DATA_PATH="$3"
+                      fi
+                  else
+                      if [ ! -d "$basedir/$3" ]; then
+                        echo -e "${RED}ERROR${NC}: folder '$basedir/${3}' is not exist. Can not continue.\n"
+                        exit 1
+                      else
+                        path=$(cd "$basedir/$3" && pwd)
+                        DATA_PATH="$path"
+                        echo "$DATA_PATH"
+                      fi
+                  fi
+
+                  shift
+                  shift
+                  ;;
+              *)
+                  break
+                  ;;
+            esac
+        done
+        case $2 in
+            start)
+                start_gui
+                ;;
+            *)
+              echo -e "${RED}ERROR:${NC}: Node GUI command should be used with start. Please make your command is correct"
+              exit 1
+              ;;
+        esac
       ;;
     node)
 

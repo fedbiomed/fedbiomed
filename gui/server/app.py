@@ -11,6 +11,9 @@ app = Flask(__name__, static_folder=build_dir)
 db_prefix = os.getenv('DB_PREFIX', 'db_')
 docker_status = os.getenv('DOCKER', 'False').lower() in ('true', '1')
 
+# Configuring data path both for RW and SAVE by
+# considering docker status. Docker status means, Is gui
+# runs in a docker container
 if docker_status:
     # If application is launched in docker container
     # Fed-BioMed root will be /fedbiomed
@@ -19,18 +22,30 @@ if docker_status:
     # Data path where datafiles are stored.
     app.config['DATA_PATH_RW'] = '/data'
     # Data path for saving dataset
-    app.config['DATA_PATH_SAVE'] = os.getenv('NODE_DATA_PATH', '/data')
+    app.config['DATA_PATH_SAVE'] = os.getenv('DATA_PATH', '/data')
 
 else:
     # Configuration of Flask APP to able to access Fed-BioMed node information
     app.config['NODE_FEDBIOMED_ROOT'] = os.getenv('FEDBIOMED_ROOT', '/fedbiomed')
-    # Data path where datafiles are stored.
-    app.config['DATA_PATH_RW'] = \
-        os.getenv('DATA_PATH',
-                  os.path.join(app.config['NODE_FEDBIOMED_ROOT'],
-                               'data'))
-    app.config['DATA_PATH_SAVE'] = app.config['DATA_PATH_RW']
 
+    data_path = os.getenv('DATA_PATH')
+    if not data_path:
+        data_path = '/data'
+    else:
+        if data_path.startswith('/'):
+            assert os.path.isdir(data_path), f'Given absolute "{data_path}" does not exist or it is not a directory.'
+        else:
+            data_path = os.path.join(app.config['NODE_FEDBIOMED_ROOT'], data_path)
+            assert os.path.isdir(data_path), f'{data_path} has not been found in Fed-BioMed root directory or ' \
+                                             f'it is not a directory. Please make sure that the folder is exist.'
+
+    # Data path where datafiles are stored. Since node and gui
+    # works in same machine without docker, path for writing and reading
+    # will be same for saving into database
+    app.config['DATA_PATH_RW'] = data_path
+    app.config['DATA_PATH_SAVE'] = data_path
+    print(os.getenv('DATA_PATH'))
+    print(data_path)
 # Get name of the config file defaul is "config_node.ini"
 app.config['NODE_CONFIG_FILE'] = os.getenv('NODE_CONFIG_FILE',
                                            "config_node.ini")
