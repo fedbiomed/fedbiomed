@@ -3,6 +3,7 @@ from testsupport.delete_environ import delete_environ
 # Delete environ. It is necessary to rebuild environ for required component
 delete_environ()
 import testsupport.mock_common_environ
+
 from fedbiomed.node.environ import environ
 
 from fedbiomed.common.constants import HashingAlgorithms
