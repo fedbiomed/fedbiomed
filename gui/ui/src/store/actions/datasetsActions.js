@@ -104,7 +104,7 @@ export const removeDataset = (data) => {
 
     return (dispatch, getState) => {
 
-         dispatch({type:'SET_LOADING', payload: true})
+        dispatch({type:'SET_LOADING', payload: true})
         // Get current datasets state 
         let datasets = getState().datasets
 

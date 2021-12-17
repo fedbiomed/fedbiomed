@@ -90,6 +90,7 @@ export const Datasets = (props) => {
         switch (modal.action) {
             case 'remove':  
                 props.removeDatasetAction(modal.data)
+                handleClose()
                 break;
             default:
                 handleClose()

@@ -38,7 +38,9 @@ case $1 in
         ;;
     gui)
         source ./scripts/fedbiomed_environment gui
+        # Install npm modules
         cd ./gui/ui && npm install
+        # Build the project
         npm run build
         if [ -d "$basedir/var/gui-build" ];then
           rm -Rf "$basedir/var/gui-build";
