@@ -310,7 +310,6 @@ def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
             model state at {breakpoint_folder_path}. Aborting")
         raise FileNotFoundError(f"Cannot find JSON file containing\
             model state at {breakpoint_folder_path}. Aborting")
-        #sys.exit(-1)
     
     return breakpoint_folder_path, state_file
 

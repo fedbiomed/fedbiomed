@@ -301,106 +301,114 @@ class TestFiletools(unittest.TestCase):
                           only_folder=False)
 
 
-#    @patch('os.path.isdir')
-#    @patch('os.listdir')
-#    def test_private_find_breakpoint_path_1(self,
-#                                            patch_os_listdir,
-#                                            patch_os_path_isdir
-#                                            ):
-#        # test 1 : test if results are corrects  if path
-#        # to breakpoint has been given by user
-#        bkpt_folder = "/path/to/breakpoint"
-#        patch_os_listdir.return_value = ['breakpoint_1234.json',
-#                                         "another_file"]
-#        patch_os_path_isdir.return_value = True
-#
-#        bkpt_folder_out, state_file = Experiment._find_breakpoint_path(bkpt_folder)
-#        self.assertEqual(bkpt_folder, bkpt_folder_out)
-#        self.assertEqual(state_file, 'breakpoint_1234.json')
-#
-#    @patch('fedbiomed.researcher.experiment.Experiment._get_latest_file')
-#    @patch('os.path.isdir')
-#    @patch('os.listdir')
-#    def test_private_find_breakpoint_path_2(self,
-#                                            patch_os_listdir,
-#                                            patch_os_path_isdir,
-#                                            patch_get_latest_file
-#                                            ):
-#        # test 2 : test if path to breakpoint has not been given by user
-#        # ie set to None
-#        patch_os_listdir.return_value = ['breakpoint_1234.json',
-#                                         "another_file"]
-#        patch_os_path_isdir.return_value = True
-#        patch_get_latest_file.return_value = "breakpoint"
-#        latest_bkpt_folder = os.path.join(environ['EXPERIMENTS_DIR'],
-#                                          'breakpoint',
-#                                          'breakpoint')
-#
-#        bkpt_folder_out, state_file = Experiment._find_breakpoint_path(None)
-#        self.assertEqual(state_file, 'breakpoint_1234.json')
-#        self.assertEqual(bkpt_folder_out, latest_bkpt_folder)
-#
-#    @patch('os.path.isfile')
-#    @patch('os.path.isdir')
-#    @patch('os.listdir')
-#    def test_private_find_breakpoint_path_raise_err1(self,
-#                                                     patch_os_listdir,
-#                                                     patch_os_path_isdir,
-#                                                     patch_os_path_isfile):
-#        # triggers error: FileNotFoundError, error is not a folder
-#        # but a file
-#        bkpt_folder = "/path/to/breakpoint"
-#        patch_os_listdir.return_value = ['breakpoint_1234.json',
-#                                         "another_file"]
-#        patch_os_path_isdir.return_value = False
-#        patch_os_path_isfile.return_value = False
-#        self.assertRaises(FileNotFoundError,
-#                          Experiment._find_breakpoint_path,
-#                          bkpt_folder)
-#    @patch('os.path.isfile')
-#    @patch('os.path.isdir')
-#    @patch('os.listdir')
-#    def test_private_find_breakpoint_path_raise_err2(self,
-#                                                     patch_os_listdir,
-#                                                     patch_os_path_isdir,
-#                                                     patch_os_path_isfile):
-#        # triggers error: FileNotFoundError (folder not found)
-#        #
-#        bkpt_folder = "/path/to/breakpoint"
-#        patch_os_listdir.return_value = ['breakpoint_1234.json',
-#                                         "another_file"]
-#        patch_os_path_isdir.return_value = False
-#        patch_os_path_isfile.return_value = True
-#        self.assertRaises(FileNotFoundError,
-#                          Experiment._find_breakpoint_path,
-#                          bkpt_folder)
-#
-#    @patch('fedbiomed.researcher.experiment.Experiment._get_latest_file')
-#    @patch('os.path.isdir')
-#    @patch('os.listdir')
-#    def test_private_find_breakpoint_raise_err_3(self,
-#                                                 patch_os_listdir,
-#                                                 patch_os_path_isdir,
-#                                                 patch_get_latest_file
-#                                                 ):
-#        # test 3 : test if rerror is raised when json file
-#        # not found in a breakpoint folder specified by user
-#        bkpt_folder = "/path/to/breakpoint"
-#        patch_os_listdir.return_value = ['one_file',
-#                                         "another_file"]
-#        patch_os_path_isdir.return_value = True
-#        patch_get_latest_file.return_value = "breakpoint"
-#
-#        self.assertRaises(FileNotFoundError,
-#                          Experiment._find_breakpoint_path,
-#                          bkpt_folder)
-#
-#    def test_private_find_breakpoint_raise_err_4(self):
-#        # test 4 : test if rerror is raised when latest
-#        # file has not been foud
-#        self.assertRaises(FileNotFoundError,
-#                          Experiment._find_breakpoint_path,
-#                          None)
+    @patch('os.path.isdir')
+    @patch('os.listdir')
+    def test_private_find_breakpoint_path_1(self,
+                                            patch_os_listdir,
+                                            patch_os_path_isdir
+                                            ):
+        # test 1 : test if results are corrects  if path
+        # to breakpoint has been given by user
+        bkpt_folder = "/path/to/breakpoint"
+        patch_os_listdir.return_value = ['breakpoint_1234.json',
+                                         "another_file"]
+        patch_os_path_isdir.return_value = True
+
+        bkpt_folder_out, state_file = filetools.find_breakpoint_path(bkpt_folder)
+        self.assertEqual(bkpt_folder, bkpt_folder_out)
+        self.assertEqual(state_file, 'breakpoint_1234.json')
+
+    @patch('fedbiomed.researcher.filetools._get_latest_file')
+    @patch('os.path.isdir')
+    @patch('os.listdir')
+    def test_private_find_breakpoint_path_2(self,
+                                            patch_os_listdir,
+                                            patch_os_path_isdir,
+                                            patch_get_latest_file
+                                            ):
+        # test 2 : test if path to breakpoint has not been given by user
+        # ie set to None
+        patch_os_listdir.return_value = ['breakpoint_1234.json',
+                                         "another_file"]
+        patch_os_path_isdir.return_value = True
+        patch_get_latest_file.return_value = "breakpoint"
+        latest_bkpt_folder = os.path.join(environ['EXPERIMENTS_DIR'],
+                                          'breakpoint',
+                                          'breakpoint')
+
+        bkpt_folder_out, state_file = filetools.find_breakpoint_path(None)
+        self.assertEqual(state_file, 'breakpoint_1234.json')
+        self.assertEqual(bkpt_folder_out, latest_bkpt_folder)
+
+    @patch('os.path.isdir')
+    @patch('os.listdir')
+    def test_private_find_breakpoint_path_raise_err1(self,
+                                                     patch_os_listdir,
+                                                     patch_os_path_isdir):
+        # test 3 : triggers error FileNotFoundError, given breakpoint folder
+        # is not a directory 
+        bkpt_folder = "/path/to/breakpoint"
+        patch_os_listdir.return_value = ['breakpoint_1234.json',
+                                         "another_file"]
+        patch_os_path_isdir.return_value = False
+        self.assertRaises(FileNotFoundError,
+                          filetools.find_breakpoint_path,
+                          bkpt_folder)
+
+    @patch('os.path.isfile')
+    @patch('os.path.isdir')
+    @patch('os.listdir')
+    def test_private_find_breakpoint_path_raise_err2(self,
+                                                     patch_os_listdir,
+                                                     patch_os_path_isdir,
+                                                     patch_os_path_isfile):
+        # test 4 : triggers error FileNotFoundError, no given breakpoint 
+        # folder, cannot guess one from existing folders
+        patch_os_listdir.return_value = ['breakpoint_1234.json',
+                                         "another_file"]
+        patch_os_path_isdir.return_value = True
+        patch_os_path_isfile.return_value = True
+        self.assertRaises(FileNotFoundError,
+                          filetools.find_breakpoint_path)
+
+    def test_private_find_breakpoint_raise_err_3(self):
+        # test 5 : triggers error FileNotFoundError, cannot guess a folder
+        # when none exist.
+        self.assertRaises(FileNotFoundError,
+                          filetools.find_breakpoint_path,
+                          None)
+
+    @patch('os.path.isdir')
+    @patch('os.listdir')
+    def test_private_find_breakpoint_path_raise_err4(self,
+                                                     patch_os_listdir,
+                                                     patch_os_path_isdir):
+        # test 6 : triggers error FileNotFoundError, no file
+        # present in breakpoint folder
+        bkpt_folder = "/path/to/breakpoint"
+        patch_os_listdir.return_value = []
+        patch_os_path_isdir.return_value = True
+        self.assertRaises(FileNotFoundError,
+                          filetools.find_breakpoint_path,
+                          bkpt_folder)
+
+
+    @patch('os.path.isdir')
+    @patch('os.listdir')
+    def test_private_find_breakpoint_raise_err_5(self,
+                                                 patch_os_listdir,
+                                                 patch_os_path_isdir):
+        # test 7: test if rerror is raised when json file
+        # not found in a breakpoint folder specified by user
+        bkpt_folder = "/path/to/breakpoint"
+        patch_os_listdir.return_value = ['one_file',
+                                         "another_file"]
+        patch_os_path_isdir.return_value = True
+
+        self.assertRaises(FileNotFoundError,
+                          filetools.find_breakpoint_path,
+                          bkpt_folder)
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
