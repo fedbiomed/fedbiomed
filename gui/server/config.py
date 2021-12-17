@@ -93,19 +93,22 @@ class Config:
         # Enable debug mode
         self.configuration['DEBUG'] = os.getenv('DEBUG', 'True').lower() in \
                                ('true', 1, True, 'yes')
-        # Set Port
-        self.configuration['PORT'] = os.getenv('PORT', 8484)
 
-        # Set host
+
+        # TODO: Let users decide which port they would like to use
+        # Serve  configurations PORT and IP
+        self.configuration['PORT'] = os.getenv('PORT', 8484)
         self.configuration['HOST'] = os.getenv('HOST', '0.0.0.0')
 
         # Log information for setting up a node connection
-        print(f'Fedbiomed Node root dir has been set as \
-                {self.configuration["NODE_FEDBIOMED_ROOT"]}')
-        print(f'Fedbiomed Node config file is \
-                {self.configuration["NODE_CONFIG_FILE"]}')
-        print(f'Services are going to be configured for the node \
-                {self.configuration["NODE_ID"]}')
+        print(f'INFO: Fed-BioMed Node root dir has been set as'
+              f'{self.configuration["NODE_FEDBIOMED_ROOT"]} \n')
+
+        print(f'INFO: Fed-BioMed  Node config file is '
+              f'{self.configuration["NODE_CONFIG_FILE"]} \n')
+
+        print(f'INFO: Services are going to be configured for the node '
+              f'{self.configuration["NODE_ID"]} \n')
 
         return self.configuration
 
