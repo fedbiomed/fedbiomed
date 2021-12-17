@@ -4,8 +4,7 @@ from jsonschema import Draft7Validator, validators
 
 
 def extend_validator(validator_class):
-
-    """ Extending json validator to set default values 
+    """ Extending json validator to set default values
         if it is specified in the schema
 
         @source: https://readthedocs.org/projects/python-jsonschema/downloads/pdf/latest/
@@ -35,21 +34,26 @@ JsonBaseValidator = extend_validator(Draft7Validator)
 
 
 class Validator:
-    def __init__(self, request):
 
+    def __init__(self, request):
         """
-            Validator for reqeusted data. it is currently work
-            for application/json type request. in feature it can be 
-            extenden to other types of request such as form,url-encoded etc.
+            Validator for requested data. it is currently work
+            for application/json type request. in the future, it can be
+            extended to other types of request such as form,url-encoded etc.
+
+            Args:
+                request (flask.request): Request data
         """
+
         self._request = request
         self._schema = getattr(self, 'schema')
         self._type = getattr(self, 'type')
 
     def validate(self):
-        """ Validation function for for provided schema currenly 
-            it is only allowed to json schemas
+        """ Validation function for provided schema. Currently,
+            it is only allowed to control json schemas
         """
+
         if self._type == 'json':
             self._schema(request.json)
         else:
@@ -59,14 +63,13 @@ class Validator:
 class JsonSchema(object):
 
     def __init__(self, schema, message: str = None):
-
         """Schema class 
 
         Args:
             schema (dict): A dictiory represent the valid schema
                             for JSON object
             message (str): Message that will be return if the validation
-                            is not successfull. If it is `None` it will return
+                            is not successful. If it is `None` it will return
                             default `jsonschema` validation error message
         """
 
@@ -74,6 +77,15 @@ class JsonSchema(object):
         self._message = message
 
     def __call__(self, data):
+        """
+            Validating schema while calling the schema object
+            with given data.
+
+            Args:
+                data (dict): Request.json, which comes as dict object.
+                            This data will be validated
+        """
+
         try:
             JsonBaseValidator(self._schema).validate(data)
         except jsonschema.ValidationError as e:
@@ -88,21 +100,20 @@ class AddDataSetRequest(Validator):
 
     type = 'json'
     schema = JsonSchema({
-            'type': 'object',
-            'properties': {
-                'name': {'type': 'string'},
-                'path': {'type': 'array'},
-                'tags': {'type': 'array'},
-                'type': {'type': 'string',
-                         'oneOf': [{"enum": ['csv', 'images']}]},
-                'desc': {'type': 'string'}
-            },
-            'required': ['name', 'path', 'tags', 'desc', 'type']
-        }, message=None)
+        'type': 'object',
+        'properties': {
+            'name': {'type': 'string'},
+            'path': {'type': 'array'},
+            'tags': {'type': 'array'},
+            'type': {'type': 'string',
+                     'oneOf': [{"enum": ['csv', 'images']}]},
+            'desc': {'type': 'string'}
+        },
+        'required': ['name', 'path', 'tags', 'desc', 'type']
+    }, message=None)
 
 
 class ListDataFolder(Validator):
-
     """  JSON schema for request of /api/repository/list """
 
     type = 'json'
@@ -116,7 +127,6 @@ class ListDataFolder(Validator):
 
 
 class RemoveDatasetRequest(Validator):
-
     """  JSON schema for request of /api/datasets/remove """
 
     type = 'json'
@@ -130,7 +140,6 @@ class RemoveDatasetRequest(Validator):
 
 
 class PreviewDatasetRequest(Validator):
-
     """  JSON schema for request of /api/datasets/preview """
 
     type = 'json'
@@ -144,7 +153,6 @@ class PreviewDatasetRequest(Validator):
 
 
 class UpdateDatasetRequest(Validator):
-
     """  JSON schema for request of /api/datasets/update """
 
     type = 'json'
@@ -160,6 +168,10 @@ class UpdateDatasetRequest(Validator):
 
 
 class AddDefaultDatasetRequest(Validator):
+
+    """ JSON schema for validating request for adding new
+        default dataset
+    """
 
     type = 'json'
     schema = JsonSchema({

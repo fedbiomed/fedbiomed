@@ -200,6 +200,10 @@ def get_preview_dataset():
         else:
             dataset['data_preview'] = None
 
+        matched = re.match('^' + app.config['NODE_FEDBIOMED_ROOT'], str(dataset['path']))
+        if matched:
+            dataset['path'] = dataset['path'].replace(app.config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_ROOT')
+
         return response(dataset, '/api/datasets/preview'), 200
 
     else:

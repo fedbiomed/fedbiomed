@@ -7,16 +7,8 @@ import uuid
 
 from db import database
 
-# @app.route("/" , methods=['POST', 'GET'])
-# def hello_world_2():
 
-#     # table = DATABASE.table('_default')
-#     # result = table.all()
-    
-#     return 'HELLO WORLD'
-
-
-
+# TODO: Support upload function for user
 @app.route('/upload-csv', methods=['POST'])
 def upload_file():
 
@@ -28,16 +20,16 @@ def upload_file():
         type = request.form.get('type')
 
         result = {
-            'success' : 0,
-            'tags' : tags,
-            'name' : name,
-            'desc' : desc,
-            'type' : type
+            'success': 0,
+            'tags': tags,
+            'name': name,
+            'desc': desc,
+            'type': type
         }
 
         path = os.path.join('/fedbiomed', 'data' , file.filename)
         path_host = os.path.join(app.config['NODE_FEDBIOMED_ROOT'] , 'data' , file.filename)
-        file = file.save(os.path.join('/fedbiomed/data' , file.filename))
+        file.save(os.path.join('/fedbiomed/data' , file.filename))
         sniffer = csv.Sniffer()
 
         with open(path, 'r') as file:
@@ -56,15 +48,8 @@ def upload_file():
             description=desc, shape=shape,
             path=path_host, dataset_id=dataset_id, dtypes=types)
         )
-        
+
         return jsonify(result)
     else:
 
         return 0
-
-@app.route('/list-datasets', methods=['GET'])
-def list_datasets():
-
-    table = database.table('_default')
-    result = table.all()
-    return jsonify(result)

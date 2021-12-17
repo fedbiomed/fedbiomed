@@ -86,20 +86,23 @@ def response(data: dict, endpoint: str, message: str = None):
 
 
 def validate_json(function):
-    """ Validate requested JSON whether is in
-        correct format"""
+    """ Decorator for validating requested JSON whether is in
+        correct JSON format
+    Args:
+          function (func) : Controller (router)
+    """
 
     @wraps(function)
     def wrapper(*args, **kw):
 
         if request.headers.get('Content-Type') != 'application/json':
-            res = error("Reques body should be application/json")
+            res = error("Request body should be application/json")
             return res, 400
         elif request.json is None:
             res = error("application/json returns `None`")
             return res, 400
 
-        # Otherwise keep executing route controller    
+        # Otherwise, keep executing route controller
         return function(*args, **kw)
 
     return wrapper
@@ -111,23 +114,28 @@ def validate_request_data(schema: Validator):
         in schema
 
         Args: 
-            schema (Validator) : Schema class to to check inputs in 
+            schema (Validator) : Schema class to check inputs in
                                 request object
     """
 
     def decorator(controller):
+        """
+            Decorator to compare request JSON with
+            given json schema
+
+            Args:
+                 controller (func): Controller function for the route
+        """
         @wraps(controller)
         def wrapper(*args, **kw):
-
             try:
                 inputs = schema(request)
                 inputs.validate()
             except Exception as e:
                 return error(str(e)), 400
+
             return controller(*args, **kw)
-
         return wrapper
-
     return decorator
 
 
