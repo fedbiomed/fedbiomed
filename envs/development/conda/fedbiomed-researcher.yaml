@@ -41,3 +41,5 @@ dependencies:
       - tensorboard
       - JSON-log-formatter
       - python-minifier ==2.5.0
+      # for nbconvert
+      - jupyter_contrib_nbextensions

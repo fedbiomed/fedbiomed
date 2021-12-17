@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 import sys
@@ -13,7 +14,7 @@ import tkinter.messagebox
 from tkinter import _tkinter
 
 from fedbiomed.node.environ import environ
-from fedbiomed.common.constants import ModelTypes
+from fedbiomed.common.constants import ModelTypes, ErrorNumbers
 from fedbiomed.node.data_manager import DataManager
 from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.node import Node
@@ -108,6 +109,7 @@ def validated_path_input(type):
                 path = pick_with_tkinter(mode='file')
                 logger.debug(path)
                 if not path:
+                    # node is not in computation mode, MQQT message cannot be sent
                     logger.critical('No file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
@@ -116,6 +118,7 @@ def validated_path_input(type):
                 path = pick_with_tkinter(mode='txt')
                 logger.debug(path)
                 if not path:
+                    # node is not in computation mode, MQQT message cannot be sent
                     logger.critical('No python file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
@@ -123,6 +126,7 @@ def validated_path_input(type):
                 path = pick_with_tkinter(mode='dir')
                 logger.debug(path)
                 if not path:
+                    # node is not in computation mode, MQQT message cannot be sent
                     logger.critical('No directory was selected. Exiting')
                     exit(1)
                 assert os.path.isdir(path)
@@ -137,34 +141,68 @@ def validated_path_input(type):
     return path
 
 
-def add_database(interactive=True, path=''):
+def add_database(interactive=True,
+                 path=None,
+                 name=None,
+                 tags=None,
+                 description=None,
+                 data_type=None):
 
-    print('Welcome to the Fedbiomed CLI data manager')
-    if interactive is True:
-        data_type = validated_data_type_input()
-    else:
-        data_type = 'default'
+    # if all args are provided, just try to load the data
+    # if not, ask the user more informations
+    if interactive or \
+       path is None or \
+       name is None or \
+       tags is None or \
+       description is None or \
+       data_type is None :
 
-    if data_type == 'default':
-        tags = ['#MNIST', "#dataset"]
+
+        print('Welcome to the Fedbiomed CLI data manager')
+
         if interactive is True:
-            while input(f'MNIST will be added with tags {tags} [y/N]').lower() != 'y':
-                pass
+            data_type = validated_data_type_input()
+        else:
+            data_type = 'default'
+
+        if data_type == 'default':
+            tags = ['#MNIST', "#dataset"]
+            if interactive is True:
+                while input(f'MNIST will be added with tags {tags} [y/N]').lower() != 'y':
+                    pass
+                path = validated_path_input(data_type)
+            name = 'MNIST'
+            description = 'MNIST database'
+
+        else:
+
+            name = input('Name of the database: ')
+
+            tags = input('Tags (separate them by comma and no spaces): ')
+            tags = tags.replace(' ', '').split(',')
+
+            description = input('Description: ')
+
             path = validated_path_input(data_type)
-        name = 'MNIST'
-        description = 'MNIST database'
 
     else:
-        name = input('Name of the database: ')
+        # all data have been provided at call
+        # check few things
 
-        tags = input('Tags (separate them by comma and no spaces): ')
-        tags = tags.replace(' ', '').split(',')
+        # transform a string with coma(s) as a string list
+        tags = str(tags).split(',')
 
-        description = input('Description: ')
-        path = validated_path_input(data_type)
+        name=str(name)
+        description=str(description)
+
+        data_type=str(data_type).lower()
+        if data_type not in [ 'csv', 'default', 'images' ]:
+            data_type = 'default'
+
+        if not os.path.exists(path):
+            logger.critical("provided path does not exists: " + path)
 
     # Add database
-
     try:
         data_manager.add_database(name=name,
                                   tags=tags,
@@ -190,6 +228,14 @@ def node_signal_handler(signum, frame):
     Catch the temination signal then user stops the process
     and send SystemExit(0) to be trapped later
     """
+
+    # get the (running) Node object
+    global node
+
+    if node:
+        node.send_error(ErrorNumbers.FB312)
+    else:
+        logger.error("Cannot send error message to researcher (node not initialized yet)")
     logger.critical("Node stopped in signal_handler, probably by user decision (Ctrl C)")
     time.sleep(1)
     sys.exit(signum)
@@ -199,6 +245,8 @@ def manage_node():
     Instantiates a node and data manager objects. Then, node starts
     messaging with the Network
     """
+
+    global node
 
     try:
         signal.signal(signal.SIGTERM, node_signal_handler)
@@ -227,6 +275,7 @@ def manage_node():
 
     except Exception as e:
         # must send info to the researcher
+        node.send_error(ErrorNumbers.FB300, extra_msg = "Error = " + str(e))
         logger.critical("Node stopped. Error = " + str(e))
 
     finally:
@@ -308,6 +357,21 @@ def delete_database(interactive: bool = True):
             return
         except (ValueError, IndexError, AssertionError):
             logger.error('Invalid option. Please, try again.')
+
+
+def delete_all_database():
+    my_data = data_manager.list_my_data(verbose=False)
+
+    if not my_data:
+        logger.warning('No dataset to delete')
+        return
+
+    for ds in my_data:
+        tags = ds['tags']
+        data_manager.remove_database(tags)
+        logger.info('Dataset removed for tags:' + str(tags))
+
+    return
 
 
 def register_model(interactive: bool = True):
@@ -436,8 +500,16 @@ def launch_cli():
                         help='Add MNIST local dataset (non-interactive)',
                         type=str, nargs='?', const='', metavar='path_mnist',
                         action='store')
+    # this option provides a json file describing the data to add
+    parser.add_argument('-adff', '--add-dataset-from-file',
+                        help='Add a local dataset described by json file (non-interactive)',
+                        type=str,
+                        action='store')
     parser.add_argument('-d', '--delete',
                         help='Delete existing local dataset (interactive)',
+                        action='store_true')
+    parser.add_argument('-da', '--delete-all',
+                        help='Delete all existing local datasets (non interactive)',
                         action='store_true')
     parser.add_argument('-dm', '--delete-mnist',
                         help='Delete existing MNIST local dataset (non-interactive)',
@@ -472,6 +544,52 @@ def launch_cli():
         add_database()
     elif args.add_mnist is not None:
         add_database(interactive=False, path=args.add_mnist)
+    elif args.add_dataset_from_file is not None:
+        print("Dataset description file provided: adding these data")
+        try:
+            with open(args.add_dataset_from_file) as json_file:
+                data = json.load(json_file)
+        except:
+            logger.critical("cannot read dataset json file: " + args.add_dataset_from_file)
+            sys.exit(-1)
+
+        # verify that json file is complete
+        for k in [ "path", "data_type", "description", "tags", "name"]:
+            if not k in data:
+                logger.critical("dataset json file corrupted: " + args.add_dataset_from_file )
+
+        # dataset path can be defined:
+        # - as an absolute path -> take it as it is
+        # - as a relative path  -> add the ROOT_DIR in front of it
+        # - using an OS environment variable -> transform it
+        #
+        elements = data["path"].split(os.path.sep)
+        if elements[0].startswith("$") :
+            # expand OS environment variable
+            var = elements[0][1:]
+            if var in os.environ:
+                var = os.environ[var]
+                elements[0] = var
+            else:
+                logger.info("Unknown env var: " + var)
+                elements[0] = ""
+        elif elements[0]:
+            # p is relative (does not start with /)
+            # prepend with topdir
+            elements = [ environ["ROOT_DIR"] ] + elements
+
+        # rebuild the path with these (eventually) new elements
+        data["path"] = os.path.join(os.path.sep, *elements)
+
+        # add the dataset to local database (not interactive)
+        add_database(interactive=False,
+                     path        = data["path"],
+                     data_type   = data["data_type"],
+                     description = data["description"],
+                     tags        = data["tags"],
+                     name        = data["name"]
+                     )
+
     elif args.list:
         print('Listing your data available')
         data = data_manager.list_my_data(verbose=True)
@@ -479,6 +597,8 @@ def launch_cli():
             print('No data has been set up.')
     elif args.delete:
         delete_database()
+    elif args.delete_all:
+        delete_all_database()
     elif args.delete_mnist:
         delete_database(interactive=False)
     elif args.register_model:

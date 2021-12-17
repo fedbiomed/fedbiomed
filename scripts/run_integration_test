@@ -1,0 +1,339 @@
+#!/bin/bash
+#
+# Integration test (can also be used on ci.inria.fr)
+#
+# This script runs all components necessary for a single test:
+# - a dockerized network
+# - a node
+# - a researcher
+#
+# the researcher runs the given script (python ot python notebook)
+# the dataset is loaded into local DB of the node
+# everything is cleaned at the end of the run.
+#
+# Arguments:
+# -s script     python script or a notebook to run
+# -d dataset    location of required dataset (directory)
+#
+# Example:
+# ./scripts/run_integration_test -s ./notebooks/getting-started.py \
+#                                -d ./tests/datasets/mnist.json
+#
+
+
+# ---------------
+# ** variables **
+# ---------------
+
+# timeout in seconds for aborting the test
+TEST_TIMEOUT=900
+
+# file to remove after the run
+FILES_TO_CLEAN=""
+
+# ---------------
+# ** functions **
+# ---------------
+
+
+# usage
+usage() {
+    echo "\
+Usage: ${0##*/} -s file -d dataset.json
+
+  -h, --help                  this help
+  -s, --script  <file>        script to ryn (.py or .ipynb)
+  -d, --dataset <json-file>   dataset description
+
+Remark: only dataset avaibility is checked. Coherence between
+provided script and dataset is not validated by this launcher
+"
+}
+
+bad_usage () {
+    echo "\
+ERROR: $*
+"
+    usage
+    exit 1
+}
+
+# find all suprocesses of a given pid
+# (should be as portable as pgrep is)
+subprocess() {
+    parent=$1
+
+    pids=$(/usr/bin/pgrep -P $parent)
+
+    if [ -z "pids" ]
+    then
+        echo ""
+    fi
+
+    list=""
+    for i in $pids
+    do
+        list+="$i $(subprocess $i) "
+    done
+
+    echo "$list"
+}
+
+
+script_executor() {
+    #
+    # return the command necessary to run the script (.py, .ipynb, any executable)
+    #
+    script=$1
+
+    case $script in
+        *.py)
+            if [ -x $script ]
+            then
+                echo "$script"
+            else
+                echo "python $script"
+            fi
+            ;;
+        *.ipynb)
+            # converting notebook to sctring to run
+            output="${script##*/}.$RANDOM"
+            convert=$(jupyter nbconvert --output-dir=/tmp --output=$output --to script $script 2> /dev/null)
+            if [ $? == 0 ]
+            then
+                # conversion did well
+                echo "ipython /tmp/$output.py"
+            else
+                # must quit
+                echo "ERROR: CANNOT RUN THIS SCRIPT: $script"
+                return -1
+            fi
+            ;;
+        *)
+            file=$(file $script| grep -i python)
+            if [ -z "$file" ]
+            then
+                if [ -x "$script" ]
+                then
+                    echo "$script"
+                else
+                    echo "ERROR: $script: CANNOT RUN THIS SCRIPT"
+                    return -1
+                fi
+            else
+                if [ -x $script ]
+                then
+                    echo "$script"
+                else
+                    echo "python $script"
+                fi
+            fi
+            ;;
+    esac
+    return 0
+}
+
+cleaning() {
+    #
+    # do all cleaning here (normal ending or trapped signal)
+    #
+
+    # avoid multiple CTLR-C from impatient users
+    trap '' INT TERM
+
+    echo "** INFO: cleaning before quitting - please wait"
+
+    # clean files
+    if [ ! -z "$FILES_TO_CLEAN" ]
+    then
+        echo "** INFO: cleaning file(s): $FILES_TO_CLEAN"
+        /bin/rm -f $FILES_TO_CLEAN
+    fi
+
+    # clean running node processes
+    if [ -z "$all_pids" ]
+    then
+        echo "** INFO: no node process to kill"
+    else
+        echo "** INFO: killing node processes: $all_pids"
+        kill -15 $all_pids
+        sleep 3
+        kill -9 $all_pids 2> /dev/null
+    fi
+
+    # kill the docker containers
+    ( cd $basedir/envs/development/docker ; docker-compose down )
+
+    #
+    # clean all datasets
+    $basedir/scripts/fedbiomed_run node config test-config-for-integration.ini --delete-all
+}
+
+cleaning_trap() {
+    #
+    # script interruption
+    #
+
+    # avoid multiple CTLR-C from impatient users
+    trap '' INT TERM
+
+    echo "** INFO: test interrupted"
+    cleaning
+    echo "** Failure: script was interrupted"
+    exit 1
+}
+
+# ---------------
+# **   main    **
+# ---------------
+
+# trap some signals
+trap cleaning_trap INT TERM
+
+# locate the topdir of the distribution
+# WARNING: providing a relative dataset.json file containing a relative 'path' value  will not work
+# TODO: fix this
+basedir=$(cd $(dirname $0)/.. || exit 1 ; pwd)
+
+# deal with arguments being relative files (done later)
+CURRENT_DIR=$(pwd)
+
+# prerequisite: OS specific commands
+case $(uname) in
+    Linux )
+        CMD_TIMEOUT=/usr/bin/timeout
+        ;;
+    Darwin )
+        CMD_TIMEOUT=/usr/local/bin/gtimeout
+        if [ ! -x "${CMD_TIMEOUT}" ]
+        then
+            echo "Please install ${CMD_TIMEOUT} using: brew install coreutils"
+            exit 1
+        fi
+        ;;
+    *)
+        echo "This script is only supported on Linux and Apple Mac OSX"
+        exit 1
+        ;;
+esac
+
+# argument decoding
+SCRIPT=""
+DATASET=""
+while (($# > 0)); do
+    case $1 in
+        -h|--help )
+            usage
+            exit 0
+            ;;
+        -s | --script )
+            (($# >= 2 )) || { bad_usage "$1"; }
+            SCRIPT="$2"
+            shift
+            ;;
+
+        -d | --dataset )
+            (($# >= 2 )) || { bad_usage "$1"; }
+            DATASET="$2"
+            shift
+            ;;
+
+        -* )
+            bad_usage "Unknown option: $1"
+            ;;
+        * )
+            bad_usage "no parameter allowed: $1"
+            ;;
+    esac
+    shift
+done
+
+# mandatory arguments
+[[ $SCRIPT ]] || bad_usage "providing a script is mandatory"
+[[ $DATASET ]] || bad_usage "providing a dataset json description is mandatory"
+
+# transform relative filenames to absolute filenames
+case $SCRIPT in
+    /* ) ;; # nothing to do
+    *)
+        SCRIPT="${CURRENT_DIR}/${SCRIPT}"
+        ;;
+esac
+case $DATASET in
+    /* ) ;; # nothing to do
+    *)
+        DATASET="${CURRENT_DIR}/${DATASET}"
+        ;;
+esac
+
+# Activate researcher conda environment
+source $basedir/scripts/fedbiomed_environment researcher
+
+# is script ok ?
+CMD_TO_RUN=$(script_executor $SCRIPT)
+
+# if CMD_TO_RUN is an ipython script, we should clean the file at the end
+case $CMD_TO_RUN in
+    ERROR*)
+      cleaning
+      echo "** $CMD_TO_RUN"
+      exit 1
+    ;;
+    ipython*)
+        FILES_TO_CLEAN+="${CMD_TO_RUN##* }"
+    ;;
+esac
+
+if [  ! $? == 0 ]
+then
+    echo "ERROR: I do not know how to launch: $SCRIPT"
+    echo "       I need a python/notebook or at least an executable"
+    exit 1
+fi
+
+# path to dataset
+# TODO test if is is json file (? or trust node/cli.py to do it)
+if [ ! -f "$DATASET" ]
+then
+    echo "ERROR: dataset $DATASET is not a valid"
+    exit 1
+fi
+
+##### try to run this thing....
+
+# launch network
+echo "** INFO: launching fedbiomed network"
+$basedir/scripts/fedbiomed_run network
+sleep 3
+
+# populate node
+echo "** INFO: populating fedbiomed node"
+$basedir/scripts/fedbiomed_run node config test-config-for-integration.ini -adff $DATASET
+
+# launch node
+echo "** INFO: launching fedbiomed node"
+$basedir/scripts/fedbiomed_run node config test-config-for-integration.ini start &
+npid=$!
+sleep 10
+
+# find all processes forked at node start
+all_pids=$npid
+all_pids+=" $(subprocess $npid)"
+
+# launch test and wait for completion
+echo "** INFO: launching fedbiomed researcher ($CMD_TO_RUN)"
+${CMD_TIMEOUT} --preserve-status --signal=HUP --kill-after=10 --foreground  $TEST_TIMEOUT $CMD_TO_RUN
+status=$?
+
+# do the cleaning before exit
+cleaning
+
+## propagate exit code
+if [ $status -eq 0 ]
+then
+    echo "** Success"
+    exit 0
+else
+    echo "** Failure with status: $status"
+    exit 1
+fi

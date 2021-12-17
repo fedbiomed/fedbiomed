@@ -60,15 +60,24 @@ class Requests(metaclass=SingletonMeta):
         """
         This handler is called by the Messaging class (Messager),
         when a message is received on researcher side.
-        Adds to queue this incoming message.
+
+        It is run in the communication process and must ba as quick as possible:
+        - it deals with quick messages (eg: ping/pong)
+        - it store the replies of the nodes to the task queue, the message will bee
+        treated by the main (computing) thread.
+
         Args:
             msg (Dict[str, Any]): de-serialized msg
             topic (str)         : topic name (eg MQTT channel)
         """
 
         if topic == "general/logger":
-            self.node_log_handling(ResearcherMessages.reply_create(msg).get_dict())
+            #
+            # forward the teatment to node_log_handling() (same thread)
+            self.print_node_log_message(ResearcherMessages.reply_create(msg).get_dict())
         elif topic == "general/researcher":
+            #
+            # *Reply messages (SearchReply, TrainReply) added to the TaskQueue
             self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
         elif topic == "general/monitoring":
             if self._monitor_message_callback is not None:
@@ -78,9 +87,13 @@ class Requests(metaclass=SingletonMeta):
             logger.error("message received on wrong topic ("+ topic +") - IGNORING")
 
 
-    def node_log_handling(self, log: Dict[str, Any]):
+    def print_node_log_message(self, log: Dict[str, Any]):
         """
-        manage log/error handling
+        print logger messages coming from the node
+
+        It is run on the communication process and must be as quick as possible:
+        - all logs (coming from the nodes) are forwarded to the researcher logger
+        (immediate display on console/file/whatever)
         """
 
         # log contains the original message sent by the node
@@ -88,18 +101,10 @@ class Requests(metaclass=SingletonMeta):
 
         logger.info("log from: " +
                     log["node_id"] +
-                    " - " +
+                    " / " +
                     log["level"] +
-                    " " +
+                    " - " +
                     original_msg["message"])
-
-        # deal with error/critical messages from a node
-        node_msg_level = original_msg["level"]
-
-        if node_msg_level == "ERROR" or node_msg_level == "CRITICAL":
-            # first error  implementation: stop the researcher
-            logger.critical("researcher stopped after receiving error/critical log from node: " + log["node_id"])
-            os.kill(os.getpid(), signal.SIGTERM)
 
     def send_message(self, msg: dict, client=None):
         """
@@ -115,12 +120,12 @@ class Requests(metaclass=SingletonMeta):
         logger.debug(str(environ['RESEARCHER_ID']))
         self.messaging.send_message(msg, client=client)
 
-    def get_messages(self, command: str = None, time: float = .0) -> Responses:
+    def get_messages(self, commands: list = [], time: float = .0) -> Responses:
         """ This method goes through the queue and gets messages with the
         specific command
 
         Args:
-            command (str, optional): checks if message is containing the
+            command (list of str, optional): checks if message is containing the
             expecting command (the message  is discarded if it doesnot).
             Defaults to None (no command message checking, meaning all
             incoming messages are considered).
@@ -139,8 +144,8 @@ class Requests(metaclass=SingletonMeta):
                 item = self.queue.get(block=False)
                 self.queue.task_done()
 
-                if command is None or \
-                        ('command' in item.keys() and item['command'] == command):
+                if not commands or \
+                   ('command' in item.keys() and item['command'] in commands):
                     answers.append(item)
                 else:
                     # currently trash all other messages
@@ -152,7 +157,7 @@ class Requests(metaclass=SingletonMeta):
         return Responses(answers)
 
     def get_responses(self,
-                      look_for_command: str,
+                      look_for_commands: list,
                       timeout: float = None,
                       only_successful: bool = True) -> Responses:
         """
@@ -160,7 +165,7 @@ class Requests(metaclass=SingletonMeta):
         returns the list of all nodes answers
 
         Args:
-            look_for_command (str): instruction that has been sent to
+            look_for_commands (list): instruction that has been sent to
             node. Can be either ping, search or train.
             timeout (float, optional): wait for a specific duration
                 before collecting nodes messages. Defaults to None.
@@ -176,11 +181,13 @@ class Requests(metaclass=SingletonMeta):
         while True:
             sleep(timeout)
             new_responses = []
-            for resp in self.get_messages(command=look_for_command, time=0):
+            for resp in self.get_messages(commands=look_for_commands, time=0):
                 try:
                     if not only_successful:
                         new_responses.append(resp)
                     elif resp['success']:
+                        # TODO: test if 'success'key exists
+                        # what do we do if not ?
                         new_responses.append(resp)
                 except Exception:
                     logger.error('Incorrect message received:' + str(resp))
@@ -204,7 +211,7 @@ class Requests(metaclass=SingletonMeta):
         self._sequence += 1
 
         # TODO: (below, above) handle exceptions
-        nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_command='ping')]
+        nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_commands=['ping'])]
         return nodes_online
 
     def search(self, tags: tuple, nodes: list = None) -> dict:
@@ -235,12 +242,12 @@ class Requests(metaclass=SingletonMeta):
                                                                            ).get_dict())
 
         data_found = {}
-        for resp in self.get_responses(look_for_command='search'):
+        for resp in self.get_responses(look_for_commands=['search']):
             if not nodes:
                 data_found[resp.get('node_id')] = resp.get('databases')
             elif resp.get('node_id') in nodes:
                 data_found[resp.get('node_id')] = resp.get('databases')
-            
+
             logger.info('Node selected for training -> {}'.format(resp.get('node_id')))
 
         if not data_found:
@@ -272,7 +279,7 @@ class Requests(metaclass=SingletonMeta):
 
         # Get datasets from node responses
         data_found = {}
-        for resp in self.get_responses(look_for_command='list'):
+        for resp in self.get_responses(look_for_commands=['list']):
             if not nodes:
                 data_found[resp.get('node_id')] = resp.get('databases')
             elif resp.get('node_id') in nodes:
