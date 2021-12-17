@@ -211,11 +211,14 @@ def _get_latest_file(
         exp_match = re.search(r'[0-9]*$',
                               exp_folder)
 
+        # folder name ends with numeric caracters
         if len(exp_folder) != exp_match.span()[0]:
             dir_path = os.path.join(pathfile, exp_folder)
             if not only_folder or os.path.isdir(dir_path):
                 f_idx = exp_match.span()[0]
                 order = int(exp_folder[f_idx:])
+                # found a folder with greater trailing number than current
+                # greater trailing number
                 if order >= latest_nb:
                     latest_nb = order
                     latest_folder = exp_folder
@@ -224,7 +227,7 @@ def _get_latest_file(
         if len(list_name_file) != 0:
             raise FileNotFoundError("None of those are breakpoints{}".format(", ".join(list_name_file)))
         else:
-            raise ("No files to search for breakpoint")
+            raise FileNotFoundError("No files to search for breakpoint")
 
     return latest_folder
 

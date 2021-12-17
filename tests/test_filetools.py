@@ -245,51 +245,62 @@ class TestFiletools(unittest.TestCase):
 
 
 
-#    def test_private_get_latest_file(self):
-#        """tests if `_get_latest_file` returns more recent
-#        file"""
-#
-#        # test 1
-#        files = ["Experiment_0",
-#                 "Experiment_4",
-#                 "EXperiment_5",
-#                 "blabla",
-#                 "99_blabla"]
-#
-#        pathfile_test = "/path/to/a/file"
-#
-#        latest_file = Experiment._get_latest_file(pathfile_test,
-#                                                  files,
-#                                                  only_folder=False)
-#        self.assertEqual(files[2], latest_file)
-#
-#        # test 2: in this test, we patch isir builtin function
-#        # so it returns always `True` when called
-#        patcher_builtin_os_path_isdir = patch("os.path.isdir",
-#                                              return_value=True)
-#        patcher_builtin_os_path_isdir.start()
-#        latest_file = Experiment._get_latest_file(pathfile_test,
-#                                                  files,
-#                                                  only_folder=True)
-#        self.assertEqual(files[2], latest_file)
-#        patcher_builtin_os_path_isdir.stop()
-#        # test 3
-#        files = []
-#        latest_file = Experiment._get_latest_file(pathfile_test,
-#                                                  files,
-#                                                  only_folder=False)
-#        self.assertEqual(latest_file, None)
-#
-#        # test 4: test if exception is raised
-#        files = ['q', 'foo', 'bar']
-#
-#        self.assertRaises(FileNotFoundError,
-#                          Experiment._get_latest_file,
-#                          pathfile_test,
-#                          files,
-#                          only_folder=False)
-#
-#
+    def test_private_get_latest_file(self):
+        """
+        Tests if `_get_latest_file` returns more recent file
+        """
+
+        # test 1
+        files = ["Experiment_0",
+                 "Experiment_4",
+                 "EXperiment_5",
+                 "blabla",
+                 "99_blabla"]
+
+        pathfile_test = "/path/to/a/file"
+
+        latest_file = filetools._get_latest_file(pathfile_test,
+                                                  files,
+                                                  only_folder=False)
+        self.assertEqual(files[2], latest_file)
+
+        # test 2: in this test, we patch isdir builtin function
+        # so it returns always `True` when called
+        patcher_builtin_os_path_isdir = patch("os.path.isdir",
+                                              return_value=True)
+        patcher_builtin_os_path_isdir.start()
+        latest_file = filetools._get_latest_file(pathfile_test,
+                                                  files,
+                                                  only_folder=True)
+        self.assertEqual(files[2], latest_file)
+        patcher_builtin_os_path_isdir.stop()
+        
+        # test 3: file provided are not directory, raise exception
+        self.assertRaises(FileNotFoundError,
+                  filetools._get_latest_file,
+                  pathfile_test,
+                  files,
+                  only_folder=True)
+
+        # test 4: no file provided, raises exception
+        files = []
+        self.assertRaises(FileNotFoundError,
+                  filetools._get_latest_file,
+                  pathfile_test,
+                  files,
+                  only_folder=False)
+
+        # test 5: test if exception is raised because no matching file
+        # (ie finishing with numbers)
+        files = ['q', 'foo', 'bar']
+
+        self.assertRaises(FileNotFoundError,
+                          filetools._get_latest_file,
+                          pathfile_test,
+                          files,
+                          only_folder=False)
+
+
 #    @patch('os.path.isdir')
 #    @patch('os.listdir')
 #    def test_private_find_breakpoint_path_1(self,
