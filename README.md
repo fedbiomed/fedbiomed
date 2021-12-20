@@ -366,6 +366,7 @@ The command above will serve ``var/gui-build`` directory as well as API services
 see the user interface. This user interface won't be updated automatically because it is already built. To have dynamic update for user interface you can start React with ``npm start``.
 
 ```shell
+${FEDBIOMED_DIR}/scripts/fedbiomed_environment gui
 cd ${FEDBIOMED_DIR}/gui/ui
 npm start
 ```
