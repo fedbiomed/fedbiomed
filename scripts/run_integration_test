@@ -100,7 +100,7 @@ generate_config_filename() {
         if [ ! -f "$file" ]
         then
             found=1
-            echo $file
+            echo "config_node_integration_${seed}.${i}.ini"
         fi
         i=$(( $i + 1 ))
     done
@@ -189,8 +189,9 @@ cleaning() {
     i=0
     while [ $i -lt ${#ALL_CONFIG[@]} ]
     do
-        $basedir/scripts/fedbiomed_run node config $ALL_CONFIG[$i] --delete-all
-        /bin/rm -f $basedir/etc/$ALL_CONFIG[$i] 2> /dev/null
+        config=${ALL_CONFIG[$i]}
+        $basedir/scripts/fedbiomed_run node config $config --delete-all
+        /bin/rm -f $basedir/etc/$config 2> /dev/null
         i=$(( $i + 1 ))
     done
 
@@ -404,7 +405,6 @@ do
 
     # store node pid and subprocesses pids
     ALL_PIDS+=" $pid $(subprocess $pid)"
-
     i=$(( $i + 1 ))
 done
 
