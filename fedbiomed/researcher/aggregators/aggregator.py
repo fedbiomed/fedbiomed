@@ -10,7 +10,7 @@ class Aggregator:
     (eg FedAvg, FedProx, SCAFFOLD, ...).
     """
     def __init__(self):
-        self.aggregator_params = None
+        self._aggregator_params = None
 
     @staticmethod
     def normalize_weights(weights) -> list:
@@ -40,7 +40,7 @@ class Aggregator:
         state = {
             "class": type(self).__name__,
             "module": self.__module__,
-            "parameters": self.aggregator_params
+            "parameters": self._aggregator_params
         }
         return state
 
@@ -48,3 +48,4 @@ class Aggregator:
         """
         use for breakpoints. load the aggregator state
         """
+        self._aggregator_params = state['parameters']

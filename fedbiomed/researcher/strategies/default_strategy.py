@@ -21,7 +21,6 @@ class DefaultStrategy(Strategy):
     """
     def __init__(self, data: FederatedDataSet):
         super().__init__(data)
-        self.parameters = None
 
     def sample_nodes(self, round_i: int) -> List[uuid.UUID]:
         """

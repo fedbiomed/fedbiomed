@@ -13,7 +13,7 @@ class Strategy:
         self._fds = data
         self._sampling_node_history = {}
         self._success_node_history = {}
-        self.parameters = None
+        self._parameters = None
 
     def sample_nodes(self, round_i: int):
         """
@@ -41,7 +41,7 @@ class Strategy:
         state = {
                 "class": type(self).__name__,
                 "module": self.__module__,
-                "parameters": self.parameters,
+                "parameters": self._parameters,
                 "fds": self._fds.data()
         }
         return state
@@ -49,3 +49,4 @@ class Strategy:
     def load_state(self,  state: Dict[str, Any]=None):
         # fds may be modified and diverge from Experiment
         self._fds = FederatedDataSet(state.get('fds'))
+        self._parameters = state['parameters']
