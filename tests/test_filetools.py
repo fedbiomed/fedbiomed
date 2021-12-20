@@ -23,15 +23,15 @@ class TestFiletools(unittest.TestCase):
 
         # delete and re-create empty the test directory
         try:
-            shutil.rmtree(self.testdir)  
+            shutil.rmtree(self.testdir)
         except FileNotFoundError:
             pass
-        os.makedirs(self.testdir) 
+        os.makedirs(self.testdir)
 
         self.patchers = [
             # empty now
         ]
-        
+
         for patcher in self.patchers:
             patcher.start()
 
@@ -61,7 +61,6 @@ class TestFiletools(unittest.TestCase):
         exp_folder = 'bad_luck_for_you'
         self.assertRaises(PermissionError, filetools.create_exp_folder, exp_folder)
         os.chmod(self.testdir, 0o700)
-        print('toto')
 
         # OK not choosing folder name, receiving default
         return_folder = filetools.create_exp_folder()
@@ -120,7 +119,7 @@ class TestFiletools(unittest.TestCase):
         # OK creating links
         link_prefix = 'link_name'
         link_suffix = '_tutu'
-        
+
         link_path = filetools.create_unique_link(
                 self.testdir,
                 link_prefix,
@@ -153,7 +152,7 @@ class TestFiletools(unittest.TestCase):
             link_prefix,
             link_suffix,
             'a_target_name')
-        
+
         os.makedirs(bkpt_folder_path, mode=0o500)
         self.assertRaises(
             PermissionError,
@@ -187,9 +186,9 @@ class TestFiletools(unittest.TestCase):
         ]
         for name in target_file_names:
             target_file_path = os.path.join(self.testdir, name)
-            
+
             link_path = filetools.create_unique_file_link(src_folder, target_file_path)
-           
+
             self.assertEqual( link_path, target_file_path)
 
         # OK choosing link source in subdir with good name
@@ -197,9 +196,9 @@ class TestFiletools(unittest.TestCase):
         os.makedirs(src_folder)
         target_file = 'this_name_is.good'
         target_file_path = os.path.join(self.testdir, target_file)
-       
+
         link_path = filetools.create_unique_file_link(src_folder, target_file_path)
-        
+
         self.assertEqual( link_path, os.path.join(src_folder, target_file))
 
 
@@ -216,7 +215,7 @@ class TestFiletools(unittest.TestCase):
             target_file_path = os.path.join(self.testdir, name)
 
             self.assertRaises(
-                ValueError, 
+                ValueError,
                 filetools.create_unique_file_link,
                 src_folder,
                 target_file_path)
@@ -235,10 +234,10 @@ class TestFiletools(unittest.TestCase):
             os.path.join(self.testdir, 'not_existing_dir'),
             os.path.join(self.testdir, 'hanging_link')
         ]
-        
+
         for file, folder in zip(file_paths, bkpt_folder_paths):
             self.assertRaises(
-                ValueError, 
+                ValueError,
                 filetools.create_unique_file_link,
                 folder,
                 file)
@@ -274,7 +273,7 @@ class TestFiletools(unittest.TestCase):
                                                   only_folder=True)
         self.assertEqual(files[2], latest_file)
         patcher_builtin_os_path_isdir.stop()
-        
+
         # test 3: file provided are not directory, raise exception
         self.assertRaises(FileNotFoundError,
                   filetools._get_latest_file,
@@ -346,7 +345,7 @@ class TestFiletools(unittest.TestCase):
                                                      patch_os_listdir,
                                                      patch_os_path_isdir):
         # test 3 : triggers error FileNotFoundError, given breakpoint folder
-        # is not a directory 
+        # is not a directory
         bkpt_folder = "/path/to/breakpoint"
         patch_os_listdir.return_value = ['breakpoint_1234.json',
                                          "another_file"]
@@ -362,7 +361,7 @@ class TestFiletools(unittest.TestCase):
                                                      patch_os_listdir,
                                                      patch_os_path_isdir,
                                                      patch_os_path_isfile):
-        # test 4 : triggers error FileNotFoundError, no given breakpoint 
+        # test 4 : triggers error FileNotFoundError, no given breakpoint
         # folder, cannot guess one from existing folders
         patch_os_listdir.return_value = ['breakpoint_1234.json',
                                          "another_file"]
