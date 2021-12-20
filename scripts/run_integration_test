@@ -2,9 +2,9 @@
 #
 # Integration test (can also be used on ci.inria.fr)
 #
-# This script runs all components necessary for a single test:
+# This script runs all necessary components for a single test:
 # - a dockerized network
-# - a node
+# - a set of node(s)
 # - a researcher
 #
 # the researcher runs the given script (python ot python notebook)
@@ -15,34 +15,45 @@
 # -s script     python script or a notebook to run
 # -d dataset    location of required dataset (directory)
 #
+# the -d directive can be repeated to run more than one node
+#
 # Example:
 # ./scripts/run_integration_test -s ./notebooks/getting-started.py \
 #                                -d ./tests/datasets/mnist.json
 #
-
+# This will run 3 nodes:
+# ./scripts/run_integration_test -s ./notebooks/getting-started.py \
+#                                -d ./tests/datasets/mnist.json \
+#                                -d ./tests/datasets/mnist.json \
+#                                -d ./tests/datasets/mnist.json
+#
+# Remark: because this script starts and stops the dockerize networt component
+#         multiple instances of this script cannot run at the same time
+#
+#
 
 # ---------------
 # ** variables **
 # ---------------
 
-# timeout in seconds for aborting the test
+# default timeout in seconds for aborting the test (can ne changed at runtime)
 TEST_TIMEOUT=900
 
-# file to remove after the run
-FILES_TO_CLEAN=""
 
 # ---------------
 # ** functions **
 # ---------------
 
-
-# usage
 usage() {
+    #
+    # print usage
+    #
     echo "\
 Usage: ${0##*/} -s file -d dataset.json
 
   -h, --help                  this help
   -s, --script  <file>        script to ryn (.py or .ipynb)
+  -t, --timeout <integer>     max execution time (default = $TEST_TIMEOUT)
   -d, --dataset <json-file>   dataset description
 
 Remark: only dataset avaibility is checked. Coherence between
@@ -58,25 +69,41 @@ ERROR: $*
     exit 1
 }
 
-# find all suprocesses of a given pid
-# (should be as portable as pgrep is)
 subprocess() {
+    # find all suprocesses of a given pid
+    # (should be as portable as pgrep is)
     parent=$1
 
-    pids=$(/usr/bin/pgrep -P $parent)
+    [[ -z "$parent" ]] && { echo "" ; return ; }
+    pids=$(pgrep -P $parent)
 
-    if [ -z "pids" ]
-    then
-        echo ""
-    fi
+    [[ -z "pids" ]] && { echo "" ; return ; }
 
     list=""
-    for i in $pids
-    do
+    for i in $pids ; do
         list+="$i $(subprocess $i) "
     done
 
     echo "$list"
+}
+
+generate_config_filename() {
+    #
+    # return a config filename which does not exist yet
+    seed=$1
+
+    found=0
+    i=0
+    while [ $found = 0 ]
+    do
+        file="$basedir/etc/config_node_integration_${seed}.${i}.ini"
+        if [ ! -f "$file" ]
+        then
+            found=1
+            echo $file
+        fi
+        i=$(( $i + 1 ))
+    done
 }
 
 
@@ -117,7 +144,7 @@ script_executor() {
                 then
                     echo "$script"
                 else
-                    echo "ERROR: $script: CANNOT RUN THIS SCRIPT"
+                    echo "ERROR: CANNOT RUN THIS SCRIPT: $script"
                     return -1
                 fi
             else
@@ -143,6 +170,30 @@ cleaning() {
 
     echo "** INFO: cleaning before quitting - please wait"
 
+    # clean running node processes
+    if [ -z "$ALL_PIDS" ]
+    then
+        echo "** INFO: no node process to kill"
+    else
+        echo "** INFO: killing node processes: $ALL_PIDS"
+        kill -15 $ALL_PIDS
+        sleep 3
+        kill -9 $ALL_PIDS 2> /dev/null
+    fi
+
+    # kill the docker containers
+    ( cd $basedir/envs/development/docker ; docker-compose down )
+
+    #
+    # clean all datasets from nodes
+    i=0
+    while [ $i -lt ${#ALL_CONFIG[@]} ]
+    do
+        $basedir/scripts/fedbiomed_run node config $ALL_CONFIG[$i] --delete-all
+        /bin/rm -f $basedir/etc/$ALL_CONFIG[$i] 2> /dev/null
+        i=$(( $i + 1 ))
+    done
+
     # clean files
     if [ ! -z "$FILES_TO_CLEAN" ]
     then
@@ -150,23 +201,6 @@ cleaning() {
         /bin/rm -f $FILES_TO_CLEAN
     fi
 
-    # clean running node processes
-    if [ -z "$all_pids" ]
-    then
-        echo "** INFO: no node process to kill"
-    else
-        echo "** INFO: killing node processes: $all_pids"
-        kill -15 $all_pids
-        sleep 3
-        kill -9 $all_pids 2> /dev/null
-    fi
-
-    # kill the docker containers
-    ( cd $basedir/envs/development/docker ; docker-compose down )
-
-    #
-    # clean all datasets
-    $basedir/scripts/fedbiomed_run node config test-config-for-integration.ini --delete-all
 }
 
 cleaning_trap() {
@@ -207,19 +241,20 @@ case $(uname) in
         CMD_TIMEOUT=/usr/local/bin/gtimeout
         if [ ! -x "${CMD_TIMEOUT}" ]
         then
-            echo "Please install ${CMD_TIMEOUT} using: brew install coreutils"
+            echo "** ERROR Please install ${CMD_TIMEOUT} using: brew install coreutils"
             exit 1
         fi
         ;;
     *)
-        echo "This script is only supported on Linux and Apple Mac OSX"
+        echo "** ERROR This script is only supported on Linux and Apple Mac OSX"
         exit 1
         ;;
 esac
 
 # argument decoding
 SCRIPT=""
-DATASET=""
+DATASETS=()        # array of provided DATASETS (one dataset for each node)
+FILES_TO_CLEAN=""  # files to clean after the launch
 while (($# > 0)); do
     case $1 in
         -h|--help )
@@ -232,9 +267,15 @@ while (($# > 0)); do
             shift
             ;;
 
+        -t | --timeout )
+            (($# >= 2 )) || { bad_usage "$1"; }
+            TEST_TIMEOUT="$2"
+            shift
+            ;;
+
         -d | --dataset )
             (($# >= 2 )) || { bad_usage "$1"; }
-            DATASET="$2"
+            DATASETS+=("$2")
             shift
             ;;
 
@@ -250,7 +291,8 @@ done
 
 # mandatory arguments
 [[ $SCRIPT ]] || bad_usage "providing a script is mandatory"
-[[ $DATASET ]] || bad_usage "providing a dataset json description is mandatory"
+[[ ${#DATASETS[@]} == 0 ]] && bad_usage "providing a dataset json description is mandatory (at least one)"
+
 
 # transform relative filenames to absolute filenames
 case $SCRIPT in
@@ -259,14 +301,32 @@ case $SCRIPT in
         SCRIPT="${CURRENT_DIR}/${SCRIPT}"
         ;;
 esac
-case $DATASET in
-    /* ) ;; # nothing to do
-    *)
-        DATASET="${CURRENT_DIR}/${DATASET}"
-        ;;
-esac
+
+# loop on all datasets filename to make it absolute
+i=0
+while [ $i -lt ${#DATASETS[@]} ]
+do
+    case ${DATASETS[$i]} in
+        /* ) ;;  # nothing to do (already absolute)
+        *)
+            DATASETS[$i]="${CURRENT_DIR}/${DATASETS[$i]}"
+            ;;
+    esac
+
+    i=$(( $i + 1 ))
+done
+
+# verify existence of dataset file(s) before launching something
+i=0
+while [ $i -lt ${#DATASETS[@]} ]
+do
+    dataset=${DATASETS[$i]}
+    [[ -f $dataset ]] || { echo "** ERROR dataset does not exist: $dataset" ; exit 1 ;}
+    i=$(( $i + 1 ))
+done
 
 # Activate researcher conda environment
+# (necessary to find proper python or ipython)
 source $basedir/scripts/fedbiomed_environment researcher
 
 # is script ok ?
@@ -275,29 +335,22 @@ CMD_TO_RUN=$(script_executor $SCRIPT)
 # if CMD_TO_RUN is an ipython script, we should clean the file at the end
 case $CMD_TO_RUN in
     ERROR*)
+      echo "** $CMD_TO_RUN"  # this is an error message in fact
       cleaning
-      echo "** $CMD_TO_RUN"
+      echo "** $CMD_TO_RUN"  # repeat at the end of the script for lisibility
       exit 1
     ;;
     ipython*)
-        FILES_TO_CLEAN+="${CMD_TO_RUN##* }"
+        FILES_TO_CLEAN+="${CMD_TO_RUN##* } "
     ;;
 esac
 
-if [  ! $? == 0 ]
-then
-    echo "ERROR: I do not know how to launch: $SCRIPT"
-    echo "       I need a python/notebook or at least an executable"
-    exit 1
-fi
-
-# path to dataset
-# TODO test if is is json file (? or trust node/cli.py to do it)
-if [ ! -f "$DATASET" ]
-then
-    echo "ERROR: dataset $DATASET is not a valid"
-    exit 1
-fi
+#if [  ! $? == 0 ]
+#then
+#    echo "** ERROR: I do not know how to launch: $SCRIPT"
+#    echo "          I need a python/notebook or at least an executable"
+#    exit 1
+#fi
 
 ##### try to run this thing....
 
@@ -306,19 +359,45 @@ echo "** INFO: launching fedbiomed network"
 $basedir/scripts/fedbiomed_run network
 sleep 3
 
-# populate node
-echo "** INFO: populating fedbiomed node"
-$basedir/scripts/fedbiomed_run node config test-config-for-integration.ini -adff $DATASET
+# run and start nodes, memorize the pids of all these processes and subprocesses
+i=0
+ALL_PIDS=""
+ALL_CONFIG=()
+seed=$RANDOM
+while [ $i -lt ${#DATASETS[@]} ]
+do
+    dataset=${DATASETS[$i]}
 
-# launch node
-echo "** INFO: launching fedbiomed node"
-$basedir/scripts/fedbiomed_run node config test-config-for-integration.ini start &
-npid=$!
-sleep 10
+    echo "** INFO: dataset $dataset"
 
-# find all processes forked at node start
-all_pids=$npid
-all_pids+=" $(subprocess $npid)"
+    if [ ! -f "$dataset" ]
+    then
+        echo "** ERROR: dataset $dataset is not a valid"
+        cleaning
+        exit 1
+    fi
+
+    # generate a random config file name
+    config=$(generate_config_filename $seed)
+
+    # store it for later cleaning
+    ALL_CONFIG+=("$config")
+
+    # populate node
+    echo "** INFO: populating fedbiomed node"
+    $basedir/scripts/fedbiomed_run node config ${config} -adff $dataset
+
+    # launch node
+    echo "** INFO: launching fedbiomed node"
+    $basedir/scripts/fedbiomed_run node config ${config} start &
+    pid=$!
+    sleep 10
+
+    # store node pid and subprocesses pids
+    ALL_PIDS+=" $pid $(subprocess $pid)"
+
+    i=$(( $i + 1 ))
+done
 
 # launch test and wait for completion
 echo "** INFO: launching fedbiomed researcher ($CMD_TO_RUN)"
