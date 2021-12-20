@@ -176,10 +176,10 @@ case $1 in
 
     *)
         cat <<EOF
-Usage: fedbiomed_environment network|node [IP_ADDRESS] |researcher [IP_ADDRESS] |reset|clean
+Usage: fedbiomed_environment network|node [IP_ADDRESS] |researcher [IP_ADDRESS] |gui |reset|clean
 
 Please specify:
-- network, gui, node [IP_ADDRESS], researcher [IP_ADDRESS] : to activate an environment
+- network, gui, node [IP_ADDRESS], researcher [IP_ADDRESS], gui : to activate an environment
         with optional IP_ADDRESS (eg 10.1.2.3 or host.foo) for joining network
         components (default: localhost)
 - reset                     : to leave the current environment

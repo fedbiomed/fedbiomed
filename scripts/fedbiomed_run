@@ -39,6 +39,7 @@ function start_gui() {
       echo -e "${YLW}INFO${NC}: Config file has not been provided, defualt config 'config_node.ini' will be used for GUI"
     fi
 
+    # Configure data path
     if [ ! -n "$DATA_PATH" ]; then
       DATA_PATH="data"
       echo -e "${YLW}INFO${NC}: Data path has not been provided. Trying to use FEDBIOMED_ROOT/data dir"
@@ -46,23 +47,45 @@ function start_gui() {
         echo "ERROR: 'data' folder is not exist in Fed-BioMed root"
         exit 1
       fi
+    else
+        if [[ $DATA_PATH == /* ]]; then
+            if [[ ! -d "$3" ]]; then
+              echo -e "${RED}ERROR${NC}: folder '${3}' is not exist. Can not continue.\n"
+              exit 1
+            else
+              DATA_PATH="$3"
+            fi
+        else
+            if [ ! -d "$basedir/$DATA_PATH" ]; then
+              echo -e "${RED}ERROR${NC}: folder '$basedir/${3}' is not exist. Can not continue.\n"
+              exit 1
+            else
+              DATA_PATH="$(cd "$basedir/$3" && pwd)"
+            fi
+        fi
     fi
 
-    # Activate fedbiomed GUI environment
+    # Activate Fed-BioMed GUI environment
     source ./scripts/fedbiomed_environment gui
 
     # Install npm modules
-    echo -e "${YLW}INFO${NC}: Installing node modules...."
-    cd ./gui/ui && npm install
-    # Build the project
-    echo -e "${YLW}INFO${NC}: Building front-end bundle..."
-    npm run build
-    if [ -d "$basedir/var/gui-build" ];then
-      rm -Rf "$basedir/var/gui-build";
-    fi
-    mv "$basedir/gui/ui/build/" "$basedir/var/gui-build"
-    cd ../server
+    echo -e "${YLW}INFO${NC}: Controlling react bundle and modules"
+    cd ./gui/ui
 
+    # Create bundle if there is no build directory/node_modules or recreate is active
+    if  [ ! -d "$basedir/gui/ui/node_modules" ] || [ ! -d "$basedir/var/gui-build" ] || [ -n "$RECREATE" ];then
+        echo -e "${YLW}INFO${NC}: Installing npm modules"
+        npm install
+        echo -e "${YLW}INFO${NC}: Building Fed-BioMed GUI"
+        npm run build
+        if [ -d "$basedir/var/gui-build" ];then
+          rm -Rf "$basedir/var/gui-build";
+        fi
+        mv "$basedir/gui/ui/build/" "$basedir/var/gui-build"
+    fi
+
+    cd ../server
+    # Starting flask
     echo -e "${YLW}INFO:${NC} Starting Flask Server and API services...."
     FEDBIOMED_ROOT="$basedir" \
     NODE_CONFIG_FILE="$CONFIG_FILE" \
@@ -85,7 +108,7 @@ case $1 in
     gui)
         while true ; do
             case $2 in
-              config)
+              config | --config | -c)
                     if [ $# -lt 3 ] ; then
                         echo -e "${RED}ERROR${NC}: missing config file name"
                         exit 1
@@ -94,31 +117,17 @@ case $1 in
                     shift
                     shift
               ;;
-              data_folder)
+              data-folder | --data-folder | -df)
                   if [ $# -lt 3 ] ; then
                       echo -e "${RED}ERROR${NC}: missing data folder path"
                       exit 1
                   fi
-
-                  if [[ $3 == /* ]]; then
-                      if [[ ! -d "$3" ]]; then
-                        echo -e "${RED}ERROR${NC}: folder '${3}' is not exist. Can not continue.\n"
-                        exit 1
-                      else
-                        DATA_PATH="$3"
-                      fi
-                  else
-                      if [ ! -d "$basedir/$3" ]; then
-                        echo -e "${RED}ERROR${NC}: folder '$basedir/${3}' is not exist. Can not continue.\n"
-                        exit 1
-                      else
-                        path=$(cd "$basedir/$3" && pwd)
-                        DATA_PATH="$path"
-                        echo "$DATA_PATH"
-                      fi
-                  fi
-
+                  DATA_PATH="$3"
                   shift
+                  shift
+                  ;;
+              recreate | --recreate | -rc )
+                  RECREATE=True
                   shift
                   ;;
               *)
