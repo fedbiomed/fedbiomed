@@ -27,9 +27,10 @@
 #                                -d ./tests/datasets/mnist.json \
 #                                -d ./tests/datasets/mnist.json
 #
-# Remark: because this script starts and stops the dockerize networt component
-#         multiple instances of this script cannot run at the same time
-#
+# Remark: multiple instances of this script cannot run at the same time
+#         because:
+#         - it starts and stops the dockerize networt component
+#         - it runs a researcher
 #
 
 # ---------------
@@ -68,6 +69,14 @@ ERROR: $*
     usage
     exit 1
 }
+
+banner() {
+    echo "======================================================================"
+    echo "== $*"
+    echo "======================================================================"
+}
+
+
 
 subprocess() {
     # find all suprocesses of a given pid
@@ -168,7 +177,8 @@ cleaning() {
     # avoid multiple CTLR-C from impatient users
     trap '' INT TERM
 
-    echo "** INFO: cleaning before quitting - please wait"
+    #echo "** INFO: cleaning before quitting - please wait"
+    banner "cleaning before quitting - please wait"
 
     # clean running node processes
     if [ -z "$ALL_PIDS" ]
@@ -191,6 +201,13 @@ cleaning() {
     do
         config=${ALL_CONFIG[$i]}
         $basedir/scripts/fedbiomed_run node config $config --delete-all
+
+        # find node_id from config file
+        # and delete corresponding message queue and dbfile
+        nodeid=$(grep ^node_id $basedir/etc/$config | awk {'print $NF'})
+        /bin/rm -f  $basedir/var/db_${nodeid}.json 2> /dev/null
+        /bin/rm -fr $basedir/var/queue_manager_${nodeid} 2> /dev/null
+
         /bin/rm -f $basedir/etc/$config 2> /dev/null
         i=$(( $i + 1 ))
     done
@@ -212,23 +229,24 @@ cleaning_trap() {
     # avoid multiple CTLR-C from impatient users
     trap '' INT TERM
 
-    echo "** INFO: test interrupted"
+    banner "integration test interrupted"
     cleaning
     echo "** Failure: script was interrupted"
     exit 1
 }
 
+
 # ---------------
 # **   main    **
 # ---------------
 
-# trap some signals
+# trap some signals to do a proper cleaning at the end
 trap cleaning_trap INT TERM
 
 # locate the topdir of the distribution
-# WARNING: providing a relative dataset.json file containing a relative 'path' value  will not work
-# TODO: fix this
 basedir=$(cd $(dirname $0)/.. || exit 1 ; pwd)
+
+banner "decoding & verifying arguments"
 
 # deal with arguments being relative files (done later)
 CURRENT_DIR=$(pwd)
@@ -253,8 +271,8 @@ case $(uname) in
 esac
 
 # argument decoding
-SCRIPT=""
-DATASETS=()        # array of provided DATASETS (one dataset for each node)
+SCRIPT=""          # script to run as a researcher
+DATASETS=()        # array of provided DATASETS (one dataset per node)
 FILES_TO_CLEAN=""  # files to clean after the launch
 while (($# > 0)); do
     case $1 in
@@ -302,8 +320,6 @@ case $TEST_TIMEOUT in
     *) ;; # given value it OK
 esac
 
-
-
 # transform relative filenames to absolute filenames
 case $SCRIPT in
     /* ) ;; # nothing to do
@@ -312,7 +328,7 @@ case $SCRIPT in
         ;;
 esac
 
-# loop on all datasets filename to make it absolute
+# loop on all dataset's filename to make it absolute
 i=0
 while [ $i -lt ${#DATASETS[@]} ]
 do
@@ -326,7 +342,7 @@ do
     i=$(( $i + 1 ))
 done
 
-# verify existence of dataset file(s) before launching something
+# verify existence of dataset's file(s) before launching something
 i=0
 while [ $i -lt ${#DATASETS[@]} ]
 do
@@ -336,7 +352,7 @@ do
 done
 
 # Activate researcher conda environment
-# (necessary to find proper python or ipython)
+# (necessary to find a proper python/ipython)
 source $basedir/scripts/fedbiomed_environment researcher
 
 # is script ok ?
@@ -355,17 +371,10 @@ case $CMD_TO_RUN in
     ;;
 esac
 
-#if [  ! $? == 0 ]
-#then
-#    echo "** ERROR: I do not know how to launch: $SCRIPT"
-#    echo "          I need a python/notebook or at least an executable"
-#    exit 1
-#fi
-
-##### try to run this thing....
+##### try to run the whole thing....
 
 # launch network
-echo "** INFO: launching fedbiomed network"
+banner "launching fedbiomed network"
 $basedir/scripts/fedbiomed_run network
 sleep 3
 
@@ -378,7 +387,7 @@ while [ $i -lt ${#DATASETS[@]} ]
 do
     dataset=${DATASETS[$i]}
 
-    echo "** INFO: dataset $dataset"
+    banner "launching node using: $dataset"
 
     if [ ! -f "$dataset" ]
     then
@@ -409,7 +418,7 @@ do
 done
 
 # launch test and wait for completion
-echo "** INFO: launching fedbiomed researcher ($CMD_TO_RUN)"
+banner "launching fedbiomed researcher ($CMD_TO_RUN)"
 ${CMD_TIMEOUT} --preserve-status --signal=HUP --kill-after=10 --foreground  $TEST_TIMEOUT $CMD_TO_RUN
 status=$?
 
@@ -417,6 +426,7 @@ status=$?
 cleaning
 
 ## propagate exit code
+banner "quitting"
 if [ $status -eq 0 ]
 then
     echo "** Success"
