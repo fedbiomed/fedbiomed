@@ -73,10 +73,10 @@ class Config:
                          'etc',
                          self.configuration['NODE_CONFIG_FILE'])
 
-        # Append fedbiomed root dir as a python path
+        # Append Fed-BioMed root dir as a python path
         sys.path.append(self.configuration['NODE_FEDBIOMED_ROOT'])
 
-        # Set config file path to make fedbiomed.common.environ to parse
+        # Set config file path to make `fedbiomed.common.environ` to parse
         # correct config file
         os.environ["CONFIG_FILE"] = self.configuration['NODE_CONFIG_FILE_PATH']
 

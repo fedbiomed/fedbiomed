@@ -1,7 +1,7 @@
 import React from 'react';
 import axios from 'axios';
 import  {TableInfo} from "../components/Tables"
-
+import {EP_CONFIG_NODE_ENVIRON} from '../constants'
 const Configuration = (props) => {
 
     const [config, setConfig] = React.useState(null)
@@ -17,7 +17,7 @@ const Configuration = (props) => {
      */
     const get_node_config = () => {
 
-        axios.post("/api/config/node-environ" , {})
+        axios.get(EP_CONFIG_NODE_ENVIRON, {})
                 .then( res => {
                     if (res.status === 200){
                         setConfig(res.data.result) 

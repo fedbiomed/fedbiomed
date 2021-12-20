@@ -19,13 +19,13 @@ from fedbiomed.node.data_manager import DataManager
 datamanager = DataManager()
 
 
-@api.route('/datasets/list', methods=['POST'])
+@api.route('/datasets/list', methods=['GET'])
 def list_datasets():
     """
     List Datasets saved into Node DB
 
-    Request {any}:
-        ...
+    Request.GET {None}:
+        - No request data
 
     Response {application/json}:
         400:

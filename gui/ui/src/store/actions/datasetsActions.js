@@ -1,6 +1,8 @@
 import axios from "axios"
 import {EP_DATASET_ADD ,
-        EP_DEFAULT_DATASET_ADD
+        EP_DEFAULT_DATASET_ADD,
+        EP_DATASETS_LIST,
+        EP_DATASET_REMOVE
     } from "../../constants";
 
 
@@ -75,7 +77,7 @@ export const listDatasets = () => {
 
     return (dispatch, getState) => {
         dispatch({type:'SET_LOADING', payload: true})
-        axios.post("/api/datasets/list" , {})
+        axios.get(EP_DATASETS_LIST , {})
              .then( res => {
 
                 if (res.status === 200){
@@ -108,7 +110,7 @@ export const removeDataset = (data) => {
         // Get current datasets state 
         let datasets = getState().datasets
 
-        axios.post('/api/datasets/remove', {dataset_id : data.dataset_id})
+        axios.post(EP_DATASET_REMOVE, {dataset_id : data.dataset_id})
              .then(res => {
 
                 if(res.status === 200){
