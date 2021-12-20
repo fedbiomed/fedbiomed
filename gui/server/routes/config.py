@@ -3,8 +3,6 @@ import copy
 import re
 from importlib import reload
 
-
-
 from . import api
 from app import app, db_prefix
 from flask import request, jsonify
@@ -16,28 +14,40 @@ import fedbiomed.common.environ
 import fedbiomed.node.data_manager
 
 
-
 @api.route('/config/node-id', methods=['GET'])
 def node_id():
-    """ API enpoint to get node id which GUI will be working for """
+    """ API enpoint to get node id which GUI will be working for
+
+        Request GET {any}:
+            - No request data
+
+        Response {application/json}:
+            200:
+                success: Boolean value indicates that the request is success
+                result: Object containing node_id
+                message: The message for response
+    """
 
     result = {
-        'success': True,
         'node_id': app.config['NODE_ID']
     }
 
-    return jsonify(result)
+    return response(result), 200
 
 
 @api.route('/config/node-environ', methods=['POST'])
 def fedibomed_environ():
     """ Endpoint that return current configuration for node
 
-        Returns:
-            res : Json formated environ object of the node, with status code 
-                  200.
-    """
+    Request {application/json}:
+        - No value
 
+    Response {application/json}:
+        200:
+            success: Boolean value indicates that the request is success
+            result: Object containing configuration values
+            message: The message for response
+    """
     res = copy.deepcopy(fedbiomed.node.environ.environ)
     pops = ['COMPONENT_TYPE']
     for p in pops:
@@ -47,7 +57,7 @@ def fedibomed_environ():
         if matched:
             res[key] = res[key].replace(app.config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_ROOT')
 
-    return response(res, '/api/config/node-environ'), 200
+    return response(res), 200
 
 
 # TODO: Should be used when it is requeired to manage multiple nodes 

@@ -28,7 +28,7 @@ export  const getFilesFromRepository = (data) => {
             }).then( (response) => {
                 dispatch({type:'SET_LOADING', payload: false})
                 if(response.status === 200){
-                    let data = response.data
+                    let data = response.data.result
                     let level = data.level
                     
                     if (currentLevels.length === 0){

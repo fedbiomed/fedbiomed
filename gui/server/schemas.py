@@ -66,7 +66,7 @@ class JsonSchema(object):
         """Schema class 
 
         Args:
-            schema (dict): A dictiory represent the valid schema
+            schema (dict): A dictionary represent the valid schema
                             for JSON object
             message (str): Message that will be return if the validation
                             is not successful. If it is `None` it will return
@@ -91,7 +91,6 @@ class JsonSchema(object):
         except jsonschema.ValidationError as e:
             if self._message:
                 raise jsonschema.ValidationError(self._message)
-
             raise jsonschema.ValidationError(e.message)
 
 
@@ -102,9 +101,9 @@ class AddDataSetRequest(Validator):
     schema = JsonSchema({
         'type': 'object',
         'properties': {
-            'name': {'type': 'string'},
+            'name': {'type': 'string', "minLength": 4, "maxLength": 128},
             'path': {'type': 'array'},
-            'tags': {'type': 'array'},
+            'tags': {'type': 'array',  "minItems": 2, "maxItems": 4},
             'type': {'type': 'string',
                      'oneOf': [{"enum": ['csv', 'images']}]},
             'desc': {'type': 'string'}
@@ -146,7 +145,7 @@ class PreviewDatasetRequest(Validator):
     schema = JsonSchema({
         'type': "object",
         "properties": {
-            "dataset_id": {'type': 'string'}
+            "dataset_id": {'type': 'string', "minLength": 4, "maxLength": 254}
         },
         "required": ["dataset_id"]
     })
@@ -158,11 +157,11 @@ class UpdateDatasetRequest(Validator):
     type = 'json'
     schema = JsonSchema({
         'type': "object",
-        "properties": {"name": {'type': 'string'},
+        "properties": {"name": {'type': 'string', "minLength": 4, "maxLength": 128},
                        "dataset_id": {'type': 'string'},
                        "path": {'type': 'array'},
-                       "tags": {'type': 'array'},
-                       "desc": {'type': 'string'}},
+                       "tags": {'type': 'array', "minItems": 2, "maxItems": 4},
+                       "desc": {'type': 'string', "minLength": 4, "maxLength": 254}},
         "required": ["dataset_id", "tags", "desc"]
     })
 
@@ -177,6 +176,6 @@ class AddDefaultDatasetRequest(Validator):
     schema = JsonSchema({
         'type': "object",
         "properties": {"name": {'type': 'string',
-                                "default": 'mnist'}},
+                                "default": 'mnist', "minLength": 4, "maxLength": 128}},
         "required": []
     })

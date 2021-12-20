@@ -6,7 +6,7 @@ from app import app
 from schemas import ListDataFolder
 
 from . import api
-from utils import success, error, validate_json, validate_request_data
+from utils import success, error, validate_json, validate_request_data, response
 from db import database
 
 
@@ -16,14 +16,24 @@ def list_data_path():
     """ API endpoint to list folders in the data path of the node.
         It only allows the list files in the basis of data path.
 
-    Request: 
+    Request {application/json}:
 
-        path (list): List that includes folders in hierarchical order. 
+        path (list): List that includes folders in hierarchical order.
 
+    Response {application/json}:
+        400:
+            success   : Boolean error status (False)
+            result  : null
+            message : Message about error. Can be exceptions from
+                     os.path methods
+        200:
+            success: Boolean value indicates that the request is success
+            result: List of items in the requested path as objects
+            message: The message for response
     """
 
-    input = request.json
-    req_path = input['path']
+    req = request.json
+    req_path = req['path']
 
     # Full path by including the base DATA_PATH
     dpath = os.path.join(app.config["DATA_PATH_RW"], *req_path)
@@ -71,7 +81,7 @@ def list_data_path():
                                  'registered': dataset,
                                  'includes': includes})
 
-        return jsonify(res), 200
+        return response(res), 200
 
     else:
 

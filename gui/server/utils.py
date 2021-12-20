@@ -61,7 +61,7 @@ def success(msg: str):
     )
 
 
-def response(data: dict, endpoint: str, message: str = None):
+def response(data: dict, message: str = None):
     """ Global response function that returns jsonfied
         dictionary. It is used when the API endpoint returns
         data. 
@@ -77,7 +77,6 @@ def response(data: dict, endpoint: str, message: str = None):
     res = {
         'success': True,
         'result': data,
-        'endpoint': endpoint,
         'message': message
     }
 

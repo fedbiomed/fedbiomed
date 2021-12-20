@@ -22,11 +22,17 @@ datamanager = DataManager()
 @api.route('/datasets/list', methods=['POST'])
 def list_datasets():
     """
-    List Dataset saved into Node DB
+    List Datasets saved into Node DB
 
-    responses:
+    Request {any}:
+        ...
+
+    Response {application/json}:
         400:
-            datasets List[object] : List of object
+            success   : Boolean error status (False)
+            result  : null
+            message : Message about error. Can be validation error or
+                      error from TinyDBt
         200:
             success: Boolean value indicates that the request is success
             result: List of dataset objects
@@ -36,10 +42,13 @@ def list_datasets():
 
     table = database.db().table('_default')
     table.clear_cache()
-    res = table.all()
-    database.close()
+    try:
+        res = table.all()
+        database.close()
+    except Exception as e:
+        return error(str(e)), 400
 
-    return response(res, '/api/datasets/list'), 200
+    return response(res), 200
 
 
 @api.route('/datasets/remove', methods=['POST'])
@@ -48,9 +57,19 @@ def remove_dataset():
     """ API endpoint to remove single dataset from database.
     This method removed dataset from database not from file system.
 
-    Request.Json:
-
+    Request {application/json}:
         dataset_id (str): Id of the dataset which will be removed
+
+    Response {application/json}:
+        400:
+            success   : Boolean error status (False)
+            result  : null
+            message : Message about error. Can be validation error or
+                      error from TinyDB
+        200:
+            success : Boolean value indicates that the request is success
+            result  : null
+            message : The message for response
     """
     req = request.json
 
@@ -87,7 +106,15 @@ def add_dataset():
         type (string): Type of the dataset, CSV or Images
 
     Response {application/json}:
-
+        400:
+            error   : Boolean error status
+            result  : null
+            message : Message about error. Can be validation error or
+                      error from TinyDB
+        200:
+            success : Boolean value indicates that the request is success
+            result  : Dataset object (TindyDB doc).
+            message : The message for response
 
     """
     table = database.db().table('_default')
@@ -138,12 +165,32 @@ def add_dataset():
     # Get saved dataset document
     res = table.get(query.dataset_id == dataset_id)
 
-    return response(res, '/api/datasets/add-csv'), 200
+    return response(res), 200
 
 
 @api.route('/datasets/update', methods=['POST'])
 @validate_request_data(schema=UpdateDatasetRequest)
 def update_dataset():
+    """API endpoint for updating dataset
+
+    ---
+    Request {application/json}:
+            name    : name for the dataset minLength:4 and MaxLength:124`
+            tags    : new tags for the data sets
+            desc    : String, description about dataset
+
+    Response {application/json}:
+        400:
+            success : False, Boolean success status always, False
+            result  : null
+            message : Message about error. Can be validation error or
+                      error from TinyDB
+
+        200:
+            success : Boolean value indicates that the request is success
+            result  : Default dataset json object
+            message : The message for response
+    """
     req = request.json
     table = database.db().table('_default')
     query = database.query()
@@ -154,7 +201,7 @@ def update_dataset():
                  query.dataset_id == req['dataset_id'])
     res = table.get(query.dataset_id == req['dataset_id'])
 
-    return response(res, ''), 200
+    return response(res), 200
 
 
 @api.route('/datasets/preview', methods=['POST'])
@@ -179,10 +226,10 @@ def get_preview_dataset():
             message (str): The message for response
     """
 
-    input = request.json
+    req = request.json
     table = database.db().table('_default')
     query = database.query()
-    dataset = table.get(query.dataset_id == input['dataset_id'])
+    dataset = table.get(query.dataset_id == req['dataset_id'])
 
     # Extract data path where the files are save into local repository
     rexp = re.match('^' + app.config['DATA_PATH_SAVE'], dataset['path'])
@@ -204,7 +251,7 @@ def get_preview_dataset():
         if matched:
             dataset['path'] = dataset['path'].replace(app.config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_ROOT')
 
-        return response(dataset, '/api/datasets/preview'), 200
+        return response(dataset), 200
 
     else:
         return error('No data has been found with this id'), 400
@@ -282,4 +329,4 @@ def add_default_dataset():
 
         res = table.get(query.dataset_id == dataset_id)
 
-        return response(res, '/datasets/add-default-dataset'), 200
+        return response(res), 200
