@@ -65,7 +65,7 @@ class Config:
 
         # Get name of the config file default is "config_node.ini"
         self.configuration['NODE_CONFIG_FILE'] = os.getenv('NODE_CONFIG_FILE',
-                                                    "config_node.ini")
+                                                           "config_node.ini")
 
         # Exact configuration file path
         self.configuration['NODE_CONFIG_FILE_PATH'] = \
@@ -92,13 +92,12 @@ class Config:
 
         # Enable debug mode
         self.configuration['DEBUG'] = os.getenv('DEBUG', 'True').lower() in \
-                               ('true', 1, True, 'yes')
-
+                                      ('true', 1, True, 'yes')
 
         # TODO: Let users decide which port they would like to use
         # Serve  configurations PORT and IP
         self.configuration['PORT'] = os.getenv('PORT', 8484)
-        self.configuration['HOST'] = os.getenv('HOST', '0.0.0.0')
+        self.configuration['HOST'] = os.getenv('HOST', 'localhost')
 
         # Log information for setting up a node connection
         print(f'INFO: Fed-BioMed Node root dir has been set as'
@@ -111,4 +110,3 @@ class Config:
               f'{self.configuration["NODE_ID"]} \n')
 
         return self.configuration
-

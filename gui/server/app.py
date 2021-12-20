@@ -38,5 +38,9 @@ def index(path):
 # Run the application
 if __name__ == '__main__':
     # Start Flask
+    print(app.config['HOST'])
+    print(app.config['PORT'])
+    print(app.config['DATA_PATH_RW'])
     app.run(host=app.config['HOST'],
-            port=app.config['PORT'])
+            port=app.config['PORT'],
+            debug=app.config['DEBUG'])

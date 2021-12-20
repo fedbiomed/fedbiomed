@@ -309,10 +309,76 @@ can provide same model file to update its content.
 ./scripts/fedbiomed_run node config config-n1.ini update-model
 ```
 
+## Fed-BioMed Node GUI
+
+Node GUI provides an interface for Node to manage datasets and deploy new ones. GUI is consist of two components 
+as Server and UI. Server has been developed on Flask framework and UI is developed using ReactJS. Flask provide API 
+services that use Fed-BioMed's DataManager for deploying and managing dataset. All the source files for GUI has been
+located on the `${FEDBIOMED_DIR}/gui` directory. 
+
+### Starting GUI
+
+Node GUI can be started suing Fed-BioMEd CLI.
+
+```shell
+${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder '<path-for-data-folder>' config '<name-of-the-config-file>' start
+```
+
+Arguments: 
+
+- ``data-folder``: Data folder represent the folder path where datasets have been stored. It can be absolute or relative path.
+If it is relative path, Fed-BioMed base directory is going to be used as reference. If `datafolder` is not provided. Script will look for
+`data` folder in the Fed-BioMed root directory and if it doesn't exist it will raise an error. 
+- ``config``: Config file represents the name of the configuration file which is going to be used for GUI. If it is not 
+provided, default will be``config_node.ini``.
+              
+It is also possible to start GUI on specific host and port, By default it is started `localhost` as host and `8484` as port.  To change
+it you can modify follwing command. 
+
+```shell
+${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder ../data config config-n1.ini --port 80 --host 0.0.0.0 start
+
+```
+
+### Details of Start Process 
+While the Node GUI is started, it install `npm` modules and builds ReactJS application in ``${FEDBIOMED_DIR}/var/gui-build``. If the GUI
+is already built (means that `gui/ui/node_modules` and `var/gui-build` folders exist), it does not reinstall and rebuild ReactJS. If you want to
+reinstall and rebuild, please add `--recreate` flag in the command same as below,  
+
+```shell
+${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
+```
+
+### Development/Debugging for GUI
+
+If you want to customize or work on user interface for debugging purposes, it is always better to use ReactJS in development mode with, otherwise building GUI
+after every update will take a lot of time. To launch user interface in development mode first you need to start Flask server. This can be
+easily done with the previous start command. Currently, Flask server always start on development mode.  To enable debug mode you should add `--debug` flag on the
+start command. 
+
+```shell
+${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder ../data config config-n1.ini --debug start
+```
+
+The command above will serve ``var/gui-build`` directory as well as API services. To have dynamic load for user interface you can start 
+React with ``npm start``. Since Flask is already started in debug mode by default, you can just do update/changes in `${FEDBIOMED_DIR}/`. 
+Since, ReactJS on development mode will call API endpoint from `localhost:8484`, please do not change Flask port and host while 
+starting it with start command. 
+
+```shell
+cd ${FEDBIOMED_DIR}/gui/ui
+npm start
+```
+After that if you go ``localhost:3000`` you will see that user interface is up and running for development.  When you change the source codes
+in ``${FEDBIOMED_DIR}/gui/ui/src`` it will get dynamically updated on ``loncahost:3000``. 
 
 
 
+After development/debugging is done. To update changes in built GUI, you need to start GUI with ``--recreate`` command. 
 
+```shell
+${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
+```
 
 
 
