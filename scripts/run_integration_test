@@ -293,6 +293,15 @@ done
 [[ $SCRIPT ]] || bad_usage "providing a script is mandatory"
 [[ ${#DATASETS[@]} == 0 ]] && bad_usage "providing a dataset json description is mandatory (at least one)"
 
+# verify TEST_TIMEOUT
+case $TEST_TIMEOUT in
+    ''|*[!0-9]*)
+        bad_usage "please provide a timeout value as an integer"
+    ;;
+    *) ;; # given value it OK
+esac
+
+
 
 # transform relative filenames to absolute filenames
 case $SCRIPT in
