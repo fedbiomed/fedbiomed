@@ -351,30 +351,34 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
 
 ### Development/Debugging for GUI
 
-If you want to customize or work on user interface for debugging purposes, it is always better to use ReactJS in development mode with, otherwise building GUI
+If you want to customize or work on user interface for debugging purposes, it is always better to use ReactJS in development mode, otherwise building GUI
 after every update will take a lot of time. To launch user interface in development mode first you need to start Flask server. This can be
-easily done with the previous start command. Currently, Flask server always start on development mode.  To enable debug mode you should add `--debug` flag on the
-start command. 
+easily done with the previous start command. Currently, Flask server always get started on development mode.  To enable debug mode you should add `--debug` 
+flag to the start command. 
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder ../data config config-n1.ini --debug start
 ```
+**Important:** Please do not change Flask port and host while starting it for development purposes. Because React (UI) will be calling
+``localhost:8484/api`` endpoint in development mode. 
 
-The command above will serve ``var/gui-build`` directory as well as API services. To have dynamic load for user interface you can start 
-React with ``npm start``. Since Flask is already started in debug mode by default, you can just do update/changes in `${FEDBIOMED_DIR}/`. 
-Since, ReactJS on development mode will call API endpoint from `localhost:8484`, please do not change Flask port and host while 
-starting it with start command. 
+The command above will serve ``var/gui-build`` directory as well as API services. It means that on the URL `localhost:8484` you will be able to
+see the user interface. This user interface won't be updated automatically because it is already built. To have dynamic update for user interface you can start React with ``npm start``.
 
 ```shell
 cd ${FEDBIOMED_DIR}/gui/ui
 npm start
 ```
-After that if you go ``localhost:3000`` you will see that user interface is up and running for development.  When you change the source codes
+
+After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
 in ``${FEDBIOMED_DIR}/gui/ui/src`` it will get dynamically updated on ``loncahost:3000``. 
 
+Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in 
+`${FEDBIOMED_DIR}/gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why
+first you should start Flask server first. 
 
-
-After development/debugging is done. To update changes in built GUI, you need to start GUI with ``--recreate`` command. 
+After development/debugging is done. To update changes in built GUI, you need to start GUI with ``--recreate`` command. Afterward,
+you will be able to see changes on the ``localhost:8484`` URL which serve built UI files. 
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
