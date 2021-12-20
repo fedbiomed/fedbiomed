@@ -47,11 +47,21 @@ def ask_for_data_imputation_parameters(parameters_to_ask_for: List[str]) -> Dict
         
     return params_retrieved_from_user
 
+def select_unselect(selected_item: List[str], item:str):
+    if item in selected_item:
+        selected_item.remove(item)
+    else:
+        selected_item.append(item)
+
 def ask_select_variable_msg(view_feature_names: Dict[str, List[str]], 
                             selected_views_idx: List[str],
-                            selected_views_features: Dict[str, List[str]]) -> str:
+                            selected_views_features: Dict[str, List[str]],
+                            imput_view:str, imput_feature:str) -> str:
     """ for data imputation methods"""
     view_names = list(view_feature_names.keys())
+    
+    
+    print('get msg', selected_views_idx)
     view_msg, last_key = get_select_msg(view_names,
                                         'Please select view that contained desired feature:',
                                         inter_msg='(selected)',
@@ -65,12 +75,19 @@ def ask_select_variable_msg(view_feature_names: Dict[str, List[str]],
         selected_view = view_names
         selected_views_idx.extend(view_names)
         selected_views_idx = list(set(selected_views_idx))
+        for view in view_names:
+            selected_views_features[view] = view_feature_names[view]
     else:
         selected_view = view_names[_answer - 1]
+        select_unselect(selected_views_idx, selected_view)
+        
         #selected_views_idx.append(_answer)
         print('Please select a feature in %s' % selected_view)
         feature_names = view_feature_names[selected_view]
         selected_feature_names = selected_views_features.get(selected_view)
+        if imput_feature == selected_feature and imput_view == selected_view:
+            selected_feature_names.remove(imput_feature)
+            # remove feature that is imputed from the name list
         feature_msg, last_key = get_select_msg(feature_names,
                                                f'Please select feature from view : {selected_view}',
                                                inter_msg='(selected)',
@@ -81,19 +98,12 @@ def ask_select_variable_msg(view_feature_names: Dict[str, List[str]],
         if _answer == last_key:
             
             selected_views_features[selected_view] = feature_names
+            print('select all',selected_views_features )
             
         else:
             selected_feature = feature_names[_answer - 1]
-            selected_views_features[selected_view].append(selected_feature)
-            if selected_feature not in selected_views_features[selected_view]:
-                #if selected feature does not belong to the already selected feature, 
-                # then add it to list of selected features
-                
-                selected_views_features[selected_view].append(selected_feature)
-            else:
-                # otherwise, if selected feature already belongs to this list, 
-                # remove it from list (unselect)
-                selected_views_features[selected_view].remove(selected_feature)     
+            #selected_views_features[selected_view].append(selected_feature)
+            select_unselect(selected_views_features[selected_view], selected_feature) 
     
 def get_select_msg(iterator: Iterator[str], 
                    begining_msg: str='',
@@ -104,6 +114,7 @@ def get_select_msg(iterator: Iterator[str],
     
     msg = begining_msg + '\n'
     for i, line in enumerate(iterator):
+        print('get msg', inter_msg, inter_msg_idx)
         if method is not None:
             line = getattr(line, method)
         if inter_msg_idx is not None:
@@ -112,7 +123,7 @@ def get_select_msg(iterator: Iterator[str],
             else:
                 _inter_msg = ''
         else:
-            _inter_msg = inter_msg
+            _inter_msg = ''
         msg += '%d) %s %s\n' % (i + 1, line, _inter_msg)
     last_key = i + 1
     if final_msg is not None:
@@ -120,12 +131,14 @@ def get_select_msg(iterator: Iterator[str],
         msg += '%d) %s\n' % (last_key, final_msg)
     return msg, last_key
     
-def ask_for_variable_to_apply_data_imputation(view_feature_names: Dict[str, List[str]]) -> Dict[str, List[str]]:
+def ask_for_variable_to_apply_data_imputation(view_feature_names: Dict[str, List[str]],
+                                              view:str, feature:str) -> Dict[str, List[str]]:
     """
     Asks on which variable to apply data imputation method
     """
     
-    selected_view_idx, selected_views_features = [], {}
+    selected_view_idx = []
+    selected_views_features = {view : [] for view in view_feature_names.keys()}
     
     _is_finished = False
     
@@ -134,7 +147,8 @@ def ask_for_variable_to_apply_data_imputation(view_feature_names: Dict[str, List
     while not _is_finished:
         ask_select_variable_msg(view_feature_names,
                                 selected_view_idx,
-                                selected_views_features)
+                                selected_views_features,
+                                view, feature)
         answer = get_user_input(resume_msg, 2)
         answer = parse_yes_no_msg(answer)
         _is_finished = not answer
@@ -171,6 +185,7 @@ def no_methods(*kwargs):
     return None
 
 def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
+                                        view:str,
                                         view_feature_names: Dict[str, List[str]]=None) -> Dict[str, Any]:
     ##
     # variable initialisation
@@ -243,7 +258,9 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
                         print('imput param', imputation_method_parameters)
                         
                     if imputation_method_selected.ask_variable_to_perform_imputation:
-                        selected_variables = ask_for_variable_to_apply_data_imputation(view_feature_names)
+                        selected_variables = ask_for_variable_to_apply_data_imputation(view_feature_names,
+                                                                                       view=view,
+                                                                                       feature=feature)
             
                 
         data_format_file[feature] = {'data_format': data_format.name,
@@ -285,6 +302,7 @@ def get_from_user_multi_view_dataset_fromat_file(datasets: Dict[str, pd.DataFram
         print(f"+++++++ Now parsing view: {tabular_data_file} +++++++")
         print("++++++++++++++++++++++++++++++++++++++++++++++++++++++")
         data_format_file = get_from_user_dataframe_format_file(datasets[tabular_data_file],
+                                                               tabular_data_file,
                                                                view_feature_name)
         if data_format_file:
             # (above condition avoids adding empty views)
