@@ -29,7 +29,7 @@ export const DatasetPreview = (props) => {
      */
     const onEditClick = () => {
         setEdit(true)
-    },,,
+    }
 
     /**
      * On edit view, when the input value has changed
