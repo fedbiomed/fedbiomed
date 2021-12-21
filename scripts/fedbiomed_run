@@ -50,18 +50,18 @@ function start_gui() {
       DATA_PATH="data"
       echo -e "${YLW}INFO${NC}: Data path has not been provided. Trying to use FEDBIOMED_ROOT/data dir"
       if [ ! -d "$basedir/$DATA_PATH" ]; then
-        echo "ERROR: 'data' folder is not exist in Fed-BioMed root"
+        echo "ERROR: 'data' folder does not exist in Fed-BioMed root"
         exit 1
       fi
     else
         if [[ $DATA_PATH == /* ]]; then
-            if [[ ! -d "$3" ]]; then
-              echo -e "${RED}ERROR${NC}: folder '$DATA_PATH' is not exist. Can not continue.\n"
+            if [[ ! -d "$DATA_PATH" ]]; then
+              echo -e "${RED}ERROR${NC}: folder '$DATA_PATH' does not exist. Can not continue.\n"
               exit 1
             fi
         else
             if [ ! -d "$basedir/$DATA_PATH" ]; then
-              echo -e "${RED}ERROR${NC}: folder '$basedir/${3}' is not exist. Can not continue.\n"
+              echo -e "${RED}ERROR${NC}: folder '$basedir/${3}' does not exist. Can not continue.\n"
               exit 1
             else
               DATA_PATH="$(cd "$basedir/$DATA_PATH" && pwd)"
