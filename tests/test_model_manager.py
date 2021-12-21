@@ -69,7 +69,8 @@ class TestModelManager(unittest.TestCase):
         self.environ_model_manager_patch.stop()
         
         self.model_manager._tinydb.drop_table('Models')
-
+        self.model_manager._tinydb.close()
+        os.remove(environ['DB_PATH'])
         pass
 
     def test_create_default_model_hashes(self):
@@ -81,7 +82,6 @@ class TestModelManager(unittest.TestCase):
         #fromfedbiomed.node.environ import environ
 
 
-        self.model_manager = ModelManager()
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
         logger.info('Controlling Models Dir')
         logger.info(environ['DEFAULT_MODELS_DIR'])
@@ -137,7 +137,6 @@ class TestModelManager(unittest.TestCase):
 
         logger.info('Print Infoooo')
         logger.info(environ['DB_PATH'])
-        self.model_manager = ModelManager()
 
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
 
