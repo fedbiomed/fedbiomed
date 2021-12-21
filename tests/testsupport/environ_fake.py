@@ -10,6 +10,7 @@ mock_common_environ.py
 
 """
 import os
+import sys
 from posix import listdir
 
 from fedbiomed.common.singleton import SingletonMeta
@@ -22,6 +23,11 @@ class Environ(metaclass = SingletonMeta):
     def __init__(self, component = None):
 
         print("Using fake environ:", component)
+
+        if component != ComponentType.NODE and \
+           component != ComponentType.RESEARCHER:
+
+            raise ValueError("environ_fake: component type must be RESEARCHER or NODE")
 
         self.envdir = os.path.join(
             os.path.dirname(
@@ -62,8 +68,8 @@ class Environ(metaclass = SingletonMeta):
             self._values['MESSAGES_QUEUE_DIR'] = "/tmp/var/queue_messages_XXX"
             self._values['NODE_ID']          = "mock_node_XXX"
             self._values['DB_PATH']            = '/tmp/var/db_node_mock_node_XXX.json'
-            
-            
+
+
             self._values['ALLOW_DEFAULT_MODELS'] = True
             self._values['MODEL_APPROVAL'] = True
             self._values['HASHING_ALGORITHM'] = 'SHA256'
