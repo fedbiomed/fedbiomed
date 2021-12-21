@@ -64,7 +64,7 @@ class TestFiletools(unittest.TestCase):
 
         # OK not choosing folder name, receiving default
         return_folder = filetools.create_exp_folder()
-        self.assertEqual(return_folder, 'Experiment_1')
+        self.assertEqual(return_folder, 'Experiment_0001')
         self.assertTrue(os.path.isdir(os.path.join(self.testdir, return_folder)))
 
         # KO giving a path instead of folder name
@@ -97,17 +97,17 @@ class TestFiletools(unittest.TestCase):
         bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round=0)
 
         self.assertEqual(os.path.basename(bkpt_folder),
-                         breakpoint_folder_name + str(0))
+                         breakpoint_folder_name + str("{:04d}".format(0)))
         self.assertEqual(bkpt_file,
-                         breakpoint_folder_name + str(0) + ".json")
+                         breakpoint_folder_name + str("{:04d}".format(0)) + ".json")
         self.assertTrue(os.path.isdir(bkpt_folder))
 
         bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round=2)
 
         self.assertEqual(os.path.basename(bkpt_folder),
-                         breakpoint_folder_name + str(2))
+                         breakpoint_folder_name + str("{:04d}".format(2)))
         self.assertEqual(bkpt_file,
-                         breakpoint_folder_name + str(2) + ".json")
+                         breakpoint_folder_name + str("{:04d}".format(2)) + ".json")
         self.assertTrue(os.path.isdir(bkpt_folder))
 
 
@@ -139,7 +139,7 @@ class TestFiletools(unittest.TestCase):
             )
             self.assertEqual(
                 link_path,
-                os.path.join(self.testdir, link_prefix + '_' + str(index) + link_suffix))
+                os.path.join(self.testdir, link_prefix + '_' + str("{:02d}".format(index)) + link_suffix))
             self.assertTrue(os.path.islink(link_path))
 
         # KO cannot create link

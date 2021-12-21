@@ -179,7 +179,7 @@ class TestExperiment(unittest.TestCase):
         # verification
         final_model_path = os.path.join(
             self.experimentation_folder_path, 
-            'model_' + str(round_number) + '.py')
+            'model_' + str("{:04d}".format(round_number)) + '.py')
         final_agg_params = {
             'entry1': {
                 'params_path': os.path.join(self.experimentation_folder_path, 'params_path.pt')

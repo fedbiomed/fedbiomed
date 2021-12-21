@@ -255,7 +255,7 @@ def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
             # retrieve latest experiment
 
             # for error message
-            latest_exp_folder = environ['EXPERIMENTS_DIR'] + "NO_FOLDER_FOUND"
+            latest_exp_folder = environ['EXPERIMENTS_DIR'] + "/NO_FOLDER_FOUND"
 
             # content of breakpoint folder
             experiment_folders = os.listdir(environ['EXPERIMENTS_DIR'])
