@@ -4,7 +4,8 @@ from typing import List, Tuple, Dict, List, Any, Callable, Iterator
 import pprint
 import dateutil
 from dateutil.parser._parser import ParserError
-
+import copy
+from numpy import VisibleDeprecationWarning
 import pandas as pd
 
 from fedbiomed.common.data_tool.data_imputation_methods import ImputationMethods
@@ -25,11 +26,8 @@ def parse_yes_no_msg(resp: str) -> bool:
 def get_data_type_selection_msg(available_data_type:List[Enum],
                                ign_msg: str = 'ignore this column') ->Tuple[str, int]:
     
-    
     #n_available_data_type = len(available_data_type)
     msg = ''
-
-    
     for i, dtype in enumerate(available_data_type):
         msg += '%d) %s \n' % (i + 1, dtype.name)
     
@@ -47,69 +45,91 @@ def ask_for_data_imputation_parameters(parameters_to_ask_for: List[str]) -> Dict
         
     return params_retrieved_from_user
 
-def select_unselect(selected_item: List[str], item:str):
-    if item in selected_item:
-        selected_item.remove(item)
+def select_unselect(selected_items: List[str], item:str, verbose:bool=False):
+    """Appends or removes an item from a list depending whether it
+    already belongs to the list or not
+
+    Args:
+        selected_items (List[str]): [description]
+        item (str): [description]
+    """
+    if item in selected_items:
+        selected_items.remove(item)
+        if verbose:
+            print(f'removed {item}')
     else:
-        selected_item.append(item)
+        selected_items.append(item)
+        if verbose:
+            print(f'added {item}')
 
 def ask_select_variable_msg(view_feature_names: Dict[str, List[str]], 
                             selected_views_idx: List[str],
                             selected_views_features: Dict[str, List[str]],
                             imput_view:str, imput_feature:str) -> str:
     """ for data imputation methods"""
+    _is_feature_selected = False
     view_names = list(view_feature_names.keys())
     
-    
-    print('get msg', selected_views_idx)
-    view_msg, last_key = get_select_msg(view_names,
-                                        'Please select view that contained desired feature:',
-                                        inter_msg='(selected)',
-                                        inter_msg_idx=selected_views_idx,
-                                        final_msg='select all views'
-                                        )
-    _answer = int(get_user_input(view_msg, last_key))
-    
-    selected_view, selected_feature = None, None
-    if _answer == last_key:
-        selected_view = view_names
-        selected_views_idx.extend(view_names)
-        selected_views_idx = list(set(selected_views_idx))
-        for view in view_names:
-            selected_views_features[view] = view_feature_names[view]
-    else:
-        selected_view = view_names[_answer - 1]
-        select_unselect(selected_views_idx, selected_view)
+    while not _is_feature_selected:
+        print('get msg', selected_views_idx)
         
-        #selected_views_idx.append(_answer)
-        print('Please select a feature in %s' % selected_view)
-        feature_names = view_feature_names[selected_view]
-        selected_feature_names = selected_views_features.get(selected_view)
-        if imput_feature == selected_feature and imput_view == selected_view:
-            selected_feature_names.remove(imput_feature)
-            # remove feature that is imputed from the name list
-        feature_msg, last_key = get_select_msg(feature_names,
-                                               f'Please select feature from view : {selected_view}',
-                                               inter_msg='(selected)',
-                                               inter_msg_idx=selected_feature_names,
-                                               final_msg='select all features')
-        _answer = int(get_user_input(feature_msg, last_key))
-        
+        view_msg, last_key = get_select_msg(view_names,
+                                            'Please select view that contained desired feature:',
+                                            inter_msg='(selected)',
+                                            inter_msg_idx=selected_views_idx,
+                                            final_msgs=['select all views']
+                                            )
+        _answer = int(get_user_input(view_msg, last_key))
+    
+    
+        selected_view, selected_feature = None, None
         if _answer == last_key:
-            
-            selected_views_features[selected_view] = feature_names
-            print('select all',selected_views_features )
-            
+            selected_view = view_names
+            selected_views_idx.extend(view_names)
+            selected_views_idx = list(set(selected_views_idx))
+            for view in view_names:
+                selected_views_features[view] = view_feature_names[view]
         else:
-            selected_feature = feature_names[_answer - 1]
-            #selected_views_features[selected_view].append(selected_feature)
-            select_unselect(selected_views_features[selected_view], selected_feature) 
-    
+            selected_view = view_names[_answer - 1]
+            
+            #selected_views_idx.append(_answer)
+            print('Please select a feature in %s' % selected_view)
+            if imput_view == selected_view and imput_feature in view_feature_names[selected_view]:
+                # remove feature that is imputed from the name list
+                
+                view_feature_names[selected_view].remove(imput_feature)
+            feature_names = copy.deepcopy(view_feature_names[selected_view])
+            selected_feature_names = selected_views_features.get(selected_view)
+            
+            feature_msg, last_key = get_select_msg(feature_names,
+                                                f'Please select feature from view : {selected_view}',
+                                                inter_msg='(selected)',
+                                                inter_msg_idx=selected_feature_names,
+                                                final_msgs=['select all features',
+                                                            'return to view'])
+            _answer = int(get_user_input(feature_msg, last_key))
+            
+            if _answer < last_key:
+                _is_feature_selected = True
+                if _answer == last_key - 1:
+                    selected_views_features[selected_view] = feature_names
+                    
+                else:
+                    selected_feature = feature_names[_answer - 1]
+                    #selected_views_features[selected_view].append(selected_feature)
+                    select_unselect(selected_views_features[selected_view],
+                                    selected_feature, verbose=True) 
+                
+            if set(sorted(selected_feature_names)) == set(sorted(feature_names)):
+                selected_views_idx.append(selected_view)
+            elif selected_view in selected_views_idx:
+                selected_views_idx.remove(selected_view)
+
 def get_select_msg(iterator: Iterator[str], 
                    begining_msg: str='',
                    inter_msg: str='',
                    inter_msg_idx: List[str] = None,
-                   final_msg: str=None,
+                   final_msgs: List[str] = None,
                    method:str = None) -> Tuple[str, int]:   
     
     msg = begining_msg + '\n'
@@ -126,13 +146,15 @@ def get_select_msg(iterator: Iterator[str],
             _inter_msg = ''
         msg += '%d) %s %s\n' % (i + 1, line, _inter_msg)
     last_key = i + 1
-    if final_msg is not None:
-        last_key += 1
-        msg += '%d) %s\n' % (last_key, final_msg)
+    if final_msgs is not None:
+        for final_msg in final_msgs:
+            last_key += 1
+            msg += '%d) %s\n' % (last_key, final_msg)
     return msg, last_key
     
 def ask_for_variable_to_apply_data_imputation(view_feature_names: Dict[str, List[str]],
-                                              view:str, feature:str) -> Dict[str, List[str]]:
+                                              view:str,
+                                              feature:str) -> Dict[str, List[str]]:
     """
     Asks on which variable to apply data imputation method
     """
@@ -240,36 +262,40 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
                                                         n_answers=2)
             is_missing_values_allowed = parse_yes_no_msg(missing_values_user_selection)
             
-            imputation_method = None
-            imputation_method_parameters = None
-            selected_variables = None
+            # imputation_method = None
+            # imputation_method_parameters = None
+            # selected_variables = None
+            data_imputation_params = {}
             if is_missing_values_allowed:
                 # let user select imputation method if missing data are allowed
-                imputation_method_user_selection = get_user_input(msg_data_imputation_methods,
-                                                                n_answers=n_data_imputation_method)
+                data_imputation_params = ask_for_data_imputation_method(d_type,
+                                                                        view_feature_names,
+                                                                        view, feature)
+                # imputation_method_user_selection = get_user_input(msg_data_imputation_methods,
+                #                                                 n_answers=n_data_imputation_method)
                 
-                imputation_method_selected = data_imputation_methods.get(imputation_method_user_selection)
+                # imputation_method_selected = data_imputation_methods.get(imputation_method_user_selection)
                 
-                if imputation_method_selected is not None:
-                    imputation_method = imputation_method_selected.name
-                    if imputation_method_selected.parameters_to_ask_user is not None:
-                        print(f'Selected: {imputation_method}\n')
-                        imputation_method_parameters = ask_for_data_imputation_parameters(imputation_method_selected.parameters_to_ask_user)
-                        print('imput param', imputation_method_parameters)
+                # if imputation_method_selected is not None:
+                #     imputation_method = imputation_method_selected.name
+                #     if imputation_method_selected.parameters_to_ask_user is not None:
+                #         print(f'Selected: {imputation_method}\n')
+                #         imputation_method_parameters = ask_for_data_imputation_parameters(imputation_method_selected.parameters_to_ask_user)
+                #         print('imput param', imputation_method_parameters)
                         
-                    if imputation_method_selected.ask_variable_to_perform_imputation:
-                        selected_variables = ask_for_variable_to_apply_data_imputation(view_feature_names,
-                                                                                       view=view,
-                                                                                       feature=feature)
+                #     if imputation_method_selected.ask_variable_to_perform_imputation:
+                #         selected_variables = ask_for_variable_to_apply_data_imputation(view_feature_names,
+                #                                                                        view=view,
+                #                                                                        feature=feature)
             
                 
         data_format_file[feature] = {'data_format': data_format.name,
                                      'data_type': n_data_type.name,
                                      'values': str(d_type),
                                      'is_missing_values': is_missing_values_allowed,
-                                     'data_imputation_method': imputation_method,
-                                     'data_imputation_parameters': imputation_method_parameters,
-                                     'data_imputation_variables': selected_variables
+                                     'data_imputation_method': data_imputation_params.get('data_imputation_method'),
+                                     'data_imputation_parameters': data_imputation_params.get('data_imputation_parameters'),
+                                     'data_imputation_variables': data_imputation_params.get('data_imputation_variables')
                                     }
         
     return data_format_file
@@ -339,8 +365,6 @@ def edit_format_file_ref(format_file_ref: Dict[str, Dict[str, Any]]) -> Dict[str
         'edit': 'Which field should be modified?\n',
     }
 
-    
-    
     # iterate over name of files (ie views)
     for i_file in range(_n_tot_files):
         # ask for each file if user wants to edt it
@@ -361,6 +385,7 @@ def edit_format_file_ref(format_file_ref: Dict[str, Dict[str, Any]]) -> Dict[str
                 feature_content = _file_content[feature_name]
                 feature_content = edit_feature_format_file_ref(feature_content,
                                                                feature_name,
+                                                               view_feature_name,
                                                                available_categorical_data_types,
                                                                _messages,
                                                                ign_key)
@@ -368,7 +393,7 @@ def edit_format_file_ref(format_file_ref: Dict[str, Dict[str, Any]]) -> Dict[str
             
     return format_file_ref
 
-def create_msg_action_selection(data_type_propreties: Enum) -> Tuple[str, int, Dict[int, Callable]]:
+def create_msg_action_selection(data_type_propreties: Enum) -> Tuple[str, int, Dict[int, Callable], List[Any]]:
     # create edit selection message for user given data type
     # number of possible action depend of data type properties
     msg = ""
@@ -385,38 +410,44 @@ def create_msg_action_selection(data_type_propreties: Enum) -> Tuple[str, int, D
         msg += "%d) lower bound\n" % action_counter
         actions[str(action_counter)] = ask_for_lower_bound
         action_counter += 1
-        
+        params_action = None
+    
     if data_type_propreties.upper_bound:
         # upper bound edit command
         msg += "%d)upper bound\n" % action_counter
         actions[str(action_counter)] = ask_for_upper_bound
         action_counter += 1
+        params_action = None
         
     if data_type_propreties.set_of_values:
         # value taken edit command
         msg += "%d) Values taken\n" % action_counter
         actions[str(action_counter)] = ask_for_categorical_values
         action_counter += 1
+        params_action = None
         
     if data_type_propreties.date_format:
         # date formatter edit command
         msg += "%d) Date format\n" % action_counter
         actions[str(action_counter)] = ask_for_date_format
         action_counter += 1
+        params_action = None
         
     if data_type_propreties.allow_missing_values:
         # change data method for data imputation
         msg += "%d) Data Value imputation method\n" % action_counter
         actions[str(action_counter)] = ask_for_data_imputation_method
         action_counter += 1
+        params_action = ['view_feature_names']
         
     msg += "%d) Cancel Operation\n" % action_counter
     actions[str(action_counter)] = cancel_operation
-    return msg, action_counter, actions
+    return msg, action_counter, actions, params_action
 
 def select_action(
                   action: str,
                   possible_actions: Dict[str, Callable],
+                  *params: List[Any]
                   ) -> Tuple[Dict[str, Any], bool]:
     
     # variable initialization
@@ -429,7 +460,7 @@ def select_action(
     else:
         # define action among the pool of possible actions
         _action_func = possible_actions[action]
-        new_field = _action_func()
+        new_field = _action_func(*params)
     
     return new_field, is_cancelled
 
@@ -515,11 +546,14 @@ def ask_for_data_type() -> Dict[str, Any]:
 
 
 def ask_for_data_imputation_method(d_type: type=None,
-                                   view_feature_names: Dict[str, List[str]]=None) -> Dict[str, Any]:
+                                   view_feature_names: Dict[str, List[str]]=None,
+                                   view:str=None,
+                                   feature:str=None) -> Dict[str, Any]:
     
-    # variable initialisation
+    # variables initialisation
     _imputation_method = None
     _imputation_method_parameters = None
+    _imputatation_variables = None
     
     # get user message + dictionary mapping user responses to data imputation methods
     _msg_data_imputation_methods, _data_imputation_methods = get_data_imputation_methods_msg(d_type)
@@ -538,8 +572,9 @@ def ask_for_data_imputation_method(d_type: type=None,
             print(f'Method imputation selected: {_imputation_method}\n')
             _imputation_method_parameters = ask_for_data_imputation_parameters(_imputation_method_selected.parameters_to_ask_user)
             print('imput param', _imputation_method_parameters)
-        if _imputation_method.ask_variable_to_perform_imputation:
-            _imputatation_variables = ask_for_variable_to_apply_data_imputation(view_feature_names)
+        if _imputation_method_selected.ask_variable_to_perform_imputation:
+            _imputatation_variables = ask_for_variable_to_apply_data_imputation(view_feature_names,
+                                                                                view, feature)
     updates = {'data_imputation_method': _imputation_method,
                'data_imputation_parameters': _imputation_method_parameters,
                'data_imputation_variables': _imputatation_variables}
@@ -566,6 +601,7 @@ def ask_for_date_format() -> Dict[str, Any]:
 
 def edit_feature_format_file_ref(feature_content: Dict[str, Any],
                                   feature_name: str,
+                                  view_feature_name: Dict[str, Dict[str, Any]],
                                   available_categorical_data_type: List[Enum],
                                   messages: Dict[str, str],
                                   ignore_keystroke: int) -> Dict[str, Any]:
@@ -596,13 +632,16 @@ def edit_feature_format_file_ref(feature_content: Dict[str, Any],
             for data_type_properties in _avail_data_type_properties:
                 if data_format == data_type_properties.name:
                     # get data property from data_format
-                    select_msg, n_actions, possible_actions = create_msg_action_selection(data_type_properties)
+                    select_msg, n_actions, possible_actions, params_action = create_msg_action_selection(data_type_properties)
                     _msg += select_msg
                     _edit_selection = get_user_input(_msg, n_actions)
 
+                    if 'view_feature_names' in params_action:
+                        params_action = view_feature_name
                     _edited_field, _is_cancelled = select_action(
                                                                   _edit_selection,
-                                                                  possible_actions
+                                                                  possible_actions,
+                                                                  view_feature_name
                                                                   #available_categorical_data_type,
                                                                   #messages['data_type_select']
                                                                 )
