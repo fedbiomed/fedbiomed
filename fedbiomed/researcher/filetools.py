@@ -32,9 +32,8 @@ def create_exp_folder(experimentation_folder: str =None) -> str:
         try:
             os.makedirs(environ['EXPERIMENTS_DIR'], exist_ok=True)
         except (PermissionError, OSError) as err:
-            logger.error(f"Can not save experiment files because\
-                {environ['EXPERIMENTS_DIR']} folder could not be created\
-                    due to {err}")
+            logger.error(f"Can not save experiment files because " + \
+                f"{environ['EXPERIMENTS_DIR']} folder could not be created due to {err}")
             raise
     # if no name is given for the experiment folder we choose one
     if not experimentation_folder:
@@ -45,15 +44,15 @@ def create_exp_folder(experimentation_folder: str =None) -> str:
     else:
         if os.path.basename(experimentation_folder) != experimentation_folder:
             # experimentation folder cannot be a path
-            raise ValueError(f"Bad experimentation folder {experimentation_folder} - \
-                it cannot be a path")
+            raise ValueError(f"Bad experimentation folder {experimentation_folder} - " + \
+                "it cannot be a path")
     try:
         os.makedirs(os.path.join(environ['EXPERIMENTS_DIR'], experimentation_folder),
                     exist_ok=True)
     except (PermissionError, OSError) as err:
-        logger.error(f"Can not save experiment files because\
-                {environ['EXPERIMENTS_DIR']}/{experimentation_folder} \
-                folder could not be created due to {err}")
+        logger.error(f"Can not save experiment files because " + \
+                f"{environ['EXPERIMENTS_DIR']}/{experimentation_folder} " + \
+                f"folder could not be created due to {err}")
         raise
     
     return experimentation_folder
@@ -85,8 +84,8 @@ def choose_bkpt_file(
     try:
         os.makedirs(breakpoint_folder_path, exist_ok=True)
     except (PermissionError, OSError) as err:
-        logger.error(f"Can not save breakpoint folder at\
-            {breakpoint_folder_path} due to some error {err}")
+        logger.error(f"Can not save breakpoint folder at " + \
+            f"{breakpoint_folder_path} due to some error {err}")
         raise
     breakpoint_file = breakpoint_folder + ".json"
 
@@ -126,8 +125,8 @@ def create_unique_link(
     try:
         os.symlink(link_target_path, link_src_path)
     except(FileExistsError, PermissionError, OSError, FileNotFoundError) as err:
-        logger.error(f"Can not create link to experiment file {link_target_path}\
-            from {link_src_path} due to error {err}")
+        logger.error(f"Can not create link to experiment file {link_target_path} " + \
+            f"from {link_src_path} due to error {err}")
         raise
 
     return link_src_path
@@ -152,15 +151,16 @@ def create_unique_file_link(breakpoint_folder_path: str, file_path: str) -> str:
         if not os.path.isdir(real_bkpt_folder_path) \
                 or not os.path.isdir(os.path.dirname(real_file_path)):
             raise ValueError
+
         # - use relative path for link target for portability
         # - link to the real file, not to a link-to-the-file
         link_target = os.path.relpath(real_file_path, start=real_bkpt_folder_path)
     except ValueError as err:
-        mess = f'Saving breakpoint error, \
-            cannot get relative path to {file_path} from {breakpoint_folder_path}, \
-            due to error {err}'
+        mess = 'Saving breakpoint error, ' + \
+            f'cannot get relative path to {file_path} from {breakpoint_folder_path}, ' + \
+            f'due to error {err}'
         logger.error(mess)
-        raise ValueError(mess)
+        raise
 
     # heuristic : assume limited set of characters in filename postfix
     re_src_prefix = re.search("(.+)\.[a-zA-Z]+$",
@@ -168,9 +168,8 @@ def create_unique_file_link(breakpoint_folder_path: str, file_path: str) -> str:
     re_src_postfix = re.search(".+(\.[a-zA-Z]+)$",
                         os.path.basename(file_path))
     if not re_src_prefix or not re_src_postfix:
-        error_message = f'Saving breakpoint error, \
-            bad filename {file_path} gives \
-            prefix {re_src_prefix} and postfix {re_src_postfix}'
+        error_message = f'Saving breakpoint error, bad filename {file_path} gives ' + \
+            f'prefix {re_src_prefix} and postfix {re_src_postfix}'
         logger.error(error_message)
         raise ValueError(error_message)
 
@@ -225,7 +224,8 @@ def _get_latest_file(
     
     if latest_folder is None: 
         if len(list_name_file) != 0:
-            raise FileNotFoundError("None of those are breakpoints{}".format(", ".join(list_name_file)))
+            raise FileNotFoundError(
+                "None of those are breakpoints{}".format(", ".join(list_name_file)))
         else:
             raise FileNotFoundError("No files to search for breakpoint")
 
@@ -277,24 +277,23 @@ def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
             breakpoint_folder_path = os.path.join(latest_exp_folder,
                                              breakpoint_folder_path)
         except FileNotFoundError as err:
-            logger.error("Cannot find a breakpoint in: " + latest_exp_folder + " - " + str(err))
-            raise FileNotFoundError("Cannot find latest breakpoint " + \
-                "saved. Are you sure you have saved at least one breakpoint?")
+            logger.error("Cannot find latest breakpoint in " + latest_exp_folder + \
+                " Are you sure at least one breakpoint is saved there ? " + \
+                " - Error: " + str(err))
+            raise
     else:
         if not os.path.isdir(breakpoint_folder_path):
-            raise FileNotFoundError(f"{breakpoint_folder_path} is not a folder")
+            raise FileNotFoundError(
+                f"Breakpoint folder {breakpoint_folder_path} is not a directory")
 
-        # check if folder is a valid breakpoint
+    # check if folder is a valid breakpoint
 
-        # get breakpoint material
-        # regex : breakpoint_\d\.json
-    
     #
     # verify the validity of the breakpoint content
     # TODO: be more robust
     all_breakpoint_materials = os.listdir(breakpoint_folder_path)
     if len(all_breakpoint_materials) == 0:
-        raise FileNotFoundError("breakpoint folder is empty !")
+        raise FileNotFoundError(f'Breakpoint folder {breakpoint_folder_path} is empty !')
     
     state_file = None
     for breakpoint_material in all_breakpoint_materials:
@@ -309,10 +308,10 @@ def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
             state_file = breakpoint_material
     
     if state_file is None:
-        logging.error(f"Cannot find JSON file containing\
-            model state at {breakpoint_folder_path}. Aborting")
-        raise FileNotFoundError(f"Cannot find JSON file containing\
-            model state at {breakpoint_folder_path}. Aborting")
+        message = f"Cannot find JSON file containing " + \
+            f"model state at {breakpoint_folder_path}. Aborting"
+        logging.error(message)
+        raise FileNotFoundError(message)
     
     return breakpoint_folder_path, state_file
 
