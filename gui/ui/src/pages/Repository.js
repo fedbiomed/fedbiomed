@@ -158,7 +158,7 @@ const Repository = (props) => {
                     {
                         selected ? (
                             <Button
-                                style={{'min-width' : '100px'}}
+                                style={{'minWidth' : '100px'}}
                                 onClick={onSelectClick}
                             >{
                                 selected.type === 'file' ? (
