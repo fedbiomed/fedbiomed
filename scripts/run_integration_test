@@ -7,7 +7,7 @@
 # - a set of node(s)
 # - a researcher
 #
-# the researcher runs the given script (python ot python notebook)
+# the researcher runs the given script (python or python notebook)
 # the dataset is loaded into local DB of the node
 # everything is cleaned at the end of the run.
 #
@@ -29,7 +29,7 @@
 #
 # Remark: multiple instances of this script cannot run at the same time
 #         because:
-#         - it starts and stops the dockerize networt component
+#         - it starts and stops the dockerized network component
 #         - it runs a researcher
 #
 
@@ -37,7 +37,7 @@
 # ** variables **
 # ---------------
 
-# default timeout in seconds for aborting the test (can ne changed at runtime)
+# default timeout in seconds for aborting the test (can be changed at runtime)
 TEST_TIMEOUT=900
 
 
@@ -53,11 +53,11 @@ usage() {
 Usage: ${0##*/} -s file -d dataset.json
 
   -h, --help                  this help
-  -s, --script  <file>        script to ryn (.py or .ipynb)
+  -s, --script  <file>        script to run (.py or .ipynb)
   -t, --timeout <integer>     max execution time (default = $TEST_TIMEOUT)
   -d, --dataset <json-file>   dataset description
 
-Remark: only dataset avaibility is checked. Coherence between
+Remark: only dataset availability is checked. Coherence between
 provided script and dataset is not validated by this launcher
 "
 }
@@ -132,7 +132,7 @@ script_executor() {
             fi
             ;;
         *.ipynb)
-            # converting notebook to sctring to run
+            # converting notebook to script to run
             output="${script##*/}.$RANDOM"
             convert=$(jupyter nbconvert --output-dir=/tmp --output=$output --to script $script 2> /dev/null)
             if [ $? == 0 ]
@@ -416,6 +416,7 @@ do
     ALL_PIDS+=" $pid $(subprocess $pid)"
     i=$(( $i + 1 ))
 done
+
 
 # launch test and wait for completion
 banner "launching fedbiomed researcher ($CMD_TO_RUN)"
