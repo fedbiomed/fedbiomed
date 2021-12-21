@@ -42,7 +42,7 @@ class Config:
             self.configuration['DATA_PATH_SAVE'] = os.getenv('DATA_PATH', '/data')
 
         else:
-            # Configuration of Flask APP to able to access Fed-BioMed node information
+            # Configuration of Flask APP to be able to access Fed-BioMed node information
             self.configuration['NODE_FEDBIOMED_ROOT'] = os.getenv('FEDBIOMED_ROOT', '/fedbiomed')
 
             data_path = os.getenv('DATA_PATH')

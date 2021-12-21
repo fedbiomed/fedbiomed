@@ -6,6 +6,7 @@ import {connect, useDispatch} from 'react-redux'
 import Repository from "../pages/Repository"
 import {addNewDataset} from "../store/actions/datasetsActions";
 import {useNavigate} from "react-router-dom";
+import {ADD_DATASET_ERROR_MESSAGES, ADD_DATASET_FIELDS} from "../constants";
 
 export const AddDataset = (props) => {
 
@@ -70,14 +71,41 @@ export const AddDataset = (props) => {
      * When user click on add dataset
      */
     const onDataAdd = () => {
-        let dataset = newDataset
-        dataset.path = props.new_dataset.path
-        if( props.new_dataset.extension === ".csv"){
-            dataset.type = 'csv'
+
+        if (Object.keys(newDataset).length > 0) {
+            let dataset = newDataset
+            dataset.path = props.new_dataset.path
+            if( props.new_dataset.extension === ".csv"){
+                dataset.type = 'csv'
+            }
+            if(!dataset.path){
+                dispatch({type :'ERROR_MODAL', payload: 'Please provide a dataset'})
+            }else{
+                let validation = validateInputData(dataset)
+                console.log(validation)
+                if(validation){
+                     dispatch({type :'ERROR_MODAL', payload: validation})
+                }else{
+                    props.addNewDataset(dataset)
+                }
+            }
+        }else{
+            dispatch({type :'ERROR_MODAL', payload: 'Please make sure all the fields has been field'})
         }
-        props.addNewDataset(dataset)
+
+
     }
 
+    const validateInputData = (data) => {
+        let error
+        ADD_DATASET_FIELDS.forEach( (key) => {
+            if(!data[key] || data[key] === "" || data[key] === null || data[key] === undefined){
+                error = ADD_DATASET_ERROR_MESSAGES[key]
+            }
+        })
+
+        return error
+    }
 
     /**
      * On input values has changed

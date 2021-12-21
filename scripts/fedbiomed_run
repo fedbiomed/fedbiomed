@@ -42,7 +42,7 @@ function start_gui() {
       echo -e "${YLW}INFO${NC}: Using $CONFIG_FILE file as GUI node config"
     else
       CONFIG_FILE="config_node.ini"
-      echo -e "${YLW}INFO${NC}: Config file has not been provided, defualt config 'config_node.ini' will be used for GUI"
+      echo -e "${YLW}INFO${NC}: Config file has not been provided, default config 'config_node.ini' will be used for GUI"
     fi
 
     # Configure data path
@@ -92,14 +92,14 @@ function start_gui() {
     # Starting flask
     echo -e "${YLW}INFO:${NC} Starting Flask Server and API services...."
     FEDBIOMED_ROOT="$basedir" \
-    NODE_CONFIG_FILE="$CONFIG_FILE" \
-    BUILD_DIR="$basedir/var/gui-build" \
-    DATA_PATH="$DATA_PATH" \
-    HOST="$GUI_HOST" \
-    PORT="$GUI_PORT" \
-    DEBUG="$GUI_DEBUG" \
-    FLASK_ENV="development" \
-    python app.py
+      NODE_CONFIG_FILE="$CONFIG_FILE" \
+      BUILD_DIR="$basedir/var/gui-build" \
+      DATA_PATH="$DATA_PATH" \
+      HOST="$GUI_HOST" \
+      PORT="$GUI_PORT" \
+      DEBUG="$GUI_DEBUG" \
+      FLASK_ENV="development" \
+      python app.py
 }
 
 case $1 in

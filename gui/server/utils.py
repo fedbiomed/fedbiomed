@@ -12,7 +12,7 @@ def get_node_id(config_file: str):
     Args: 
 
         config_file     (str): Path for config file of the node that 
-                        GUI services will running for
+                        GUI services will run for
     """
 
     cfg = configparser.ConfigParser()
@@ -20,7 +20,8 @@ def get_node_id(config_file: str):
         cfg.read(config_file)
     else:
         raise Exception(
-            f'Config file does not exist, can not start flask app. Please check follwing folder in your file system {config_file}')
+            f'Config file does not exist, can not start flask app. Please check following path exists in your file '
+            f'system {config_file}')
 
     # Get node id from config file 
     node_id = cfg.get('default', 'node_id')

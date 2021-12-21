@@ -103,7 +103,7 @@ class AddDataSetRequest(Validator):
         'properties': {
             'name': {'type': 'string', "minLength": 4, "maxLength": 128},
             'path': {'type': 'array'},
-            'tags': {'type': 'array',  "minItems": 2, "maxItems": 4},
+            'tags': {'type': 'array',  "minItems": 1, "maxItems": 4},
             'type': {'type': 'string',
                      'oneOf': [{"enum": ['csv', 'images']}]},
             'desc': {'type': 'string'}
@@ -160,7 +160,7 @@ class UpdateDatasetRequest(Validator):
         "properties": {"name": {'type': 'string', "minLength": 4, "maxLength": 128},
                        "dataset_id": {'type': 'string'},
                        "path": {'type': 'array'},
-                       "tags": {'type': 'array', "minItems": 2, "maxItems": 4},
+                       "tags": {'type': 'array', "minItems": 1, "maxItems": 4},
                        "desc": {'type': 'string', "minLength": 4, "maxLength": 254}},
         "required": ["dataset_id", "tags", "desc"]
     })
