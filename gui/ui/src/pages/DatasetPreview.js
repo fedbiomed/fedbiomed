@@ -75,6 +75,9 @@ export const DatasetPreview = (props) => {
             'Type': { value : data.data_type ,
                       editable: false
                     },
+            'Shape': { value : data.shape.join(' x '),
+                      editable: false
+                     },
             'Tags': { value : data.tags.join(', '),
                       editable : true,
                       input : <Tag tags={data.tags}  onTagsChange={onTagsChange}/>

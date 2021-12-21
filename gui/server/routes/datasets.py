@@ -231,7 +231,7 @@ def get_preview_dataset():
     query = database.query()
     dataset = table.get(query.dataset_id == req['dataset_id'])
 
-    # Extract data path where the files are save into local repository
+    # Extract data path where the files are saved in the local repository
     rexp = re.match('^' + app.config['DATA_PATH_SAVE'], dataset['path'])
     data_path = dataset['path'].replace(rexp.group(0), app.config['DATA_PATH_RW'])
 
