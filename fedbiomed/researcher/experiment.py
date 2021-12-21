@@ -323,7 +323,7 @@ class Experiment:
         state['model_path'] = create_unique_link(
             breakpoint_path,
             # - Need a file with a restricted characters set in name to be able to import as module
-            'model_' + str(round), '.py',
+            'model_' + str("{:04d}".format(round)), '.py',
             # - Prefer relative path, eg for using experiment result after
             # experiment in a different tree
             os.path.join('..', os.path.basename(state["model_path"]))
@@ -333,8 +333,8 @@ class Experiment:
         breakpoint_file_path = os.path.join(breakpoint_path, breakpoint_file_name)
         with open(breakpoint_file_path, 'w') as bkpt:
             json.dump(state, bkpt)
-        logger.info(f"breakpoint for round {round} saved at \
-            {os.path.dirname(breakpoint_file_path)}")
+        logger.info(f"breakpoint for round {round} saved at " + \
+            os.path.dirname(breakpoint_file_path))
 
 
     @classmethod

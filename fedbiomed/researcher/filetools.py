@@ -41,7 +41,7 @@ def create_exp_folder(experimentation_folder: str =None) -> str:
          # FIXME: improve method robustness (here nb of exp equals nb of files
         # in directory)
         all_files = os.listdir(environ['EXPERIMENTS_DIR'])
-        experimentation_folder = "Experiment_" + str(len(all_files))
+        experimentation_folder = "Experiment_" + str("{:04d}".format(len(all_files)))
     else:
         if os.path.basename(experimentation_folder) != experimentation_folder:
             # experimentation folder cannot be a path
@@ -77,7 +77,7 @@ def choose_bkpt_file(
         - breakpoint_file (str): name of the file that will
           contain the state of an experiment.
     """
-    breakpoint_folder = "breakpoint_" + str(round)
+    breakpoint_folder = "breakpoint_" + str("{:04d}".format(round))
     breakpoint_folder_path = os.path.join(environ['EXPERIMENTS_DIR'],
                                           experimentation_folder,
                                           breakpoint_folder)
@@ -122,7 +122,7 @@ def create_unique_link(
     while(os.path.exists(link_src_path) or os.path.islink(link_src_path)):
         stub += 1
         link_src_path = os.path.join(breakpoint_folder_path,
-                            link_src_prefix + '_' + str(stub) + link_src_postfix)
+                            link_src_prefix + '_' + str("{:02}".format(stub)) + link_src_postfix)
     try:
         os.symlink(link_target_path, link_src_path)
     except(FileExistsError, PermissionError, OSError, FileNotFoundError) as err:
@@ -254,6 +254,9 @@ def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
         try:
             # retrieve latest experiment
 
+            # for error message
+            latest_exp_folder = environ['EXPERIMENTS_DIR'] + "NO_FOLDER_FOUND"
+
             # content of breakpoint folder
             experiment_folders = os.listdir(environ['EXPERIMENTS_DIR'])
 
@@ -274,9 +277,9 @@ def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
             breakpoint_folder_path = os.path.join(latest_exp_folder,
                                              breakpoint_folder_path)
         except FileNotFoundError as err:
-            logger.error("Cannot find a breakpoint in:" + environ['EXPERIMENTS_DIR'] + " - " + str(err))
-            raise FileNotFoundError("Cannot find latest breakpoint \
-                saved. Are you sure you have saved at least one breakpoint?")
+            logger.error("Cannot find a breakpoint in: " + latest_exp_folder + " - " + str(err))
+            raise FileNotFoundError("Cannot find latest breakpoint " + \
+                "saved. Are you sure you have saved at least one breakpoint?")
     else:
         if not os.path.isdir(breakpoint_folder_path):
             raise FileNotFoundError(f"{breakpoint_folder_path} is not a folder")
