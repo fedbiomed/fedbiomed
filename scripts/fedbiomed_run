@@ -79,12 +79,15 @@ function start_gui() {
     # Create bundle if there is no build directory/node_modules or recreate is active
     if  [ ! -d "$basedir/gui/ui/node_modules" ] || [ ! -d "$basedir/var/gui-build" ] || [ -n "$RECREATE" ];then
         echo -e "${YLW}INFO${NC}: Installing npm modules"
-        npm install
+        npm install || exit
+
         echo -e "${YLW}INFO${NC}: Building Fed-BioMed GUI"
-        npm run build
+        npm run build || exit
+
         if [ -d "$basedir/var/gui-build" ];then
           rm -Rf "$basedir/var/gui-build";
         fi
+
         mv "$basedir/gui/ui/build/" "$basedir/var/gui-build"
     fi
 

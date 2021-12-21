@@ -130,7 +130,7 @@ def add_dataset():
     data_path_save = os.path.join(app.config['DATA_PATH_SAVE'], *req['path'])
 
     # Get image dataset information from datamanager
-    if req['type'] == 'image':
+    if req['type'] == 'images':
         try:
             shape = datamanager.load_images_dataset(data_path)
             types = []
