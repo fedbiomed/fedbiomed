@@ -37,7 +37,7 @@ class Database:
     def close(self):
         """This method removes TinyDB object to save some memory"""
 
-        self.__dict__.pop('_db', None)
+        self._db.close()
 
 
 database = Database()
