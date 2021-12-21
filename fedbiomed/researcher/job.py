@@ -144,14 +144,14 @@ class Job:
         self._model_class = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
 
         self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
-        
+
         self._model_file = self._keep_files_dir + '/my_model_' + str(uuid.uuid4()) + '.py'
         try:
             self.model_instance.save_code(self._model_file)
         except Exception as e:
             logger.error("Cannot save the model to a local tmp dir : " + str(e))
             return
-        # upload my_model_xxx.py on HTTP server (contains model definition)
+        # upload my_model_xxx.py on repository server (contains model definition)
         repo_response = self.repo.upload_file(self._model_file)
         self._repository_args['model_url'] = repo_response['file']
 
@@ -161,7 +161,7 @@ class Job:
         except Exception as e:
             logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
             return
-        # upload aggregated_params_init_xxx.pt on HTTP server (contains model parameters)
+        # upload aggregated_params_init_xxx.pt on repository server (contains model parameters)
         repo_response = self.repo.upload_file(self._model_params_file)
         self._repository_args['params_url'] = repo_response['file']
 
@@ -418,7 +418,7 @@ class Job:
                     raise ValueError('Bad arguments for update_parameters, filename or params is needed')
                 filename = self._keep_files_dir + '/aggregated_params_' + str(uuid.uuid4()) + '.pt'
                 self.model_instance.save(filename, params)
-            
+
             repo_response = self.repo.upload_file(filename)
             self._repository_args['params_url'] = repo_response['file']
             self._model_params_file = filename
@@ -494,7 +494,7 @@ class Job:
             List[List[dict]] : extract from `training_replies` formatted for breakpoint
         """
         converted_training_replies = []
-        
+
         for round in training_replies.keys():
             training_reply = copy.deepcopy(training_replies[round].data)
             # we want to strip some fields for the breakpoint
@@ -518,7 +518,7 @@ class Job:
             - func_load_params (Callable) : function for loading parameters
               from file to training replies data structure
 
-        Returns: 
+        Returns:
             Dict[int, Responses] : training replies of already executed rounds of the job
         """
 
