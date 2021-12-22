@@ -23,10 +23,49 @@ then
 fi
 eval "$(conda shell.bash hook)"
 
-#update conda environment after installing modules with pip may result into inconsistencies
+# ---------------
+# ** functions **
+# ---------------
+
+usage() {
+    #
+    # print usage
+    #
+    echo "\
+Usage: ${0##*/} [-x]
+
+  -h, --help            this help
+  -x, --experimental    (optional) on MacOSX, install (yet experimental) environments
+                        from *-macosx.yaml files, which relies on the mamba command
+"
+}
+
+bad_usage () {
+    echo "\
+ERROR: $*
+"
+    usage
+    exit 1
+}
+
 function activate_environment() {
-    echo "* Verifying/installing conda environment: $1"
-    conda env update --file $basedir/envs/development/conda/$1.yaml 2>/dev/null;
+    #update conda environment after installing modules with
+    # pip may result into inconsistencies
+
+    base=$basedir/envs/development/conda/$1
+
+    file="${base}.yaml"
+    if [ $EXPERIMENTAL -eq 1 ]
+    then
+        if [ -f "${base}-macosx.yaml" ]
+        then
+            file="${base}-macosx.yaml"
+        fi
+    fi
+
+    echo "=== Verifying/installing conda environment: $file"
+
+    ${CONDA_CMD} env update --file "$file" 2>/dev/null
 }
 
 #
@@ -34,6 +73,48 @@ function activate_environment() {
 #
 basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit
+
+EXPERIMENTAL=0
+CONDA_CMD=conda
+# decode arguments
+while (($# > 0)); do
+    case $1 in
+        -h|--help )
+            usage
+            exit 0
+            ;;
+        -x | --experimental )
+            EXPERIMENTAL=1
+            ;;
+        -* )
+            bad_usage "Unknown option: $1"
+            ;;
+        * )
+            bad_usage "no parameter allowed: $1"
+            ;;
+    esac
+    shift
+done
+
+# verify macOSX for -x flag
+if [ $EXPERIMENTAL -eq 1 ]
+then
+    case $(uname) in
+        Darwin )
+            # verify that mamba is installed
+            c=$(which mamba)
+
+            if [ -z "$c" ]
+            then
+                echo "You need mamba then using -x on MacOSX (conda install -c conda-forge mamba)"
+                exit 1
+            fi
+            CONDA_CMD=$c
+            ;;
+    esac
+fi
+
+echo $CONDA_CMD
 
 # configure/update all conda environements
 for i in ${fed_envs[@]}
