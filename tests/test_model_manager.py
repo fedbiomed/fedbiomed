@@ -1,7 +1,11 @@
-
 # Managing NODE, RESEARCHER environ mock before running tests
+from testsupport.delete_environ import delete_environ
+# Delete environ. It is necessary to rebuild environ for required component
+delete_environ()
+import testsupport.mock_common_environ
+
 from fedbiomed.node.environ import environ
-from testsupport.environ_fake import Environ
+
 from fedbiomed.common.constants import HashingAlgorithms
 import os
 from fedbiomed.node.model_manager import ModelManager
@@ -25,7 +29,7 @@ class TestModelManager(unittest.TestCase):
         # you should also mock environ objects that is called from modolues e.g 
         # fedbiomed.node.model_manager.environ you should use another mock for 
         # the environ object used in test functions
-        self.values = Environ().values()
+        self.values = environ
         def side_effect(arg):
             return self.values[arg]
 
@@ -65,7 +69,8 @@ class TestModelManager(unittest.TestCase):
         self.environ_model_manager_patch.stop()
         
         self.model_manager._tinydb.drop_table('Models')
-
+        self.model_manager._tinydb.close()
+        os.remove(environ['DB_PATH'])
         pass
 
     def test_create_default_model_hashes(self):
@@ -74,10 +79,9 @@ class TestModelManager(unittest.TestCase):
         or not. It also tests every default with each provided hashing algorithim 
         """
         # We should import environ to get fake values 
-        from fedbiomed.node.environ import environ
+        #fromfedbiomed.node.environ import environ
 
 
-        self.model_manager = ModelManager()
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
         logger.info('Controlling Models Dir')
         logger.info(environ['DEFAULT_MODELS_DIR'])
@@ -110,7 +114,6 @@ class TestModelManager(unittest.TestCase):
              algorithm has changed
         """
         # We should import environ to get fake values 
-        from fedbiomed.node.environ import environ
         
 
 
@@ -131,11 +134,9 @@ class TestModelManager(unittest.TestCase):
         """ Testing update of modified default models """
         
         # We should import environ to get fake values 
-        from fedbiomed.node.environ import environ
 
         logger.info('Print Infoooo')
         logger.info(environ['DB_PATH'])
-        self.model_manager = ModelManager()
 
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
 
@@ -166,7 +167,6 @@ class TestModelManager(unittest.TestCase):
         """ Testing registering method for new models """
 
         # We should import environ to get fake values 
-        from fedbiomed.node.environ import environ
 
         self.model_manager.register_update_default_models()
 
@@ -221,7 +221,6 @@ class TestModelManager(unittest.TestCase):
     def test_checking_model_approve(self):
 
         """ Testing check model is approved or not """
-        from fedbiomed.node.environ import environ
 
         model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
         model_file_2 = os.path.join(self.testdir, 'test-model-2.txt')
@@ -260,7 +259,6 @@ class TestModelManager(unittest.TestCase):
     def test_delete_registered_models(self):
 
         """ Testing delete opration for model manager """
-        from fedbiomed.node.environ import environ
 
 
         model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
@@ -310,7 +308,6 @@ class TestModelManager(unittest.TestCase):
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
     def test_reply_model_status_request(self, mock_checking , mock_download):
         
-        from fedbiomed.node.environ import environ
 
 
         messaging = MagicMock()
