@@ -199,16 +199,22 @@ def find_data_type(data_format_name: str, data_type_name: str=None) -> Enum:
             
     return data_type
 
-def check_data_type_consistancy(sub_data_type: Enum, d_type: type):
+def check_data_type_consistancy(data_type: Union[Enum, List[Enum]], d_type: type):
     """ checks if `sub_data_type` folds within """
+    ## variable initialization
     is_consistant = False
-    for data_type in sub_data_type:
-        is_type_in_data_type = any(d_type == t for t in data_type.value)
-        if is_type_in_data_type:
-            is_consistant = True
-            continue
+    
+    if not isinstance(data_type, list):
+        data_type = [data_type]
+    for sub_data_type in data_type:
+        for data_type in sub_data_type:
+            is_type_in_data_type = any(d_type == t for t in data_type.value)
+            if is_type_in_data_type:
+                is_consistant = True
+                continue
             
     return is_consistant
+
 
 def check_missing_data(column: pd.Series)->bool:
     is_missing_data = column.isna().any()
@@ -220,7 +226,8 @@ def save_format_file_ref(format_file_ref: Dict[str, Dict[str, Any]], path: str):
     with open(path, "w") as format_file:
         json.dump(format_file_ref, format_file)
     print(f"Model successfully saved at {path}")
-    
+
+ 
 def load_format_file_ref(path: str) -> Dict[str, Dict[str, Any]]:
     # retrieve data format file
     with open(path, "r") as format_file:

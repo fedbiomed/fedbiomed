@@ -23,8 +23,8 @@ def parse_yes_no_msg(resp: str) -> bool:
                               '2': False}
     return yes_or_no_question_key.get(resp)
 
-def get_data_type_selection_msg(available_data_type:List[Enum],
-                               ign_msg: str = 'ignore this column') ->Tuple[str, int]:
+def get_data_type_selection_msg(available_data_type: List[Enum],
+                               ign_msg: str = 'ignore this column') -> Tuple[str, int]:
     
     #n_available_data_type = len(available_data_type)
     msg = ''
@@ -65,7 +65,7 @@ def select_unselect(selected_items: List[str], item:str, verbose:bool=False):
 def ask_select_variable_msg(view_feature_names: Dict[str, List[str]], 
                             selected_views_idx: List[str],
                             selected_views_features: Dict[str, List[str]],
-                            imput_view:str, imput_feature:str) -> str:
+                            imput_view: str, imput_feature: str) -> str:
     """ for data imputation methods"""
     _is_feature_selected = False
     view_names = list(view_feature_names.keys())
@@ -250,6 +250,7 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
             is_missing_values_allowed = False
             imputation_method = None
             imputation_method_parameters = None
+            data_imputation_params = {}
         else: 
             # ask user if missing values are allowed for this specific variable
             ## message definition
@@ -364,7 +365,8 @@ def edit_format_file_ref(format_file_ref: Dict[str, Dict[str, Any]]) -> Dict[str
         'yes_or_no': get_yes_no_msg(),
         'edit': 'Which field should be modified?\n',
     }
-
+    view_feature_names = get_view_feature_name_from_format_file(format_file_ref)
+    
     # iterate over name of files (ie views)
     for i_file in range(_n_tot_files):
         # ask for each file if user wants to edt it
@@ -385,7 +387,7 @@ def edit_format_file_ref(format_file_ref: Dict[str, Dict[str, Any]]) -> Dict[str
                 feature_content = _file_content[feature_name]
                 feature_content = edit_feature_format_file_ref(feature_content,
                                                                feature_name,
-                                                               view_feature_name,
+                                                               view_feature_names,
                                                                available_categorical_data_types,
                                                                _messages,
                                                                ign_key)
