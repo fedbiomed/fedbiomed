@@ -11,7 +11,8 @@ from schemas import AddDataSetRequest, \
     RemoveDatasetRequest, \
     UpdateDatasetRequest, \
     PreviewDatasetRequest, \
-    AddDefaultDatasetRequest
+    AddDefaultDatasetRequest, \
+    ListDatasetRequest
 
 from fedbiomed.node.data_manager import DataManager
 
@@ -19,7 +20,8 @@ from fedbiomed.node.data_manager import DataManager
 datamanager = DataManager()
 
 
-@api.route('/datasets/list', methods=['GET'])
+@api.route('/datasets/list', methods=['POST'])
+@validate_request_data(schema=ListDatasetRequest)
 def list_datasets():
     """
     List Datasets saved into Node DB
@@ -39,14 +41,20 @@ def list_datasets():
             endpoint: API endpoint
             message: The message for response
     """
-
+    req = request.json
+    search = req.get('search', None)
     table = database.db().table('_default')
+    query = database.query()
+
     table.clear_cache()
-    try:
-        res = table.all()
-        database.close()
-    except Exception as e:
-        return error(str(e)), 400
+    if search is not None and search != "":
+        res = table.search(query.name.search(search+'+') | query.description.search(search+'+'))
+    else:
+        try:
+            res = table.all()
+            database.close()
+        except Exception as e:
+            return error(str(e)), 400
 
     return response(res), 200
 

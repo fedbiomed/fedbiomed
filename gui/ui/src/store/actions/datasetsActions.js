@@ -73,17 +73,44 @@ export const addDefaultDataset = (data) => {
  * @param {object} data  Object that pass to POST
  * @returns {dispatch}
  */
-export const listDatasets = () => {
+export const listDatasets = (data) => {
 
     return (dispatch, getState) => {
         dispatch({type:'SET_LOADING', payload: true})
-        axios.get(EP_DATASETS_LIST , {})
+        axios.post(EP_DATASETS_LIST , data)
              .then( res => {
-
                 if (res.status === 200){
                     dispatch({type:'SET_LOADING', payload: false})
                     dispatch({ type : "GET_DATASETS", payload: res.data.result}) 
 
+                }else{
+                    dispatch({type:'SET_LOADING', payload: false})
+                    alert(res.data.message)
+                }
+             })
+             .catch( error => {
+                 dispatch({type:'SET_LOADING', payload: false})
+                 alert(error)
+             })
+
+    }
+}
+
+
+/**
+ * Search dataset function
+ * @param data
+ * @returns {(function(*, *): void)|*} dispatcher
+ */
+export const searchDataset = (data) => {
+        return (dispatch, getState) => {
+        dispatch({type:'SET_LOADING', payload: true})
+        axios.post(EP_DATASETS_LIST , data)
+             .then( res => {
+                if (res.status === 200){
+                    dispatch({type:'SET_LOADING', payload: false})
+                    dispatch({type : "SEARCH_DATASET_RESULT", payload: res.data.result})
+                    console.log(res.data.result)
                 }else{
                     dispatch({type:'SET_LOADING', payload: false})
                     alert(res.data.message)

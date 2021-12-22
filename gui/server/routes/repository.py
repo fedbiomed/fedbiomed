@@ -1,5 +1,5 @@
 import os
-from typing import List
+import datetime
 
 from flask import jsonify, request
 from app import app
@@ -48,7 +48,8 @@ def list_data_path():
             'base': base,
             'files': [],
             'number': len(files),
-            'displays': len(files) if len(files) <= 100 else 100
+            'displays': len(files) if len(files) <= 100 else 100,
+            'path': req_path
         }
 
         files = files if len(files) <= 100 else files[0:100]
@@ -62,6 +63,9 @@ def list_data_path():
             # Get dataset registered with full path
             dataset = table.get(query.path == fullpath)
 
+            stats = os.stat(fullpath)
+            cdate = datetime.datetime.utcfromtimestamp(stats.st_ctime).strftime('%d/%m/%Y %H:%M')
+            size = stats.st_size
             # Folder that includes any data file
             includes = []
             if not dataset and os.path.isdir(fullpath):
@@ -79,7 +83,9 @@ def list_data_path():
                                  "path": exact_path,
                                  "extension": extension,
                                  'registered': dataset,
-                                 'includes': includes})
+                                 'includes': includes,
+                                 'created': cdate,
+                                 'size': size})
 
         return response(res), 200
 

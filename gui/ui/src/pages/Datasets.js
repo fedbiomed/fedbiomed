@@ -1,23 +1,30 @@
 import React from 'react';
 import {connect} from "react-redux"
 import {Link} from "react-router-dom"
-import { listDatasets,  removeDataset, addDefaultDataset } from '../store/actions/datasetsActions';
+import { listDatasets,  removeDataset, addDefaultDataset, searchDataset } from '../store/actions/datasetsActions';
 import {ReactComponent as GarbageLogo} from '../assets/img/garbage.svg'
 import {ReactComponent as LaunchIcon} from '../assets/img/launch.svg'
 import Modal from '../components/Modal';
 import Button from '../components/Button'
+import {Text} from '../components/Inputs'
 
-//import {Modal, Button} from "react-bootstrap"
 
 export const Datasets = (props) => {
 
     const listDatasetsAction = props.listDataSetsAction
+    const searchDatasetAction = props.searchDatasetAction
     const [modal, setModal] = React.useState({show : false, header:null, content:null, approve:null })
+    const [search, setSearch] = React.useState('')
+    const [searchRT, setSearchRT] = React.useState('')
+    const [timeoutObject, setTimeoutObject] = React.useState({
+                                                                        name: '',
+                                                                        typing: false,
+                                                                        typingTimeout: 0
+                                                                    })
 
     React.useEffect(() => {
         // Get list of datasets
-        listDatasetsAction()
-
+        listDatasetsAction({})
     }, [listDatasetsAction])
 
 
@@ -28,7 +35,7 @@ export const Datasets = (props) => {
 
         if(props.datasets.default_dataset.success){
             //Popup success
-            listDatasetsAction()
+            listDatasetsAction({})
         }else if(props.datasets.default_dataset.waiting){
             //Display loading
         }
@@ -40,6 +47,29 @@ export const Datasets = (props) => {
     ])
 
 
+    /**
+     * Search Dataset Action
+     */
+    const searchDataset = (e) => {
+        let search = e.target.value
+        if (timeoutObject.typingTimeout) {
+           clearTimeout(timeoutObject.typingTimeout);
+        }
+        setSearchRT(search)
+        setTimeoutObject({
+           name: e.target.value,
+           typing: false,
+           typingTimeout: setTimeout(function () {
+               setSearch(search)
+               searchDatasetAction({search:search});
+             }, 600)
+        });
+    }
+
+    const clearSearch = () => {
+        setSearch('')
+        setSearchRT('')
+    }
 
     /**
      * Parse tags array to div of tags
@@ -140,13 +170,29 @@ export const Datasets = (props) => {
                         ) : null
                     }
                 </div>
-                <div className={"note"}>
-                    <div>
-                    Please click on
-                    <div style={{display:'inline-block', marginLeft:10, marginRight: 10}} className="icon"><LaunchIcon width={"15px"} height={"15px"}/></div>
-                    button to display details of the dataset. To remove the dataset, please click on
-                    <div style={{display:'inline-block', marginLeft:10, marginRight: 10}} className="icon"><GarbageLogo width={"15px"} height={"15px"}/></div>
-                    button.
+                <div className={"row"}>
+                    <div className={"note"} style={{width:'80%'}}>
+                        <div>
+                        Please click on
+                        <div style={{display:'inline-block', marginLeft:10, marginRight: 10}} className="icon"><LaunchIcon width={"15px"} height={"15px"}/></div>
+                        button to display details of the dataset. To remove the dataset, please click on
+                        <div style={{display:'inline-block', marginLeft:10, marginRight: 10}} className="icon"><GarbageLogo width={"15px"} height={"15px"}/></div>
+                        button.
+                        </div>
+                    </div>
+                    <div className="form-control with-button" style={{width:'20%'}}>
+                        <Text
+                            placeholder={'Search in datasets'}
+                            onChange={searchDataset}
+                            value={searchRT}
+                        />
+                        <div className={"input-clear"}
+                             style={{ visibility: searchRT === "" ? 'hidden' : 'visible'}}
+                             onClick={clearSearch}
+                        >X</div>
+                        {/*<Button style={{}} onClick={onAddDefaultDataset}>*/}
+                        {/*        Search*/}
+                        {/*</Button>*/}
                     </div>
                 </div>
             </div>
@@ -160,7 +206,8 @@ export const Datasets = (props) => {
                             <th>Description</th>
                             <th className="center">Action</th>
                         </tr>
-                        { props.datasets.datasets && props.datasets.datasets.map( (item,key) => {
+                        { search === '' ? (
+                            props.datasets.datasets && props.datasets.datasets.map( (item,key) => {
                             return (
                                 <tr key={key}>
                                     <td> {item.name}</td>
@@ -179,9 +226,30 @@ export const Datasets = (props) => {
                                             </div>
                                         </div>
                                     </td>
-                                </tr>
-                            )
-                        })}
+                                </tr>)
+                        })) : (
+                            props.datasets.search && props.datasets.search.map( (item,key) => {
+                                return (
+                                    <tr key={key}>
+                                        <td> {item.name}</td>
+                                        <td> {item.data_type}</td>
+                                        <td> {parseTags(item.tags)}</td>
+                                        <td> {item.description}</td>
+                                        <td className="center">
+                                            <div className="action-buttons">
+                                                <div className="icon" >
+                                                    <Link to={{pathname: `preview/${item.dataset_id}`}}>
+                                                        <LaunchIcon/>
+                                                    </Link>
+                                                </div>
+                                                <div className="icon delete" onClick={(event) => openModalOnDelete(event, item)}>
+                                                    <GarbageLogo/>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr> )
+                        }))}
+
                     </tbody>
                 </table>
 
@@ -219,7 +287,8 @@ const mapDispatchToProps = (dispatch) => {
     return {
         listDataSetsAction : (data) => dispatch(listDatasets(data)),
         removeDatasetAction : (data) => dispatch(removeDataset(data)),
-        addDefaultDataset: (data) => dispatch(addDefaultDataset(data))
+        addDefaultDataset: (data) => dispatch(addDefaultDataset(data)),
+        searchDatasetAction: (data) => dispatch(searchDataset(data))
     }
 }
 

@@ -17,11 +17,14 @@ export  const getFilesFromRepository = (data) => {
         let folders = getState().repository.folders
         let currentLevels = Object.keys(files).sort().map(item => parseInt(item))
 
+        console.log(files)
+        console.log(folders)
         // If base level has been already called
-        if(currentLevels.includes(0) && data.path.length === 0){
-            dispatch({type:'SET_LOADING', payload: false})
-            return null
-        } else {      
+        // if(currentLevels.includes(0) && data.path.length === 0){
+        //     dispatch({type:'SET_LOADING', payload: false})
+        //     return null
+        // } else {
+
             // Send post request to get list of files by given path array
             axios.post(EP_REPOSITORY_LIST , {
                 path :  data.path
@@ -30,15 +33,24 @@ export  const getFilesFromRepository = (data) => {
                 if(response.status === 200){
                     let data = response.data.result
                     let level = data.level
-                    
+                    let path = data.path
+
+                    //Sorting Files
+                    let d = data.files.filter(file => file.type === 'dir')
+                    let f = data.files.filter(file => file.type === 'file')
+                    d.sort((a, b) => a.name.localeCompare(b.name))
+                    f.sort((a, b) => a.name.localeCompare(b.name))
+                    d.push(...f)
+                    data.files = d
+
                     if (currentLevels.length === 0){
                         files[level] = data.files
-                        folders[level] = { displays : data.displays, number:data.number }
+                        folders[level] = { displays : data.displays, number:data.number, path: data.path}
 
                     }else{
                         if(level >= currentLevels[currentLevels.length - 1]){
                             files[level] = data.files
-                            folders[level] = { displays : data.displays, number:data.number }
+                            folders[level] = { displays : data.displays, number:data.number, path: data.path }
                         }else{
                             let levelsToRemove = currentLevels.slice(level+1)
                             levelsToRemove.forEach(element => {
@@ -47,10 +59,10 @@ export  const getFilesFromRepository = (data) => {
 
                             });
                             files[level] = data.files
-                            folders[level] = { displays : data.displays, number:data.number }
+                            folders[level] = { displays : data.displays, number:data.number, path: data.path}
                         }
                     }
-                    dispatch({type:'LIST_REPOSITORY', payload : {files : files, folders:folders, base: data.base, message : null}})
+                    dispatch({type:'LIST_REPOSITORY', payload : {files : files, folders: folders, base: data.base, level:level, message : null}})
                 }else{
                     dispatch({type: 'ERROR_MODAL' , payload: response.data.result.message})
                 }
@@ -67,5 +79,5 @@ export  const getFilesFromRepository = (data) => {
         }
 
 
-    }
+    //}
 }

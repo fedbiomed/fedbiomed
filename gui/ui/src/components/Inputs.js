@@ -31,7 +31,8 @@ export const Text = (props) => {
             ref         = {ref}
             onChange    = {props.onChange}
             onKeyDown   = {props.onKeyDown}
-            value       = {props.value ? props.value : undefined}
+            value       = {props.value}
+            placeholder = {props.placeholder}
             ></input>
     )
 }

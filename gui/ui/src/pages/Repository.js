@@ -5,7 +5,11 @@ import RepositoryItem from '../components/RepositoryItem';
 import RepositoryBar from '../components/RepositoryBar';
 import Button, {ButtonsWrapper} from "../components/Button"
 import {useNavigate} from "react-router-dom";
-
+import RepositoryListRow from "../components/RepositoryListRow";
+import {ReactComponent as ColumnIcon} from "../assets/img/column-view.svg";
+import {ReactComponent as ListIcon} from "../assets/img/list-view.svg";
+import { ReactComponent as HomeIcon} from '../assets/img/home.svg';
+import { ReactComponent as BackIcon} from "../assets/img/back.svg";
 
 const Repository = (props) => {
 
@@ -16,6 +20,7 @@ const Repository = (props) => {
     const frameContent = React.useRef(null)
     const mainRepository = React.useRef(null)
     const getFiles = props.getFiles
+    const [view, setView] = React.useState(props.view ? props.view : 'list')
 
     /**
      * Hook for getting files in the repository
@@ -35,12 +40,14 @@ const Repository = (props) => {
      * frame width
      */
     React.useEffect( () => {
-        if(mainRepository.current.scrollWidth > frameContent.current.offsetWidth ){
+        if(mainRepository.current !== null && mainRepository.current.scrollWidth > frameContent.current.offsetWidth ){
             frameContent.current.scrollLeft += mainRepository.current.scrollWidth - frameContent.current.offsetWidth
         }
     })
 
-
+    const changeView = (view) => {
+        setView(view)
+    }
     /**
      * Handling click action on single repository
      * item
@@ -56,12 +63,39 @@ const Repository = (props) => {
         }
 
         let indexOld = props.repository.files[indexBar].findIndex( x => x.active === true)
+
         if(indexOld > -1){
             props.repository.files[indexBar][indexOld].active = false
         }
 
         props.repository.files[indexBar][index].active = true
         setSelected(props.repository.files[indexBar][index])
+    }
+
+    /**
+     * When user single click on item in file explorer
+     * in list view
+     * @param indexBar
+     * @param index
+     * @param type
+     * @param path
+     */
+    const onListItemClick = (indexBar, index, type, path) => {
+        let indexOld = props.repository.files[indexBar].findIndex( x => x.active === true)
+
+        if(indexOld > -1){
+            props.repository.files[indexBar][indexOld].active = false
+        }
+        props.repository.files[indexBar][index].active = true
+        setSelected(props.repository.files[indexBar][index])
+    }
+
+    /**
+     * When list view active and user click on item in breadcrumb
+     * @param path
+     */
+    const onListBreadCrumbClick = (path) => {
+        props.getFiles({path: path})
     }
 
     /**
@@ -88,7 +122,11 @@ const Repository = (props) => {
         return selected
     }
 
-
+    const onBackButtonClick = () => {
+        let oneBefore = Object.keys(props.repository.folders).at(-2)
+        let item = props.repository.folders[oneBefore]
+        props.getFiles({path: item.path})
+    }
     return (
         <React.Fragment>
             { props.mode === null ? (
@@ -106,51 +144,122 @@ const Repository = (props) => {
                     </div>
                 </div>
             ) : null}
-
-            <div ref={frameContent} className="frame-content">
-                <div ref={mainRepository} className="main-repository" style={{height: props.maxHeight ? props.maxHeight : '99%' }}>
-                    {Object.keys(props.repository.files).map( (itemBar, key) => {
-
-                        if (itemBar >= props.after ){
-                             return (
-                                <RepositoryBar key={`bat-${key}`} style={{height: props.maxHeight ? props.maxHeight : 'unset' }}>
-                                    {props.repository.files[itemBar].map( (item,keyChild) => {
-
-                                        if(props.mode === "file-browser" && item.registered ){
-                                            return null
-                                        }else{
-                                            return (
-                                                <RepositoryItem
-                                                    key={`item-${keyChild}`}
-                                                    indexBar={itemBar}
-                                                    index={keyChild}
-                                                    item={item}
-                                                    active={item.active}
-                                                    onItemClick={onItemClick}
-                                                    onAddActionClick={onAddActionClick}
-                                                    onItemAddClick={props.onItemAddClick ? props.onItemAddClick : null}
-                                                    actionText={props.actionText ? props.actionText : 'Load Dataset'}
-                                                    displayAdd={props.mode === "preview" || props.mode === "file-browser" ? false : true}
-                                                />
-                                            )
-                                        }
-
-                                    })}
-                                    {
-                                        props.repository.folders[itemBar].displays <  props.repository.folders[itemBar].number ? (
-                                            <div className={"end"}>
-                                                Only displaying {props.repository.folders[itemBar].displays} out of {props.repository.folders[itemBar].number}
-                                            </div>
-                                        ) : null
-                                    }
-                                </RepositoryBar>
-                            )
-                        }else{
-                            return null
+            {
+                <div className={"views"}>
+                    <div className={"back"}>
+                        <div className={"icon"} onClick={onBackButtonClick}>
+                            <BackIcon/>
+                        </div>
+                    </div>
+                    <div className={"breadcrumb"}>
+                        {
+                           Object.keys(props.repository.folders).map((item, key) => {
+                               let path = props.repository.folders[item].path
+                                return (
+                                    <>
+                                        <div key={key} className={'item'} onClick={ () => onListBreadCrumbClick(path)}>
+                                           {path.length > 0 ? (
+                                               path.at(-1)
+                                           ) : (
+                                              <HomeIcon/>
+                                           )
+                                           }
+                                        </div>
+                                        <span className={'seperator'}>
+                                            /
+                                        </span>
+                                    </>
+                                )
+                            })
                         }
-                    })
-                    } 
-                </div>  
+                    </div>
+                    <div className={"view-options"}>
+                        <div className={`icon ${view === 'bar' ? 'active' : ''}`} onClick={() => changeView('bar')}>
+                            <ColumnIcon/>
+                        </div>
+                        <div className={`icon ${view === 'list' ? 'active' : ''}`} onClick={() => changeView('list')}>
+                            <ListIcon/>
+                        </div>
+                    </div>
+                </div>
+            }
+            <div ref={frameContent} className="frame-content">
+                { view === 'bar' ? (
+                    <div ref={mainRepository} className="main-repository" style={{height: props.maxHeight ? props.maxHeight : '99%' }}>
+                        {Object.keys(props.repository.files).map( (itemBar, key) => {
+                            if (itemBar >= props.after ){
+                                 return (
+                                    <RepositoryBar key={`bat-${key}`} style={{height: props.maxHeight ? props.maxHeight : 'unset' }}>
+                                        {props.repository.files[itemBar].map( (item,keyChild) => {
+
+                                            if(props.mode === "file-browser" && item.registered ){
+                                                return null
+                                            }else{
+                                                return (
+                                                    <RepositoryItem
+                                                        key={`item-${keyChild}`}
+                                                        indexBar={itemBar}
+                                                        index={keyChild}
+                                                        item={item}
+                                                        active={item.active}
+                                                        onItemClick={onItemClick}
+                                                        onAddActionClick={onAddActionClick}
+                                                        onItemAddClick={props.onItemAddClick ? props.onItemAddClick : null}
+                                                        actionText={props.actionText ? props.actionText : 'Load Dataset'}
+                                                        displayAdd={props.mode === "preview" || props.mode === "file-browser" ? false : true}
+                                                    />
+                                                )
+                                            }
+                                        })}
+                                        {
+                                            props.repository.folders[itemBar].displays <  props.repository.folders[itemBar].number ? (
+                                                <div className={"end"}>
+                                                    Only displaying {props.repository.folders[itemBar].displays} out of {props.repository.folders[itemBar].number}
+                                                </div>
+                                            ) : null
+                                        }
+                                    </RepositoryBar>
+                                )
+                            }else{
+                                return null
+                            }
+                        })}
+                    </div>
+                    ) : (
+                        <div className={'main-repository-list'} style={{height: props.maxHeight ? props.maxHeight : '99%' }} >
+                            <div className={'repository-list'}>
+                                <table className={'repository-table'}>
+                                    <tbody>
+                                    <tr>
+                                        <th>File/Folder</th>
+                                        <th>Size</th>
+                                        <th>Created at</th>
+                                        <th>Action</th>
+                                        <th>State</th>
+                                    </tr>
+                                        {
+                                           props.repository.files[props.repository.level] &&
+                                            props.repository.files[props.repository.level].map((item, key) => {
+                                                return(
+                                                    <RepositoryListRow
+                                                        key={key}
+                                                        index={key}
+                                                        item={item}
+                                                        onItemDoubleClick={onItemClick}
+                                                        onItemClick={onListItemClick}
+                                                        level={props.repository.level}
+                                                        active={item.active}
+                                                        displayAdd={props.mode === "preview" || props.mode === "file-browser" ? false : true}
+                                                    />
+                                                )
+                                            })
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )
+                }
             </div> 
             <div className="frame-footer">
                 { props.mode === "file-browser" ? (

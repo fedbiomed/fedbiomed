@@ -97,7 +97,6 @@ export const AddDataset = (props) => {
                     field = ADD_DATASET_ERROR_MESSAGES[key].key
                     message = ADD_DATASET_ERROR_MESSAGES[key].message
                     if(!data[field] || data[field] === "" || data[field] === null || data[field] === undefined){
-                        console.log(message)
                         error = message
                         break;
                     }
@@ -154,7 +153,7 @@ export const AddDataset = (props) => {
                     </div>
                 </div>
                 <div className="row">
-                    <div className="form-control">
+                    <div className="form-control" >
                         <Label>Dataset Name</Label>
                         <Text
                             name={"name"}

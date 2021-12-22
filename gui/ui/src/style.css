@@ -317,6 +317,56 @@ hr {
   overflow-y: scroll;
 }
 
+
+.views {
+  display:flex;
+  border-bottom: 1px solid #888;
+}
+
+.views .back {
+  width: 5%;
+}
+
+.views .back .icon {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  cursor:pointer;
+}
+
+.views .back .icon svg{
+  width: 30px;
+}
+
+
+.views .breadcrumb {
+  width: 80%;
+}
+
+.views .view-options {
+  width: 20%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.views .view-options .icon {
+  width: 20px;
+  margin: 5px;
+  padding: 5px;
+  border-radius: 10px;
+  cursor:pointer;
+}
+
+.views .view-options .icon.active,  .views .view-options .icon:hover{
+  background-color: #eee;
+}
+
+.views .view-options .icon svg {
+  width: 100%;
+}
+
 .repository-bar .end {
   padding: 20px;
   background: #c15c5c;
@@ -399,6 +449,74 @@ hr {
 
 .repository-item .repo-item-info.active {
   opacity: 1;
+}
+
+
+table.repository-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table.repository-table tr{
+  padding: 10px 0px;
+  cursor:pointer;
+}
+
+table.repository-table tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+table.repository-table tr:hover, table.repository-table tr.active{
+  background-color: #8fcdf2;
+  color:#fff;
+}
+
+table.repository-table tr td{
+  padding:10px 5px;
+}
+table.repository-table tr th:first-child,
+table.repository-table tr td:first-child {
+  width: 50%;
+  min-width: 50%;
+  max-width: 50%;
+  word-break: break-all;
+}
+table.repository-table tr td .name, table.repository-table tr td.state, td.state div{
+  display: flex;
+  align-items: center;
+}
+
+table.repository-table tr td.action .button{
+  margin:0px;
+  font-size:12px;
+  width: 70px;
+}
+
+table.repository-table tr td.state div{
+  margin: 0px 5px;
+}
+
+table.repository-table tr td.size, table.repository-table tr td.date{
+  font-size:12px;
+}
+table.repository-table tr td .name .icon{
+  width: 20px;
+  margin:0px 10px;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+}
+
+
+.breadcrumb .item{
+  margin: 5px 10px;
+  cursor: pointer;
+}
+
+.breadcrumb .item svg{
+  width: 25px;
 }
 
 /* Repository CSS Ends ---------------------------------------------------------------------------------*/
@@ -527,6 +645,7 @@ div.table {
   background-color: #fff;
   border:1px solid #eee;
   width: 50%;
+  min-width: 300px;
   height: auto;
   padding: 10px;
   text-align: left;
@@ -583,13 +702,40 @@ justify-content: flex-start;
   margin: 20px 10px;
 }
 
+.form-control.with-button {
+  position: relative;
+  display: flex;
+  align-content: center;
+  align-items: center;
+}
+
+
+
+.input-clear {
+  position: absolute;
+  right: 10px;
+  cursor: pointer;
+  background: #888;
+  color: #fff;
+  width: 15px;
+  height: 15px;
+  font-size: 10px;
+  border-radius: 10px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 input.input {
   width: 100%;
-  height: 40px;
+  height: 45px;
+  font-size: 16px;
   outline: none;
   border: 1px solid #d0d0d0;
-  color : #333
+  color : #333;
+  padding:0px 10px;
+  box-sizing: border-box;
 }
 
 select.select {
@@ -678,6 +824,8 @@ label.input-label {
 
 textarea.input {
   width: 100%;
+  font-family: inherit;
+  font-size: 16px;
 }
 .repository-select {
   display: flex;

@@ -44,6 +44,7 @@ const initialStateRepository = {
     files : {},
     folders: {},
     error : false,
+    level: 0,
     message : null
 }
 
@@ -63,6 +64,7 @@ export const repositoryReducer = (state = initialStateRepository , action) => {
                 ...state,
                 files : action.payload.files,
                 fodlers:action.payload.folders,
+                level: action.payload.level,
                 error : false,
                 message : null
             }
@@ -91,6 +93,7 @@ const initialStateDataSets = {
         success:false,
         waiting:false,
     },
+    search : [],
     error : false,
     message : null
 }
@@ -110,6 +113,11 @@ export const datasetsReducer = (state = initialStateDataSets, action) => {
                 ...state,
                 error : false,
                 datasets : action.payload
+            }
+        case "SEARCH_DATASET_RESULT":
+            return {
+                ...state,
+                search : action.payload
             }
 
         case "NEW_DATASET_TO_ADD":

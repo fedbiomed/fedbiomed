@@ -85,13 +85,59 @@ class JsonSchema(object):
                 data (dict): Request.json, which comes as dict object.
                             This data will be validated
         """
-
         try:
             JsonBaseValidator(self._schema).validate(data)
         except jsonschema.ValidationError as e:
+            # print(e)
+            print(dir(e))
+            # print(e.cause)
+            # print(e.context)
+            # print(e.instance)
+            # print(e.absolute_schema_path)
+            # print(e.path)
+            print(e.relative_schema_path)
+            # print(e.parent)
+            # print(e.schema_path)
+            # print(e.args)
+            # print(e.absolute_path)
+            # print(e.validator_value)
+            # print(e._word_for_schema_in_error_message)
+            # print(e.parent)
+            # print(e.with_traceback)
+            # print(e.create_from)
+            # print(e._word_for_instance_in_error_message)
+
             if self._message:
                 raise jsonschema.ValidationError(self._message)
-            raise jsonschema.ValidationError(e.message)
+
+            # Raise custom error messages
+            message = None
+            if e.relative_schema_path[0] == 'required':
+                message = 'Please make sure all required fields has been filled'
+            elif e.relative_schema_path[0] == 'properties':
+                field = e.relative_schema_path[1]
+                reason = e.relative_schema_path[2]
+
+                if field in self._schema['properties'] and \
+                        'errorMessages' in self._schema['properties'][field] and \
+                        reason in self._schema['properties'][field]['errorMessages']:
+                    message = self._schema['properties'][field]['errorMessages'][reason]
+
+            if message:
+                raise jsonschema.ValidationError(message)
+            else:
+                raise jsonschema.ValidationError(e.message)
+
+
+class ListDatasetRequest(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        'type': "object",
+        "properties": {
+            "search": {'type': 'string'}
+        },
+        "required": []
+    })
 
 
 class AddDataSetRequest(Validator):
@@ -101,14 +147,29 @@ class AddDataSetRequest(Validator):
     schema = JsonSchema({
         'type': 'object',
         'properties': {
-            'name': {'type': 'string', "minLength": 4, "maxLength": 128},
+            'name': {'type': 'string', "minLength": 4, "maxLength": 128,
+                     'errorMessages': {
+                         'minLength': 'Dataset name must have at least 4 character',
+                         'maxLength': 'Dataset name must be max 128 character'
+                     }
+                     },
             'path': {'type': 'array'},
-            'tags': {'type': 'array',  "minItems": 1, "maxItems": 4},
+            'tags': {'type': 'array', "minItems": 1, "maxItems": 4,
+                     'errorMessages': {
+                         'minItems': 'At least 1 tag should be provided',
+                         'maxItems': 'Tags can be max. 4',
+                         'type': 'Tags is in wrong format'
+                     }
+                     },
             'type': {'type': 'string',
                      'oneOf': [{"enum": ['csv', 'images']}]},
-            'desc': {'type': 'string'}
+            'desc': {'type': 'string', "minLength": 4, "maxLength": 256,
+                     'errorMessages': {
+                         'minLength': 'Description must have at least 4 character',
+                         'maxLength': 'Description must be max 256 character'
+                     }}
         },
-        'required': ['name', 'path', 'tags', 'desc', 'type']
+        'required': ['name', 'path', 'tags', 'desc', 'type'],
     }, message=None)
 
 
@@ -145,7 +206,7 @@ class PreviewDatasetRequest(Validator):
     schema = JsonSchema({
         'type': "object",
         "properties": {
-            "dataset_id": {'type': 'string', "minLength": 4, "maxLength": 254}
+            "dataset_id": {'type': 'string', "minLength": 4, "maxLength": 256}
         },
         "required": ["dataset_id"]
     })
@@ -157,17 +218,25 @@ class UpdateDatasetRequest(Validator):
     type = 'json'
     schema = JsonSchema({
         'type': "object",
-        "properties": {"name": {'type': 'string', "minLength": 4, "maxLength": 128},
+        "properties": {"name": {'type': 'string', "minLength": 4, "maxLength": 128,
+                                'errorMessages': {
+                                    'minLength': 'Dataset name must have at least 4 character',
+                                    'maxLength': 'Dataset name must be max 128 character'
+                                }},
                        "dataset_id": {'type': 'string'},
                        "path": {'type': 'array'},
                        "tags": {'type': 'array', "minItems": 1, "maxItems": 4},
-                       "desc": {'type': 'string', "minLength": 4, "maxLength": 254}},
+                       "desc": {'type': 'string', "minLength": 4, "maxLength": 256,
+                                "errorMessages": {
+                                    "minLength": 'Description must have at least 4 character',
+                                    "maxLength": 'Description must be max 256 character'
+                                }},
+                       },
         "required": ["dataset_id", "tags", "desc"]
     })
 
 
 class AddDefaultDatasetRequest(Validator):
-
     """ JSON schema for validating request for adding new
         default dataset
     """
