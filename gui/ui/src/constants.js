@@ -20,3 +20,7 @@ export const ADD_DATASET_ERROR_MESSAGES = {
     3 : { key: 'tags', message: 'Please enter at least one tag for the dataset'},
     4 : { key: 'desc', message: 'Please enter a description for dataset'}
 }
+
+//Allowed file extensions for data loader
+export const ALLOWED_EXTENSIONS = ['csv']
+

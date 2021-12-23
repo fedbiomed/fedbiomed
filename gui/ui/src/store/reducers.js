@@ -63,7 +63,7 @@ export const repositoryReducer = (state = initialStateRepository , action) => {
             return {
                 ...state,
                 files : action.payload.files,
-                fodlers:action.payload.folders,
+                folders:action.payload.folders,
                 level: action.payload.level,
                 error : false,
                 message : null
@@ -83,6 +83,7 @@ const initialStateDataSets = {
         success : null,
         message : null,
         result : null,
+        waiting: false,
     },
     default_dataset: {
         success : null,
@@ -149,6 +150,7 @@ export const datasetsReducer = (state = initialStateDataSets, action) => {
                     error : null,
                     success : null,
                     message : null,
+                    waiting: false,
                     result : null
                 }
             }
@@ -163,6 +165,14 @@ export const datasetsReducer = (state = initialStateDataSets, action) => {
                          waiting:false
                 }
             }
+        case "DEFAULT_DATASET_ADD_REQUEST":
+            return {
+                ...state,
+                default_dataset: {
+                    ...state.default_dataset,
+                    waiting: true,
+                }
+            }
 
         case "DEFAULT_DATASET_ADD_SUCCESS":
             return {
@@ -174,7 +184,11 @@ export const datasetsReducer = (state = initialStateDataSets, action) => {
                     result: action.payload
                 }
             }
-
+        case "RESET_DEFAULT_DATASET_RESULT":
+            return {
+                ...state,
+                default_dataset: initialStateDataSets.default_dataset
+            }
         case "REMOVE_DATASET_ERROR":
             return {
                 ...state,

@@ -7,77 +7,78 @@ import {EP_REPOSITORY_LIST} from '../../constants'
  * @param {object} data 
  * @returns null 
  */
-export  const getFilesFromRepository = (data) => {
+export  const getFilesFromRepository = (data, fresh = false) => {
     
     return (dispatch, getState) => {
 
         dispatch({type:'SET_LOADING', payload: true})
+        let files
+        let folders
 
-        let files = getState().repository.files
-        let folders = getState().repository.folders
+        if(fresh === true){
+            files = {}
+            folders = {}
+        }else{
+            files = getState().repository.files
+            folders = getState().repository.folders
+        }
         let currentLevels = Object.keys(files).sort().map(item => parseInt(item))
 
-        console.log(files)
-        console.log(folders)
-        // If base level has been already called
-        // if(currentLevels.includes(0) && data.path.length === 0){
-        //     dispatch({type:'SET_LOADING', payload: false})
-        //     return null
-        // } else {
+        // Send post request to get list of files by given path array
+        axios.post(EP_REPOSITORY_LIST , {
+            path :  data.path
+        }).then( (response) => {
+            dispatch({type:'SET_LOADING', payload: false})
+            if(response.status === 200){
+                let data = response.data.result
+                let level = data.level
 
-            // Send post request to get list of files by given path array
-            axios.post(EP_REPOSITORY_LIST , {
-                path :  data.path
-            }).then( (response) => {
-                dispatch({type:'SET_LOADING', payload: false})
-                if(response.status === 200){
-                    let data = response.data.result
-                    let level = data.level
-                    let path = data.path
+                //Sorting Files
+                let d = data.files.filter(file => file.type === 'dir')
+                let f = data.files.filter(file => file.type === 'file')
+                d.sort((a, b) => a.name.localeCompare(b.name))
+                f.sort((a, b) => a.name.localeCompare(b.name))
+                d.push(...f)
+                data.files = d
 
-                    //Sorting Files
-                    let d = data.files.filter(file => file.type === 'dir')
-                    let f = data.files.filter(file => file.type === 'file')
-                    d.sort((a, b) => a.name.localeCompare(b.name))
-                    f.sort((a, b) => a.name.localeCompare(b.name))
-                    d.push(...f)
-                    data.files = d
-
-                    if (currentLevels.length === 0){
+                if (currentLevels.length === 0){
+                    files[level] = data.files
+                    folders[level] = { displays : data.displays, number:data.number, path: data.path}
+                }else{
+                    let levelsToRemove
+                    if(level >= currentLevels[currentLevels.length - 1]){
                         files[level] = data.files
-                        folders[level] = { displays : data.displays, number:data.number, path: data.path}
-
+                        folders[level] = { displays : data.displays, number:data.number, path: data.path }
                     }else{
-                        if(level >= currentLevels[currentLevels.length - 1]){
-                            files[level] = data.files
-                            folders[level] = { displays : data.displays, number:data.number, path: data.path }
+                        if(currentLevels[0] !== 0 ){
+                            delete files[currentLevels.at(-1)]
+                            delete folders[currentLevels.at(-1)]
                         }else{
-                            let levelsToRemove = currentLevels.slice(level+1)
+                            levelsToRemove = currentLevels.slice(level+1)
                             levelsToRemove.forEach(element => {
                                 delete files[element]
                                 delete folders[element]
-
                             });
-                            files[level] = data.files
-                            folders[level] = { displays : data.displays, number:data.number, path: data.path}
                         }
-                    }
-                    dispatch({type:'LIST_REPOSITORY', payload : {files : files, folders: folders, base: data.base, level:level, message : null}})
-                }else{
-                    dispatch({type: 'ERROR_MODAL' , payload: response.data.result.message})
-                }
-            }
 
-            ).catch( (error) => {
-                dispatch({type:'SET_LOADING', payload: false})
-                if(error.response){
-                    dispatch({type: 'ERROR_MODAL', payload: 'Error while listing files: ' + error.response.data.message})
-                }else{
-                    dispatch({type: 'ERROR_MODAL', payload: 'Unexpected Error:' + error.toString()})
+                        files[level] = data.files
+                        folders[level] = { displays : data.displays, number:data.number, path: data.path}
+                    }
                 }
-            })
+
+                dispatch({type:'LIST_REPOSITORY', payload : {files: files, folders: folders, base: data.base, level:level, message : null}})
+            }else{
+                dispatch({type: 'ERROR_MODAL' , payload: response.data.result.message})
+            }
         }
 
-
-    //}
+        ).catch( (error) => {
+            dispatch({type:'SET_LOADING', payload: false})
+            if(error.response){
+                dispatch({type: 'ERROR_MODAL', payload: 'Error while listing files: ' + error.response.data.message})
+            }else{
+                dispatch({type: 'ERROR_MODAL', payload: 'Unexpected Error:' + error.toString()})
+            }
+        })
+    }
 }

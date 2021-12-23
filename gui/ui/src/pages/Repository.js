@@ -27,7 +27,7 @@ const Repository = (props) => {
      */
     React.useEffect(() => {
         if(path){
-            getFiles({path : path})
+            getFiles({path : path}, true)
         }else{
             getFiles({path : []})
         }
@@ -125,7 +125,10 @@ const Repository = (props) => {
     const onBackButtonClick = () => {
         let oneBefore = Object.keys(props.repository.folders).at(-2)
         let item = props.repository.folders[oneBefore]
-        props.getFiles({path: item.path})
+
+        if(item){
+            props.getFiles({path: item.path})
+        }
     }
     return (
         <React.Fragment>
@@ -152,14 +155,13 @@ const Repository = (props) => {
                         </div>
                     </div>
                     <div className={"breadcrumb"}>
-                        {
-                           Object.keys(props.repository.folders).map((item, key) => {
-                               let path = props.repository.folders[item].path
+                        {Object.keys(props.repository.folders).map((item, key) => {
+                               let pathFol = props.repository.folders[item].path
                                 return (
-                                    <>
-                                        <div key={key} className={'item'} onClick={ () => onListBreadCrumbClick(path)}>
-                                           {path.length > 0 ? (
-                                               path.at(-1)
+                                    <React.Fragment key={key}>
+                                        <div className={'item'} onClick={ () => onListBreadCrumbClick(pathFol)}>
+                                           {pathFol.length > 0 ? (
+                                               pathFol.at(-1)
                                            ) : (
                                               <HomeIcon/>
                                            )
@@ -168,7 +170,7 @@ const Repository = (props) => {
                                         <span className={'seperator'}>
                                             /
                                         </span>
-                                    </>
+                                    </React.Fragment>
                                 )
                             })
                         }
@@ -237,9 +239,7 @@ const Repository = (props) => {
                                         <th>Action</th>
                                         <th>State</th>
                                     </tr>
-                                        {
-                                           props.repository.files[props.repository.level] &&
-                                            props.repository.files[props.repository.level].map((item, key) => {
+                                        {   props.repository.files[props.repository.level] && props.repository.files[props.repository.level].map((item, key) => {
                                                 return(
                                                     <RepositoryListRow
                                                         key={key}
@@ -256,6 +256,14 @@ const Repository = (props) => {
                                         }
                                     </tbody>
                                 </table>
+                                {   props.repository.level &&
+                                    props.repository.folders[props.repository.level] &&
+                                    props.repository.folders[props.repository.level].displays <  props.repository.folders[props.repository.level].number ? (
+                                        <div className={"end"}>
+                                            Only displaying {props.repository.folders[props.repository.level].displays} out of {props.repository.folders[props.repository.level].number}
+                                        </div>
+                                    ) : null
+                                }
                             </div>
                         </div>
                     )
@@ -305,7 +313,7 @@ const mapStateToProps = (state) => {
 // Redux dispatch functions to props
 const mapDispatchToProps = (dispatch) => {
     return {
-        getFiles: (data) => dispatch(getFilesFromRepository(data))
+        getFiles: (data, fresh) => dispatch(getFilesFromRepository(data, fresh))
     }
 }
 

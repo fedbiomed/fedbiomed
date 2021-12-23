@@ -4,7 +4,7 @@ import Modal from '../components/Modal'
 import Button, {ButtonsWrapper} from '../components/Button'
 import {connect, useDispatch} from 'react-redux'
 import Repository from "../pages/Repository"
-import {addNewDataset} from "../store/actions/datasetsActions";
+import {addNewDataset, addDefaultDataset} from "../store/actions/datasetsActions";
 import {useNavigate} from "react-router-dom";
 import {ADD_DATASET_ERROR_MESSAGES} from "../constants";
 
@@ -16,9 +16,16 @@ export const AddDataset = (props) => {
     const dispatch = useDispatch()
     const navigator = useNavigate()
 
+
+    // Hook for add dataset
     React.useEffect(() => {
         if(props.addDatasetResult.success === true && props.addDatasetResult.waiting === false ){
             dispatch({type : 'RESET_ADD_DATASET_RESULT'})
+            navigator('/datasets')
+        }
+
+        if(props.default_dataset.success === true && props.default_dataset.waiting === false){
+            dispatch({type : 'RESET_DEFAULT_DATASET_RESULT'})
             navigator('/datasets')
         }
 
@@ -26,8 +33,13 @@ export const AddDataset = (props) => {
             dispatch({type : 'RESET_NEW_DATASET'})
         }
 
-    }, [props.addDatasetResult.success, dispatch, navigator, props.addDatasetResult.waiting])
-
+    }, [props.addDatasetResult.success,
+             props.addDatasetResult.waiting,
+             props.default_dataset.waiting,
+             props.default_dataset.success,
+             dispatch,
+             navigator,
+    ])
 
     /**
      * Open modal window to select data folder 
@@ -80,7 +92,12 @@ export const AddDataset = (props) => {
             if(validation){
                  dispatch({type :'ERROR_MODAL', payload: validation})
             }else{
-                props.addNewDataset(dataset)
+                if(dataset.type === 'default'){
+                    props.addDefaultDataset(dataset)
+                }else{
+                    props.addNewDataset(dataset)
+                }
+
             }
     }
 
@@ -89,6 +106,7 @@ export const AddDataset = (props) => {
         let field
         let message
         let error
+
         if (Object.keys(newDataset).length > 0) {
             if(!data.path){
                 error = 'Please select a dataset'
@@ -105,8 +123,6 @@ export const AddDataset = (props) => {
         }else{
             error = 'Please make sure all the fields has been field'
         }
-
-
         return error
     }
 
@@ -144,6 +160,7 @@ export const AddDataset = (props) => {
                                     ) : (
                                         <>
                                             <option>Please select...</option>
+                                            <option value="default">Default MNIST Dataset</option>
                                             <option value="csv">CSV Dataset</option>
                                             <option value="images">Image Dataset</option>
                                         </>
@@ -154,7 +171,8 @@ export const AddDataset = (props) => {
                 </div>
                 <div className="row">
                     <div className="form-control" >
-                        <Label>Dataset Name</Label>
+                        <Label>Dataset Name <span style={{fontSize:11}}>(min 4 character)</span>
+                        </Label>
                         <Text
                             name={"name"}
                             type="text"
@@ -167,15 +185,15 @@ export const AddDataset = (props) => {
                             name={"tags"}
                             type="text"
                             onChange={onInputValueChange}
-                            placeholder="Enter name for dataset" />
+                            placeholder="Enter tags" />
                     </div>
                 </div>
                 <div className={`row`}>
                     <div className="form-control">
-                        <Label>Description</Label>
+                        <Label>Description <span style={{fontSize:11}}>(min 4 character)</span> </Label>
                         <TextArea name="desc"
                                   type="text"
-                                  placeholder="Enter name for dataset"
+                                  placeholder="Please type a description for dataset"
                                   onChange={onInputValueChange} />
                     </div>
                 </div>
@@ -206,13 +224,15 @@ export const AddDataset = (props) => {
 const mapStateToProps = (state) => {
     return {
         new_dataset         : state.datasets.new_dataset,
-        addDatasetResult    : state.datasets.add_dataset
+        addDatasetResult    : state.datasets.add_dataset,
+        default_dataset     : state.datasets.default_dataset
     }
 }
 
 const mapDispatchToProps = (dispatch) => {
     return {
-        addNewDataset : (data) => dispatch(addNewDataset(data))
+        addNewDataset : (data) => dispatch(addNewDataset(data)),
+        addDefaultDataset : (data) => dispatch(addDefaultDataset(data))
     }
 }
 

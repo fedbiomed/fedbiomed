@@ -46,9 +46,7 @@ export const addDefaultDataset = (data) => {
         // Notify it is requested
         dispatch({type: 'DEFAULT_DATASET_ADD_REQUEST'})
 
-        axios.post(EP_DEFAULT_DATASET_ADD, {
-            name:'mnist'
-        }).then( res => {
+        axios.post(EP_DEFAULT_DATASET_ADD, data).then( res => {
                 dispatch({type:'SET_LOADING', payload: false})
                 if(res.status === 200){
                     dispatch({type: 'SUCCESS_MODAL', payload: "Default dataset has been added" })

@@ -48,7 +48,7 @@ def list_datasets():
 
     table.clear_cache()
     if search is not None and search != "":
-        res = table.search(query.name.search(search+'+') | query.description.search(search+'+'))
+        res = table.search(query.name.search(search + '+') | query.description.search(search + '+'))
     else:
         try:
             res = table.all()
@@ -152,6 +152,8 @@ def add_dataset():
             types = datamanager.get_csv_data_types(data)
         except Exception as e:
             return error(str(e)), 400
+    else:
+        return error(f'Unknown dataset type "{req["type"]}"'), 400
 
     # Create unique id for the dataset
     dataset_id = 'dataset_' + str(uuid.uuid4())
@@ -291,50 +293,59 @@ def add_default_dataset():
             message : The message for response
 
     """
-
+    req = request.json
     table = database.db().table('_default')
     query = database.query()
-    default_dataset = table.get(query.tags == ['#MNIST', "#dataset"])
+    dataset = table.get(query.tags == req['tags'])
 
-    if default_dataset:
-        return error('Default MNIST dataset is already exist'), 400
+    if dataset:
+        return error(f'An default dataset has been already deployed with {req["tags"]}'), 400
+
+
+    if 'path' in req:
+        # Data path that the files will be read
+        path = os.path.join(app.config['DATA_PATH_RW'], *req['path'])
+        # This is the path will be writen in DB
+        data_path = os.path.join(app.config['DATA_PATH_SAVE'], *req['path'])
     else:
         default_dir = os.path.join(app.config["DATA_PATH_RW"], 'defaults')
-        mnist_dir = os.path.join(default_dir, 'mnist')
+        path = os.path.join(default_dir, 'mnist')
         if not os.path.exists(default_dir):
             os.mkdir(default_dir)
         if not os.path.exists(os.path.join(default_dir, 'mnist')):
-            os.mkdir(mnist_dir)
+            os.mkdir(path)
 
+        # This is the path will be writen in DB
         data_path = os.path.join(app.config['DATA_PATH_SAVE'], 'defaults', 'mnist')
 
-        try:
-            shape = datamanager.load_default_database(name="MNIST",
-                                                      path=mnist_dir,
-                                                      as_dataset=False)
-        except Exception as e:
-            return error(str(e)), 400
+    try:
+        shape = datamanager.load_default_database(name="MNIST",
+                                                  path=path,
+                                                  as_dataset=False)
+    except Exception as e:
+        return error(str(e)), 400
 
-        # Create database connection
-        table = database.db().table('_default')
-        query = database.query()
+    # Create database connection
+    table = database.db().table('_default')
+    query = database.query()
 
-        # Create unique id for the dataset
-        dataset_id = 'dataset_' + str(uuid.uuid4())
+    # Create unique id for the dataset
+    dataset_id = 'dataset_' + str(uuid.uuid4())
 
-        try:
-            table.insert({
-                "name": 'MNIST',
-                "path": data_path,
-                "data_type": 'default',
-                "dtypes": [],
-                "shape": shape,
-                "tags": ['#MNIST', '#dataset'],
-                "description": 'Default MNIST dataset',
-                "dataset_id": dataset_id})
-        except Exception as e:
-            return error(str(e)), 400
+    try:
+        table.insert({
+            "name": req['name'],
+            "path": data_path,
+            "data_type": 'default',
+            "dtypes": [],
+            "shape": shape,
+            "tags": req['tags'],
+            "description": req['desc'],
+            "dataset_id": dataset_id})
 
-        res = table.get(query.dataset_id == dataset_id)
+    except Exception as e:
+        return error(str(e)), 400
 
-        return response(res), 200
+    res = table.get(query.dataset_id == dataset_id)
+
+    return response(res), 200

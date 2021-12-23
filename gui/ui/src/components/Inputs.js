@@ -52,6 +52,7 @@ export const TextArea = (props) => {
             ref  = {props.ref}
             onChange = {props.onChange}
             value = {props.value ? props.value : undefined}
+            placeholder={props.placeholder}
         ></textarea>
     )
 }
@@ -165,6 +166,7 @@ export const Tag = (props) => {
               onChange={handleTagChange}
               value={currentTagText}
               ref  = {refInput}
+              placeholder={props.placeholder}
             />
           </div>
         </div>

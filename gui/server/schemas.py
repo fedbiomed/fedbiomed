@@ -88,24 +88,6 @@ class JsonSchema(object):
         try:
             JsonBaseValidator(self._schema).validate(data)
         except jsonschema.ValidationError as e:
-            # print(e)
-            print(dir(e))
-            # print(e.cause)
-            # print(e.context)
-            # print(e.instance)
-            # print(e.absolute_schema_path)
-            # print(e.path)
-            print(e.relative_schema_path)
-            # print(e.parent)
-            # print(e.schema_path)
-            # print(e.args)
-            # print(e.absolute_path)
-            # print(e.validator_value)
-            # print(e._word_for_schema_in_error_message)
-            # print(e.parent)
-            # print(e.with_traceback)
-            # print(e.create_from)
-            # print(e._word_for_instance_in_error_message)
 
             if self._message:
                 raise jsonschema.ValidationError(self._message)
@@ -121,7 +103,7 @@ class JsonSchema(object):
                 if field in self._schema['properties'] and \
                         'errorMessages' in self._schema['properties'][field] and \
                         reason in self._schema['properties'][field]['errorMessages']:
-                    message = self._schema['properties'][field]['errorMessages'][reason]
+                    message = self._schema['properties'][field]['errorMessages'][reason] % e.instance
 
             if message:
                 raise jsonschema.ValidationError(message)
@@ -158,11 +140,14 @@ class AddDataSetRequest(Validator):
                      'errorMessages': {
                          'minItems': 'At least 1 tag should be provided',
                          'maxItems': 'Tags can be max. 4',
-                         'type': 'Tags is in wrong format'
+                         'type': 'Tags are in wrong format'
                      }
                      },
             'type': {'type': 'string',
-                     'oneOf': [{"enum": ['csv', 'images']}]},
+                     'oneOf': [{"enum": ['csv', 'images']}],
+                     'errorMessages': {
+                        'oneOf': ' "%s" dataset type is not supported'
+                     }},
             'desc': {'type': 'string', "minLength": 4, "maxLength": 256,
                      'errorMessages': {
                          'minLength': 'Description must have at least 4 character',
@@ -245,6 +230,27 @@ class AddDefaultDatasetRequest(Validator):
     schema = JsonSchema({
         'type': "object",
         "properties": {"name": {'type': 'string',
-                                "default": 'mnist', "minLength": 4, "maxLength": 128}},
+                                "default": 'mnist', "minLength": 4, "maxLength": 128,
+                                'errorMessages': {
+                                    'minLength': 'Dataset name must have at least 4 character',
+                                    'maxLength': 'Dataset name must be max 128 character'
+                                    }
+                                },
+                       'path': {'type': 'array'},
+                       'tags': {'type': 'array', "minItems": 1, "maxItems": 4, 'default': ["#MNIST", "#dataset"],
+                                'errorMessages': {
+                                    'minItems': 'At least 1 tag should be provided',
+                                    'maxItems': 'Tags can be max. 4',
+                                    'type': 'Tags is in wrong format'
+                                }},
+                       'type': {'type': 'string', 'default': "default",
+                                'oneOf': [{"enum": ['default']}]},
+                       'desc': {'type': 'string', "minLength": 4, "maxLength": 256, 'default' : "Default MNIST dataset",
+                                'errorMessages': {
+                                    'minLength': 'Description must have at least 4 character',
+                                    'maxLength': 'Description must be max 256 character'
+                                }}
+
+                       },
         "required": []
     })
