@@ -8,7 +8,7 @@ import os
 import dateutil
 from dateutil.parser._parser import ParserError
 
-from fedbiomed.common.data_tool.data_type import DataType
+from fedbiomed.common.data_tool.data_type import DataType, DataTypeProperties
 
 
 class ExcelSignatures(Enum):
@@ -215,6 +215,22 @@ def check_data_type_consistancy(data_type: Union[Enum, List[Enum]], d_type: type
             
     return is_consistant
 
+def get_data_type_propreties(d_type: Enum) -> Enum:
+    """Returns data type properties (from `Enum` class DataTypeProperties, 
+    regarding the name of the `Enum` class d_type)
+
+    Args:
+        d_type (Enum): [description]
+    """
+    print('data_type', d_type, d_type.name)
+    property = None
+    for d_type_property in DataTypeProperties:
+        print(d_type_property.name, d_type.name)
+        if hasattr(d_type_property, d_type.name):
+            property = getattr(d_type_property, d_type.name)
+            break
+    return property
+            
 
 def check_missing_data(column: pd.Series)->bool:
     is_missing_data = column.isna().any()

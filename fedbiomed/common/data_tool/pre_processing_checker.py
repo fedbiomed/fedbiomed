@@ -23,28 +23,40 @@ def raise_warning(warning: PreProcessingChecks, *kwargs) -> str:
 
 
 class PreProcessingChecker:
-    def __init__(self, file_format_ref:dict,
-                data_frame: pd.DataFrame,
-                file_format_ref_name:str, 
-                warning_logger, 
-                min_nb_samples: int = 30):
+    def __init__(self,
+                 file_format_ref: dict,
+                 data_frame: pd.DataFrame,
+                 file_format_ref_name:str, 
+                 warning_logger, 
+                 min_nb_samples: int = 30):
         self._file_format_ref = file_format_ref
         self._data_frame = data_frame
         self._file_format_ref_name = file_format_ref_name
         self._warning_logger = warning_logger
         self._new_features_name = None
-        self._min_nb_samples = min_nb_samples
+        #self._min_nb_samples = min_nb_samples
         self._view_feature_names = {v: [f for f in file_format_ref[v].keys()] for v in file_format_ref.keys()}
         self._features = None
         
+        self._process_thresholds()  # add thresholds
         self._warning_logger.clean_report()
     
+    def _process_thresholds(self):
+        _thresholds_details = self._file_format_ref.get('global_thresholds')
+        if _thresholds_details is not None:
+            self._min_nb_samples = _thresholds_details.get('min_nb_samples')
+            self._min_nb_missing_samples = _thresholds_details.get('min_nb_missing_samples')
+        else:
+            self._min_nb_samples = None
+            self._min_nb_missing_samples = None
+
+
     def _get_all_features(self, view:str) -> List[str]:
         return self._view_feature_names.get(view)
     
-    def _get_feature_defined_in_format_file(self, view:str, feature:str)-> str:
+    def _get_feature_defined_in_format_file(self, view: str, feature: str)-> str:
         #feature_name = self._file_format_ref[view][feature]
-        print(view, feature)
+        
         if self._new_features_name is not None:
             
             _new_features_name = self._new_features_name.get(view)
@@ -79,15 +91,15 @@ class PreProcessingChecker:
             # define here test that happens on whole dataset
             
             ###
-            self.check_number_of_samples(self._min_nb_samples, _view)
-            
+            if self._min_nb_samples is not None:
+                self.check_number_of_samples(self._min_nb_samples, _view)
             
             ####
             _features = self._file_format_ref[_view].keys()
             
             for _feature in _features:
                 
-                # check fi feature does exist
+                # check if feature does exist
                 _is_feature_exist = self.check_feature_exists_in_dataset(_view,
                                                                          _feature)
                 if not _is_feature_exist:
@@ -98,8 +110,12 @@ class PreProcessingChecker:
                                                                                   _feature)
                 if not _is_format_file_correct:
                     continue
+                
                 self.check_correct_variable_sub_type(_view, _feature)
                 self.check_missing_values(_view, _feature)
+                if self._min_nb_missing_samples is not None:
+                    self.check_missing_values_threshold(_view, _feature,
+                                                        self._min_nb_missing_samples)
                 self.check_lower_bound(_view, _feature)
                 self.check_upper_bound(_view, _feature)
                 self.check_values_in_categorical_variable(_view, _feature)
@@ -119,8 +135,7 @@ class PreProcessingChecker:
 
         feature_name ='ALL' 
         sample_count = self._data_frame.shape[0]
-           
-
+        
         self._warning_logger.write_new_entry(PreProcessingChecks.N_SAMPLES_BELOW_THRESHOLD)
         if sample_count < min_nb_samples:
             success = False
@@ -134,7 +149,7 @@ class PreProcessingChecker:
             #message = critical_warning.display(f'Samples count exceeds the threshold limit {MIN_NB_SAMPLES}')
         else:
             success = True
-            warning_msg='Test passed'
+            warning_msg = 'Test passed'
 
         self._warning_logger.write_checking_result(success,
                                                    warning_msg,
@@ -144,8 +159,8 @@ class PreProcessingChecker:
         return success
     
     def check_feature_exists_in_dataset(self,
-                                        view:str,
-                                     feature_name: str) -> bool:
+                                        view: str,
+                                        feature_name: str) -> bool:
         renamed_feature_name = self._get_feature_defined_in_format_file(view, feature_name)
         if renamed_feature_name in self._data_frame.columns:
             success = True
@@ -339,7 +354,7 @@ class PreProcessingChecker:
         self._warning_logger.write_new_entry(PreProcessingChecks.OUTLIER_DETECTION_UPPER_BOUND)
         if upper_bound is not None:
              # should work for both numerical and datetime data sets
-            is_upper_bound_correct = np.all(_column_without_nan <= lower_bound)
+            is_upper_bound_correct = np.all(_column_without_nan <= upper_bound)
 
             if not is_upper_bound_correct:
                 warning_msg = raise_warning(PreProcessingChecks.OUTLIER_DETECTION_LOWER_BOUND,
@@ -386,8 +401,8 @@ class PreProcessingChecker:
 
     def check_missing_values_threshold(self,
                                        view_name: str,
-                                   feature_name: str,
-                                  threshold: int = 50) -> bool:
+                                       feature_name: str,
+                                       threshold: int = 50) -> bool:
         #Checking if missing values exceed threshold limit(50%)
         
         _renamed_feature_name = self._get_feature_defined_in_format_file(view_name,

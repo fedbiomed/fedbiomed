@@ -97,6 +97,7 @@ def create_multi_view_dataframe_from_dictionary(datasets: Dict[str, pd.DataFrame
                                   columns = _header)
     return multi_view_df
 
+
 def create_multi_view_dataframe_from_dataframe(dataframe: pd.DataFrame,
                                                views_features: Dict[str, List[str]],
                                                primary_key: str = None):
@@ -106,7 +107,7 @@ def create_multi_view_dataframe_from_dataframe(dataframe: pd.DataFrame,
     _primary_key_label = 'primary_key'
     _n_features = 0
     
-    _multi_index = dataframe.columns
+    #_multi_index = dataframe.columns
     if primary_key is not None:
         _key_values = dataframe[primary_key].values  # storing primary key values
 
@@ -119,7 +120,7 @@ def create_multi_view_dataframe_from_dataframe(dataframe: pd.DataFrame,
         if primary_key is not None:
             _features_names.remove(primary_key)
         
-        for feature_name in _features_names:
+        for _ in _features_names:
             #if feature_name not in _all_features_names:
             _new_views_names.append(view_name)
             # appending as much as there are feature within each view
@@ -142,11 +143,9 @@ def create_multi_view_dataframe_from_dataframe(dataframe: pd.DataFrame,
     return multi_view_dataframe
 
 
-def join_multi_view_dataset(multi_view_dataset: Union[pd.DataFrame, Dict[str, pd.DataFrame]],
-                           #multi_view_dataframe: pd.DataFrame=None,
-                           #multi_view_dictionary_dataset: Dict[str, pd.DataFrame] = None, 
-                           primary_key: str=None,
-                          as_multi_index: bool = True) -> pd.DataFrame:
+def join_multi_view_dataset(multi_view_dataset: Union[pd.DataFrame, Dict[str, pd.DataFrame]], 
+                            primary_key: str=None,
+                            as_multi_index: bool = True) -> pd.DataFrame:
     """Concatenates a multi view dataset into a plain pandas dataframe,
     by doing a join operation along specified primary_key"""
     

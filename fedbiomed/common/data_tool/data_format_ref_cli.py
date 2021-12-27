@@ -13,15 +13,19 @@ from fedbiomed.common.data_tool import utils
 from fedbiomed.common.data_tool.data_type import DataType, CategoricalDataType, DataTypeProperties
 
 
+GLOBAL_THRESHOLDS = 'global_thresholds'
+
 def get_yes_no_msg() -> str:
     msg_yes_or_no_question = '1) YES\n2) NO\n'   
     return msg_yes_or_no_question
+
 
 def parse_yes_no_msg(resp: str) -> bool:
     """implements logic to parse yes or no msg"""
     yes_or_no_question_key = {'1': True,
                               '2': False}
     return yes_or_no_question_key.get(resp)
+
 
 def get_data_type_selection_msg(available_data_type: List[Enum],
                                ign_msg: str = 'ignore this column') -> Tuple[str, int]:
@@ -67,6 +71,7 @@ def _check_if_features_selected(selected_views_features: Dict[str, List[str]]) -
     
     for view in selected_views_features.keys():
         if selected_views_features[view]:
+            # check whether the list contained in dictionary is empty or not
             is_one_feature_selected = True
             break
     return is_one_feature_selected
@@ -128,11 +133,11 @@ def ask_select_variable_msg(view_feature_names: Dict[str, List[str]],
             selected_feature_names = selected_views_features.get(selected_view)
             
             feature_msg, last_key = get_select_msg(feature_names,
-                                                f'Please select feature from view : {selected_view}',
-                                                inter_msg='(selected)',
-                                                inter_msg_idx=selected_feature_names,
-                                                final_msgs=['select all features',
-                                                            'return to view'])
+                                                    f'Please select feature from view : {selected_view}',
+                                                    inter_msg='(selected)',
+                                                    inter_msg_idx=selected_feature_names,
+                                                    final_msgs=['select all features',
+                                                                'return to view'])
             _answer = int(get_user_input(feature_msg, last_key))
 
             if _answer == last_key:
@@ -182,7 +187,51 @@ def get_select_msg(iterator: Iterator[str],
             last_key += 1
             msg += '%d) %s\n' % (last_key, final_msg)
     return msg, last_key
+
+
+def ask_user_threshold( 
+                       intro_msg: str = "", 
+                       msg: str = "") -> int:
+    threshold = None
+
+    intro_msg += get_yes_no_msg()
+    # first ask user if he wants to add a threshold of minimal number of samples
+    answer = get_user_input(intro_msg, 2)
+    _does_user_want_threshold = parse_yes_no_msg(answer)
     
+    if _does_user_want_threshold:
+        # case where user wants miimal number of samples of threshold
+        _is_entered_value_correct = False
+        while not _is_entered_value_correct:
+            threshold = input(f'enter threshold {msg}\n')
+            if threshold.isdecimal() and int(threshold) > 0:
+                threshold = int(threshold) 
+                # check if entered value is correct (it must be an integer)
+                _is_entered_value_correct = True
+            else:
+                print(f'Value {threshold} not a a valid Threshold! please retry')
+        threshold = int(threshold)
+    return threshold
+
+
+def ask_minimum_nb_samples() -> int:
+    msg_add_threshold = "Do you want to add a threshold for the minimum number of samples each dataset should contain?\n"
+    msg = "minimal number of samples per dataset"
+    threshold = ask_user_threshold(msg_add_threshold,
+                                   msg)
+    
+    return threshold
+
+def ask_minimum_of_missing_data() -> int:
+    msg_add_threshold = "Do you want to add a threshold for the minimum number of missing data each feature should contain?\n"
+    # first ask user if he wants to add a threshold of minimal number of samples
+    msg = "minimal number of missing sample per variable"
+    
+    threshold = ask_user_threshold(msg_add_threshold,
+                                   msg)
+    
+    return threshold
+  
 def ask_for_variable_to_apply_data_imputation(view_feature_names: Dict[str, List[str]],
                                               view:str,
                                               feature:str) -> Dict[str, List[str]]:
@@ -221,7 +270,7 @@ def get_data_imputation_methods_msg(d_type: type = None) -> Tuple[str, Dict[str,
         if d_type is not None:
             
             is_d_type_in_sub_type = utils.check_data_type_consistancy(imput_method.data_type, 
-                                                               d_type)
+                                                                      d_type)
             if not is_d_type_in_sub_type:
                 continue # data type doesnot match method imputation requirements
         msg += '%d) %s\n' % (i, imput_method.name)
@@ -249,11 +298,16 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
     
     available_data_type = [d_type for d_type in DataType]  # get all available data types
     
+    # first ask user for minimum number of samples + maximum number of missing data thresholds
+    _min_number_samples = ask_minimum_nb_samples()
+    _min_number_missing_data = ask_minimum_of_missing_data()
+    data_format_file.update({GLOBAL_THRESHOLDS: 
+                                    {'min_nb_samples': _min_number_samples,
+                                     'min_nb_missing_samples': _min_number_missing_data}})
+    
     for n_feature, feature in enumerate(dataset_columns):
-        print(f'displaying first 10 values of feature {feature} (n_feature: {n_feature+1}/{dataset_columns_length})') 
-        #_file_name = os.path.basename(tabular_data_file)
-        #data_format_files[_file_name] = data_format_file
-        #print(tabulate(dataset[feature].head(10).values()))
+        print(f'displaying first 10 values of feature {feature} in view: {view} (n_feature: {n_feature+1}/{dataset_columns_length})') 
+
         pprint.pprint(dataset[feature].head(10))  # print first 10 lines of feature value
         print(f'number of differents samples: {utils.unique(dataset[feature], number=True)} / total of samples: {dataset[feature].shape[0]}')
         
@@ -262,7 +316,8 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
         
         # ask user about data type
         data_format_id = get_user_input(msg_data_type_selection,
-                                       n_answers=ignoring_id)
+                                        n_answers=ignoring_id)
+        
         
         if int(data_format_id) > ignoring_id - 1:
             # case where user decide to ingore column: go to next iteration (next feature)
@@ -272,30 +327,25 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
             # case where user selected a data type: add data type and info to the format file
             data_format = available_data_type[int(data_format_id)-1]
             d_type = dataset[feature].dtype  
+            # get property of data_type
+            data_type_property = utils.get_data_type_propreties(data_format)
             # TODO: rename data_type into d_type for consistancy sake
             n_data_type, types = utils.get_data_type(data_format, d_type)
             
-        # KEY and DATETIME type 
-        if data_format is DataType.KEY or data_format is DataType.DATETIME:  
+        # data type that doesnot allow missing values (such as KEY and DATETIME types) 
+        if not data_type_property.allow_missing_values:  
             # for these data type, missing values are disabled by default
             is_missing_values_allowed = False
-            imputation_method = None
-            imputation_method_parameters = None
             data_imputation_params = {}
         else: 
             # ask user if missing values are allowed for this specific variable
             ## message definition
             msg_yes_or_no_question = get_yes_no_msg()
-            #msg_data_imputation_methods, data_imputation_methods = get_data_imputation_methods_msg(d_type=d_type)
-            #n_data_imputation_method = len(data_imputation_methods)
             msg_yes_or_no_question = f'Allow {feature} to have missing values:\n' + msg_yes_or_no_question
-            
             missing_values_user_selection = get_user_input(msg_yes_or_no_question,
-                                                        n_answers=2)
+                                                           n_answers=2)
             is_missing_values_allowed = parse_yes_no_msg(missing_values_user_selection)
             
-            # imputation_method = None
-            # imputation_method_parameters = None
             # selected_variables = None
             data_imputation_params = {}
             if is_missing_values_allowed:
@@ -303,24 +353,6 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
                 data_imputation_params = ask_for_data_imputation_method(view_feature_names,
                                                                         d_type,
                                                                         view, feature)
-                # imputation_method_user_selection = get_user_input(msg_data_imputation_methods,
-                #                                                 n_answers=n_data_imputation_method)
-                
-                # imputation_method_selected = data_imputation_methods.get(imputation_method_user_selection)
-                
-                # if imputation_method_selected is not None:
-                #     imputation_method = imputation_method_selected.name
-                #     if imputation_method_selected.parameters_to_ask_user is not None:
-                #         print(f'Selected: {imputation_method}\n')
-                #         imputation_method_parameters = ask_for_data_imputation_parameters(imputation_method_selected.parameters_to_ask_user)
-                #         print('imput param', imputation_method_parameters)
-                        
-                #     if imputation_method_selected.ask_variable_to_perform_imputation:
-                #         selected_variables = ask_for_variable_to_apply_data_imputation(view_feature_names,
-                #                                                                        view=view,
-                #                                                                        feature=feature)
-            
-                
         data_format_file[feature] = {'data_format': data_format.name,
                                      'data_type': n_data_type.name,
                                      'values': str(d_type),
@@ -328,7 +360,7 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
                                      'data_imputation_method': data_imputation_params.get('data_imputation_method'),
                                      'data_imputation_parameters': data_imputation_params.get('data_imputation_parameters'),
                                      'data_imputation_variables': data_imputation_params.get('data_imputation_variables')
-                                    }
+                                     }
         
     return data_format_file
             
