@@ -1,15 +1,20 @@
 from enum import Enum
-import pandas as pd
 import csv
 import json
 
-from typing import List, Tuple, Union, Dict, Any, Iterator, Optional, Callable
+from typing import List, Tuple, Union, Dict, Any, Iterator
 import os
+
+import numpy as np
+import pandas as pd
+from pandas.api.types import is_string_dtype
 import dateutil
 from dateutil.parser._parser import ParserError
 
 from fedbiomed.common.data_tool.data_type import DataType, DataTypeProperties
+from fedbiomed.common.data_tool.data_format_ref_cli import GLOBAL_THRESHOLDS
 
+STR_MISSING_VALUE = ['nan']
 
 class ExcelSignatures(Enum):
     XLSX = (b'\x50\x4B\x05\x06', 2, -22, 4)
@@ -128,38 +133,41 @@ def csv_sniffer(path:str) :
     return delimiter, header
 
 def get_data_type(
-                  #avail_data_types: enum.EnumMeta,
                   d_format: Enum,
-                  d_type: type) ->  Tuple[Enum, List[Union[type, str]]]:
+                  d_type: type) -> Tuple[Enum, List[Union[type, str]]]:
     # varibales initialisation
     present_d_types = []
     sub_d_type_format = d_format
-    
-    
+
     for avail_data_type in DataType:
         if d_format is avail_data_type:
             sub_dtypes = avail_data_type.value
-            #if not isinstance(sub_dtypes, str) and hasattr(sub_dtypes, '__getitem__') and isinstance(sub_dtypes[0], Enum):
+
             if not isinstance(sub_dtypes, str):
                 # check if dtype has subtypes
                 #(eg if datatype is QUANTITATIVE, subtype will be CONTINOUS or DISCRETE)
                 if isinstance(next(iter(sub_dtypes)), Enum):
                     
                     for sub_dtype in sub_dtypes:
+                        cond = False
+                        for t in tuple(sub_dtype.value):
+                            if d_type == t:
+                                print('found ', t)
                         if any(d_type == t for t in tuple(sub_dtype.value)):
                             present_d_types.append(d_type)
                             sub_d_type_format = sub_dtype
-                            print(sub_dtype, d_type)
+                            print(d_type, t, present_d_types)
+                            
                 else:
                     # case where datatype doesnot have subtypes, eg DATETIME
                     if any(d_type == t for t in sub_dtypes):
                         present_d_types.append(d_type)
                     sub_d_type_format = d_format
             else:
-                # case where d_format is a string of character
+                # case where d_format is a string of character, eg UNKNOWN
                 sub_d_type_format = d_format
-    print(sub_d_type_format, '|', present_d_types)
-    return  sub_d_type_format, present_d_types
+
+    return sub_d_type_format, present_d_types
 
 
 def find_data_type(data_format_name: str, data_type_name: str=None) -> Enum:
@@ -241,7 +249,7 @@ def save_format_file_ref(format_file_ref: Dict[str, Dict[str, Any]], path: str):
     # save `format_file_ref` into a JSON file
     with open(path, "w") as format_file:
         json.dump(format_file_ref, format_file)
-    print(f"Model successfully saved at {path}")
+    print(f"Format Reference File successfully saved at {path}")
 
  
 def load_format_file_ref(path: str) -> Dict[str, Dict[str, Any]]:
@@ -258,12 +266,80 @@ def unique(iterable: Iterator, number: bool = False) -> int:
     else:
         return set_of_values
     
-def is_datetime(date: str) -> bool:
+def is_datetime(date: Union[str, int]) -> bool:
     """checks if date is a date"""
     is_date_parsable = True
+    
     try:
+        if not isinstance(date, str):
+            date = str(date)
         dateutil.parser.parse(date)
-    except (ParserError, ValueError) as err:
+    except (ParserError, ValueError, TypeError) as err:
         is_date_parsable = False
         
     return is_date_parsable
+
+def get_view_names(view_mapper: Dict[str, Any]) -> List[str]:
+    """Gets the keys of a dictionary and returns them into a list.
+    Removes from the list names that are not a view"""
+    names = list(view_mapper.keys())
+    if GLOBAL_THRESHOLDS in names:
+        # removes GLOBAL_TRESHOLDS key from list of keys
+        # (because it is not a view but general parameters)
+        names.remove(GLOBAL_THRESHOLDS)
+    return names
+
+def isfloat(value:str) ->bool:
+    """checks if string represents a float or int"""
+    is_float = True
+    try:
+        float(value)
+    except ValueError as e:
+        is_float = False
+    return is_float
+
+def is_nan(value: Union[int, float, bool, str]) -> bool:
+    """Extends np.isnan method from numpy, check if 
+    passed value is a nan or not
+
+    Args:
+        value (Union[int, float, bool, str]): [description]
+
+    Returns:
+        bool: [description]
+    """
+    is_value_a_nan = False
+    if isinstance(value, str):
+        if value.isdecimal():
+            value = float(value)
+        else:
+            if value.lower() in STR_MISSING_VALUE:
+                is_value_a_nan = True 
+    elif value is None:
+        is_value_a_nan = True     
+    else:
+        is_value_a_nan = np.isnan(value)
+    return is_value_a_nan
+
+
+def infer_type(col: pd.Series, data_format :Enum= None, is_date: bool = False):
+    
+    col_type = None
+    
+   
+        
+    if is_date:
+        
+        try:
+            col = pd.to_datetime(col)
+            col_type = col.dtype.type
+        except (TypeError, ParserError):
+            pass
+        
+    if col_type is None:
+        if is_string_dtype(col):
+            col_type = str
+
+        elif hasattr(col, 'dtype'):
+            col_type = col.dtype
+    return col_type

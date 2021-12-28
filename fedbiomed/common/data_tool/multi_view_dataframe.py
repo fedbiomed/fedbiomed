@@ -3,6 +3,7 @@ from typing import Dict, Union, List, Tuple, Any, Optional
 import pandas as pd    
 import numpy as np
 from fedbiomed.common.data_tool.data_type import DataType
+from fedbiomed.common.data_tool import utils
 
 # utility functions for multi view dataframe
 def rename_variables_before_joining(multi_view_datasets: Dict[str, pd.DataFrame],
@@ -126,8 +127,6 @@ def create_multi_view_dataframe_from_dataframe(dataframe: pd.DataFrame,
             # appending as much as there are feature within each view
         _n_features += len(_features_names)
         _all_features_names.extend(_features_names)
-        
-        #_all_features_names = list(set(_all_features_names))  # remove duplicates
     
     print('length', _all_features_names, _new_views_names)
     _header = pd.MultiIndex.from_arrays([ _new_views_names, _all_features_names],
@@ -144,7 +143,7 @@ def create_multi_view_dataframe_from_dataframe(dataframe: pd.DataFrame,
 
 
 def join_multi_view_dataset(multi_view_dataset: Union[pd.DataFrame, Dict[str, pd.DataFrame]], 
-                            primary_key: str=None,
+                            primary_key: str = None,
                             as_multi_index: bool = True) -> pd.DataFrame:
     """Concatenates a multi view dataset into a plain pandas dataframe,
     by doing a join operation along specified primary_key"""
@@ -171,8 +170,7 @@ def join_multi_view_dataset(multi_view_dataset: Union[pd.DataFrame, Dict[str, pd
         # primary key will have its own view
         _header_labels = ['views', 'feature_name']
         _primary_key_label = 'primary_key'
-        
-        _multi_index = multi_view_dataset.columns
+
         
         _key_values = joined_dataframe[primary_key].values  # storing primary key
 
@@ -201,8 +199,15 @@ def join_multi_view_dataset(multi_view_dataset: Union[pd.DataFrame, Dict[str, pd
 
 
 def search_primary_key(format_file_ref: Dict[str, Dict[str, Any]]) -> Optional[str]: 
-    """"""
-    _views_names = list(format_file_ref.keys())
+    """[summary]
+
+    Args:
+        format_file_ref (Dict[str, Dict[str, Any]]): [description]
+
+    Returns:
+        Optional[str]: [description]
+    """
+    _views_names = utils.get_view_names(format_file_ref)
     primary_key = None
     _c_view = None
     for view_name in _views_names:
@@ -226,11 +231,11 @@ def search_primary_key(format_file_ref: Dict[str, Dict[str, Any]]) -> Optional[s
 
 def select_data_from_format_file_ref(datasets: Dict[str, Dict[str, Any]],
                                      format_file: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    """returns an updated dataset containing only the features detailed in format_file"""
+    """Returns an updated dataset containing only the features detailed in format_file"""
     # variables initialisation
     
     updated_dataset = {}
-    _views_format_file = list(format_file.keys())
+    _views_format_file = utils.get_view_names(format_file)
     
     for view in _views_format_file:
         if view in datasets.keys():
@@ -263,8 +268,6 @@ def create_dictionary_multi_view_dataset(dataframe: pd.DataFrame,
     if primary_key is not None:
         _key_values = dataframe[primary_key].values  # storing primary key values
 
-    _all_features_names = []
-    _new_views_names = []
     for view_name in views_features_mapping.keys():
         # get all columns name for each view, and remove primary key
         _features_names = list(views_features_mapping[view_name])

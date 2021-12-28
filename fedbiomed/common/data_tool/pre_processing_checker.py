@@ -8,8 +8,9 @@ from typing import List, Union, Dict
 import fedbiomed.common.data_tool.utils as utils
 from fedbiomed.common.data_tool.data_type import DataType
 from fedbiomed.common.data_tool.pre_processing_checks  import PreProcessingChecks
-#from demo_poc_data_wrapper.warning_logger import WarningReportLogger
+from fedbiomed.common.data_tool.warning_logger import WarningReportLogger
 import fedbiomed.common.data_tool.pre_processing_warnings_exceptions as check_exception
+from fedbiomed.common.data_tool.data_format_ref_cli import GLOBAL_THRESHOLDS
 
     
 def raise_warning(warning: PreProcessingChecks, *kwargs) -> str:
@@ -27,8 +28,7 @@ class PreProcessingChecker:
                  file_format_ref: dict,
                  data_frame: pd.DataFrame,
                  file_format_ref_name:str, 
-                 warning_logger, 
-                 min_nb_samples: int = 30):
+                 warning_logger: WarningReportLogger):
         self._file_format_ref = file_format_ref
         self._data_frame = data_frame
         self._file_format_ref_name = file_format_ref_name
@@ -42,7 +42,7 @@ class PreProcessingChecker:
         self._warning_logger.clean_report()
     
     def _process_thresholds(self):
-        _thresholds_details = self._file_format_ref.get('global_thresholds')
+        _thresholds_details = self._file_format_ref.get(GLOBAL_THRESHOLDS)
         if _thresholds_details is not None:
             self._min_nb_samples = _thresholds_details.get('min_nb_samples')
             self._min_nb_missing_samples = _thresholds_details.get('min_nb_missing_samples')
@@ -73,18 +73,19 @@ class PreProcessingChecker:
         self._new_features_name = new_features_name
         for view in self._view_feature_names:
             if view in new_features_name:
-                for former_feature_name, new_feature_name in new_features_name[view].items():
-                    self._view_feature_names[view].append(new_feature_name)
-                    self._view_feature_names[view].remove(former_feature_name)
+                if view != GLOBAL_THRESHOLDS:
+                    for former_feature_name, new_feature_name in new_features_name[view].items():
+                        self._view_feature_names[view].append(new_feature_name)
+                        self._view_feature_names[view].remove(former_feature_name)
         print('features names updated')
     
-    def check_all(self, view:str=None, feature:str=None):
+    def check_all(self, view:str=None, feature:Union[str, List[str]]=None):
         
         if view is not None:
             _views = [view]
         
         else:
-            _views = self._view_feature_names
+            _views = utils.get_view_names(self._view_feature_names)
         
         
         for _view in _views:
@@ -107,7 +108,7 @@ class PreProcessingChecker:
                 
                 #
                 _is_format_file_correct = self.check_missing_entry_format_file_ref(_view,
-                                                                                  _feature)
+                                                                                   _feature)
                 if not _is_format_file_correct:
                     continue
                 
@@ -177,8 +178,9 @@ class PreProcessingChecker:
             
         return success
     
-    def check_missing_entry_format_file_ref(self, view:str,
-                                          feature_name:str) -> bool:
+    def check_missing_entry_format_file_ref(self,
+                                            view:str,
+                                            feature_name:str) -> bool:
         """Tests if format file ref is parsable"""
         
         success = True
@@ -209,8 +211,8 @@ class PreProcessingChecker:
     
     def check_correct_variable_sub_type(self, 
                                         view_name:str,
-                                    feature_name:str,
-                                    ) -> bool:
+                                        feature_name:str,
+                                        ) -> bool:
         """checks consistancy between general data type and subtype"""
         
         renamed_feature_name = self._get_feature_defined_in_format_file(view_name,
@@ -263,45 +265,52 @@ class PreProcessingChecker:
     
     def check_missing_values(self, 
                              view_name: str,
-                         feature_name: str) -> bool:
+                         feature_name: str,
+                         threshold: int=None) -> bool:
         """checks if missing data are present in column, and triggers error depending
         of the fact that missing data are whether allowed or not in the format_ref_file"""
         
-        renamed_feature_name = self._get_feature_defined_in_format_file(view_name,
-                                                                        feature_name)
-        _column = self._data_frame[renamed_feature_name]
-        _feature_format_ref = self._file_format_ref[view_name][feature_name]
-        _is_missing_data = utils.check_missing_data(_column)
-        _is_missing_values_authorized = _feature_format_ref.get('is_missing_values', 'test_skipped')
-        success = True
-
-        
-        self._warning_logger.write_new_entry(PreProcessingChecks.MISSING_DATA_ALLOWED)
-
-        if _is_missing_values_authorized == 'test_skipped':
-            warning_msg = 'Test skipped'
+        if self._min_nb_samples is  None:
             success = None
-        elif _is_missing_data:
-            success = False
-            # test fails: 
-            if _is_missing_values_authorized:
-                # case where missing values are present BUT allowed
-                warning_msg = raise_warning(PreProcessingChecks.MISSING_DATA_ALLOWED,
-                                           feature_name)
-            else:
-                # case where missing values are present AND NOT allowed
-                try:
-                    warning_msg = raise_warning(PreProcessingChecks.MISSING_DATA_NOT_ALLOWED,
-                                               feature_name)
-                except check_exception.MissingDataException as err:
-                    print(err)
-                    self._warning_logger.add_exception(err)
-                    warning_msg = str(err)
         else:
-            # test passed
-            warning_msg = 'Test passed'
+            success = True
+            if threshold is not None:
+                threshold = self._min_nb_samples
+            renamed_feature_name = self._get_feature_defined_in_format_file(view_name,
+                                                                            feature_name)
+            _column = self._data_frame[renamed_feature_name]
+            _feature_format_ref = self._file_format_ref[view_name][feature_name]
+            _is_missing_data = utils.check_missing_data(_column)
+            _is_missing_values_authorized = _feature_format_ref.get('is_missing_values', 'test_skipped')
+            
 
-        self._warning_logger.write_checking_result(success, warning_msg, feature_name)
+            
+            self._warning_logger.write_new_entry(PreProcessingChecks.MISSING_DATA_ALLOWED)
+
+            if _is_missing_values_authorized == 'test_skipped':
+                warning_msg = 'Test skipped'
+                success = None
+            elif _is_missing_data:
+                success = False
+                # test fails: 
+                if _is_missing_values_authorized:
+                    # case where missing values are present BUT allowed
+                    warning_msg = raise_warning(PreProcessingChecks.MISSING_DATA_ALLOWED,
+                                            feature_name)
+                else:
+                    # case where missing values are present AND NOT allowed
+                    try:
+                        warning_msg = raise_warning(PreProcessingChecks.MISSING_DATA_NOT_ALLOWED,
+                                                feature_name)
+                    except check_exception.MissingDataException as err:
+                        print(err)
+                        self._warning_logger.add_exception(err)
+                        warning_msg = str(err)
+            else:
+                # test passed
+                warning_msg = 'Test passed'
+
+            self._warning_logger.write_checking_result(success, warning_msg, feature_name)
 
         return success
     
@@ -329,7 +338,7 @@ class PreProcessingChecker:
 
             if not is_lower_bound_correct:
                 warning_msg = raise_warning(PreProcessingChecks.OUTLIER_DETECTION_LOWER_BOUND,
-                                               feature_name, lower_bound)
+                                            feature_name, lower_bound)
             else:
                 warning_msg = 'Test passed'
         else:
@@ -340,7 +349,7 @@ class PreProcessingChecker:
         return is_lower_bound_correct
     
     
-    def check_upper_bound(self, view_name: str, feature_name:str) -> bool:
+    def check_upper_bound(self, view_name: str, feature_name: str) -> bool:
         _renamed_feature_name = self._get_feature_defined_in_format_file(view_name,
                                                                         feature_name)
         
@@ -377,7 +386,7 @@ class PreProcessingChecker:
 
         _renamed_feature_name = self._get_feature_defined_in_format_file(view_name,
                                                                         feature_name)
-        _column = self._data_frame[_renamed_feature_name]
+        column = self._data_frame[_renamed_feature_name]
         
         _feature_format_ref = self._file_format_ref[view_name][feature_name]
         categorical_values = _feature_format_ref.get('categorical_values')
@@ -387,12 +396,12 @@ class PreProcessingChecker:
             warning_msg = 'test skipped'
             success = None
         else:
-            unique_values = utils.unique(_column)
+            unique_values = utils.unique(column)
             success = True
             for val in unique_values:
-                if val not in categorical_values and not np.isnan(val):
+                if val not in categorical_values and not utils.is_nan(val):
                     warning_msg = raise_warning(PreProcessingChecks.INCORRECT_VALUES_CATEGORICAL_DATA,
-                                               feature_name, val, *categorical_values)
+                                               feature_name, ", ".join(categorical_values), val)
                     success = False
             if success:
                 warning_msg = 'test passed'
@@ -402,30 +411,35 @@ class PreProcessingChecker:
     def check_missing_values_threshold(self,
                                        view_name: str,
                                        feature_name: str,
-                                       threshold: int = 50) -> bool:
+                                       threshold: int = None) -> bool:
         #Checking if missing values exceed threshold limit(50%)
         
-        _renamed_feature_name = self._get_feature_defined_in_format_file(view_name,
-                                                                        feature_name)
-        _column = self._data_frame[_renamed_feature_name]
-        _feature_format_ref = self._file_format_ref[view_name][feature_name]
-        
-        min_nb_missing_data = math.ceil((threshold/100)*_column.shape[0])
-
-        self._warning_logger.write_new_entry(PreProcessingChecks.N_MISSING_DATA_ABOVE_THRESHOLD)
-        n_missing_data = _column.isnull().sum()
-        if (n_missing_data>min_nb_missing_data):
-            success = False
-            #message = critical_warning.display(f'Missing value exceeds threshold limit {MIN_NB_MISSING_DATA}',col) 
-            warning_msg = raise_warning(PreProcessingChecks.N_MISSING_DATA_ABOVE_THRESHOLD,
-                                        feature_name, n_missing_data,
-                                        min_nb_missing_data)
+        if self._min_nb_missing_samples is None:
+            success = None
         else:
-            success = True
-            warning_msg ='Test passed'
+            if threshold is not None:
+                threshold = self._min_nb_missing_samples
+            _renamed_feature_name = self._get_feature_defined_in_format_file(view_name,
+                                                                            feature_name)
+            _column = self._data_frame[_renamed_feature_name]
+            _feature_format_ref = self._file_format_ref[view_name][feature_name]
+            
+            min_nb_missing_data = math.ceil((threshold/100)*_column.shape[0])
 
-        #report['check_missing_values_limit'] = report_details
-        self._warning_logger.write_checking_result(success, warning_msg, feature_name)
+            self._warning_logger.write_new_entry(PreProcessingChecks.N_MISSING_DATA_ABOVE_THRESHOLD)
+            n_missing_data = _column.isnull().sum()
+            if (n_missing_data>min_nb_missing_data):
+                success = False
+                #message = critical_warning.display(f'Missing value exceeds threshold limit {MIN_NB_MISSING_DATA}',col) 
+                warning_msg = raise_warning(PreProcessingChecks.N_MISSING_DATA_ABOVE_THRESHOLD,
+                                            feature_name, n_missing_data,
+                                            min_nb_missing_data)
+            else:
+                success = True
+                warning_msg ='Test passed'
+
+            #report['check_missing_values_limit'] = report_details
+            self._warning_logger.write_checking_result(success, warning_msg, feature_name)
         return success
     
     def check_key_variable_compliance(self, 

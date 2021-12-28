@@ -39,7 +39,7 @@ class WarningReportLogger:
             self._report[self._current_entry] = []
         
     def write_checking_result(self,
-                              success: bool=None,
+                              success: bool = None,
                               msg: str = '',
                               feature_name: str = '',
                               view_name: str = ''):
@@ -73,6 +73,7 @@ class WarningReportLogger:
         self._report = {}
 
     def add_exception(self, exception: Exception):
+        self._n_exception += 1
         self._exception_collector.append(exception)
         
     def raise_exception(self):

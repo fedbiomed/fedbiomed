@@ -28,7 +28,7 @@ def parse_yes_no_msg(resp: str) -> bool:
 
 
 def get_data_type_selection_msg(available_data_type: List[Enum],
-                               ign_msg: str = 'ignore this column') -> Tuple[str, int]:
+                                ign_msg: str = 'ignore this column') -> Tuple[str, int]:
     
     #n_available_data_type = len(available_data_type)
     msg = ''
@@ -79,7 +79,8 @@ def _check_if_features_selected(selected_views_features: Dict[str, List[str]]) -
 def ask_select_variable_msg(view_feature_names: Dict[str, List[str]], 
                             selected_views_idx: List[str],
                             selected_views_features: Dict[str, List[str]],
-                            imput_view: str, imput_feature: str) -> str:
+                            imput_view: str,
+                            imput_feature: str) -> str:
     """ for data imputation methods"""
     _is_features_selected = False
     #_is_one_feature_selected = False
@@ -148,7 +149,7 @@ def ask_select_variable_msg(view_feature_names: Dict[str, List[str]],
                 
             else:
                 selected_feature = feature_names[_answer - 1]
-                #selected_views_features[selected_view].append(selected_feature)
+
                 select_unselect(selected_views_features[selected_view],
                                 selected_feature, verbose=True) 
                 
@@ -157,7 +158,7 @@ def ask_select_variable_msg(view_feature_names: Dict[str, List[str]],
                 selected_views_idx.append(selected_view)
             elif selected_view in selected_views_idx:
                 selected_views_idx.remove(selected_view)
-        #_is_one_feature_selected = True
+
         print('end', selected_views_idx, _is_features_selected, _is_one_feature_selected)
 
 def get_select_msg(iterator: Iterator[str], 
@@ -233,8 +234,8 @@ def ask_minimum_of_missing_data() -> int:
     return threshold
   
 def ask_for_variable_to_apply_data_imputation(view_feature_names: Dict[str, List[str]],
-                                              view:str,
-                                              feature:str) -> Dict[str, List[str]]:
+                                              view: str,
+                                              feature: str) -> Dict[str, List[str]]:
     """
     Asks on which variable to apply data imputation method
     """
@@ -287,8 +288,8 @@ def no_methods(*kwargs):
     return None
 
 def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
-                                        view:str,
-                                        view_feature_names: Dict[str, List[str]]=None) -> Dict[str, Any]:
+                                        view: str,
+                                        view_feature_names: Dict[str, List[str]] = None) -> Dict[str, Any]:
     ##
     # variable initialisation
     data_format_file = {}
@@ -297,13 +298,6 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
     dataset_columns_length = len(dataset_columns)
     
     available_data_type = [d_type for d_type in DataType]  # get all available data types
-    
-    # first ask user for minimum number of samples + maximum number of missing data thresholds
-    _min_number_samples = ask_minimum_nb_samples()
-    _min_number_missing_data = ask_minimum_of_missing_data()
-    data_format_file.update({GLOBAL_THRESHOLDS: 
-                                    {'min_nb_samples': _min_number_samples,
-                                     'min_nb_missing_samples': _min_number_missing_data}})
     
     for n_feature, feature in enumerate(dataset_columns):
         print(f'displaying first 10 values of feature {feature} in view: {view} (n_feature: {n_feature+1}/{dataset_columns_length})') 
@@ -326,9 +320,13 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
         else:
             # case where user selected a data type: add data type and info to the format file
             data_format = available_data_type[int(data_format_id)-1]
-            d_type = dataset[feature].dtype  
             # get property of data_type
             data_type_property = utils.get_data_type_propreties(data_format)
+            
+            if data_type_property.date_ambiguity:
+               is_date = ask_if_datetime_variable(feature)
+            d_type = utils.infer_type(dataset[feature], data_format, is_date)  
+            
             # TODO: rename data_type into d_type for consistancy sake
             n_data_type, types = utils.get_data_type(data_format, d_type)
             
@@ -365,10 +363,27 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
     return data_format_file
             
 def get_user_input(msg:str,  n_answers:int) -> str:
-    """"""
+    """
+    Asks user a question contained into msg. User is
+    supposed to enter an integer as a multiple choice question.
+    Eg: how are you?:
+    1) great
+    2) good
+    3) could be worst
+    4) bad
+    Asks the question again if user's input is not an integer
+    and if this integer is not whitin range [1, <n_answers>]
+    
+    Args:
+        msg (str): [description]
+        n_answers (int): [description]
+
+    Returns:
+        str: User's answer
+    """
     is_column_parsed = False
     while not is_column_parsed:
-        #data_format_id = input(f'specify data type for {feature}:\n' + msg )
+
         resp = input(msg)
         if resp.isdigit() and int(resp) <= n_answers and int(resp)>0:
             # check if value passed by user is correct (if it is integer,
@@ -382,10 +397,25 @@ def get_user_input(msg:str,  n_answers:int) -> str:
 
 ### CLI to use when dataset is available
 
-
+def ask_if_datetime_variable(variable_name:str=''):
+    msg = f"Datetime ambiguity: Please specify if variable {variable_name} is a date or not\n"
+    msg += get_yes_no_msg()
+    answer = get_user_input(msg, 2)
+    is_datetime = parse_yes_no_msg(answer)
+    return is_datetime
+    
 def get_from_user_multi_view_dataset_fromat_file(datasets: Dict[str, pd.DataFrame])-> Dict[str, pd.DataFrame]:
     
     data_format_files = {}
+    
+    # first ask user for minimum number of samples + maximum number of missing data thresholds
+    print('+++++++++ Editing Global Thresholds +++++++++++')
+    _min_number_samples = ask_minimum_nb_samples()
+    _min_number_missing_data = ask_minimum_of_missing_data()
+    data_format_files.update({GLOBAL_THRESHOLDS: 
+                                    {'min_nb_samples': _min_number_samples,
+                                     'min_nb_missing_samples': _min_number_missing_data}})
+    
     view_feature_name = get_view_feature_name_from_dataframe(datasets)
     for tabular_data_file in datasets.keys():
         print("++++++++++++++++++++++++++++++++++++++++++++++++++++++")
@@ -414,16 +444,17 @@ def edit_format_file_ref(format_file_ref: Dict[str, Dict[str, Any]]) -> Dict[str
     
     # CLI for editing `format_file_ref`, a file containing information about each variable
     # in a tabular dataset
-    print(f'Now editing format file ref')
+    print(f'+++++++ Now editing format file ref ++++++++++')
     
     ## variables initialization
-    available_categorical_data_types = [t for t in CategoricalDataType]
-    _file_names = list(format_file_ref.keys())
+
+    _file_names = utils.get_view_names(format_file_ref)
+    # removes GLOBAL_TRESHOLDS key from list of keys
+    # (because it is not a view but general parameters)
+        
     _n_tot_files = len(_file_names)
     
     ## messages definition
-    _data_type_selection_msg, ign_key = get_data_type_selection_msg(available_categorical_data_types)
-    
     _messages = {
         'yes_or_no': get_yes_no_msg(),
         'edit': 'Which field should be modified?\n',
@@ -451,16 +482,14 @@ def edit_format_file_ref(format_file_ref: Dict[str, Dict[str, Any]]) -> Dict[str
                 feature_content = edit_feature_format_file_ref(feature_content,
                                                                feature_name,
                                                                view_feature_names,
-                                                               available_categorical_data_types,
-                                                               _messages,
-                                                               ign_key)
+                                                               _messages)
             format_file_ref[_file_names[i_file]].update({feature_name: feature_content})
             
     return format_file_ref
 
 def create_msg_action_selection(data_type_propreties: Enum) -> Tuple[str, int, Dict[int, Callable], List[Any]]:
     # create edit selection message for user given data type
-    # number of possible action depend of data type properties
+    # number of possible actions that depend of data type properties
     msg = ""
     action_counter = 1
     actions = {}
@@ -529,25 +558,6 @@ def select_action(
     
     return new_field, is_cancelled
 
-def isfloat(value:str) ->bool:
-    """checks if string represents a float or int"""
-    is_float = True
-    try:
-        float(value)
-    except ValueError as e:
-        is_float = False
-    return is_float
-
-def is_datetime(date: str) -> bool:
-    """checks if date is a date"""
-    is_date_parsable = True
-    try:
-        dateutil.parser.parse(date)
-    except (ParserError, ValueError) as err:
-        is_date_parsable = False
-        
-    return is_date_parsable
-
 def cancel_operation():
     print("operation cancelled")
         
@@ -555,7 +565,7 @@ def ask_for_lower_bound(*kwargs) -> Dict[str, float]:
     _is_entered_value_correct = False
     while not _is_entered_value_correct:
         lower_bound = input('enter lower bound')
-        if isfloat(lower_bound) or is_datetime(lower_bound):
+        if utils.isfloat(lower_bound) or utils.is_datetime(lower_bound):
             # check if entered value is correct (is a numerical value)
             _is_entered_value_correct = True
         else:
@@ -567,7 +577,7 @@ def ask_for_upper_bound(*kwargs) -> Dict[str, float]:
     _is_entered_value_correct = False
     while not _is_entered_value_correct:
         upper_bound = input('enter upper bound')
-        if isfloat(upper_bound) or is_datetime(upper_bound):
+        if utils.isfloat(upper_bound) or utils.is_datetime(upper_bound):
             # check if entered value is correct (is a numerical value)
             _is_entered_value_correct = True
         else:
@@ -581,7 +591,7 @@ def _ask_for_data_type(data_type: Enum) -> Enum:
     """
     
     _available_data_type = [t for t in data_type]  # get all keys contain in data_type
-    n_avail_data_type = len(_available_data_type)
+    
     msg, _n_answer = get_data_type_selection_msg(data_type, ign_msg="cancel operation")
     data_type_selection = get_user_input(msg, _n_answer)
     
@@ -603,7 +613,7 @@ def ask_for_data_type(*kwargs) -> Dict[str, Any]:
             # if subtypes are available
             new_data_type= _ask_for_data_type(new_data_format.value)
             new_values = list(map(lambda x: str(x), new_data_type.value))
-            updates.update({'data_type': new_data_type, 'values': new_values})
+            updates.update({'data_type': new_data_type.name, 'values': new_values})
         else:
             new_values = list(map(lambda x: str(x), new_data_format.value))
             updates.update({'values': new_values})
@@ -667,16 +677,13 @@ def ask_for_date_format(*kwargs) -> Dict[str, Any]:
 def edit_feature_format_file_ref(feature_content: Dict[str, Any],
                                   feature_name: str,
                                   view_feature_name: Dict[str, Dict[str, Any]],
-                                  available_categorical_data_type: List[Enum],
-                                  messages: Dict[str, str],
-                                  ignore_keystroke: int) -> Dict[str, Any]:
+                                  messages: Dict[str, str]) -> Dict[str, Any]:
     """Edits a specific feature that belongs to a specific view within a format file"""
     
 
     _is_feature_unparsed = True  
     _is_cancelled = False  # whether parsing of current column has been cancelled or not
     _is_first_edit = True
-    _avail_data_type_properties = [dtype for dtype in DataTypeProperties]
     
     # iterate over number of feature contained in view, and ask for each feature if changes are needed
     while _is_feature_unparsed:
@@ -686,7 +693,6 @@ def edit_feature_format_file_ref(feature_content: Dict[str, Any],
             _f_answer = get_user_input(f"Edit variable: {feature_name}?\n" + messages['yes_or_no'], 2)
             # ask if user wants to edit feature variables
             _f_answer = parse_yes_no_msg(_f_answer)
-            _is_operation_cancelled = False  # for cancelling feature edition
             _is_first_edit = False
         if _f_answer:
             # case where user wants to edit the current feature
@@ -707,8 +713,6 @@ def edit_feature_format_file_ref(feature_content: Dict[str, Any],
                                                                   _edit_selection,
                                                                   possible_actions,
                                                                   view_feature_name
-                                                                  #available_categorical_data_type,
-                                                                  #messages['data_type_select']
                                                                 )
 
             if not _is_cancelled:
