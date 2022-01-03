@@ -324,7 +324,11 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
             data_type_property = utils.get_data_type_propreties(data_format)
             
             if data_type_property.date_ambiguity:
-               is_date = ask_if_datetime_variable(feature)
+                is_date = ask_if_datetime_variable(feature)
+            elif data_type_property.date_format:
+                is_date = True  # if data type has a date format, then it is a datetime variable
+            else:
+                is_date = False  # should not occur
             d_type = utils.infer_type(dataset[feature], data_format, is_date)  
             
             # TODO: rename data_type into d_type for consistancy sake
