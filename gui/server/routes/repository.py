@@ -59,34 +59,33 @@ def list_data_path():
         table.clear_cache()
 
         for file in files:
-            fullpath = os.path.join(dpath, file)
-            # Get dataset registered with full path
-            dataset = table.get(query.path == fullpath)
+            if not file.startswith('.'):
+                fullpath = os.path.join(dpath, file)
+                # Get dataset registered with full path
+                dataset = table.get(query.path == fullpath)
 
-            stats = os.stat(fullpath)
-            cdate = datetime.datetime.utcfromtimestamp(stats.st_ctime).strftime('%d/%m/%Y %H:%M')
-            size = stats.st_size
-            # Folder that includes any data file
-            includes = []
-            if not dataset and os.path.isdir(fullpath):
-                includes = table.search(query.path.matches('^' + os.path.join(fullpath, '')))
+                stats = os.stat(fullpath)
+                cdate = datetime.datetime.utcfromtimestamp(stats.st_ctime).strftime('%d/%m/%Y %H:%M')
+                size = stats.st_size
+                # Folder that includes any data file
+                includes = []
+                if not dataset and os.path.isdir(fullpath):
+                    includes = table.search(query.path.matches('^' + os.path.join(fullpath, '')))
 
-            # This is the path that will be displayed on the GUI 
-            # It is created as list to be able to use it with `os.path.join`
-            exact_path = [*req_path, file]
-            extension = os.path.splitext(fullpath)[1]
+                # This is the path that will be displayed on the GUI
+                # It is created as list to be able to use it with `os.path.join`
+                exact_path = [*req_path, file]
+                extension = os.path.splitext(fullpath)[1]
+                path_type = 'file' if os.path.isfile(fullpath) else 'dir'
 
-            path_type = 'file' if os.path.isfile(fullpath) else 'dir'
-
-            res['files'].append({"type": path_type,
-                                 "name": file,
-                                 "path": exact_path,
-                                 "extension": extension,
-                                 'registered': dataset,
-                                 'includes': includes,
-                                 'created': cdate,
-                                 'size': size})
-
+                res['files'].append({"type": path_type,
+                                     "name": file,
+                                     "path": exact_path,
+                                     "extension": extension,
+                                     'registered': dataset,
+                                     'includes': includes,
+                                     'created': cdate,
+                                     'size': size})
         return response(res), 200
 
     else:

@@ -5,11 +5,13 @@ import { ReactComponent as LaunchIcon} from '../assets/img/launch.svg'
 import {Link} from "react-router-dom"
 import {useNavigate} from "react-router-dom";
 import {connect} from 'react-redux'
+import {ALLOWED_EXTENSIONS} from "../constants";
 
 
 export const RepositoryItem = (props) => {
 
     const navigator = useNavigate()
+    //const [displayAddButton, setDisplayAddButton] = React.useState(displayAdd(props.item))
 
     const onAdd = (e, item) => {
             props.dispatch({type:'NEW_DATASET_TO_ADD' ,
@@ -24,6 +26,25 @@ export const RepositoryItem = (props) => {
             }else{
                 navigator('/datasets/add-dataset')
             }
+    }
+
+    /**
+     * Check display add dataset button will be displayed
+     * @param {object} item
+     * @returns {boolean}
+     */
+    const displayAdd = (item) => {
+        if(props.mode === 'repository'){
+            if(item.type === 'dir'){
+                return true
+            }else if(item.type === 'file' && ALLOWED_EXTENSIONS.includes(item.extension)){
+                return true
+            }else{
+                return false
+            }
+        }else{
+            return false
+        }
     }
 
     return (
@@ -60,7 +81,7 @@ export const RepositoryItem = (props) => {
                 <div className="icon right action-display" title="This item is registered as dataset">
                     <div className="dot empty"/>
                 </div>
-            ) : props.displayAdd ? (
+            ) : displayAdd(props.item) ? (
                         <div title="Add as dataset" style={{width:'auto'}} className="icon right action-add"
                              onClick={(event) => onAdd(event,props.item)}>
                             <div className={"select-sm-button"}>

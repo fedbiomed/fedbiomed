@@ -11,6 +11,7 @@ import {ReactComponent as ListIcon} from "../assets/img/list-view.svg";
 import { ReactComponent as HomeIcon} from '../assets/img/home.svg';
 import { ReactComponent as BackIcon} from "../assets/img/back.svg";
 
+
 const Repository = (props) => {
 
     const [selected, setSelected] = React.useState(null)
@@ -21,7 +22,7 @@ const Repository = (props) => {
     const mainRepository = React.useRef(null)
     const getFiles = props.getFiles
     const [view, setView] = React.useState(props.view ? props.view : 'list')
-
+    const [mode, setMode] = React.useState(props.mode ? props.mode : 'repository')
     /**
      * Hook for getting files in the repository
      */
@@ -130,6 +131,7 @@ const Repository = (props) => {
             props.getFiles({path: item.path})
         }
     }
+
     return (
         <React.Fragment>
             { props.mode === null ? (
@@ -208,7 +210,7 @@ const Repository = (props) => {
                                                         onAddActionClick={onAddActionClick}
                                                         onItemAddClick={props.onItemAddClick ? props.onItemAddClick : null}
                                                         actionText={props.actionText ? props.actionText : 'Load Dataset'}
-                                                        displayAdd={props.mode === "preview" || props.mode === "file-browser" ? false : true}
+                                                        mode={mode}
                                                     />
                                                 )
                                             }
@@ -249,7 +251,7 @@ const Repository = (props) => {
                                                         onItemClick={onListItemClick}
                                                         level={props.repository.level}
                                                         active={item.active}
-                                                        displayAdd={props.mode === "preview" || props.mode === "file-browser" ? false : true}
+                                                        mode={mode}
                                                     />
                                                 )
                                             })

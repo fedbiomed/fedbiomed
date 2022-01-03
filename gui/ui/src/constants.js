@@ -22,5 +22,5 @@ export const ADD_DATASET_ERROR_MESSAGES = {
 }
 
 //Allowed file extensions for data loader
-export const ALLOWED_EXTENSIONS = ['csv']
+export const ALLOWED_EXTENSIONS = ['.csv', '.txt']
 

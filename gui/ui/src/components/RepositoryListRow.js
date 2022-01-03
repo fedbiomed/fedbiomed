@@ -5,6 +5,7 @@ import { ReactComponent as LaunchIcon} from '../assets/img/launch.svg'
 
 import {Link, useNavigate} from "react-router-dom";
 import {useDispatch} from "react-redux";
+import {ALLOWED_EXTENSIONS} from "../constants";
 
 export const RepositoryListRow = (props) => {
      const navigator = useNavigate()
@@ -24,6 +25,27 @@ export const RepositoryListRow = (props) => {
                 navigator('/datasets/add-dataset')
             }
     }
+
+    /**
+     * Check display add dataset button will be displayed
+     * @param {object} item
+     * @returns {boolean}
+     */
+    const displayAdd = (item) => {
+
+        if(props.mode === 'repository'){
+            if(item.type === 'dir'){
+                return true
+            }else if(item.type === 'file' && ALLOWED_EXTENSIONS.includes(item.extension)){
+                return true
+            }else{
+                return false
+            }
+        }else{
+            return false
+        }
+    }
+
     return (
         <tr
             className={`${props.active ? 'active' : ''}`}
@@ -51,7 +73,7 @@ export const RepositoryListRow = (props) => {
             <td className={"size"}>{props.item.size}KB</td>
             <td className={"date"}>{props.item.created}</td>
             <td className={"action"}>
-                { props.displayAdd && !props.item.registered ? (
+                { displayAdd(props.item) && !props.item.registered ? (
                         <div title="Add as dataset" style={{width:'auto'}} className="icon right action-add"
                              onClick={(event) => onAdd(event,props.item)}>
                             <div className={"button"}>
