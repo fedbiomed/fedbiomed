@@ -35,8 +35,9 @@ usage() {
 Usage: ${0##*/} [-x]
 
   -h, --help            this help
+  -n, --dryrun          do nothing, just print what the script will do
   -x, --experimental    (optional) on MacOSX, install (yet experimental) environments
-                        from *-macosx.yaml files, which relies on the mamba command
+                        from *-macosx.yaml files
 "
 }
 
@@ -65,7 +66,13 @@ function activate_environment() {
 
     echo "=== Verifying/installing conda environment: $file"
 
-    ${CONDA_CMD} env update --file "$file" 2>/dev/null
+    if [ $DRYRUN -eq 1 ]
+    then
+        echo conda env update --file "$file"
+    else
+        conda env update --file "$file" 2>/dev/null
+    fi
+
 }
 
 #
@@ -75,7 +82,7 @@ basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit
 
 EXPERIMENTAL=0
-CONDA_CMD=conda
+DRYRUN=0
 # decode arguments
 while (($# > 0)); do
     case $1 in
@@ -86,11 +93,15 @@ while (($# > 0)); do
         -x | --experimental )
             EXPERIMENTAL=1
             ;;
+        -n | --dryrun)
+            # do nothing
+            DRYRUN=1
+            ;;
         -* )
-            bad_usage "Unknown option: $1"
+            bad_usage "unknown option: $1"
             ;;
         * )
-            bad_usage "no parameter allowed: $1"
+            bad_usage "no extra parameter allowed: $1"
             ;;
     esac
     shift
@@ -101,20 +112,13 @@ if [ $EXPERIMENTAL -eq 1 ]
 then
     case $(uname) in
         Darwin )
-            # verify that mamba is installed
-            c=$(which mamba)
-
-            if [ -z "$c" ]
-            then
-                echo "You need mamba then using -x on MacOSX (conda install -c conda-forge mamba)"
-                exit 1
-            fi
-            CONDA_CMD=$c
+        # this is OK, -x flag is for macOSX only
+        ;;
+        * )
+            bad_usage "-x flag should only be used for macOSX"
             ;;
     esac
 fi
-
-echo $CONDA_CMD
 
 # configure/update all conda environements
 for i in ${fed_envs[@]}
