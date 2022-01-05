@@ -35,7 +35,8 @@ usage() {
 Usage: ${0##*/} [-x]
 
   -h, --help            this help
-  -n, --dryrun          do nothing, just print what the script will do
+  -n, --dry-run         do nothing, just print what the script will do
+  -c, --clean           remove environments before reinstallating it
   -x, --experimental    (optional) on MacOSX, install (yet experimental) environments
                         from *-macosx.yaml files
 "
@@ -47,6 +48,18 @@ ERROR: $*
 "
     usage
     exit 1
+}
+
+function clean_environment() {
+
+    echo "=== Cleaning conda environment: $1"
+
+    if [ $DRYRUN -eq 1 ]
+    then
+        echo conda remove --name $1 --all --yes
+    else
+        conda remove --name $1 --all --yes
+    fi
 }
 
 function activate_environment() {
@@ -83,6 +96,7 @@ cd $basedir || exit
 
 EXPERIMENTAL=0
 DRYRUN=0
+CLEAN=0
 # decode arguments
 while (($# > 0)); do
     case $1 in
@@ -90,10 +104,13 @@ while (($# > 0)); do
             usage
             exit 0
             ;;
+        -c | --clean )
+            CLEAN=1
+            ;;
         -x | --experimental )
             EXPERIMENTAL=1
             ;;
-        -n | --dryrun)
+        -n | --dry-run)
             # do nothing
             DRYRUN=1
             ;;
@@ -118,6 +135,17 @@ then
             bad_usage "-x flag should only be used for macOSX"
             ;;
     esac
+fi
+
+if [ $CLEAN -eq 1 ]
+then
+    # clean all envs
+    conda deactivate
+
+    for i in ${fed_envs[@]}
+    do
+        clean_environment fedbiomed-$i
+    done
 fi
 
 # configure/update all conda environements
