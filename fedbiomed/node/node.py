@@ -7,12 +7,13 @@ from fedbiomed.common import json
 from fedbiomed.common.logger import logger
 from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.messaging import Messaging
-from fedbiomed.common.component_type import ComponentType
+from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.round import Round
-from fedbiomed.node.data_manager import Data_manager
+from fedbiomed.node.data_manager import DataManager
+from fedbiomed.node.model_manager import ModelManager
 
 import validators
 
@@ -22,12 +23,15 @@ class Node:
     with researcher through Messager, and executing / parsing task
     requested by researcher stored in a queue.
     """
-    def __init__(self, data_manager: Data_manager):
+    def __init__( self,
+                  data_manager: DataManager,
+                  model_manager: ModelManager):
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
         self.messaging = Messaging(self.on_message, ComponentType.NODE,
                                    environ['NODE_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
         self.data_manager = data_manager
+        self.model_manager = model_manager
         self.rounds = []
 
     def add_task(self, task: dict):
@@ -106,44 +110,37 @@ class Node:
                       'databases': databases,
                       'count' : len(databases),
                      }).get_dict())
+            elif command == 'model-status':
+                # Check is model approved
+                self.model_manager.reply_model_status_request(request, self.messaging)
+
             else:
                 raise NotImplementedError('Command not found')
         except decoder.JSONDecodeError:
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.messaging.send_message(NodeMessages.reply_create(
-                {'success': False,
-                 'command': "error",
-                 'node_id': environ['NODE_ID'],
-                 'researcher_id': resid,
-                 'msg': "Not able to deserialize the message"}).get_dict())
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg = "Not able to deserialize the message",
+                            researcher_id= resid)
         except NotImplementedError:
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.messaging.send_message(NodeMessages.reply_create(
-                {'success': False,
-                 'command': "error",
-                 'node_id': environ['NODE_ID'],
-                 'researcher_id': resid,
-                 'msg': f"Command `{command}` is not implemented"}).get_dict())
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg = f"Command `{command}` is not implemented",
+                            researcher_id= resid)
         except KeyError:
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.messaging.send_message(NodeMessages.reply_create(
-                {'success': False,
-                 'command': "error",
-                 'node_id': environ['NODE_ID'],
-                 'researcher_id': resid,
-                 'msg': "'command' property was not found"}).get_dict())
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg = "'command' property was not found",
+                            researcher_id= resid)
         except TypeError:  # Message was not serializable
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.messaging.send_message(NodeMessages.reply_create(
-                {'success': False,
-                 'command': "error",
-                 'node_id': environ['NODE_ID'],
-                 'researcher_id': resid,
-                 'msg': 'Message was not serializable'}).get_dict())
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg = 'Message was not serializable',
+                            researcher_id= resid)
+
 
     def parser_task(self, msg: Union[bytes, str, Dict[str, Any]]):
         """ This method parses a given task message to create a round instance
@@ -247,3 +244,14 @@ class Node:
             block (bool, optional): Defaults to False.
         """
         self.messaging.start(block)
+
+
+    def send_error(self, errnum: ErrorNumbers, extra_msg: str = "", researcher_id : str = "<unknown>"):
+        """
+        send an error message through MQTT
+
+        (it is a wrapper of Messaging.send_error() )
+        """
+
+        #
+        self.messaging.send_error(errnum, extra_msg = extra_msg, researcher_id = researcher_id)

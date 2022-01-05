@@ -10,7 +10,6 @@ class FedAverage(Aggregator):
     def __init__(self):
         super(FedAverage, self).__init__()
         self.aggregator_name = "FedAverage"
-        self.aggregator_params = None
 
     def aggregate(self, model_params: list, weights: list) -> Dict:
         """aggregates  local models sent by participating nodes into
@@ -27,10 +26,3 @@ class FedAverage(Aggregator):
         weights = self.normalize_weights(weights)
         return federated_averaging(model_params, weights)
 
-    def save_state(self) -> Dict[str, Any]:
-        state = {
-            "class": type(self).__name__,
-            "module": self.__module__,
-            "parameters": self.aggregator_params
-        }
-        return state

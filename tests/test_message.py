@@ -1,7 +1,15 @@
+# Managing NODE, RESEARCHER environ mock before running tests
+from testsupport.delete_environ import delete_environ
+# Delete environ. It is necessary to rebuild environ for required component
+delete_environ()
+# overload with fake environ for tests
+import testsupport.mock_common_environ
+
 import unittest
 from dataclasses import dataclass
 
 import fedbiomed.common.message as message
+from fedbiomed.common.constants import ErrorNumbers
 
 class TestMessage(unittest.TestCase):
     '''
@@ -29,11 +37,14 @@ class TestMessage(unittest.TestCase):
             message.TrainReply,
             message.AddScalarReply,
             message.LogMessage,
+            message.ErrorMessage,
             message.SearchRequest,
             message.PingRequest,
             message.TrainRequest,
             message.ListReply,
-            message.ListRequest
+            message.ListRequest,
+            message.ModelStatusReply,
+            message.ModelStatusRequest
             ]
 
         # test minimal python (only affectation) to insure
@@ -864,6 +875,114 @@ class TestMessage(unittest.TestCase):
 
         pass
 
+    def test_modelstatusreply(self):
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = True,
+
+            researcher_id           = 'toto',
+            node_id                 = 'titi',
+            job_id                  = 'titi',
+            success                 = True,
+            approval_obligation     = True,
+            is_approved             = True,
+            msg                     =  'sdrt',
+            model_url               = 'url',
+            command                 = 'do_it')
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = False,
+
+            researcher_id           = 'toto',
+            node_id                 = 12334,
+            job_id                  = 'titi',
+            success                 = True,
+            approval_obligation     = True,
+            is_approved             = True,
+            msg                     = 'sdrt',
+            model_url               = 'url',
+            command                 = 'do_it')
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = False,
+
+            researcher_id           = 12344,
+            node_id                 = '12334',
+            job_id                  = 'titi',
+            success                 = True,
+            approval_obligation     = True,
+            is_approved             = True,
+            msg                     =  'sdrt',
+            model_url               = 'url',
+            command                 = 'do_it')
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = False,
+
+            researcher_id           = '12344',
+            node_id                 = '12334',
+            job_id                  = 'titi',
+            success                 = True,
+            approval_obligation     = True,
+            is_approved             = 'True',
+            msg                     =  'sdrt',
+            model_url               = 'url',
+            command                 = 'do_it')
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = False,
+
+            researcher_id           = '12344',
+            node_id                 = '12334',
+            job_id                  = 'titi',
+            success                 = True,
+            approval_obligation     = 'True',
+            is_approved             =  True,
+            msg                     =  'sdrt',
+            model_url               = 'url',
+            command                 = 'do_it')
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = False,
+
+            researcher_id           = 333,
+            node_id                 = 1212,
+            job_id                  = False,
+            success                 = 'not a bool',
+            approval_obligation     = True,
+            is_approved             = True,
+            msg                     =  'sdrt',
+            model_url               = 123123,
+            command                 = True)
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = False,
+
+            researcher_id           = 333,
+            node_id                 = 1212,
+            job_id                  = False,
+            success                 = 'not a bool',
+            approval_obligation     = True,
+            is_approved             = True,
+            msg                     =  'sdrt')
+
+        self.check_class_args(
+            message.ModelStatusReply,
+            expected_result = False,
+
+            success                 = 'not a bool',
+            approval_obligation     = True,
+            is_approved             = True,
+            msg                     =  'sdrt')
+
+
 
     def test_logmessage(self):
 
@@ -975,6 +1094,121 @@ class TestMessage(unittest.TestCase):
             node_id       = 'titi',
             level         = 'INFO',
             msg           = [ 1 , 2 ],
+            command       = False)
+
+
+        pass
+
+    def test_errormessage(self):
+
+        # well formatted message
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = True,
+
+            researcher_id = 'toto',
+            node_id       = 'titi',
+            errnum        = ErrorNumbers.FB100,
+            extra_msg     = 'this is an error message',
+            command       = 'log'
+        )
+
+
+        # bad param number
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            node_id       = 'titi')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            errnum       = ErrorNumbers.FB100)
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            extra_msg       = 'this is an error message')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            command       = 'log')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            node_id       = 'titi',
+            errnum        = ErrorNumbers.FB100,
+            extra_msg     = 'this is an error message',
+            command       = 'log',
+            extra_arg     = '???' )
+
+
+        # bad param type
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = False,
+            node_id       = 'titi',
+            errnum        = ErrorNumbers.FB100,
+            extra_msg     = 'this is an error message',
+            command       = 'log'
+        )
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            node_id       = False,
+            errnum        = ErrorNumbers.FB100,
+            extra_msg     = 'this is an error message',
+            command       = 'log'
+        )
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            node_id       = 'titi',
+            errnum        = False,
+            extra_msg     = 'this is an error message',
+            command       = 'log'
+        )
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            node_id       = 'titi',
+            errnum        = ErrorNumbers.FB100,
+            extra_msg     = [ 1 , 2 ],
+            command       = 'log')
+
+        self.check_class_args(
+            message.ErrorMessage,
+            expected_result = False,
+
+            researcher_id = 'toto',
+            node_id       = 'titi',
+            errnum        = ErrorNumbers.FB100,
+            extra_msg     = [ 1 , 2 ],
             command       = False)
 
 
@@ -1376,6 +1610,55 @@ class TestMessage(unittest.TestCase):
 
         pass
 
+
+    def test_modelstatusrequest(self):
+
+        self.check_class_args(
+            message.ModelStatusRequest,
+            expected_result = True,
+
+            researcher_id   = 'toto',
+            job_id          = 'sdsd',
+            model_url       = 'do_it',
+            command         = 'command-dummy' )
+
+
+        self.check_class_args(
+            message.ModelStatusRequest,
+            expected_result = False,
+
+            researcher_id   = True,
+            job_id          = 'sdsd',
+            model_url       = 'do_it',
+            command         = 'command-dummy' )
+
+        self.check_class_args(
+            message.ModelStatusRequest,
+            expected_result = False,
+
+            researcher_id   = 'toto',
+            job_id          = 122323,
+            model_url       = 'do_it',
+            command         = 'command-dummy' )
+
+        self.check_class_args(
+            message.ModelStatusRequest,
+            expected_result = False,
+
+            researcher_id   = 'toto',
+            job_id          = 'sdsd',
+            model_url       = 12323,
+            command         = 'command-dummy' )
+
+        self.check_class_args(
+            message.ModelStatusRequest,
+            expected_result = False,
+
+            researcher_id   = 'ttot',
+            job_id          = 'sdsd',
+            model_url       = 'do_it',
+            command         = False )
+
     # test ResearcherMessage and NodeMessagess classes
     # (next 9 tests)
     def test_trainmessages(self):
@@ -1498,7 +1781,7 @@ class TestMessage(unittest.TestCase):
         self.assertIsInstance( r, message.PingRequest )
 
 
-    def test_errormessages(self):
+    def test_logmessages(self):
 
         # error
         params = {
@@ -1513,6 +1796,22 @@ class TestMessage(unittest.TestCase):
 
         r = message.NodeMessages.reply_create( params )
         self.assertIsInstance( r, message.LogMessage )
+
+    def test_errormessages(self):
+
+        # error
+        params = {
+            "researcher_id" : 'toto' ,
+            "node_id"       : 'titi' ,
+            "errnum"        : ErrorNumbers.FB100,
+            "extra_msg"     : 'bim boum badaboum',
+            "command"       : 'error'
+        }
+        r = message.ResearcherMessages.reply_create( params )
+        self.assertIsInstance( r, message.ErrorMessage )
+
+        r = message.NodeMessages.reply_create( params )
+        self.assertIsInstance( r, message.ErrorMessage )
 
     def test_addscalarmessages(self):
 
@@ -1577,6 +1876,38 @@ class TestMessage(unittest.TestCase):
             self.assertTrue( True, "unknown request message type for node detected")
         pass
 
+    def test_model_status_messages(self):
+
+        params_reply =  {
+            'researcher_id'           : 'toto',
+            'node_id'                 : 'titi',
+            'job_id'                  : 'titi',
+            'success'                 : True,
+            'approval_obligation'     : True,
+            'is_approved'             : True,
+            'msg'                     :  'sdrt',
+            'model_url'               : 'url',
+            'command'                 : 'model-status'
+        }
+
+        r = message.ResearcherMessages.reply_create( params_reply )
+        self.assertIsInstance( r, message.ModelStatusReply )
+
+        r = message.NodeMessages.reply_create( params_reply )
+        self.assertIsInstance( r, message.ModelStatusReply )
+
+        params_request = {
+            'researcher_id'   : 'toto',
+            "job_id"          : 'titi',
+            "model_url"       : 'url-dummy',
+            "command"         : 'model-status'
+            }
+
+        r = message.ResearcherMessages.request_create( params_request )
+        self.assertIsInstance( r, message.ModelStatusRequest )
+
+        r = message.NodeMessages.request_create( params_request )
+        self.assertIsInstance( r, message.ModelStatusRequest )
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

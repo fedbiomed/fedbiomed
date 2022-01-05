@@ -7,17 +7,16 @@ import testsupport.mock_common_environ
 from fedbiomed.node.environ    import environ
 
 
-from fedbiomed.node.data_manager import Data_manager
+from fedbiomed.node.data_manager import DataManager
 import unittest
 import os
-import warnings
 
 import inspect
 
 print(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))))
 
 
-class TestLoadDataSets(unittest.TestCase):
+class TestDataManager(unittest.TestCase):
     """
     Test dataset loading
     Args:
@@ -34,13 +33,12 @@ class TestLoadDataSets(unittest.TestCase):
             "test-data"
             )
 
-        # Ignore ResoruceWarning, this action does not change test results
-        warnings.simplefilter('ignore', category=ResourceWarning)
-        self.data_manager = Data_manager()
+        self.data_manager = DataManager()
         pass
 
     # after the tests
     def tearDown(self):
+        self.data_manager.db.close()
         os.remove(environ['DB_PATH'])
         pass
 

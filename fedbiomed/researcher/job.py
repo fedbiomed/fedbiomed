@@ -4,7 +4,7 @@ import sys
 import tempfile
 import shutil
 import atexit
-from typing import Union, Callable, List, Dict
+from typing import Union, Callable, List, Dict, Type
 import uuid
 import re
 import time
@@ -12,15 +12,19 @@ import copy
 
 import validators
 
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.logger import logger
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.researcher.filetools import  create_unique_link, \
+            create_unique_file_link
+from fedbiomed.researcher.exceptions import TrainingException
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.datasets import FederatedDataSet
-
+from fedbiomed.common.message import ResearcherMessages
 
 class Job:
     """
@@ -30,11 +34,12 @@ class Job:
     def __init__(self,
                  reqs: Requests = None,
                  nodes: dict = None,
-                 model: Union[str, Callable] = None,
+                 model: Union[Type[Callable], Callable] = None,
                  model_path: str = None,
                  training_args: dict = None,
                  model_args: dict = None,
-                 data: FederatedDataSet = None):
+                 data: FederatedDataSet = None,
+                 keep_files_dir: str = None):
 
         """ Constructor of the class.
 
@@ -47,8 +52,8 @@ class Job:
             Defaults to None.
             nodes (dict, optional): a dict of node_id containing the
             nodes used for training
-            model (Union[str, Callable], optional): name of the model class
-            to use for training
+            model (Union[Type[Callable], Callable], optional): name of the model class
+            or object (instance of the model class) to use for training.
             model_path (string, optional) : path to file containing model
             class code
             training_args (dict, optional): contains training parameters:
@@ -56,6 +61,9 @@ class Job:
             model_args (dict, optional): contains output and input feature
                                         dimension.Defaults to None.
             data (FederatedDataset, optional): . Defaults to None.
+            keep_files_dir(str, optional): directory for storing files created by the job
+                that we want to keep beyond the execution of the job.
+                Defaults to None, files are not kept after the end of the job.
 
         """
         self._id = str(uuid.uuid4())  # creating a unique job id
@@ -65,7 +73,16 @@ class Job:
         self._model_args = model_args
         self._nodes = nodes
         self._training_replies = {}  # will contain all node replies for every round
-        self._model_file = None
+        self._model_file = None # path to local file containing model code
+        self._model_params_file = None # path to local file containing current version of aggregated params
+
+        if keep_files_dir:
+            self._keep_files_dir = keep_files_dir
+        else:
+            self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
+            atexit.register(lambda: shutil.rmtree(self._keep_files_dir)) # remove directory
+                # when script ends running (replace
+                # `with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as self._keep_files_dir: `)
 
         if reqs is None:
             self._reqs = Requests()
@@ -76,10 +93,16 @@ class Job:
         self._data = data
 
         # Check dataset quality
-        if data is not None:
+        if self._data is not None:
 
             self.check_data_quality()
 
+
+        # Model is mandatory
+        if model is None:
+            mess = "Missing model class name or instance in Job arguments"
+            logger.critical(mess)
+            raise NameError(mess)
 
         # handle case when model is in a file
         if model_path is not None:
@@ -96,6 +119,14 @@ class Job:
                 logger.critical("Cannot import class " + model + " from path " +  model_path + " - Error: " + str(e))
                 sys.exit(-1)
 
+        # check class is defined
+        try:
+            _ = inspect.isclass(model)
+        except NameError as e:
+            mess = f"Cannot find training plan for Job, model class {model} is not defined"
+            logger.critical(mess)
+            raise NameError(mess)
+
         # create/save model instance (ie TrainingPlan)
         if inspect.isclass(model):
             # case if `model` is a class
@@ -107,37 +138,36 @@ class Job:
             # also handle case where model is an instance of a class
             self.model_instance = model
 
-        self.repo = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
-        tmpdirname = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
-        atexit.register(lambda: shutil.rmtree(tmpdirname))  # remove `tmpdirname`
-        # directory when script will end running (replace
-        # `with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmpdirname: `)
-        self._model_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.py'
+
+        # find the name of the class in any case
+        # (it is `model` only in the case where `model` is not an instance)
+        self._model_class = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
+
+        self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
+
+        self._model_file = self._keep_files_dir + '/my_model_' + str(uuid.uuid4()) + '.py'
         try:
             self.model_instance.save_code(self._model_file)
         except Exception as e:
             logger.error("Cannot save the model to a local tmp dir : " + str(e))
             return
-
-        # upload my_model_xxx.py on HTTP server (contains model definition)
+        # upload my_model_xxx.py on repository server (contains model definition)
         repo_response = self.repo.upload_file(self._model_file)
-
         self._repository_args['model_url'] = repo_response['file']
 
-        params_file = tmpdirname + '/my_model_' + str(uuid.uuid4()) + '.pt'
+        self._model_params_file = self._keep_files_dir + '/aggregated_params_init_' + str(uuid.uuid4()) + '.pt'
         try:
-            self.model_instance.save(params_file)
+            self.model_instance.save(self._model_params_file)
         except Exception as e:
             logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
             return
-
-        # upload my_model_xxx.pt on HTTP server (contains model parameters)
-        repo_response = self.repo.upload_file(params_file)
+        # upload aggregated_params_init_xxx.pt on repository server (contains model parameters)
+        repo_response = self.repo.upload_file(self._model_params_file)
         self._repository_args['params_url'] = repo_response['file']
 
         # (below) regex: matches a character not present among "^", "\", "."
         # characters at the end of string.
-        self._repository_args['model_class'] = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
+        self._repository_args['model_class'] = self._model_class
 
         # Validate fields in each argument
         self.validate_minimal_arguments(self._repository_args,
@@ -163,6 +193,14 @@ class Job:
         return self.model_instance
 
     @property
+    def model_class(self):
+        return self._model_class
+
+    @property
+    def model_file(self):
+        return self._model_file
+
+    @property
     def requests(self):
         return self._reqs
 
@@ -185,6 +223,68 @@ class Job:
     @training_args.setter
     def training_args(self, training_args: dict):
         self._training_args = training_args
+
+    @property
+    def model_file(self):
+        return self._model_file
+
+
+
+    # TODO: After refactoring experiment this method can be created
+    # directly in the Experiment class. Since it requires
+    # node ids and model_url to send model approve status it is created
+    # in job class
+    def check_model_is_approved_by_nodes(self):
+
+        """ Method for checking whether model is approved or not.  This method send
+            `model-status` request to the nodes. It should be run before running experiment.
+            So, researchers can find out if their model has been approved
+        """
+
+        message = {
+            'researcher_id': self._researcher_id,
+            'job_id': self._id,
+            'model_url' : self._repository_args['model_url'],
+            'command': 'model-status'
+        }
+
+        responses = []
+        replied_nodes = []
+        node_ids = self._data.node_ids
+
+        # Send message to each node that has been found after dataset search reqeust
+        for cli in node_ids:
+            logger.info('Sending request to node ' + \
+                                    str(cli) + " to check model is approved or not")
+            self._reqs.send_message(
+                        ResearcherMessages.request_create(message).get_dict(),
+                        cli)
+
+        # Wait for responses
+        for resp in self._reqs.get_responses(look_for_commands=['model-status'], only_successful = False):
+            responses.append(resp)
+            replied_nodes.append(resp.get('node_id'))
+
+            if resp.get('success') == True:
+                if resp.get('approval_obligation') == True:
+                    if resp.get('is_approved') == True:
+                        logger.info(f'Model has been approved by the node: {resp.get("node_id")}')
+                    else:
+                        logger.warning(f'Model has NOT been approved by the node: {resp.get("node_id")}')
+                else:
+                    logger.info(f'Model approval is not required by the node: {resp.get("node_id")}')
+            else:
+                logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
+
+        # Get the nodes that haven't replied model-status request
+        non_replied_nodes = list(set(node_ids) - set(replied_nodes))
+        if non_replied_nodes:
+            logger.warning(f"Request for checking model status hasn't been replied \
+                             by the nodes: {non_replied_nodes}. You might get error \
+                                 while runing your experiment. ")
+
+        return responses
+
 
     """ This method should change in sprint8 or as soon as we implement other
     kind of strategies different than DefaultStrategy"""
@@ -215,7 +315,6 @@ class Job:
             training steps of a federated model between 2 aggregations).
 
         """
-        self._params_path = {}
         headers = {
             'researcher_id': self._researcher_id,
             'job_id': self._id,
@@ -240,9 +339,36 @@ class Job:
         while self.waiting_for_nodes(self._training_replies[round]):
             # collect nodes responses from researcher request 'train'
             # (wait for all nodes with a ` while true` loop)
-            models_done = self._reqs.get_responses('train')
+            #models_done = self._reqs.get_responses(look_for_commands=['train'])
+            models_done = self._reqs.get_responses(look_for_commands=['train', 'error'], only_successful = False)
+            #print("=== DEBUG START start_nodes_training_round")
+            #print(models_done)
+            #print("=== DEBUG STOP  start_nodes_training_round")
             for m in models_done.get_data():  # retrieve all models
                 # (there should have as many models done as nodes)
+
+                # manage error messages during training
+                if 'errnum' in m:  # TODO: need a stronger filter
+
+                    if m['extra_msg']:
+                        logger.info("Error message received during training: " +
+                                     str(m['errnum'].value) +
+                                     " - " +
+                                     str(m['extra_msg']))
+                    else:
+                        logger.info("Error message received during training: " +
+                                     str(m['errnum'].value))
+
+                    # remove the faulty node from the list
+                    faulty_node = m['node_id']
+
+                    if faulty_node not in list(self._nodes):
+                        logger.warning("Error message from " +
+                                       faulty_node +
+                                       " ignored, since this node is not part ot the training anymode")
+                        continue
+
+                    self._nodes.remove(faulty_node)
 
                 # only consider replies for our request
                 if m['researcher_id'] != environ['RESEARCHER_ID'] or m['job_id'] != self._id or m['node_id'] not in list(self._nodes):
@@ -252,7 +378,7 @@ class Job:
 
                 # TODO : handle error depending on status
                 logger.info("Downloading model params after training on " + m['node_id'] + ' - from ' + m['params_url'])
-                _, params_path = self.repo.download_file(m['params_url'], 'my_model_' + str(uuid.uuid4()) + '.pt')
+                _, params_path = self.repo.download_file(m['params_url'], 'node_params_' + str(uuid.uuid4()) + '.pt')
                 params = self.model_instance.load(params_path, to_params=True)['model_params']
                 # TODO: could choose completely different name/structure for
                 # job-level data
@@ -267,114 +393,146 @@ class Job:
                                'timing': timing})
                 self._training_replies[round].append(r)  # add new replies
 
-                self._params_path[r[0]['node_id']] = params_path
+        # return the list of nodes which answered
+        # (because nodes in error have been removed)
+        return self._nodes
 
-
-    def update_parameters(self, params: dict) -> str:
-        """Updates global model parameters after aggregation, by specifying in a
-        temporary file (environ['TMP_DIR'] + '/researcher_params_<id>.pt', where <id> is a
-        unique and random id)
+    def update_parameters(self, params: dict={}, filename: str=None) -> str:
+        """Updates global model aggregated parameters in `params`, by saving them
+        to a file `filename` (unless it already exists), then upload file to the repository
+        so that params are ready to be sent to the nodes for the next training round.
+        If a `filename` is given (file exists) it has precedence over `params`.
 
         Args:
-            params (dict): [description]
+            params (dict, optional): data structure containing the
+                new version of the aggregated parameters for this job,
+            filename (str, optional) : path to the file containing the
+                new version of the aggregated parameters for this job,
 
         Returns:
             str: filename
         """
         try:
-            # FIXME: should we specify file extension as a local/global variable ?
-            # eg:
-            # extension = 'pt'
-            # filename = environ['TMP_DIR'] + '/researcher_params_' + str(uuid.uuid4()) + extension
+            if not filename:
+                if not params:
+                    raise ValueError('Bad arguments for update_parameters, filename or params is needed')
+                filename = self._keep_files_dir + '/aggregated_params_' + str(uuid.uuid4()) + '.pt'
+                self.model_instance.save(filename, params)
 
-            filename = environ['TMP_DIR'] + '/researcher_params_' + str(uuid.uuid4()) + '.pt'
-            self.model_instance.save(filename, params)
             repo_response = self.repo.upload_file(filename)
             self._repository_args['params_url'] = repo_response['file']
+            self._model_params_file = filename
         except Exception as e:
             e = sys.exc_info()
             logger.error("Cannot update parameters - Error: " + str(e))
             sys.exit(-1)
-        return filename
+        return self._model_params_file
 
-    def save_state(self, round: int=0):
-        """Creates attribute `self.state` containing a
-        first state of the job. State will be completed by
-        other methods called fro; `Experiment`.
+    def save_state(self, breakpoint_path: str):
+        """Creates current state of the job to be included in a breakpoint.
+        Includes creating links to files included in the job state.
 
         Args:
-            round (int, optional): number of round iteration.
-            Defaults to 0.
-        """
-
-        self.state = {
-            'researcher_id': environ['RESEARCHER_ID'],
-            'job_id': self._id,
-            'training_data': self._data.data(),
-            'training_args': self._training_args,
-            'model_args': self._model_args,
-            'command': 'train',
-            'model_path': self._model_file,
-            'params_path': self._params_path,
-            'model_class': self._repository_args.get('model_class'),
-            'training_replies': self._save_training_replies()
-        }
-
-    def _save_training_replies(self) -> Dict[int, List[dict]]:
-        """saves last values training replies variable, and replace
-        pytroch tensor / numpy arrays by path files pointing to
-        tensor files (these tensor files contain pytorch tensor / numpy arrays)
+            breakpoint_path (str): path to the existing breakpoint directory
 
         Returns:
-            list: `_training_replies` variable containing path files towards
-            pytorch / numpy arrays instead of Tensors/Arrays values (so it can
-            be saved with JSON).
+            dict: job current state information for breakpoint
         """
-        last_index = max(self._training_replies.keys())
-        converted_training_replies = copy.deepcopy(
-                                    self._training_replies[last_index].data
-                                    )
-        # training_replies saving facility
-        for node_i, node_entry in enumerate(self._training_replies[last_index]):
-            node_id = node_entry.get("node_id")
-            converted_training_replies[node_i]['params'] = self._params_path.get(node_id)
-        return {int(last_index): converted_training_replies}
 
-    def _load_training_replies(self,
-                               training_replies: Dict[int, List[dict]],
-                               params_path: Dict[str, str]):
-        """Loads training replies from a formatted JSON file,
-        so it behaves like a real `training_replies`.
-        Gathers parameters values instead of path to paramater files.
+        # Note: some of the state is passed to __init__() thus is not managed
+        # as job state but as experiment state in current version
+        state = {
+            'researcher_id': self._researcher_id,
+            'job_id': self._id,
+            'model_params_path': self._model_params_file,
+            'training_replies': self._save_training_replies(self._training_replies)
+        }
+
+        state['model_params_path'] = create_unique_link(
+            breakpoint_path,
+            'aggregated_params_current', '.pt',
+            os.path.join('..', os.path.basename(state["model_params_path"]))
+            )
+
+        for round_replies in state['training_replies']:
+            for response in round_replies:
+                node_params_path = create_unique_file_link(breakpoint_path,
+                                            response['params_path'])
+                response['params_path'] = node_params_path
+
+
+        return state
+
+    def load_state(self, saved_state: dict=None):
+        """Load breakpoint status for a Job from a saved state
 
         Args:
-            training_replies (Dict[int, List[dict]]): JSON formatted
-            `training_replies` entry.
-            params_path (Dict[str, str]): dictionary of parameter paths (keys)
-            mapping node ids (entries).
+            saved_state (dict): breakpoint content
+        """
+        self._id = saved_state.get('job_id')
+        self.update_parameters(filename=saved_state.get('model_params_path'))
+        self._training_replies = self._load_training_replies(
+                    saved_state.get('training_replies'),
+                    self.model_instance.load
+                    )
+        self._researcher_id = saved_state.get('researcher_id')
+
+
+    @staticmethod
+    def _save_training_replies(training_replies: Dict[int, Responses]) \
+                -> List[List[dict]]:
+        """Extracts a copy of `training_replies` and
+        prepares it for saving in breakpoint
+        - strip unwanted fields
+        - structure as list/dict so it can be saved with JSON
+
+        Args:
+            - training_replies (Dict[int, Responses]) : training replies of
+              already executed rounds of the job
+
+        Returns:
+            List[List[dict]] : extract from `training_replies` formatted for breakpoint
+        """
+        converted_training_replies = []
+
+        for round in training_replies.keys():
+            training_reply = copy.deepcopy(training_replies[round].data)
+            # we want to strip some fields for the breakpoint
+            for node in training_reply:
+                del node['params']
+            converted_training_replies.append(training_reply)
+
+        return converted_training_replies
+
+    @staticmethod
+    def _load_training_replies(
+                bkpt_training_replies: List[List[dict]],
+                func_load_params: Callable
+                ) -> Dict[int, Responses]:
+        """Read training replies from a formatted breakpoint file,
+        and build a job training replies data structure .
+
+        Args:
+            - training_replies (List[List[dict]]): extract from
+              training replies saved in breakpoint
+            - func_load_params (Callable) : function for loading parameters
+              from file to training replies data structure
+
+        Returns:
+            Dict[int, Responses] : training replies of already executed rounds of the job
         """
 
-        # get key
-        key = tuple(training_replies.keys())[0]
-        if key != int(key):
-            # convert string key to integer (converting into JSON
-            # change every key type into str type)
+        training_replies = {}
+        for round in range(len(bkpt_training_replies)):
+            loaded_training_reply = Responses(bkpt_training_replies[round])
+            # reload parameters from file params_path
+            for node in loaded_training_reply:
+                node['params'] = func_load_params(
+                    node['params_path'], to_params=True)['model_params']
 
-            training_replies[int(key)] = training_replies[key]
-            #training_replies.pop(key)
-            #
-            key = int(key)
-        loaded_training_replies = {key: Responses([])}
-        for node_id, node_i in zip(params_path.keys(),
-                                       range(len(training_replies))):
-            training_replies[key][node_i]['params'] = self.model_instance.load(params_path[node_id],
-                                                                                 to_params=True)
+            training_replies[round] = loaded_training_reply
 
-            training_replies[key][node_i]['params_path'] = params_path[node_id]
-
-            loaded_training_replies[key].append(Responses(training_replies[key][node_i]))
-        #print(loaded_training_replies)
-        self._training_replies = loaded_training_replies
+        return training_replies
 
     def check_data_quality(self):
 
