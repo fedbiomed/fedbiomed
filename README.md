@@ -48,15 +48,10 @@ $ ./scripts/configure_conda
 
 On macOSX, you may encounter conflicts with the default provided conda YAML files.
 To resolve this issue, we provide a set of (_yet experimental_) alternative YAML files.
-In order to install them, you can use the **configure_conda** script with the **-x** flag,
-which also need the **mamba** command to run. You must install **mamba** from **conda-forge**
-in the base conda environment.
-
-Example:
+In order to install them, you can use the **configure_conda** script with the **-x** flag.
 
 ```
 $ conda activate base
-$ conda install -c conda-forge mamba
 $ ./scripts/configure-conda -x
 ```
 
