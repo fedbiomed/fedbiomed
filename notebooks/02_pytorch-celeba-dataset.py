@@ -24,17 +24,17 @@
 #  - `./scripts/fedbiomed_run node config node1.ini add`
 #  - `./scripts/fedbiomed_run node config node2.ini add`
 # 
-# It is necessary to previously configure at least a node:
+# It is necessary to previously configure at least 1 node:
 # 1. `./scripts/fedbiomed_run node config (ini file) add`
 #   * Select option 3 (images) to add an image dataset to the node
-#   * Add a name and the tag for the dataset (tag should contain '#celeba' as it is the tag used for this training) and finaly add the description
+#   * Add a name (eg: 'celeba') and the tag for the dataset (tag should contain '#celeba' as it is the tag used for this training) and finaly add the description
 #   * Pick a data folder from the 3 generated inside `data/Celeba/celeba_preprocessed` (eg: `data_node_1`)
 #   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
 #   
 # 2. Check that your data has been added by executing `./scripts/fedbiomed_run node config (ini file) list`
 # 3. Run the node using `./scripts/fedbiomed_run node config (ini file) start`. Wait until you get `Starting task manager`. it means you are online.
 # 
-# for the sake of testing the resulting model, only nodes 1 and 2 were started during training, datas from node 3 is used to test the model.
+# For the sake of testing the resulting model, only nodes 1 and 2 were started during training, datas from node 3 is used to test the model.
 
 
 # ## Create an experiment to train a model on the data found

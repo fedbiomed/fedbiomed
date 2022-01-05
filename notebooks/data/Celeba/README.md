@@ -1,8 +1,18 @@
 To setup this folder with CelebA:
 
 Download required files of Celeba dataset from [here](https://drive.google.com/drive/folders/0B7EVK8r0v71pWEZsZE9oNnFzTm8?resourcekey=0-5BR16BdXnb8hVj6CNHKzLg), files needed are : `img/img_align_celeba.zip` and `Anno/list_attr_celeba.txt`. 
-extract the `img_align_celeba.zip` inside the `Celeba_raw/raw` folder (samples will be in `Celeba_raw/raw/img_align_celeba`)
-put `list_attr_celeba.txt` inside Celeba_raw/raw
+
+Extract the `img_align_celeba.zip` inside the `Celeba_raw/raw` folder (samples will be in `Celeba_raw/raw/img_align_celeba`)
+Put `list_attr_celeba.txt` inside Celeba_raw/raw
+```
+# from $FEDBIOMED_DIR base directory
+cd notebooks/data/Celeba
+mkdir -p Celeba_raw/raw
+cd Celeba_raw/raw
+# move img_align_celeba.zip to this directory
+unzip img_align_celeba.zip
+# move list_attr_celeba.txt to this directory
+```
 
 the folder will look like :
 ```
@@ -11,7 +21,7 @@ Celeba
 │   create_node_data.py    
 │   .gitignore
 │
-└───celeba_raw
+└───Celeba_raw
 │   └───raw
 │       │   list_attr_celeba.txt
 │       │   img_align_celeba.zip
@@ -21,6 +31,8 @@ Celeba
 
 Preprocess the Celeba data :
 ```
+# from $FEDBIOMED_DIR base directory
+source ./scripts/fedbiomed_environment researcher
 cd notebooks/data/Celeba
 python create_node_data.py
 ```
