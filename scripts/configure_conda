@@ -19,7 +19,7 @@ c=$(which conda)
 if [ -z "$c" ]
 then
     echo "Please install conda first !!!"
-    exit -1
+    exit 1
 fi
 eval "$(conda shell.bash hook)"
 
@@ -32,7 +32,7 @@ usage() {
     # print usage
     #
     echo "\
-Usage: ${0##*/} [-x]
+Usage: ${0##*/} [-n] [-c] [-x]
 
   -h, --help            this help
   -n, --dry-run         do nothing, just print what the script will do
@@ -77,7 +77,7 @@ function activate_environment() {
         fi
     fi
 
-    echo "=== Verifying/installing conda environment: $file"
+    echo "=== Installing/Updating conda environment from: ${file##*/}"
 
     if [ $DRYRUN -eq 1 ]
     then
@@ -88,11 +88,38 @@ function activate_environment() {
 
 }
 
+function check_environment() {
+    #
+    # simple check that environement is OK
+
+    echo "=== Checking import of ML packages with python"
+
+    if [ $DRYRUN -eq 1 ]
+    then
+        echo "python -c 'import torch; import torchvision; import sklearn; import monai; import tensorboard'"
+        return 0
+    fi
+
+    conda activate fedbiomed-researcher
+    echo "python -c 'import torch; import torchvision; import sklearn; import monai; import tensorboard'"
+    check=$(python -c 'import torch; import torchvision; import sklearn; import monai; import tensorboard' 2>/dev/null )
+
+    status=$?
+    if [ $status -eq 0 ]
+    then
+        echo "=== Installation seems OK"
+    else
+        echo "=== Installation seems broken: unable to load some ML packages"
+    fi
+    conda deactivate
+    return $status
+}
+
 #
 # find the directory containing all sources
 #
 basedir=$(cd $(dirname $0)/.. || exit ; pwd)
-cd $basedir || exit
+cd $basedir || exit 1
 
 EXPERIMENTAL=0
 DRYRUN=0
@@ -154,3 +181,7 @@ do
     activate_environment fedbiomed-$i
     conda deactivate
 done
+
+# check if environment is OK
+check_environment
+exit $?
