@@ -1,5 +1,20 @@
 # Fed-BioMed changelog
 
+## 2021-10-21 version x.y
+
+- fixed conda environments for mac OSX
+- added -n (dryrun) option for configure_conda, for debug/validation purpose
+- fixed breakpoint feature which was not fully operational
+- changed the names of breakpoint directories
+- fixed the way the tests deal with fedbiomed.common.environ
+- refactor strategy (moved some methods in upper classes)
+- the new command **run_integration_test** allows to easily run an integration test from a single .py or .ipynb
+- added an automatized method to add a dataset in nodes's db from a JSON dataset description file
+- added error numbering as an enum, impact on error messages serialization
+- ...
+- more example notebooks
+- more unittests
+
 ## 2021-10-21 version 3.2
 
 - add support for scikit-learn with SGD regressor and example notebook
@@ -26,4 +41,3 @@
 ## 2021-07-05 version 3.0
 
 - initial release of re-implementation based on pytorch model file transfer and MQTT messaging
-
