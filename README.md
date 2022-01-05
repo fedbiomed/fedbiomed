@@ -52,7 +52,7 @@ In order to install them, you can use the **configure_conda** script with the **
 
 ```
 $ conda activate base
-$ ./scripts/configure-conda -x
+$ ./scripts/configure_conda -x
 ```
 
 **Warning**:
