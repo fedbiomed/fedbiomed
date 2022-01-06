@@ -1,22 +1,42 @@
-from fedbiomed.researcher.environ import environ
+#!/usr/bin/env python
+# coding: utf-8
 
+# # Fedbiomed Researcher compare with local training
+
+# This example shows how to run a Fed-BioMed job locally on the server, and then compare the training results with the federated training.
+
+# ## Start the network
+# Before running this notebook, start the network with `./scripts/fedbiomed_run network`
+
+# ## Setting the node up
+# It is necessary to previously configure a node:
+# 1. `./scripts/fedbiomed_run node add`
+#   * Select option 2 (default) to add MNIST to the node
+#   * Confirm default tags by hitting "y" and ENTER
+#   * Pick the folder where MNIST is downloaded (this is due torch issue https://github.com/pytorch/vision/issues/3549)
+#   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
+#   
+# 2. Check that your data has been added by executing `./scripts/fedbiomed_run node list`
+# 3. Run the node using `./scripts/fedbiomed_run node run`. Wait until you get `Starting task manager`. it means you are online.
+
+# ## Create an experiment to train a model on the data found
+
+# Declare a torch.nn MyTrainingPlan class to send for training on the node
+
+from fedbiomed.researcher.environ import environ
 import os
+
 import torch
 import torch.nn as nn
-from fedbiomed.common.torchnn import TorchTrainingPlan
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-from fedbiomed.researcher.job import localJob
-from fedbiomed.researcher.experiment import Experiment
-from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.common.logger import logger
+from fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.researcher.exceptions import TrainingException
 
-
-from torchvision import datasets, transforms
-import numpy as np
-
-#Declare a torch.nn MyTrainingPlan class to send for training on the node
+# you can use any class name eg:
+# class AlterTrainingPlan(TorchTrainingPlan):
 class MyTrainingPlan(TorchTrainingPlan):
     def __init__(self):
         super(MyTrainingPlan, self).__init__()
@@ -28,6 +48,8 @@ class MyTrainingPlan(TorchTrainingPlan):
         self.fc2 = nn.Linear(128, 10)
 
         # Here we define the custom dependencies that will be needed by our custom Dataloader
+        # In this case, we need the torch DataLoader classes
+        # Since we will train on MNIST, we need datasets and transform from torchvision
         deps = ["from torchvision import datasets, transforms",
                "from torch.utils.data import DataLoader"]
         self.add_dependency(deps)
@@ -48,7 +70,6 @@ class MyTrainingPlan(TorchTrainingPlan):
         return output
 
     def training_data(self, batch_size = 48):
-        # Custom torch Dataloader for MNIST data
         transform = transforms.Compose([transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])
         dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
@@ -61,24 +82,31 @@ class MyTrainingPlan(TorchTrainingPlan):
         loss   = torch.nn.functional.nll_loss(output, target)
         return loss
 
+
 # This group of arguments correspond respectively:
-# * `model_args`: a dictionary with the arguments related to the model (e.g. number of layers, features, etc.). This will be passed to the model class on the client side.
-# * `training_args`: a dictionary containing the arguments for the training routine (e.g. batch size, learning rate, epochs, etc.). This will be passed to the routine on the client side.
-
-# **NOTE:** typos and/or lack of positional (required) arguments will raise error.
-
+# * `model_args`: a dictionary with the arguments related to the model (e.g. number of layers, features, etc.). This will be passed to the model class on the node side.
+# * `training_args`: a dictionary containing the arguments for the training routine (e.g. batch size, learning rate, epochs, etc.). This will be passed to the routine on the node side.
+# 
+# **NOTE:** typos and/or lack of positional (required) arguments will raise error. 🤓
 
 training_args = {
-    'batch_size': 48,
-    'lr': 1e-3,
-    'epochs': 1,
-    'dry_run': False,
+    'batch_size': 48, 
+    'lr': 1e-3, 
+    'epochs': 1, 
+    'dry_run': False,  
     'batch_maxnum': 200 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
 
-# Train the federated model
 
-print(' *** Starting federated training *** ')
+# # Train the federated model
+
+# Define an experiment
+# - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
+# - run a round of local training on nodes with model defined in `model_path` + federation with `aggregator`
+# - run for `rounds` rounds, applying the `node_selection_strategy` between the rounds
+
+from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 tags =  ['#MNIST', '#dataset']
 rounds = 2
@@ -88,51 +116,74 @@ exp = Experiment(tags=tags,
                  training_args=training_args,
                  rounds=rounds,
                  aggregator=FedAverage(),
-                 client_selection_strategy=None)
+                 node_selection_strategy=None)
+
+
+# Let's start the experiment.
+# 
+# By default, this function doesn't stop until all the `rounds` are done for all the nodes
 
 exp.run()
 
-# Retrieve the federated model parameters and get the federated model
+
+# Retrieve the federated model parameters
 
 fed_model = exp.model_instance
 fed_model.load_state_dict(exp.aggregated_params[rounds - 1]['params'])
 
-print(' *** Federated training complete *** \nFederated model:\n',fed_model)
+print(fed_model)
 
-## Train the local model
 
-print(' *** Starting local training *** ')
+# # Local model
 
-# Load the local MNIST training dataset
-print('-- Reading local dataset')
+# Here we load the local MNIST dataset
+
+from torchvision import datasets, transforms
+from fedbiomed.researcher.environ import environ
+
+local_mnist = os.path.join(environ['TMP_DIR'], 'local_mnist')
+print(f'Using directory {local_mnist} for MNIST local copy')
+
 transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))
         ])
 
-datasets.MNIST(root = os.path.join(environ['TMP_DIR'], 'local_mnist.tmp'), download = True, train = True, transform = transform)
+datasets.MNIST(root = local_mnist, download = True, train = True, transform = transform)
+
+
+# We create an object localJob, which mimics the functionalities of the class Job to run the model on the input local dataset
+
+# The class local job mimics the class job used in the experiment
+from fedbiomed.researcher.job import localJob
+from fedbiomed.researcher.environ import environ
+import torch.nn.functional as F
 
 # local train on same amount of data as federated with 1 node
 training_args['epochs'] *= rounds
 
-# We create an object localJob, which mimics the functionalities of the class Job to run the model on the input local dataset
-
-local_job = localJob( dataset_path = os.path.join(environ['TMP_DIR'], 'local_mnist.tmp'),
+local_job = localJob( dataset_path = local_mnist,
           model_class=MyTrainingPlan,
-          #model_path=model_file,
           training_args=training_args)
 
-# Running the localJob and getting the local model
+
+# Running the localJob
 
 local_job.start_training()
 
+
+# We retrieve the local models parameters
+
 local_model = local_job.model_instance
 
-print(' *** Local training complete *** \nLocal model:\n',local_model)
 
-## Comparison
+# # Comparison
 
 # We define a little testing routine to extract the accuracy metrics on the testing dataset
+
+import torch
+import torch.nn.functional as F
+
 
 def testing_Accuracy(model, data_loader):
     model.eval()
@@ -141,7 +192,7 @@ def testing_Accuracy(model, data_loader):
     device = 'cpu'
 
     correct = 0
-
+    
     with torch.no_grad():
         for data, target in data_loader:
             data, target = data.to(device), target.to(device)
@@ -157,13 +208,15 @@ def testing_Accuracy(model, data_loader):
 
     return(test_loss, accuracy)
 
+
 # Loading the testing dataset and computing accuracy metrics for local and federated models
 
-test_set = datasets.MNIST(root = os.path.join(environ['TMP_DIR'], 'local_mnist_testing.tmp'), download = True, train = False, transform = transform)
+test_set = datasets.MNIST(root = local_mnist, download = True, train = False, transform = transform)
 test_loader = torch.utils.data.DataLoader(test_set, batch_size=64, shuffle=True)
 
 acc_local = testing_Accuracy(local_model, test_loader)
 acc_federated = testing_Accuracy(fed_model, test_loader)
+
 
 print('\nAccuracy local training: {:.4f}, \nAccuracy federated training:  {:.4f}\nDifference: {:.4f}'.format(
              acc_local[1], acc_federated[1], acc_local[1]-acc_federated[1]))
@@ -171,5 +224,4 @@ print('\nAccuracy local training: {:.4f}, \nAccuracy federated training:  {:.4f}
 print('\nError local training: {:.4f}, \nError federated training:  {:.4f}\nDifference: {:.4f}'.format(
              acc_local[0], acc_federated[0], acc_local[0]-acc_federated[0]))
 
-minscore = 0.95
-assert  acc_local[1] > minscore and acc_federated[1] > minscore and np.abs(acc_local[1]-acc_federated[1]) < 3.0
+
