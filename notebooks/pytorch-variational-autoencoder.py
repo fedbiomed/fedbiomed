@@ -122,7 +122,7 @@ from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 tags =  ['#MNIST', '#dataset']
-rounds = 5
+rounds = 3
 
 exp = Experiment(tags=tags,
                 #nodes=None,
