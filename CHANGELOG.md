@@ -2,6 +2,7 @@
 
 ## 2021-10-21 version x.y
 
+- configure_conda may take parameters to only update some environments
 - fixed conda environments for mac OSX
 - added -n (dryrun) option for configure_conda, for debug/validation purpose
 - fixed breakpoint feature which was not fully operational

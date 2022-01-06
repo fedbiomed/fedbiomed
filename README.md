@@ -40,15 +40,33 @@ $ ./scripts/configure_conda
 
 * there is one specific environment for each component:
 
-  * fedbiomed-network.yaml    : environement for HTTP upload/download server and MQQT daemon (network component)
-  * fedbiomed-node.yaml       : environement for the node part
-  * fedbiomed-researcher.yaml : environement for the researcher part
+  * fedbiomed-network.yaml    : environment for HTTP upload/download server and MQQT daemon (network component)
+  * fedbiomed-node.yaml       : environment for the node part
+  * fedbiomed-researcher.yaml : environment for the researcher part
 
 **Remark**:
 
+* this script can also be used to update only some of the environments
 * for some components, we provide different versions of yaml files depending of the operating system of your host
-* be carefull about it, specially if you update the conda environement by hand.
-* in case of (conda or python) errors, we advice to remove all environements and restart from fresh (use the **-c** flag of configure_conda)
+* be carefull about it, specially if you update the conda environment by using the conda command directly
+* in case of (conda or python) errors, we advice to remove all environments and restart from fresh (use the **-c** flag of configure_conda)
+* general usage for this script is:
+
+```
+Usage: configure_conda [-n] [-c] [-t] [ENV ENV ..]
+
+Install/update conda environments for fedbiomed. If several ENV
+are provided, only these components will be updated. If no ENV is
+provided, all components will be updated.
+
+ENV can be network, node, researcher (or a combination of them)
+
+ -h, --help            this help
+ -n, --dry-run         do nothing, just print what the script would do
+ -c, --clean           remove environment before reinstallating it
+ -t, --test            test the environment at the end of installation
+                       (this only tests the researcher environment for now)
+```
 
 
 ### activate the environments

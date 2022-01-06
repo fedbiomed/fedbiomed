@@ -32,11 +32,19 @@ usage() {
     # print usage
     #
     echo "\
-Usage: ${0##*/} [-n] [-c]
+Usage: ${0##*/} [-n] [-c] [-t] [ENV ENV ..]
 
-  -h, --help            this help
-  -n, --dry-run         do nothing, just print what the script will do
-  -c, --clean           remove environments before reinstallating it
+Install/update conda environments for fedbiomed. If several ENV
+are provided, only these components will be updated. If no ENV is
+provided, all components will be updated.
+
+ENV can be network, node, researcher (or a combination of them)
+
+ -h, --help            this help
+ -n, --dry-run         do nothing, just print what the script would do
+ -c, --clean           remove environment before reinstallating it
+ -t, --test            test the environment at the end of installation
+                       (this only tests the researcher environment for now)
 "
 }
 
@@ -85,11 +93,11 @@ function activate_environment() {
 
 }
 
-function check_environment() {
+function test_environment() {
     #
-    # simple check that environement is OK
+    # simple check that environment is OK
 
-    echo "=== Checking import of ML packages with python"
+    echo "=== Testing import of ML packages on researcher environment"
 
     if [ $DRYRUN -eq 1 ]
     then
@@ -118,9 +126,12 @@ function check_environment() {
 basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit 1
 
+# args parsing
 DRYRUN=0
 CLEAN=0
-# decode arguments
+TEST=0
+COMPONENTS=()
+
 while (($# > 0)); do
     case $1 in
         -h|--help )
@@ -130,6 +141,9 @@ while (($# > 0)); do
         -c | --clean )
             CLEAN=1
             ;;
+        -t | --test )
+            TEST=1
+            ;;
         -n | --dry-run)
             # do nothing
             DRYRUN=1
@@ -138,7 +152,21 @@ while (($# > 0)); do
             bad_usage "unknown option: $1"
             ;;
         * )
-            bad_usage "no extra parameter allowed: $1"
+            # we can update only some environments
+
+            found=0
+            for e in ${COMPONENTS[@]}
+            do
+                if [ $1 = $e ]
+                then
+                    found=1
+                fi
+            done
+
+            if [ $found -eq 0 ]
+            then
+                COMPONENTS+=("$1")
+            fi
             ;;
     esac
     shift
@@ -155,25 +183,57 @@ case $(uname) in
         ;;
 esac
 
+# verify COMPONENTS
+if [ ${#COMPONENTS[@]} == 0 ]
+then
+    FINAL_COMPONENTS=("${fed_envs[@]}")
+else
+    # verify that given components are allowed
+    for c in ${COMPONENTS[@]}
+    do
+        found=0
+        for e in ${fed_envs[@]}
+        do
+            if [ $c = $e ]
+            then
+                found=1
+            fi
+        done
+
+        if [ $found -eq 0 ]
+        then
+            bad_usage "unknown component: $c (should be network/node/researcher)"
+        fi
+    done
+    FINAL_COMPONENTS=("${COMPONENTS[@]}")
+fi
+
+echo "=== Components to consider: ${FINAL_COMPONENTS[@]}"
+
 # start from fresh ?
 if [ $CLEAN -eq 1 ]
 then
     # clean all envs
     conda deactivate
 
-    for i in ${fed_envs[@]}
+    for i in ${FINAL_COMPONENTS[@]}
     do
         clean_environment fedbiomed-$i
     done
 fi
 
-# configure/update all conda environements
-for i in ${fed_envs[@]}
+# configure/update all conda environments
+for i in ${FINAL_COMPONENTS[@]}
 do
     activate_environment fedbiomed-$i
     conda deactivate
 done
 
 # check if environment is OK
-check_environment
-exit $?
+if [ $TEST -eq 1 ]
+then
+    test_environment
+    exit $?
+fi
+
+exit 0
