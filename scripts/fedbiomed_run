@@ -30,7 +30,7 @@ case $1 in
     network)
         source ./scripts/fedbiomed_environment network
         cd ./envs/development/docker
-        # 
+        #
         CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
           CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) \
           docker-compose build restful mqtt
@@ -82,7 +82,7 @@ case $1 in
                 ;;
             esac
         done
-        
+
         # pass remaining params to launched script
         if [ $# -ge 2 ]
         then
@@ -106,6 +106,11 @@ case $1 in
                     python -m fedbiomed.node.cli --delete $PARAMS
                     ;;
 
+                del-all|delete-all|--del-all|--delete-all|-da)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --delete-all $PARAMS
+                    ;;
+
                 delete-mnist|--delete-mnist|-dm)
                     source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --delete-mnist $PARAMS
@@ -119,6 +124,11 @@ case $1 in
                 add-mnist|--add-mnist|-am)
                     source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --add-mnist $PARAMS
+                    ;;
+
+                add-dataset-from-file|--add-dataset-from-file|-adff)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli -adff $PARAMS
                     ;;
 
                 register-model|--register-model|-rml)
@@ -140,7 +150,7 @@ case $1 in
                     source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --delete-model $PARAMS
                     ;;
-                    
+
                 start|--start|-s)
                     #export MQTT_BROKER=localhost
                     #export MQTT_BROKER_PORT=1883
@@ -213,14 +223,27 @@ researcher: launch a researcher notebook
             an optional IP_ADDRESS (eg 10.1.2.3 or host.foo) can be used to join the network
                 component instead of the default localhost
 
-node      : a second arguement is mandatory
+node      : a second argument is mandatory
             - start : launch a new node
             - add/list/delete deal with dataset
-            - add-mnist PATH_TO_DATASET directly adds a mnist dataset
-            - delete-mnist directly removes a mnist dataset
+            - add-mnist PATH_TO_DATASET non-interactively adds a mnist dataset
+            - add-dataset-from-file PATH_TO_JSON_FILE non-interactively adds a dataset
+                described in a json file with the following format
+                
+                {
+                    "path": "/path/to/dataset",
+                    "data_type": "csv|default|images",
+                    "description": "arbitrary descrription string",
+                    "tags": "comma,separated,list,without,blanks",
+                    "name": "arbitrary name string"
+                }
+
+            - delete-mnist non-interactively un-registers a mnist dataset
+            - delete-all non interactively un-registers all node datasets
+
             - register-model  | --register-model    : To register new model files
-            - update-model    | --update-model      : To update registered models 
-            
+            - update-model    | --update-model      : To update registered models
+
             an optional config file CONFIG_NAME can be given it will be used instead of the default one (config.ini)
 
             an optional IP_ADDRESS can be used to join the network component instead of
@@ -228,9 +251,9 @@ node      : a second arguement is mandatory
 
             optional additional PARAMS are passed to fedbiomed
 
-            Option that should be used with start or add command to manage node modes. 
+            Option that should be used with start or add command to manage node modes.
 
-            - enable-model-approval     | --enable-model-approval   : to enable model approval mode 
+            - enable-model-approval     | --enable-model-approval   : to enable model approval mode
             - allow-default-models      | --allow-default-models    : to allow default model for model approval mode
             - disable-model-approval    | --disable-model-approval  : to disable model approval mode
             - disable-default-models    | --disable-default-models  : to disable default models for model approval mode
