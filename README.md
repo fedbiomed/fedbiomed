@@ -40,25 +40,15 @@ $ ./scripts/configure_conda
 
 * there is one specific environment for each component:
 
-  * fedbiomed-network    : provides environement for HTTP upload/download server and MQQT daemon
-  * fedbiomed-researcher : provides environement for the researcher part
-  * fedbiomed-node       : provides environement for the node part
+  * fedbiomed-network.yaml    : environement for HTTP upload/download server and MQQT daemon (network component)
+  * fedbiomed-node.yaml       : environement for the node part
+  * fedbiomed-researcher.yaml : environement for the researcher part
 
 **Remark**:
 
-On macOSX, you may encounter conflicts with the default provided conda YAML files.
-To resolve this issue, we provide a set of (_yet experimental_) alternative YAML files.
-In order to install them, you can use the **configure_conda** script with the **-x** flag.
-
-```
-$ conda activate base
-$ ./scripts/configure_conda -x
-```
-
-**Warning**:
-
-* mixing default environment and experimental environment may be tricky
-* in case of errors, you remove all environements ans restart from fresh.
+* for some components, we provide different versions of yaml files depending of the operating system of your host
+* be carefull about it, specially if you update the conda environement by hand.
+* in case of (conda or python) errors, we advice to remove all environements and restart from fresh (use the **-c** flag of configure_conda)
 
 
 ### activate the environments

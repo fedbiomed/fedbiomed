@@ -32,13 +32,11 @@ usage() {
     # print usage
     #
     echo "\
-Usage: ${0##*/} [-n] [-c] [-x]
+Usage: ${0##*/} [-n] [-c]
 
   -h, --help            this help
   -n, --dry-run         do nothing, just print what the script will do
   -c, --clean           remove environments before reinstallating it
-  -x, --experimental    (optional) on MacOSX, install (yet experimental) environments
-                        from *-macosx.yaml files
 "
 }
 
@@ -68,13 +66,12 @@ function activate_environment() {
 
     base=$basedir/envs/development/conda/$1
 
-    file="${base}.yaml"
-    if [ $EXPERIMENTAL -eq 1 ]
+    # check if alternate yaml file is available (OS dependent files usually)
+    if [ -f "${base}-${ALTERNATE_YAML}.yaml" ]
     then
-        if [ -f "${base}-macosx.yaml" ]
-        then
-            file="${base}-macosx.yaml"
-        fi
+        file="${base}-${ALTERNATE_YAML}.yaml"
+    else
+        file="${base}.yaml"
     fi
 
     echo "=== Installing/Updating conda environment from: ${file##*/}"
@@ -121,7 +118,6 @@ function check_environment() {
 basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit 1
 
-EXPERIMENTAL=0
 DRYRUN=0
 CLEAN=0
 # decode arguments
@@ -133,9 +129,6 @@ while (($# > 0)); do
             ;;
         -c | --clean )
             CLEAN=1
-            ;;
-        -x | --experimental )
-            EXPERIMENTAL=1
             ;;
         -n | --dry-run)
             # do nothing
@@ -151,19 +144,18 @@ while (($# > 0)); do
     shift
 done
 
-# verify macOSX for -x flag
-if [ $EXPERIMENTAL -eq 1 ]
-then
-    case $(uname) in
-        Darwin )
-        # this is OK, -x flag is for macOSX only
+# some OS use different yaml files
+case $(uname) in
+    Darwin )
+        ALTERNATE_YAML="macosx"
         ;;
-        * )
-            bad_usage "-x flag should only be used for macOSX"
-            ;;
-    esac
-fi
+    * )
+        # general files are used
+        ALTERNATE_YAML="NONE"
+        ;;
+esac
 
+# start from fresh ?
 if [ $CLEAN -eq 1 ]
 then
     # clean all envs
