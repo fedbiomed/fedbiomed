@@ -339,7 +339,7 @@ Run this for all launches of the container :
 [user@researcher-container $] eval "$(conda shell.bash hook)"
 [user@researcher-container $] conda activate fedbiomed-researcher
 # ... or any other command
-[user@researcher-container $] ./notebooks/getting-started.py
+[user@researcher-container $] ./notebooks/01_getting-started.py
 ```
 
 * to use notebooks, from outside the researcher container connect to `http://localhost:8888` or `http://SERVER_IP:8888`

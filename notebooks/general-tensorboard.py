@@ -5,7 +5,9 @@
 
 # Use for developing (autoreloads changes made across packages)
 
-
+# ## Start the network
+# Before running this notebook, start the network with `./scripts/fedbiomed_run network`
+#
 # ## Setting the node up
 # It is necessary to previously configure a node:
 # 1. `./scripts/fedbiomed_run node add`
@@ -15,7 +17,7 @@
 #   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
 #
 # 2. Check that your data has been added by executing `./scripts/fedbiomed_run node add`
-# 3. Run the node using `./scripts/fedbiomed_run node add`. Wait until you get `Connected with result code 0`. it means you are online.
+# 3. Run the node using `./scripts/fedbiomed_run node add`. Wait until you get `Starting task manager`. it means you are online.
 
 
 # ## Create an experiment to train a model on the data found
