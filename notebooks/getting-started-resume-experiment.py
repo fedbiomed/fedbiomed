@@ -122,6 +122,8 @@ exp = Experiment(tags=tags,
 
 # Let's start the experiment.
 # By default, this function doesn't stop until all the `rounds` are done for all the nodes
+# You can interrupt the exp.run() after one round,
+# and then reload the breakpoint and continue the training.
 
 exp.run()
 
@@ -150,16 +152,42 @@ for c in range(len(round_data)):
 print('\n')
 
 
+# ## Delete experiment
+
 del exp
 # here we simulate the removing of the ongoing experiment
 # fret not! we have saved breakpoint, so we can retrieve parameters
 # of the experiment using `load_breakpoint` method
 
 
+# ## Resume an experiment
+# 
+# While experiment is running, you can shut it down (after the first round) and resume the experiment from the next cell. Or wait for the experiment completion.
+# 
+# 
+# **To load the latest breakpoint of the latest experiment**
+# 
+# Run :
+# `Experiment.load_breakpoint()`. It reloads latest breakpoint, and will bypass `search` method
+# 
+# and then use `.run` method as you would do with an existing experiment.
+# 
+# **To load a specific breakpoint** specify breakpoint folder when using `Experiment.load_breakpoint("./var/breakpoints/Experiment_xx/breakpoint_yy)`. Replace `xx` and `yy` by the real values.
+# 
+
 loaded_exp = Experiment.load_breakpoint()
 
+print(f'Experimention folder: {loaded_exp.experimentation_folder}')
+print(f'Loaded experiment path: {loaded_exp.experimentation_path}')
+
+# Continue training for the experiment loaded from breakpoint.
+# If you ran all the rounds and load the last breakpoint, there won't be any more round to run.
+
+loaded_exp.run()
+
+
 print("______________ loaded training replies_________________")
-#print("\nList the training rounds : ", loaded_exp.training_replies.keys())
+print("\nList the training rounds : ", loaded_exp.training_replies.keys())
 
 print("\nList the nodes for the last training round and their timings : ")
 round_data = loaded_exp.training_replies[rounds - 1].data
@@ -174,9 +202,7 @@ for c in range(len(round_data)):
                 rtotal = round_data[c]['timing']['rtime_total']))
 print('\n')
 
-#print(loaded_exp.training_replies[rounds - 1].dataframe)
-loaded_exp.run()
-
+print(loaded_exp.training_replies[rounds - 1].dataframe)
 
 
 # Federated parameters for each round are available in `exp.aggregated_params` (index 0 to (`rounds` - 1) ).
@@ -184,9 +210,13 @@ loaded_exp.run()
 
 print("\nList the training rounds : ", loaded_exp.aggregated_params.keys())
 
-print("\nAccess the federated params for the last training round : ")
-print("\t- params_path: ", loaded_exp.aggregated_params[rounds ]['params_path'])
-print("\t- parameter data: ", loaded_exp.aggregated_params[rounds ]['params'].keys())
+print("\nAccess the federated params for training rounds : ")
+for round in loaded_exp.aggregated_params.keys():
+  print("round {r}".format(r=round))
+  print("\t- params_path: ", loaded_exp.aggregated_params[round]['params_path'])
+  print("\t- parameter data: ", loaded_exp.aggregated_params[round]['params'].keys())
+
+
 # ## Optional : searching the data
 
 #from fedbiomed.researcher.requests import Requests

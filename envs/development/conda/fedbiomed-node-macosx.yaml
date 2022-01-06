@@ -1,16 +1,8 @@
 #
 # environment for fedbiomed-node on macosx
 #
-# EXPERIMENTAL:
-# it fixes a pb with scikit-learn on macosx/conda-forge
+# it fixes a pb with tensorboard and torch for macosx
 #
-# MUST BE INSTALLED WITH **mamba** and not conda
-# (which cannot resolve dependancies)
-#
-# another option is to install all except the
-# anaconda packages (last lines of the file) and
-# do a manual:
-# conda install 'scikit-learn <= 0.24.2'
 #
 name: fedbiomed-node
 
@@ -19,46 +11,31 @@ channels:
 
 dependencies:
   # minimal environment
-  - conda-forge::python #>=3.9,<4.0
-  - conda-forge::pip
-  - conda-forge::jupyter
-  - conda-forge::ipython
+  - python >=3.9,<3.10
+  - pip
+  - jupyter
+  - ipython
   # tests
-  - conda-forge::pytest #>6.2.2
-  - conda-forge::tinydb #>=4.4.0,<5.0.0
-  - conda-forge::tabulate #>=0.8.9,<0.9.0
+  - pytest >6.2.2
+  - tinydb >=4.4.0,<5.0.0
+  - tabulate >=0.8.9,<0.9.0
   # code
-  - conda-forge::GitPython #>=3.1.14,<4.0.0
-  - conda-forge::requests >=2.25.1,<3.0.0
-  - conda-forge::paho-mqtt #>=1.5.1,<2.0.0
-  - conda-forge::validators #>=0.18.2,<0.19.0
-  - conda-forge::tqdm #>=4.59.0,<5.0.0
-  - conda-forge::git
+  - GitPython >=3.1.14,<4.0.0
+  - requests >=2.25.1,<3.0.0
+  - paho-mqtt >=1.5.1,<2.0.0
+  - validators >=0.18.2,<0.19.0
+  - tqdm >=4.59.0,<5.0.0
+  - git
   # git notebook striper
-  - conda-forge::nbstripout
-  - conda-forge::joblib #>=1.0.1
+  - nbstripout
+  - joblib >=1.0.1
   # nn
   - pip:
       - monai #>=0.4.0,<0.5.0
-      - torch #>=1.8.0,<2.0.0
-      - persist-queue #>=0.5.1,<0.6.0
-      - pytorch-ignite #>=0.4.4,<0.5.0
-      - torchvision #>=0.9.0,<0.10.0
-      - pandas #>=1.2.3,<2.0.0
-      - python-minifier #==2.5.0
-  #
-  #
-  #
-  - anaconda::scikit-learn #<= 0.24.2
-  - anaconda::blas
-  - anaconda::intel-openmp
-  - anaconda::libgfortran
-  - anaconda::llvm-openmp
-  - anaconda::mkl
-  - anaconda::mkl-service
-  - anaconda::mkl_fft
-  - anaconda::mkl_random
-  - anaconda::numpy
-  - anaconda::numpy-base
-  - anaconda::scipy
-  - anaconda::threadpoolctl
+      - torch >=1.8.0,<2.0.0
+      - torchvision >=0.9.0,<0.10.0
+      - persist-queue >=0.5.1,<0.6.0
+      - pytorch-ignite >=0.4.4,<0.5.0
+      - pandas >=1.2.3,<2.0.0
+      - scikit-learn <= 0.24.2
+      - python-minifier ==2.5.0
