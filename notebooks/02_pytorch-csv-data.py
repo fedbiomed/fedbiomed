@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Fedbiomed Researcher to train a model on a csv dataset
+# # Fedbiomed Researcher to train a model on a CSV dataset
+
+# This example shows how to use a CSV format file as a node dataset. The example CSV
+# file is synthetic data with a format inspired from ADNI dataset.
 
 # ## Start the network
 # Before running this notebook, start the network with `./scripts/fedbiomed_run network`
@@ -12,6 +15,7 @@
 # 1. `./scripts/fedbiomed_run node add`
 #   * Select option 1 to add a csv file to the node
 #   * Choose the name, tags and description of the dataset
+#     * use `#test_data`` for the tags
 #   * Pick the .csv file from your PC (here: pseudo_adni_mod.csv)
 #   * Data must have been added
 # 2. Check that your data has been added by executing `./scripts/fedbiomed_run node list`
@@ -111,7 +115,7 @@ from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 # Calling the training data with specified tags
-tags =  ['test_data']
+tags =  ['#test_data']
 rounds = 5
 
 exp = Experiment(tags=tags,
