@@ -21,7 +21,6 @@ class DefaultStrategy(Strategy):
     """
     def __init__(self, data: FederatedDataSet):
         super().__init__(data)
-        self.parameters = None
 
     def sample_nodes(self, round_i: int) -> List[uuid.UUID]:
         """
@@ -92,11 +91,3 @@ class DefaultStrategy(Strategy):
         logger.info('Nodes that successfully reply in round ' + str(round_i) + ' ' + str(self._success_node_history[round_i] ))
         return models_params, weights
 
-
-    def save_state(self) -> Dict[str, Any]:
-        state = {
-                "class": type(self).__name__,
-                "module": self.__module__,
-                "parameters": self.parameters
-        }
-        return state
