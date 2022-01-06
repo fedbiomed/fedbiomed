@@ -3,6 +3,8 @@
 
 # # Fedbiomed Researcher to train a variational autoencoder
 
+# ## Start the network
+# Before running this notebook, start the network with `./scripts/fedbiomed_run network`
 #
 # ## Start the network and setting node up
 # 
@@ -16,7 +18,7 @@
 #   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
 #   
 # 2. Check that your data has been added by executing `./scripts/fedbiomed_run node list`
-# 3. Run the node using `./scripts/fedbiomed_run node run`. Wait until you get `Connected with result code 0`. it means you are online.
+# 3. Run the node using `./scripts/fedbiomed_run node run`. Wait until you get `Starting task manager`. it means you are online.
 
 
 # ## Create an experiment to train a model on the data found

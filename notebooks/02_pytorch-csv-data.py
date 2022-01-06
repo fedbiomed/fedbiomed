@@ -3,6 +3,9 @@
 
 # # Fedbiomed Researcher to train a model on a csv dataset
 
+# ## Start the network
+# Before running this notebook, start the network with `./scripts/fedbiomed_run network`
+#
 ## Start the network and setting the node up
 # Before running this notebook, you shoud start the network from fedbiomed-network, as detailed in https://gitlab.inria.fr/fedbiomed/fedbiomed-network
 # Therefore, it is necessary to previously configure a node:
@@ -12,7 +15,7 @@
 #   * Pick the .csv file from your PC (here: pseudo_adni_mod.csv)
 #   * Data must have been added
 # 2. Check that your data has been added by executing `./scripts/fedbiomed_run node list`
-# 3. Run the node using `./scripts/fedbiomed_run node start`. Wait until you get `Connected with result code 0`. it means you are online.
+# 3. Run the node using `./scripts/fedbiomed_run node start`. Wait until you get `Starting task manager`. it means you are online.
 
 
 # ## Create an experiment to train a model on the data found
