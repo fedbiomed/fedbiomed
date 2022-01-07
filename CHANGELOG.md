@@ -11,6 +11,7 @@
 - add -n (dryrun) option for configure_conda, for debug/validation purpose
 - fix and refactor breakpoint feature which was not fully operational
 - change the names of breakpoint directories
+- refactor environ as singleton class
 - fix the way the tests deal with fedbiomed.common.environ
 - refactor strategy (moved some methods in upper classes)
 - add command **run_integration_test** to easily run an integration test from a single .py or .ipynb
