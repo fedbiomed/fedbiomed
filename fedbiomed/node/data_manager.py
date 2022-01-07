@@ -67,7 +67,8 @@ class DataManager: # should this be in camelcase (smthg like DataManager)?
         sniffer = csv.Sniffer()
         with open(csv_file, 'r') as file:
             delimiter = sniffer.sniff(file.readline()).delimiter
-            header = None if not sniffer.has_header(file.read()) else 0
+            file.seek(0)
+            header = 0 if sniffer.has_header(file.read()) else None
 
         return pd.read_csv(csv_file, index_col=index_col, sep=delimiter, header=header)
 
