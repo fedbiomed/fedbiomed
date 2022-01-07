@@ -90,7 +90,7 @@ The script algorithm is:
 - stop and clean all components
 - the status exit of the script is 0 is everything ran well
 
-The script deal with python scripts or with notebooks, which are converted to python.
+The script deals with python scripts or with notebooks.
 
 ### dataset description
 
@@ -106,13 +106,12 @@ The datasets are described in a json file, which looks like:
 }
 ```
 
-You can use OS environement variables in this script (e.g. $HOME in the pgiven example)
+You can use OS environement variables in this script (e.g. $HOME in the given example)
 
-We provide some example dataset in **tests/datasets**, you may need to adjust it to your
-own installation directories.
+We provide some example datasets in **tests/datasets**, you may need to adjust them to comply with your own installation directories.
 
 
-### Example of use
+### Examples of use
 
 #### MNIST tutorial
 
@@ -120,6 +119,9 @@ own installation directories.
 $ ./scripts/run_integration_test -s ./notebooks/101_getting-started.py \
                                  -d ./tests/datasets/mnist.json
 ```
+
+This will run the first tutorial of fed-biomed with one calculation node.
+
 
 #### monai notebook tutorial with 3 nodes
 
@@ -135,4 +137,4 @@ $ ./scripts/run_integration_test \
 This will run the monai-2d-image-classification.ipynb notebook, with thres nodes, each of
 them using a part of mednist dataset (which has been splitted in three parts).
 
-You may launch this tutorial in a jupyter notebook for more informations
+You may launch this tutorial in a jupyter notebook for more informations.
