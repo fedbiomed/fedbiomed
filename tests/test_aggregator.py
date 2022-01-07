@@ -1,3 +1,10 @@
+# Managing NODE, RESEARCHER environ mock before running tests
+from testsupport.delete_environ import delete_environ
+# Delete environ. It is necessary to rebuild environ for required component
+delete_environ()
+# overload with fake environ for tests
+import testsupport.mock_common_environ
+
 import unittest
 
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
@@ -10,9 +17,7 @@ class TestAggregator(unittest.TestCase):
     # before the tests
     def setUp(self):
         self.weights = [
-            #[ ],            # what happends ? should we code it/test it ?
-            #[ 0.0 ],        # what happends ? should we code it/test it ?
-            #[ 1.0, -1.0 ] , # what happends ? should we code it/test it ?
+            [ 1.0, -1.0 ] , # what happends ? should we code it/test it ?
             [ 2.0 ],
             [ 0.0, 1.0],
             [ 1.0, 2.0, 3.0, 4.0 ],
@@ -39,6 +44,17 @@ class TestAggregator(unittest.TestCase):
 
             # results is a normalized list of values
             self.assertEqual( sum , 1.0)
+
+        # special case: empty list
+        weights = []
+        results = Aggregator.normalize_weights(weights)
+        self.assertEqual( len(results) , 0 )
+
+        # special case: null content
+        weights = [ 0.0, 0.0 ]
+        results = Aggregator.normalize_weights(weights)
+        self.assertEqual( len(results) , len(weights) )
+        self.assertEqual( results[0] , 1.0 / len(weights) )
 
 if __name__ == '__main__': # pragma: no cover
     unittest.main()

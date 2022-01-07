@@ -2,7 +2,7 @@ from typing import Union
 
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.messaging import Messaging
-from fedbiomed.node.environ import CLIENT_ID
+from fedbiomed.node.environ import environ
 
 
 class HistoryMonitor:
@@ -10,6 +10,7 @@ class HistoryMonitor:
                  job_id: str,
                  researcher_id: str,
                  client: Messaging):
+                 
         self.history = {}
         self.job_id = job_id
         self.researcher_id = researcher_id
@@ -26,14 +27,14 @@ class HistoryMonitor:
             epoch (int): current epoch
         """
 
-        # Keeps history of the scalar values. Please see Round.py where it is called 
+        # Keeps history of the scalar values. Please see Round.py where it is called
         try:
             self.history[key][iteration] = value
         except (KeyError, AttributeError):
             self.history[key] = {iteration: value}
 
         self.messaging.send_message(NodeMessages.reply_create({
-                                                               'client_id': CLIENT_ID,
+                                                               'node_id': environ['NODE_ID'],
                                                                'job_id': self.job_id,
                                                                'researcher_id': self.researcher_id,
                                                                'key' : key,
@@ -41,6 +42,6 @@ class HistoryMonitor:
                                                                'iteration': iteration,
                                                                'epoch' : epoch,
                                                                'command': 'add_scalar'
-                                                               }).get_dict(), 
+                                                               }).get_dict(),
                                                                client='monitoring'
                                                                )

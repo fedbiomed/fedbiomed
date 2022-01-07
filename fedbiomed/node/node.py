@@ -6,12 +6,14 @@ from typing import Optional, Union, Dict, Any
 from fedbiomed.common import json
 from fedbiomed.common.logger import logger
 from fedbiomed.common.tasks_queue import TasksQueue
-from fedbiomed.common.messaging import Messaging,  MessagingType
+from fedbiomed.common.messaging import Messaging
+from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.message import NodeMessages
-from fedbiomed.node.environ import CLIENT_ID, MESSAGES_QUEUE_DIR, TMP_DIR, MQTT_BROKER, MQTT_BROKER_PORT
+from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.round import Round
-from fedbiomed.node.data_manager import Data_manager
+from fedbiomed.node.data_manager import DataManager
+from fedbiomed.node.model_manager import ModelManager
 
 import validators
 
@@ -21,12 +23,15 @@ class Node:
     with researcher through Messager, and executing / parsing task
     requested by researcher stored in a queue.
     """
-    def __init__(self, data_manager: Data_manager):
+    def __init__( self,
+                  data_manager: DataManager,
+                  model_manager: ModelManager):
 
-        self.tasks_queue = TasksQueue(MESSAGES_QUEUE_DIR, TMP_DIR)
-        self.messaging = Messaging(self.on_message, MessagingType.NODE,
-                                   CLIENT_ID, MQTT_BROKER, MQTT_BROKER_PORT)
+        self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
+        self.messaging = Messaging(self.on_message, ComponentType.NODE,
+                                   environ['NODE_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
         self.data_manager = data_manager
+        self.model_manager = model_manager
         self.rounds = []
 
     def add_task(self, task: dict):
@@ -69,7 +74,7 @@ class Node:
                     NodeMessages.reply_create(
                         {
                             'researcher_id': msg['researcher_id'],
-                            'client_id': CLIENT_ID,
+                            'node_id': environ['NODE_ID'],
                             'success': True,
                             'sequence': msg['sequence'],
                             'command': 'pong'
@@ -85,7 +90,7 @@ class Node:
                     self.messaging.send_message(NodeMessages.reply_create(
                         {'success': True,
                          "command": "search",
-                         'client_id': CLIENT_ID,
+                         'node_id': environ['NODE_ID'],
                          'researcher_id': msg['researcher_id'],
                          'databases': databases,
                          'count': len(databases)}).get_dict())
@@ -96,53 +101,46 @@ class Node:
                  for d in databases:
                      for key in remove_key:
                         d.pop(key, None)
-                
+
                  self.messaging.send_message(NodeMessages.reply_create(
                      {'success': True,
                       'command': 'list',
-                      'client_id': CLIENT_ID,
+                      'node_id': environ['NODE_ID'],
                       'researcher_id': msg['researcher_id'],
                       'databases': databases,
-                      'count' : len(databases), 
+                      'count' : len(databases),
                      }).get_dict())
+            elif command == 'model-status':
+                # Check is model approved
+                self.model_manager.reply_model_status_request(request, self.messaging)
+
             else:
                 raise NotImplementedError('Command not found')
         except decoder.JSONDecodeError:
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.messaging.send_message(NodeMessages.reply_create(
-                {'success': False,
-                 'command': "error",
-                 'client_id': CLIENT_ID,
-                 'researcher_id': resid,
-                 'msg': "Not able to deserialize the message"}).get_dict())
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg = "Not able to deserialize the message",
+                            researcher_id= resid)
         except NotImplementedError:
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.messaging.send_message(NodeMessages.reply_create(
-                {'success': False,
-                 'command': "error",
-                 'client_id': CLIENT_ID,
-                 'researcher_id': resid,
-                 'msg': f"Command `{command}` is not implemented"}).get_dict())
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg = f"Command `{command}` is not implemented",
+                            researcher_id= resid)
         except KeyError:
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.messaging.send_message(NodeMessages.reply_create(
-                {'success': False,
-                 'command': "error",
-                 'client_id': CLIENT_ID,
-                 'researcher_id': resid,
-                 'msg': "'command' property was not found"}).get_dict())
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg = "'command' property was not found",
+                            researcher_id= resid)
         except TypeError:  # Message was not serializable
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
-            self.messaging.send_message(NodeMessages.reply_create(
-                {'success': False,
-                 'command': "error",
-                 'client_id': CLIENT_ID,
-                 'researcher_id': resid,
-                 'msg': 'Message was not serializable'}).get_dict())
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg = 'Message was not serializable',
+                            researcher_id= resid)
+
 
     def parser_task(self, msg: Union[bytes, str, Dict[str, Any]]):
         """ This method parses a given task message to create a round instance
@@ -178,8 +176,8 @@ class Node:
         self.rounds = []  # store here rounds associated to each dataset_id
         # (so it is possible to train model on several dataset per round)
 
-        if CLIENT_ID in msg.get_param('training_data'):
-            for dataset_id in msg.get_param('training_data')[CLIENT_ID]:
+        if environ['NODE_ID'] in msg.get_param('training_data'):
+            for dataset_id in msg.get_param('training_data')[environ['NODE_ID']]:
                 alldata = self.data_manager.search_by_id(dataset_id)
                 if len(alldata) != 1 or not 'path' in alldata[0].keys():
                     # TODO: create a data structure for messaging
@@ -191,7 +189,7 @@ class Node:
                     self.messaging.send_message(NodeMessages.reply_create(
                         {'success': False,
                          'command': "error",
-                         'client_id': CLIENT_ID,
+                         'node_id': environ['NODE_ID'],
                          'researcher_id': researcher_id,
                          'msg': "Did not found proper data in local datasets"}
                         ).get_dict())
@@ -228,9 +226,16 @@ class Node:
             except Exception as e:
                 # send an error message back to network if something
                 # wrong occured
-                self.messaging.send_message(NodeMessages.reply_create({'success': False,
-                    "command": "error",
-                    'msg': str(e), 'client_id': CLIENT_ID}).get_dict())
+                self.messaging.send_message(
+                    NodeMessages.reply_create(
+                        {
+                            'success': False,
+                            "command": "error",
+                            'msg': str(e),
+                            'node_id': environ['NODE_ID']
+                        }
+                    ).get_dict()
+                )
 
     def start_messaging(self, block: Optional[bool] = False):
         """This method calls the start method of messaging class
@@ -239,3 +244,14 @@ class Node:
             block (bool, optional): Defaults to False.
         """
         self.messaging.start(block)
+
+
+    def send_error(self, errnum: ErrorNumbers, extra_msg: str = "", researcher_id : str = "<unknown>"):
+        """
+        send an error message through MQTT
+
+        (it is a wrapper of Messaging.send_error() )
+        """
+
+        #
+        self.messaging.send_error(errnum, extra_msg = extra_msg, researcher_id = researcher_id)

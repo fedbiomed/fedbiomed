@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 import sys
@@ -12,27 +13,35 @@ import tkinter.filedialog
 import tkinter.messagebox
 from tkinter import _tkinter
 
-from fedbiomed.node.environ import CLIENT_ID
-from fedbiomed.node.data_manager import Data_manager
+from fedbiomed.node.environ import environ
+from fedbiomed.common.constants import ModelTypes, ErrorNumbers
+from fedbiomed.node.data_manager import DataManager
+from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.node import Node
 
 from fedbiomed.common.logger import logger
 
 
+#
+# print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
+#
 __intro__ = """
 
-   __         _ _     _                          _        _ _            _
-  / _|       | | |   (_)                        | |      | (_)          | |
- | |_ ___  __| | |__  _  ___  _ __ ___   ___  __| |   ___| |_  ___ _ __ | |_
- |  _/ _ \/ _` | '_ \| |/ _ \| '_ ` _ \ / _ \/ _` |  / __| | |/ _ \ '_ \| __|
- | ||  __/ (_| | |_) | | (_) | | | | | |  __/ (_| | | (__| | |  __/ | | | |_
- |_| \___|\__,_|_.__/|_|\___/|_| |_| |_|\___|\__,_|  \___|_|_|\___|_| |_|\__|
+   __         _ _     _                          _                   _
+  / _|       | | |   (_)                        | |                 | |
+ | |_ ___  __| | |__  _  ___  _ __ ___   ___  __| |  _ __   ___   __| | ___
+ |  _/ _ \/ _` | '_ \| |/ _ \| '_ ` _ \ / _ \/ _` | | '_ \ / _ \ / _` |/ _ \\
+ | ||  __/ (_| | |_) | | (_) | | | | | |  __/ (_| | | | | | (_) | (_| |  __/
+ |_| \___|\__,_|_.__/|_|\___/|_| |_| |_|\___|\__,_| |_| |_|\___/ \__,_|\___|
+
+
 """
 
-# this may be changed on command line or in the config_client.ini
+# this may be changed on command line or in the config_node.ini
 logger.setLevel("DEBUG")
 
-data_manager = Data_manager()
+data_manager = DataManager()
+model_manager = ModelManager()
 
 readline.parse_and_bind("tab: complete")
 
@@ -74,6 +83,13 @@ def pick_with_tkinter(mode='file'):
                                    "*.csv")
                                   ]
                         )
+        elif mode == 'txt':
+            return tkinter.filedialog.askopenfilename(
+                        filetypes=[
+                                  ("Text files",
+                                   "*.txt")
+                                  ]
+                        )
         else:
             return tkinter.filedialog.askdirectory()
 
@@ -86,20 +102,31 @@ def pick_with_tkinter(mode='file'):
             return input('Insert the path of the dataset folder: ')
 
 
-def validated_path_input(data_type):
+def validated_path_input(type):
     while True:
         try:
-            if data_type == 'csv':
+            if type == 'csv':
                 path = pick_with_tkinter(mode='file')
                 logger.debug(path)
                 if not path:
+                    # node is not in computation mode, MQQT message cannot be sent
                     logger.critical('No file was selected. Exiting')
+                    exit(1)
+                assert os.path.isfile(path)
+
+            elif type == 'txt': # For registering python model
+                path = pick_with_tkinter(mode='txt')
+                logger.debug(path)
+                if not path:
+                    # node is not in computation mode, MQQT message cannot be sent
+                    logger.critical('No python file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
             else:
                 path = pick_with_tkinter(mode='dir')
                 logger.debug(path)
                 if not path:
+                    # node is not in computation mode, MQQT message cannot be sent
                     logger.critical('No directory was selected. Exiting')
                     exit(1)
                 assert os.path.isdir(path)
@@ -114,34 +141,68 @@ def validated_path_input(data_type):
     return path
 
 
-def add_database(interactive=True, path=''):
+def add_database(interactive=True,
+                 path=None,
+                 name=None,
+                 tags=None,
+                 description=None,
+                 data_type=None):
 
-    print('Welcome to the Fedbiomed CLI data manager')
-    if interactive is True:
-        data_type = validated_data_type_input()
-    else:
-        data_type = 'default'
+    # if all args are provided, just try to load the data
+    # if not, ask the user more informations
+    if interactive or \
+       path is None or \
+       name is None or \
+       tags is None or \
+       description is None or \
+       data_type is None :
 
-    if data_type == 'default':
-        tags = ['#MNIST', "#dataset"]
+
+        print('Welcome to the Fedbiomed CLI data manager')
+
         if interactive is True:
-            while input(f'MNIST will be added with tags {tags} [y/N]').lower() != 'y':
-                pass
+            data_type = validated_data_type_input()
+        else:
+            data_type = 'default'
+
+        if data_type == 'default':
+            tags = ['#MNIST', "#dataset"]
+            if interactive is True:
+                while input(f'MNIST will be added with tags {tags} [y/N]').lower() != 'y':
+                    pass
+                path = validated_path_input(data_type)
+            name = 'MNIST'
+            description = 'MNIST database'
+
+        else:
+
+            name = input('Name of the database: ')
+
+            tags = input('Tags (separate them by comma and no spaces): ')
+            tags = tags.replace(' ', '').split(',')
+
+            description = input('Description: ')
+
             path = validated_path_input(data_type)
-        name = 'MNIST'
-        description = 'MNIST database'
 
     else:
-        name = input('Name of the database: ')
+        # all data have been provided at call
+        # check few things
 
-        tags = input('Tags (separate them by comma and no spaces): ')
-        tags = tags.replace(' ', '').split(',')
+        # transform a string with coma(s) as a string list
+        tags = str(tags).split(',')
 
-        description = input('Description: ')
-        path = validated_path_input(data_type)
+        name=str(name)
+        description=str(description)
+
+        data_type=str(data_type).lower()
+        if data_type not in [ 'csv', 'default', 'images' ]:
+            data_type = 'default'
+
+        if not os.path.exists(path):
+            logger.critical("provided path does not exists: " + path)
 
     # Add database
-
     try:
         data_manager.add_database(name=name,
                                   tags=tags,
@@ -167,6 +228,14 @@ def node_signal_handler(signum, frame):
     Catch the temination signal then user stops the process
     and send SystemExit(0) to be trapped later
     """
+
+    # get the (running) Node object
+    global node
+
+    if node:
+        node.send_error(ErrorNumbers.FB312)
+    else:
+        logger.error("Cannot send error message to researcher (node not initialized yet)")
     logger.critical("Node stopped in signal_handler, probably by user decision (Ctrl C)")
     time.sleep(1)
     sys.exit(signum)
@@ -177,14 +246,28 @@ def manage_node():
     messaging with the Network
     """
 
+    global node
+
     try:
         signal.signal(signal.SIGTERM, node_signal_handler)
 
-        logger.info('Launching node')
+        logger.info('Launching node...')
 
-        data_manager = Data_manager()
+        # Register default models and update hashes
+        if environ["MODEL_APPROVAL"]:
+            # This methods updates hashes if hashing algorithm has changed
+            model_manager.check_hashes_for_registered_models()
+            if environ["ALLOW_DEFAULT_MODELS"]:
+                logger.info('Loading default models')
+                model_manager.register_update_default_models()
+        else:
+            logger.warning('Model approval for train request is not activated. ' + \
+                            'This might cause security problems. Please, consider to enable model approval.')
+
+        data_manager = DataManager()
         logger.info('Starting communication channel with network')
-        node = Node(data_manager)
+        node = Node(data_manager = data_manager,
+                    model_manager = model_manager)
         node.start_messaging(block=False)
 
         logger.info('Starting task manager')
@@ -192,6 +275,7 @@ def manage_node():
 
     except Exception as e:
         # must send info to the researcher
+        node.send_error(ErrorNumbers.FB300, extra_msg = "Error = " + str(e))
         logger.critical("Node stopped. Error = " + str(e))
 
     finally:
@@ -213,8 +297,9 @@ def launch_node():
     Launches node in a process. Process ends when user triggers
     a KeyboardInterrupt exception (CTRL+C).
     """
-    #p = Process(target=manage_node, name='node-' + CLIENT_ID, args=(data_manager,))
-    p = Process(target=manage_node, name='node-' + CLIENT_ID)
+
+    #p = Process(target=manage_node, name='node-' + environ['NODE_ID'], args=(data_manager,))
+    p = Process(target=manage_node, name='node-' + environ['NODE_ID'])
     p.daemon = True
     p.start()
 
@@ -274,6 +359,135 @@ def delete_database(interactive: bool = True):
             logger.error('Invalid option. Please, try again.')
 
 
+def delete_all_database():
+    my_data = data_manager.list_my_data(verbose=False)
+
+    if not my_data:
+        logger.warning('No dataset to delete')
+        return
+
+    for ds in my_data:
+        tags = ds['tags']
+        data_manager.remove_database(tags)
+        logger.info('Dataset removed for tags:' + str(tags))
+
+    return
+
+
+def register_model(interactive: bool = True):
+
+    """ Method for registring model files through CLI """
+
+    print('Welcome to the Fedbiomed CLI data manager')
+    name = input('Please enter a model name: ')
+    description = input('Please enter a description for the model: ')
+
+    # Allow files saved as txt
+    path = validated_path_input(type = "txt")
+
+    # Regsiter model
+    try:
+        model_manager.register_model(name=name,
+                                    description=description,
+                                    path=path)
+
+    except AssertionError as e:
+        if interactive is True:
+            try:
+                tkinter.messagebox.showwarning(title='Warning', message=str(e))
+            except ModuleNotFoundError:
+                warnings.warn('[ERROR]: {e}')
+        else:
+            warnings.warn(f'[ERROR]: {e}')
+        exit(1)
+
+    print('\nGreat! Take a look at your data:')
+    model_manager.list_approved_models(verbose=True)
+
+def update_model():
+
+    """ Method for updating model files. User can either different
+        model file (different path) to update model or same model file
+    """
+    models = model_manager.list_approved_models(verbose=False)
+
+    # Select only registered model to update
+    models = [ m for m in models  if m['model_type'] == ModelTypes.REGISTERED.value]
+    if not models:
+        logger.warning('No registered models has been found to update')
+        return
+
+    options = [m['name'] + '\t Model ID ' + m['model_id'] for m in models]
+    msg = "Select the model to delete:\n"
+    msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
+    msg += "\nSelect: "
+
+    while True:
+        try:
+
+            # Get the selection
+            opt_idx = int(input(msg)) - 1
+            assert opt_idx >= 0
+            model_id = models[opt_idx]['model_id']
+
+            if not model_id:
+                logger.warning('No matching model to delete')
+                return
+
+            # Get the new file or same file.  User can ]provide same model file
+            # with updated content or new model file.
+            path = validated_path_input(type = "txt")
+
+            # Update model through model manager
+            model_manager.update_model(model_id, path)
+
+            logger.info('Model has been updated. Here all your models')
+            model_manager.list_approved_models(verbose=True)
+
+            return
+
+        except (ValueError, IndexError, AssertionError):
+            logger.error('Invalid option. Please, try again.')
+
+
+def delete_model():
+
+    """ Deletes only registered models, for default models
+    should be removed directly from the file system
+    """
+
+    models = model_manager.list_approved_models(verbose=False)
+    models = [ m for m in models  if m['model_type'] == ModelTypes.REGISTERED.value]
+    if not models:
+        logger.warning('No models to delete')
+        return
+
+    options = [m['name'] + '\t Model ID ' + m['model_id'] for m in models]
+    msg = "Select the model to delete:\n"
+    msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
+    msg += "\nSelect: "
+
+    while True:
+        try:
+
+            opt_idx = int(input(msg)) - 1
+            assert opt_idx >= 0
+            model_id = models[opt_idx]['model_id']
+
+            if not model_id:
+                logger.warning('No matching model to delete')
+                return
+            # Delete model
+            model_manager.delete_model(model_id)
+            logger.info('Model has been removed. Here your other models')
+            model_manager.list_approved_models(verbose=True)
+
+            return
+
+        except (ValueError, IndexError, AssertionError):
+            logger.error('Invalid option. Please, try again.')
+
+
 def launch_cli():
 
     parser = argparse.ArgumentParser(description=f'{__intro__}:A CLI app for fedbiomed researchers.',
@@ -286,8 +500,16 @@ def launch_cli():
                         help='Add MNIST local dataset (non-interactive)',
                         type=str, nargs='?', const='', metavar='path_mnist',
                         action='store')
+    # this option provides a json file describing the data to add
+    parser.add_argument('-adff', '--add-dataset-from-file',
+                        help='Add a local dataset described by json file (non-interactive)',
+                        type=str,
+                        action='store')
     parser.add_argument('-d', '--delete',
                         help='Delete existing local dataset (interactive)',
+                        action='store_true')
+    parser.add_argument('-da', '--delete-all',
+                        help='Delete all existing local datasets (non interactive)',
                         action='store_true')
     parser.add_argument('-dm', '--delete-mnist',
                         help='Delete existing MNIST local dataset (non-interactive)',
@@ -298,18 +520,76 @@ def launch_cli():
     parser.add_argument('-s', '--start-node',
                         help='Start fedbiomed node.',
                         action='store_true')
+    parser.add_argument('-rml', '--register-model',
+                        help='Approve new model files.',
+                        action='store_true')
+    parser.add_argument('-uml', '--update-model',
+                        help='Update model file.',
+                        action='store_true')
+    parser.add_argument('-dml', '--delete-model',
+                        help='Deletes models from DB',
+                        action='store_true')
+    parser.add_argument('-lms', '--list-models',
+                        help='Start fedbiomed node.',
+                        action='store_true')
     args = parser.parse_args()
 
     if not any(args.__dict__.values()):
         parser.print_help()
     else:
         print(__intro__)
-        print('\t- 🆔 Your client ID:', CLIENT_ID, '\n')
+        print('\t- 🆔 Your node ID:', environ['NODE_ID'], '\n')
 
     if args.add:
         add_database()
     elif args.add_mnist is not None:
         add_database(interactive=False, path=args.add_mnist)
+    elif args.add_dataset_from_file is not None:
+        print("Dataset description file provided: adding these data")
+        try:
+            with open(args.add_dataset_from_file) as json_file:
+                data = json.load(json_file)
+        except:
+            logger.critical("cannot read dataset json file: " + args.add_dataset_from_file)
+            sys.exit(-1)
+
+        # verify that json file is complete
+        for k in [ "path", "data_type", "description", "tags", "name"]:
+            if not k in data:
+                logger.critical("dataset json file corrupted: " + args.add_dataset_from_file )
+
+        # dataset path can be defined:
+        # - as an absolute path -> take it as it is
+        # - as a relative path  -> add the ROOT_DIR in front of it
+        # - using an OS environment variable -> transform it
+        #
+        elements = data["path"].split(os.path.sep)
+        if elements[0].startswith("$") :
+            # expand OS environment variable
+            var = elements[0][1:]
+            if var in os.environ:
+                var = os.environ[var]
+                elements[0] = var
+            else:
+                logger.info("Unknown env var: " + var)
+                elements[0] = ""
+        elif elements[0]:
+            # p is relative (does not start with /)
+            # prepend with topdir
+            elements = [ environ["ROOT_DIR"] ] + elements
+
+        # rebuild the path with these (eventually) new elements
+        data["path"] = os.path.join(os.path.sep, *elements)
+
+        # add the dataset to local database (not interactive)
+        add_database(interactive=False,
+                     path        = data["path"],
+                     data_type   = data["data_type"],
+                     description = data["description"],
+                     tags        = data["tags"],
+                     name        = data["name"]
+                     )
+
     elif args.list:
         print('Listing your data available')
         data = data_manager.list_my_data(verbose=True)
@@ -317,8 +597,18 @@ def launch_cli():
             print('No data has been set up.')
     elif args.delete:
         delete_database()
+    elif args.delete_all:
+        delete_all_database()
     elif args.delete_mnist:
         delete_database(interactive=False)
+    elif args.register_model:
+        register_model()
+    elif args.update_model:
+        update_model()
+    elif args.delete_model:
+        delete_model()
+    elif args.list_models:
+        model_manager.list_approved_models(verbose = True)
     elif args.start_node:
         launch_node()
 

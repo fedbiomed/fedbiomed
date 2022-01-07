@@ -17,12 +17,12 @@ from colorama import Fore, Style, init, deinit
 from datetime import datetime
 
 import getopt
-import json
 import paho.mqtt.client as mqtt
 import sys
 import time
 import yaml
 
+from fedbiomed.common import json
 
 class MqttSpy:
     """
@@ -56,8 +56,8 @@ class MqttSpy:
         # list of channels to subscribe to
         # use of a hash instead of a proper list for convenience
         self.channels = {
-            'general/server'        : None,
-            'general/clients'       : None,
+            'general/researcher'    : None,
+            'general/nodes'         : None,
             'general/logger'        : None,
             'general/monitoring'    : None
         }
@@ -96,7 +96,7 @@ class MqttSpy:
         print("topic  :", Fore.CYAN + message.topic + Style.RESET_ALL)
 
         # decode some output
-        data = json.loads(message.payload)
+        data = json.deserialize_msg(message.payload)
 
         # colorize output
         k = "command"
@@ -115,8 +115,8 @@ class MqttSpy:
         print(yaml.dump(data, default_flow_style=False))
 
         # study message to detect new clients channels
-        if "client_id" in data:
-            c = 'general/' + data["client_id"]
+        if "node_id" in data:
+            c = 'general/' + data["node_id"]
 
             if not c in self.channels:
                 self.channels[c] = None

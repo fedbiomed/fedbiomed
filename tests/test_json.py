@@ -1,6 +1,14 @@
+# Managing NODE, RESEARCHER environ mock before running tests
+from testsupport.delete_environ import delete_environ
+# Delete environ. It is necessary to rebuild environ for required component
+delete_environ()
+# overload with fake environ for tests
+import testsupport.mock_common_environ
+
 import unittest
 
 import fedbiomed.common.json as js
+from   fedbiomed.common.constants import ErrorNumbers
 
 class TestJson(unittest.TestCase):
     '''
@@ -15,9 +23,9 @@ class TestJson(unittest.TestCase):
         pass
 
 
-    def test_json(self):
+    def test_basic_json(self):
         '''
-        still do not understand why we use this wrapper.....
+        serialized/deserialize test
         '''
         msg = '{"foo": "bar"}'
         self.assertEqual( js.deserialize_msg(msg)["foo"] , "bar")
@@ -29,6 +37,29 @@ class TestJson(unittest.TestCase):
         self.assertEqual( loop1, msg )
         pass
 
+    def test_errnum_json(self):
+        '''
+        serialized/deserialize errnum
+        '''
+
+        for e in ErrorNumbers:
+            dict = {
+                'errnum' : e
+            }
+
+            dict2json = js.serialize_msg(dict)
+            self.assertTrue( str(e.value[0]) in dict2json)
+
+            json2dict = js.deserialize_msg(dict2json)
+            self.assertEqual( e , json2dict['errnum'])
+
+        # test also unknow error
+        serial='{"errnum": 123456789}'
+        json2dict = js.deserialize_msg(serial)
+        self.assertEqual( json2dict['errnum'], ErrorNumbers.FB999)
+
+
+        pass
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

@@ -1,3 +1,10 @@
+# Managing NODE, RESEARCHER environ mock before running tests
+from testsupport.delete_environ import delete_environ
+# Delete environ. It is necessary to rebuild environ for required component
+delete_environ()
+# overload with fake environ for tests
+import testsupport.mock_common_environ
+
 import unittest
 import os
 import sys
@@ -24,7 +31,7 @@ class TestEnvironCommon(unittest.TestCase):
         # test config file names
         self.files = [
             # Cannot test with relative
-            'config_node.ini', 
+            'config_node.ini',
             'config_bis.ini',
             'config_ter',
             'node2_name',
@@ -32,15 +39,15 @@ class TestEnvironCommon(unittest.TestCase):
             os.path.join(self.config_dir, 'config_4.ini'),
             os.path.join(self.config_dir, 'config_5'),
             os.path.join(self.config_dir, 'node3_name')
-            ]          
+            ]
 
         # test upload urls
         self.url_map = [
-            [ 
+            [
                 os.path.join(os.path.sep,'arbitrary','path', ''), # /arbitrary/path/ on Linux
                 os.path.join(os.path.sep,'arbitrary','path', '')  # /arbitrary/path/ on Linux
             ],
-            [ 
+            [
                 os.path.join(os.path.sep,'uncomplete','path'),    # /uncomplete/path on Linux
                 os.path.join(os.path.sep,'uncomplete','path', '') # /uncomplete/path/ on Linux
             ]
@@ -55,12 +62,24 @@ class TestEnvironCommon(unittest.TestCase):
         shutil.rmtree(self.config_dir)
 
     def reload_environ(self, module: str):
-        if module in sys.modules:
-            # clean namespace before next test
-            del sys.modules[module]
-            # reloading is not enough
-            #importlib.reload(module)
-        exec('import ' + module, globals())
+        #
+        # as environ is a singleton, we must reinforce
+        # the loading of all modules
+        #
+        for m in ['fedbiomed.common.environ',
+                  'fedbiomed.node.environ',
+                  'fedbiomed.researcher.environ',
+                  ]:
+            if m in sys.modules:
+                # clean namespace before next test
+                del sys.modules[m]
+
+        # we should also delete the global variable
+        if 'environ' in globals():
+            del globals()['environ']
+
+        # and reimport the requested module
+        exec('from ' + module + ' import environ', globals())
 
 
     #
@@ -97,7 +116,7 @@ class TestEnvironCommon(unittest.TestCase):
         config_path = os.path.join(self.config_dir, 'config_url')
         os.environ['CONFIG_FILE'] = config_path
 
-        for env in self.envs:        
+        for env in self.envs:
             # test with unset upload url
             if 'UPLOADS_URL' in os.environ:
                 del os.environ['UPLOADS_URL']
@@ -105,10 +124,10 @@ class TestEnvironCommon(unittest.TestCase):
             if os.path.isfile(config_path):
                  os.remove(config_path)
             self.reload_environ(env)
-            self.assertEqual(eval(env + '.UPLOADS_URL'), 'http://localhost:8844/upload/')
+            self.assertEqual(environ['UPLOADS_URL'], 'http://localhost:8844/upload/')
 
             self.reload_environ(env)
-            self.assertEqual(eval(env + '.UPLOADS_URL'), 'http://localhost:8844/upload/')
+            self.assertEqual(environ['UPLOADS_URL'], 'http://localhost:8844/upload/')
 
 
             # test upload urls given directly
@@ -118,13 +137,13 @@ class TestEnvironCommon(unittest.TestCase):
                 if os.path.isfile(config_path):
                     os.remove(config_path)
                 self.reload_environ(env)
-                self.assertEqual(used_url, eval(env + '.UPLOADS_URL'))
+                self.assertEqual(used_url, environ['UPLOADS_URL'])
 
                 # reload the same config from existing file (not from variable)
-                del os.environ['UPLOADS_URL'] 
+                del os.environ['UPLOADS_URL']
 
                 self.reload_environ(env)
-                self.assertEqual(used_url, eval(env + '.UPLOADS_URL'))            
+                self.assertEqual(used_url, environ['UPLOADS_URL'])
 
             # test upload url from IP
             uploads_ip = '1.2.3.4'
@@ -133,21 +152,23 @@ class TestEnvironCommon(unittest.TestCase):
             if os.path.isfile(config_path):
                 os.remove(config_path)
             self.reload_environ(env)
-            self.assertEqual(eval(env + '.UPLOADS_URL'), 'http://' + uploads_ip + ':8844/upload/')
+            self.assertEqual(environ['UPLOADS_URL'], 'http://' + uploads_ip + ':8844/upload/')
 
             # reload the config from existing file
-            del os.environ['UPLOADS_IP'] 
+            del os.environ['UPLOADS_IP']
             self.reload_environ(env)
-            self.assertEqual(eval(env + '.UPLOADS_URL'), 'http://' + uploads_ip + ':8844/upload/')
+            self.assertEqual(environ['UPLOADS_URL'], 'http://' + uploads_ip + ':8844/upload/')
 
             os.remove(config_path)
 
     def test_broker(self):
 
+        #import pdb; pdb.set_trace()
+
         config_path = os.path.join(self.config_dir, 'config_broker')
         os.environ['CONFIG_FILE'] = config_path
 
-        for env in self.envs:        
+        for env in self.envs:
             # test with unset broker ip
             if 'MQTT_BROKER' in os.environ:
                 del os.environ['MQTT_BROKER']
@@ -155,10 +176,10 @@ class TestEnvironCommon(unittest.TestCase):
             if os.path.isfile(config_path):
                  os.remove(config_path)
             self.reload_environ(env)
-            self.assertEqual(eval(env + '.MQTT_BROKER'), 'localhost')
+            self.assertEqual(environ['MQTT_BROKER'], 'localhost')
 
             self.reload_environ(env)
-            self.assertEqual(eval(env + '.MQTT_BROKER'), 'localhost')
+            self.assertEqual(environ['MQTT_BROKER'], 'localhost')
 
 
             # test upload urls given directly
@@ -168,15 +189,17 @@ class TestEnvironCommon(unittest.TestCase):
                 if os.path.isfile(config_path):
                     os.remove(config_path)
                 self.reload_environ(env)
-                self.assertEqual(ip, eval(env + '.MQTT_BROKER'))
+
+                self.assertEqual(ip, environ['MQTT_BROKER'])
 
                 # reload the same config from existing file (not from variable)
-                del os.environ['MQTT_BROKER'] 
+                del os.environ['MQTT_BROKER']
 
                 self.reload_environ(env)
-                self.assertEqual(ip, eval(env + '.MQTT_BROKER'))            
+                self.assertEqual(ip, environ['MQTT_BROKER'])
 
-            os.remove(config_path)
+            if os.path.isfile(config_path):
+                os.remove(config_path)
 
 
 

@@ -10,7 +10,7 @@ channels:
 
 dependencies:
   # minimal environment
-  - python >=3.9,<4.0
+  - python >=3.9,<3.10
   - pip
   - jupyter
   - ipython
@@ -31,10 +31,11 @@ dependencies:
   - scikit-learn <= 0.24.2
   # nn
   - pip:
-      - monai >=0.4.0,<0.5.0
+      - monai #>=0.4.0,<0.5.0
       - torch >=1.8.0,<2.0.0
       - persist-queue >=0.5.1,<0.6.0
       - pytorch-ignite >=0.4.4,<0.5.0
       - torchvision >=0.9.0,<0.10.0
       - pandas >=1.2.3,<2.0.0
       - JSON-log-formatter
+      - python-minifier ==2.5.0

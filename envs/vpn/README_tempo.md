@@ -205,8 +205,10 @@ On the node machine
 ```bash
 [user@node $] docker image load </tmp/vpn-node-image.tar.gz
 ```
+* change to directory you want to use as base directory for running this container
 * load files needed for running container
 ```bash
+[user@node $] mkdir -p ./envs/vpn/docker
 [user@node $] cd ./envs/vpn/docker
 [user@node $] tar xvzf /tmp/vpn-node-files.tar.gz
 [user@node $] mv docker-compose_run_node.yml docker-compose.yml
@@ -337,7 +339,7 @@ Run this for all launches of the container :
 [user@researcher-container $] eval "$(conda shell.bash hook)"
 [user@researcher-container $] conda activate fedbiomed-researcher
 # ... or any other command
-[user@researcher-container $] ./notebooks/getting-started.py
+[user@researcher-container $] ./notebooks/101_getting-started.py
 ```
 
 * to use notebooks, from outside the researcher container connect to `http://localhost:8888` or `http://SERVER_IP:8888`
@@ -384,7 +386,7 @@ Note : can also use commands in the form
 [root@network #] rm -rf vpnserver/run_mounts/config/{config_peers,ip_assign,wireguard}
 
 # level 3 : image
-[user@network $] docker image rm fedbiomed-vpn-vpnserver
+[user@network $] docker image rm fedbiomed/vpn-vpnserver
 ```
 
 ### mqtt
@@ -400,7 +402,7 @@ Note : can also use commands in the form
 [user@network $] echo > ./mqtt/run_mounts/config/config.env
 
 # level 3 : image
-[user@network $] docker image rm fedbiomed-vpn-mqtt
+[user@network $] docker image rm fedbiomed/vpn-mqtt
 ```
 
 ### restful
@@ -419,7 +421,7 @@ Note : can also use commands in the form
 # also clean saved files ? (same for env/developement)
 
 # level 3 : image
-[user@network $] docker image rm fedbiomed-vpn-restful
+[user@network $] docker image rm fedbiomed/vpn-restful
 ```
 
 ### node 
@@ -436,7 +438,7 @@ Note : can also use commands in the form
 [user@node $] rm -rf ./node/run_mounts/data/*
 
 # level 3 : image
-[user@node $] docker image rm fedbiomed-vpn-node
+[user@node $] docker image rm fedbiomed/vpn-node
 ```
 
 ### researcher
@@ -455,7 +457,7 @@ Same as node
 [user@researcher $] rm -rf ./researcher/run_mounts/data/*
 
 # level 3 : image
-[user@researcher $] docker image rm fedbiomed-vpn-researcher
+[user@researcher $] docker image rm fedbiomed/vpn-researcher
 ```
 
 ## background / wireguard

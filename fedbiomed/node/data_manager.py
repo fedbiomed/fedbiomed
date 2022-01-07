@@ -10,10 +10,10 @@ import torch
 from torchvision import datasets
 from torchvision import transforms
 
-from fedbiomed.node.environ import DB_PATH
+from fedbiomed.node.environ import environ
 
 
-class Data_manager: # should this be in camelcase (smthg like DataManager)?
+class DataManager: # should this be in camelcase (smthg like DataManager)?
     """Interface over TinyDB database.
     Facility fot storing, retrieving data and get data info
     on the data stored into TinyDB database.
@@ -21,7 +21,7 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
     def __init__(self):
         """ The constrcutor of the class
         """
-        self.db = TinyDB(DB_PATH)
+        self.db = TinyDB(environ['DB_PATH'])
         self.database = Query()
 
     def search_by_id(self, dataset_id: str) -> List[dict]:
@@ -67,7 +67,8 @@ class Data_manager: # should this be in camelcase (smthg like DataManager)?
         sniffer = csv.Sniffer()
         with open(csv_file, 'r') as file:
             delimiter = sniffer.sniff(file.readline()).delimiter
-            header = None if not sniffer.has_header(file.read()) else 0
+            file.seek(0)
+            header = 0 if sniffer.has_header(file.read()) else None
 
         return pd.read_csv(csv_file, index_col=index_col, sep=delimiter, header=header)
 
