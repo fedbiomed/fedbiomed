@@ -81,7 +81,6 @@ git push origin develop
 - check that the CI builds correctly on https://ci.inria.fr/fedbiomed/
 
 
-
 ## cleanup
 
 - delete the (local) release branch
