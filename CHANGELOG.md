@@ -3,7 +3,7 @@
 ## 2022-01-07 version 3.3
 
 - add MONAI support and example notebooks
-- add model manager to register and check authorized training models on the node
+- add model manager to register and check authorized training models on the node based on model hash
 - refactor experiment real time monitoring capacity with Tensorboard
 - add `Request.list()` to list shared dataset on online nodes
 - configure_conda may take parameters to only update some environments
@@ -11,6 +11,9 @@
 - add -n (dryrun) option for configure_conda, for debug/validation purpose
 - fix and refactor breakpoint feature which was not fully operational
 - change the names of breakpoint directories
+- node error reporting to researcher
+- basic error handling on researcher component
+- mutualize the Singleton metaclass
 - refactor environ as singleton class
 - fix the way the tests deal with fedbiomed.common.environ
 - refactor strategy (moved some methods in upper classes)
