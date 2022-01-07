@@ -45,7 +45,9 @@ class TorchTrainingPlan(nn.Module):
         # self.random_seed_shuffling_data = None
 
         # training // may be changed in training_routine ??
-        self.device = "cpu"
+        #self.device = "cpu"
+        use_cuda = torch.cuda.is_available()
+        self.device = torch.device("cuda" if use_cuda else "cpu")
 
         # list dependencies of the model
         self.dependencies = ["from fedbiomed.common.torchnn import TorchTrainingPlan",
@@ -99,8 +101,8 @@ class TorchTrainingPlan(nn.Module):
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
-        use_cuda = torch.cuda.is_available()
-        self.device = torch.device("cuda" if use_cuda else "cpu")
+        #use_cuda = torch.cuda.is_available()
+        #self.device = torch.device("cuda" if use_cuda else "cpu")
         #self.device = "cpu"
 
 
