@@ -106,7 +106,7 @@ The datasets are described in a json file, which looks like:
 }
 ```
 
-You can use OS environement variables in this script (e.g. $HOME in the given example)
+You can use OS environment variables in this script (e.g. $HOME in the given example)
 
 We provide some example datasets in **tests/datasets**, you may need to adjust them to comply with your own installation directories.
 
