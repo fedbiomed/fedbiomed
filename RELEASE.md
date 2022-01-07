@@ -55,7 +55,8 @@ git tag -a $RELEASE_TAG
 ```
 - push the updated `master` and tag to the remote
 ```bash
-git push --tags origin master
+git push origin master
+git push origin $RELEASE_TAG
 ```
 - check that the CI builds correctly on https://ci.inria.fr/fedbiomed/
   * review carefully the log details for the build
