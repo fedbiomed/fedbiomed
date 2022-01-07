@@ -60,3 +60,79 @@ and open the **cover/index.html** file in your favorite browser.
 Remark: then using --cover-html instead of --cover-xml, the HTML report does not
 contains files which have not been tested, which leads to a over-estimation of
 test coverage....
+
+
+## running an integration test
+
+### global explanation
+
+We provide the script **scripts/run_integration_test** to ease the launching of
+tests during the developement process.
+
+The script usage is:
+
+```
+Usage: run_integration_test -s file -d dataset.json
+
+  -h, --help                  this help
+  -s, --script  <file>        script to run (.py or .ipynb)
+  -t, --timeout <integer>     max execution time (default = 900)
+  -d, --dataset <json-file>   dataset description
+
+Remark: only dataset availability is checked. Coherence between
+provided script and dataset is not validated by this launcher
+```
+
+The script algorithm is:
+- start the network component
+- start one separate node for each provided dataset
+- start the researcher component
+- stop and clean all components
+- the status exit of the script is 0 is everything ran well
+
+The script deal with python scripts or with notebooks, which are converted to python.
+
+### dataset description
+
+The datasets are described in a json file, which looks like:
+
+```
+{
+    "name": "Mednist data",
+    "description": "Mednist",
+    "tags": "mednist",
+    "data_type": "images",
+    "path": "$HOME/tmp/MedNIST"
+}
+```
+
+You can use OS environement variables in this script (e.g. $HOME in the pgiven example)
+
+We provide some example dataset in **tests/datasets**, you may need to adjust it to your
+own installation directories.
+
+
+### Example of use
+
+#### MNIST tutorial
+
+```
+$ ./scripts/run_integration_test -s ./notebooks/101_getting-started.py \
+                                 -d ./tests/datasets/mnist.json
+```
+
+#### monai notebook tutorial with 3 nodes
+
+```
+$ ./scripts/run_integration_test \
+   -s ./notebooks/monai-2d-image-classification.ipynb \
+   -d ./tests/datasets/mednist_part_1.json \
+   -d ./tests/datasets/mednist_part_2.json \
+   -d ./tests/datasets/mednist_part_3.json \
+   -t 3600
+```
+
+This will run the monai-2d-image-classification.ipynb notebook, with thres nodes, each of
+them using a part of mednist dataset (which has been splitted in three parts).
+
+You may launch this tutorial in a jupyter notebook for more informations
