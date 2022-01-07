@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Fedbiomed Researcher
+# # Fedbiomed Researcher base example
 
-# Use for developing (autoreloads changes made across packages)
-
-
+# ## Start the network
+# Before running this notebook, start the network with `./scripts/fedbiomed_run network`
+#
 # ## Setting the node up
 # It is necessary to previously configure a node:
 # 1. `./scripts/fedbiomed_run node add`
@@ -14,13 +14,11 @@
 #   * Pick the folder where MNIST is downloaded (this is due torch issue https://github.com/pytorch/vision/issues/3549)
 #   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
 #
-# 2. Check that your data has been added by executing `./scripts/fedbiomed_run node add`
-# 3. Run the node using `./scripts/fedbiomed_run node add`. Wait until you get `Connected with result code 0`. it means you are online.
+# 2. Check that your data has been added by executing `./scripts/fedbiomed_run node list`
+# 3. Run the node using `./scripts/fedbiomed_run node run`. Wait until you get `Starting task manager`. it means you are online.
 
 
-# ## Create an experiment to train a model on the data found
-
-
+# ## Define an experiment model and parameters
 
 # Declare a torch.nn MyTrainingPlan class to send for training on the node
 
@@ -72,7 +70,6 @@ class MyTrainingPlan(TorchTrainingPlan):
     def training_data(self, batch_size = 48):
         transform = transforms.Compose([transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])
-        print("[INFO] Training on dataset: " + str(self.dataset_path))
         dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
         data_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
@@ -101,7 +98,7 @@ training_args = {
 }
 
 
-#    Define an experiment
+#    ## Declare and run the experiment
 #    - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
 #    - run a round of local training on nodes with model defined in `model_class` + federation with `aggregator`
 #    - run for `rounds` rounds, applying the `node_selection_strategy` between the rounds
@@ -114,6 +111,10 @@ rounds = 2
 
 exp = Experiment(tags=tags,
                 #nodes=None,
+                # 
+                # difference with a notebook : with a python script the `MyTrainingPlan``
+                # contains the model code, so you don't need to use a file (`model_path`)
+                # for passing the model to the experiment
                 model_class=MyTrainingPlan,
                 # model_class=AlterTrainingPlan,
                 # model_path='/path/to/model_file.py',
@@ -167,17 +168,5 @@ print("\nAccess the federated params for the last training round : ")
 print("\t- params_path: ", exp.aggregated_params[rounds - 1]['params_path'])
 print("\t- parameter data: ", exp.aggregated_params[rounds - 1]['params'].keys())
 
+# Feel free to run other sample notebooks or try your own models :D
 
-
-# ## Optional : searching the data
-
-#from fedbiomed.researcher.requests import Requests
-#
-#r = Requests()
-#data = r.search(tags)
-#
-#import pandas as pd
-#for node_id in data.keys():
-#    print('\n','Data for ', node_id, '\n\n', pd.DataFrame(data[node_id]))
-#
-#print('\n')

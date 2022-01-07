@@ -142,8 +142,8 @@ $ ./scripts/fedbiomed_run researcher
 
 * this will launch a new jupyter notebook working in the **notebooks** repository. Some notebooks are available:
 
-  - `getting-started.ipynb` : training a simplenet + federated average on MNIST data
-  - `local_training.ipynb` : comparing the simplenet + federated average on MNIST data with its local training equivalent
+  - `101_getting-started.ipynb` : training a simplenet + federated average on MNIST data
+  - `pytorch-local-training.ipynb` : comparing the simplenet + federated average on MNIST data with its local training equivalent
 
 
 #### run a researcher script
@@ -157,7 +157,7 @@ $ source ./scripts/fedbiomed_environment researcher
 * then you can use any researcher script
 
 ```
-$ python ./notebooks/getting-started.py
+$ python ./notebooks/101_getting-started.py
 ```
 
 ### change IP address for network in the current bash
