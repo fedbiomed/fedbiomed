@@ -99,9 +99,9 @@ class TorchTrainingPlan(nn.Module):
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
-        # use_cuda = torch.cuda.is_available()
-        # device = torch.device("cuda" if use_cuda else "cpu")
-        self.device = "cpu"
+        use_cuda = torch.cuda.is_available()
+        self.device = torch.device("cuda" if use_cuda else "cpu")
+        #self.device = "cpu"
 
 
         for epoch in range(1, epochs + 1):
