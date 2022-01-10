@@ -1,20 +1,28 @@
 # Fed-BioMed changelog
 
-## 2021-10-21 version x.y
+## 2022-01-07 version 3.3
 
+- add MONAI support and example notebooks
+- add model manager to register and check authorized training models on the node based on model hash
+- refactor experiment real time monitoring capacity with Tensorboard
+- add `Request.list()` to list shared dataset on online nodes
 - configure_conda may take parameters to only update some environments
-- fixed conda environments for mac OSX
-- added -n (dryrun) option for configure_conda, for debug/validation purpose
-- fixed breakpoint feature which was not fully operational
-- changed the names of breakpoint directories
-- fixed the way the tests deal with fedbiomed.common.environ
+- fix conda environments for mac OSX
+- add -n (dryrun) option for configure_conda, for debug/validation purpose
+- fix and refactor breakpoint feature which was not fully operational
+- change the names of breakpoint directories
+- node error reporting to researcher
+- basic error handling on researcher component
+- mutualize the Singleton metaclass
+- refactor environ as singleton class
+- fix the way the tests deal with fedbiomed.common.environ
 - refactor strategy (moved some methods in upper classes)
-- the new command **run_integration_test** allows to easily run an integration test from a single .py or .ipynb
-- added an automatized method to add a dataset in nodes's db from a JSON dataset description file
-- added error numbering as an enum, impact on error messages serialization
-- ...
-- more example notebooks
+- add command **run_integration_test** to easily run an integration test from a single .py or .ipynb
+- add an automatized method to add a dataset in nodes's db from a JSON dataset description file
+- add error numbering as an enum, impact on error messages serialization
+- more example notebooks, update existing notebooks
 - more unittests
+- normalize naming : use term 'node' not 'client'
 
 ## 2021-10-21 version 3.2
 
