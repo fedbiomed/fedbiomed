@@ -2,6 +2,7 @@ import sys
 import os
 import uuid
 import time
+from typing import Union
 
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.message import NodeMessages, TrainReply
@@ -24,7 +25,9 @@ class Round:
                  params_url: str = None,
                  job_id: str = None,
                  researcher_id: str = None,
-                 monitor: HistoryMonitor = None):
+                 monitor: HistoryMonitor = None,
+                 gpu: bool = False,
+                 gpu_num: Union[int, None] = None):
 
         """Constructor of the class
 
@@ -44,6 +47,9 @@ class Round:
             job_id ([str]): job id
             researcher_id ([str]): researcher id
             monitor ([HistoryMonitor])
+            gpu (bool): use a GPU device if any is available
+            gpu_num (Union[int, None]): use the specified GPU device instead of default GPU device
+                if any GPU device is available
         """
         self.model_kwargs = model_kwargs
         self.training_kwargs = training_kwargs
@@ -55,7 +61,8 @@ class Round:
         self.researcher_id = researcher_id
         self.monitor = monitor
         self.model_manager = ModelManager()
-        
+        self.gpu = gpu
+        self.gpu_num = gpu_num
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
 
     def run_model_training(self) -> TrainReply:
@@ -133,6 +140,8 @@ class Round:
             results = {}
             try:
                 training_kwargs_with_history = dict(monitor=self.monitor,
+                                                    node_gpu=self.gpu,
+                                                    node_gpu_num=self.gpu_num,
                                                     **self.training_kwargs)
                 print(training_kwargs_with_history)
                 logger.info(training_kwargs_with_history)

@@ -1,22 +1,30 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Fedbiomed Researcher base example
+# # Fedbiomed Researcher GPU usage example
+
+# This example demonstrates using a Nvidia GPU for training a model.
+# 
+# The nodes for this example need to run on a machine providing a Nvidia GPU with enough GPU memory (and from a not-too-old model, so that it is supported by PyTorch).
+# 
+# If GPU doesn't have enough memory you will get a **out of memory error** at run time.
 
 # ## Start the network
 # Before running this notebook, start the network with `./scripts/fedbiomed_run network`
 #
-# ## Setting the node up
-# It is necessary to previously configure a node:
-# 1. `./scripts/fedbiomed_run node add`
+# ## Setting the nodes up
+# We need at least 1 node, let's test using 3 nodes. For each node, add the MNIST dataset :
+# 1. `./scripts/fedbiomed_run node config config1.ini add`, `./scripts/fedbiomed_run node config config2.ini add`, `./scripts/fedbiomed_run node config config3.ini add`
 #   * Select option 2 (default) to add MNIST to the node
 #   * Confirm default tags by hitting "y" and ENTER
 #   * Pick the folder where MNIST is downloaded (this is due torch issue https://github.com/pytorch/vision/issues/3549)
 #   * Data must have been added (if you get a warning saying that data must be unique is because it's been already added)
-#
-# 2. Check that your data has been added by executing `./scripts/fedbiomed_run node list`
-# 3. Run the node using `./scripts/fedbiomed_run node run`. Wait until you get `Starting task manager`. it means you are online.
-
+#   
+# 2. Check that your data has been added by executing `./scripts/fedbiomed_run node config config1.ini list`, `./scripts/fedbiomed_run node config config2.ini list`, `./scripts/fedbiomed_run node config config3.ini list`
+# 3. Run the first node using `./scripts/fedbiomed_run node config config1.ini run --gpu` so that the nodes offers GPU for training and uses the default device.
+# 4. Run the second node using `./scripts/fedbiomed_run node config config2.ini run --gpunum 1` so that the nodes offers GPU for training and requests using the 2nd GPU (device 1) but will fallback to default device if you don't have 2 GPUs on this machine.
+# 5. Run the third node using `./scripts/fedbiomed_run node config config3.ini run` so that the nodes doesn't offers GPU for training (default behaviour).
+# 6. Wait until you get `Starting task manager` for each node, it means you are online.
 
 # ## Define an experiment model and parameters
 
@@ -95,7 +103,7 @@ model_args = {}
 training_args = {
     'batch_size': 48,
     'lr': 1e-3,
-    'epochs': 5,
+    'epochs': 2,
     'dry_run': False,
     'batch_maxnum': 100  # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
@@ -110,7 +118,7 @@ from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 tags =  ['#MNIST', '#dataset']
-rounds = 3
+rounds = 2
 
 exp = Experiment(tags=tags,
                 #nodes=None,

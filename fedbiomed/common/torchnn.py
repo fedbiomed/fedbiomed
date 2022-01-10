@@ -74,7 +74,9 @@ class TorchTrainingPlan(nn.Module):
                          batch_size: int = 48,
                          batch_maxnum: int = 0,
                          dry_run: bool = False,
-                         monitor=None):
+                         monitor=None,
+                         node_gpu: bool = False,
+                         node_gpu_num: Union[int, None] = None):
         """
         Training routine procedure.
 
@@ -99,14 +101,30 @@ class TorchTrainingPlan(nn.Module):
             batch size of the first epoch of the first round is completed.
             Defaults to False.
             monitor ([type], optional): [description]. Defaults to None.
+            node_gpu (bool): node offers to use a GPU device if any is available
+            node_gpu_num (Union[int, None]): node requests to use the specified GPU
+                device instead of default GPU device if any GPU device is available
         """
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
         # Training may use gpu if exists on mode (+ proposed by node) + requested by training plan
         cuda_available = torch.cuda.is_available()
-        use_cuda = self.use_gpu and cuda_available
-        self.device = torch.device("cuda" if use_cuda else "cpu")
+        use_cuda = node_gpu and self.use_gpu and cuda_available
+        self.device = "cpu"
+        if use_cuda:
+            if node_gpu_num is not None:
+                if node_gpu_num in range(torch.cuda.device_count()):
+                    self.device = "cuda:" + str(node_gpu_num)
+                else:
+                    logger.warning(f'Bad GPU number {node_gpu_num}, will use default GPU')
+                    self.device = "cuda"
+            else:
+                self.device = "cuda"
+        logger.debug(f'Using device {self.device} for training '
+            f'(cuda_available={cuda_available}, node_gpu={node_gpu}, '
+            f'use_gpu={self.use_gpu}, node_gpu_num={node_gpu_num})')
+        #self.device = torch.device("cuda" if use_cuda else "cpu")
         self.to(self.device)
 
         for epoch in range(1, epochs + 1):
