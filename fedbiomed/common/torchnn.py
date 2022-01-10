@@ -143,12 +143,16 @@ class TorchTrainingPlan(nn.Module):
                         monitor.add_scalar('Loss', res.item(), batch_idx, epoch)
 
                     if dry_run:
-                        # release gpu usage as much as possible
+                        # release gpu usage as much as possible though:
+                        # - it should be done by deleting the object
+                        # - and some gpu memory remains used until process (cuda kernel ?) finishes
                         self.to(self.device_init)
                         torch.cuda.empty_cache()
                         return
 
-        # release gpu usage as much as possible
+        # release gpu usage as much as possible though:
+        # - it should be done by deleting the object
+        # - and some gpu memory remains used until process (cuda kernel ?) finishes
         self.to(self.device_init)
         torch.cuda.empty_cache()
 
