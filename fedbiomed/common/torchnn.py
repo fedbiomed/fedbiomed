@@ -44,12 +44,12 @@ class TorchTrainingPlan(nn.Module):
         # self.random_seed_params = None
         # self.random_seed_shuffling_data = None
 
-        # training // may be changed in training_routine ??
+        # device to use: cpu/gpu
+        # - all operations except training only use cpu
+        # - dont use gpu by default, unless requested by training plan
         self.device_init = "cpu"
         self.device = self.device_init
         self.use_gpu = False
-        #cuda_available = torch.cuda.is_available()
-        #self.device = torch.device("cuda" if cuda_available else "cpu")
 
         # list dependencies of the model
         self.dependencies = ["from fedbiomed.common.torchnn import TorchTrainingPlan",
@@ -103,12 +103,11 @@ class TorchTrainingPlan(nn.Module):
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
+        # Training may use gpu if exists on mode (+ proposed by node) + requested by training plan
         cuda_available = torch.cuda.is_available()
         use_cuda = self.use_gpu and cuda_available
         self.device = torch.device("cuda" if use_cuda else "cpu")
         self.to(self.device)
-        #self.device = "cpu"
-
 
         for epoch in range(1, epochs + 1):
             # (below) sampling data (with `training_data` method defined on
@@ -144,10 +143,14 @@ class TorchTrainingPlan(nn.Module):
                         monitor.add_scalar('Loss', res.item(), batch_idx, epoch)
 
                     if dry_run:
+                        # release gpu usage as much as possible
                         self.to(self.device_init)
+                        torch.cuda.empty_cache()
                         return
 
+        # release gpu usage as much as possible
         self.to(self.device_init)
+        torch.cuda.empty_cache()
 
     # provided by fedbiomed // necessary to save the model code into a file
     def add_dependency(self, dep: List[str]):
