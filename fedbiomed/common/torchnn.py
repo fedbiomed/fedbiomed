@@ -45,9 +45,11 @@ class TorchTrainingPlan(nn.Module):
         # self.random_seed_shuffling_data = None
 
         # training // may be changed in training_routine ??
-        #self.device = "cpu"
-        use_cuda = torch.cuda.is_available()
-        self.device = torch.device("cuda" if use_cuda else "cpu")
+        self.device_init = "cpu"
+        self.device = self.device_init
+        self.use_gpu = False
+        #cuda_available = torch.cuda.is_available()
+        #self.device = torch.device("cuda" if cuda_available else "cpu")
 
         # list dependencies of the model
         self.dependencies = ["from fedbiomed.common.torchnn import TorchTrainingPlan",
@@ -101,8 +103,10 @@ class TorchTrainingPlan(nn.Module):
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
-        #use_cuda = torch.cuda.is_available()
-        #self.device = torch.device("cuda" if use_cuda else "cpu")
+        cuda_available = torch.cuda.is_available()
+        use_cuda = self.use_gpu and cuda_available
+        self.device = torch.device("cuda" if use_cuda else "cpu")
+        self.to(self.device)
         #self.device = "cpu"
 
 
@@ -140,7 +144,10 @@ class TorchTrainingPlan(nn.Module):
                         monitor.add_scalar('Loss', res.item(), batch_idx, epoch)
 
                     if dry_run:
+                        self.to(self.device_init)
                         return
+
+        self.to(self.device_init)
 
     # provided by fedbiomed // necessary to save the model code into a file
     def add_dependency(self, dep: List[str]):

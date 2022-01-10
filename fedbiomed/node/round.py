@@ -138,10 +138,10 @@ class Round:
                 logger.info(training_kwargs_with_history)
                 model.set_dataset(self.dataset['path'])
 
-                # WIP/PoC : dirty fix for using CUDA if available
-                import torch
-                if torch.cuda.is_available():
-                    model.to("cuda")
+                ## WIP/PoC : dirty fix for using CUDA if available
+                #import torch
+                #if torch.cuda.is_available():
+                #    model.to("cuda")
 
                 rtime_before = time.perf_counter()
                 ptime_before = time.process_time()
@@ -170,12 +170,12 @@ class Round:
                 is_failed = True
                 error_message = "Cannot upload results: " + str(e)
 
-        # WIP/PoC : dirty hack for CUDA - need to free mem
-        if torch.cuda.is_available():
-            # free GPU memory - to be investigated
-            model = model.cpu()
-            # needed ? to be investigated
-            torch.cuda.empty_cache()
+        ## WIP/PoC : dirty hack for CUDA - need to free mem
+        #if torch.cuda.is_available():
+        #    # free GPU memory - to be investigated
+        #    #model = model.cpu()
+        #    # needed ? to be investigated
+        #    torch.cuda.empty_cache()
 
         # end : clean the namespace
         try:
