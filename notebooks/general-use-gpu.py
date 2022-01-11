@@ -60,7 +60,7 @@ class MyTrainingPlan(TorchTrainingPlan):
                "from torch.utils.data import DataLoader"]
         self.add_dependency(deps)
         
-        # Model wants to use GPU (or not) if available on node and authorized by node
+        # Model wants to use GPU (or not) if available on node and proposed by node
         self.use_gpu = True
 
     def forward(self, x):
