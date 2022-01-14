@@ -66,7 +66,7 @@ class Monitor():
                                     'writer' : SummaryWriter(
                                         log_dir = os.path.join(self._log_dir, node)
                                     ),
-                                    'stepper': 0,
+                                    'stepper': 1,
                                     'step_state': 0,
                                     'step': 0
                                     }
@@ -76,7 +76,7 @@ class Monitor():
             global_step = epoch
 
         # Operations for finding iteration log interval for the training
-        if global_step != 0 and self._event_writers[node]['stepper'] == 0:
+        if global_step != 0 and self._event_writers[node]['stepper'] <= 1:
             self._event_writers[node]['stepper'] = global_step
 
         # In every epoch first iteration (global step) will be zero so
