@@ -137,14 +137,29 @@ class Round:
 
         # Run the training routine
         if not is_failed:
-            results = {}
+            # Caution: always provide values for node-side arguments
+            # (monitor, node_gpu, node_gpu_num) especially if they are security
+            # related, to avoid overloading by malicious researcher.
+            # Though training fails in this case with 
+            # "dict() got multiple values for keyword argument"
+            # we want to have more explicit message (and continue training without this arg)
+            node_side_args = [ 'monitor', 'node_gpu', 'node_gpu_num' ]
+            for arg in node_side_args:
+                if arg in self.training_kwargs:
+                    del self.training_kwargs[arg]
+                    logger.warning(f'Researcher trying to set node-side training parameter {arg}. '
+                        f' Maybe a malicious researcher attack.')
+
+        if not is_failed:
+            training_kwargs_with_history = dict(monitor=self.monitor,
+                                                node_gpu=self.gpu,
+                                                node_gpu_num=self.gpu_num,
+                                                **self.training_kwargs)
+            logger.info(f'training with arguments {training_kwargs_with_history}')
+
+        if not is_failed:
             try:
-                training_kwargs_with_history = dict(monitor=self.monitor,
-                                                    node_gpu=self.gpu,
-                                                    node_gpu_num=self.gpu_num,
-                                                    **self.training_kwargs)
-                print(training_kwargs_with_history)
-                logger.info(training_kwargs_with_history)
+                results = {}
                 model.set_dataset(self.dataset['path'])
                 rtime_before = time.perf_counter()
                 ptime_before = time.process_time()
