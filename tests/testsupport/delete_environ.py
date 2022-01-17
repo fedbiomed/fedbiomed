@@ -29,6 +29,7 @@ def delete_environ():
     for m in ['fedbiomed.common.environ',
               'fedbiomed.node.environ',
               'fedbiomed.researcher.environ',
+              'testsupport.mock_common_environ'
               ]:
         if m in sys.modules:
             print("== unloading", m)

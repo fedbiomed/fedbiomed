@@ -356,11 +356,24 @@ researcher: launch a researcher notebook
             an optional IP_ADDRESS (eg 10.1.2.3 or host.foo) can be used to join the network
                 component instead of the default localhost
 
-node      : a second arguement is mandatory
+node      : a second argument is mandatory
             - start : launch a new node
             - add/list/delete deal with dataset
-            - add-mnist PATH_TO_DATASET directly adds a mnist dataset
-            - delete-mnist directly removes a mnist dataset
+            - add-mnist PATH_TO_DATASET non-interactively adds a mnist dataset
+            - add-dataset-from-file PATH_TO_JSON_FILE non-interactively adds a dataset
+                described in a json file with the following format
+                
+                {
+                    "path": "/path/to/dataset",
+                    "data_type": "csv|default|images",
+                    "description": "arbitrary descrription string",
+                    "tags": "comma,separated,list,without,blanks",
+                    "name": "arbitrary name string"
+                }
+
+            - delete-mnist non-interactively un-registers a mnist dataset
+            - delete-all non interactively un-registers all node datasets
+
             - register-model  | --register-model    : To register new model files
             - update-model    | --update-model      : To update registered models
 
