@@ -400,6 +400,21 @@ node      : a second argument is mandatory
             - allow-default-models      | --allow-default-models    : to allow default model for model approval mode
             - disable-model-approval    | --disable-model-approval  : to disable model approval mode
             - disable-default-models    | --disable-default-models  : to disable default models for model approval mode
+gui       :
+            Options:
+            - data-folder | --data-folder | -df  [<path>]   : Folder that data files are stored, by default script will
+                                                              look for `data` in Fed-BioMed directory
+            - config      | --config      | -c   [<config>] : Name of the node's config file. GUI will be configured
+                                                              based on given config file. By default, `config_node.ini`.
+                                                              If config file doesn't exist script will raise an error.
+            - port        | --port        | -p   [<port>]   : HTTP port that GUI will be served. Default is `8484`
+            - host        | --host        | -h   [<host>]   : HTTP host that GUI will be served, Default is `localhost`
+            - recreate    | --recreate    | -rc             : Flag that indicates, UI will be rebuilt while launching
+                                                              the GUI. Use this option if you have updated UI scripts.
+            - debug       | --debug       | -dbg            : Flag that will start Flask (Server) in debug mode.
+
+            Commands:
+            - start: Launches the Node GUI with given options.
 
 EOF
         ;;
