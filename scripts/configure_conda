@@ -38,7 +38,7 @@ Install/update conda environments for fedbiomed. If several ENV
 are provided, only these components will be updated. If no ENV is
 provided, all components will be updated.
 
-ENV can be network, node, researcher (or a combination of them)
+ENV can be network, node, researcher, gui (or a combination of them)
 
  -h, --help            this help
  -n, --dry-run         do nothing, just print what the script would do
