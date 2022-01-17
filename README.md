@@ -362,13 +362,15 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder '<path-for-data-folder>' 
 Arguments: 
 
 - ``data-folder``: Data folder represent the folder path where datasets have been stored. It can be absolute or relative path.
-If it is relative path, Fed-BioMed base directory is going to be used as reference. If `datafolder` is not provided. Script will look for
-`data` folder in the Fed-BioMed root directory and if it doesn't exist it will raise an error. 
+If it is relative path, Fed-BioMed base directory is going to be used as reference. **If `datafolder` is not provided. Script will look for
+`data` folder in the Fed-BioMed root directory and if it doesn't exist it will raise an error.** 
 - ``config``: Config file represents the name of the configuration file which is going to be used for GUI. If it is not 
 provided, default will be``config_node.ini``.
               
 It is also possible to start GUI on specific host and port, By default it is started `localhost` as host and `8484` as port.  To change
-it you can modify follwing command. 
+it you can modify following command. 
+
+**IMPORTANT:** Please always consider providing `data-folder` argument while starting the GUI. 
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder ../data config config-n1.ini --port 80 --host 0.0.0.0 start
@@ -376,6 +378,7 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder ../data config config-n1.
 ```
 
 ### Details of Start Process 
+
 While the Node GUI is started, it install `npm` modules and builds ReactJS application in ``${FEDBIOMED_DIR}/var/gui-build``. If the GUI
 is already built (means that `gui/ui/node_modules` and `var/gui-build` folders exist), it does not reinstall and rebuild ReactJS. If you want to
 reinstall and rebuild, please add `--recreate` flag in the command same as below,  
@@ -385,7 +388,6 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
 ```
 
 ### Development/Debugging for GUI
-
 If you want to customize or work on user interface for debugging purposes, it is always better to use ReactJS in development mode, otherwise building GUI
 after every update will take a lot of time. To launch user interface in development mode first you need to start Flask server. This can be
 easily done with the previous start command. Currently, Flask server always get started on development mode.  To enable debug mode you should add `--debug` 
