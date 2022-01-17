@@ -54,11 +54,20 @@ function start_gui() {
         exit 1
       fi
     else
+        # If the path is absolute
         if [[ $DATA_PATH == /* ]]; then
             if [[ ! -d "$DATA_PATH" ]]; then
               echo -e "${RED}ERROR${NC}: folder '$DATA_PATH' does not exist. Can not continue.\n"
               exit 1
             fi
+        # If path starts with `~`
+        elif [[ $DATA_PATH == ~/* ]]; then
+            DATA_PATH="$(cd "$DATA_PATH" && pwd)"
+            if [ ! -d "$basedir/$DATA_PATH" ]; then
+              echo -e "${RED}ERROR${NC}: folder '$basedir/${3}' does not exist. Can not continue.\n"
+              exit 1
+            fi
+        # If the path is relative
         else
             if [ ! -d "$basedir/$DATA_PATH" ]; then
               echo -e "${RED}ERROR${NC}: folder '$basedir/${3}' does not exist. Can not continue.\n"
@@ -66,6 +75,7 @@ function start_gui() {
             else
               DATA_PATH="$(cd "$basedir/$DATA_PATH" && pwd)"
             fi
+            echo "$DATA_PATH"
         fi
     fi
 
