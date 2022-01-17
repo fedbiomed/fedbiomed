@@ -387,6 +387,18 @@ reinstall and rebuild, please add `--recreate` flag in the command same as below
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
 ```
 
+
+### Launching Multiple Node GUI
+
+It is possible to start multiple Node GUIs for different nodes as long as the http ports are different. The 
+commands below starts three Node GUI for the nodes; config-n1.ini, config-n2.ini and config-n3.ini on the ports respectively, `8181`, `8282` and `8383`. 
+
+```shell
+${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui config config-n1.ini port 8181 start
+${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui config config-n2.ini port 8282 start
+${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui config config-n3.ini port 8383 start
+```
+
 ### Development/Debugging for GUI
 If you want to customize or work on user interface for debugging purposes, it is always better to use ReactJS in development mode, otherwise building GUI
 after every update will take a lot of time. To launch user interface in development mode first you need to start Flask server. This can be
