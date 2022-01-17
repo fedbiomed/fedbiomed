@@ -175,7 +175,7 @@ case $1 in
                 start_gui
                 ;;
             *)
-              echo -e "${RED}ERROR:${NC}: Node GUI command should be used with start. Please make your command is correct"
+              echo -e "${RED}ERROR:${NC}: Node GUI command should be used with start. Please make sure that your command is correct"
               exit 1
               ;;
         esac
