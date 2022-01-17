@@ -139,6 +139,9 @@ def add_dataset():
 
     # Get image dataset information from datamanager
     if req['type'] == 'images':
+        if not os.path.isdir(data_path):
+            return error('Provided path is not a directory. Please select the folder that '
+                         'includes sub folders of image dataset.'), 400
         try:
             shape = datamanager.load_images_dataset(data_path)
             types = []
@@ -146,6 +149,11 @@ def add_dataset():
             return error(str(e)), 400
     # Get csv dataset information from datamanager
     elif req['type'] == 'csv':
+        accepted_ext = ['.csv', '.txt']
+        extension = os.path.splitext(data_path)[1]
+        if extension not in accepted_ext:
+            return error(f'Unsupported extension "{extension}" for CSV datasets. '
+                         f'Please select a "csv" or "txt" file.'), 400
         try:
             data = datamanager.load_csv_dataset(data_path)
             shape = data.shape
@@ -301,12 +309,13 @@ def add_default_dataset():
     if dataset:
         return error(f'An default dataset has been already deployed with {req["tags"]}'), 400
 
-
     if 'path' in req:
         # Data path that the files will be read
         path = os.path.join(app.config['DATA_PATH_RW'], *req['path'])
         # This is the path will be writen in DB
         data_path = os.path.join(app.config['DATA_PATH_SAVE'], *req['path'])
+        if not os.path.isdir(path):
+            return error('Provided path is not a directory. Please select a folder not a file.'), 400
     else:
         default_dir = os.path.join(app.config["DATA_PATH_RW"], 'defaults')
         path = os.path.join(default_dir, 'mnist')
