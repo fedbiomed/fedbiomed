@@ -141,6 +141,8 @@ class TorchTrainingPlan(nn.Module):
         if use_gpu is None:
             use_gpu = self.use_gpu
         use_cuda = cuda_available and (( use_gpu and node_args['gpu'] ) or node_args['gpu_only'])
+        if use_cuda and not use_gpu:
+            logger.warning('GPU usage forced by node though it was not requested by researcher')
         
         # Set device for training
         self.device = "cpu"
