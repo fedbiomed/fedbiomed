@@ -13,10 +13,10 @@ from fedbiomed.common.logger import logger
 
 
 class TorchTrainingPlan(nn.Module):
-    def __init__(self):
+    def __init__(self, model_args: dict = {}):
         """
         An abstraction over pytorch module to run
-        pytroch models and scritps on node side.
+        pytorch models and scripts on node side.
 
         Researcher model (resp. params) will be 1) saved  on a '*.py'
         (resp. '*.pt') files, 2) uploaded on a HTTP server (network layer),
@@ -30,7 +30,13 @@ class TorchTrainingPlan(nn.Module):
 
         Researcher may have to add extra dependancies/ python imports,
         by using `add_dependencies` method.
+
+        Args:
+          - model_args (dict, optional): model arguments. Items used in this class:
+            - use_gpu (bool, optional) : researcher requests to use GPU (or not) for training
+                if available on node and proposed by node. Defaults to False.
         """
+
         super(TorchTrainingPlan, self).__init__()
 
         # cannot use it here !!!! FIXED in training_routine
@@ -46,10 +52,13 @@ class TorchTrainingPlan(nn.Module):
 
         # device to use: cpu/gpu
         # - all operations except training only use cpu
-        # - dont use gpu by default, unless requested by training plan
+        # - researcher doesn't request to use gpu by default
         self.device_init = "cpu"
         self.device = self.device_init
-        self.use_gpu = False
+        if model_args is None:
+            self.use_gpu = False
+        else:
+            self.use_gpu = model_args.get('use_gpu', False)
 
         # list dependencies of the model
         self.dependencies = ["from fedbiomed.common.torchnn import TorchTrainingPlan",
@@ -74,6 +83,7 @@ class TorchTrainingPlan(nn.Module):
                          batch_size: int = 48,
                          batch_maxnum: int = 0,
                          dry_run: bool = False,
+                         use_gpu: Union[bool, None] = None,
                          monitor=None,
                          node_gpu: bool = False,
                          node_gpu_num: Union[int, None] = None):
@@ -101,6 +111,10 @@ class TorchTrainingPlan(nn.Module):
             batch size of the first epoch of the first round is completed.
             Defaults to False.
             monitor ([type], optional): [description]. Defaults to None.
+            use_gpu (Union[bool, None], optional) : researcher requests to use GPU (or not)
+                for training during this round (ie overload the object default use_gpu value)
+                if available on node and proposed by node
+                Defaults to None (dont overload the object default value)
             node_gpu (bool): node offers to use a GPU device if any is available
             node_gpu_num (Union[int, None]): node requests to use the specified GPU
                 device instead of default GPU device if any GPU device is available
@@ -110,7 +124,9 @@ class TorchTrainingPlan(nn.Module):
 
         # Training may use gpu if exists on mode (+ proposed by node) + requested by training plan
         cuda_available = torch.cuda.is_available()
-        use_cuda = node_gpu and self.use_gpu and cuda_available
+        if use_gpu is None:
+            use_gpu = self.use_gpu
+        use_cuda = node_gpu and use_gpu and cuda_available
         self.device = "cpu"
         if use_cuda:
             if node_gpu_num is not None:
@@ -123,7 +139,7 @@ class TorchTrainingPlan(nn.Module):
                 self.device = "cuda"
         logger.debug(f'Using device {self.device} for training '
             f'(cuda_available={cuda_available}, node_gpu={node_gpu}, '
-            f'use_gpu={self.use_gpu}, node_gpu_num={node_gpu_num})')
+            f'use_gpu={use_gpu}, node_gpu_num={node_gpu_num})')
         #self.device = torch.device("cuda" if use_cuda else "cpu")
         self.to(self.device)
 

@@ -44,8 +44,8 @@ from fedbiomed.common.torchnn import TorchTrainingPlan
 # you can use any class name eg:
 # class AlterTrainingPlan(TorchTrainingPlan):
 class MyTrainingPlan(TorchTrainingPlan):
-    def __init__(self):
-        super(MyTrainingPlan, self).__init__()
+    def __init__(self, model_args: dict = {}):
+        super(MyTrainingPlan, self).__init__(model_args)
         self.conv1 = nn.Conv2d(1, 32, 3, 1)
         self.conv2 = nn.Conv2d(32, 64, 3, 1)
         self.dropout1 = nn.Dropout(0.25)
@@ -59,9 +59,6 @@ class MyTrainingPlan(TorchTrainingPlan):
         deps = ["from torchvision import datasets, transforms",
                "from torch.utils.data import DataLoader"]
         self.add_dependency(deps)
-        
-        # Model wants to use GPU (or not) if available on node and proposed by node
-        self.use_gpu = True
 
     def forward(self, x):
         x = self.conv1(x)
@@ -98,7 +95,10 @@ class MyTrainingPlan(TorchTrainingPlan):
 #
 # **NOTE:** typos and/or lack of positional (required) arguments will raise error. 🤓
 
-model_args = {}
+model_args = {
+        # Model wants to use GPU if available on node and proposed by node (default: False)
+        'use_gpu': True
+}
 
 training_args = {
     'batch_size': 48,
