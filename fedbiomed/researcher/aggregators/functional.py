@@ -5,9 +5,9 @@ import numpy as np
 
 def initialize(val):
     if isinstance(val, torch.Tensor):
-        return ('tensor' , torch.zeros_like(val) )
+        return ('tensor' , torch.zeros_like(val).float())
     elif isinstance(val, np.ndarray) or isinstance(val, list):
-        return ('array' , np.zeros(len(val)))
+        return ('array' , np.zeros(len(val), dtype = float))
 
 def federated_averaging(model_params: List[Dict[str, torch.Tensor]],
                         weights: List[float]) -> Dict[str, torch.Tensor]:

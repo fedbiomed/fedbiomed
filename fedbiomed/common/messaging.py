@@ -4,7 +4,8 @@ from typing import Any, Callable, Union
 import paho.mqtt.client as mqtt
 
 from fedbiomed.common import json
-from fedbiomed.common.component_type import ComponentType
+from fedbiomed.common.constants import ComponentType, ErrorNumbers
+import fedbiomed.common.message as message
 from fedbiomed.common.logger import logger
 from fedbiomed.common.logger import DEFAULT_LOG_TOPIC
 
@@ -234,3 +235,38 @@ class Messaging:
                 self.is_failed = True
         else:
             logger.warning("send_message: channel must be specifiec (None at the moment)")
+
+    def send_error(self, errnum: ErrorNumbers, extra_msg: str = "", researcher_id: str = "<unknown>"):
+        """
+        node sends error through mqtt
+
+        remark: difference with send_message() is that we do extra tests
+        before sending the message
+        """
+
+        if self.messaging_type != ComponentType.NODE:
+            logger.warning("this component (" +
+                           self.messaging_type +
+                           ") cannot send error message ("+
+                           errnum+
+                           ") through MQTT")
+            return
+
+        if not self.is_connected:
+            logger.warning("MQTT not initialized yet (error to transmit="+
+                           errnum+
+                           ")")
+            return
+
+
+        # format error message and send it
+        msg = dict(
+            command       = 'error',
+            errnum        = errnum,
+            node_id       = self.messaging_id,
+            extra_msg     = extra_msg,
+            researcher_id = researcher_id
+        )
+
+        r = message.NodeMessages.reply_create(msg)
+        self.mqtt.publish("general/researcher", json.serialize_msg(msg))
