@@ -137,6 +137,24 @@ export const AddDataset = (props) => {
         })
     }
 
+    const onDataTypeChange = (e) => {
+        let val = e.target.value
+        if(val === 'default'){
+            setNewDataset({
+                ...newDataset,
+                [e.target.name] : val,
+                tags : ['#MNIST', '#dataset'],
+                name : 'MNIST',
+                desc : 'MNIST Default dataset'
+            })
+        }else{
+            setNewDataset({
+                ...newDataset,
+                [e.target.name] : e.target.value
+            })
+        }
+    }
+
     return (
         <React.Fragment>
             <div className="frame-content">
@@ -152,7 +170,7 @@ export const AddDataset = (props) => {
                     </div>
                     <div className="form-control">
                         <Label>Please select data type</Label>
-                        <Select name="type" onChange={onInputValueChange}>
+                        <Select name="type" onChange={onDataTypeChange}>
                             {
                                 props.new_dataset.extension === ".csv" ?
                                     (
@@ -177,15 +195,20 @@ export const AddDataset = (props) => {
                             name={"name"}
                             type="text"
                             placeholder="Enter name for dataset"
-                            onChange={onInputValueChange} />
+                            onChange={onInputValueChange}
+                            value={newDataset.name}
+                        />
                     </div>
                     <div className="form-control" >
-                        <Label>Enter tags for dataset</Label>
+                        <Label>Enter tags for dataset <span style={{fontSize:11}}>(Please press enter or space to register tag)</span></Label>
                         <Tag
                             name={"tags"}
                             type="text"
                             onChange={onInputValueChange}
-                            placeholder="Enter tags" />
+                            placeholder="Enter tags"
+                            tags={newDataset.tags}
+                        />
+
                     </div>
                 </div>
                 <div className={`row`}>
@@ -194,7 +217,9 @@ export const AddDataset = (props) => {
                         <TextArea name="desc"
                                   type="text"
                                   placeholder="Please type a description for dataset"
-                                  onChange={onInputValueChange} />
+                                  onChange={onInputValueChange}
+                                  value={newDataset.desc}
+                        />
                     </div>
                 </div>
                 <ButtonsWrapper className={"float-right"}>

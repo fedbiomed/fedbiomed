@@ -68,6 +68,12 @@ export const Tag = (props) => {
     const [tags, setTags] = React.useState(props.tags ? props.tags : []);
     const refInput = React.useRef()
 
+    React.useEffect(() => {
+        if(props.tags) {
+            setTags(props.tags)
+        }
+    }, [props.tags])
+
     /**
      * On event click lıke space or enter get tag 
      * @param {HTMLInput} element 
