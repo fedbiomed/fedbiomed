@@ -161,11 +161,14 @@ const Repository = (props) => {
             ) : null}
             {
                 <div className={"views"}>
-                    <div className={"back"}>
-                        <div className={"icon"} onClick={onBackButtonClick}>
-                            <BackIcon/>
+                     { props.repository.current.length !== 0 ? (
+                        <div className={"back"}>
+                            <div className={"icon"} onClick={onBackButtonClick}>
+                                <BackIcon/>
+                            </div>
                         </div>
-                    </div>
+                         ) : null
+                     }
                     <div className={"breadcrumb"}>
                         {Object.keys(props.repository.folders).map((item, key) => {
                                let pathFol = props.repository.folders[item].path
