@@ -51,8 +51,8 @@ export  const getFilesFromRepository = (data, fresh = false) => {
                         folders[level] = { displays : data.displays, number:data.number, path: data.path }
                     }else{
                         if(currentLevels[0] !== 0 ){
-                            delete files[currentLevels.at(-1)]
-                            delete folders[currentLevels.at(-1)]
+                            delete files[currentLevels[currentLevels.length-1]]
+                            delete folders[currentLevels[currentLevels.length-1]]
                         }else{
                             levelsToRemove = currentLevels.slice(level+1)
                             levelsToRemove.forEach(element => {
