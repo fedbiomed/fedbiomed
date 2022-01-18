@@ -307,7 +307,7 @@ def add_default_dataset():
     dataset = table.get(query.tags == req['tags'])
 
     if dataset:
-        return error(f'An default dataset has been already deployed with {req["tags"]}'), 400
+        return error(f'Default dataset has been already deployed with tags: {req["tags"]}'), 400
 
     if 'path' in req:
         # Data path that the files will be read

@@ -15,8 +15,8 @@ export const DATA_NOTFOUND = 'There is no data has been found for the dataset. I
 // Form Handler
 export const ADD_DATASET_ERROR_MESSAGES = {
     0 : { key: 'name', message: 'Dataset name is a required field'},
-    1 : { key: 'type', message: 'Please select data type.'},
-    2 : { key: 'path', message: 'Please enter at least one tags for the dataset'},
+    1 : { key: 'type', message: 'Please select data type'},
+    2 : { key: 'path', message: 'Please select data file'},
     3 : { key: 'tags', message: 'Please enter at least one tag for the dataset'},
     4 : { key: 'desc', message: 'Please enter a description for dataset'}
 }

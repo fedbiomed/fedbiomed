@@ -88,6 +88,7 @@ export const AddDataset = (props) => {
             if( props.new_dataset.extension === ".csv"){
                 dataset.type = 'csv'
             }
+            console.log(dataset)
             let validation = validateInputData(dataset)
             if(validation){
                  dispatch({type :'ERROR_MODAL', payload: validation})
@@ -108,16 +109,12 @@ export const AddDataset = (props) => {
         let error
 
         if (Object.keys(newDataset).length > 0) {
-            if(!data.path){
-                error = 'Please select a dataset'
-            }else{
-                for(let key=0; key<Object.keys(ADD_DATASET_ERROR_MESSAGES).length; key++){
-                    field = ADD_DATASET_ERROR_MESSAGES[key].key
-                    message = ADD_DATASET_ERROR_MESSAGES[key].message
-                    if(!data[field] || data[field] === "" || data[field] === null || data[field] === undefined){
-                        error = message
-                        break;
-                    }
+            for(let key=0; key<Object.keys(ADD_DATASET_ERROR_MESSAGES).length; key++){
+                field = ADD_DATASET_ERROR_MESSAGES[key].key
+                message = ADD_DATASET_ERROR_MESSAGES[key].message
+                if(!data[field] || data[field] === "" || data[field] === null || data[field] === undefined){
+                    error = message
+                    break;
                 }
             }
         }else{
