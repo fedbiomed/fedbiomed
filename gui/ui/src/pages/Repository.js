@@ -163,7 +163,7 @@ const Repository = (props) => {
                                     <React.Fragment key={key}>
                                         <div className={'item'} onClick={ () => onListBreadCrumbClick(pathFol)}>
                                            {pathFol.length > 0 ? (
-                                               pathFol.at(-1)
+                                               pathFol[pathFol.length-1]
                                            ) : (
                                               <HomeIcon/>
                                            )
