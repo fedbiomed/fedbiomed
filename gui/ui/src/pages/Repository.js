@@ -124,7 +124,8 @@ const Repository = (props) => {
     }
 
     const onBackButtonClick = () => {
-        let oneBefore = Object.keys(props.repository.folders).at(-2)
+        let len = Object.keys(props.repository.folders).length
+        let oneBefore = Object.keys(props.repository.folders)[len-2]
         let item = props.repository.folders[oneBefore]
 
         if(item){
