@@ -10,6 +10,7 @@ import {ReactComponent as ColumnIcon} from "../assets/img/column-view.svg";
 import {ReactComponent as ListIcon} from "../assets/img/list-view.svg";
 import { ReactComponent as HomeIcon} from '../assets/img/home.svg';
 import { ReactComponent as BackIcon} from "../assets/img/back.svg";
+import { ReactComponent as RefreshIcon} from "../assets/img/refresh.svg";
 
 
 const Repository = (props) => {
@@ -22,11 +23,11 @@ const Repository = (props) => {
     const mainRepository = React.useRef(null)
     const getFiles = props.getFiles
     const [view, setView] = React.useState(props.view ? props.view : 'list')
-    const [mode, setMode] = React.useState(props.mode ? props.mode : 'repository')
+    const [mode] = React.useState(props.mode ? props.mode : 'repository')
     /**
      * Hook for getting files in the repository
      */
-    React.useEffect(() => {
+    React.useEffect((props) => {
         if(path){
             getFiles({path : path}, true)
         }else{
@@ -49,6 +50,14 @@ const Repository = (props) => {
     const changeView = (view) => {
         setView(view)
     }
+
+    /**
+     *
+     */
+    const refreshCurrentRepository = () => {
+        getFiles({path:props.repository.current, refresh: true}, false)
+    }
+
     /**
      * Handling click action on single repository
      * item
@@ -184,6 +193,9 @@ const Repository = (props) => {
                         </div>
                         <div className={`icon ${view === 'list' ? 'active' : ''}`} onClick={() => changeView('list')}>
                             <ListIcon/>
+                        </div>
+                        <div className={'icon'} onClick={refreshCurrentRepository}>
+                            <RefreshIcon />
                         </div>
                     </div>
                 </div>

@@ -108,7 +108,6 @@ export const searchDataset = (data) => {
                 if (res.status === 200){
                     dispatch({type:'SET_LOADING', payload: false})
                     dispatch({type : "SEARCH_DATASET_RESULT", payload: res.data.result})
-                    console.log(res.data.result)
                 }else{
                     dispatch({type:'SET_LOADING', payload: false})
                     alert(res.data.message)

@@ -43,6 +43,7 @@ export const resultReducer = ( state = resultState, action) => {
 const initialStateRepository = {
     files : {},
     folders: {},
+    current: [],
     error : false,
     level: 0,
     message : null
@@ -65,6 +66,7 @@ export const repositoryReducer = (state = initialStateRepository , action) => {
                 files : action.payload.files,
                 folders:action.payload.folders,
                 level: action.payload.level,
+                current: action.payload.current,
                 error : false,
                 message : null
             }

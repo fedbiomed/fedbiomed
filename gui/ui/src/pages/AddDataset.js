@@ -88,7 +88,6 @@ export const AddDataset = (props) => {
             if( props.new_dataset.extension === ".csv"){
                 dataset.type = 'csv'
             }
-            console.log(dataset)
             let validation = validateInputData(dataset)
             if(validation){
                  dispatch({type :'ERROR_MODAL', payload: validation})

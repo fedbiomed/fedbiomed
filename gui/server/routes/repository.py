@@ -6,7 +6,7 @@ from app import app
 from schemas import ListDataFolder
 
 from . import api
-from utils import success, error, validate_json, validate_request_data, response
+from utils import success, error, validate_json, validate_request_data, response, file_stats
 from db import database
 
 
@@ -64,9 +64,9 @@ def list_data_path():
                 # Get dataset registered with full path
                 dataset = table.get(query.path == fullpath)
 
-                stats = os.stat(fullpath)
-                cdate = datetime.datetime.utcfromtimestamp(stats.st_ctime).strftime('%d/%m/%Y %H:%M')
-                size = stats.st_size
+                # Get file statistics
+                cdate, size = file_stats(fullpath, req['refresh'])
+
                 # Folder that includes any data file
                 includes = []
                 if not dataset and os.path.isdir(fullpath):

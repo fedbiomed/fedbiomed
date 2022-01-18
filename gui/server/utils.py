@@ -1,5 +1,8 @@
 import os
+import shutil
+import datetime
 import configparser
+from cache import RepositoryCache
 from flask import jsonify, request
 from functools import wraps
 from schemas import Validator
@@ -125,6 +128,7 @@ def validate_request_data(schema: Validator):
             Args:
                  controller (func): Controller function for the route
         """
+
         @wraps(controller)
         def wrapper(*args, **kw):
             try:
@@ -134,8 +138,68 @@ def validate_request_data(schema: Validator):
                 return error(str(e)), 400
 
             return controller(*args, **kw)
+
         return wrapper
+
     return decorator
 
 
+def file_stats(path: str, refresh: bool = False):
+    """ Returns creation date and size information of
+        given path.
 
+        Args:
+            path (str): Absolute path to folder or file
+            refresh (bool): If it is true clear cached size value for given path
+    """
+    stats = os.stat(path)
+    creation_time = datetime.datetime.fromtimestamp(stats.st_ctime).strftime('%d/%m/%Y %H:%M')
+    if refresh:
+        disk_usage = get_disk_usage(path)
+        RepositoryCache.clear(path)
+        RepositoryCache.file_sizes[path] = disk_usage
+    else:
+        if path in RepositoryCache.file_sizes:
+            disk_usage = RepositoryCache.file_sizes[path]
+        else:
+            disk_usage = get_disk_usage(path)
+            RepositoryCache.file_sizes[path] = disk_usage
+
+    return creation_time, disk_usage
+
+
+def get_disk_usage(path: str):
+    """ Calculates disk usage of given path
+    Args:
+
+        path (str) : Absolute path of file or folder
+    """
+
+    size = 0
+    if os.path.isfile(path):
+        size = os.path.getsize(path)
+    else:
+        for path, dirs, files in os.walk(path):
+            for f in files:
+                fp = os.path.join(path, f)
+                size += os.path.getsize(fp)
+
+    return parse_size(size)
+
+
+def parse_size(size):
+    """ This function parse size to common formats
+
+    Args:
+        size (float): File size in KB
+    """
+
+    units = ["B", "KB", "MB", "GB", "TB"]
+    formatter = "%.1f%s"
+    base = 1024.
+    for u in units:
+        if size < base:
+            return formatter % (size, u)
+        size /= base
+
+    return formatter % (size, units)

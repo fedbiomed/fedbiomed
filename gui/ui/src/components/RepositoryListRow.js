@@ -70,7 +70,7 @@ export const RepositoryListRow = (props) => {
                  </div>
                 </div>
             </td>
-            <td className={"size"}>{props.item.size}KB</td>
+            <td className={"size"}>{props.item.size}</td>
             <td className={"date"}>{props.item.created}</td>
             <td className={"action"}>
                 { displayAdd(props.item) && !props.item.registered ? (

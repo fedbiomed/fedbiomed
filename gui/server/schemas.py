@@ -165,7 +165,8 @@ class ListDataFolder(Validator):
     schema = JsonSchema({
         'type': "object",
         "properties": {
-            "path": {'type': 'array', 'default': []}
+            "path": {'type': 'array', 'default': []},
+            "refresh": {'type': 'boolean', 'default': False}
         },
         "required": []
     })

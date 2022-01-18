@@ -25,9 +25,7 @@ export  const getFilesFromRepository = (data, fresh = false) => {
         let currentLevels = Object.keys(files).sort().map(item => parseInt(item))
 
         // Send post request to get list of files by given path array
-        axios.post(EP_REPOSITORY_LIST , {
-            path :  data.path
-        }).then( (response) => {
+        axios.post(EP_REPOSITORY_LIST , data).then( (response) => {
             dispatch({type:'SET_LOADING', payload: false})
             if(response.status === 200){
                 let data = response.data.result
@@ -66,7 +64,7 @@ export  const getFilesFromRepository = (data, fresh = false) => {
                     }
                 }
 
-                dispatch({type:'LIST_REPOSITORY', payload : {files: files, folders: folders, base: data.base, level:level, message : null}})
+                dispatch({type:'LIST_REPOSITORY', payload : {files: files, folders: folders, base: data.base, level:level, message : null, current: data.path}})
             }else{
                 dispatch({type: 'ERROR_MODAL' , payload: response.data.result.message})
             }
