@@ -85,8 +85,7 @@ class TorchTrainingPlan(nn.Module):
                          dry_run: bool = False,
                          use_gpu: Union[bool, None] = None,
                          monitor=None,
-                         node_gpu: bool = False,
-                         node_gpu_num: Union[int, None] = None):
+                         node_args: Union[dict, None] = None):
         """
         Training routine procedure.
 
@@ -99,48 +98,67 @@ class TorchTrainingPlan(nn.Module):
         output model error for model backpropagation.
 
         Args:
-            epochs (int, optional): number of epochs (complete pass on data).
-            Defaults to 2.
-            log_interval (int, optional): frequency of logging. Defaults to 10.
-            lr (Union[int, float], optional): learning rate. Defaults to 1e-3.
-            batch_size (int, optional): size of batch. Defaults to 48.
-            batch_maxnum (int, optional): equals number of data devided
-            by batch_size,
-            and taking the closest lower integer. Defaults to 0.
-            dry_run (bool, optional): whether to stop once the first
-            batch size of the first epoch of the first round is completed.
-            Defaults to False.
-            monitor ([type], optional): [description]. Defaults to None.
-            use_gpu (Union[bool, None], optional) : researcher requests to use GPU (or not)
+            - epochs (int, optional): number of epochs (complete pass on data).
+                Defaults to 2.
+            - log_interval (int, optional): frequency of logging. Defaults to 10.
+                lr (Union[int, float], optional): learning rate. Defaults to 1e-3.
+            - batch_size (int, optional): size of batch. Defaults to 48.
+            - batch_maxnum (int, optional): equals number of data devided
+                by batch_size,
+                and taking the closest lower integer. Defaults to 0.
+            - dry_run (bool, optional): whether to stop once the first
+            - batch size of the first epoch of the first round is completed.
+                Defaults to False.
+            - use_gpu (Union[bool, None], optional) : researcher requests to use GPU (or not)
                 for training during this round (ie overload the object default use_gpu value)
                 if available on node and proposed by node
                 Defaults to None (dont overload the object default value)
-            node_gpu (bool): node offers to use a GPU device if any is available
-            node_gpu_num (Union[int, None]): node requests to use the specified GPU
-                device instead of default GPU device if any GPU device is available
+            - monitor ([type], optional): [description]. Defaults to None.
+            - node_args (Union[dict, None]): command line arguments for node. Can include:
+                - gpu (bool): propose use a GPU device if any is available. Default False.
+                - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
+                    GPU device if this GPU device is available. Default None.
+                - gpu_only (bool): force use of a GPU device if any available, even if researcher
+                    doesnt request for using a GPU. Default False.
         """
+        # set default values for node args
+        if node_args is None:
+            node_args = {}
+        if 'gpu' not in node_args:
+            node_args['gpu'] = False
+        if 'gpu_num' not in node_args:
+            node_args['gpu_num'] = None
+        if 'gpu_only' not in node_args:
+            node_args['gpu_only'] = False
+
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
-        # Training may use gpu if exists on mode (+ proposed by node) + requested by training plan
+        # Training uses gpu if it exists on node and
+        # - either proposed by node + requested by training plan
+        # - or forced by node
         cuda_available = torch.cuda.is_available()
         if use_gpu is None:
             use_gpu = self.use_gpu
-        use_cuda = node_gpu and use_gpu and cuda_available
+        use_cuda = cuda_available and (( use_gpu and node_args['gpu'] ) or node_args['gpu_only'])
+        
+        # Set device for training
         self.device = "cpu"
         if use_cuda:
-            if node_gpu_num is not None:
-                if node_gpu_num in range(torch.cuda.device_count()):
-                    self.device = "cuda:" + str(node_gpu_num)
+            if node_args['gpu_num'] is not None:
+                if node_args['gpu_num'] in range(torch.cuda.device_count()):
+                    self.device = "cuda:" + str(node_args['gpu_num'])
                 else:
-                    logger.warning(f'Bad GPU number {node_gpu_num}, will use default GPU')
+                    logger.warning(f"Bad GPU number {node_args['gpu_num']}, will use default GPU")
                     self.device = "cuda"
             else:
                 self.device = "cuda"
-        logger.debug(f'Using device {self.device} for training '
-            f'(cuda_available={cuda_available}, node_gpu={node_gpu}, '
-            f'use_gpu={use_gpu}, node_gpu_num={node_gpu_num})')
-        #self.device = torch.device("cuda" if use_cuda else "cpu")
+        logger.debug(f"Using device {self.device} for training "
+            f"(cuda_available={cuda_available}, gpu={node_args['gpu']}, "
+            f"gpu_only={node_args['gpu_only']}, "
+            f"use_gpu={use_gpu}, gpu_num={node_args['gpu_num']})")
+        #
+        # send all model to device, ensures having all the requested tensors
         self.to(self.device)
 
         for epoch in range(1, epochs + 1):

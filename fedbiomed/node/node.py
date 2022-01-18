@@ -26,8 +26,7 @@ class Node:
     def __init__( self,
                   data_manager: DataManager,
                   model_manager: ModelManager,
-                  gpu: bool = False,
-                  gpu_num: Union[int, None] = None):
+                  node_args: Union[dict, None] = None):
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
         self.messaging = Messaging(self.on_message, ComponentType.NODE,
@@ -36,8 +35,7 @@ class Node:
         self.model_manager = model_manager
         self.rounds = []
 
-        self.gpu = gpu
-        self.gpu_num = gpu_num
+        self.node_args = node_args
 
     def add_task(self, task: dict):
         """This method adds a task to the queue
@@ -208,8 +206,7 @@ class Node:
                         job_id,
                         researcher_id,
                         hist_monitor,
-                        self.gpu,
-                        self.gpu_num))
+                        self.node_args))
 
     def task_manager(self):
         """ This method manages training tasks in the queue

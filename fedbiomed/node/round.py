@@ -26,30 +26,32 @@ class Round:
                  job_id: str = None,
                  researcher_id: str = None,
                  monitor: HistoryMonitor = None,
-                 gpu: bool = False,
-                 gpu_num: Union[int, None] = None):
+                 node_args: Union[dict, None] = None):
 
         """Constructor of the class
 
         Args:
-            model_kwargs ([dict]): contains model args
-            training_kwargs ([dict]): contains model characteristics,
-            especially input  dimension (key: 'in_features')
-            and output dimension (key: 'out_features')
-            dataset ([dict]): dataset details to use in this round.
-                            It contains the dataset name, dataset's id,
-                            data path, its shape, its
-                            description...
-            model_url ([str]): url from which to download model
-            model_class ([str]): name of the training plan
-                                (eg 'MyTrainingPlan')
-            params_url ([str]): url from which to upload/dowload model params
-            job_id ([str]): job id
-            researcher_id ([str]): researcher id
-            monitor ([HistoryMonitor])
-            gpu (bool): use a GPU device if any is available
-            gpu_num (Union[int, None]): use the specified GPU device instead of default GPU device
-                if any GPU device is available
+            - model_kwargs (dict): contains model args
+            - training_kwargs (dict): contains model characteristics,
+                especially input  dimension (key: 'in_features')
+                and output dimension (key: 'out_features')
+            - dataset ([dict]): dataset details to use in this round.
+                It contains the dataset name, dataset's id,
+                data path, its shape, its
+                description...
+            - model_url (str): url from which to download model
+            - model_class (str): name of the training plan
+                (eg 'MyTrainingPlan')
+            - params_url (str): url from which to upload/dowload model params
+            - job_id (str): job id
+            - researcher_id (str): researcher id
+            - monitor (HistoryMonitor)
+            - node_args (Union[dict, None]): command line arguments for node. Can include:
+                - gpu (bool): propose use a GPU device if any is available.
+                - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
+                    GPU device if this GPU device is available.
+                - gpu_only (bool): force use of a GPU device if any available, even if researcher
+                    doesnt request for using a GPU.
         """
         self.model_kwargs = model_kwargs
         self.training_kwargs = training_kwargs
@@ -61,8 +63,7 @@ class Round:
         self.researcher_id = researcher_id
         self.monitor = monitor
         self.model_manager = ModelManager()
-        self.gpu = gpu
-        self.gpu_num = gpu_num
+        self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
 
     def run_model_training(self) -> TrainReply:
@@ -138,12 +139,13 @@ class Round:
         # Run the training routine
         if not is_failed:
             # Caution: always provide values for node-side arguments
-            # (monitor, node_gpu, node_gpu_num) especially if they are security
+            # (monitor, node_args) especially if they are security
             # related, to avoid overloading by malicious researcher.
-            # Though training fails in this case with 
+            #
+            # We want to have explicit message in case of overloading attempt
+            # (and continue training) though by default it fails with
             # "dict() got multiple values for keyword argument"
-            # we want to have more explicit message (and continue training without this arg)
-            node_side_args = [ 'monitor', 'node_gpu', 'node_gpu_num' ]
+            node_side_args = [ 'monitor', 'node_args' ]
             for arg in node_side_args:
                 if arg in self.training_kwargs:
                     del self.training_kwargs[arg]
@@ -152,8 +154,7 @@ class Round:
 
         if not is_failed:
             training_kwargs_with_history = dict(monitor=self.monitor,
-                                                node_gpu=self.gpu,
-                                                node_gpu_num=self.gpu_num,
+                                                node_args=self.node_args,
                                                 **self.training_kwargs)
             logger.info(f'training with arguments {training_kwargs_with_history}')
 
