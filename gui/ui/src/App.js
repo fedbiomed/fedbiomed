@@ -69,7 +69,7 @@ function App(props) {
           </div>
         </div>
       </Router>
-      <Modal show={props.result.show} onModalClose={onResultModalClose}>
+      <Modal show={props.result.show} class="info-box" onModalClose={onResultModalClose}>
          <Modal.Header>
            { props.result.error ? (
                "Error"

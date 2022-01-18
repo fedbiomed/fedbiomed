@@ -29,7 +29,7 @@ export const Modal = (props) => {
             className="modal-overlay">
 
             <div style={{width:props.width ? props.width : 'unset'}}
-                className="modal-inner shadow">
+                className={`modal-inner shadow ${props.class ? props.class : ''}`}>
 
                 <div className="close" onClick={closeModal}>X</div>
 
