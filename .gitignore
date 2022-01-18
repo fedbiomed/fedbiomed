@@ -403,6 +403,7 @@ queue_manager_client_*
 cover/
 mylog.log
 sgd.sav
+data/*
 
 # vpn configurations
 **/config/config_peers
