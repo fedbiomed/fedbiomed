@@ -177,29 +177,32 @@ def get_disk_usage(path: str):
 
     size = 0
     if os.path.isfile(path):
-        size = os.path.getsize(path)
-    else:
-        for path, dirs, files in os.walk(path):
-            for f in files:
-                fp = os.path.join(path, f)
-                size += os.path.getsize(fp)
+        try:
+            size = os.path.getsize(path)
+        except:
+            pass
+    elif os.path.isdir(path):
+        try:
+            for path, dirs, files in os.walk(path):
+                for f in files:
+                    fp = os.path.join(path, f)
+                    size += os.path.getsize(fp)
+        except:
+            pass
 
     return parse_size(size)
 
 
 def parse_size(size):
-    """ This function parse size to common formats
+    """ This function will convert bytes into a human readable form
 
     Args:
         size (float): File size in KB
     """
 
-    units = ["B", "KB", "MB", "GB", "TB"]
-    formatter = "%.1f%s"
-    base = 1024.
-    for u in units:
-        if size < base:
-            return formatter % (size, u)
-        size /= base
-
-    return formatter % (size, units)
+    formatter = "%.1f %s"
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YT']:
+        if size < 1024.0:
+            return formatter % (size, unit)
+        size /= 1024.0
+    return formatter % (size, 'BB')

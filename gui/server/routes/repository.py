@@ -38,10 +38,13 @@ def list_data_path():
     # Full path by including the base DATA_PATH
     dpath = os.path.join(app.config["DATA_PATH_RW"], *req_path)
 
-    # Check if the path is exist or it is a directory
+    # Check if the path is existed, or it is a directory
     if os.path.exists(dpath) and os.path.isdir(dpath):
         base = os.sep if len(req_path) == 0 else os.path.join(*req_path)
-        files = os.listdir(dpath)
+        try:
+            files = os.listdir(dpath)
+        except Exception as e:
+            return error(str(e)), 400
 
         res = {
             'level': len(req_path),
