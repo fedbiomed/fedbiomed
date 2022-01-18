@@ -58,8 +58,8 @@ import os
 # you can use any class name eg:
 # class AlterTrainingPlan(TorchTrainingPlan):
 class Net(TorchTrainingPlan):
-    def __init__(self):
-        super(Net, self).__init__()
+    def __init__(self, model_args: dict = {}):
+        super(Net, self).__init__(model_args)
         #convolution layers
         self.conv1 = nn.Conv2d(3, 32, 3, 1)
         self.conv2 = nn.Conv2d(32, 32, 3, 1)
