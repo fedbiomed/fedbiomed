@@ -19,22 +19,28 @@ class DefaultStrategy(Strategy):
     - raise an error if one node does not answer
     - raise an error is one node returns an error
     """
-    def __init__(self, data: FederatedDataSet):
-        super().__init__(data)
+    def __init__(self, dataset: FederatedDataSet):
+        super().__init__(dataset)
 
     def sample_nodes(self, round_i: int) -> List[uuid.UUID]:
         """
         Samples and selects nodes on which to train local model.
-        In this strategy we will consider all existing nodes
+
+        In this (default) strategy we will return the full list of
+        all existing nodes
 
         Args:
-          round_i (int): number of round.
+          round_i (int): number of the current round
 
         Returns:
           node_ids: list of all node ids considered for training during
           this round `round_i.
         """
-        self._sampling_node_history[round_i] = self._fds.node_ids
+
+        # store the selected nodes list in the history
+        self.store_node_history(round_i, self._fds.node_ids)
+
+        # and return the same nodes list
         return self._fds.node_ids
 
     def refine(self, training_replies, round_i) -> Tuple[List, List]:
@@ -90,4 +96,3 @@ class DefaultStrategy(Strategy):
         weights = [val[0]["shape"][0] / totalrows for (key,val) in self._fds.data().items()]
         logger.info('Nodes that successfully reply in round ' + str(round_i) + ' ' + str(self._success_node_history[round_i] ))
         return models_params, weights
-
