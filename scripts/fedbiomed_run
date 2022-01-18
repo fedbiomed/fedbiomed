@@ -60,13 +60,6 @@ function start_gui() {
               echo -e "${RED}ERROR${NC}: folder '$DATA_PATH' does not exist. Can not continue.\n"
               exit 1
             fi
-        # If path starts with `~`
-        elif [[ $DATA_PATH == ~/* ]]; then
-            DATA_PATH="$(cd "$DATA_PATH" && pwd)"
-            if [ ! -d "$basedir/$DATA_PATH" ]; then
-              echo -e "${RED}ERROR${NC}: folder '$basedir/${3}' does not exist. Can not continue.\n"
-              exit 1
-            fi
         # If the path is relative
         else
             if [ ! -d "$basedir/$DATA_PATH" ]; then
@@ -372,7 +365,7 @@ node      : a second argument is mandatory
             - add-mnist PATH_TO_DATASET non-interactively adds a mnist dataset
             - add-dataset-from-file PATH_TO_JSON_FILE non-interactively adds a dataset
                 described in a json file with the following format
-                
+
                 {
                     "path": "/path/to/dataset",
                     "data_type": "csv|default|images",
