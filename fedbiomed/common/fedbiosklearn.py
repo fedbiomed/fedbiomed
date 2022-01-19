@@ -1,10 +1,13 @@
 import sys
 from io import StringIO
 import inspect
+from typing import Union
+
 from joblib import dump, load
 import numpy as np
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
+
 from fedbiomed.common.logger import logger
 
 class _Capturer(list):
@@ -68,11 +71,32 @@ class SGDSkLearnModel():
         """
         return {key: getattr(self.m, key) for key in self.param_list}
 
-    def training_routine(self, epochs=1, monitor=None):
+    def training_routine(self,
+                         epochs=1,
+                         monitor=None,
+                         node_args: Union[dict, None] = None):
         """
             Method training_routine called in Round, to change only if you know what you are doing.
-            :param epochs (integer)
-        """
+
+            Args:
+            - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
+            - monitor ([type], optional): [description]. Defaults to None.
+            - node_args (Union[dict, None]): command line arguments for node. Can include:
+                - gpu (bool): propose use a GPU device if any is available. Default False.
+                - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
+                    GPU device if this GPU device is available. Default None.
+                - gpu_only (bool): force use of a GPU device if any available, even if researcher
+                    doesnt request for using a GPU. Default False.
+        """        
+        # issue warning if GPU usage is forced by node : no GPU support for sklearn training
+        # plan currently
+        if node_args is not None and node_args.get('gpu_only', False):
+            logger.warning('Node would like to force GPU usage, but sklearn training plan '
+                + 'does not support it. Training on CPU.')
+
+        #
+        # perform sklearn training
+        #
         (data, target) = self.training_data()
         for epoch in range(epochs):
             with _Capturer() as output:
