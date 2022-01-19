@@ -35,7 +35,6 @@ class WarningReportLogger:
                 else:
                     print("input not understood")
             
-            print(self._current_entry)
             self._report[self._current_entry] = []
         
     def write_checking_result(self,

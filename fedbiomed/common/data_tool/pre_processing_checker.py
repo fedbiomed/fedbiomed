@@ -219,12 +219,13 @@ class PreProcessingChecker:
                                                                         feature_name)
         
         column = self._data_frame[renamed_feature_name]
+        
         _feature_format_ref = self._file_format_ref[view_name][feature_name]
         success = True
         warning_msg = 'test passed'
         data_format_name = _feature_format_ref.get('data_format')
         data_type_name = _feature_format_ref.get('data_type')
-
+        data_type_values = _feature_format_ref.get('values')
         #feature_name = column.name
 
         # first test
@@ -238,23 +239,30 @@ class PreProcessingChecker:
                 warning_msg = 'test passed'
             except ValueError as err:
                 warning_msg = raise_warning(PreProcessingChecks.DATA_TYPE_MISMATCH, 
-                                           data_format_name, data_type_name)
+                                            data_format_name, data_type_name)
                 success = False
 
         self._warning_logger.write_checking_result(success, warning_msg, feature_name)
 
         # second test 
         self._warning_logger.write_new_entry(PreProcessingChecks.INCORRECT_DATA_TYPE)
-        if data_format_name is None or data_type_name is None:
+        if data_format_name is None or data_type_values is None:  # last condition is to check if data type is UNKNOWN
             warning_msg = 'test skipped'
         else:
-            actual_dtype = column.dtype
+            # first, we need to know if value is a dtetime or not
+            # (basically, any strings or integers can be a datetime)
+            if data_type_name == DataType.DATETIME.name:
+                is_date = True
+            else:
+                is_date = False
+            actual_dtype = utils.infer_type(column, is_date=is_date)
 
-
-            _does_column_have_correct_data_type = any(t == actual_dtype for t in data_type.value)
-            if not _does_column_have_correct_data_type:
+                
+            _have_correct_data_type = any(t == actual_dtype for t in data_type.value)
+            if not _have_correct_data_type:
                 warning_msg = raise_warning(PreProcessingChecks.INCORRECT_DATA_TYPE, 
-                                           feature_name, data_type_name, str(actual_dtype))
+                                            feature_name,
+                                            data_type_name, str(actual_dtype))
                 success = False
             else:
                 warning_msg = 'test passed'

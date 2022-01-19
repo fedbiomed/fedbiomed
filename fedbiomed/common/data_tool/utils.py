@@ -166,7 +166,10 @@ def get_data_type(
             else:
                 # case where d_format is a string of character, eg UNKNOWN
                 sub_d_type_format = d_format
-
+                present_d_types = None
+    if isinstance(present_d_types, list) and not present_d_types:  # check if list is empty
+        print(f"Warning: {d_type} type doesnot belong to data type {d_format.name}")
+        present_d_types.append(d_type)
     return sub_d_type_format, present_d_types
 
 
@@ -323,10 +326,18 @@ def is_nan(value: Union[int, float, bool, str]) -> bool:
 
 
 def infer_type(col: pd.Series, data_format :Enum= None, is_date: bool = False):
-    
+    """Completes tabular data type parsing (pandas doesnot parse completly strings
+    and datetime colums when loading it)
+
+    Args:
+        col (pd.Series): [description]
+        data_format (Enum, optional): [description]. Defaults to None.
+        is_date (bool, optional): [description]. Defaults to False.
+
+    Returns:
+        [type]: [description]
+    """
     col_type = None
-    
-   
         
     if is_date:
         

@@ -13,7 +13,7 @@ from fedbiomed.common.data_tool import utils
 from fedbiomed.common.data_tool.data_type import DataType, CategoricalDataType, DataTypeProperties
 
 
-GLOBAL_THRESHOLDS = 'global_thresholds'
+GLOBAL_THRESHOLDS = 'global_thresholds'  # additional entry used for specifying global parameters (eg nb )
 
 def get_yes_no_msg() -> str:
     msg_yes_or_no_question = '1) YES\n2) NO\n'   
@@ -299,10 +299,10 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
     
     available_data_type = [d_type for d_type in DataType]  # get all available data types
     
-    for n_feature, feature in enumerate(dataset_columns):
+    for n_feature, feature in enumerate(dataset_columns):  # iterates over features
         print(f'displaying first 10 values of feature {feature} in view: {view} (n_feature: {n_feature+1}/{dataset_columns_length})') 
 
-        pprint.pprint(dataset[feature].head(10))  # print first 10 lines of feature value
+        pprint.pprint(dataset[feature].head(10))  # print first 10 lines of feature values
         print(f'number of differents samples: {utils.unique(dataset[feature], number=True)} / total of samples: {dataset[feature].shape[0]}')
         
         msg_data_type_selection, ignoring_id = get_data_type_selection_msg(available_data_type)
@@ -328,7 +328,7 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
             elif data_type_property.date_format:
                 is_date = True  # if data type has a date format, then it is a datetime variable
             else:
-                is_date = False  # should not occur
+                is_date = False  # should not occur (property error)
             d_type = utils.infer_type(dataset[feature], data_format, is_date)  
             
             # TODO: rename data_type into d_type for consistancy sake
@@ -355,9 +355,13 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
                 data_imputation_params = ask_for_data_imputation_method(view_feature_names,
                                                                         d_type,
                                                                         view, feature)
+        
+        if isinstance(types, list):
+            # convert type to string so they can be saved into JSON
+            types = [str(x) for x in types]  
         data_format_file[feature] = {'data_format': data_format.name,
                                      'data_type': n_data_type.name,
-                                     'values': str(d_type),
+                                     'values': types,
                                      'is_missing_values': is_missing_values_allowed,
                                      'data_imputation_method': data_imputation_params.get('data_imputation_method'),
                                      'data_imputation_parameters': data_imputation_params.get('data_imputation_parameters'),
