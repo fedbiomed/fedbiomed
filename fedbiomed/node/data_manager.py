@@ -112,7 +112,7 @@ class DataManager: # should this be in camelcase (smthg like DataManager)?
 
         Args:
             name (str): name of the default dataset. Currently,
-            only MNIST is accepted.
+            only MNIST or CIFAR are accepted.
             path (str): pathfile to MNIST dataset.
             as_dataset (bool, optional): whether to return
             the complete dataset (True) or dataset dimensions (False).
@@ -128,13 +128,13 @@ class DataManager: # should this be in camelcase (smthg like DataManager)?
             if set to False, returns the size of the dataset stored inside
             a list (type: List[int])
         """
+
+        loader_def = getattr(datasets, name)
+
         kwargs = dict(root=path, download=True, transform=transforms.ToTensor())
 
-        if 'mnist' in name.lower():
-            dataset = datasets.MNIST(**kwargs)
-        else:
-            raise NotImplementedError(f'Default dataset `{name}` has'
-                                      'not been implemented.')
+        dataset = loader_def(**kwargs)
+
         if as_dataset:
             return dataset
         else:

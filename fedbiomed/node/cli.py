@@ -166,13 +166,13 @@ def add_database(interactive=True,
             data_type = 'default'
 
         if data_type == 'default':
-            tags = ['#MNIST', "#dataset"]
+            name = input('Name of the database (from torchvision.datasets): ')
+            tags = ['#'+name, "#dataset"]
             if interactive is True:
-                while input(f'MNIST will be added with tags {tags} [y/N]').lower() != 'y':
+                while input(f'{name} will be added with tags {tags} [y/N]').lower() != 'y':
                     pass
                 path = validated_path_input(data_type)
-            name = 'MNIST'
-            description = 'MNIST database'
+            description = name+' database'
 
         else:
 
