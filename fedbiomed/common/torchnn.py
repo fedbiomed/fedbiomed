@@ -73,7 +73,57 @@ class TorchTrainingPlan(nn.Module):
         self.dataset_path = None
 
 
-    #################################################
+    # provided by fedbiomed
+    def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
+        """
+        Set device (CPU, GPU) that will be used for training, based on `node_args`
+
+        Args:
+          - use_gpu (Union[bool, None]) : researcher requests to use GPU (or not)
+          - node_args (dict): command line arguments for node
+        """
+
+        # set default values for node args
+        if 'gpu' not in node_args:
+            node_args['gpu'] = False
+        if 'gpu_num' not in node_args:
+            node_args['gpu_num'] = None
+        if 'gpu_only' not in node_args:
+            node_args['gpu_only'] = False
+
+        # Training uses gpu if it exists on node and
+        # - either proposed by node + requested by training plan
+        # - or forced by node
+        cuda_available = torch.cuda.is_available()
+        if use_gpu is None:
+            use_gpu = self.use_gpu
+        use_cuda = cuda_available and (( use_gpu and node_args['gpu'] ) or node_args['gpu_only'])
+
+        if node_args['gpu_only'] and not cuda_available:
+            logger.error('Node wants to force model training on GPU ,but no GPU is available')
+        if use_cuda and not use_gpu:
+            logger.warning('Node enforces model training on GPU, though it is not requested by researcher')
+        if not use_cuda and use_gpu:
+            logger.warning('Node training model on CPU, though researcher requested GPU')
+
+        # Set device for training
+        self.device = "cpu"
+        if use_cuda:
+            if node_args['gpu_num'] is not None:
+                if node_args['gpu_num'] in range(torch.cuda.device_count()):
+                    self.device = "cuda:" + str(node_args['gpu_num'])
+                else:
+                    logger.warning(f"Bad GPU number {node_args['gpu_num']}, using default GPU")
+                    self.device = "cuda"
+            else:
+                self.device = "cuda"
+        logger.debug(f"Using device {self.device} for training "
+            f"(cuda_available={cuda_available}, gpu={node_args['gpu']}, "
+            f"gpu_only={node_args['gpu_only']}, "
+            f"use_gpu={use_gpu}, gpu_num={node_args['gpu_num']})")
+
+
+
     # provided by fedbiomed
     # FIXME: add betas parameters for ADAM solver + momentum for SGD
     def training_routine(self,
@@ -121,52 +171,16 @@ class TorchTrainingPlan(nn.Module):
                 - gpu_only (bool): force use of a GPU device if any available, even if researcher
                     doesnt request for using a GPU. Default False.
         """
-        # set default values for node args
+        # set correct type for node args
         if not isinstance(node_args, dict):
             node_args = {}
-        if 'gpu' not in node_args:
-            node_args['gpu'] = False
-        if 'gpu_num' not in node_args:
-            node_args['gpu_num'] = None
-        if 'gpu_only' not in node_args:
-            node_args['gpu_only'] = False
+
+        self._set_device(use_gpu, node_args)
+        # send all model to device, ensures having all the requested tensors
+        self.to(self.device)
 
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
-
-        # Training uses gpu if it exists on node and
-        # - either proposed by node + requested by training plan
-        # - or forced by node
-        cuda_available = torch.cuda.is_available()
-        if use_gpu is None:
-            use_gpu = self.use_gpu
-        use_cuda = cuda_available and (( use_gpu and node_args['gpu'] ) or node_args['gpu_only'])
-
-        if node_args['gpu_only'] and not cuda_available:
-            logger.error('Node wants to force model training on GPU ,but no GPU is available')
-        if use_cuda and not use_gpu:
-            logger.warning('Node enforces model training on GPU, though it is not requested by researcher')
-        if not use_cuda and use_gpu:
-            logger.warning('Node training model on CPU, though researcher requested GPU')
-
-        # Set device for training
-        self.device = "cpu"
-        if use_cuda:
-            if node_args['gpu_num'] is not None:
-                if node_args['gpu_num'] in range(torch.cuda.device_count()):
-                    self.device = "cuda:" + str(node_args['gpu_num'])
-                else:
-                    logger.warning(f"Bad GPU number {node_args['gpu_num']}, using default GPU")
-                    self.device = "cuda"
-            else:
-                self.device = "cuda"
-        logger.debug(f"Using device {self.device} for training "
-            f"(cuda_available={cuda_available}, gpu={node_args['gpu']}, "
-            f"gpu_only={node_args['gpu_only']}, "
-            f"use_gpu={use_gpu}, gpu_num={node_args['gpu_num']})")
-        #
-        # send all model to device, ensures having all the requested tensors
-        self.to(self.device)
 
         for epoch in range(1, epochs + 1):
             # (below) sampling data (with `training_data` method defined on
@@ -202,9 +216,6 @@ class TorchTrainingPlan(nn.Module):
                         monitor.add_scalar('Loss', res.item(), batch_idx, epoch)
 
                     if dry_run:
-                        # release gpu usage as much as possible though:
-                        # - it should be done by deleting the object
-                        # - and some gpu memory remains used until process (cuda kernel ?) finishes
                         self.to(self.device_init)
                         torch.cuda.empty_cache()
                         return
