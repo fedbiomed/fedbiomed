@@ -55,7 +55,7 @@ class TorchTrainingPlan(nn.Module):
         # - researcher doesn't request to use gpu by default
         self.device_init = "cpu"
         self.device = self.device_init
-        if model_args is None:
+        if not isinstance(model_args, dict):
             self.use_gpu = False
         else:
             self.use_gpu = model_args.get('use_gpu', False)
@@ -122,7 +122,7 @@ class TorchTrainingPlan(nn.Module):
                     doesnt request for using a GPU. Default False.
         """
         # set default values for node args
-        if node_args is None:
+        if not isinstance(node_args, dict):
             node_args = {}
         if 'gpu' not in node_args:
             node_args['gpu'] = False
@@ -141,9 +141,14 @@ class TorchTrainingPlan(nn.Module):
         if use_gpu is None:
             use_gpu = self.use_gpu
         use_cuda = cuda_available and (( use_gpu and node_args['gpu'] ) or node_args['gpu_only'])
+
+        if node_args['gpu_only'] and not cuda_available:
+            logger.error('Node wants to force model training on GPU ,but no GPU is available')
         if use_cuda and not use_gpu:
-            logger.warning('GPU usage forced by node though it was not requested by researcher')
-        
+            logger.warning('Node enforces model training on GPU, though it is not requested by researcher')
+        if not use_cuda and use_gpu:
+            logger.warning('Node training model on CPU, though researcher requested GPU')
+
         # Set device for training
         self.device = "cpu"
         if use_cuda:
@@ -151,7 +156,7 @@ class TorchTrainingPlan(nn.Module):
                 if node_args['gpu_num'] in range(torch.cuda.device_count()):
                     self.device = "cuda:" + str(node_args['gpu_num'])
                 else:
-                    logger.warning(f"Bad GPU number {node_args['gpu_num']}, will use default GPU")
+                    logger.warning(f"Bad GPU number {node_args['gpu_num']}, using default GPU")
                     self.device = "cuda"
             else:
                 self.device = "cuda"

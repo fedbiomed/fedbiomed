@@ -26,19 +26,23 @@ class _Capturer(list):
 
 class SGDSkLearnModel():
 
-    def set_init_params(self, kwargs):
+    def set_init_params(self, model_args):
         """
             Initialize model parameters
-            :param kwargs (dictionary) containing model parameters
+
+            Args:
+            - model_args (dict) : model parameters
         """
         if self.model_type in ['SGDRegressor']:
             self.param_list = ['intercept_','coef_']
             init_params = {'intercept_': np.array([0.]),
-                           'coef_':  np.array([0.]*kwargs['n_features'])}
+                           'coef_':  np.array([0.]*model_args['n_features'])}
         elif self.model_type in ['Perceptron', 'SGDClassifier']:
             self.param_list = ['intercept_','coef_']
-            init_params = {'intercept_': np.array([0.]) if (kwargs['n_classes'] == 2) else np.array([0.]*kwargs['n_classes']),
-                           'coef_':  np.array([0.]*kwargs['n_features']).reshape(1,kwargs['n_features']) if (kwargs['n_classes'] == 2) else np.array([0.]*kwargs['n_classes']*kwargs['n_features']).reshape(kwargs['n_classes'],kwargs['n_features'])  }
+            init_params = {
+                'intercept_': np.array([0.]) if (model_args['n_classes'] == 2) else np.array([0.]*model_args['n_classes']),
+                'coef_':  np.array([0.]*model_args['n_features']).reshape(1,model_args['n_features']) if (model_args['n_classes'] == 2) else np.array([0.]*model_args['n_classes']*model_args['n_features']).reshape(model_args['n_classes'],model_args['n_features'])
+            }
 
         for p in self.param_list:
             setattr(self.m, p, init_params[p])
@@ -137,10 +141,12 @@ class SGDSkLearnModel():
                     pass
 
 
-    def __init__(self,kwargs):
+    def __init__(self, model_args: dict = {}):
         """
-           Class initializer.
-           :param kwargs (dictionary) containing model parameters
+        Class initializer.
+
+        Args:
+        - model_args (dict, optional): model arguments.
         """
         self.batch_size = 100
         self.model_map = {'MultinomialNB', 'BernoulliNB', 'Perceptron', 'SGDClassifier', 'PassiveAggressiveClassifier',
@@ -152,10 +158,15 @@ class SGDSkLearnModel():
                                 "import numpy as np",
                                 "import pandas as pd",
                              ]
-        if kwargs['model'] not in self.model_map:
+        
+        # default value if passed argument with incorrect type
+        if not isinstance(model_args, dict):
+            model_args = {}
+
+        if 'model' not in model_args or model_args['model'] not in self.model_map:
             logger.error('model must be one of, ' +  str(self.model_map))
         else:
-            self.model_type = kwargs['model']
+            self.model_type = model_args['model']
 
             # Sklearn mothods that returns loss value when the verbose flag is provided
             self._verbose_capture = ['Perceptron', 'SGDClassifier', 
@@ -163,19 +174,20 @@ class SGDSkLearnModel():
                                      'SGDRegressor', 
                                      'PassiveAggressiveRegressor']
 
-            # Add verbosity in kwargs if not and model is in verbose capturer
-            if 'verbose' not in kwargs and kwargs['model'] in self._verbose_capture:
-                kwargs['verbose'] = 1
+            # Add verbosity in model_args if not and model is in verbose capturer
+            # TODO: check this - verbose doesn't seem to be used ?
+            if 'verbose' not in model_args and model_args['model'] in self._verbose_capture:
+                model_args['verbose'] = 1
             
-            elif kwargs['model'] not in self._verbose_capture:
+            elif model_args['model'] not in self._verbose_capture:
                 logger.info("[TENSORBOARD ERROR]: cannot compute loss for " +\
-                    kwargs['model'] + ": it needs to be implemeted")
+                    model_args['model'] + ": it needs to be implemeted")
             self.m = eval(self.model_type)()
             self.params_sgd = self.m.get_params()
-            from_kwargs_sgd_proper_pars = {key: kwargs[key] for key in kwargs if key in self.params_sgd}
-            self.params_sgd.update(from_kwargs_sgd_proper_pars)
+            from_args_sgd_proper_pars = {key: model_args[key] for key in model_args if key in self.params_sgd}
+            self.params_sgd.update(from_args_sgd_proper_pars)
             self.param_list = []
-            self.set_init_params(kwargs)
+            self.set_init_params(model_args)
             self.dataset_path = None
 
 
