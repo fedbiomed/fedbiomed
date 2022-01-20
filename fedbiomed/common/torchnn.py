@@ -100,7 +100,7 @@ class TorchTrainingPlan(nn.Module):
         use_cuda = cuda_available and (( use_gpu and node_args['gpu'] ) or node_args['gpu_only'])
 
         if node_args['gpu_only'] and not cuda_available:
-            logger.error('Node wants to force model training on GPU ,but no GPU is available')
+            logger.error('Node wants to force model training on GPU, but no GPU is available')
         if use_cuda and not use_gpu:
             logger.warning('Node enforces model training on GPU, though it is not requested by researcher')
         if not use_cuda and use_gpu:
