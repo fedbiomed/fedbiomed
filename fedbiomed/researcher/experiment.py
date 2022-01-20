@@ -291,8 +291,6 @@ class Experiment(object):
         if self._job:
             logger.info('Model path has been modified. You might need to update Job by running `.set_job()`')
 
-        return
-
     def set_model_class(self, model_class: Union[type[Callable], Callable, str]):
         """ Setter for model class. Since model path is used in Job, if Job is already initialize it is required to
         run `.set_job()` after updating it. If the Job is already initialize the method will inform
@@ -306,7 +304,6 @@ class Experiment(object):
         # FIXME: Changing model class requires to rebuild Job (Should this method do that or User)
         if self._job:
             logger.info('Model class has been modified. You might need to update Job by running `.set_job()`')
-        return
 
     def set_tags(self, tags: Union[tuple, str]):
         """ Setter for tags. Since tags are the main criteria for selecting node based on
@@ -315,15 +312,16 @@ class Experiment(object):
             Args:
                 tags (str | List): List of tags or single string tag.
         """
-        self._tags = [tags] if isinstance(tags, str) else tags
-        if not isinstance(self._tags, list):
+        if isinstance(tags, list):
+            self._tags = tags
+        elif isinstance(tags, str):
+            self._tags = [tags]
+        else:
             logger.critical("Experiment parameter tags is not a string list or string list")
-            return False
-        return True
 
     def set_breakpoints(self, save_breakpoints: bool = True):
         self._save_breakpoints = save_breakpoints
-        return True
+        return
 
     def set_training_data(self,
                           tags: list = None,
