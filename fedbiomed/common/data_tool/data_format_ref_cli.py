@@ -332,16 +332,16 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
             d_type = utils.infer_type(dataset[feature], data_format, is_date)  
             
             # TODO: rename data_type into d_type for consistancy sake
-            n_data_type, types = utils.get_data_type(data_format, d_type)
+            _n_data_type, types = utils.get_data_type(data_format, d_type)
             
-        # data type that doesnot allow missing values (such as KEY and DATETIME types) 
+        # check if data type  doesnot allow missing values (such as KEY and DATETIME types) 
         if not data_type_property.allow_missing_values:  
             # for these data type, missing values are disabled by default
             is_missing_values_allowed = False
             data_imputation_params = {}
         else: 
             # ask user if missing values are allowed for this specific variable
-            ## message definition
+            ## buliding message definition
             msg_yes_or_no_question = get_yes_no_msg()
             msg_yes_or_no_question = f'Allow {feature} to have missing values:\n' + msg_yes_or_no_question
             missing_values_user_selection = get_user_input(msg_yes_or_no_question,
@@ -359,8 +359,10 @@ def get_from_user_dataframe_format_file(dataset: pd.DataFrame,
         if isinstance(types, list):
             # convert type to string so they can be saved into JSON
             types = [str(x) for x in types]  
+            
+
         data_format_file[feature] = {'data_format': data_format.name,
-                                     'data_type': n_data_type.name,
+                                     'data_type': _n_data_type.name if _n_data_type is not None else None,
                                      'values': types,
                                      'is_missing_values': is_missing_values_allowed,
                                      'data_imputation_method': data_imputation_params.get('data_imputation_method'),

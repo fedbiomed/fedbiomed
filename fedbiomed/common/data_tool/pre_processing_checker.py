@@ -197,7 +197,7 @@ class PreProcessingChecker:
             _data_format_name, _data_type_name = None, None
 
         self._warning_logger.write_new_entry(PreProcessingChecks.INCORRECT_FORMAT_FILE)
-        if _data_format_name is None or _data_type_name is None:
+        if _data_format_name is None :
             #success: bool, msg:str='', feature_name:str='
             warning_msg = raise_warning(PreProcessingChecks.INCORRECT_FORMAT_FILE,
                                     self._file_format_ref_name,
@@ -226,6 +226,7 @@ class PreProcessingChecker:
         data_format_name = _feature_format_ref.get('data_format')
         data_type_name = _feature_format_ref.get('data_type')
         data_type_values = _feature_format_ref.get('values')
+        data_type = None
         #feature_name = column.name
 
         # first test
@@ -257,16 +258,16 @@ class PreProcessingChecker:
                 is_date = False
             actual_dtype = utils.infer_type(column, is_date=is_date)
 
-                
-            _have_correct_data_type = any(t == actual_dtype for t in data_type.value)
-            if not _have_correct_data_type:
-                warning_msg = raise_warning(PreProcessingChecks.INCORRECT_DATA_TYPE, 
-                                            feature_name,
-                                            data_type_name, str(actual_dtype))
-                success = False
-            else:
-                warning_msg = 'test passed'
-            self._warning_logger.write_checking_result(success, warning_msg, feature_name)
+            if data_type is not None:  
+                _have_correct_data_type = any(t == actual_dtype for t in data_type.value)
+                if not _have_correct_data_type:
+                    warning_msg = raise_warning(PreProcessingChecks.INCORRECT_DATA_TYPE, 
+                                                feature_name,
+                                                data_type_name, str(actual_dtype))
+                    success = False
+                else:
+                    warning_msg = 'test passed'
+                self._warning_logger.write_checking_result(success, warning_msg, feature_name)
 
         return success
     
