@@ -12,7 +12,8 @@ from fedbiomed.common.torchnn import TorchTrainingPlan
 
 from fedbiomed.researcher.filetools import create_exp_folder, choose_bkpt_file, \
     create_unique_link, create_unique_file_link, find_breakpoint_path
-from fedbiomed.researcher.aggregators import fedavg, aggregator
+from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.requests import Requests
@@ -36,7 +37,7 @@ class Experiment(object):
                  model_args: dict = {},
                  training_args: dict = None,
                  rounds: int = 1,
-                 aggregator: Union[Type[aggregator.Aggregator], aggregator.Aggregator] = None,
+                 aggregator: Union[Type[Aggregator], Aggregator] = None,
                  node_selection_strategy: Union[Type[Strategy], Strategy] = None,
                  save_breakpoints: bool = False,
                  training_data: Union[dict, FederatedDataSet] = None,
@@ -114,25 +115,25 @@ class Experiment(object):
         self._nodes = nodes
         self._reqs = Requests()
 
+        # Set training data if all the necessary arguments are provided
         if training_data:
             if not isinstance(training_data, FederatedDataSet) and isinstance(training_data, dict):
-                # TODO: Check dict has proper schema
+                # TODO: If federated dataset is dict check it has proper schema
                 self._fds = FederatedDataSet(training_data)
                 logger.info('Training data has been provided, search request will be ignored.')
             else:
                 logger.critical('Training data is not a type of FederatedDataset or Dict')
                 return
-
         elif self._tags:
             self._fds = FederatedDataSet(self._reqs.search(self._tags, self._nodes))
         else:
             self._fds = None
 
-        # Initialize aggregator if it is provided
+        # Initialize aggregator
         if aggregator is None:
-            self._aggregator = fedavg.FedAverage()
+            self._aggregator = FedAverage()
         else:
-            self._aggregator = aggregator
+            self._set_aggregator(aggregator)
 
         # Initialize node selection strategy
         if node_selection_strategy is None and self._fds:
@@ -145,12 +146,11 @@ class Experiment(object):
         else:
             self._node_selection_strategy = None
 
-        self._round_init = 0  # start from round 0
+        # TODO round_init might not be necessary after refactoring the experiment
+        self._round_init = 0  # start from round 0 ()
+
         self._round_current = 0
-        self._aggregator = aggregator
-
         self._experimentation_folder = create_exp_folder(experimentation_folder)
-
         self._model_class = model_class
         self._model_path = model_path
         self._model_args = model_args
@@ -165,13 +165,9 @@ class Experiment(object):
                             model_args=self._model_args,
                             training_args=self._training_args,
                             data=self._fds,
-                            keep_files_dir=self.experimentation_path)
+                            keep_files_dir=self.experimentation_path())
         else:
             self._job = None
-
-        # structure (dict ?) for additional parameters to the strategy
-        # currently unused, to be defined when needed
-        # self._sampled = None
 
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
@@ -233,6 +229,9 @@ class Experiment(object):
     def rounds(self):
         return self._rounds
 
+    def current_round(self):
+        return self._round_current
+
     def experimentation_folder(self):
         return self._experimentation_folder
 
@@ -245,7 +244,6 @@ class Experiment(object):
     # -----------------------------------------------------------------------------------------------------------------
 
     # Setters ---------------------------------------------------------------------------------------------------------
-
     def set_model_args(self, model_args: Dict):
         """ Setter for Model Arguments. This method should also update/set model arguments in
         Job object.
@@ -258,9 +256,10 @@ class Experiment(object):
         # After Job has initialized setting new model arguments will require to reinitialize the job.
         # Job needs to be refactored to avoid rebuild after the arguments have changed.
         self._model_args = model_args
-        logger.info('Model arguments has been changed, please recreate the Job by running `.set_job()`')
+        if self._job:
+            logger.info('Model arguments has been changed, please update the Job by running `.set_job()`')
 
-        return True
+        return
 
     def set_training_args(self, training_args):
 
@@ -276,7 +275,38 @@ class Experiment(object):
         if self._job:
             self._job._training_args = training_args
 
-        return True
+        return
+
+    def set_model_path(self, model_path: str):
+        """ Setter for model path. Since model path is directly connected to Job, it is required to
+        run `.set_job()` after updating it. If the Job is already initialize the method will inform
+        about `set_job()` should be called.
+
+        Args:
+            model_path (str): Path of python file that contains Model class
+        """
+        self._model_path = model_path
+
+        # FIXME: Changing model path requires to rebuild Job (Should this method do that or User)
+        if self._job:
+            logger.info('Model path has been modified. You might need to update Job by running `.set_job()`')
+
+        return
+
+    def set_model_class(self, model_class: Union[type[Callable], Callable, str]):
+        """ Setter for model class. Since model path is used in Job, if Job is already initialize it is required to
+        run `.set_job()` after updating it. If the Job is already initialize the method will inform
+        about `set_job()` should be called.
+
+        Args:
+            model_class (str): Path of python file that contains Model class
+        """
+        self._model_class = model_class
+
+        # FIXME: Changing model class requires to rebuild Job (Should this method do that or User)
+        if self._job:
+            logger.info('Model class has been modified. You might need to update Job by running `.set_job()`')
+        return
 
     def set_tags(self, tags: Union[tuple, str]):
         """ Setter for tags. Since tags are the main criteria for selecting node based on
@@ -287,9 +317,8 @@ class Experiment(object):
         """
         self._tags = [tags] if isinstance(tags, str) else tags
         if not isinstance(self._tags, list):
-            logger.critical("experiment parameter tags is not a string list or string list")
+            logger.critical("Experiment parameter tags is not a string list or string list")
             return False
-
         return True
 
     def set_breakpoints(self, save_breakpoints: bool = True):
@@ -302,44 +331,53 @@ class Experiment(object):
                           training_data: Union[dict, FederatedDataSet] = None):
         """ Setting training data for federated training.
 
-        """
 
+        """
         # Verify tags if it is provided and update self._tags
+        # TODO: Decide whether we should update global tags of the Experiment tags
         if tags:
             tags = [tags] if isinstance(tags, str) else tags
-            if isinstance(self._tags, list):
-                self._tags = tags
-            else:
-                logger.error("The argument `tags` should be a list of string or string")
-                return False
+            if not isinstance(self._tags, list):
+                logger.critical("The argument `tags` should be a list of string or string")
 
         # Update nodes if it is provided
         if nodes:
-            if not isinstance(self._tags, list):
-                logger.error("The argument `nodes` should be list of node ids")
-                return False
-
-            self._nodes = nodes
+            if not isinstance(nodes, list):
+                logger.critical("The argument `nodes` should be list of node ids")
+                return
 
         if training_data:
             if not isinstance(training_data, FederatedDataSet) and isinstance(training_data, dict):
+                logger.info('Training data is provided, search request will be ignored')
                 # TODO: Check dict has proper schema
                 self._fds = FederatedDataSet(training_data)
-                logger.info('Training data has been provided, search request will be ignored')
             else:
-                logger.error('Training data is not a type of FederatedDataset or Dict')
-                return False
+                logger.critical(ErrorNumbers.FB417.value)
+                return
 
-        elif self._tags:
-            self._fds = self._reqs.search(self._tags, self._nodes)
+        elif tags:
+            self._fds = FederatedDataSet(self._reqs.search(tags, nodes))
         else:
-            logger.error('Either provide tags or FederatedDataset')
-            return False
+            logger.critical(ErrorNumbers.FB418.value)
+            return
 
-        return True
+        if self._node_selection_strategy:
+            self._node_selection_strategy(self._fds)
+            logger.info('`node_selection_strategy has been updated with new training data`')
+
+        # FIXME: Changing training data requires to rebuild Job (Should this method do that or User)
+        if self._job:
+            logger.info('New training data has been instantiated. You might need to update Job by running `.set_job()`')
+
+        pass
 
     def set_job(self):
+        """ Setter for Job class. To be able to set Job, the arguments: model_path, model_class, training_data
+        should be set. Otherwise, set_job() will raise critical error.
 
+        Returns:
+            None
+        """
         status, messages = self._before_job_init()
         if status:
             self._job = Job(reqs=self._reqs,
@@ -348,16 +386,92 @@ class Experiment(object):
                             model_args=self._model_args,
                             training_args=self._training_args,
                             data=self._fds,
-                            keep_files_dir=self.experimentation_path)
+                            keep_files_dir=self.experimentation_path())
             return True
         else:
-            raise Exception('Error while setting Job: \n\n \t   %s' % '\n'.join(messages))
+            logger.critical('Error while setting Job: \n\n- %s' % '\n- '.join(messages))
+
+        return
+
+    def set_node_selection_strategy(self, node_selection_strategy: Union[Type[Strategy], Strategy] = None):
+        """ Setter for `node_selection_strategy`
+
+        Args:
+            node_selection_strategy (Type[Strategy], Strategy): Callable class or object inherits main
+            Strategy class
+        """
+        if self._fds:
+            if node_selection_strategy is None:
+                self._node_selection_strategy = DefaultStrategy(self._fds)
+            else:
+                # TODO: Check strategy is type of Callable or built class and is type of Strategy
+                if inspect.isclass(self._node_selection_strategy):
+                    self._node_selection_strategy = node_selection_strategy(self._fds)
+                else:
+                    logger.error("`node_selection_strategy should be class`")
+        else:
+            logger.error(ErrorNumbers.FB416.value)
+
+        return
+
+    def set_aggregator(self, aggregator: Union[Type[Aggregator], Callable, Aggregator]):
+        """ API for setting aggregator. T
+                Args:
+            aggregator (Union[Type[Aggregator], Callable, Aggregator]): Aggregator class
+            can be built object or callable class that are type of Aggregator
+        """
+        self._set_aggregator(aggregator)
+
+        return
+
+    def _set_aggregator(self, aggregator: Union[Type[Aggregator], Callable, Aggregator]):
+        """ Private aggregator setter. This method check provided aggregator is in correct
+        type. If not will log critical error.
+
+        Args:
+            aggregator (Union[Type[Aggregator], Callable, Aggregator]): Aggregator class
+            can be built object or callable class that are type of Aggregator
+        """
+
+        if isinstance(aggregator, Callable) and isinstance(aggregator, type(Aggregator)):
+            self._aggregator = aggregator()
+        elif not isinstance(aggregator, Callable) and isinstance(aggregator, Aggregator):
+            self._aggregator = aggregator
+        else:
+            logger.critical(ErrorNumbers.FB419.value % type(aggregator))
+
+        return
+
+    def set_monitor(self, tensorboard: bool = True, monitor: Monitor = None):
+        """ Setter for monitoring loss values on Tensorboard. Currently, Monitor
+        is used for only displaying loss values on Tensorboard.
+
+        Args:
+            tensorboard (bool): If it is true will build Monitor class and register a callback
+            function in Request. Otherwise, it will remove callback from reqeust. Default is True
+            monitor (Monitor): An instance of Monitor class. Default is None
+        """
+        if tensorboard:
+            if monitor:
+                self._monitor = monitor if isinstance(monitor, Callable) else monitor()
+                self._reqs.add_monitor_callback(self._monitor.on_message_handler)
+            else:
+                self._monitor = Monitor()
+        else:
+            self._monitor = None
+            # Remove callback. Since reqeust class is singleton callback
+            # function might be already added into request before.
+            self._reqs.remove_monitor_callback()
+        return
 
     def run_once(self):
         """ Runs the experiment only once. It will increase global round each time
         this method is called
 
         """
+
+        # FIXME: While running run_one with exp.run(rounds=2) second control will be useless
+        # Check; are all the necessary arguments has been set for running a run
         status, messages = self._before_experiment_run()
 
         if status:
@@ -367,7 +481,7 @@ class Experiment(object):
             # Trigger training round on sampled nodes
             answering_nodes = self._job.start_nodes_training_round(round=self._round_current)
 
-            # refining/normalizing model weigths received from nodes
+            # refining/normalizing model weights received from nodes
             model_params, weights = self._node_selection_strategy.refine(
                 self._job.training_replies[self._round_current], self._round_current)
 
@@ -389,7 +503,8 @@ class Experiment(object):
 
             self._round_current += 1
         else:
-            raise Exception('Error while running the experiment: \n\n \t   %s' % '\n'.join(messages))
+            # FIXME: Should raise an exception otherwise it will keep completing round
+            raise Exception('Error while running the experiment: \n\n- %s' % '\n- '.join(messages))
 
         pass
 
@@ -398,9 +513,9 @@ class Experiment(object):
         given number of rounds.
         It involves the following steps:
 
-
         Args:
-            rounds (int, optional): Number of round that the experiment will run
+            rounds (int, optional): Number of round that the experiment will run. If it is not
+            provided method will use built-in rounds
         Raises:
             NotImplementedError: [description]
         Returns:
@@ -408,14 +523,13 @@ class Experiment(object):
 
         """
 
-        # Run experiment
-        if self._round_init >= self._rounds:
-            logger.info("Round limit reached. Nothing to do")
-            return
-
+        # TODO: What to do with round_init when there is run_once?
+        # if self._round_init >= self._rounds:
+        #     logger.info("Round limit reached. Nothing to do")
+        #     return
         # Find out how many rounds wil be run
-        rounds_to_run = rounds if rounds else self._rounds
 
+        rounds_to_run = rounds if rounds else self._rounds
         for _ in range(rounds_to_run):
             # Run ->
             self.run_once()
@@ -435,7 +549,6 @@ class Experiment(object):
                 content = file.read()
                 file.close()
                 print(content)
-
         return self._job.model_file
 
     def check_model_status(self):
@@ -444,7 +557,6 @@ class Experiment(object):
             not by the nodes
         """
         responses = self._job.check_model_is_approved_by_nodes()
-
         return responses
 
     def info(self):
@@ -705,3 +817,34 @@ class Experiment(object):
         object_instance.load_state(args)
 
         return object_instance
+
+    # PROPOSAL: OLD property methods. We can keep them and raise warning about they are deprecated  and ---------------
+    # REMOVE THEM in the version v3.5
+    @property
+    def training_replies(self):
+        # TODO: Remove this method in v3.5
+        logger.warning('Calling "Experiment.training_replies" as property has been deprecated and '
+                       'will be removed in future releases. Please use `Experiment.training_replies()` '
+                       'to get `training_replies`.')
+        return self._job.training_replies
+
+    @property
+    def aggregated_params(self):
+        # TODO: Remove this method in v3.5
+        logger.warning('Calling "Experiment.aggregated_params" as property has been deprecated and '
+                       'will be removed in future releases. Please use `Experiment.aggregated_params()` as method.')
+        return self._aggregated_params
+
+    @property
+    def model_instance(self):
+        # TODO: Remove this method in v3.5
+        logger.warning('Calling "Experiment.model_instance" as property is deprecated and '
+                       'will be removed in future releases. Please use `Experiment.model_instance()` as method.')
+        return self._job.model
+
+    @property
+    def experimentation_folder(self):
+        # TODO: Remove this method in v3.5
+        logger.warning('Calling "experimentation_folder" as property is deprecated and '
+                       'will be removed in future releases. Please use `experimentation_folder()` as method.')
+        return self._experimentation_folder
