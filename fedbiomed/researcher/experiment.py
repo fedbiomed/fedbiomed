@@ -353,49 +353,6 @@ class Experiment(object):
         else:
             raise Exception('Error while setting Job: \n\n \t   %s' % '\n'.join(messages))
 
-    # -----------------------------------------------------------------------------------------------------------------
-
-    # PROPOSAL: OLD property methods. We can keep them and raise warning about they are deprecated  and ---------------
-    # REMOVE THEM in the version v3.5
-    @property
-    def training_replies(self):
-        # TODO: Remove this method in v3.5
-        logger.warning('Calling "Experiment.training_replies" as property has been deprecated and '
-                       'will be removed in future releases. Please use `Experiment.training_replies()` '
-                       'to get `training_replies`.')
-        return self._job.training_replies
-
-    @property
-    def aggregated_params(self):
-        # TODO: Remove this method in v3.5
-        logger.warning('Calling "Experiment.aggregated_params" as property has been deprecated and '
-                       'will be removed in future releases. Please use `Experiment.aggregated_params()` as method.')
-        return self._aggregated_params
-
-    @property
-    def model_instance(self):
-        # TODO: Remove this method in v3.5
-        logger.warning('Calling "Experiment.model_instance" as property is deprecated and '
-                       'will be removed in future releases. Please use `Experiment.model_instance()` as method.')
-        return self._job.model
-
-    @property
-    def experimentation_folder(self):
-        # TODO: Remove this method in v3.5
-        logger.warning('Calling "experimentation_folder" as property is deprecated and '
-                       'will be removed in future releases. Please use `experimentation_folder()` as method.')
-        return self._experimentation_folder
-
-    @property
-    def experimentation_path(self):
-        # TODO: Remove this method in v3.5
-        logger.warning('Calling "model_instance.experimentation_path" as property is deprecated and '
-                       'will be removed in future releases. Please use '
-                       '`model_instance.experimentation_path()`.')
-        return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
-
-    # -----------------------------------------------------------------------------------------------------------------
-
     def run_once(self):
         """ Runs the experiment only once. It will increase global round each time
         this method is called
