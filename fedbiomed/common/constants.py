@@ -110,7 +110,8 @@ class ErrorNumbers(_BaseEnum):
     FB417 = "FB417: Training data is not a type of FederatedDataset or Dict"
     FB418 = "FB418: No tags has been found that are already set and it is not provided with " \
             "`set_training_data` too. Please pass `tags=[<tag>]`  or set `training_data=<FederatedDataset>`"
-
+    FB419 = "FB419: Aggregator type is '%s'  and it is not instance of " \
+            "fedbiomed.researcher.aggregators.aggregator.Aggregator.  "
 
     # node problem detected by researcher
 
