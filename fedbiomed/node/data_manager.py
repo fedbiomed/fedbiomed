@@ -141,9 +141,10 @@ class DataManager: # should this be in camelcase (smthg like DataManager)?
         ratio_str = description.replace(' percent of '+name+' database',"")       
         ratio=float(ratio_str)/100
 
-        train_set_size = int(len(dataset) * ratio)
-        valid_set_size = len(dataset) - train_set_size
-        dataset, valid_set = data.random_split(dataset, [train_set_size, valid_set_size])
+        if ratio < 1:
+            train_set_size = int(len(dataset) * ratio)
+            valid_set_size = len(dataset) - train_set_size
+            dataset, valid_set = data.random_split(dataset, [train_set_size, valid_set_size])
 
         if as_dataset:
             return dataset
