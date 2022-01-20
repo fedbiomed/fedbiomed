@@ -105,6 +105,13 @@ class ErrorNumbers(_BaseEnum):
     FB413 = "FB413: Please create job with `.set_job()` before running the experiment"
     FB414 = "FB414: Please set client selection strategy"
     FB415 = "FB415: Please set an aggregator"
+    FB416 = "FB416: Please set a training_data before setting `node_selection_strategy`. You can use " \
+            "`.set_training_data(tags: list)` to set a training data"
+    FB417 = "FB417: Training data is not a type of FederatedDataset or Dict"
+    FB418 = "FB418: No tags has been found that are already set and it is not provided with " \
+            "`set_training_data` too. Please pass `tags=[<tag>]`  or set `training_data=<FederatedDataset>`"
+
+
     # node problem detected by researcher
 
     FB500 = "FB500: undetermined node error, detected by server"
