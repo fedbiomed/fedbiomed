@@ -4,6 +4,7 @@ import signal
 import sys
 import time
 from multiprocessing import Process
+from typing import Union
 
 import warnings
 import readline
@@ -240,10 +241,14 @@ def node_signal_handler(signum, frame):
     time.sleep(1)
     sys.exit(signum)
 
-def manage_node():
+def manage_node(node_args: Union[dict, None] = None):
     """
     Instantiates a node and data manager objects. Then, node starts
     messaging with the Network
+
+    Args:
+        - node_args (Union[dict, None]): command line arguments for node
+            Detail of dict described in Round()
     """
 
     global node
@@ -267,7 +272,8 @@ def manage_node():
         data_manager = DataManager()
         logger.info('Starting communication channel with network')
         node = Node(data_manager = data_manager,
-                    model_manager = model_manager)
+                    model_manager = model_manager,
+                    node_args=node_args)
         node.start_messaging(block=False)
 
         logger.info('Starting task manager')
@@ -292,14 +298,18 @@ def manage_node():
     #     logger.exception("Reason:")
     #     time.sleep(1)
 
-def launch_node():
+def launch_node(node_args: Union[dict, None] = None):
     """
     Launches node in a process. Process ends when user triggers
     a KeyboardInterrupt exception (CTRL+C).
+
+    Args:
+        - node_args (Union[dict, None]): command line arguments for node
+            Detail of dict described in Round()
     """
 
     #p = Process(target=manage_node, name='node-' + environ['NODE_ID'], args=(data_manager,))
-    p = Process(target=manage_node, name='node-' + environ['NODE_ID'])
+    p = Process(target=manage_node, name='node-' + environ['NODE_ID'], args=(node_args,))
     p.daemon = True
     p.start()
 
@@ -532,6 +542,17 @@ def launch_cli():
     parser.add_argument('-lms', '--list-models',
                         help='Start fedbiomed node.',
                         action='store_true')
+    parser.add_argument('-g', '--gpu',
+                        help='Use of a GPU device, if any available (default: dont use GPU)',
+                        action='store_true')
+    parser.add_argument('-gn', '--gpu-num',
+                        help='Use GPU device with the specified number instead of default device, if available',
+                        type=int,
+                        action='store')  
+    parser.add_argument('-go', '--gpu-only',
+                        help='Force use of a GPU device, if any available, even if node doesnt '
+                        + 'request it (default: dont use GPU)',
+                        action='store_true')                      
     args = parser.parse_args()
 
     if not any(args.__dict__.values()):
@@ -610,7 +631,13 @@ def launch_cli():
     elif args.list_models:
         model_manager.list_approved_models(verbose = True)
     elif args.start_node:
-        launch_node()
+        # convert to node arguments structure format expected in Round()
+        node_args = {
+            'gpu': (args.gpu_num is not None) or (args.gpu is True) or (args.gpu_only is True),
+            'gpu_num': args.gpu_num,
+            'gpu_only': (args.gpu_only is True)
+        }
+        launch_node(node_args)
 
 
 def main():
