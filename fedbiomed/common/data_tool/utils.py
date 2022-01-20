@@ -170,6 +170,7 @@ def get_data_type(
     if isinstance(present_d_types, list) and not present_d_types:  # check if list is empty
         print(f"Warning: {d_type} type doesnot belong to data type {d_format.name}")
         present_d_types.append(d_type)
+        sub_d_type_format = None
     return sub_d_type_format, present_d_types
 
 
@@ -191,7 +192,7 @@ def find_data_type(data_format_name: str, data_type_name: str=None) -> Enum:
             
             for sub_type in a_data_type.value:
                 
-                if data_type_name is not None and  isinstance(sub_type, Enum):
+                if data_type_name is not None and isinstance(sub_type, Enum):
                     # check if sub data type exist (it shouldnot if variable is UNKNOWN)
                     if data_type_name == sub_type.name:
                         
@@ -204,7 +205,7 @@ def find_data_type(data_format_name: str, data_type_name: str=None) -> Enum:
     # check for data formt file consistancy error
     if any((_is_data_format_unrecognized, _is_data_type_unrecognized)):
         if _is_data_format_unrecognized:
-            raise ValueError(f'error: {data_format_name} not recognized as a valid data type')
+            raise ValueError(f'error: {data_format_name} not recognized as a valid data format')
         else:
             raise ValueError(f'error {data_type_name} not recognized as a valid data type')
             
