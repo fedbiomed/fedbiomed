@@ -101,24 +101,21 @@ class Experiment(object):
         """
 
         if tags:
-            # verify that tags is a list, force a list if a simple string is provided (for convenience)
-            # raise an error if not
             tags = [tags] if isinstance(tags, str) else tags
             if not isinstance(tags, list):
-                logger.critical("The argument `tags` should be a list of string or string")
-                return False
+                raise TypeError(ErrorNumbers.FB420 % type(tags))
 
-            self._tags = tags
-        else:
-            self._tags = tags
+        if nodes and not isinstance(nodes, list):
+            raise TypeError(ErrorNumbers.FB421.value % type(nodes))
 
+        self._tags = tags
         self._nodes = nodes
         self._reqs = Requests()
 
         # Set training data if all the necessary arguments are provided
         if training_data:
             if not isinstance(training_data, FederatedDataSet) and isinstance(training_data, dict):
-                # TODO: If federated dataset is dict check it has proper schema
+                # TODO: If federated dataset is dict check it has proper schema?
                 self._fds = FederatedDataSet(training_data)
                 logger.info('Training data has been provided, search request will be ignored.')
             else:
@@ -292,8 +289,8 @@ class Experiment(object):
             logger.info('Model path has been modified. You might need to update Job by running `.set_job()`')
 
     def set_model_class(self, model_class: Union[type[Callable], Callable, str]):
-        """ Setter for model class. Since model path is used in Job, if Job is already initialize it is required to
-        run `.set_job()` after updating it. If the Job is already initialize the method will inform
+        """ Setter for model class. Since model path is used in Job in build time, if Job is already initialize
+        it is required to run `.set_job()` after updating it. If the Job is already initialize the method will inform
         about `set_job()` should be called.
 
         Args:
@@ -301,11 +298,11 @@ class Experiment(object):
         """
         self._model_class = model_class
 
-        # FIXME: Changing model class requires to rebuild Job (Should this method do that or User)
+        # FIXME: Changing model class requires to rebuild Job (Should this method do this action or User)
         if self._job:
             logger.info('Model class has been modified. You might need to update Job by running `.set_job()`')
 
-    def set_tags(self, tags: Union[tuple, str]):
+    def set_tags(self, tags: Union[list, str]):
         """ Setter for tags. Since tags are the main criteria for selecting node based on
             dataset, this method sends search request to node to check if they have the
             dataset or not.
@@ -317,47 +314,67 @@ class Experiment(object):
         elif isinstance(tags, str):
             self._tags = [tags]
         else:
-            logger.critical("Experiment parameter tags is not a string list or string list")
+            raise TypeError(ErrorNumbers.FB420.value % type(tags))
 
     def set_breakpoints(self, save_breakpoints: bool = True):
+
+        """
+            TODO: decide which option is better?
+            breakpoints option 1: keep it as now
+              def breakpoints(self) -> bool:
+              def set_breakpoints(self, save_breakpoints: bool = False) -> bool:
+
+            breakpoints option 2: implement more detail choice of breakpoints save
+               - bkpt_enable True/False => save all/no breakpoints
+               - bkpt_rounds List[int] => round numbers where we save breakpoints
+               - bkpt_every int => save breakpoints every xxx rounds
+               eg: if enable is True, or round number in bkpt_rounds, or bkpt_every
+                       is not None and round is N * bkpt_every then save breakpoint
+               def set_breakpoints(self,
+                     bkpt_enable: bool = False,
+                     bkpt_rounds: List[int] = None,
+                     bkpt_every: int = None)
+
+        """
         self._save_breakpoints = save_breakpoints
-        return
+
+        pass
 
     def set_training_data(self,
-                          tags: list = None,
+                          tags: Union[list, str] = None,
                           nodes: list = None,
                           training_data: Union[dict, FederatedDataSet] = None):
         """ Setting training data for federated training.
 
+        Args:
 
+            tags (list, str):
+            nodes (list):
+            training_data (dict, FederatedDataset):
         """
-        # Verify tags if it is provided and update self._tags
-        # TODO: Decide whether we should update global tags of the Experiment tags
+
+        # TODO: Decide whether we should update self._tags of the Experiment tags
         if tags:
             tags = [tags] if isinstance(tags, str) else tags
-            if not isinstance(self._tags, list):
-                logger.critical("The argument `tags` should be a list of string or string")
+            # Verify tags if it is provided and update self._tags
+            if not isinstance(tags, list):
+                raise TypeError(ErrorNumbers.FB420.value % type(tags))
 
-        # Update nodes if it is provided
-        if nodes:
-            if not isinstance(nodes, list):
-                logger.critical("The argument `nodes` should be list of node ids")
-                return
+        if nodes and not isinstance(nodes, list):
+            raise TypeError(ErrorNumbers.FB421.value % type(nodes))
 
         if training_data:
             if not isinstance(training_data, FederatedDataSet) and isinstance(training_data, dict):
                 logger.info('Training data is provided, search request will be ignored')
-                # TODO: Check dict has proper schema
+                # TODO: Check dict has proper schema (keys => nodes, value=>list of datasets)
                 self._fds = FederatedDataSet(training_data)
             else:
-                logger.critical(ErrorNumbers.FB417.value)
-                return
+                raise TypeError(ErrorNumbers.FB419.value % type(training_data))
 
         elif tags:
             self._fds = FederatedDataSet(self._reqs.search(tags, nodes))
         else:
-            logger.critical(ErrorNumbers.FB418.value)
-            return
+            raise ValueError(ErrorNumbers.FB417.value)
 
         if self._node_selection_strategy:
             self._node_selection_strategy(self._fds)
@@ -366,8 +383,6 @@ class Experiment(object):
         # FIXME: Changing training data requires to rebuild Job (Should this method do that or User)
         if self._job:
             logger.info('New training data has been instantiated. You might need to update Job by running `.set_job()`')
-
-        pass
 
     def set_job(self):
         """ Setter for Job class. To be able to set Job, the arguments: model_path, model_class, training_data
@@ -389,8 +404,6 @@ class Experiment(object):
         else:
             logger.critical('Error while setting Job: \n\n- %s' % '\n- '.join(messages))
 
-        return
-
     def set_node_selection_strategy(self, node_selection_strategy: Union[Type[Strategy], Strategy] = None):
         """ Setter for `node_selection_strategy`
 
@@ -410,8 +423,6 @@ class Experiment(object):
         else:
             logger.error(ErrorNumbers.FB416.value)
 
-        return
-
     def set_aggregator(self, aggregator: Union[Type[Aggregator], Callable, Aggregator]):
         """ API for setting aggregator. T
                 Args:
@@ -420,11 +431,9 @@ class Experiment(object):
         """
         self._set_aggregator(aggregator)
 
-        return
-
     def _set_aggregator(self, aggregator: Union[Type[Aggregator], Callable, Aggregator]):
-        """ Private aggregator setter. This method check provided aggregator is in correct
-        type. If not will log critical error.
+        """ Private aggregator setter. This method checks provided aggregator is in correct
+        type. If not, will log critical error.
 
         Args:
             aggregator (Union[Type[Aggregator], Callable, Aggregator]): Aggregator class
@@ -436,9 +445,7 @@ class Experiment(object):
         elif not isinstance(aggregator, Callable) and isinstance(aggregator, Aggregator):
             self._aggregator = aggregator
         else:
-            logger.critical(ErrorNumbers.FB419.value % type(aggregator))
-
-        return
+            raise TypeError(ErrorNumbers.FB418.value % type(aggregator))
 
     def set_monitor(self, tensorboard: bool = True, monitor: Monitor = None):
         """ Setter for monitoring loss values on Tensorboard. Currently, Monitor
@@ -460,7 +467,6 @@ class Experiment(object):
             # Remove callback. Since reqeust class is singleton callback
             # function might be already added into request before.
             self._reqs.remove_monitor_callback()
-        return
 
     def run_once(self):
         """ Runs the experiment only once. It will increase global round each time
@@ -502,9 +508,7 @@ class Experiment(object):
             self._round_current += 1
         else:
             # FIXME: Should raise an exception otherwise it will keep completing round
-            raise Exception('Error while running the experiment: \n\n- %s' % '\n- '.join(messages))
-
-        pass
+            raise ValueError('Error while running the experiment: \n\n- %s' % '\n- '.join(messages))
 
     def run(self, rounds: int = None):
         """Runs an experiment, ie trains a model on nodes for a
@@ -525,8 +529,8 @@ class Experiment(object):
         # if self._round_init >= self._rounds:
         #     logger.info("Round limit reached. Nothing to do")
         #     return
-        # Find out how many rounds wil be run
 
+        # Use build in rounds if the argument rounds is None
         rounds_to_run = rounds if rounds else self._rounds
         for _ in range(rounds_to_run):
             # Run ->
@@ -537,7 +541,10 @@ class Experiment(object):
     def model_file(self, display: bool = True):
 
         """ This method displays saved final model for the experiment
-            that will be send to the nodes for training.
+            that will be sent to the nodes for training.
+
+        Args:
+            display (bool): If `True`, prints content of the model file. Default is `True`
         """
         model_file = self._job.model_file
 
