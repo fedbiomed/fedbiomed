@@ -108,8 +108,9 @@ class TorchTrainingDPPlan(nn.Module):
             Defaults to False.
             monitor ([type], optional): [description]. Defaults to None.
         """
+
         if self.optimizer is None:
-            self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+            self.optimizer = self.give_optimizer(lr)
 
         # use_cuda = torch.cuda.is_available()
         # device = torch.device("cuda" if use_cuda else "cpu")
@@ -147,6 +148,11 @@ class TorchTrainingDPPlan(nn.Module):
             self.train()
         else:
             self.model.train()
+
+    def give_optimizer(self,lr):
+        optimizer = torch.optim.Adam(self.parameters(), lr=lr) if self.model == None \
+                else torch.optim.Adam(self.model.parameters(), lr=lr)
+        return optimizer
 
     def training_epoch(self,
                          training_data,
