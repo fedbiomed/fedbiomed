@@ -246,6 +246,7 @@ class PreProcessingChecker:
         self._warning_logger.write_checking_result(success, warning_msg, feature_name)
 
         # second test 
+        print("DATA TYPE", data_type)
         self._warning_logger.write_new_entry(PreProcessingChecks.INCORRECT_DATA_TYPE)
         if data_format_name is None or data_type_values is None:  # last condition is to check if data type is UNKNOWN
             warning_msg = 'test skipped'
@@ -258,16 +259,19 @@ class PreProcessingChecker:
                 is_date = False
             actual_dtype = utils.infer_type(column, is_date=is_date)
 
-            if data_type is not None:  
+            if data_type is None:  
+                _have_correct_data_type = False
+                data_type_name = data_format_name
+            else:
                 _have_correct_data_type = any(t == actual_dtype for t in data_type.value)
-                if not _have_correct_data_type:
-                    warning_msg = raise_warning(PreProcessingChecks.INCORRECT_DATA_TYPE, 
-                                                feature_name,
-                                                data_type_name, str(actual_dtype))
-                    success = False
-                else:
-                    warning_msg = 'test passed'
-                self._warning_logger.write_checking_result(success, warning_msg, feature_name)
+            if not _have_correct_data_type:
+                warning_msg = raise_warning(PreProcessingChecks.INCORRECT_DATA_TYPE, 
+                                            feature_name,
+                                            data_type_name, str(actual_dtype))
+                success = False
+            else:
+                warning_msg = 'test passed'
+            self._warning_logger.write_checking_result(success, warning_msg, feature_name)
 
         return success
     

@@ -176,7 +176,16 @@ def get_data_type(
 
 def find_data_type(data_format_name: str, data_type_name: str=None) -> Enum:
     """Retrieves from a given data_format and data_type,
-    the corresponding Enum class describing data"""
+    the corresponding Enum class describing data
+    
+    Returns:
+    Data_type (Enum): The data type class corresponding to the ones given
+    in strings
+    
+    Raises:
+    ValueError: case where arguments data_format_name and data_type_name 
+    could not be recognized
+    """
     
     ## varible initialisation
     data_type = None
