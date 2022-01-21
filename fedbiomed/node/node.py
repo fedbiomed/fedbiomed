@@ -25,7 +25,8 @@ class Node:
     """
     def __init__( self,
                   data_manager: DataManager,
-                  model_manager: ModelManager):
+                  model_manager: ModelManager,
+                  node_args: Union[dict, None] = None):
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
         self.messaging = Messaging(self.on_message, ComponentType.NODE,
@@ -33,6 +34,8 @@ class Node:
         self.data_manager = data_manager
         self.model_manager = model_manager
         self.rounds = []
+
+        self.node_args = node_args
 
     def add_task(self, task: dict):
         """This method adds a task to the queue
@@ -89,7 +92,7 @@ class Node:
 
                     self.messaging.send_message(NodeMessages.reply_create(
                         {'success': True,
-                         "command": "search",
+                         'command': 'search',
                          'node_id': environ['NODE_ID'],
                          'researcher_id': msg['researcher_id'],
                          'databases': databases,
@@ -182,16 +185,18 @@ class Node:
                 if len(alldata) != 1 or not 'path' in alldata[0].keys():
                     # TODO: create a data structure for messaging
                     # (ie an object creating a dict with field accordingly)
-                    # FIXME: 'the confdition above depends on database model
+                    # FIXME: 'the condition above depends on database model
                     # if database model changes (ie `path` field removed/
                     # modified);
                     # condition above is likely to be false
+                    logger.error('Did not found proper data in local datasets '
+                        + f'on node={environ["NODE_ID"]}')
                     self.messaging.send_message(NodeMessages.reply_create(
-                        {'success': False,
-                         'command': "error",
+                        {'command': "error",
                          'node_id': environ['NODE_ID'],
                          'researcher_id': researcher_id,
-                         'msg': "Did not found proper data in local datasets"}
+                         'errnum': ErrorNumbers.FB313,
+                         'extra_msg': "Did not found proper data in local datasets"}
                         ).get_dict())
                 else:
                     self.rounds.append(Round(model_kwargs,
@@ -202,7 +207,8 @@ class Node:
                         params_url,
                         job_id,
                         researcher_id,
-                        hist_monitor))
+                        hist_monitor,
+                        self.node_args))
 
     def task_manager(self):
         """ This method manages training tasks in the queue
@@ -229,10 +235,11 @@ class Node:
                 self.messaging.send_message(
                     NodeMessages.reply_create(
                         {
-                            'success': False,
-                            "command": "error",
-                            'msg': str(e),
-                            'node_id': environ['NODE_ID']
+                            'command': 'error',
+                            'extra_msg': str(e),
+                            'node_id': environ['NODE_ID'],
+                            'researcher_id': 'NOT_SET',
+                            'errnum': ErrorNumbers.FB300
                         }
                     ).get_dict()
                 )
