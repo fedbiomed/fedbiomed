@@ -97,7 +97,6 @@ class DataManager: # should this be in camelcase (smthg like DataManager)?
         Returns:
             List[int]: returns a list containing data types
         """
-
         types = [str(t) for t in dataset.dtypes]
 
         return types
@@ -227,6 +226,8 @@ class DataManager: # should this be in camelcase (smthg like DataManager)?
                             description=description, shape=shape,
                             path=path, dataset_id=dataset_id, dtypes=dtypes)
         self.db.insert(new_database)
+
+        return dataset_id
 
     def remove_database(self, tags: Union[tuple, list]):
         doc_ids = [doc.doc_id for doc in self.search_by_tags(tags)]

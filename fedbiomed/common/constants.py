@@ -85,6 +85,7 @@ class ErrorNumbers(_BaseEnum):
     FB310 = "FB310: bad data format"
     FB311 = "FB311: receiving a new computation request during a running computation"
     FB312 = "FB312: Node stopped in SIGTERM signal handler"
+    FB313 = "FB313: no dataset matching request"
 
     # application error on researcher
 
