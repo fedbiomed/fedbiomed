@@ -69,6 +69,8 @@ class TorchTrainingDPPlan(nn.Module):
 
         # to be configured by setters
         self.dataset_path = None
+        self.model = None
+        self.optimizer = None
 
 
     #################################################
@@ -106,10 +108,8 @@ class TorchTrainingDPPlan(nn.Module):
             Defaults to False.
             monitor ([type], optional): [description]. Defaults to None.
         """
-        #if self.optimizer is None:
-        #    self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
-
-        self.optimizer = self.give_optimizer(lr)
+        if self.optimizer is None:
+            self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
         # use_cuda = torch.cuda.is_available()
         # device = torch.device("cuda" if use_cuda else "cpu")
@@ -143,11 +143,10 @@ class TorchTrainingDPPlan(nn.Module):
             self.training_epoch(training_data,epoch,log_interval,batch_maxnum,dry_run,monitor)
 
     def train_model(self):
-        self.train()
-
-    def give_optimizer(self,lr):
-        optimizer = torch.optim.Adam(self.parameters(), lr=lr)
-        return optimizer
+        if self.model == None:
+            self.train()
+        else:
+            self.model.train()
 
     def training_epoch(self,
                          training_data,
