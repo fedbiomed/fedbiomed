@@ -114,6 +114,7 @@ class ErrorNumbers(_BaseEnum):
     FB419 = "FB417: Training data should type of FederatedDataset or Dict, not '%s'"
     FB420 = "FB420: The argument `tags` should be a list of string or string, not '%s'"
     FB421 = "FB421: The argument `nodes` should be a list, not '%s'"
+    FB422 = "FB422: Node selection strategy should be a class"
     # node problem detected by researcher
 
     FB500 = "FB500: undetermined node error, detected by server"

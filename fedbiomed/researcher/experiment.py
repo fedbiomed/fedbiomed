@@ -3,7 +3,7 @@ import os
 import json
 import inspect
 from typing import Callable, Union, Dict, Any, TypeVar, Type
-
+from tabulate import tabulate
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.researcher.environ import environ
@@ -122,7 +122,8 @@ class Experiment(object):
                 logger.critical('Training data is not a type of FederatedDataset or Dict')
                 return
         elif self._tags:
-            self._fds = FederatedDataSet(self._reqs.search(self._tags, self._nodes))
+            training_data = self._reqs.search(self._tags, self._nodes)
+            self._fds = FederatedDataSet(training_data)
         else:
             self._fds = None
 
@@ -134,13 +135,16 @@ class Experiment(object):
 
         # Initialize node selection strategy
         if node_selection_strategy is None and self._fds:
+            self._node_selection_strategy_callable = DefaultStrategy
             self._node_selection_strategy = DefaultStrategy(self._fds)
         elif node_selection_strategy and self._fds:
             if inspect.isclass(self._node_selection_strategy):
+                self._node_selection_strategy_callable = DefaultStrategy
                 self._node_selection_strategy = node_selection_strategy(self._fds)
             else:
-                logger.critical("`node_selection_strategy should be class`")
+                raise TypeError(ErrorNumbers.FB422.value)
         else:
+            self._node_selection_strategy_callable = None
             self._node_selection_strategy = None
 
         # TODO round_init might not be necessary after refactoring the experiment
@@ -226,7 +230,7 @@ class Experiment(object):
     def rounds(self):
         return self._rounds
 
-    def current_round(self):
+    def round_current(self):
         return self._round_current
 
     def experimentation_folder(self):
@@ -241,6 +245,14 @@ class Experiment(object):
     # -----------------------------------------------------------------------------------------------------------------
 
     # Setters ---------------------------------------------------------------------------------------------------------
+    def set_rounds(self, rounds: int):
+        # TODO: Check argument type is correct
+        self._rounds = rounds
+
+    def set_nodes(self, nodes: list):
+        # TODO: Check argument type is correct
+        self._nodes = nodes
+
     def set_model_args(self, model_args: Dict):
         """ Setter for Model Arguments. This method should also update/set model arguments in
         Job object.
@@ -359,9 +371,13 @@ class Experiment(object):
             # Verify tags if it is provided and update self._tags
             if not isinstance(tags, list):
                 raise TypeError(ErrorNumbers.FB420.value % type(tags))
+        else:
+            tags = self._tags
 
         if nodes and not isinstance(nodes, list):
             raise TypeError(ErrorNumbers.FB421.value % type(nodes))
+        else:
+            nodes = self._nodes
 
         if training_data:
             if not isinstance(training_data, FederatedDataSet) and isinstance(training_data, dict):
@@ -372,12 +388,13 @@ class Experiment(object):
                 raise TypeError(ErrorNumbers.FB419.value % type(training_data))
 
         elif tags:
-            self._fds = FederatedDataSet(self._reqs.search(tags, nodes))
+            training_data = self._reqs.search(tags, nodes)
+            self._fds = FederatedDataSet(training_data)
         else:
             raise ValueError(ErrorNumbers.FB417.value)
 
         if self._node_selection_strategy:
-            self._node_selection_strategy(self._fds)
+            self._node_selection_strategy = self._node_selection_strategy_callable(self._fds)
             logger.info('`node_selection_strategy has been updated with new training data`')
 
         # FIXME: Changing training data requires to rebuild Job (Should this method do that or User)
@@ -413,13 +430,15 @@ class Experiment(object):
         """
         if self._fds:
             if node_selection_strategy is None:
+                self._node_selection_strategy_callable = DefaultStrategy
                 self._node_selection_strategy = DefaultStrategy(self._fds)
             else:
                 # TODO: Check strategy is type of Callable or built class and is type of Strategy
                 if inspect.isclass(self._node_selection_strategy):
+                    self._node_selection_strategy_callable = node_selection_strategy
                     self._node_selection_strategy = node_selection_strategy(self._fds)
                 else:
-                    logger.error("`node_selection_strategy should be class`")
+                    raise TypeError(ErrorNumbers.FB422.value)
         else:
             logger.error(ErrorNumbers.FB416.value)
 
@@ -474,6 +493,10 @@ class Experiment(object):
 
         """
 
+        if self._round_current >= self._rounds:
+            logger.info('Round limit reached. Nothing to do')
+            return False
+
         # FIXME: While running run_one with exp.run(rounds=2) second control will be useless
         # Check; are all the necessary arguments has been set for running a run
         status, messages = self._before_experiment_run()
@@ -506,8 +529,8 @@ class Experiment(object):
                 self._monitor.close_writer()
 
             self._round_current += 1
+            # Condition: If rounds == current_round  self._rounds += 1
         else:
-            # FIXME: Should raise an exception otherwise it will keep completing round
             raise ValueError('Error while running the experiment: \n\n- %s' % '\n- '.join(messages))
 
     def run(self, rounds: int = None):
@@ -525,18 +548,16 @@ class Experiment(object):
 
         """
 
-        # TODO: What to do with round_init when there is run_once?
-        # if self._round_init >= self._rounds:
-        #     logger.info("Round limit reached. Nothing to do")
-        #     return
+        # Extend round if rounds is not None and if it is needed
+        if rounds:
+            rounds_left = self._rounds - self._round_current
+            if rounds_left < rounds:
+                self._rounds = self._rounds + (rounds - rounds_left)
 
-        # Use build in rounds if the argument rounds is None
-        rounds_to_run = rounds if rounds else self._rounds
-        for _ in range(rounds_to_run):
-            # Run ->
-            self.run_once()
-            # Increase round state
-            self._round_current += 1
+        for _ in range(self._rounds):
+            status = self.run_once()
+            if status is False:
+                break
 
     def model_file(self, display: bool = True):
 
@@ -568,12 +589,21 @@ class Experiment(object):
         """ Information about status of the current experiment. Method  lists all the
         parameters/arguments of the experiment and inform user about the
         can the experiment be run.
-
-        Returns:
-            dict : {key (experiment argument) : value }
         """
 
-        pass
+        info = {
+            'Arguments': ['Rounds', 'Tags', 'Model Path', 'Model Class', 'Model Arguments',
+                          'Training Arguments', 'Nodes', 'Aggregator', 'N.S. Strategy',
+                          'Training Data', 'Job', 'Breakpoint State', 'Exp  folder',
+                          'Exp folder', 'Exp Path'
+                          ],
+            'Values': [self._rounds, self._tags, self._model_path, self._model_class, self._model_args,
+                       self._training_args, self._nodes, self._aggregator, self._node_selection_strategy,
+                       self._fds, self._job, self._save_breakpoint, self._experimentation_folder,
+                       os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
+                       ]
+        }
+        print(tabulate(info, headers='keys'))
 
     def _before_job_init(self):
         """ This method checks are all the necessary arguments has been set to
@@ -730,7 +760,7 @@ class Experiment(object):
                          )
 
         # ------- changing `Experiment` attributes -------
-        loaded_exp._round_init = saved_state.get('round_number')
+        loaded_exp._round_current = saved_state.get('round_number')
         loaded_exp._aggregated_params = loaded_exp._load_aggregated_params(
             saved_state.get('aggregated_params'),
             loaded_exp.model_instance.load
@@ -822,34 +852,3 @@ class Experiment(object):
         object_instance.load_state(args)
 
         return object_instance
-
-    # PROPOSAL: OLD property methods. We can keep them and raise warning about they are deprecated  and ---------------
-    # REMOVE THEM in the version v3.5
-    @property
-    def training_replies(self):
-        # TODO: Remove this method in v3.5
-        logger.warning('Calling "Experiment.training_replies" as property has been deprecated and '
-                       'will be removed in future releases. Please use `Experiment.training_replies()` '
-                       'to get `training_replies`.')
-        return self._job.training_replies
-
-    @property
-    def aggregated_params(self):
-        # TODO: Remove this method in v3.5
-        logger.warning('Calling "Experiment.aggregated_params" as property has been deprecated and '
-                       'will be removed in future releases. Please use `Experiment.aggregated_params()` as method.')
-        return self._aggregated_params
-
-    @property
-    def model_instance(self):
-        # TODO: Remove this method in v3.5
-        logger.warning('Calling "Experiment.model_instance" as property is deprecated and '
-                       'will be removed in future releases. Please use `Experiment.model_instance()` as method.')
-        return self._job.model
-
-    @property
-    def experimentation_folder(self):
-        # TODO: Remove this method in v3.5
-        logger.warning('Calling "experimentation_folder" as property is deprecated and '
-                       'will be removed in future releases. Please use `experimentation_folder()` as method.')
-        return self._experimentation_folder
