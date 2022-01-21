@@ -1,4 +1,4 @@
-"""Definition of the checks performed as data sanity checks
+"""Definition of the checks performed as data sanity checks, and the related warnings / errors
 
 """
 from enum import Enum

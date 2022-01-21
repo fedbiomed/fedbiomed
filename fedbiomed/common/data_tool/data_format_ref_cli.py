@@ -442,7 +442,7 @@ def get_from_user_multi_view_dataset_fromat_file(datasets: Dict[str, pd.DataFram
     return data_format_files
 
 def get_view_feature_name_from_format_file(format_file_ref: Dict[str, Dict[str, Any]]) -> Dict[str, List[str]]:
-    return {v: [f for f in format_file_ref[v].keys()] for v in format_file_ref.keys()}
+    return {v: [f for f in format_file_ref[v].keys()] for v in utils.get_view_names(format_file_ref)}
 
 def get_view_feature_name_from_dataframe(data_frame: Dict[str, pd.DataFrame]) -> Dict[str, List[str]]:
     return {v : list(df.columns) for v, df in data_frame.items()}
@@ -697,10 +697,11 @@ def edit_feature_format_file_ref(feature_content: Dict[str, Any],
     
     # iterate over number of feature contained in view, and ask for each feature if changes are needed
     while _is_feature_unparsed:
+        data_format = feature_content.get('data_format')
         if _is_cancelled or not _is_first_edit:
             _f_answer = True
         else:
-            _f_answer = get_user_input(f"Edit variable: {feature_name}?\n" + messages['yes_or_no'], 2)
+            _f_answer = get_user_input(f"Edit variable: {feature_name}? (type: {data_format})\n" + messages['yes_or_no'], 2)
             # ask if user wants to edit feature variables
             _f_answer = parse_yes_no_msg(_f_answer)
             _is_first_edit = False
@@ -709,7 +710,6 @@ def edit_feature_format_file_ref(feature_content: Dict[str, Any],
             
             _msg = messages['edit']
             
-            data_format = feature_content.get('data_format')
             for data_type_properties in DataTypeProperties:
                 if data_format == data_type_properties.name:
                     # get data property from data_format
@@ -717,7 +717,7 @@ def edit_feature_format_file_ref(feature_content: Dict[str, Any],
                     _msg += select_msg
                     _edit_selection = get_user_input(_msg, n_actions)
 
-                    if 'view_feature_names' in params_action:
+                    if params_action is not None and 'view_feature_names' in params_action:
                         params_action = view_feature_name
                     _edited_field, _is_cancelled = select_action(
                                                                   _edit_selection,

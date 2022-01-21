@@ -66,8 +66,11 @@ class PreProcessingChecker:
                 
         return feature
     
-    def get_warning_logger(self):
+    def get_warning_logger(self) -> dict:
         return self._warning_logger.get_report()
+    
+    def get_raised_exception(self) -> Exception:
+        self._warning_logger.raise_exception()
     
     def update_views_features_name(self, new_features_name: Dict[str, Dict[str, str]]):
         self._new_features_name = new_features_name
@@ -89,7 +92,7 @@ class PreProcessingChecker:
         
         
         for _view in _views:
-            # define here test that happens on whole dataset
+            # define here tests that are performed on whole dataset
             
             ###
             if self._min_nb_samples is not None:
@@ -121,12 +124,12 @@ class PreProcessingChecker:
                 self.check_upper_bound(_view, _feature)
                 self.check_values_in_categorical_variable(_view, _feature)
                 
-                _feature_data_type = self._file_format_ref[_view][_feature]['data_type']
+                _feature_data_type = self._file_format_ref[_view][_feature].get('data_format')
                 
                 if _feature_data_type == DataType.DATETIME.name:
                     self.check_datetime_variable_compliance(_view,
-                                                           _feature)
-                    
+                                                            _feature)
+                print('read data type', _feature_data_type)   
                 if _feature_data_type == DataType.KEY.name:
                     self.check_key_variable_compliance(_view,
                                                       _feature)
@@ -246,7 +249,6 @@ class PreProcessingChecker:
         self._warning_logger.write_checking_result(success, warning_msg, feature_name)
 
         # second test 
-        print("DATA TYPE", data_type)
         self._warning_logger.write_new_entry(PreProcessingChecks.INCORRECT_DATA_TYPE)
         if data_format_name is None or data_type_values is None:  # last condition is to check if data type is UNKNOWN
             warning_msg = 'test skipped'
@@ -475,10 +477,10 @@ class PreProcessingChecker:
 
         
 
-        self._warning_logger.write_new_entry(PreProcessingChecks.KEY_UNICITY_VIOLATED)
+        self._warning_logger.write_new_entry(PreProcessingChecks.KEY_UNIQUENESS_VIOLATED)
         if n_unique_samples != n_samples:
             success = False
-            warning_msg = raise_warning(PreProcessingChecks.KEY_UNICITY_VIOLATED,
+            warning_msg = raise_warning(PreProcessingChecks.KEY_UNIQUENESS_VIOLATED,
                                        feature_name,)
         else:
             warning_msg = 'Test passed'

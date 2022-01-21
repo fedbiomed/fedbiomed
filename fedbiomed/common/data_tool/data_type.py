@@ -61,14 +61,14 @@ class DataTypeProperties(Enum):
     DATETIME = (True, True, False, True, False, False)
     UNKNOWN = (False, False, False, False, False, True)
     CUSTOM = (True, True, True, False, False, True)
-    KEY = (True, True, False, True, True, False)
+    KEY = (False, False, False, True, True, False)
 
     def __init__(self,
                  lower_bound: bool,
                  upper_bound: bool,
                  set_of_values: bool,
                  date_format: bool,
-                 date_ambiguity:bool,
+                 date_ambiguity: bool,
                  allow_missing_values: bool):
         self._lower_bound = lower_bound
         self._upper_bound = upper_bound
