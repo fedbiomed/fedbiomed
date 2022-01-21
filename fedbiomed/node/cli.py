@@ -550,7 +550,7 @@ def launch_cli():
                         type=int,
                         action='store')  
     parser.add_argument('-go', '--gpu-only',
-                        help='Force use of a GPU device, if any available, even if node doesnt '
+                        help='Force use of a GPU device, if any available, even if researcher doesnt '
                         + 'request it (default: dont use GPU)',
                         action='store_true')                      
     args = parser.parse_args()
