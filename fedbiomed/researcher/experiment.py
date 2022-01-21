@@ -103,10 +103,10 @@ class Experiment(object):
         if tags:
             tags = [tags] if isinstance(tags, str) else tags
             if not isinstance(tags, list):
-                raise TypeError(ErrorNumbers.FB420 % type(tags))
+                raise TypeError(ErrorNumbers.FB421 % type(tags))
 
         if nodes and not isinstance(nodes, list):
-            raise TypeError(ErrorNumbers.FB421.value % type(nodes))
+            raise TypeError(ErrorNumbers.FB422.value % type(nodes))
 
         self._tags = tags
         self._nodes = nodes
@@ -142,7 +142,7 @@ class Experiment(object):
                 self._node_selection_strategy_callable = DefaultStrategy
                 self._node_selection_strategy = node_selection_strategy(self._fds)
             else:
-                raise TypeError(ErrorNumbers.FB422.value)
+                raise TypeError(ErrorNumbers.FB423.value)
         else:
             self._node_selection_strategy_callable = None
             self._node_selection_strategy = None
@@ -326,7 +326,7 @@ class Experiment(object):
         elif isinstance(tags, str):
             self._tags = [tags]
         else:
-            raise TypeError(ErrorNumbers.FB420.value % type(tags))
+            raise TypeError(ErrorNumbers.FB421.value % type(tags))
 
     def set_breakpoints(self, save_breakpoints: bool = True):
 
@@ -370,12 +370,12 @@ class Experiment(object):
             tags = [tags] if isinstance(tags, str) else tags
             # Verify tags if it is provided and update self._tags
             if not isinstance(tags, list):
-                raise TypeError(ErrorNumbers.FB420.value % type(tags))
+                raise TypeError(ErrorNumbers.FB421.value % type(tags))
         else:
             tags = self._tags
 
         if nodes and not isinstance(nodes, list):
-            raise TypeError(ErrorNumbers.FB421.value % type(nodes))
+            raise TypeError(ErrorNumbers.FB422.value % type(nodes))
         else:
             nodes = self._nodes
 
@@ -385,13 +385,13 @@ class Experiment(object):
                 # TODO: Check dict has proper schema (keys => nodes, value=>list of datasets)
                 self._fds = FederatedDataSet(training_data)
             else:
-                raise TypeError(ErrorNumbers.FB419.value % type(training_data))
+                raise TypeError(ErrorNumbers.FB420.value % type(training_data))
 
         elif tags:
             training_data = self._reqs.search(tags, nodes)
             self._fds = FederatedDataSet(training_data)
         else:
-            raise ValueError(ErrorNumbers.FB417.value)
+            raise ValueError(ErrorNumbers.FB418.value)
 
         if self._node_selection_strategy:
             self._node_selection_strategy = self._node_selection_strategy_callable(self._fds)
@@ -438,9 +438,9 @@ class Experiment(object):
                     self._node_selection_strategy_callable = node_selection_strategy
                     self._node_selection_strategy = node_selection_strategy(self._fds)
                 else:
-                    raise TypeError(ErrorNumbers.FB422.value)
+                    raise TypeError(ErrorNumbers.FB423.value)
         else:
-            logger.error(ErrorNumbers.FB416.value)
+            logger.error(ErrorNumbers.FB417.value)
 
     def set_aggregator(self, aggregator: Union[Type[Aggregator], Callable, Aggregator]):
         """ API for setting aggregator. T
@@ -464,7 +464,7 @@ class Experiment(object):
         elif not isinstance(aggregator, Callable) and isinstance(aggregator, Aggregator):
             self._aggregator = aggregator
         else:
-            raise TypeError(ErrorNumbers.FB418.value % type(aggregator))
+            raise TypeError(ErrorNumbers.FB419.value % type(aggregator))
 
     def set_monitor(self, tensorboard: bool = True, monitor: Monitor = None):
         """ Setter for monitoring loss values on Tensorboard. Currently, Monitor
@@ -617,13 +617,21 @@ class Experiment(object):
                             '_model_class': ErrorNumbers.FB412.value,
                             }
 
-        return self._argument_controller(no_none_args_msg)
+        status, messages = self._argument_controller(no_none_args_msg)
+
+        # Model_path is not required if the model_class is a class
+        # if it is string Job requires knowing here model is saved
+        if self._model_path is not None and isinstance(self._model_class, str):
+            messages.append(ErrorNumbers.FB413.value)
+            status = False
+
+        return status, messages
 
     def _before_experiment_run(self):
 
-        no_none_args_msg = {"_job": ErrorNumbers.FB413.value,
-                            "_node_selection_strategy": ErrorNumbers.FB414.value,
-                            '_aggregator': ErrorNumbers.FB415.value,
+        no_none_args_msg = {"_job": ErrorNumbers.FB415.value,
+                            "_node_selection_strategy": ErrorNumbers.FB415.value,
+                            '_aggregator': ErrorNumbers.FB416.value,
                             }
 
         return self._argument_controller(no_none_args_msg)

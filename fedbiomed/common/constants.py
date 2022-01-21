@@ -102,19 +102,21 @@ class ErrorNumbers(_BaseEnum):
     FB411 = "FB410: No Federated Dataset is found. Please use `.set_training_data()` before setting a `Job`."
     FB412 = "FB410: `model_class` is mandatory for setting `Job`.  Please initialize experiment with model class or " \
             "use `.set_model_class()` method of the experiment"
-    FB413 = "FB413: Please create job with `.set_job()` before running the experiment"
-    FB414 = "FB414: Please set client selection strategy"
-    FB415 = "FB415: Please set an aggregator"
-    FB416 = "FB416: Please set a training_data before setting `node_selection_strategy`. You can use " \
+    FB413 = "FB410: `model_path` is mandatory for setting `Job` when model_class is string.  Please initialize " \
+            "experiment with model path or use `.set_model_class()` method of the experiment"
+    FB414 = "FB413: Please create job with `.set_job()` before running the experiment"
+    FB415 = "FB414: Please set client selection strategy"
+    FB416 = "FB415: Please set an aggregator"
+    FB417 = "FB416: Please set a training_data before setting `node_selection_strategy`. You can use " \
             "`.set_training_data(tags: list)` to set a training data"
-    FB417 = "FB418: No tags has been found that are already set and it is not provided with " \
+    FB418 = "FB418: No tags has been found that are already set and it is not provided with " \
             "`set_training_data` too. Please pass `tags=[<tag>]`  or set `training_data=<FederatedDataset>`"
-    FB418 = "FB419: Aggregator type is '%s'  and it is not instance of " \
+    FB419 = "FB419: Aggregator type is '%s'  and it is not instance of " \
             "fedbiomed.researcher.aggregators.aggregator.Aggregator.  "
-    FB419 = "FB417: Training data should type of FederatedDataset or Dict, not '%s'"
-    FB420 = "FB420: The argument `tags` should be a list of string or string, not '%s'"
-    FB421 = "FB421: The argument `nodes` should be a list, not '%s'"
-    FB422 = "FB422: Node selection strategy should be a class"
+    FB420 = "FB417: Training data should type of FederatedDataset or Dict, not '%s'"
+    FB421 = "FB420: The argument `tags` should be a list of string or string, not '%s'"
+    FB422 = "FB421: The argument `nodes` should be a list, not '%s'"
+    FB423 = "FB422: Node selection strategy should be a class"
     # node problem detected by researcher
 
     FB500 = "FB500: undetermined node error, detected by server"
