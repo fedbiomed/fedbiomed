@@ -494,7 +494,9 @@ class Experiment(object):
         """
 
         if self._round_current >= self._rounds:
-            logger.info('Round limit reached. Nothing to do')
+            logger.info(f'Round limit has been reached. Number of rounds: {self._rounds} and completed rounds: '
+                        f'{self._round_current}. Please set higher value with `.set_rounds` or '
+                        f'use `.run(rounds=<number of rounds>)`.')
             return False
 
         # FIXME: While running run_one with exp.run(rounds=2) second control will be useless
@@ -529,7 +531,6 @@ class Experiment(object):
                 self._monitor.close_writer()
 
             self._round_current += 1
-            # Condition: If rounds == current_round  self._rounds += 1
         else:
             raise ValueError('Error while running the experiment: \n\n- %s' % '\n- '.join(messages))
 
