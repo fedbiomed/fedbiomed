@@ -30,9 +30,9 @@ class Experiment(object):
     """
 
     def __init__(self,
-                tags: Union[List[str], str] = [],
+                tags: Union[List[str], str, None] = None,
                 nodes: Union[List[str], None] = None,
-                training_data: Union[dict, FederatedDataSet] = None,
+                training_data: Union[FederatedDataSet, dict, None] = None,
                 model_class: Union[Type[Callable], Callable] = None,
                 model_path: str = None,
                 model_args: dict = {},
@@ -48,17 +48,23 @@ class Experiment(object):
         """ Constructor of the class.
 
         Args:
-            - tags (Union[List[str], str], optional): list of string with data tags
+            - tags (Union[List[str], str, None], optional): list of string with data tags
                 or string with one data tag.
-                Default to empty list if not provided
+                Empty list of tags ([]) means any dataset is accepted, it is different from
+                None (tags not set, cannot search for training_data yet).
+                Default to None.
             - nodes (Union[List[str], None], optional): list of node_ids to filter the nodes
                 to be involved in the experiment.
                 Defaults to None (no filtering).
-            - training_data (Union [dict, FederatedDataSet], optional):
-                FederatedDataSet object or
-                dict of the node_id of nodes providing datasets for the experiment,
-                datasets for a node_id are described as a list of dict, one dict per dataset.
-                Defaults to None, datasets are searched from `tags` and `nodes`.
+            - training_data (Union[FederatedDataSet, dict, None], optional):
+                * If it is a FederatedDataSet object, use this value as training_data.
+                * else if it is a dict, create and use a FederatedDataSet object from the dict
+                  and use this value as training_data. The dict should use node ids as keys,
+                  values being list of dicts (each dict representing a dataset on a node).
+                * else if it is None (no training data provided),
+                  search for datasets by a query to the nodes using `tags` and `nodes`
+                  (if `tags` is set)
+                Defaults to None (query nodes for dataset if `tags` is set)
             - model_class (Union[Type[Callable], Callable], optional): name or
                 instance (object) of the model class to use
                 for training.
@@ -101,26 +107,16 @@ class Experiment(object):
                 detection heuristic by `load_breakpoint`.
         """
 
+        # set self._tags and self._nodes
         self.set_tags(tags)
         self.set_nodes(nodes)
 
-        # Useless to add param/setter/getter for Requests() as it is a singleton ?
+        # Useless to add a param and setter/getter for Requests() as it is a singleton ?
         self._reqs = Requests()
 
-        # Set training data if all the necessary arguments are provided
-        if training_data:
-            if not isinstance(training_data, FederatedDataSet) and isinstance(training_data, dict):
-                # TODO: If federated dataset is dict check it has proper schema?
-                self._fds = FederatedDataSet(training_data)
-                logger.info('Training data has been provided, search request will be ignored.')
-            else:
-                logger.critical('Training data is not a type of FederatedDataset or Dict')
-                return
-        elif self._tags:
-            training_data = self._reqs.search(self._tags, self._nodes)
-            self._fds = FederatedDataSet(training_data)
-        else:
-            self._fds = None
+        # set self._fds: Union[FederatedDataSet, None]
+        self.set_training_data(training_data)
+
 
         # Initialize aggregator
         if aggregator is None:
@@ -241,12 +237,20 @@ class Experiment(object):
 
     # Setters ---------------------------------------------------------------------------------------------------------
 
-    def set_tags(self, tags: Union[List[str], str]):
+    def set_tags(self, tags: Union[List[str], str, None]):
         """ Setter for tags + verifications on argument type
 
         Args:
-            - tags (Union[List[str], str]): list of string with data tags
+            - tags (Union[List[str], str, None]): list of string with data tags
                 or string with one data tag.
+                Empty list of tags ([]) means any dataset is accepted, it is different from
+                None (tags not set, cannot search for training_data yet).
+
+        Raises:
+            - TypeError : bad tags type
+
+        Returns :
+            - tags (Union[List[str], str, None])
         """
         if isinstance(tags, list):
             self._tags = tags
@@ -256,17 +260,28 @@ class Experiment(object):
                     raise TypeError(ErrorNumbers.FB421.value % f'list of {type(tag)}')
         elif isinstance(tags, str):
             self._tags = [tags]
+        elif tags is None:
+            self._tags = tags
         else:
-            self._tags = [] # robust default, in case we try to continue execution
+            self._tags = None # robust default, in case we try to continue execution
+            logger.error(ErrorNumbers.FB421.value % type(tags))
             raise TypeError(ErrorNumbers.FB421.value % type(tags))
 
+        return self._tags
 
-    def set_nodes(self, nodes: list):
+
+    def set_nodes(self, nodes: Union[List[str], None]):
         """ Setter for nodes + verifications on argument type
 
         Args:
             - nodes (Union[List[str], None]): list of node_ids to filter the nodes
                 to be involved in the experiment.
+
+        Raises:
+            - TypeError : bad nodes type
+
+        Returns:
+            - nodes (Union[List[str], None])
         """
         if isinstance(nodes, list):
             self._nodes = nodes
@@ -278,59 +293,69 @@ class Experiment(object):
             self._nodes = nodes
         else:
             self._nodes = None
+            logger.error(ErrorNumbers.FB422.value % type(nodes))
             raise TypeError(ErrorNumbers.FB422.value % type(nodes))
+
+        return self._nodes
 
 
     def set_training_data(self,
-                          tags: Union[list, str] = None,
-                          nodes: list = None,
-                          training_data: Union[dict, FederatedDataSet] = None):
-        """ Setting training data for federated training.
+                          training_data: Union[FederatedDataSet, dict, None]):
+        """ Setting training data for federated training + verification on arguments type
 
         Args:
+            - training_data (Union[FederatedDataSet, dict, None]):
+                * If it is a FederatedDataSet object, use this value as training_data.
+                * else if it is a dict, create and use a FederatedDataSet object from the dict
+                  and use this value as training_data. The dict should use node ids as keys,
+                  values being list of dicts (each dict representing a dataset on a node).
+                * else if it is None (no training data provided),
+                  search for datasets by a query to the nodes using `tags` and `nodes`
 
-            tags (list, str):
-            nodes (list):
-            training_data (dict, FederatedDataset):
+        Raises:
+            - TypeError : bad training_data type
+
+        Returns:
+            - nodes (Union[FederatedDataSet, None])
         """
+        # we can trust _reqs _tags _nodes are existing and properly typed/formatted
 
-        # TODO: Decide whether we should update self._tags of the Experiment tags
-        if tags:
-            tags = [tags] if isinstance(tags, str) else tags
-            # Verify tags if it is provided and update self._tags
-            if not isinstance(tags, list):
-                raise TypeError(ErrorNumbers.FB421.value % type(tags))
-        else:
-            tags = self._tags
+        # case where no training data are passed
+        if training_data is None:
+            # cannot search for training_data if tags not initialized;
+            # nodes can be None (no filtering on nodes by default) 
+            if self._tags is not None:
+                training_data = self._reqs.search(self._tags, self._nodes)
 
-        if nodes and not isinstance(nodes, list):
-            raise TypeError(ErrorNumbers.FB422.value % type(nodes))
-        else:
-            nodes = self._nodes
-
-        if training_data:
-            if not isinstance(training_data, FederatedDataSet) and isinstance(training_data, dict):
-                logger.info('Training data is provided, search request will be ignored')
-                # TODO: Check dict has proper schema (keys => nodes, value=>list of datasets)
-                self._fds = FederatedDataSet(training_data)
-            else:
-                raise TypeError(ErrorNumbers.FB420.value % type(training_data))
-
-        elif tags:
-            training_data = self._reqs.search(tags, nodes)
+        if isinstance(training_data, FederatedDataSet):
+            self._fds = training_data
+        elif isinstance(training_data, dict):
+            # TODO: FederatedDataSet constructor should verify typing and format
             self._fds = FederatedDataSet(training_data)
+        elif training_data is not None:
+            self._fds = None
+            logger.error((ErrorNumbers.FB420.value % type(training_data)))
+            raise TypeError(ErrorNumbers.FB420.value % type(training_data))
         else:
-            raise ValueError(ErrorNumbers.FB418.value)
+            self._fds = None
+        # at this point, self._fds is either None or a FederatedDataSet object
+        
+        # strategy and job don't always exist at this point
+        try:
+            if self._node_selection_strategy is not None:
+                logger.warning('Training data changed, '
+                    'you may need to update `node_selection_strategy`')
+        except AttributeError:
+            # nothing to do if not defined yet
+            pass
+        try:
+            if self._job is not None:
+                logger.warning('Training data changed, you may need to update `job`')
+        except AttributeError:
+            # nothing to do if not defined yet
+            pass
 
-        if self._node_selection_strategy:
-            self._node_selection_strategy = self._node_selection_strategy_callable(self._fds)
-            logger.info('`node_selection_strategy has been updated with new training data`')
-
-        # FIXME: Changing training data requires to rebuild Job (Should this method do that or User)
-        if self._job:
-            logger.info('New training data has been instantiated. You might need to update Job by running `.set_job()`')
-
-
+        return self._fds
 
 
     def set_rounds(self, rounds: int):

@@ -110,13 +110,11 @@ class ErrorNumbers(_BaseEnum):
     FB416 = "FB416: Please set an aggregator"
     FB417 = "FB417: Please set a training_data before setting `node_selection_strategy`. You can use " \
             "`.set_training_data(tags: list)` to set a training data"
-    FB418 = "FB418: No tags has been found that are already set and it is not provided with " \
-            "`set_training_data` too. Please pass `tags=[<tag>]`  or set `training_data=<FederatedDataset>`"
     FB419 = "FB419: Aggregator type is '%s'  and it is not instance of " \
             "fedbiomed.researcher.aggregators.aggregator.Aggregator.  "
-    FB420 = "FB420: Training data should type of FederatedDataset or Dict, not '%s'"
-    FB421 = "FB421: The argument `tags` should be a list of string or string, not '%s'"
-    FB422 = "FB422: The argument `nodes` should be a list of string or None, not '%s'"
+    FB420 = "FB420: Bad type for argument `training_data` : '%s'"
+    FB421 = "FB421: Bad type for argument `tags` : '%s'"
+    FB422 = "FB422: Bad type for argument `nodes` : '%s'"
     FB423 = "FB423: Node selection strategy should be a class"
     # node problem detected by researcher
 
