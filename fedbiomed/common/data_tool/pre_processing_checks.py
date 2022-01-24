@@ -7,7 +7,8 @@ import fedbiomed.common.data_tool.pre_processing_warnings_exceptions as check_ex
 
     
 class PreProcessingChecks(Enum):
-    INCORRECT_FORMAT_FILE = ("Format File %s is incorrect: cannot parse variable %s", check_exception.WarningType.CRITICAL_WARNING,
+    INCORRECT_FORMAT_FILE = ("Format File %s is incorrect: cannot parse variable %s",
+                             check_exception.WarningType.CRITICAL_WARNING,
                             )
     KEY_UNIQUENESS_VIOLATED = ("Key Variable %s violated uniqueness of data", check_exception.WarningType.CRITICAL_WARNING, 
                            )
@@ -23,7 +24,7 @@ class PreProcessingChecks(Enum):
     
     INCORRECT_DATA_TYPE = ('Variable named %s should be a %s variable, but it contains %s type',
                           check_exception.WarningType.REGULAR_WARNING)
-    INCORRECT_DATETIME_DATA = ("Variable %s has been defined as a DATETIME variable, but samples are not parsable as date",
+    INCORRECT_DATETIME_DATA = ("Variable %s has been defined as a DATETIME variable, but samples are not parsable as datetime",
                                check_exception.WarningType.CRITICAL_WARNING)
     
     OUTLIER_DETECTION_LOWER_BOUND = ("Detected outliers for Variable %s: samples violate lower bound %s",

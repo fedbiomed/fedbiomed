@@ -3,7 +3,7 @@ from typing import List
 
 
 class MissingDataException(Exception):
-    def __init__(self,message:str=""):
+    def __init__(self, message: str = ""):
         self._message = message
         super().__init__(message)
         
@@ -12,7 +12,7 @@ class MissingDataException(Exception):
 
 
 class MinimumSamplesViolatedException(Exception):
-    def __init__(self, message: str=""):
+    def __init__(self, message: str = ""):
         self._message = message
         super().__init__(message)
         
@@ -30,7 +30,7 @@ class MissingFeatureException(Exception):
 
 
 class MissingViewException(Exception):
-    def __init__(self, message: str=""):
+    def __init__(self, message: str = ""):
         self._message = message
         super().__init__(message)
         

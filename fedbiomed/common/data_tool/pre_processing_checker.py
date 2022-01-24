@@ -70,6 +70,13 @@ class PreProcessingChecker:
         return self._warning_logger.get_report()
     
     def get_raised_exception(self) -> Exception:
+        """Raises all exceptions found after data sanity check. If none has been
+        found, return `None`
+
+        Returns:
+            Exception: DataSanityCheckException, contains all exception found when 
+            performing sanity checks
+        """
         self._warning_logger.raise_exception()
     
     def update_views_features_name(self, new_features_name: Dict[str, Dict[str, str]]):
@@ -132,12 +139,12 @@ class PreProcessingChecker:
                 print('read data type', _feature_data_type)   
                 if _feature_data_type == DataType.KEY.name:
                     self.check_key_variable_compliance(_view,
-                                                      _feature)
+                                                       _feature)
     
-    def check_number_of_samples(self, min_nb_samples: int, view_name: str='') -> bool:
+    def check_number_of_samples(self, min_nb_samples: int, view_name: str = '') -> bool:
         #Checking samples limit
 
-        feature_name ='ALL' 
+        feature_name = 'ALL' 
         sample_count = self._data_frame.shape[0]
         
         self._warning_logger.write_new_entry(PreProcessingChecks.N_SAMPLES_BELOW_THRESHOLD)
@@ -147,7 +154,6 @@ class PreProcessingChecker:
                 warning_msg = raise_warning(PreProcessingChecks.N_SAMPLES_BELOW_THRESHOLD,
                                             view_name, min_nb_samples, sample_count)
             except check_exception.MinimumSamplesViolatedException as err:
-                print(err)
                 self._warning_logger.add_exception(err)
                 warning_msg = str(err)
             #message = critical_warning.display(f'Samples count exceeds the threshold limit {MIN_NB_SAMPLES}')
@@ -163,9 +169,10 @@ class PreProcessingChecker:
         return success
     
     def check_feature_exists_in_dataset(self,
-                                        view: str,
+                                        view_name: str,
                                         feature_name: str) -> bool:
-        renamed_feature_name = self._get_feature_defined_in_format_file(view, feature_name)
+        renamed_feature_name = self._get_feature_defined_in_format_file(view_name,
+                                                                        feature_name)
         if renamed_feature_name in self._data_frame.columns:
             success = True
         else:
@@ -173,25 +180,29 @@ class PreProcessingChecker:
             self._warning_logger.write_new_entry(PreProcessingChecks.MISSING_FEATURE)
             try:
                 raise_warning(PreProcessingChecks.MISSING_FEATURE,
-                                        feature_name)
+                              feature_name)
             except check_exception.MissingFeatureException as exc:
                 warning_msg = str(exc)
                 self._warning_logger.add_exception(exc)
-            self._warning_logger.write_checking_result(success, warning_msg, feature_name)
+            self._warning_logger.write_checking_result(success,
+                                                       warning_msg,
+                                                       feature_name, 
+                                                       view_name)
             
         return success
     
     def check_missing_entry_format_file_ref(self,
-                                            view:str,
-                                            feature_name:str) -> bool:
+                                            view_name: str,
+                                            feature_name: str) -> bool:
         """Tests if format file ref is parsable"""
         
         success = True
         warning_msg = 'Test passed'
         
-        renamed_feature_name = self._get_feature_defined_in_format_file(view, feature_name)
+        renamed_feature_name = self._get_feature_defined_in_format_file(view_name,
+                                                                        feature_name)
         
-        _view_format_file = self._file_format_ref[view]
+        _view_format_file = self._file_format_ref[view_name]
         _feature_format_file = _view_format_file.get(feature_name)
         if _feature_format_file is not None:
             _data_format_name = _feature_format_file.get('data_format')
@@ -203,13 +214,14 @@ class PreProcessingChecker:
         if _data_format_name is None :
             #success: bool, msg:str='', feature_name:str='
             warning_msg = raise_warning(PreProcessingChecks.INCORRECT_FORMAT_FILE,
-                                    self._file_format_ref_name,
-                                    renamed_feature_name)
+                                        self._file_format_ref_name,
+                                        renamed_feature_name)
 
             success = False
         self._warning_logger.write_checking_result(success,
-                                             warning_msg,
-                                             feature_name)  
+                                                   warning_msg,
+                                                   feature_name,
+                                                   view_name)  
         return success
     
     def check_correct_variable_sub_type(self, 
@@ -246,7 +258,10 @@ class PreProcessingChecker:
                                             data_format_name, data_type_name)
                 success = False
 
-        self._warning_logger.write_checking_result(success, warning_msg, feature_name)
+        self._warning_logger.write_checking_result(success,
+                                                   warning_msg,
+                                                   feature_name,
+                                                   view_name)
 
         # second test 
         self._warning_logger.write_new_entry(PreProcessingChecks.INCORRECT_DATA_TYPE)
@@ -273,7 +288,10 @@ class PreProcessingChecker:
                 success = False
             else:
                 warning_msg = 'test passed'
-            self._warning_logger.write_checking_result(success, warning_msg, feature_name)
+            self._warning_logger.write_checking_result(success,
+                                                       warning_msg,
+                                                       feature_name,
+                                                       view_name)
 
         return success
     
@@ -296,9 +314,8 @@ class PreProcessingChecker:
             _column = self._data_frame[renamed_feature_name]
             _feature_format_ref = self._file_format_ref[view_name][feature_name]
             _is_missing_data = utils.check_missing_data(_column)
-            _is_missing_values_authorized = _feature_format_ref.get('is_missing_values', 'test_skipped')
-            
-
+            _is_missing_values_authorized = _feature_format_ref.get('is_missing_values',
+                                                                    'test_skipped')
             
             self._warning_logger.write_new_entry(PreProcessingChecks.MISSING_DATA_ALLOWED)
 
@@ -318,14 +335,16 @@ class PreProcessingChecker:
                         warning_msg = raise_warning(PreProcessingChecks.MISSING_DATA_NOT_ALLOWED,
                                                 feature_name)
                     except check_exception.MissingDataException as err:
-                        print(err)
                         self._warning_logger.add_exception(err)
                         warning_msg = str(err)
             else:
                 # test passed
                 warning_msg = 'Test passed'
 
-            self._warning_logger.write_checking_result(success, warning_msg, feature_name)
+            self._warning_logger.write_checking_result(success,
+                                                       warning_msg,
+                                                       feature_name,
+                                                       view_name)
 
         return success
     
@@ -359,7 +378,10 @@ class PreProcessingChecker:
         else:
             warning_msg = 'Test skipped'
             is_lower_bound_correct = None
-        self._warning_logger.write_checking_result(is_lower_bound_correct, warning_msg, feature_name)
+        self._warning_logger.write_checking_result(is_lower_bound_correct,
+                                                   warning_msg,
+                                                   feature_name,
+                                                   view_name)
 
         return is_lower_bound_correct
     
@@ -390,7 +412,10 @@ class PreProcessingChecker:
             warning_msg = 'Test skipped'
             is_upper_bound_correct = None
 
-        self._warning_logger.write_checking_result(is_upper_bound_correct, warning_msg, feature_name)
+        self._warning_logger.write_checking_result(is_upper_bound_correct,
+                                                   warning_msg,
+                                                   feature_name,
+                                                   view_name)
         return is_upper_bound_correct
     
     
@@ -420,14 +445,17 @@ class PreProcessingChecker:
                     success = False
             if success:
                 warning_msg = 'test passed'
-        self._warning_logger.write_checking_result(success, warning_msg, feature_name)
+        self._warning_logger.write_checking_result(success,
+                                                   warning_msg,
+                                                   feature_name,
+                                                   view_name)
         return success
 
     def check_missing_values_threshold(self,
                                        view_name: str,
                                        feature_name: str,
                                        threshold: int = None) -> bool:
-        #Checking if missing values exceed threshold limit(50%)
+        #Checking if missing values exceed threshold limit
         
         if self._min_nb_missing_samples is None:
             success = None
@@ -454,7 +482,10 @@ class PreProcessingChecker:
                 warning_msg ='Test passed'
 
             #report['check_missing_values_limit'] = report_details
-            self._warning_logger.write_checking_result(success, warning_msg, feature_name)
+            self._warning_logger.write_checking_result(success,
+                                                       warning_msg,
+                                                       feature_name,
+                                                       view_name)
         return success
     
     def check_key_variable_compliance(self, 
@@ -485,7 +516,10 @@ class PreProcessingChecker:
         else:
             warning_msg = 'Test passed'
             success = True
-        self._warning_logger.write_checking_result(success, warning_msg, feature_name)
+        self._warning_logger.write_checking_result(success,
+                                                   warning_msg,
+                                                   feature_name,
+                                                   view_name)
 
         return success
 
@@ -517,7 +551,8 @@ class PreProcessingChecker:
             warning_msg = 'Test passed'
         self._warning_logger.write_checking_result(are_datetime_parsables,
                                                      warning_msg,
-                                                     feature_name) 
+                                                     feature_name,
+                                                     view_name) 
 
         return are_datetime_parsables
     
