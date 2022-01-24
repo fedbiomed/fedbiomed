@@ -33,13 +33,13 @@ class Experiment(object):
                 tags: Union[List[str], str, None] = None,
                 nodes: Union[List[str], None] = None,
                 training_data: Union[FederatedDataSet, dict, None] = None,
+                aggregator: Union[Aggregator, Type[Aggregator], None] = None,
+                node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
                 model_class: Union[Type[Callable], Callable] = None,
                 model_path: str = None,
                 model_args: dict = {},
                 training_args: dict = None,
                 rounds: int = 1,
-                aggregator: Union[Type[Aggregator], Aggregator] = None,
-                node_selection_strategy: Union[Type[Strategy], Strategy] = None,
                 save_breakpoints: bool = False,
                 tensorboard: bool = False,
                 experimentation_folder: str = None
@@ -65,6 +65,13 @@ class Experiment(object):
                   search for datasets by a query to the nodes using `tags` and `nodes`
                   (if `tags` is set)
                 Defaults to None (query nodes for dataset if `tags` is set)
+            - aggregator (Union[Aggregator, Type[Aggregator], None], optional):
+                object or class defining the method for aggregating local updates.
+                Default to None (use `FedAverage` for aggregation)
+            - node_selection_strategy (Union[Type[Strategy], Strategy], optional):
+                class or object defining how nodes are sampled at each round
+                for training, and how non-responding nodes are managed.
+                Defaults to None (uses DefaultStrategy for training)
             - model_class (Union[Type[Callable], Callable], optional): name or
                 instance (object) of the model class to use
                 for training.
@@ -80,14 +87,6 @@ class Experiment(object):
             - rounds (int, optional): the number of communication rounds
                 (nodes <-> central server).
                 Defaults to 1.
-            - aggregator (Union[Type[aggregator.Aggregator], aggregator.Aggregator], optional):
-                class or object defining the method
-                for aggregating local updates.
-                Default to None (uses fedavg.FedAverage() for training)
-            - node_selection_strategy (Union[Type[Strategy], Strategy], optional):
-                class or object defining how nodes are sampled at each round
-                for training, and how non-responding nodes are managed.
-                Defaults to None (uses DefaultStrategy for training)
             - save_breakpoints (bool, optional): whether to save breakpoints or
                 not. Breakpoints can be used
                 for resuming a crashed
@@ -114,28 +113,22 @@ class Experiment(object):
         # Useless to add a param and setter/getter for Requests() as it is a singleton ?
         self._reqs = Requests()
 
-        # set self._fds: Union[FederatedDataSet, None]
+        # set self._fds: type Union[FederatedDataSet, None]
         self.set_training_data(training_data)
 
+        # set self._aggregator : type Aggregator
+        self.set_aggregator(aggregator)
 
-        # Initialize aggregator
-        if aggregator is None:
-            self._aggregator = FedAverage()
-        else:
-            self._set_aggregator(aggregator)
 
         # Initialize node selection strategy
         if node_selection_strategy is None and self._fds:
-            self._node_selection_strategy_callable = DefaultStrategy
             self._node_selection_strategy = DefaultStrategy(self._fds)
         elif node_selection_strategy and self._fds:
             if inspect.isclass(self._node_selection_strategy):
-                self._node_selection_strategy_callable = DefaultStrategy
                 self._node_selection_strategy = node_selection_strategy(self._fds)
             else:
                 raise TypeError(ErrorNumbers.FB423.value)
         else:
-            self._node_selection_strategy_callable = None
             self._node_selection_strategy = None
 
         # TODO round_init might not be necessary after refactoring the experiment
@@ -185,6 +178,10 @@ class Experiment(object):
     def training_data(self):
         return self._fds
 
+    def aggregator(self):
+        return self._aggregator
+
+
 
     def training_replies(self):
         return self._job.training_replies
@@ -209,9 +206,6 @@ class Experiment(object):
 
     def model_class(self):
         return self._model_class
-
-    def aggregator(self):
-        return self._aggregator
 
     def node_selection_strategy(self):
         return self._node_selection_strategy
@@ -299,9 +293,8 @@ class Experiment(object):
         return self._nodes
 
 
-    def set_training_data(self,
-                          training_data: Union[FederatedDataSet, dict, None]):
-        """ Setting training data for federated training + verification on arguments type
+    def set_training_data(self, training_data: Union[FederatedDataSet, dict, None]):
+        """ Setter for training data for federated training + verification on arguments type
 
         Args:
             - training_data (Union[FederatedDataSet, dict, None]):
@@ -356,6 +349,46 @@ class Experiment(object):
             pass
 
         return self._fds
+
+
+    def set_aggregator(self, aggregator: Union[Aggregator, Type[Aggregator], None]):
+        """ Setter for aggregator + verification on arguments type
+
+        Args:
+            - aggregator (Union[Aggregator, Type[Aggregator], None], optional):
+                object or class defining the method for aggregating local updates.
+                Default to None (use `FedAverage` for aggregation)
+        
+        Raises:
+            - TypeError : bad aggregator type
+
+        Returns:
+            - aggregator (Aggregator)
+        """
+
+        if aggregator is None:
+            # default aggregator
+            self._aggregator = FedAverage()
+        elif inspect.isclass(aggregator):
+            # a class is provided, need to instantiate an object
+            if issubclass(aggregator, Aggregator):
+                self._aggregator = aggregator()
+            else:
+                # bad argument, need to provide an Aggregator class
+                self._aggregator = FedAverage() # be robust if we continue execution
+                logger.error(ErrorNumbers.FB419.value % f'{aggregator} class')
+                raise TypeError(ErrorNumbers.FB419.value % f'{aggregator} class')
+        elif isinstance(aggregator, Aggregator):
+            # an object of a proper class is provided, nothing to do
+            self._aggregator = aggregator
+        else:
+            # other bad type or object
+            self._aggregator = FedAverage() # be robust if we continue execution
+            logger.error(ErrorNumbers.FB419.value % type(aggregator))
+            raise TypeError(ErrorNumbers.FB419.value % type(aggregator))
+        
+        # at this point we have a (non-None) aggregator object
+        return self._aggregator
 
 
     def set_rounds(self, rounds: int):
@@ -477,41 +510,15 @@ class Experiment(object):
         """
         if self._fds:
             if node_selection_strategy is None:
-                self._node_selection_strategy_callable = DefaultStrategy
                 self._node_selection_strategy = DefaultStrategy(self._fds)
             else:
                 # TODO: Check strategy is type of Callable or built class and is type of Strategy
                 if inspect.isclass(self._node_selection_strategy):
-                    self._node_selection_strategy_callable = node_selection_strategy
                     self._node_selection_strategy = node_selection_strategy(self._fds)
                 else:
                     raise TypeError(ErrorNumbers.FB423.value)
         else:
             logger.error(ErrorNumbers.FB417.value)
-
-    def set_aggregator(self, aggregator: Union[Type[Aggregator], Callable, Aggregator]):
-        """ API for setting aggregator. T
-                Args:
-            aggregator (Union[Type[Aggregator], Callable, Aggregator]): Aggregator class
-            can be built object or callable class that are type of Aggregator
-        """
-        self._set_aggregator(aggregator)
-
-    def _set_aggregator(self, aggregator: Union[Type[Aggregator], Callable, Aggregator]):
-        """ Private aggregator setter. This method checks provided aggregator is in correct
-        type. If not, will log critical error.
-
-        Args:
-            aggregator (Union[Type[Aggregator], Callable, Aggregator]): Aggregator class
-            can be built object or callable class that are type of Aggregator
-        """
-
-        if isinstance(aggregator, Callable) and isinstance(aggregator, type(Aggregator)):
-            self._aggregator = aggregator()
-        elif not isinstance(aggregator, Callable) and isinstance(aggregator, Aggregator):
-            self._aggregator = aggregator
-        else:
-            raise TypeError(ErrorNumbers.FB419.value % type(aggregator))
 
     def set_monitor(self, tensorboard: bool = True, monitor: Monitor = None):
         """ Setter for monitoring loss values on Tensorboard. Currently, Monitor
@@ -644,16 +651,22 @@ class Experiment(object):
         """
 
         info = {
-            'Arguments': ['Rounds', 'Tags', 'Model Path', 'Model Class', 'Model Arguments',
-                          'Training Arguments', 'Nodes', 'Aggregator', 'N.S. Strategy',
-                          'Training Data', 'Job', 'Breakpoint State', 'Exp  folder',
-                          'Exp folder', 'Exp Path'
-                          ],
-            'Values': [self._rounds, self._tags, self._model_path, self._model_class, self._model_args,
-                       self._training_args, self._nodes, self._aggregator, self._node_selection_strategy,
-                       self._fds, self._job, self._save_breakpoint, self._experimentation_folder,
-                       os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
-                       ]
+            'Arguments': [
+                'Tags', 'Nodes filter', 'Training Data',
+                'Aggregator', 'Strategy',
+                'Rounds', 'Model Path', 'Model Class', 'Model Arguments',
+                'Training Arguments', 
+                'Job', 'Breakpoint State', 'Exp  folder',
+                'Exp folder', 'Exp Path'
+                ],
+            'Values': [
+                self._tags, self._nodes, self._fds,
+                self._aggregator,  self._node_selection_strategy,
+                self._rounds, self._model_path, self._model_class, self._model_args,
+                self._training_args,
+                self._job, self._save_breakpoint, self._experimentation_folder,
+                os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
+                ]
         }
         print(tabulate(info, headers='keys'))
 
@@ -683,7 +696,6 @@ class Experiment(object):
 
         no_none_args_msg = {"_job": ErrorNumbers.FB415.value,
                             "_node_selection_strategy": ErrorNumbers.FB415.value,
-                            '_aggregator': ErrorNumbers.FB416.value,
                             }
 
         return self._argument_controller(no_none_args_msg)

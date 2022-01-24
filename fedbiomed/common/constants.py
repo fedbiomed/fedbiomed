@@ -110,8 +110,7 @@ class ErrorNumbers(_BaseEnum):
     FB416 = "FB416: Please set an aggregator"
     FB417 = "FB417: Please set a training_data before setting `node_selection_strategy`. You can use " \
             "`.set_training_data(tags: list)` to set a training data"
-    FB419 = "FB419: Aggregator type is '%s'  and it is not instance of " \
-            "fedbiomed.researcher.aggregators.aggregator.Aggregator.  "
+    FB419 = "FB419: Bad type for argument `aggregator` : '%s'"
     FB420 = "FB420: Bad type for argument `training_data` : '%s'"
     FB421 = "FB421: Bad type for argument `tags` : '%s'"
     FB422 = "FB422: Bad type for argument `nodes` : '%s'"
