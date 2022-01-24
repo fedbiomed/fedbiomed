@@ -102,11 +102,9 @@ class Experiment(object):
         """
 
         self.set_tags(tags)
+        self.set_nodes(nodes)
 
-        if nodes and not isinstance(nodes, list):
-            raise TypeError(ErrorNumbers.FB422.value % type(nodes))
-
-        self._nodes = nodes
+        # Useless to add param/setter/getter for Requests() as it is a singleton ?
         self._reqs = Requests()
 
         # Set training data if all the necessary arguments are provided
@@ -182,6 +180,16 @@ class Experiment(object):
 
     # Getters ---------------------------------------------------------------------------------------------------------
 
+    def tags(self):
+        return self._tags
+
+    def nodes(self):
+        return self._nodes
+
+    def training_data(self):
+        return self._fds
+
+
     def training_replies(self):
         return self._job.training_replies
 
@@ -193,9 +201,6 @@ class Experiment(object):
 
     def model_instance(self):
         return self._job.model
-
-    def tags(self):
-        return self._tags
 
     def model_args(self):
         return self._model_args
@@ -215,12 +220,6 @@ class Experiment(object):
     def node_selection_strategy(self):
         return self._node_selection_strategy
 
-    def nodes(self):
-        return self._nodes
-
-    def training_data(self):
-        return self._fds
-
     def monitor(self):
         return self._monitor
 
@@ -239,7 +238,6 @@ class Experiment(object):
     def breakpoint(self):
         return self._save_breakpoints
 
-    # -----------------------------------------------------------------------------------------------------------------
 
     # Setters ---------------------------------------------------------------------------------------------------------
 
@@ -267,7 +265,7 @@ class Experiment(object):
         """ Setter for nodes + verifications on argument type
 
         Args:
-            - nodes (Union[List[str], None], optional): list of node_ids to filter the nodes
+            - nodes (Union[List[str], None]): list of node_ids to filter the nodes
                 to be involved in the experiment.
         """
         if isinstance(nodes, list):
