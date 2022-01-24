@@ -11,6 +11,7 @@
 #
 #import fedbiomed.common.constants
 #import fedbiomed.common.environ
+import fedbiomed.common.exceptions
 #import fedbiomed.common.fedbiosklearn
 #import fedbiomed.common.json
 #import fedbiomed.common.logger
@@ -33,7 +34,6 @@ import fedbiomed.researcher.aggregators.functional
 import fedbiomed.researcher.cli
 #import fedbiomed.researcher.datasets
 import fedbiomed.researcher.environ
-import fedbiomed.researcher.exceptions
 #import fedbiomed.researcher.experiment
 #import fedbiomed.researcher.filetools
 #import fedbiomed.researcher.job
