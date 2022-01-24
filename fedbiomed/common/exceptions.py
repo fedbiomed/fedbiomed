@@ -1,4 +1,4 @@
-class DefaultStrategyException(Exception):
+class StrategyException(Exception):
     pass
 
 
