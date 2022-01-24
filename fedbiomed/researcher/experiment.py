@@ -31,7 +31,7 @@ class Experiment(object):
 
     def __init__(self,
                 tags: Union[List[str], str] = [],
-                nodes: list = None,
+                nodes: Union[List[str], None] = None,
                 training_data: Union[dict, FederatedDataSet] = None,
                 model_class: Union[Type[Callable], Callable] = None,
                 model_path: str = None,
@@ -51,7 +51,7 @@ class Experiment(object):
             - tags (Union[List[str], str], optional): list of string with data tags
                 or string with one data tag.
                 Default to empty list if not provided
-            - nodes (list, optional): list of node_ids to filter the nodes
+            - nodes (Union[List[str], None], optional): list of node_ids to filter the nodes
                 to be involved in the experiment.
                 Defaults to None (no filtering).
             - training_data (Union [dict, FederatedDataSet], optional):
@@ -106,7 +106,6 @@ class Experiment(object):
         if nodes and not isinstance(nodes, list):
             raise TypeError(ErrorNumbers.FB422.value % type(nodes))
 
-        self._tags = tags
         self._nodes = nodes
         self._reqs = Requests()
 
@@ -245,25 +244,44 @@ class Experiment(object):
     # Setters ---------------------------------------------------------------------------------------------------------
 
     def set_tags(self, tags: Union[List[str], str]):
-        """ Setter for tags + verifications on argument
+        """ Setter for tags + verifications on argument type
 
         Args:
             - tags (Union[List[str], str]): list of string with data tags
                 or string with one data tag.
         """
         if isinstance(tags, list):
+            self._tags = tags
             for tag in tags:
                 if not isinstance(tag, str):
+                    self._tags = [] # robust default, in case we try to continue execution
                     raise TypeError(ErrorNumbers.FB421.value % f'list of {type(tag)}')
-            self._tags = tags
         elif isinstance(tags, str):
             self._tags = [tags]
         else:
+            self._tags = [] # robust default, in case we try to continue execution
             raise TypeError(ErrorNumbers.FB421.value % type(tags))
 
+
     def set_nodes(self, nodes: list):
-        # TODO: Check argument type is correct
-        self._nodes = nodes
+        """ Setter for nodes + verifications on argument type
+
+        Args:
+            - nodes (Union[List[str], None], optional): list of node_ids to filter the nodes
+                to be involved in the experiment.
+        """
+        if isinstance(nodes, list):
+            self._nodes = nodes
+            for node in nodes:
+                if not isinstance(node, str):
+                    self._nodes = None # robust default
+                    raise TypeError(ErrorNumbers.FB422.value % f'list of {type(node)}')
+        elif nodes is None:
+            self._nodes = nodes
+        else:
+            self._nodes = None
+            raise TypeError(ErrorNumbers.FB422.value % type(nodes))
+
 
     def set_training_data(self,
                           tags: Union[list, str] = None,
