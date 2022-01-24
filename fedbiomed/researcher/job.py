@@ -13,13 +13,13 @@ import copy
 import validators
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import TrainingException
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.logger import logger
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
 from fedbiomed.researcher.filetools import  create_unique_link, \
             create_unique_file_link
-from fedbiomed.researcher.exceptions import TrainingException
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
