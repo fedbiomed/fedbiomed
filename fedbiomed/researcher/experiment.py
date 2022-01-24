@@ -2,7 +2,7 @@ import logging
 import os
 import json
 import inspect
-from typing import Callable, Union, Dict, Any, TypeVar, Type
+from typing import Callable, Union, Dict, Any, TypeVar, Type, List
 from tabulate import tabulate
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
@@ -30,80 +30,78 @@ class Experiment(object):
     """
 
     def __init__(self,
-                 tags: list = None,
-                 nodes: list = None,
-                 model_class: Union[Type[Callable], Callable] = None,
-                 model_path: str = None,
-                 model_args: dict = {},
-                 training_args: dict = None,
-                 rounds: int = 1,
-                 aggregator: Union[Type[Aggregator], Aggregator] = None,
-                 node_selection_strategy: Union[Type[Strategy], Strategy] = None,
-                 save_breakpoints: bool = False,
-                 training_data: Union[dict, FederatedDataSet] = None,
-                 tensorboard: bool = False,
-                 experimentation_folder: str = None
-                 ):
+                tags: Union[List[str], str] = [],
+                nodes: list = None,
+                training_data: Union[dict, FederatedDataSet] = None,
+                model_class: Union[Type[Callable], Callable] = None,
+                model_path: str = None,
+                model_args: dict = {},
+                training_args: dict = None,
+                rounds: int = 1,
+                aggregator: Union[Type[Aggregator], Aggregator] = None,
+                node_selection_strategy: Union[Type[Strategy], Strategy] = None,
+                save_breakpoints: bool = False,
+                tensorboard: bool = False,
+                experimentation_folder: str = None
+                ):
 
         """ Constructor of the class.
 
-
         Args:
-            tags (tuple): tuple of string with data tags
-            nodes (list, optional): list of node_ids to filter the nodes
-                                    to be involved in the experiment.
-                                    Defaults to None (no filtering).
-            model_class (Union[Type[Callable], Callable], optional): name or
-                                    instance (object) of the model class to use
-                                    for training.
-                                    Should be a str type when using jupyter notebook
-                                    or a Callable when using a simple python
-                                    script.
-            model_path (string, optional) : path to file containing model code
-            model_args (dict, optional): contains output and input feature
-                                        dimension. Defaults to None.
-            training_args (dict, optional): contains training parameters:
-                                            lr, epochs, batch_size...
-                                            Defaults to None.
-            rounds (int, optional): the number of communication rounds
-                                    (nodes <-> central server).
-                                    Defaults to 1.
-            aggregator (Union[Type[aggregator.Aggregator], aggregator.Aggregator], optional):
-                                    class or object defining the method
-                                    for aggregating local updates.
-                                    Default to None (uses fedavg.FedAverage() for training)
-            node_selection_strategy (Union[Type[Strategy], Strategy], optional):
-                                    class or object defining how nodes are sampled at each round
-                                    for training, and how non-responding nodes are managed.
-                                    Defaults to None (uses DefaultStrategy for training)
-            save_breakpoints (bool, optional): whether to save breakpoints or
-                                                not. Breakpoints can be used
-                                                for resuming a crashed
-                                                experiment. Defaults to False.
-            training_data (Union [dict, FederatedDataSet], optional):
-                    FederatedDataSet object or
-                    dict of the node_id of nodes providing datasets for the experiment,
-                    datasets for a node_id are described as a list of dict, one dict per dataset.
-                    Defaults to None, datasets are searched from `tags` and `nodes`.
-            tensorboard (bool): Tensorboard flag for displaying scalar values
-                                during training in every node. If it is true,
-                                monitor will write scalar logs into
-                                `./runs` directory.
-            experimentation_folder (str, optional): choose a specific name for the
-                    folder where experimentation result files and breakpoints are stored.
-                    This should just contain the name for the folder not a path.
-                    The name is used as a subdirectory of `environ[EXPERIMENTS_DIR])`.
-                    - Caveat : if using a specific name this experimentation will not be
-                    automatically detected as the last experimentation by `load_breakpoint`
-                    - Caveat : do not use a `experimentation_folder` name finishing
-                    with numbers ([0-9]+) as this would confuse the last experimentation
-                    detection heuristic by `load_breakpoint`.
+            - tags (Union[List[str], str], optional): list of string with data tags
+                or string with one data tag.
+                Default to empty list if not provided
+            - nodes (list, optional): list of node_ids to filter the nodes
+                to be involved in the experiment.
+                Defaults to None (no filtering).
+            - training_data (Union [dict, FederatedDataSet], optional):
+                FederatedDataSet object or
+                dict of the node_id of nodes providing datasets for the experiment,
+                datasets for a node_id are described as a list of dict, one dict per dataset.
+                Defaults to None, datasets are searched from `tags` and `nodes`.
+            - model_class (Union[Type[Callable], Callable], optional): name or
+                instance (object) of the model class to use
+                for training.
+                Should be a str type when using jupyter notebook
+                or a Callable when using a simple python
+                script.
+            - model_path (string, optional) : path to file containing model code
+            - model_args (dict, optional): contains output and input feature
+                dimension. Defaults to None.
+            - training_args (dict, optional): contains training parameters:
+                lr, epochs, batch_size...
+                Defaults to None.
+            - rounds (int, optional): the number of communication rounds
+                (nodes <-> central server).
+                Defaults to 1.
+            - aggregator (Union[Type[aggregator.Aggregator], aggregator.Aggregator], optional):
+                class or object defining the method
+                for aggregating local updates.
+                Default to None (uses fedavg.FedAverage() for training)
+            - node_selection_strategy (Union[Type[Strategy], Strategy], optional):
+                class or object defining how nodes are sampled at each round
+                for training, and how non-responding nodes are managed.
+                Defaults to None (uses DefaultStrategy for training)
+            - save_breakpoints (bool, optional): whether to save breakpoints or
+                not. Breakpoints can be used
+                for resuming a crashed
+                experiment. Defaults to False.
+            - tensorboard (bool): Tensorboard flag for displaying scalar values
+                during training in every node. If it is true,
+                monitor will write scalar logs into
+                `./runs` directory.
+            - experimentation_folder (str, optional): choose a specific name for the
+                folder where experimentation result files and breakpoints are stored.
+                This should just contain the name for the folder not a path.
+                The name is used as a subdirectory of `environ[EXPERIMENTS_DIR])`.
+                - Caveat : if using a specific name this experimentation will not be
+                automatically detected as the last experimentation by `load_breakpoint`
+                - Caveat : do not use a `experimentation_folder` name finishing
+                with numbers ([0-9]+) as this would confuse the last experimentation
+                detection heuristic by `load_breakpoint`.
         """
 
-        if tags:
-            tags = [tags] if isinstance(tags, str) else tags
-            if not isinstance(tags, list):
-                raise TypeError(ErrorNumbers.FB421 % type(tags))
+        self.set_tags(tags)
 
         if nodes and not isinstance(nodes, list):
             raise TypeError(ErrorNumbers.FB422.value % type(nodes))
@@ -245,13 +243,83 @@ class Experiment(object):
     # -----------------------------------------------------------------------------------------------------------------
 
     # Setters ---------------------------------------------------------------------------------------------------------
-    def set_rounds(self, rounds: int):
-        # TODO: Check argument type is correct
-        self._rounds = rounds
+
+    def set_tags(self, tags: Union[List[str], str]):
+        """ Setter for tags + verifications on argument
+
+        Args:
+            - tags (Union[List[str], str]): list of string with data tags
+                or string with one data tag.
+        """
+        if isinstance(tags, list):
+            for tag in tags:
+                if not isinstance(tag, str):
+                    raise TypeError(ErrorNumbers.FB421.value % f'list of {type(tag)}')
+            self._tags = tags
+        elif isinstance(tags, str):
+            self._tags = [tags]
+        else:
+            raise TypeError(ErrorNumbers.FB421.value % type(tags))
 
     def set_nodes(self, nodes: list):
         # TODO: Check argument type is correct
         self._nodes = nodes
+
+    def set_training_data(self,
+                          tags: Union[list, str] = None,
+                          nodes: list = None,
+                          training_data: Union[dict, FederatedDataSet] = None):
+        """ Setting training data for federated training.
+
+        Args:
+
+            tags (list, str):
+            nodes (list):
+            training_data (dict, FederatedDataset):
+        """
+
+        # TODO: Decide whether we should update self._tags of the Experiment tags
+        if tags:
+            tags = [tags] if isinstance(tags, str) else tags
+            # Verify tags if it is provided and update self._tags
+            if not isinstance(tags, list):
+                raise TypeError(ErrorNumbers.FB421.value % type(tags))
+        else:
+            tags = self._tags
+
+        if nodes and not isinstance(nodes, list):
+            raise TypeError(ErrorNumbers.FB422.value % type(nodes))
+        else:
+            nodes = self._nodes
+
+        if training_data:
+            if not isinstance(training_data, FederatedDataSet) and isinstance(training_data, dict):
+                logger.info('Training data is provided, search request will be ignored')
+                # TODO: Check dict has proper schema (keys => nodes, value=>list of datasets)
+                self._fds = FederatedDataSet(training_data)
+            else:
+                raise TypeError(ErrorNumbers.FB420.value % type(training_data))
+
+        elif tags:
+            training_data = self._reqs.search(tags, nodes)
+            self._fds = FederatedDataSet(training_data)
+        else:
+            raise ValueError(ErrorNumbers.FB418.value)
+
+        if self._node_selection_strategy:
+            self._node_selection_strategy = self._node_selection_strategy_callable(self._fds)
+            logger.info('`node_selection_strategy has been updated with new training data`')
+
+        # FIXME: Changing training data requires to rebuild Job (Should this method do that or User)
+        if self._job:
+            logger.info('New training data has been instantiated. You might need to update Job by running `.set_job()`')
+
+
+
+
+    def set_rounds(self, rounds: int):
+        # TODO: Check argument type is correct
+        self._rounds = rounds
 
     def set_model_args(self, model_args: Dict):
         """ Setter for Model Arguments. This method should also update/set model arguments in
@@ -314,19 +382,6 @@ class Experiment(object):
         if self._job:
             logger.info('Model class has been modified. You might need to update Job by running `.set_job()`')
 
-    def set_tags(self, tags: Union[list, str]):
-        """ Setter for tags. Since tags are the main criteria for selecting node based on
-            dataset, this method sends search request to node to check if they have the
-            dataset or not.
-            Args:
-                tags (str | List): List of tags or single string tag.
-        """
-        if isinstance(tags, list):
-            self._tags = tags
-        elif isinstance(tags, str):
-            self._tags = [tags]
-        else:
-            raise TypeError(ErrorNumbers.FB421.value % type(tags))
 
     def set_breakpoints(self, save_breakpoints: bool = True):
 
@@ -351,55 +406,6 @@ class Experiment(object):
         self._save_breakpoints = save_breakpoints
 
         pass
-
-    def set_training_data(self,
-                          tags: Union[list, str] = None,
-                          nodes: list = None,
-                          training_data: Union[dict, FederatedDataSet] = None):
-        """ Setting training data for federated training.
-
-        Args:
-
-            tags (list, str):
-            nodes (list):
-            training_data (dict, FederatedDataset):
-        """
-
-        # TODO: Decide whether we should update self._tags of the Experiment tags
-        if tags:
-            tags = [tags] if isinstance(tags, str) else tags
-            # Verify tags if it is provided and update self._tags
-            if not isinstance(tags, list):
-                raise TypeError(ErrorNumbers.FB421.value % type(tags))
-        else:
-            tags = self._tags
-
-        if nodes and not isinstance(nodes, list):
-            raise TypeError(ErrorNumbers.FB422.value % type(nodes))
-        else:
-            nodes = self._nodes
-
-        if training_data:
-            if not isinstance(training_data, FederatedDataSet) and isinstance(training_data, dict):
-                logger.info('Training data is provided, search request will be ignored')
-                # TODO: Check dict has proper schema (keys => nodes, value=>list of datasets)
-                self._fds = FederatedDataSet(training_data)
-            else:
-                raise TypeError(ErrorNumbers.FB420.value % type(training_data))
-
-        elif tags:
-            training_data = self._reqs.search(tags, nodes)
-            self._fds = FederatedDataSet(training_data)
-        else:
-            raise ValueError(ErrorNumbers.FB418.value)
-
-        if self._node_selection_strategy:
-            self._node_selection_strategy = self._node_selection_strategy_callable(self._fds)
-            logger.info('`node_selection_strategy has been updated with new training data`')
-
-        # FIXME: Changing training data requires to rebuild Job (Should this method do that or User)
-        if self._job:
-            logger.info('New training data has been instantiated. You might need to update Job by running `.set_job()`')
 
     def set_job(self):
         """ Setter for Job class. To be able to set Job, the arguments: model_path, model_class, training_data
@@ -486,6 +492,10 @@ class Experiment(object):
             # Remove callback. Since reqeust class is singleton callback
             # function might be already added into request before.
             self._reqs.remove_monitor_callback()
+
+
+
+    # Run experiment functions -------------------------------------------------------------------
 
     def run_once(self):
         """ Runs the experiment only once. It will increase global round each time
@@ -648,6 +658,9 @@ class Experiment(object):
         status = True if len(messages) == 0 else False
 
         return status, messages
+
+
+    # Beakpoint functions ----------------------------------------------------------------
 
     def _save_breakpoint(self, round: int = 0):
         """
