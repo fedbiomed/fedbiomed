@@ -2,6 +2,7 @@ import sys
 import os
 import uuid
 import time
+from typing import Union
 
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.message import NodeMessages, TrainReply
@@ -24,26 +25,33 @@ class Round:
                  params_url: str = None,
                  job_id: str = None,
                  researcher_id: str = None,
-                 monitor: HistoryMonitor = None):
+                 monitor: HistoryMonitor = None,
+                 node_args: Union[dict, None] = None):
 
         """Constructor of the class
 
         Args:
-            model_kwargs ([dict]): contains model args
-            training_kwargs ([dict]): contains model characteristics,
-            especially input  dimension (key: 'in_features')
-            and output dimension (key: 'out_features')
-            dataset ([dict]): dataset details to use in this round.
-                            It contains the dataset name, dataset's id,
-                            data path, its shape, its
-                            description...
-            model_url ([str]): url from which to download model
-            model_class ([str]): name of the training plan
-                                (eg 'MyTrainingPlan')
-            params_url ([str]): url from which to upload/dowload model params
-            job_id ([str]): job id
-            researcher_id ([str]): researcher id
-            monitor ([HistoryMonitor])
+            - model_kwargs (dict): contains model args
+            - training_kwargs (dict): contains model characteristics,
+                especially input  dimension (key: 'in_features')
+                and output dimension (key: 'out_features')
+            - dataset ([dict]): dataset details to use in this round.
+                It contains the dataset name, dataset's id,
+                data path, its shape, its
+                description...
+            - model_url (str): url from which to download model
+            - model_class (str): name of the training plan
+                (eg 'MyTrainingPlan')
+            - params_url (str): url from which to upload/dowload model params
+            - job_id (str): job id
+            - researcher_id (str): researcher id
+            - monitor (HistoryMonitor)
+            - node_args (Union[dict, None]): command line arguments for node. Can include:
+                - gpu (bool): propose use a GPU device if any is available.
+                - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
+                    GPU device if this GPU device is available.
+                - gpu_only (bool): force use of a GPU device if any available, even if researcher
+                    doesnt request for using a GPU.
         """
         self.model_kwargs = model_kwargs
         self.training_kwargs = training_kwargs
@@ -55,7 +63,7 @@ class Round:
         self.researcher_id = researcher_id
         self.monitor = monitor
         self.model_manager = ModelManager()
-        
+        self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
 
     def run_model_training(self) -> TrainReply:
@@ -130,12 +138,29 @@ class Round:
 
         # Run the training routine
         if not is_failed:
-            results = {}
+            # Caution: always provide values for node-side arguments
+            # (monitor, node_args) especially if they are security
+            # related, to avoid overloading by malicious researcher.
+            #
+            # We want to have explicit message in case of overloading attempt
+            # (and continue training) though by default it fails with
+            # "dict() got multiple values for keyword argument"
+            node_side_args = [ 'monitor', 'node_args' ]
+            for arg in node_side_args:
+                if arg in self.training_kwargs:
+                    del self.training_kwargs[arg]
+                    logger.warning(f'Researcher trying to set node-side training parameter {arg}. '
+                        f' Maybe a malicious researcher attack.')
+
+        if not is_failed:
+            training_kwargs_with_history = dict(monitor=self.monitor,
+                                                node_args=self.node_args,
+                                                **self.training_kwargs)
+            logger.info(f'training with arguments {training_kwargs_with_history}')
+
+        if not is_failed:
             try:
-                training_kwargs_with_history = dict(monitor=self.monitor,
-                                                    **self.training_kwargs)
-                print(training_kwargs_with_history)
-                logger.info(training_kwargs_with_history)
+                results = {}
                 model.set_dataset(self.dataset['path'])
                 rtime_before = time.perf_counter()
                 ptime_before = time.process_time()

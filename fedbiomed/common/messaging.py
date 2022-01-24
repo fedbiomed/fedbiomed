@@ -248,7 +248,7 @@ class Messaging:
             logger.warning("this component (" +
                            self.messaging_type +
                            ") cannot send error message ("+
-                           errnum+
+                           errnum.value +
                            ") through MQTT")
             return
 
