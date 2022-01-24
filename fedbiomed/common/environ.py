@@ -194,7 +194,7 @@ class Environ(metaclass = SingletonMeta):
                                                  .lower() in ('true', '1', 't', True)
 
         try:
-            _cfg_value = cfg.get('security', 'allow_model_approval')
+            _cfg_value = cfg.get('security', 'model_approval')
         except:
             logger.critical("no security/model_approval in config file, please recreate a new config file")
             raise
