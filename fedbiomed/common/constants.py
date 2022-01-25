@@ -99,6 +99,7 @@ class ErrorNumbers(_BaseEnum):
     FB407 = "FB407: list of nodes became empty then training"
     FB408 = "FB408: node did not answer during training"
     FB409 = "FB409: node sent Status=Error during training"
+
     FB410 = "FB410: Please set training arguments with `.set_training_args()` before setting a `Job`."
     FB411 = "FB411: No Federated Dataset is found. Please use `.set_training_data()` before setting a `Job`."
     FB412 = "FB412: `model_class` is mandatory for setting `Job`.  Please initialize experiment with model class or " \
@@ -108,11 +109,12 @@ class ErrorNumbers(_BaseEnum):
     FB414 = "FB414: Please create job with `.set_job()` before running the experiment"
     FB415 = "FB415: Please set client selection strategy"
 
-    FB418 = "FB418: Bad type for argument `node_selection_strategy` : '%s'"
-    FB419 = "FB419: Bad type for argument `aggregator` : '%s'"
-    FB420 = "FB420: Bad type for argument `training_data` : '%s'"
-    FB421 = "FB421: Bad type for argument `tags` : '%s'"
-    FB422 = "FB422: Bad type for argument `nodes` : '%s'"
+    FB417 = "FB417: Bad type for experiment argument `rounds` : '%s'"
+    FB418 = "FB418: Bad type for experiment argument `node_selection_strategy` : '%s'"
+    FB419 = "FB419: Bad type for experiment argument `aggregator` : '%s'"
+    FB420 = "FB420: Bad type for experiment argument `training_data` : '%s'"
+    FB421 = "FB421: Bad type for experiment argument `tags` : '%s'"
+    FB422 = "FB422: Bad type for experiment argument `nodes` : '%s'"
     # node problem detected by researcher
 
     FB500 = "FB500: undetermined node error, detected by server"

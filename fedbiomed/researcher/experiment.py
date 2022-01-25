@@ -35,11 +35,11 @@ class Experiment(object):
                 training_data: Union[FederatedDataSet, dict, None] = None,
                 aggregator: Union[Aggregator, Type[Aggregator], None] = None,
                 node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
+                rounds: int = 1,
                 model_class: Union[Type[Callable], Callable] = None,
                 model_path: str = None,
                 model_args: dict = {},
                 training_args: dict = None,
-                rounds: int = 1,
                 save_breakpoints: bool = False,
                 tensorboard: bool = False,
                 experimentation_folder: str = None
@@ -79,6 +79,9 @@ class Experiment(object):
                 - use `DefaultStrategy` if training_data is initialized
                 - else strategy is None (cannot be initialized), experiment cannot
                   be launched yet
+            - rounds (int, optional): the total number of training rounds
+                (nodes <-> central server) of the experiment.
+                Defaults to 1.
             - model_class (Union[Type[Callable], Callable], optional): name or
                 instance (object) of the model class to use
                 for training.
@@ -91,9 +94,6 @@ class Experiment(object):
             - training_args (dict, optional): contains training parameters:
                 lr, epochs, batch_size...
                 Defaults to None.
-            - rounds (int, optional): the number of communication rounds
-                (nodes <-> central server).
-                Defaults to 1.
             - save_breakpoints (bool, optional): whether to save breakpoints or
                 not. Breakpoints can be used
                 for resuming a crashed
@@ -129,18 +129,15 @@ class Experiment(object):
         # set self._node_selection_strategy: type Union[Strategy, None]
         self.set_strategy(node_selection_strategy)
 
-
-
-        # TODO round_init might not be necessary after refactoring the experiment
-        self._round_init = 0  # start from round 0 ()
-
+        # "current" means number of rounds already trained
         self._round_current = 0
+        self.set_rounds(rounds)
+
         self._experimentation_folder = create_exp_folder(experimentation_folder)
         self._model_class = model_class
         self._model_path = model_path
         self._model_args = model_args
         self._training_args = training_args
-        self._rounds = rounds
 
         status, _ = self._before_job_init()
         if status:
@@ -184,6 +181,12 @@ class Experiment(object):
     def strategy(self):
         return self._node_selection_strategy
 
+    def rounds(self):
+        return self._rounds
+
+    def round_current(self):
+        return self._round_current
+
 
 
     def training_replies(self):
@@ -212,12 +215,6 @@ class Experiment(object):
 
     def monitor(self):
         return self._monitor
-
-    def rounds(self):
-        return self._rounds
-
-    def round_current(self):
-        return self._round_current
 
     def experimentation_folder(self):
         return self._experimentation_folder
@@ -393,7 +390,7 @@ class Experiment(object):
 
 
     def set_strategy(self, node_selection_strategy: Union[Strategy, Type[Strategy], None]):
-        """ Setter for `node_selection_strategy`
+        """ Setter for `node_selection_strategy` + verification on arguments type
 
         Args:
             - node_selection_strategy (Union[Strategy, Type[Strategy], None], optional):
@@ -405,6 +402,7 @@ class Experiment(object):
                   be launched yet
 
         Raises:
+            - TypeError : bad strategy type
 
         Returns:
             - node_selection_strategy (Union[Strategy, None]
@@ -439,10 +437,50 @@ class Experiment(object):
         return self._node_selection_strategy
 
 
-
     def set_rounds(self, rounds: int):
-        # TODO: Check argument type is correct
-        self._rounds = rounds
+        """Setter for `rounds` + verification on arguments type
+
+        Args:
+            - rounds (int, optional): the total number of training rounds
+                (nodes <-> central server) of the experiment.
+
+        Raise:
+            - TypeError : bad rounds type
+
+        Returns:
+            - rounds (int)
+        """
+        # at this point round_current exists and is an int >= 0
+        if not isinstance(rounds, int):
+            self._rounds = max(1, self._round_current) # robust default
+            raise TypeError(ErrorNumbers.FB417.value % type(rounds))
+        else:
+            # at this point rounds is an int
+            self._rounds = max(rounds, self._round_current)
+            if rounds < self._round_current:
+                # self._rounds can't be less than current round
+                # need to change round_current if really wanted to set this value
+                logger.warning(f'`rounds` cannot be less than `round_current`: '
+                    f'setting `rounds`={self._round_current}')
+
+        # at this point self._rounds is an int
+        return self._rounds
+
+
+    # no setter for self._round_current eg
+    #def set_round_current(self, round_current: int):
+    # ...
+    #
+    # - does not make sense to increase `self._round_current` == padding with "non existing" rounds,
+    #   would need to invent some dummy data for strategy, experiment results, etc.
+    # - erasing rounds is complicated: not only decreasing `self._round_current)`, need
+    #   to clean some experiment results (aggregated_params, job.training_replies, ...),
+    #   change state of aggregator, strategy, etc... == the proper way of doing it is to
+    #   load a breakpoint
+
+
+
+
 
     def set_model_args(self, model_args: Dict):
         """ Setter for Model Arguments. This method should also update/set model arguments in
@@ -685,7 +723,8 @@ class Experiment(object):
             'Arguments': [
                 'Tags', 'Nodes filter', 'Training Data',
                 'Aggregator', 'Strategy',
-                'Rounds', 'Model Path', 'Model Class', 'Model Arguments',
+                'Already run rounds', 'Total rounds',
+                'Model Path', 'Model Class', 'Model Arguments',
                 'Training Arguments', 
                 'Job', 'Breakpoint State', 'Exp  folder',
                 'Exp folder', 'Exp Path'
@@ -693,7 +732,8 @@ class Experiment(object):
             'Values': [
                 self._tags, self._nodes, self._fds,
                 self._aggregator,  self._node_selection_strategy,
-                self._rounds, self._model_path, self._model_class, self._model_args,
+                self._round_current, self._rounds,
+                self._model_path, self._model_class, self._model_args,
                 self._training_args,
                 self._job, self._save_breakpoint, self._experimentation_folder,
                 os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
@@ -744,7 +784,7 @@ class Experiment(object):
         return status, messages
 
 
-    # Beakpoint functions ----------------------------------------------------------------
+    # Breakpoint functions ----------------------------------------------------------------
 
     def _save_breakpoint(self, round: int = 0):
         """
