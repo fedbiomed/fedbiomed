@@ -136,7 +136,7 @@ class PreProcessingChecker:
                 if _feature_data_type == DataType.DATETIME.name:
                     self.check_datetime_variable_compliance(_view,
                                                             _feature)
-                print('read data type', _feature_data_type)   
+                 
                 if _feature_data_type == DataType.KEY.name:
                     self.check_key_variable_compliance(_view,
                                                        _feature)
