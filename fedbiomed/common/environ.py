@@ -3,6 +3,7 @@ import os
 import sys
 import uuid
 
+from fedbiomed.common.exceptions     import EnvironException
 from fedbiomed.common.logger         import logger
 from fedbiomed.common.singleton      import SingletonMeta
 from fedbiomed.common.constants      import ComponentType, HashingAlgorithms
@@ -72,6 +73,29 @@ class Environ(metaclass = SingletonMeta):
 
         # display some information on the present environment
         self.info()
+
+
+    def __getitem__(self,key):
+        """
+        override the [] get operator to control the Exception type
+        """
+        if not key in self._values:
+            logger.critical("Environ() does not contain the key: " + str(key))
+            raise EnvironException("Environ() does not contain the key: " + str(key))
+        return self._values[key]
+
+
+    def __setitem__(self, key, value):
+        """
+        override the [] set operator to control the Exception type
+        """
+
+        if value is None:
+            logger.critical("setting Environ() value to None for key: " + str(key))
+            raise EnvironException("setting Environ() value to None for key: " + str(key))
+
+        self._values[key] = value
+        return value
 
 
     def _init_common(self):
@@ -435,13 +459,6 @@ class Environ(metaclass = SingletonMeta):
         uploads_url = os.getenv('UPLOADS_URL', uploads_url)
 
         return uploads_url
-
-
-    def values(self):
-
-        """ Return values dictionary """
-
-        return self._values
 
     def print_component_type(self):
 
