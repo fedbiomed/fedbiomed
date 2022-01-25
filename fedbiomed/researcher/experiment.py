@@ -61,17 +61,24 @@ class Experiment(object):
                 * else if it is a dict, create and use a FederatedDataSet object from the dict
                   and use this value as training_data. The dict should use node ids as keys,
                   values being list of dicts (each dict representing a dataset on a node).
-                * else if it is None (no training data provided),
-                  search for datasets by a query to the nodes using `tags` and `nodes`
-                  (if `tags` is set)
-                Defaults to None (query nodes for dataset if `tags` is set)
+                * else if it is None (no training data provided)
+                  - set training_data by
+                    searching for datasets with a query to the nodes using `tags` and `nodes`
+                    (if `tags` is set)
+                  - or set training_data to None (no training_data set yet,
+                    experiment is not fully initialized and cannot be launched)
+                Defaults to None (query nodes for dataset if `tags` is set, set training_data
+                to None else)
             - aggregator (Union[Aggregator, Type[Aggregator], None], optional):
                 object or class defining the method for aggregating local updates.
                 Default to None (use `FedAverage` for aggregation)
-            - node_selection_strategy (Union[Type[Strategy], Strategy], optional):
-                class or object defining how nodes are sampled at each round
+            - node_selection_strategy (Union[Strategy, Type[Strategy], None], optional):
+                object or class defining how nodes are sampled at each round
                 for training, and how non-responding nodes are managed.
-                Defaults to None (uses DefaultStrategy for training)
+                Defaults to None:
+                - use `DefaultStrategy` if training_data is initialized
+                - else strategy is None (cannot be initialized), experiment cannot
+                  be launched yet
             - model_class (Union[Type[Callable], Callable], optional): name or
                 instance (object) of the model class to use
                 for training.
@@ -119,17 +126,10 @@ class Experiment(object):
         # set self._aggregator : type Aggregator
         self.set_aggregator(aggregator)
 
+        # set self._node_selection_strategy: type Union[Strategy, None]
+        self.set_strategy(node_selection_strategy)
 
-        # Initialize node selection strategy
-        if node_selection_strategy is None and self._fds:
-            self._node_selection_strategy = DefaultStrategy(self._fds)
-        elif node_selection_strategy and self._fds:
-            if inspect.isclass(self._node_selection_strategy):
-                self._node_selection_strategy = node_selection_strategy(self._fds)
-            else:
-                raise TypeError(ErrorNumbers.FB423.value)
-        else:
-            self._node_selection_strategy = None
+
 
         # TODO round_init might not be necessary after refactoring the experiment
         self._round_init = 0  # start from round 0 ()
@@ -181,6 +181,9 @@ class Experiment(object):
     def aggregator(self):
         return self._aggregator
 
+    def strategy(self):
+        return self._node_selection_strategy
+
 
 
     def training_replies(self):
@@ -206,9 +209,6 @@ class Experiment(object):
 
     def model_class(self):
         return self._model_class
-
-    def node_selection_strategy(self):
-        return self._node_selection_strategy
 
     def monitor(self):
         return self._monitor
@@ -331,6 +331,7 @@ class Experiment(object):
             raise TypeError(ErrorNumbers.FB420.value % type(training_data))
         else:
             self._fds = None
+            logger.warning('Experiment not fully configured yet: no training data')
         # at this point, self._fds is either None or a FederatedDataSet object
         
         # strategy and job don't always exist at this point
@@ -387,8 +388,56 @@ class Experiment(object):
             logger.error(ErrorNumbers.FB419.value % type(aggregator))
             raise TypeError(ErrorNumbers.FB419.value % type(aggregator))
         
-        # at this point we have a (non-None) aggregator object
+        # at this point self._aggregator is (non-None) aggregator object
         return self._aggregator
+
+
+    def set_strategy(self, node_selection_strategy: Union[Strategy, Type[Strategy], None]):
+        """ Setter for `node_selection_strategy`
+
+        Args:
+            - node_selection_strategy (Union[Strategy, Type[Strategy], None], optional):
+                object or class defining how nodes are sampled at each round
+                for training, and how non-responding nodes are managed.
+                Defaults to None:
+                - use `DefaultStrategy` if training_data is initialized
+                - else strategy is None (cannot be initialized), experiment cannot
+                  be launched yet
+
+        Raises:
+
+        Returns:
+            - node_selection_strategy (Union[Strategy, None]
+        """
+        if self._fds is not None:
+            if node_selection_strategy is None:
+                # default node_selection_strategy
+                self._node_selection_strategy = DefaultStrategy(self._fds)
+            elif inspect.isclass(node_selection_strategy):
+                # a class is provided, need to instantiate an object
+                if issubclass(node_selection_strategy, Strategy):
+                    self._node_selection_strategy = node_selection_strategy(self._fds)
+                else:
+                    # bad argument, need to provide a Strategy class
+                    self._node_selection_strategy = DefaultStrategy(self._fds) # be robust
+                    logger.error(ErrorNumbers.FB418.value % f'{node_selection_strategy} class')
+                    raise TypeError(ErrorNumbers.FB418.value % f'{node_selection_strategy} class')
+            elif isinstance(node_selection_strategy, Strategy):
+                # an object of a proper class is provided, nothing to do
+                self._node_selection_strategy = node_selection_strategy
+            else:
+                # other bad type or object
+                self._node_selection_strategy = DefaultStrategy(self._fds) # be robust
+                logger.error(ErrorNumbers.FB418.value % type(node_selection_strategy))
+                raise TypeError(ErrorNumbers.FB418.value % type(node_selection_strategy))
+        else:
+            # cannot initialize strategy if not FederatedDataSet yet
+            self._node_selection_strategy = None
+            logger.warning('Experiment not fully configured yet: no node selection strategy')
+
+        # at this point self._node_selection_strategy is a Union[Strategy, None]
+        return self._node_selection_strategy
+
 
 
     def set_rounds(self, rounds: int):
@@ -501,24 +550,6 @@ class Experiment(object):
         else:
             logger.critical('Error while setting Job: \n\n- %s' % '\n- '.join(messages))
 
-    def set_node_selection_strategy(self, node_selection_strategy: Union[Type[Strategy], Strategy] = None):
-        """ Setter for `node_selection_strategy`
-
-        Args:
-            node_selection_strategy (Type[Strategy], Strategy): Callable class or object inherits main
-            Strategy class
-        """
-        if self._fds:
-            if node_selection_strategy is None:
-                self._node_selection_strategy = DefaultStrategy(self._fds)
-            else:
-                # TODO: Check strategy is type of Callable or built class and is type of Strategy
-                if inspect.isclass(self._node_selection_strategy):
-                    self._node_selection_strategy = node_selection_strategy(self._fds)
-                else:
-                    raise TypeError(ErrorNumbers.FB423.value)
-        else:
-            logger.error(ErrorNumbers.FB417.value)
 
     def set_monitor(self, tensorboard: bool = True, monitor: Monitor = None):
         """ Setter for monitoring loss values on Tensorboard. Currently, Monitor
@@ -694,7 +725,7 @@ class Experiment(object):
 
     def _before_experiment_run(self):
 
-        no_none_args_msg = {"_job": ErrorNumbers.FB415.value,
+        no_none_args_msg = {"_job": ErrorNumbers.FB414.value,
                             "_node_selection_strategy": ErrorNumbers.FB415.value,
                             }
 

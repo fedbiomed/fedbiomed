@@ -107,14 +107,12 @@ class ErrorNumbers(_BaseEnum):
             "experiment with model path or use `.set_model_class()` method of the experiment"
     FB414 = "FB414: Please create job with `.set_job()` before running the experiment"
     FB415 = "FB415: Please set client selection strategy"
-    FB416 = "FB416: Please set an aggregator"
-    FB417 = "FB417: Please set a training_data before setting `node_selection_strategy`. You can use " \
-            "`.set_training_data(tags: list)` to set a training data"
+
+    FB418 = "FB418: Bad type for argument `node_selection_strategy` : '%s'"
     FB419 = "FB419: Bad type for argument `aggregator` : '%s'"
     FB420 = "FB420: Bad type for argument `training_data` : '%s'"
     FB421 = "FB421: Bad type for argument `tags` : '%s'"
     FB422 = "FB422: Bad type for argument `nodes` : '%s'"
-    FB423 = "FB423: Node selection strategy should be a class"
     # node problem detected by researcher
 
     FB500 = "FB500: undetermined node error, detected by server"
