@@ -1,8 +1,7 @@
 """
 this provides a fake environment for the test
 
-it is a replacement for fedbiomed.common.environ
-specifically for the researcher
+it is a replacement for fedbiomed.common.environ which creates the Environclass as a singleton
 
 this module should be imported by
 
@@ -13,8 +12,9 @@ import os
 import sys
 from posix import listdir
 
-from fedbiomed.common.singleton import SingletonMeta
-from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.exceptions import EnvironException
+from fedbiomed.common.singleton  import SingletonMeta
+from fedbiomed.common.constants  import ComponentType
 import inspect
 import shutil
 
@@ -36,6 +36,8 @@ class Environ(metaclass = SingletonMeta):
             )
         self._values={}
 
+        # TODO: use os.path.join instead of / in path
+        # TODO: use os.mktemp instead of /tmp
         self._values['ROOT_DIR']                = "/tmp"
         self._values['CONFIG_DIR']              = "/tmp/etc"
         self._values['VAR_DIR']                 = "/tmp/var"
@@ -85,6 +87,13 @@ class Environ(metaclass = SingletonMeta):
             os.makedirs(self._values['EXPERIMENTS_DIR']        , exist_ok=True)
             os.makedirs(self._values['TENSORBOARD_RESULTS_DIR'], exist_ok=True)
 
+    def __getitem__(self, key):
+        return self._values[key]
 
-    def values(self):
-        return self._values
+    def __setitem__(self, key, value):
+        if value is None:
+            logger.critical("setting Environ() value to None for key: " + str(key))
+            raise EnvironException("setting Environ() value to None for key: " + str(key))
+
+        self._values[key] = value
+        return value
