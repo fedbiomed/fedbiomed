@@ -1,16 +1,16 @@
-from typing import Dict, Any
-
+from typing import Dict, Any, Union
+from enum import Enum
 from fedbiomed.common.data_tool.pre_processing_checks import PreProcessingChecks
-from fedbiomed.common.data_tool.pre_processing_warnings_exceptions import  DataSanityCheckException
+from fedbiomed.common.data_tool.pre_processing_warnings_exceptions import DataSanityCheckException
 
 
 class WarningReportLogger:
     def __init__(self, disclosure:int):
         self._disclosure = disclosure
-        
-        
+         
         self._report = {}
         self._current_entry = None
+        self._is_current_entry_exception = None
         self._n_warnings = 0
         self._n_sanity_checks = 1
         self._n_exception = 0
@@ -20,21 +20,28 @@ class WarningReportLogger:
 
         
     def write_new_entry(self, check: PreProcessingChecks):
-        self._current_entry = check.name
-        if check.name not in self._report:
+        self._current_entry = check.get_entry_name()
+        
+        if isinstance(check.warning_type, Enum):
+            self._is_current_entry_exception = False
             
-            
-            if self._disclosure < 2:
-                if isinstance(check, PreProcessingChecks):
+            if check.name not in self._report:
+                if self._disclosure < 2:
                     self._current_entry = 'sanity_check_' + str(self._n_sanity_checks)
                     self._n_sanity_checks += 1
-                
-                elif issubclass(check.warning_type, Exception):
+                    
+        elif issubclass(check.warning_type, Exception):
+
+            self._is_current_entry_exception = True
+            if check.name not in self._report:
+                if self._disclosure < 2:
                     self._current_entry = 'Error_' + str(self._n_exception)
-                    self._n_exception += 1
-                else:
-                    print("input not understood")
-            
+                    self._n_exception += 1          
+        else:
+            print("input not understood")
+
+        if check.get_entry_name() not in self._report:   
+            # add new 
             self._report[self._current_entry] = []
         
     def write_checking_result(self,
@@ -52,7 +59,8 @@ class WarningReportLogger:
         elif success is None:
             msg = 'Test skipped'
         else:
-            self._n_warnings += 1
+            if not self._is_current_entry_exception:
+                self._n_warnings += 1
             print(msg)
         if self._disclosure > 2:
             _new_entry['feature'] = feature_name

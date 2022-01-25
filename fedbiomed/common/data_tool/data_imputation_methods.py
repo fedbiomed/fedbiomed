@@ -5,7 +5,7 @@ from typing import Union, Callable, List
 from sklearn.impute import KNNImputer
 import pandas as pd
 import numpy as np
-from fedbiomed.common.data_tool.data_type import QuantitativeDataType, CategoricalDataType, DataType
+from fedbiomed.common.data_tool.data_type import QuantitativeDataType, CategoricalDataType
 
 # imputation methods
 

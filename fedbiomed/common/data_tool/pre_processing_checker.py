@@ -317,8 +317,6 @@ class PreProcessingChecker:
             _is_missing_values_authorized = _feature_format_ref.get('is_missing_values',
                                                                     'test_skipped')
             
-            self._warning_logger.write_new_entry(PreProcessingChecks.MISSING_DATA_ALLOWED)
-
             if _is_missing_values_authorized == 'test_skipped':
                 warning_msg = 'Test skipped'
                 success = None
@@ -327,16 +325,21 @@ class PreProcessingChecker:
                 # test fails: 
                 if _is_missing_values_authorized:
                     # case where missing values are present BUT allowed
+                    self._warning_logger.write_new_entry(PreProcessingChecks.MISSING_DATA_ALLOWED)
                     warning_msg = raise_warning(PreProcessingChecks.MISSING_DATA_ALLOWED,
                                             feature_name)
                 else:
                     # case where missing values are present AND NOT allowed
+                    self._warning_logger.write_new_entry(PreProcessingChecks.MISSING_DATA_NOT_ALLOWED)
                     try:
                         warning_msg = raise_warning(PreProcessingChecks.MISSING_DATA_NOT_ALLOWED,
                                                 feature_name)
                     except check_exception.MissingDataException as err:
                         self._warning_logger.add_exception(err)
                         warning_msg = str(err)
+                    
+                        # indicate that the current entry is an exception
+                        #self._warning_logger._is_current_entry_exception = True
             else:
                 # test passed
                 warning_msg = 'Test passed'
@@ -420,8 +423,8 @@ class PreProcessingChecker:
     
     
     def check_values_in_categorical_variable(self, 
-                                             view_name:str,
-                                             feature_name:str)-> bool:
+                                             view_name: str,
+                                             feature_name: str)-> bool:
         """Checks if values are contained in categorical variables"""
 
         _renamed_feature_name = self._get_feature_defined_in_format_file(view_name,
@@ -437,7 +440,9 @@ class PreProcessingChecker:
             success = None
         else:
             unique_values = utils.unique(column)
+            unique_values = [str(x) for x in unique_values]
             success = True
+            # iterate over unique_values contained in feature: 
             for val in unique_values:
                 if val not in categorical_values and not utils.is_nan(val):
                     warning_msg = raise_warning(PreProcessingChecks.INCORRECT_VALUES_CATEGORICAL_DATA,

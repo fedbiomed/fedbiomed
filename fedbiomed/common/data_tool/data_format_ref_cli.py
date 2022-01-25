@@ -2,18 +2,16 @@ from enum import Enum
 import os
 from typing import List, Tuple, Dict, List, Any, Callable, Iterator
 import pprint
-import dateutil
-from dateutil.parser._parser import ParserError
 import copy
-from numpy import VisibleDeprecationWarning
 import pandas as pd
 
 from fedbiomed.common.data_tool.data_imputation_methods import ImputationMethods
 from fedbiomed.common.data_tool import utils
-from fedbiomed.common.data_tool.data_type import DataType, CategoricalDataType, DataTypeProperties
+from fedbiomed.common.data_tool.data_type import DataType, DataTypeProperties
 
 
 GLOBAL_THRESHOLDS = 'global_thresholds'  # additional entry used for specifying global parameters (eg nb )
+
 
 def get_yes_no_msg() -> str:
     msg_yes_or_no_question = '1) YES\n2) NO\n'   
@@ -682,7 +680,7 @@ def ask_for_date_format(*kwargs) -> Dict[str, Any]:
            '4': 'ISO date format (YYYY-MM-DD)',
           '5': 'custom date format',
           '6': 'select timezone'}
-    pass
+    pass  # unfinished (posteponed)
 
 def edit_feature_format_file_ref(feature_content: Dict[str, Any],
                                   feature_name: str,
