@@ -9,14 +9,13 @@ mock_common_environ.py
 
 """
 import os
-import sys
-from posix import listdir
+import inspect
+import shutil
 
 from fedbiomed.common.exceptions import EnvironException
 from fedbiomed.common.singleton  import SingletonMeta
 from fedbiomed.common.constants  import ComponentType
-import inspect
-import shutil
+from fedbiomed.common.logger     import logger
 
 class Environ(metaclass = SingletonMeta):
 
