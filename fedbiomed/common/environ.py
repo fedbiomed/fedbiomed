@@ -1,8 +1,8 @@
 import configparser
 import os
-import sys
 import uuid
 
+from fedbiomed.common.exceptions     import EnvironException
 from fedbiomed.common.logger         import logger
 from fedbiomed.common.singleton      import SingletonMeta
 from fedbiomed.common.constants      import ComponentType, HashingAlgorithms
@@ -43,7 +43,7 @@ class Environ(metaclass = SingletonMeta):
     this (singleton) class contains all variables for researcher or node
     """
 
-    def __init__(self, component = None):
+    def __init__(self, component: ComponentType = None):
         """
         class constructor
 
@@ -56,7 +56,7 @@ class Environ(metaclass = SingletonMeta):
             self._values['COMPONENT_TYPE'] = component
         else:
             logger.critical("Environ() parameter should be of ComponentType")
-            sys.exit(-1)
+            raise EnvironException("Environ() parameter should be of ComponentType")
 
         # common values for all components
         self._init_common()
@@ -74,17 +74,41 @@ class Environ(metaclass = SingletonMeta):
         self.info()
 
 
+    def __getitem__(self, key: str):
+        """
+        override the [] get operator to control the Exception type
+        """
+        if key not in self._values:
+            logger.critical("Environ() does not contain the key: " + str(key))
+            raise EnvironException("Environ() does not contain the key: " + str(key))
+        return self._values[key]
+
+
+    def __setitem__(self, key: str, value):
+        """
+        override the [] set operator to control the Exception type
+        """
+
+        if value is None:
+            logger.critical("setting Environ() value to None for key: " + str(key))
+            raise EnvironException("setting Environ() value to None for key: " + str(key))
+
+        self._values[key] = value
+        return value
+
+
     def _init_common(self):
         """
         commun configuration values for researcher and node
         """
 
-        # locate the top dir from the file location
+        # locate the top dir from the file location (got up twice)
         ROOT_DIR = os.path.abspath(
             os.path.join(
                 os.path.dirname(
                     os.path.abspath(__file__)),
-                '../..'
+                '..',
+                '..'
             )
         )
         self._values['ROOT_DIR'] = ROOT_DIR
@@ -103,6 +127,7 @@ class Environ(metaclass = SingletonMeta):
                     os.makedirs(dir)
                 except FileExistsError:
                     logger.error("path exists but is not a directory " + dir)
+                    raise
 
         pass
 
@@ -119,9 +144,14 @@ class Environ(metaclass = SingletonMeta):
 
         # we may remove RESEARCHER_ID in the future (to simplify the code)
         # and use ID instead
+        try:
+            _cfg_value = cfg.get('default', 'researcher_id')
+        except:
+            logger.critical("no default/researcher_id in config file, please recreate a new config file")
+            raise
+
         self._values['RESEARCHER_ID'] = os.getenv('RESEARCHER_ID',
-                                                    cfg.get('default',
-                                                            'researcher_id'))
+                                                  _cfg_value)
         self._values['ID'] = self._values['RESEARCHER_ID']
 
 
@@ -139,6 +169,7 @@ class Environ(metaclass = SingletonMeta):
                     os.makedirs(dir)
                 except FileExistsError:
                     logger.error("path exists but is not a directory " + dir)
+                    raise
 
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join( VAR_DIR, 'queue_messages')
 
@@ -153,8 +184,13 @@ class Environ(metaclass = SingletonMeta):
         cfg = self._parse_config_file()
         self._init_network_configurations(cfg)
 
+        try:
+            _cfg_value = cfg.get('default', 'node_id')
+        except:
+            logger.critical("no default/node_id in config file, please recreate a new config file")
+            raise
 
-        self._values['NODE_ID']   = os.getenv('NODE_ID', cfg.get('default', 'node_id'))
+        self._values['NODE_ID']   = os.getenv('NODE_ID', _cfg_value)
         self._values['ID']        = self._values['NODE_ID']
 
 
@@ -170,21 +206,38 @@ class Environ(metaclass = SingletonMeta):
         self._values['DEFAULT_MODELS_DIR']  = os.path.join(ROOT_DIR,
                                                             'envs' , 'development', 'default_models')
 
+        try:
+            _cfg_value = cfg.get('security', 'allow_default_models')
+        except:
+            logger.critical("no security/allow_default_models in config file, please recreate a new config file")
+            raise
+
         self._values['ALLOW_DEFAULT_MODELS'] = os.getenv('ALLOW_DEFAULT_MODELS',
-                                                                cfg.get('security', 'allow_default_models')) \
-                                                                    .lower() in ('true', '1', 't', True)
+                                                         _cfg_value) \
+                                                 .lower() in ('true', '1', 't', True)
+
+        try:
+            _cfg_value = cfg.get('security', 'model_approval')
+        except:
+            logger.critical("no security/model_approval in config file, please recreate a new config file")
+            raise
 
         self._values['MODEL_APPROVAL'] = os.getenv('ENABLE_MODEL_APPROVAL',
-                                                                cfg.get('security', 'model_approval')) \
-                                                                    .lower() in ('true', '1', 't', True)
+                                                   _cfg_value) \
+                                           .lower() in ('true', '1', 't', True)
 
+        try:
+            _cfg_value = cfg.get('security', 'hashing_algorithm')
+        except:
+            logger.critical("no security/hashing_algorithm in config file, please recreate a new config file")
+            raise
 
-        hashing_algorithm = cfg.get( 'security', 'hashing_algorithm')
+        hashing_algorithm = _cfg_value
 
         if hashing_algorithm in HashingAlgorithms.list():
-            self._values['HASHING_ALGORITHM'] = cfg.get( 'security', 'hashing_algorithm')
+            self._values['HASHING_ALGORITHM'] = hashing_algorithm
         else:
-            raise Exception(f'Hashing algorithm must on of: {HashingAlgorithms.list()}')
+            raise EnvironException(f'Hashing algorithm must on of: {HashingAlgorithms.list()}')
 
 
         # ========= PATCH MNIST Bug torchvision 0.9.0 ===================
@@ -231,11 +284,20 @@ class Environ(metaclass = SingletonMeta):
 
 
         # Parser for the .ini file
-        cfg = configparser.ConfigParser()
+        try:
+            cfg = configparser.ConfigParser()
+        except:
+            logger.critical("Cannot create config parser")
+            raise EnvironException("Cannot create config parser")
 
         if os.path.isfile(CONFIG_FILE):
             # get values from .ini file
-            cfg.read(CONFIG_FILE)
+            try:
+                cfg.read(CONFIG_FILE)
+            except:
+                logger.critical("Cannot read config file")
+                raise EnvironException("Cannot read config file")
+
         else:
             if self._values['COMPONENT_TYPE'] == ComponentType.RESEARCHER:
                 self._create_researcher_config_file(cfg, CONFIG_FILE)
@@ -300,6 +362,7 @@ class Environ(metaclass = SingletonMeta):
                 cfg.write(f)
         except:
             logger.error("Cannot save config file: " + config_file)
+            raise EnvironException("Cannot save config file: " + config_file)
 
         pass
 
@@ -334,7 +397,8 @@ class Environ(metaclass = SingletonMeta):
             with open(config_file, 'w') as f:
                 cfg.write(f)
         except:
-            logger.error("cannot save config file: " + config_file)
+            logger.error("Cannot save config file: " + config_file)
+            raise EnvironException("Cannot save config file: " + config_file)
 
 
     def _init_network_configurations(self, cfg):
@@ -342,16 +406,32 @@ class Environ(metaclass = SingletonMeta):
         """ Initialize network configurations """
 
         # broker location
+        try:
+            _cfg_value = cfg.get('mqtt', 'broker_ip')
+        except:
+            logger.critical("no mqtt/broker_ip in config file, please recreate a new config file")
+            raise
+
         self._values['MQTT_BROKER'] = os.getenv('MQTT_BROKER',
-                                                cfg.get('mqtt',
-                                                        'broker_ip'))
+                                                _cfg_value)
+
+        try:
+            _cfg_value = cfg.get('mqtt', 'port')
+        except:
+            logger.critical("no mqtt/port in config file, please recreate a new config file")
+            raise
+
         self._values['MQTT_BROKER_PORT']  = int(os.getenv('MQTT_BROKER_PORT',
-                                                          cfg.get(
-                                                              'mqtt',
-                                                              'port')))
+                                                          _cfg_value))
 
         # repository location
-        UPLOADS_URL = cfg.get('default', 'uploads_url')
+        try:
+            _cfg_value = cfg.get('default', 'uploads_url')
+        except:
+            logger.critical("no default/uploads_url in config file, please recreate a new config file")
+            raise
+
+        UPLOADS_URL = _cfg_value
         uploads_ip = os.getenv('UPLOADS_IP')
         if uploads_ip:
             UPLOADS_URL = "http://" + uploads_ip + ":8844/upload/"
@@ -379,13 +459,6 @@ class Environ(metaclass = SingletonMeta):
 
         return uploads_url
 
-
-    def values(self):
-
-        """ Return values dictionary """
-
-        return self._values
-
     def print_component_type(self):
 
         """ Salutation function (for debug purpose mainly) """
@@ -397,9 +470,9 @@ class Environ(metaclass = SingletonMeta):
 
         logger.info("Component environment:")
         if self._values['COMPONENT_TYPE'] == ComponentType.RESEARCHER:
-            logger.info("- type = " + str(self._values['COMPONENT_TYPE']))
+            logger.info("type = " + str(self._values['COMPONENT_TYPE']))
 
         if self._values['COMPONENT_TYPE'] == ComponentType.NODE:
-            logger.info("- type                = " + str(self._values['COMPONENT_TYPE']))
-            logger.info("- model_approval      = " + str(self._values['MODEL_APPROVAL']))
-            logger.info("- allow_default_model = " + str(self._values['ALLOW_DEFAULT_MODELS']))
+            logger.info("type                = " + str(self._values['COMPONENT_TYPE']))
+            logger.info("model_approval      = " + str(self._values['MODEL_APPROVAL']))
+            logger.info("allow_default_model = " + str(self._values['ALLOW_DEFAULT_MODELS']))

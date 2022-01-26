@@ -38,8 +38,8 @@ from fedbiomed.researcher.exceptions import TrainingException
 # you can use any class name eg:
 # class AlterTrainingPlan(TorchTrainingPlan):
 class MyTrainingPlan(TorchTrainingPlan):
-    def __init__(self):
-        super(MyTrainingPlan, self).__init__()
+    def __init__(self, model_args: dict = {}):
+        super(MyTrainingPlan, self).__init__(model_args)
         self.conv1 = nn.Conv2d(1, 32, 3, 1)
         self.conv2 = nn.Conv2d(32, 64, 3, 1)
         self.dropout1 = nn.Dropout(0.25)

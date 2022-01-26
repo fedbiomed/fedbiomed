@@ -38,11 +38,11 @@ import pandas as pd
 # Here we define the model to be used.
 # You can use any class name (here 'MyTrainingPlan')
 class MyTrainingPlan(TorchTrainingPlan):
-    def __init__(self, kwargs):
-        super(MyTrainingPlan, self).__init__()
-        # kwargs should match the model arguments to be passed below to the experiment class
-        self.in_features = kwargs['in_features']
-        self.out_features = kwargs['out_features']
+    def __init__(self, model_args: dict = {}):
+        super(MyTrainingPlan, self).__init__(model_args)
+        # should match the model arguments dict passed below to the experiment class
+        self.in_features = model_args['in_features']
+        self.out_features = model_args['out_features']
         self.fc1 = nn.Linear(self.in_features, 5)
         self.fc2 = nn.Linear(5, self.out_features)
 
