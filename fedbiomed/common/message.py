@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from typing import Dict, Any, List, Union
 
-from fedbiomed.common.logger import logger
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants  import ErrorNumbers
+from fedbiomed.common.exceptions import MessageException
+from fedbiomed.common.logger     import logger
+
 
 class Message(object):
     """
@@ -14,6 +16,15 @@ class Message(object):
         """ Constructor of the class
         """
         pass
+
+    def __post_init__(self):
+        """
+        raise MessageException if parameters of bad type
+        this is not check by @dataclass
+        """
+        if not self.__validate(self.__dataclass_fields__.items()):
+            logger.critical("bad input value for message: " + self.__str__())
+            raise MessageException("bad input value for message: " + self.__str__())
 
     def set_param(self, param: str, param_value: Any):
         """This method allows to modify the value of a given param
@@ -41,7 +52,7 @@ class Message(object):
         """
         return(self.__dict__)
 
-    def validate(self, fields: Dict[str, Any]) -> bool:
+    def __validate(self, fields: Dict[str, Any]) -> bool:
         """checks whether incoming field types match with attributes
             class type.
 
@@ -56,7 +67,7 @@ class Message(object):
         for field_name, field_def in fields:
             actual_type = type(getattr(self, field_name))
             if actual_type != field_def.type:
-                logger.error(f"{field_name}: '{actual_type}' instead of '{field_def.type}'")
+                logger.critical(f"{field_name}: '{actual_type}' instead of '{field_def.type}'")
                 ret = False
         return ret
 
@@ -70,7 +81,7 @@ class ModelStatusReply(Message):
         Message ([type]): Parent class allows to get and set message params
 
     Raises:
-        ValueError: triggered if message's fields validation failed
+        MessageException: triggered if message's fields validation failed
 
     Keys:
         researcher_id       : Id of the researcher that sends the request
@@ -96,9 +107,6 @@ class ModelStatusReply(Message):
     model_url: str
     command: str
 
-    def __post_init__(self):
-        if not self.validate(self.__dataclass_fields__.items()):
-            raise ValueError('Wrong types')
 
 @dataclass
 class SearchReply(Message):
@@ -108,7 +116,7 @@ class SearchReply(Message):
         Message ([type]): Parent class allows to get and set message params
 
     Raises:
-        ValueError: triggered if message's fields validation failed
+        MessageException: triggered if message's fields validation failed
     """
     researcher_id: str
     success: bool
@@ -117,9 +125,6 @@ class SearchReply(Message):
     node_id: str
     command: str
 
-    def __post_init__(self):
-        if not self.validate(self.__dataclass_fields__.items()):
-            raise ValueError('Wrong types')
 
 @dataclass
 class ListReply(Message):
@@ -131,7 +136,7 @@ class ListReply(Message):
         Message ([type]): Parent class allows to get and set message params
 
     Raises:
-        ValueError: triggered if message's fields validation failed
+        MessageException: triggered if message's fields validation failed
     """
 
     researcher_id: str
@@ -141,9 +146,6 @@ class ListReply(Message):
     command: str
     count: int
 
-    def __post_init__(self):
-        if not self.validate(self.__dataclass_fields__.items()):
-            raise ValueError('Wrong types')
 
 
 @dataclass
@@ -152,7 +154,7 @@ class PingReply(Message):
     This class describes a ping message sent by the node
 
     Raises:
-        ValueError: triggered if message's fields validation failed
+        MessageException: triggered if message's fields validation failed
     """
     researcher_id: str
     node_id: str
@@ -160,9 +162,6 @@ class PingReply(Message):
     sequence: int
     command: str
 
-    def __post_init__(self):
-        if not self.validate(self.__dataclass_fields__.items()):
-            raise ValueError('Wrong types')
 
 
 @dataclass
@@ -171,7 +170,7 @@ class TrainReply(Message):
     This class describes a train message sent by the node
 
     Raises:
-        ValueError: triggered if message's fields validation failed
+        MessageException: triggered if message's fields validation failed
     """
     researcher_id: str
     job_id: str
@@ -183,9 +182,6 @@ class TrainReply(Message):
     msg: str
     command: str
 
-    def __post_init__(self):
-        if not self.validate(self.__dataclass_fields__.items()):
-            raise ValueError('Wrong types')
 
 @dataclass
 class AddScalarReply(Message):
@@ -193,7 +189,7 @@ class AddScalarReply(Message):
     This class describes a add_scalar message sent by the node
 
     Raises:
-        ValueError: triggered if message's fields validation failed
+        MessageException: triggered if message's fields validation failed
     """
     researcher_id: str
     node_id: str
@@ -204,9 +200,6 @@ class AddScalarReply(Message):
     iteration: int
     command: str
 
-    def __post_init__(self):
-        if not self.validate(self.__dataclass_fields__.items()):
-            raise ValueError('Wrong types')
 
 
 @dataclass
@@ -215,17 +208,13 @@ class LogMessage(Message):
     This class describes a log message sent by the node
 
     Raises:
-        ValueError: triggered if message's fields validation failed
+        MessageException: triggered if message's fields validation failed
     """
     researcher_id: str
     node_id: str
     level: str
     msg: str
     command: str
-
-    def __post_init__(self):
-        if not self.validate(self.__dataclass_fields__.items()):
-            raise ValueError('Wrong types')
 
 
 @dataclass
@@ -234,7 +223,7 @@ class ErrorMessage(Message):
     This class describes an error message sent by the node
 
     Raises:
-        ValueError: triggered if message's fields validation failed
+        MessageException: triggered if message's fields validation failed
     """
     researcher_id: str
     node_id: str
@@ -242,9 +231,6 @@ class ErrorMessage(Message):
     extra_msg: str
     command: str
 
-    def __post_init__(self):
-        if not self.validate(self.__dataclass_fields__.items()):
-            raise ValueError('Wrong types')
 
 
 @dataclass
@@ -257,7 +243,7 @@ class ModelStatusRequest(Message):
         Message ([type]): Parent class allows to get and set message params
 
     Raises:
-        ValueError: triggered if message's fields validation failed
+        MessageException: triggered if message's fields validation failed
 
 
     Keys:
@@ -272,9 +258,6 @@ class ModelStatusRequest(Message):
     model_url: str
     command: str
 
-    def __post_init__(self):
-        if not self.validate(self.__dataclass_fields__.items()):
-            raise ValueError('Wrong types')
 
 
 @dataclass
@@ -283,15 +266,13 @@ class SearchRequest(Message):
     This class describes a search message sent by the researcher
 
     Raises:
-       ValueError: triggered if message's fields validation failed
+       MessageException: triggered if message's fields validation failed
     """
     researcher_id: str
     tags: list
     command: str
 
-    def __post_init__(self):
-        if not self.validate(self.__dataclass_fields__.items()):
-            raise ValueError('Wrong types')
+
 
 @dataclass
 class ListRequest(Message):
@@ -300,15 +281,12 @@ class ListRequest(Message):
     datasets belonging to each node.
 
     Raises:
-       ValueError: triggered if message's fields validation failed
+       MessageException: triggered if message's fields validation failed
     """
 
     researcher_id: str
     command: str
 
-    def __post_init__(self):
-        if not self.validate(self.__dataclass_fields__.items()):
-            raise ValueError('Wrong types')
 
 @dataclass
 class PingRequest(Message):
@@ -316,15 +294,12 @@ class PingRequest(Message):
     This class describes a ping message sent by the researcher
 
     Raises:
-        ValueError: triggered if message's fields validation failed
+        MessageException: triggered if message's fields validation failed
     """
     researcher_id: str
     sequence: int
     command: str
 
-    def __post_init__(self):
-        if not self.validate(self.__dataclass_fields__.items()):
-            raise ValueError('Wrong types')
 
 
 @dataclass
@@ -333,7 +308,7 @@ class TrainRequest(Message):
     This class describes a train message sent by the researcher
 
     Raises:
-        ValueError: triggered if message's fields validation failed
+        MessageException: triggered if message's fields validation failed
     """
     researcher_id: str
     job_id: str
@@ -345,9 +320,6 @@ class TrainRequest(Message):
     model_class: str
     command: str
 
-    def __post_init__(self):
-        if not self.validate(self.__dataclass_fields__.items()):
-            raise ValueError('Wrong types')
 
 
 class ResearcherMessages():
@@ -373,7 +345,7 @@ class ResearcherMessages():
         - the structure of the received message
 
         Raises:
-        ValueError: triggered if the message is not allowed to
+        MessageException: triggered if the message is not allowed to
         be received by the researcher
         KeyError: triggered if 'command' field is not present in `params`
 
@@ -393,9 +365,20 @@ class ResearcherMessages():
         }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            raise ValueError('Bad message type {}'.format(message_type))
+            raise MessageException('Bad message type {}'.format(message_type))
 
-        return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
+        try:
+            return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
+        except MessageException:
+            # trap bad type parameter detected by the Message itself
+            # forward the message to the caller
+            raise
+        except:
+            # trap all other errors, particularly wrong number of arguments
+            # and transform it to MessageException
+            msg_class = MESSAGE_TYPE_TO_CLASS_MAP[message_type]
+            name = str(msg_class).split("'")[1].split('.')[-1]
+            raise MessageException('Badly formed {} message {}'.format(name))
 
     @classmethod
     def request_create(cls, params: Dict[str, Any]) -> Union[TrainRequest,
@@ -416,7 +399,7 @@ class ResearcherMessages():
         params (dict): dictionary containing the message.
 
         Raises:
-            ValueError: if the message is not allowed to be sent by the researcher
+            MessageException: if the message is not allowed to be sent by the researcher
             KeyError ?
         Returns:
             An instance of the corresponding Message class
@@ -432,9 +415,20 @@ class ResearcherMessages():
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            raise ValueError('Bad message type {}'.format(message_type))
+            raise MessageException('Bad message type {}'.format(message_type))
 
-        return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
+        try:
+            return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
+        except MessageException:
+            # trap bad type parameter detected by the Message itself
+            # forward the message to the caller
+            raise
+        except:
+            # trap all other errors, particularly wrong number of arguments
+            # and transform it to MessageException
+            msg_class = MESSAGE_TYPE_TO_CLASS_MAP[message_type]
+            name = str(msg_class).split("'")[1].split('.')[-1]
+            raise MessageException('Badly formed {} message {}'.format(name))
 
 
 
@@ -459,7 +453,7 @@ class NodeMessages():
         - the structure of the created message
 
         Raises:
-            ValueError: triggered if the message is not allowed te be sent
+            MessageException: triggered if the message is not allowed te be sent
             by the node (ie if message `command` field is not either a
             train request, search request or a ping request)
 
@@ -477,9 +471,20 @@ class NodeMessages():
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            raise ValueError('Bad message type {}'.format(message_type))
+            raise MessageException('Bad message type {}'.format(message_type))
 
-        return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
+        try:
+            return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
+        except MessageException:
+            # trap bad type parameter detected by the Message itself
+            # forward the message to the caller
+            raise
+        except:
+            # trap all other errors, particularly wrong number of arguments
+            # and transform it to MessageException
+            msg_class = MESSAGE_TYPE_TO_CLASS_MAP[message_type]
+            name = str(msg_class).split("'")[1].split('.')[-1]
+            raise MessageException('Badly formed {} message {}'.format(name))
 
     @classmethod
     def reply_create(cls, params: dict) -> Union[TrainReply,
@@ -499,7 +504,7 @@ class NodeMessages():
         - the structure of the received message
 
         Raises:
-            ValueError: if the message is not allowed te be received by
+            MessageException: if the message is not allowed te be received by
             the node (ie if message `command` field is not either a
             train request, search request, a ping request, add scalar
             request, or error message)
@@ -519,6 +524,17 @@ class NodeMessages():
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            raise ValueError('Bad message type {}'.format(message_type))
+            raise MessageException('Bad message type {}'.format(message_type))
 
-        return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
+        try:
+            return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
+        except MessageException:
+            # trap bad type parameter detected by the Message itself
+            # forward the message to the caller
+            raise
+        except:
+            # trap all other errors, particularly wrong number of arguments
+            # and transform it to MessageException
+            msg_class = MESSAGE_TYPE_TO_CLASS_MAP[message_type]
+            name = str(msg_class).split("'")[1].split('.')[-1]
+            raise MessageException('Badly formed {} message {}'.format(name))

@@ -7,8 +7,10 @@ import testsupport.mock_common_environ
 
 import unittest
 from dataclasses import dataclass
+import sys
 
-import fedbiomed.common.message as message
+from fedbiomed.common.exceptions import MessageException
+import fedbiomed.common.message    as message
 from fedbiomed.common.constants import ErrorNumbers
 
 class TestMessage(unittest.TestCase):
@@ -62,7 +64,8 @@ class TestMessage(unittest.TestCase):
             if not valid_class:
                 self.fail("check_class_args: bad class name")
 
-        except:
+        except Exception as e:
+            print("===== " + str(e.__class__.__name__) + " trapped: " + str(e))
             result = False
 
         # for DEBUG purpose
@@ -95,7 +98,7 @@ class TestMessage(unittest.TestCase):
         b: str
 
 
-    def test_message(self):
+    def test_dummy_message(self):
 
         m1 = message.Message()
 
@@ -113,14 +116,53 @@ class TestMessage(unittest.TestCase):
         self.assertEqual( m1.get_param( "a") , 2)
         self.assertEqual( m1.get_param( "b") , "this_is_a_string")
 
-        # this constructor is not validated until validate() is
-        # effectively called
-        m2 = self.dummyMessage( a = 1 , b = "oh my god !")
-        self.assertEqual( m2.get_param( "a") , 1)
-        self.assertEqual( m2.get_param( "b") , "oh my god !")
+        # test the validate fonction which sends an exception
+        #
+        # bad params
+        bad_result = False
+        try:
+            m2 = self.dummyMessage( a = False , b = "oh my god !")
 
-        # too difficult to test validate directly
-        # it is indirectly tested by the other test_*() calls
+        except MessageException as e:
+            #
+            # we must arrive here, because message is malformed
+            bad_result = True
+
+        except:
+            # we should not arrive here also
+            self.assertTrue(False, "bad exception caught: " + e.__class__.__name__ + " instead of MessageException")
+
+        self.assertTrue( bad_result,
+                         "dummyMessage: bad params not detected")
+
+
+        # bad params number
+        bad_result = False
+        try:
+            m3 = self.dummyMessage()
+
+        except MessageException as e:
+            #
+            # we must arrive here, because message is malformed
+            bad_result = True
+
+        except Exception as e:
+            # TODO:
+            # replace TypeError sent by @dataclass with MessageException
+            #
+            # since @dataclass raises TypeError, and we don't
+            # catch it in the dummyMessage definition, we will
+            # catch here
+            # the way fedbiomed is architectured, we do not create
+            # messages direcly.
+            #
+            # until we fix a way to rename TypeEror, this code must remain
+            #self.assertTrue(False, "bad exception caught: " + e.__class__.__name__)
+            bad_result = True
+
+        self.assertTrue( bad_result,
+                         "dummyMessage: bad param number not detected")
+
 
         pass
 

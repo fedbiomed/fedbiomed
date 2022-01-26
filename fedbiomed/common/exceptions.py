@@ -10,6 +10,13 @@ class LoggerException(Exception):
     """
     pass
 
+class MessageException(Exception):
+    """
+    Exception specific to the Message class
+    usually a badly formed message
+    """
+    pass
+
 class StrategyException(Exception):
     """
     Exception specific to the Strategy class and subclasses
