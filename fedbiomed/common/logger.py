@@ -14,16 +14,14 @@ Add the following features:
   import logging in caller's code) just as in the initial python logger
 """
 
-import copy
 import json  # we do not use fedbiomed.common.json to avoid dependancy loops
-import sys
-import time
 
 import logging
 import logging.handlers
 
 # this fedbiomed.* import is OK: singleton.py does not introduce loop
-from fedbiomed.common.singleton import SingletonMeta
+from fedbiomed.common.exceptions import LoggerException
+from fedbiomed.common.singleton  import SingletonMeta
 
 # default values
 DEFAULT_LOG_FILE   = 'mylog.log'
@@ -138,14 +136,17 @@ class MqttHandler(logging.Handler):
             r = message.NodeMessages.reply_create( msg )
             self._mqtt.publish(self._topic, json.dumps(msg))
 
-        except:
+        except: # pragma: no cover
             # obviously cannot call logger here... (infinite loop)
+            # cannot also send the message to the researcher
+            # (which was the purpose of the try block)
+            #
             print(
                 record.__dict__["asctime"],
                 record.__dict__["name"],
                 "CRITICAL - Badly formatted MQTT log message. Cannot send MQTT message"
             )
-            sys.exit(-1)
+            raise LoggerException("Badly formatted MQTT log message. Cannot send MQTT message")
 
 
 class _LoggerBase():
@@ -265,18 +266,8 @@ class _LoggerBase():
         # because this method is called by __init__
         # (where else to log this really ?)
         self._logger.warning("calling selLevel() with bad value: " + str(level))
+        self._logger.warning("setting WARNING level instead")
         return DEFAULT_LOG_LEVEL
-
-
-    def _internalLevelToString(self, level):
-        """
-        Returns a string corresponding to the log level
-        """
-        if level in self._string_levels:
-            return level
-        if level in self._original_levels:
-            return self._original_levels[level]
-        return "UNKNOWN"
 
 
     def addFileHandler(self,
@@ -395,10 +386,6 @@ class _LoggerBase():
         """
 
         level = self._internalLevelTranslator(level)
-
-        if level > logging.CRITICAL:
-            level = logging.critical
-            logger.debug("setting minimal level to CRITICAL")
 
         # store this level (for future handler adding)
         self._logger.setLevel( level )
