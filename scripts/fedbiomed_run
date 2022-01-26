@@ -63,7 +63,7 @@ function start_gui() {
         # If the path is relative
         else
             if [ ! -d "$basedir/$DATA_PATH" ]; then
-              echo -e "${RED}ERROR${NC}: folder '$basedir/${3}' does not exist. Can not continue.\n"
+              echo -e "${RED}ERROR${NC}: folder '$basedir/${DATA_PATH}' does not exist. Can not continue.\n"
               exit 1
             else
               DATA_PATH="$(cd "$basedir/$DATA_PATH" && pwd)"
