@@ -128,6 +128,24 @@ class TestLogger(unittest.TestCase):
         # initial DEFAULT_LOG_LEVEL
         self.assertEqual( logger.getEffectiveLevel() , DEFAULT_LOG_LEVEL)
 
+        # chech setLevel
+        for l in [ logging.DEBUG,
+                   logging.INFO,
+                   logging.WARNING,
+                   logging.ERROR,
+                   logging.CRITICAL,
+                  ]  :
+            logger.setLevel(l)
+            self.assertEqual( logger.getEffectiveLevel() , l)
+
+        # bounds
+        logger.setLevel( 10000 )
+        self.assertEqual( logger.getEffectiveLevel() , DEFAULT_LOG_LEVEL)
+
+        logger.setLevel( -1 )
+        self.assertEqual( logger.getEffectiveLevel() , DEFAULT_LOG_LEVEL)
+
+
         # modify the default level of existing handlers
         logger.setLevel( "CRITICAL" )
         self.assertEqual( logger.getEffectiveLevel() , logging.CRITICAL)
