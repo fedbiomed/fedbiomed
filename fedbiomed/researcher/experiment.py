@@ -174,31 +174,31 @@ class Experiment(object):
 
     # Getters ---------------------------------------------------------------------------------------------------------
 
-    def tags(self):
+    def tags(self) -> Union[List[str], None]:
         return self._tags
 
-    def nodes(self):
+    def nodes(self) -> Union[List[str], None]:
         return self._nodes
 
-    def training_data(self):
+    def training_data(self) -> Union[FederatedDataSet, None]:
         return self._fds
 
-    def aggregator(self):
+    def aggregator(self) -> Aggregator:
         return self._aggregator
 
-    def strategy(self):
+    def strategy(self) -> Union[Strategy, None]:
         return self._node_selection_strategy
 
-    def rounds(self):
+    def rounds(self) -> int:
         return self._rounds
 
     def round_current(self):
         return self._round_current
 
-    def experimentation_folder(self):
+    def experimentation_folder(self) -> str:
         return self._experimentation_folder
 
-    def experimentation_path(self):
+    def experimentation_path(self) -> str:
         return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
 
 
@@ -237,7 +237,7 @@ class Experiment(object):
 
     # Setters ---------------------------------------------------------------------------------------------------------
 
-    def set_tags(self, tags: Union[List[str], str, None]):
+    def set_tags(self, tags: Union[List[str], str, None]) -> Union[List[str], None]:
         """ Setter for tags + verifications on argument type
 
         Args:
@@ -250,7 +250,7 @@ class Experiment(object):
             - TypeError : bad tags type
 
         Returns :
-            - tags (Union[List[str], str, None])
+            - tags (Union[List[str], None])
         """
         if isinstance(tags, list):
             self._tags = tags
@@ -270,7 +270,7 @@ class Experiment(object):
         return self._tags
 
 
-    def set_nodes(self, nodes: Union[List[str], None]):
+    def set_nodes(self, nodes: Union[List[str], None]) -> Union[List[str], None]:
         """ Setter for nodes + verifications on argument type
 
         Args:
@@ -299,7 +299,8 @@ class Experiment(object):
         return self._nodes
 
 
-    def set_training_data(self, training_data: Union[FederatedDataSet, dict, None]):
+    def set_training_data(self, training_data: Union[FederatedDataSet, dict, None]) -> \
+            Union[FederatedDataSet, None]:
         """ Setter for training data for federated training + verification on arguments type
 
         Args:
@@ -358,7 +359,8 @@ class Experiment(object):
         return self._fds
 
 
-    def set_aggregator(self, aggregator: Union[Aggregator, Type[Aggregator], None]):
+    def set_aggregator(self, aggregator: Union[Aggregator, Type[Aggregator], None]) -> \
+            Aggregator:
         """ Setter for aggregator + verification on arguments type
 
         Args:
@@ -398,7 +400,8 @@ class Experiment(object):
         return self._aggregator
 
 
-    def set_strategy(self, node_selection_strategy: Union[Strategy, Type[Strategy], None]):
+    def set_strategy(self, node_selection_strategy: Union[Strategy, Type[Strategy], None]) -> \
+            Union[Strategy, None]:
         """ Setter for `node_selection_strategy` + verification on arguments type
 
         Args:
@@ -446,7 +449,7 @@ class Experiment(object):
         return self._node_selection_strategy
 
 
-    def set_rounds(self, rounds: int):
+    def set_rounds(self, rounds: int) -> int:
         """Setter for `rounds` + verification on arguments type
 
         Args:
@@ -488,7 +491,7 @@ class Experiment(object):
     #   load a breakpoint
 
 
-    def set_experimentation_folder(self, experimentation_folder: Union[str, None]):
+    def set_experimentation_folder(self, experimentation_folder: Union[str, None]) -> str:
         """Setter for `experimentation_folder` + verification on arguments type
 
         Args:
