@@ -77,10 +77,26 @@ class SGDSkLearnModel():
         """
         return {key: getattr(self.m, key) for key in self.param_list}
 
-    def _compute_support(self, targets: np.ndarray) -> int:
+    def _compute_support(self, targets: np.ndarray) -> np.ndarray:
+        """
+        Computes support, i.e. the number of items per
+        classes.
+        
+        Args:
+            targets (np.ndarray): targets that contains labels 
+            used for training models
+
+        Returns:
+            np.ndarray: support 
+        """
         support = np.zeros((len(self.m.classes_), ))
         # please visit https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324
+        # and https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L738 
+        # to see how multi classfication is done in sklearn
         for i, aclass in enumerate(self.m.classes_):
+            # in sklearn code, in `fit_binary1`, `i`` seems to be 
+            # iterated over model.classes_
+            # (https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L774)
             idx = targets == aclass
             support[i] = np.sum(targets[targets[idx]])
         return support
@@ -126,7 +142,7 @@ class SGDSkLearnModel():
             if monitor is not None:
                 _loss_collector = []
                 if self._is_classif:
-                    if len(classes) > 3:
+                    if classes.shape[0] < 3:
                         # check whether it is a binary classification
                         # or a multiclass classification
                         self._is_binary_classif = True
@@ -137,7 +153,7 @@ class SGDSkLearnModel():
                             continue
                         try:
                             loss = line.split("loss: ")[-1]
-                            _loss_collector.append(loss)
+                            _loss_collector.append(float(loss))
                             # Logging loss values with global logger 
                             logger.info('Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}'.format(
                                             epoch,
@@ -147,8 +163,10 @@ class SGDSkLearnModel():
                             logger.error("Value error during monitoring:" + e)
                         except Exception as e:
                             logger.error("Error during monitoring:" + e)
-                    
+
                     if self._is_classif and not self._is_binary_classif:
+                        # TODO: may be specific to SGDclassifier: if other sklearn
+                        # methods are implemented, should be updated
                         support = self._compute_support(target)
                         loss = np.average(_loss_collector, weights=support)  # perform a weighted average
                     # Batch -1 means Batch Gradient Descent, use all samples
