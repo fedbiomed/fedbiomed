@@ -1,13 +1,12 @@
 import sys
 from io import StringIO
 import inspect
-from typing import Union
+from typing import Iterator, Union
 
 from joblib import dump, load
 import numpy as np
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
-
 from fedbiomed.common.logger import logger
 
 class _Capturer(list):
@@ -20,13 +19,15 @@ class _Capturer(list):
         self._stdout = sys.stdout
         sys.stdout = self._stringio = StringIO()
         return self
+
     def __exit__(self, *args):
         self.extend(self._stringio.getvalue().splitlines())
         del self._stringio    # Remove it from memory
         sys.stdout = self._stdout
 
-class SGDSkLearnModel():
 
+class SGDSkLearnModel():
+    
     def set_init_params(self, model_args):
         """
             Initialize model parameters
@@ -76,6 +77,14 @@ class SGDSkLearnModel():
         """
         return {key: getattr(self.m, key) for key in self.param_list}
 
+    def _compute_support(self, targets: np.ndarray) -> int:
+        support = np.zeros((len(self.m.classes_), ))
+        # please visit https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324
+        for i, aclass in enumerate(self.m.classes_):
+            idx = targets == aclass
+            support[i] = np.sum(targets[targets[idx]])
+        return support
+    
     def training_routine(self,
                          epochs=1,
                          monitor=None,
@@ -103,45 +112,56 @@ class SGDSkLearnModel():
         # perform sklearn training
         #
         (data, target) = self.training_data()
-        breakpoint()
+        classes = np.unique(target)
         for epoch in range(epochs):
             with _Capturer() as output:
                 if self.model_type == 'MultinomialNB' or self.model_type == 'BernoulliNB' or self.model_type == 'Perceptron' or self.model_type == 'SGDClassifier' or self.model_type == 'PassiveAggressiveClassifier' :
-                    self.m.partial_fit(data,target, classes = np.unique(target))
+                    self.m.partial_fit(data,target, classes = classes)
+                    self._is_classif = True
                 elif self.model_type == 'SGDRegressor' or self.model_type == 'PassiveAggressiveRegressor':
                     self.m.partial_fit(data,target)
                 elif self.model_type == 'MiniBatchKMeans' or self.model_type == 'MiniBatchDictionaryLearning':
                     self.m.partial_fit(data)
             
             if monitor is not None:
+                _loss_collector = []
+                if self._is_classif:
+                    if len(classes) > 3:
+                        # check whether it is a binary classification
+                        # or a multiclass classification
+                        self._is_binary_classif = True
                 if self.model_type in self._verbose_capture:
                     for line in output:
+                        # line is of type 'str'
                         if(len(line.split("loss: ")) == 1):
                             continue
                         try:
                             loss = line.split("loss: ")[-1]
-                            
+                            _loss_collector.append(loss)
                             # Logging loss values with global logger 
                             logger.info('Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}'.format(
                                             epoch,
                                             float(loss)))
                             
-                            # Batch -1 means Batch Gradient Descent, use all samples
-                            # This part should be changed after mini-batch implementation is completed
-                            monitor.add_scalar('Loss', float(loss), -1 , epoch)
-
                         except ValueError as e:
-                            logger.error("Value error:" + e)
+                            logger.error("Value error during monitoring:" + e)
                         except Exception as e:
                             logger.error("Error during monitoring:" + e)
+                    
+                    if self._is_classif and not self._is_binary_classif:
+                        support = self._compute_support(target)
+                        loss = np.average(_loss_collector, weights=support)  # perform a weighted average
+                    # Batch -1 means Batch Gradient Descent, use all samples
+                    # This part should be changed after mini-batch implementation is completed
+                    monitor.add_scalar('Loss', float(loss), -1 , epoch)
+
                 elif self.model_type == "MiniBatchKMeans":
                     # Passes inertia value as scalar. It should be emplemented when KMeans implementation is ready 
                     # monitor.add_scalar('Inertia', self.m.inertia_, -1 , epoch)
                     pass
                 elif self.model_type in ['MultinomialNB','BernoulliNB']:
-                    # Need to find a way for Bayesian approaches 
+                    # TODO: Need to find a way for Bayesian approaches 
                     pass
-
 
     def __init__(self, model_args: dict = {}):
         """
@@ -150,6 +170,7 @@ class SGDSkLearnModel():
         Args:
         - model_args (dict, optional): model arguments.
         """
+        #sklearn.utils.parallel_backend("locky", n_jobs=1, inner_max_num_threads=1)
         self.batch_size = 100  #unused
         self.model_map = {'MultinomialNB', 'BernoulliNB', 'Perceptron', 'SGDClassifier', 'PassiveAggressiveClassifier',
                           'SGDRegressor', 'PassiveAggressiveRegressor', 'MiniBatchKMeans',
@@ -166,7 +187,7 @@ class SGDSkLearnModel():
             model_args = {}
 
         if 'model' not in model_args or model_args['model'] not in self.model_map:
-            logger.error('model must be one of, ' +  str(self.model_map))
+            logger.error('model must be one of, ' + str(self.model_map))
         else:
             self.model_type = model_args['model']
 
@@ -184,6 +205,7 @@ class SGDSkLearnModel():
             elif model_args['model'] not in self._verbose_capture:
                 logger.info("[TENSORBOARD ERROR]: cannot compute loss for " +\
                     model_args['model'] + ": it needs to be implemeted")
+                
             self.m = eval(self.model_type)()
             self.params_sgd = self.m.get_params()
             from_args_sgd_proper_pars = {key: model_args[key] for key in model_args if key in self.params_sgd}
@@ -191,7 +213,9 @@ class SGDSkLearnModel():
             self.param_list = []
             self.set_init_params(model_args)
             self.dataset_path = None
-
+            self._is_classif = False  # whether the model selected is a classifier or not
+            self._is_binary_classif = False  # whether the classification is binary or multi classes 
+            # (for classification only)
 
     # provided by fedbiomed // necessary to save the model code into a file
     def add_dependency(self, dep):

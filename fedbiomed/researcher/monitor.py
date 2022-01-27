@@ -58,7 +58,7 @@ class Monitor():
             global_step (int): The index of the current batch proccess during epoch.
                                Batch is all samples if it is -1.
             scalar (float): The value that be writen into tensorboard logs: loss, accuracy etc.
-            epoch (int): Epoch during training routine
+            epoch (int): Number of epoch achieved during training routine
         """
 
         # Initialize event SummaryWriters
@@ -72,17 +72,30 @@ class Monitor():
                                     'step': 0
                                     }
 
-        # Means that batch is equal to all samples, use epoch as global step
         if global_step == -1:
+            # Means that batch is equal to all samples, use epoch as global step
             global_step = epoch
 
         # Operations for finding iteration log interval for the training
-        # stepper : interval betwwen each points in a round that will be displayed
-        if global_step != 0 and self._event_writers[node]['stepper'] <= 1:
-            self._event_writers[node]['stepper'] = global_step
+        #
+        # stepper    : interval for each batch of points between 2 rounds or epochs
+        #            : (should be equals to 1 when passing from one epoch to another
+        #               or a round to another, otherwise 0 for batch of points 
+        #               within the same epoch)
+        # global step: index of the batch size/batch_size (for the current round)
+        # step_state : number of previous steps that compose the previous rounds
+        #            : Ex: 
+        # step       : index for loss / metric values that will be used when displaying on
+        #              tensorboard. It represents number of batches processed for
+        #              training model
+        if global_step != 0 and self._event_writers[node]['stepper'] < 2:
+            self._event_writers[node]['stepper'] = 0
+        
+        elif global_step == 0:
+            self._event_writers[node]['stepper'] = 1
         
         # In every epoch first iteration (global step) will be zero so
-        # we need to update step_state to not to overwrite steps of
+        # we need to update step_state so we do not overwrite steps of
         # the previous  epochs
         if global_step == 0:
             self._event_writers[node]['step_state'] = self._event_writers[node]['step'] + \
