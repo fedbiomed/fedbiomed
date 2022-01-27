@@ -146,7 +146,7 @@ class Environ(metaclass = SingletonMeta):
         # and use ID instead
         try:
             _cfg_value = cfg.get('default', 'researcher_id')
-        except KeyError:
+        except Error: # provided by ConfigParser
             logger.critical("no default/researcher_id in config file, please recreate a new config file")
             raise EnvironException("no default/researcher_id in config file, please recreate a new config file")
 
@@ -186,7 +186,7 @@ class Environ(metaclass = SingletonMeta):
 
         try:
             _cfg_value = cfg.get('default', 'node_id')
-        except KeyError:
+        except Error: # provided by ConfigParser
             logger.critical("no default/node_id in config file, please recreate a new config file")
             raise EnvironException("no default/node_id in config file, please recreate a new config file")
 
@@ -208,7 +208,7 @@ class Environ(metaclass = SingletonMeta):
 
         try:
             _cfg_value = cfg.get('security', 'allow_default_models')
-        except KeyError:
+        except Error: # provided by ConfigParser
             logger.critical("no security/allow_default_models in config file, please recreate a new config file")
             raise EnvironException("no security/allow_default_models in config file, please recreate a new config file")
 
@@ -218,7 +218,7 @@ class Environ(metaclass = SingletonMeta):
 
         try:
             _cfg_value = cfg.get('security', 'model_approval')
-        except KeyError:
+        except Error: # provided by ConfigParser
             logger.critical("no security/model_approval in config file, please recreate a new config file")
             raise EnvironException("no security/model_approval in config file, please recreate a new config file")
 
@@ -228,7 +228,7 @@ class Environ(metaclass = SingletonMeta):
 
         try:
             _cfg_value = cfg.get('security', 'hashing_algorithm')
-        except KeyError:
+        except Error: # provided by ConfigParser
             logger.critical("no security/hashing_algorithm in config file, please recreate a new config file")
             raise EnvironException("no security/hashing_algorithm in config file, please recreate a new config file")
 
@@ -396,7 +396,7 @@ class Environ(metaclass = SingletonMeta):
         try:
             with open(config_file, 'w') as f:
                 cfg.write(f)
-        except Error:
+        except Error: # provided by ConfigParser
             logger.error("Cannot save config file: " + config_file)
             raise EnvironException("Cannot save config file: " + config_file)
 
@@ -408,7 +408,7 @@ class Environ(metaclass = SingletonMeta):
         # broker location
         try:
             _cfg_value = cfg.get('mqtt', 'broker_ip')
-        except KeyError:
+        except Error: # provided by ConfigParser
             logger.critical("no mqtt/broker_ip in config file, please recreate a new config file")
             raise EnvironException("no mqtt/broker_ip in config file, please recreate a new config file")
 
@@ -417,7 +417,7 @@ class Environ(metaclass = SingletonMeta):
 
         try:
             _cfg_value = cfg.get('mqtt', 'port')
-        except KeyError:
+        except Error: # provided by ConfigParser
             logger.critical("no mqtt/port in config file, please recreate a new config file")
             raise EnvironException("no mqtt/port in config file, please recreate a new config file")
 
@@ -427,7 +427,7 @@ class Environ(metaclass = SingletonMeta):
         # repository location
         try:
             _cfg_value = cfg.get('default', 'uploads_url')
-        except KeyError:
+        except Error: # provided by ConfigParser
             logger.critical("no default/uploads_url in config file, please recreate a new config file")
             raise EnvironException("no default/uploads_url in config file, please recreate a new config file")
 
