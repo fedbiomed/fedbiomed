@@ -127,7 +127,7 @@ class Environ(metaclass = SingletonMeta):
                     os.makedirs(dir)
                 except FileExistsError:
                     logger.error("path exists but is not a directory " + dir)
-                    raise
+                    raise EnvironException("cannot create directories tree to store config/var/run/... : " + dir)
 
         pass
 
@@ -146,9 +146,9 @@ class Environ(metaclass = SingletonMeta):
         # and use ID instead
         try:
             _cfg_value = cfg.get('default', 'researcher_id')
-        except:
+        except KeyError:
             logger.critical("no default/researcher_id in config file, please recreate a new config file")
-            raise
+            raise EnvironException("no default/researcher_id in config file, please recreate a new config file")
 
         self._values['RESEARCHER_ID'] = os.getenv('RESEARCHER_ID',
                                                   _cfg_value)
@@ -169,7 +169,7 @@ class Environ(metaclass = SingletonMeta):
                     os.makedirs(dir)
                 except FileExistsError:
                     logger.error("path exists but is not a directory " + dir)
-                    raise
+                    raise EnvironException("cannot create tensorboard directory storage: " + dir)
 
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join( VAR_DIR, 'queue_messages')
 
@@ -186,9 +186,9 @@ class Environ(metaclass = SingletonMeta):
 
         try:
             _cfg_value = cfg.get('default', 'node_id')
-        except:
+        except KeyError:
             logger.critical("no default/node_id in config file, please recreate a new config file")
-            raise
+            raise EnvironException("no default/node_id in config file, please recreate a new config file")
 
         self._values['NODE_ID']   = os.getenv('NODE_ID', _cfg_value)
         self._values['ID']        = self._values['NODE_ID']
@@ -208,9 +208,9 @@ class Environ(metaclass = SingletonMeta):
 
         try:
             _cfg_value = cfg.get('security', 'allow_default_models')
-        except:
+        except KeyError:
             logger.critical("no security/allow_default_models in config file, please recreate a new config file")
-            raise
+            raise EnvironException("no security/allow_default_models in config file, please recreate a new config file")
 
         self._values['ALLOW_DEFAULT_MODELS'] = os.getenv('ALLOW_DEFAULT_MODELS',
                                                          _cfg_value) \
@@ -218,9 +218,9 @@ class Environ(metaclass = SingletonMeta):
 
         try:
             _cfg_value = cfg.get('security', 'model_approval')
-        except:
+        except KeyError:
             logger.critical("no security/model_approval in config file, please recreate a new config file")
-            raise
+            raise EnvironException("no security/model_approval in config file, please recreate a new config file")
 
         self._values['MODEL_APPROVAL'] = os.getenv('ENABLE_MODEL_APPROVAL',
                                                    _cfg_value) \
@@ -228,9 +228,9 @@ class Environ(metaclass = SingletonMeta):
 
         try:
             _cfg_value = cfg.get('security', 'hashing_algorithm')
-        except:
+        except KeyError:
             logger.critical("no security/hashing_algorithm in config file, please recreate a new config file")
-            raise
+            raise EnvironException("no security/hashing_algorithm in config file, please recreate a new config file")
 
         hashing_algorithm = _cfg_value
 
@@ -286,7 +286,7 @@ class Environ(metaclass = SingletonMeta):
         # Parser for the .ini file
         try:
             cfg = configparser.ConfigParser()
-        except:
+        except KeyError:
             logger.critical("Cannot create config parser")
             raise EnvironException("Cannot create config parser")
 
@@ -294,9 +294,9 @@ class Environ(metaclass = SingletonMeta):
             # get values from .ini file
             try:
                 cfg.read(CONFIG_FILE)
-            except:
-                logger.critical("Cannot read config file")
-                raise EnvironException("Cannot read config file")
+            except Error:
+                logger.critical("Cannot read config file, check file permissions")
+                raise EnvironException("Cannot read config file, check file permissions")
 
         else:
             if self._values['COMPONENT_TYPE'] == ComponentType.RESEARCHER:
@@ -360,7 +360,7 @@ class Environ(metaclass = SingletonMeta):
         try:
             with open(config_file, 'w') as f:
                 cfg.write(f)
-        except:
+        except KeyError:
             logger.error("Cannot save config file: " + config_file)
             raise EnvironException("Cannot save config file: " + config_file)
 
@@ -396,7 +396,7 @@ class Environ(metaclass = SingletonMeta):
         try:
             with open(config_file, 'w') as f:
                 cfg.write(f)
-        except:
+        except KeyError:
             logger.error("Cannot save config file: " + config_file)
             raise EnvironException("Cannot save config file: " + config_file)
 
@@ -408,18 +408,18 @@ class Environ(metaclass = SingletonMeta):
         # broker location
         try:
             _cfg_value = cfg.get('mqtt', 'broker_ip')
-        except:
+        except KeyError:
             logger.critical("no mqtt/broker_ip in config file, please recreate a new config file")
-            raise
+            raise EnvironException("no mqtt/broker_ip in config file, please recreate a new config file")
 
         self._values['MQTT_BROKER'] = os.getenv('MQTT_BROKER',
                                                 _cfg_value)
 
         try:
             _cfg_value = cfg.get('mqtt', 'port')
-        except:
+        except KeyError:
             logger.critical("no mqtt/port in config file, please recreate a new config file")
-            raise
+            raise EnvironException("no mqtt/port in config file, please recreate a new config file")
 
         self._values['MQTT_BROKER_PORT']  = int(os.getenv('MQTT_BROKER_PORT',
                                                           _cfg_value))
@@ -427,9 +427,9 @@ class Environ(metaclass = SingletonMeta):
         # repository location
         try:
             _cfg_value = cfg.get('default', 'uploads_url')
-        except:
+        except KeyError:
             logger.critical("no default/uploads_url in config file, please recreate a new config file")
-            raise
+            raise EnvironException("no default/uploads_url in config file, please recreate a new config file")
 
         UPLOADS_URL = _cfg_value
         uploads_ip = os.getenv('UPLOADS_IP')
