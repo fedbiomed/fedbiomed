@@ -95,8 +95,9 @@ class TestMessage(unittest.TestCase):
 
 
     #
+    # create a Message class and the decorator to test the raised exception
     # test also the @catch_dataclass_exception dcorator
-
+    #
     @catch_dataclass_exception
     @dataclass
     class DummyMessage(message.Message):
@@ -109,28 +110,18 @@ class TestMessage(unittest.TestCase):
 
     def test_dummy_message(self):
 
-        m1 = message.Message()
+        m0 = self.DummyMessage( 1, "test")
 
-        # initial dictionnary is empty
-        self.assertEqual( m1.get_dict(), {} )
-
-        # get/set tester
-        m1.set_param( "a", 1);
-        self.assertEqual( m1.get_dict(), { "a" : 1} )
-        self.assertEqual( m1.get_param( "a") , 1)
-
-        #
-        m1.set_param( "a", 2);
-        m1.set_param( "b", "this_is_a_string");
-        self.assertEqual( m1.get_param( "a") , 2)
-        self.assertEqual( m1.get_param( "b") , "this_is_a_string")
+        # getter test
+        self.assertEqual( m0.get_param( "a") , 1)
+        self.assertEqual( m0.get_param( "b") , "test")
 
         # test the validate fonction which sends an exception
         #
-        # bad params
+        # bad parameter type for a
         bad_result = False
         try:
-            m2 = self.DummyMessage( a = False , b = "oh my god !")
+            m1 = self.DummyMessage( a = False , b = "oh my god !")
 
         except MessageException as e:
             #
@@ -148,7 +139,7 @@ class TestMessage(unittest.TestCase):
         # bad params number
         bad_result = False
         try:
-            m3 = self.DummyMessage()
+            m2 = self.DummyMessage(1, "foobar", False)
 
         except MessageException as e:
             #
@@ -156,10 +147,11 @@ class TestMessage(unittest.TestCase):
             bad_result = True
 
         except Exception as e:
-            # TODO:
-            # replace TypeError sent by @dataclass with MessageException
             #
-            # @dataclass raises TypeError which is renamed by @catch_dataclass_exception
+            # @dataclass raises TypeError which is renamed
+            # by @catch_dataclass_exception
+            #
+            # !! we should not reach this part of the code !!
             #
             self.assertTrue(False, "bad exception caught: " + e.__class__.__name__)
 
@@ -1826,7 +1818,6 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.request_create( params )
         self.assertIsInstance( r, message.PingRequest )
 
-
     def test_logmessages(self):
 
         # error
@@ -1889,7 +1880,7 @@ class TestMessage(unittest.TestCase):
             # should not reach this line
             self.fail("unknown reply message type for researcher not detected")
 
-        except:
+        except Exception as e:
             # should be reached
             self.assertTrue( True, "unknown reply message type for researcher detected")
 

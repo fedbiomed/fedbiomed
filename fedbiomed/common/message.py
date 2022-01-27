@@ -27,9 +27,8 @@ def catch_dataclass_exception(initial_class):
             """
             this is called whenever any attribute of a NewCls object is accessed.
             This function first tries to get the attribute of NewCls and run it
-            (in this example, only added_func() is provided)
 
-            if it fails, it then call the attibutes of the initial class
+            if it fails, it then call the attributes of the initial class
             """
             try:
                 _x = super().__getattribute__(s)
@@ -50,11 +49,6 @@ class Message(object):
     The subclasses of this class will be pure data containers (no provided functions)
     """
 
-    def __init__(self):
-        """ Constructor of the class
-        """
-        pass
-
     def __post_init__(self):
         """
         raise MessageException if parameters of bad type
@@ -63,17 +57,6 @@ class Message(object):
         if not self.__validate(self.__dataclass_fields__.items()):
             logger.critical("bad input value for message: " + self.__str__())
             raise MessageException("bad input value for message: " + self.__str__())
-
-    def set_param(self, param: str, param_value: Any):
-        """This method allows to modify the value of a given param
-
-        Args:
-            param (str): the name of the param to be modified
-            param_value (Any): new value of the param
-        """
-        # FIXME: should we introduce a functionality
-        #  to avoid creating non existing attributes in the class?
-        setattr(self, param, param_value)
 
     def get_param(self, param: str):
         """This method allows to get the value of a given param
@@ -416,7 +399,7 @@ class ResearcherMessages():
         }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            raise MessageException('Bad message type {}'.format(message_type))
+            raise MessageException('Bad message type for replay_create: {}'.format(message_type))
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
@@ -455,7 +438,7 @@ class ResearcherMessages():
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            raise MessageException('Bad message type {}'.format(message_type))
+            raise MessageException('Bad message type for request create: {}'.format(message_type))
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
@@ -497,7 +480,7 @@ class NodeMessages():
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            raise MessageException('Bad message type {}'.format(message_type))
+            raise MessageException('Bad message type for request_create: {}'.format(message_type))
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
@@ -539,5 +522,5 @@ class NodeMessages():
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            raise MessageException('Bad message type {}'.format(message_type))
+            raise MessageException('Bad message type for reply_create: {}'.format(message_type))
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
