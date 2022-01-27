@@ -286,7 +286,7 @@ class Environ(metaclass = SingletonMeta):
         # Parser for the .ini file
         try:
             cfg = configparser.ConfigParser()
-        except KeyError:
+        except Error: # provided by ConfigParser class
             logger.critical("Cannot create config parser")
             raise EnvironException("Cannot create config parser")
 
@@ -294,7 +294,7 @@ class Environ(metaclass = SingletonMeta):
             # get values from .ini file
             try:
                 cfg.read(CONFIG_FILE)
-            except Error:
+            except Error: # provided by ConfigParser class
                 logger.critical("Cannot read config file, check file permissions")
                 raise EnvironException("Cannot read config file, check file permissions")
 
@@ -360,7 +360,7 @@ class Environ(metaclass = SingletonMeta):
         try:
             with open(config_file, 'w') as f:
                 cfg.write(f)
-        except KeyError:
+        except Error: # provided by ConfigParser
             logger.error("Cannot save config file: " + config_file)
             raise EnvironException("Cannot save config file: " + config_file)
 
@@ -396,7 +396,7 @@ class Environ(metaclass = SingletonMeta):
         try:
             with open(config_file, 'w') as f:
                 cfg.write(f)
-        except KeyError:
+        except Error:
             logger.error("Cannot save config file: " + config_file)
             raise EnvironException("Cannot save config file: " + config_file)
 
