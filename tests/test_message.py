@@ -11,6 +11,10 @@ import sys
 
 from fedbiomed.common.exceptions import MessageException
 import fedbiomed.common.message    as message
+
+# we also want to test the decorator
+from fedbiomed.common.message import catch_dataclass_exception
+
 from fedbiomed.common.constants import ErrorNumbers
 
 class TestMessage(unittest.TestCase):
@@ -90,6 +94,10 @@ class TestMessage(unittest.TestCase):
         pass
 
 
+    #
+    # test also the @catch_dataclass_exception dcorator
+
+    @catch_dataclass_exception
     @dataclass
     class DummyMessage(message.Message):
         """
@@ -151,15 +159,10 @@ class TestMessage(unittest.TestCase):
             # TODO:
             # replace TypeError sent by @dataclass with MessageException
             #
-            # since @dataclass raises TypeError, and we don't
-            # catch it in the DummyMessage definition, we will
-            # catch here
-            # the way fedbiomed is architectured, we do not create
-            # messages direcly.
+            # @dataclass raises TypeError which is renamed by @catch_dataclass_exception
             #
-            # until we fix a way to rename TypeEror, this code must remain
-            #self.assertTrue(False, "bad exception caught: " + e.__class__.__name__)
-            bad_result = True
+            self.assertTrue(False, "bad exception caught: " + e.__class__.__name__)
+
 
         self.assertTrue( bad_result,
                          "dummyMessage: bad param number not detected")

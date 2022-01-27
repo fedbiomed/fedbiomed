@@ -6,12 +6,50 @@ from fedbiomed.common.exceptions import MessageException
 from fedbiomed.common.logger     import logger
 
 
+def catch_dataclass_exception(initial_class):
+    """
+    Decorator: it encapsulate the __init__() method of dataclass
+    in order to transform the exceptions sent by the dataclass
+    into oour own exception (MessageException)
+    """
+    class NewCls():
+        """
+        Class container to wrap the old class into a decorated class
+        """
+        def __init__(self,*args,**kwargs):
+            #
+            try:
+                self.initial_instance = initial_class(*args,**kwargs)
+            except Exception as e:
+                raise MessageException("Bad number of parameters: " + str(e))
+
+        def __getattribute__(self,s):
+            """
+            this is called whenever any attribute of a NewCls object is accessed.
+            This function first tries to get the attribute of NewCls and run it
+            (in this example, only added_func() is provided)
+
+            if it fails, it then call the attibutes of the initial class
+            """
+            try:
+                _x = super().__getattribute__(s)
+            except AttributeError:
+                _x = self.initial_instance.__getattribute__(s)
+                return _x
+            else:
+                return _x
+
+    return NewCls
+
+
 class Message(object):
     """
-    This class defines the structure of a
-    message sent/received via Messager
+    This class is a top class for all fedbiomed messages providing all methods
+    to access the messaeges
 
+    The subclasses of this class will be pure data containers (no provided functions)
     """
+
     def __init__(self):
         """ Constructor of the class
         """
@@ -71,6 +109,7 @@ class Message(object):
                 ret = False
         return ret
 
+@catch_dataclass_exception
 @dataclass
 class ModelStatusReply(Message):
 
@@ -108,6 +147,7 @@ class ModelStatusReply(Message):
     command: str
 
 
+@catch_dataclass_exception
 @dataclass
 class SearchReply(Message):
     """This class describes a search message sent by the node
@@ -126,6 +166,7 @@ class SearchReply(Message):
     command: str
 
 
+@catch_dataclass_exception
 @dataclass
 class ListReply(Message):
 
@@ -148,6 +189,7 @@ class ListReply(Message):
 
 
 
+@catch_dataclass_exception
 @dataclass
 class PingReply(Message):
     """
@@ -164,6 +206,7 @@ class PingReply(Message):
 
 
 
+@catch_dataclass_exception
 @dataclass
 class TrainReply(Message):
     """
@@ -183,6 +226,7 @@ class TrainReply(Message):
     command: str
 
 
+@catch_dataclass_exception
 @dataclass
 class AddScalarReply(Message):
     """
@@ -202,6 +246,7 @@ class AddScalarReply(Message):
 
 
 
+@catch_dataclass_exception
 @dataclass
 class LogMessage(Message):
     """
@@ -217,6 +262,7 @@ class LogMessage(Message):
     command: str
 
 
+@catch_dataclass_exception
 @dataclass
 class ErrorMessage(Message):
     """
@@ -233,6 +279,7 @@ class ErrorMessage(Message):
 
 
 
+@catch_dataclass_exception
 @dataclass
 class ModelStatusRequest(Message):
 
@@ -260,6 +307,7 @@ class ModelStatusRequest(Message):
 
 
 
+@catch_dataclass_exception
 @dataclass
 class SearchRequest(Message):
     """
@@ -274,6 +322,7 @@ class SearchRequest(Message):
 
 
 
+@catch_dataclass_exception
 @dataclass
 class ListRequest(Message):
     """
@@ -288,6 +337,7 @@ class ListRequest(Message):
     command: str
 
 
+@catch_dataclass_exception
 @dataclass
 class PingRequest(Message):
     """
@@ -302,6 +352,7 @@ class PingRequest(Message):
 
 
 
+@catch_dataclass_exception
 @dataclass
 class TrainRequest(Message):
     """
@@ -366,19 +417,8 @@ class ResearcherMessages():
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
             raise MessageException('Bad message type {}'.format(message_type))
+        return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
-        try:
-            return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
-        except MessageException:
-            # trap bad type parameter detected by the Message itself
-            # forward the message to the caller
-            raise
-        except:
-            # trap all other errors, particularly wrong number of arguments
-            # and transform it to MessageException
-            msg_class = MESSAGE_TYPE_TO_CLASS_MAP[message_type]
-            name = str(msg_class).split("'")[1].split('.')[-1]
-            raise MessageException('Badly formed {} message {}'.format(name))
 
     @classmethod
     def request_create(cls, params: Dict[str, Any]) -> Union[TrainRequest,
@@ -416,21 +456,7 @@ class ResearcherMessages():
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
             raise MessageException('Bad message type {}'.format(message_type))
-
-        try:
-            return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
-        except MessageException:
-            # trap bad type parameter detected by the Message itself
-            # forward the message to the caller
-            raise
-        except:
-            # trap all other errors, particularly wrong number of arguments
-            # and transform it to MessageException
-            msg_class = MESSAGE_TYPE_TO_CLASS_MAP[message_type]
-            name = str(msg_class).split("'")[1].split('.')[-1]
-            raise MessageException('Badly formed {} message {}'.format(name))
-
-
+        return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
 class NodeMessages():
@@ -472,19 +498,8 @@ class NodeMessages():
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
             raise MessageException('Bad message type {}'.format(message_type))
+        return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
-        try:
-            return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
-        except MessageException:
-            # trap bad type parameter detected by the Message itself
-            # forward the message to the caller
-            raise
-        except:
-            # trap all other errors, particularly wrong number of arguments
-            # and transform it to MessageException
-            msg_class = MESSAGE_TYPE_TO_CLASS_MAP[message_type]
-            name = str(msg_class).split("'")[1].split('.')[-1]
-            raise MessageException('Badly formed {} message {}'.format(name))
 
     @classmethod
     def reply_create(cls, params: dict) -> Union[TrainReply,
@@ -525,16 +540,4 @@ class NodeMessages():
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
             raise MessageException('Bad message type {}'.format(message_type))
-
-        try:
-            return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
-        except MessageException:
-            # trap bad type parameter detected by the Message itself
-            # forward the message to the caller
-            raise
-        except:
-            # trap all other errors, particularly wrong number of arguments
-            # and transform it to MessageException
-            msg_class = MESSAGE_TYPE_TO_CLASS_MAP[message_type]
-            name = str(msg_class).split("'")[1].split('.')[-1]
-            raise MessageException('Badly formed {} message {}'.format(name))
+        return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
