@@ -11,7 +11,7 @@ Functions for managing Job/Experiment files.
 """
 
 
-def create_exp_folder(experimentation_folder: str =None) -> str:
+def create_exp_folder(experimentation_folder: str = None) -> str:
     """Creates a folder for the current experiment (ie the current run of the model).
     Experiment files to keep are stored here: model file, all versions of node parameters,
     all versions of aggregated parameters, breakpoints.

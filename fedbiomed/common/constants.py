@@ -109,6 +109,7 @@ class ErrorNumbers(_BaseEnum):
     FB414 = "FB414: Please create job with `.set_job()` before running the experiment"
     FB415 = "FB415: Please set client selection strategy"
 
+    FB416 = "FB416: Bad type for experiment argument `experimentation_folder` : '%s'"
     FB417 = "FB417: Bad type for experiment argument `rounds` : '%s'"
     FB418 = "FB418: Bad type for experiment argument `node_selection_strategy` : '%s'"
     FB419 = "FB419: Bad type for experiment argument `aggregator` : '%s'"

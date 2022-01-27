@@ -3,13 +3,15 @@ import os
 import json
 import inspect
 from typing import Callable, Union, Dict, Any, TypeVar, Type, List
+
 from tabulate import tabulate
+from pathvalidate import sanitize_filename
+
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.researcher.environ import environ
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
-
 from fedbiomed.researcher.filetools import create_exp_folder, choose_bkpt_file, \
     create_unique_link, create_unique_file_link, find_breakpoint_path
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -42,7 +44,7 @@ class Experiment(object):
                 training_args: dict = None,
                 save_breakpoints: bool = False,
                 tensorboard: bool = False,
-                experimentation_folder: str = None
+                experimentation_folder: Union[str, None] = None
                 ):
 
         """ Constructor of the class.
@@ -102,10 +104,12 @@ class Experiment(object):
                 during training in every node. If it is true,
                 monitor will write scalar logs into
                 `./runs` directory.
-            - experimentation_folder (str, optional): choose a specific name for the
+            - experimentation_folder (Union[str, None], optional):
+                choose a specific name for the
                 folder where experimentation result files and breakpoints are stored.
                 This should just contain the name for the folder not a path.
                 The name is used as a subdirectory of `environ[EXPERIMENTS_DIR])`.
+                Defaults to None (auto-choose a folder name)
                 - Caveat : if using a specific name this experimentation will not be
                 automatically detected as the last experimentation by `load_breakpoint`
                 - Caveat : do not use a `experimentation_folder` name finishing
@@ -133,7 +137,11 @@ class Experiment(object):
         self._round_current = 0
         self.set_rounds(rounds)
 
-        self._experimentation_folder = create_exp_folder(experimentation_folder)
+        # set self._experimentation_folder: type str
+        self.set_experimentation_folder(experimentation_folder)
+        # Note: currently keep this parameter as it cannot be updated in Job()
+        # without refactoring Job() first
+
         self._model_class = model_class
         self._model_path = model_path
         self._model_args = model_args
@@ -187,6 +195,13 @@ class Experiment(object):
     def round_current(self):
         return self._round_current
 
+    def experimentation_folder(self):
+        return self._experimentation_folder
+
+    def experimentation_path(self):
+        return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
+
+
 
 
     def training_replies(self):
@@ -215,12 +230,6 @@ class Experiment(object):
 
     def monitor(self):
         return self._monitor
-
-    def experimentation_folder(self):
-        return self._experimentation_folder
-
-    def experimentation_path(self):
-        return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
 
     def breakpoint(self):
         return self._save_breakpoints
@@ -479,6 +488,42 @@ class Experiment(object):
     #   load a breakpoint
 
 
+    def set_experimentation_folder(self, experimentation_folder: Union[str, None]):
+        """Setter for `experimentation_folder` + verification on arguments type
+
+        Args:
+            - experimentation_folder (Union[str, None], optional): 
+
+        Raise:
+            - TypeError : bad experimentation_folder type
+
+        Returns:
+            - experimentation_folder (str)
+        """
+        if experimentation_folder is None:
+            self._experimentation_folder = create_exp_folder()
+        elif isinstance(experimentation_folder, str):
+            sanitized_folder = sanitize_filename(experimentation_folder)
+            self._experimentation_folder = create_exp_folder(sanitized_folder)
+
+            if(sanitized_folder != experimentation_folder):
+                logger.warning(f'`experimentation_folder` was sanitized from '
+                    f'{experimentation_folder} to {sanitized_folder}')
+        else:
+            self._experimentation_folder = create_exp_folder() # robust default
+            raise TypeError(ErrorNumbers.FB416.value % type(experimentation_folder))            
+        
+        # at this point self._experimentation_folder is a str valid for a foldername
+
+        # _job doesn't always exist at this point
+        try:
+            if self._job is not None:
+                logger.warning('Experimentation folder changed, you may need to update `job`')
+        except AttributeError:
+            # nothing to do if not defined yet
+            pass
+
+        return self._experimentation_folder
 
 
 
@@ -757,7 +802,7 @@ class Experiment(object):
 
         # Model_path is not required if the model_class is a class
         # if it is string Job requires knowing here model is saved
-        if self._model_path is not None and isinstance(self._model_class, str):
+        if self._model_path is None and isinstance(self._model_class, str):
             messages.append(ErrorNumbers.FB413.value)
             status = False
 
