@@ -89,8 +89,9 @@ class TestMessage(unittest.TestCase):
 
         pass
 
+
     @dataclass
-    class dummyMessage(message.Message):
+    class DummyMessage(message.Message):
         """
         dummy class to fully test the Message class
         """
@@ -121,14 +122,14 @@ class TestMessage(unittest.TestCase):
         # bad params
         bad_result = False
         try:
-            m2 = self.dummyMessage( a = False , b = "oh my god !")
+            m2 = self.DummyMessage( a = False , b = "oh my god !")
 
         except MessageException as e:
             #
             # we must arrive here, because message is malformed
             bad_result = True
 
-        except:
+        except Exception as e:
             # we should not arrive here also
             self.assertTrue(False, "bad exception caught: " + e.__class__.__name__ + " instead of MessageException")
 
@@ -139,7 +140,7 @@ class TestMessage(unittest.TestCase):
         # bad params number
         bad_result = False
         try:
-            m3 = self.dummyMessage()
+            m3 = self.DummyMessage()
 
         except MessageException as e:
             #
@@ -151,7 +152,7 @@ class TestMessage(unittest.TestCase):
             # replace TypeError sent by @dataclass with MessageException
             #
             # since @dataclass raises TypeError, and we don't
-            # catch it in the dummyMessage definition, we will
+            # catch it in the DummyMessage definition, we will
             # catch here
             # the way fedbiomed is architectured, we do not create
             # messages direcly.
