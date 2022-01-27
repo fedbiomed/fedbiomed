@@ -11,7 +11,7 @@
 #
 #import fedbiomed.common.constants
 #import fedbiomed.common.environ
-import fedbiomed.common.exceptions
+#import fedbiomed.common.exceptions
 #import fedbiomed.common.fedbiosklearn
 #import fedbiomed.common.json
 #import fedbiomed.common.logger
@@ -23,7 +23,7 @@ import fedbiomed.common.exceptions
 #import fedbiomed.common.torchnn
 import fedbiomed.node.cli
 #import fedbiomed.node.data_manager
-#import fedbiomed.node.environ
+import fedbiomed.node.environ
 #import fedbiomed.node.history_monitor
 #import fedbiomed.node.model_manager
 import fedbiomed.node.node
