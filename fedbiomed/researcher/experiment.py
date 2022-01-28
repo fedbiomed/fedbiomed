@@ -532,7 +532,7 @@ class Experiment(object):
         if experimentation_folder is None:
             self._experimentation_folder = create_exp_folder()
         elif isinstance(experimentation_folder, str):
-            sanitized_folder = sanitize_filename(experimentation_folder)
+            sanitized_folder = sanitize_filename(experimentation_folder, platform='auto')
             self._experimentation_folder = create_exp_folder(sanitized_folder)
 
             if(sanitized_folder != experimentation_folder):
@@ -593,8 +593,8 @@ class Experiment(object):
                 # bad identifier
                 self._model_class = None # be robust if we continue execution
                 self._model_is_defined = False
-                logger.error(ErrorNumbers.FB412.value % f'{model_class} identifier')
-                raise TypeError(ErrorNumbers.FB412.value % f'{model_class} identifier')
+                logger.error(ErrorNumbers.FB412.value % f'{model_class} bad identifier')
+                raise TypeError(ErrorNumbers.FB412.value % f'{model_class} bad identifier')
         elif inspect.isclass(model_class):
             # model_class must be a subclass of a valid training plan
             if issubclass(model_class, training_plans):
@@ -665,8 +665,9 @@ class Experiment(object):
             # .. so model is defined if it is a class (+ then, it has been tested as valid)
             self._model_is_defined = inspect.isclass(self._model_class)
         elif isinstance(model_path, str):
-            if sanitize_filepath(model_path) == model_path:
-                # provided model path is valid
+            if sanitize_filepath(model_path, platform='auto') == model_path \
+                    and os.path.isfile(model_path):
+                # provided model path is a sane path to an existing file
                 self._model_path = model_path
                 # if providing a model path, we expect a model class name (not a class)
                 self._model_is_defined = isinstance(self._model_class, str)
@@ -674,8 +675,10 @@ class Experiment(object):
                 # bad filepath
                 self._model_path = None # be robust if we continue execution
                 self._model_is_defined = inspect.isclass(self._model_class)
-                logger.error(ErrorNumbers.FB413.value % f'{model_path} is not a sane path')
-                raise TypeError(ErrorNumbers.FB413.value % f'{model_path} is not a sane path')
+                logger.error(ErrorNumbers.FB413.value %
+                    f'{model_path} is not a sane path to an existing file')
+                raise TypeError(ErrorNumbers.FB413.value %
+                    f'{model_path} is not a sane path to an existing file')
         else:
             # bad type
             self._model_path = None # be robust if we continue execution
