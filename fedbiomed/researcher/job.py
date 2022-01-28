@@ -34,7 +34,7 @@ class Job:
     def __init__(self,
                  reqs: Requests = None,
                  nodes: dict = None,
-                 model: Union[Type[Callable], Callable] = None,
+                 model: Union[Type[Callable], str] = None,
                  model_path: str = None,
                  training_args: dict = None,
                  model_args: dict = None,
@@ -52,8 +52,8 @@ class Job:
             Defaults to None.
             nodes (dict, optional): a dict of node_id containing the
             nodes used for training
-            model (Union[Type[Callable], Callable], optional): name of the model class
-            or object (instance of the model class) to use for training.
+            model (Union[Type[Callable], str], optional): name of the model class
+            or model class to use for training.
             model_path (string, optional) : path to file containing model
             class code
             training_args (dict, optional): contains training parameters:

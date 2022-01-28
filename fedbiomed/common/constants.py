@@ -102,10 +102,10 @@ class ErrorNumbers(_BaseEnum):
 
     FB410 = "FB410: Please set training arguments with `.set_training_args()` before setting a `Job`."
     FB411 = "FB411: No Federated Dataset is found. Please use `.set_training_data()` before setting a `Job`."
-    FB412 = "FB412: `model_class` is mandatory for setting `Job`.  Please initialize experiment with model class or " \
-            "use `.set_model_class()` method of the experiment"
-    FB413 = "FB413: `model_path` is mandatory for setting `Job` when model_class is string.  Please initialize " \
-            "experiment with model path or use `.set_model_class()` method of the experiment"
+    
+    FB412 = "FB412: Bad type for experiment argument `model_class` : '%s'"
+    FB413 = "FB413: Bad type for experiment argument `model_path` : '%s'"
+    
     FB414 = "FB414: Please create job with `.set_job()` before running the experiment"
     FB415 = "FB415: Please set client selection strategy"
 

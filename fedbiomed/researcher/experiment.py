@@ -5,7 +5,7 @@ import inspect
 from typing import Callable, Union, Dict, Any, TypeVar, Type, List
 
 from tabulate import tabulate
-from pathvalidate import sanitize_filename
+from pathvalidate import sanitize_filename, sanitize_filepath
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
@@ -23,7 +23,14 @@ from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.monitor import Monitor
 
+
 _E = TypeVar("Experiment")  # only for typing
+
+# for checking class passed to experiment
+# TODO : should we move this to common/constants.py ?
+training_plans = (TorchTrainingPlan, SGDSkLearnModel)
+# for typing only
+Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SGDSkLearnModel])
 
 
 class Experiment(object):
@@ -38,8 +45,8 @@ class Experiment(object):
                 aggregator: Union[Aggregator, Type[Aggregator], None] = None,
                 node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
                 rounds: int = 1,
-                model_class: Union[Type[Callable], Callable] = None,
-                model_path: str = None,
+                model_class: Union[Type_TrainingPlan, str, None] = None,
+                model_path: Union[str, None] = None,
                 model_args: dict = {},
                 training_args: dict = None,
                 save_breakpoints: bool = False,
@@ -84,13 +91,18 @@ class Experiment(object):
             - rounds (int, optional): the total number of training rounds
                 (nodes <-> central server) of the experiment.
                 Defaults to 1.
-            - model_class (Union[Type[Callable], Callable], optional): name or
-                instance (object) of the model class to use
-                for training.
-                Should be a str type when using jupyter notebook
-                or a Callable when using a simple python
-                script.
-            - model_path (string, optional) : path to file containing model code
+            - model_class (Union[Type_TrainingPlan, str, None], optional): name of the model class
+                (`str`) or model class (`Type_TrainingPlan`) to use for training.
+                For experiment to be properly and fully defined `model_class` needs to be:
+                - a `str` when `model_path` is not None (model class comes from a file).
+                - a `Type_TrainingPlan` when `model_path` is None (model class passed
+                as argument).
+                Defaults to None (no model class defined yet)
+            - model_path (Union[str, None], optional) : path to a file containing
+                model code (`str`) or None (no file containing model code, `model_class`
+                needs to be a class matching `Type_TrainingPlan`)
+                Defaults to None. 
+
             - model_args (dict, optional): contains output and input feature
                 dimension. Defaults to None.
             - training_args (dict, optional): contains training parameters:
@@ -142,8 +154,16 @@ class Experiment(object):
         # Note: currently keep this parameter as it cannot be updated in Job()
         # without refactoring Job() first
 
-        self._model_class = model_class
-        self._model_path = model_path
+        # is the model properly defined ?
+        # with current version of jobs it requires
+        # - either model_path to None + model_class is the class a training plan
+        # - or model_path not None + model_class is a name (str) of a training plan
+        #
+        # note: no need to set self._model_is_defined before calling `set_model_class`
+        self.set_model_class(model_class)
+        self.set_model_path(model_path)
+
+
         self._model_args = model_args
         self._training_args = training_args
 
@@ -200,6 +220,12 @@ class Experiment(object):
 
     def experimentation_path(self) -> str:
         return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
+
+    def model_class(self) -> Union[Type_TrainingPlan, str, None]:
+        return self._model_class
+
+    def model_path(self) -> Union[str, None]:
+        return self._model_path
 
 
 
@@ -529,6 +555,158 @@ class Experiment(object):
         return self._experimentation_folder
 
 
+    def set_model_class(self, model_class: Union[Type_TrainingPlan, str, None]) -> \
+            Union[Type_TrainingPlan, str, None]:
+        """Setter for `model_class` + verification on arguments type
+
+        Args:
+            - model_class (Union[Type_TrainingPlan, str, None], optional): name of the model class
+                (`str`) or model class (`Type_TrainingPlan`) to use for training.
+                For experiment to be properly and fully defined `model_class` needs to be:
+                - a `str` when `model_path` is not None (model class comes from a file).
+                - a `Type_TrainingPlan` when `model_path` is None (model class passed
+                as argument).
+                Defaults to None (no model class defined yet)
+
+        Raise:
+            - TypeError : bad model_class type
+
+        Returns:
+            - model_class (Union[Type_TrainingPlan, str, None])
+        """
+        if model_class is None:
+            self._model_class = model_class
+            self._model_is_defined = False
+        elif isinstance(model_class, str):
+            if str.isidentifier(model_class):
+                # correct python identifier
+                self._model_class = model_class
+                # model_path may not be defined at this point
+                try:
+                    # valid model definition if we use model_path
+                    self._model_is_defined = self._model_path is not None
+                except AttributeError:
+                    # we don't set model_is_defined to True because
+                    # model_path is not defined (!= defined to None ...)
+                    self._model_is_defined = False
+            else:
+                # bad identifier
+                self._model_class = None # be robust if we continue execution
+                self._model_is_defined = False
+                logger.error(ErrorNumbers.FB412.value % f'{model_class} identifier')
+                raise TypeError(ErrorNumbers.FB412.value % f'{model_class} identifier')
+        elif inspect.isclass(model_class):
+            # model_class must be a subclass of a valid training plan
+            if issubclass(model_class, training_plans):
+                # valid class
+                self._model_class = model_class
+                # model_path may not be defined at this point
+                try:
+                    # valid model definition if we don't use model_path
+                    self._model_is_defined = self._model_path is None
+                except AttributeError:
+                    # we don't set model_is_defined to True because
+                    # model_path is not defined (!= defined to None ...)
+                    self._model_is_defined = False
+            else:
+                # bad class
+                self._model_class = None # be robust if we continue execution
+                self._model_is_defined = False
+                logger.error(ErrorNumbers.FB412.value % f'{model_class} class')
+                raise TypeError(ErrorNumbers.FB412.value % f'{model_class} class')
+        else:
+            # bad type
+            self._model_class = None # be robust if we continue execution
+            self._model_is_defined = False
+            logger.error(ErrorNumbers.FB412.value % type(model_class))
+            raise TypeError(ErrorNumbers.FB412.value % type(model_class))
+
+        # model_is_defined and model_class always exist at this point
+        try:
+            self._model_path # raise exception if not defined
+            if not self._model_is_defined:
+                logger.warning(f'Experiment not fully configured yet: no valid model, '
+                    f'model_class={self._model_class} model_path={self._model_path}')
+        except AttributeError:
+            # we don't want to issue a warning is model_path not initialized yet
+            # (== still initializing the class)
+            pass
+
+        # _job doesn't always exist at this point
+        try:
+            if self._job is not None:
+                logger.warning('Experimentation model_class changed, you may need to update `job`')
+        except AttributeError:
+            # nothing to do if not defined yet
+            pass
+
+        return self._model_class
+        
+
+    def set_model_path(self, model_path: Union[str, None]) -> Union[str, None]:
+        """Setter for `model_path` + verification on arguments type
+
+        Args:
+            - model_path (Union[str, None], optional) : path to a file containing
+                model code (`str`) or None (no file containing model code, `model_class`
+                needs to be a class matching `Type_TrainingPlan`)
+                Defaults to None. 
+
+        Raise:
+            - TypeError : bad model_path type
+
+        Returns:
+            - model_path (Union[str, None])
+        """
+        # model_class and model_is_defined already exist when entering this function
+
+        if model_path is None:
+            self._model_path = None
+            # .. so model is defined if it is a class (+ then, it has been tested as valid)
+            self._model_is_defined = inspect.isclass(self._model_class)
+        elif isinstance(model_path, str):
+            if sanitize_filepath(model_path) == model_path:
+                # provided model path is valid
+                self._model_path = model_path
+                # if providing a model path, we expect a model class name (not a class)
+                self._model_is_defined = isinstance(self._model_class, str)
+            else:
+                # bad filepath
+                self._model_path = None # be robust if we continue execution
+                self._model_is_defined = inspect.isclass(self._model_class)
+                logger.error(ErrorNumbers.FB413.value % f'{model_path} is not a sane path')
+                raise TypeError(ErrorNumbers.FB413.value % f'{model_path} is not a sane path')
+        else:
+            # bad type
+            self._model_path = None # be robust if we continue execution
+            self._model_is_defined = inspect.isclass(self._model_class)
+            logger.error(ErrorNumbers.FB413.value % type(model_path))
+            raise TypeError(ErrorNumbers.FB413.value % type(model_path))
+
+        # _job doesn't always exist at this point
+        try:
+            if self._job is not None:
+                logger.warning('Experimentation model_path changed, you may need to update `job`')
+        except AttributeError:
+            # nothing to do if not defined yet
+            pass
+
+        return self._model_path
+        
+        
+        
+        #self._model_path = model_path
+        #
+        ## FIXME: Changing model path requires to rebuild Job (Should this method do that or User)
+        #if self._job:
+        #    logger.info('Model path has been modified. You might need to update Job by running `.set_job()`')
+
+
+
+
+
+
+
 
     def set_model_args(self, model_args: Dict):
         """ Setter for Model Arguments. This method should also update/set model arguments in
@@ -562,34 +740,6 @@ class Experiment(object):
             self._job._training_args = training_args
 
         return
-
-    def set_model_path(self, model_path: str):
-        """ Setter for model path. Since model path is directly connected to Job, it is required to
-        run `.set_job()` after updating it. If the Job is already initialize the method will inform
-        about `set_job()` should be called.
-
-        Args:
-            model_path (str): Path of python file that contains Model class
-        """
-        self._model_path = model_path
-
-        # FIXME: Changing model path requires to rebuild Job (Should this method do that or User)
-        if self._job:
-            logger.info('Model path has been modified. You might need to update Job by running `.set_job()`')
-
-    def set_model_class(self, model_class: Union[type[Callable], Callable, str]):
-        """ Setter for model class. Since model path is used in Job in build time, if Job is already initialize
-        it is required to run `.set_job()` after updating it. If the Job is already initialize the method will inform
-        about `set_job()` should be called.
-
-        Args:
-            model_class (str): Path of python file that contains Model class
-        """
-        self._model_class = model_class
-
-        # FIXME: Changing model class requires to rebuild Job (Should this method do this action or User)
-        if self._job:
-            logger.info('Model class has been modified. You might need to update Job by running `.set_job()`')
 
 
     def set_breakpoints(self, save_breakpoints: bool = True):
@@ -772,8 +922,8 @@ class Experiment(object):
                 'Tags', 'Nodes filter', 'Training Data',
                 'Aggregator', 'Strategy',
                 'Already run rounds', 'Total rounds',
-                'Model Path', 'Model Class', 'Model Arguments',
-                'Training Arguments', 
+                'Model Path', 'Model Class',
+                'Model Arguments', 'Training Arguments', 
                 'Job', 'Breakpoint State', 'Exp  folder',
                 'Exp folder', 'Exp Path'
                 ],
@@ -781,8 +931,8 @@ class Experiment(object):
                 self._tags, self._nodes, self._fds,
                 self._aggregator,  self._node_selection_strategy,
                 self._round_current, self._rounds,
-                self._model_path, self._model_class, self._model_args,
-                self._training_args,
+                self._model_path, self._model_class,
+                self._model_args, self._training_args,
                 self._job, self._save_breakpoint, self._experimentation_folder,
                 os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
                 ]
@@ -798,7 +948,7 @@ class Experiment(object):
         """
         no_none_args_msg = {"_training_args": ErrorNumbers.FB410.value,
                             "_fds": ErrorNumbers.FB411.value,
-                            '_model_class': ErrorNumbers.FB412.value,
+                            '_model_class': ErrorNumbers.FB412.value % 'missing model class',
                             }
 
         status, messages = self._argument_controller(no_none_args_msg)
@@ -806,7 +956,7 @@ class Experiment(object):
         # Model_path is not required if the model_class is a class
         # if it is string Job requires knowing here model is saved
         if self._model_path is None and isinstance(self._model_class, str):
-            messages.append(ErrorNumbers.FB413.value)
+            messages.append(ErrorNumbers.FB413.value % 'missing model path')
             status = False
 
         return status, messages
