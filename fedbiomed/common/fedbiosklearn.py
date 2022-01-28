@@ -80,7 +80,8 @@ class SGDSkLearnModel():
     def _compute_support(self, targets: np.ndarray) -> np.ndarray:
         """
         Computes support, i.e. the number of items per
-        classes.
+        classes. It is designed from the way scikit learn linear model 
+        `fit_binary` and `_prepare_fit_binary` have been implemented.
         
         Args:
             targets (np.ndarray): targets that contains labels 
@@ -97,6 +98,8 @@ class SGDSkLearnModel():
             # in sklearn code, in `fit_binary1`, `i`` seems to be 
             # iterated over model.classes_
             # (https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L774)
+            # We cannot directly know for each loss that has been logged from scikit learn
+            #  which labels it corresponds to. This is our best guest
             idx = targets == aclass
             support[i] = np.sum(targets[targets[idx]])
         return support
@@ -165,12 +168,15 @@ class SGDSkLearnModel():
                             logger.error("Error during monitoring:" + e)
 
                     if self._is_classif and not self._is_binary_classif:
-                        # TODO: may be specific to SGDclassifier: if other sklearn
-                        # methods are implemented, should be updated
+                        # WARNING: only for plain SGD models in scikit learn
+                        # if other models are implemented, should be updated
                         support = self._compute_support(target)
                         loss = np.average(_loss_collector, weights=support)  # perform a weighted average
+                        
+                        logger.warning("Loss plot displayed on Tensorboard may be inaccurate (due to some plain" +
+                                        " SGD scikit learn limitations)")
                     # Batch -1 means Batch Gradient Descent, use all samples
-                    # This part should be changed after mini-batch implementation is completed
+                    # TODO: This part should be changed after mini-batch implementation is completed
                     monitor.add_scalar('Loss', float(loss), -1 , epoch)
 
                 elif self.model_type == "MiniBatchKMeans":
