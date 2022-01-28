@@ -104,7 +104,7 @@ class TestRound(unittest.TestCase):
         node_msg_patch.side_effect = node_msg_side_effect
         
         self.r1.training_kwargs = {}
-        self.r1.dataset = {'path': 'my/model/path',
+        self.r1.dataset = {'path': 'my/dataset/path',
                            'dataset_id': 'id_1234'}
         self.r1.monitor = FakeMonitor()
         
@@ -118,7 +118,10 @@ class TestRound(unittest.TestCase):
         # timing test
         if not isinstance(msg, dict) or not hasattr(msg, 'get'):
             self.skipTest('timing tests skipped because of incorrect data type returned')
-        self.assertAlmostEqual(msg.get('timing').get('rtime_training'), SLEEPING_TIME, places=2)
+        self.assertAlmostEqual(
+            msg.get('timing', {'rtime_training': 0}).get('rtime_training'),
+            SLEEPING_TIME, places=2
+            )
         
     def test_run_model_training_02(self):
         # test if all methods of `model` have been called
