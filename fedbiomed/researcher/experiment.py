@@ -575,7 +575,7 @@ class Experiment(object):
             - model_class (Union[Type_TrainingPlan, str, None])
         """
         if model_class is None:
-            self._model_class = model_class
+            self._model_class = None
             self._model_is_defined = False
         elif isinstance(model_class, str):
             if str.isidentifier(model_class):
@@ -584,7 +584,7 @@ class Experiment(object):
                 # model_path may not be defined at this point
                 try:
                     # valid model definition if we use model_path
-                    self._model_is_defined = self._model_path is not None
+                    self._model_is_defined = isinstance(self._model_path, str)
                 except AttributeError:
                     # we don't set model_is_defined to True because
                     # model_path is not defined (!= defined to None ...)
@@ -685,6 +685,11 @@ class Experiment(object):
             self._model_is_defined = inspect.isclass(self._model_class)
             logger.error(ErrorNumbers.FB413.value % type(model_path))
             raise TypeError(ErrorNumbers.FB413.value % type(model_path))
+
+        # model_path is also defined at this point
+        if not self._model_is_defined:
+            logger.warning(f'Experiment not fully configured yet: no valid model, '
+                f'model_class={self._model_class} model_path={self._model_path}')
 
         # _job doesn't always exist at this point
         try:
