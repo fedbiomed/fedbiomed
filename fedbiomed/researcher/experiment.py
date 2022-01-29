@@ -154,8 +154,8 @@ class Experiment(object):
         # Note: currently keep this parameter as it cannot be updated in Job()
         # without refactoring Job() first
 
-        # is the model properly defined ?
-        # with current version of jobs it requires
+        # sets self._model_is_defined: is the model properly defined ?
+        # with current version of jobs model requires
         # - either model_path to None + model_class is the class a training plan
         # - or model_path not None + model_class is a name (str) of a training plan
         #
@@ -293,6 +293,14 @@ class Experiment(object):
             logger.error(ErrorNumbers.FB421.value % type(tags))
             raise TypeError(ErrorNumbers.FB421.value % type(tags))
 
+        # _fds doesn't always exist at this point
+        try:
+            if self._fds is not None:
+                logger.warning('Experimentation tags changed, you may need to update `training_data`')
+        except AttributeError:
+            # nothing to do if not defined yet
+            pass
+
         return self._tags
 
 
@@ -322,6 +330,13 @@ class Experiment(object):
             logger.error(ErrorNumbers.FB422.value % type(nodes))
             raise TypeError(ErrorNumbers.FB422.value % type(nodes))
 
+        # _fds doesn't always exist at this point
+        try:
+            if self._fds is not None:
+                logger.warning('Experimentation nodes filter changed, you may need to update `training_data`')
+        except AttributeError:
+            # nothing to do if not defined yet
+            pass
         return self._nodes
 
 
@@ -443,7 +458,7 @@ class Experiment(object):
             - TypeError : bad strategy type
 
         Returns:
-            - node_selection_strategy (Union[Strategy, None]
+            - node_selection_strategy (Union[Strategy, None])
         """
         if self._fds is not None:
             if node_selection_strategy is None:
@@ -701,18 +716,6 @@ class Experiment(object):
 
         return self._model_path
         
-        
-        
-        #self._model_path = model_path
-        #
-        ## FIXME: Changing model path requires to rebuild Job (Should this method do that or User)
-        #if self._job:
-        #    logger.info('Model path has been modified. You might need to update Job by running `.set_job()`')
-
-
-
-
-
 
 
 
