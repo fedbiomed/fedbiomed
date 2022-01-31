@@ -146,9 +146,20 @@ class TestRound(unittest.TestCase):
                                    builtin_eval_patch,
                                    repository_upload_patch,
                                    node_msg_patch):
-        # test if all methods of `model` have been called
+        # test if all methods of `model` have been called when calling
+        # `run_model_training`, when no issues are found
+        # methods tested:
+        #  - model.load
+        #  - model.save
+        #  - model.training_routine
+        #  - model.after_training_params
+        #  - model.set_dataset
+        
         TestRound.SLEEPING_TIME = 0
         URL_MSG = 'http://url/where/my/file?is=True'
+        PARAM_PATH = '/path/to/my/file'
+        MODEL_PARAMS = [1, 2, 3, 4]
+
         # initalisation of dummy classes
         class FakeUuid:
             # Fake uuid class
@@ -158,36 +169,19 @@ class TestRound(unittest.TestCase):
             def __str__(self):
                 return '1234'
             
-        class FakeMonitor:
-            def history(self) -> Dict[str, float]:
-                return {'Loss': 0.1}
-            
         class FakeNodeMessages:
             def __init__(self, msg: Dict[str, Any]):
                 self.msg = msg
 
             def get_dict(self) -> Dict[str, Any]:
                 return self.msg
-
+        
         def repository_side_effect(model_url: str, model_name: str):
-            return 200, 'my_python_model'
+            return 200, PARAM_PATH
         
         def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
             fake_node_msg = FakeNodeMessages(msg)
             return fake_node_msg
-
-        # initialisation of patchers 
-        # dummy model
-        class FakeModel:
-            pass
-        # Mocking model
-        dummy_model = FakeModel
-        #dummy_model.load = MagicMock()
-        dummy_model.save = MagicMock()
-        dummy_model.set_dataset = MagicMock()
-        dummy_model.training_routine = MagicMock()
-        dummy_model.after_training_params = MagicMock()
-        #print(dummy_model.ll)
         
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.side_effect = repository_side_effect
@@ -201,20 +195,45 @@ class TestRound(unittest.TestCase):
         self.r1.dataset = {'path': 'my/dataset/path',
                            'dataset_id': 'id_1234'}
         dummy_monitor = MagicMock()
-        self.r1.monitor = dummy_monitor        
-        # action!
+        self.r1.monitor = dummy_monitor   
+             
+        # arguments of `save` method
+        _model_filename = environ['TMP_DIR'] + '/node_params_1234.pt'
+        _model_results = {
+            'researcher_id': self.r1.researcher_id,
+            'job_id': self.r1.job_id,
+            'model_params': MODEL_PARAMS,
+            'history': self.r1.monitor.history,
+            'node_id': environ['NODE_ID']
+        }
         
-        # test that `training_rountine` has been called
-        with patch.object(self.FakeModel, 'training_routine') as mock1:
+        # define context managers for each models method 
+        with (
+            patch.object(self.FakeModel, 'load') as mock_load,
+            patch.object(self.FakeModel, 'set_dataset') as mock_set_dataset,
+            patch.object(self.FakeModel, 'training_routine') as mock_training_routine,
+            patch.object(self.FakeModel, 'after_training_params', return_value=MODEL_PARAMS ) as mock_after_training_params,
+            patch.object(self.FakeModel, 'save') as mock_save
+              ):
             msg = self.r1.run_model_training()
-        # tests
-        mock1.assert_called_once_with( monitor=dummy_monitor,
+            
+        # test if all methods 
+        mock_load.assert_called_once_with(PARAM_PATH,
+                                          to_params=False)
+        mock_set_dataset.assert_called_once_with(self.r1.dataset.get('path'))
+              
+
+        # test that `training_rountine` has been called
+        mock_training_routine.assert_called_once_with( monitor=dummy_monitor,
                                         node_args=None)
+        
+        mock_after_training_params.assert_called_once()
+        mock_save.assert_called_once_with(_model_filename, _model_results)
     
     def test_run_model_training_03(self):
         # test exceptions
         pass
 
     def test_run_model_training_04(self):
-       # test case where model is not approved
-       pass
+        # test case where model is not approved
+        pass
