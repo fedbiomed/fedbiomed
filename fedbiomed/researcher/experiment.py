@@ -115,11 +115,13 @@ class Experiment(object):
                 not after each training round. Breakpoints can be used for resuming
                 a crashed experiment.
                 Defaults to False.
-
-            - tensorboard (bool): Tensorboard flag for displaying scalar values
-                during training in every node. If it is true,
-                monitor will write scalar logs into
-                `./runs` directory.
+            - tensorboard (bool, optional): whether to save scalar values 
+                for displaying in Tensorboard during training for each node.
+                Currently it is only used for loss values.
+                * If it is true, monitor instantiates a `Monitor` object that write
+                  scalar logs into `./runs` directory.
+                * If it is False, it stops monitoring if it was active.
+                Defaults to False.
             - experimentation_folder (Union[str, None], optional):
                 choose a specific name for the
                 folder where experimentation result files and breakpoints are stored.
@@ -178,16 +180,8 @@ class Experiment(object):
         self._aggregated_params = {}
 
         self.set_save_breakpoints(save_breakpoints)
-
-        #  Monitoring loss values with tensorboard
-        if tensorboard:
-            self._monitor = Monitor()
-            self._reqs.add_monitor_callback(self._monitor.on_message_handler)
-        else:
-            self._monitor = None
-            # Remove callback. Since reqeust class is singleton callback
-            # function might be already added into request before.
-            self._reqs.remove_monitor_callback()
+        self.set_monitor(tensorboard)
+        
 
 
     # Getters ---------------------------------------------------------------------------------------------------------
@@ -235,12 +229,11 @@ class Experiment(object):
     def job(self) -> Union[Job, None]:
         return self._job
 
-
-    def monitor(self):
-        return self._monitor
-
-    def save_breakpoints(self):
+    def save_breakpoints(self) -> bool:
         return self._save_breakpoints
+
+    def monitor(self) -> Union[Monitor, None]:
+        return self._monitor
 
 
     # TODO: update these getters after experiment results refactor / job refactor 
@@ -254,7 +247,6 @@ class Experiment(object):
     # TODO: better checking of model object type in Job() to guarantee it is a TrainingPlan
     def model_instance(self) -> TrainingPlan:
         return self._job.model
-
 
 
     # Setters ---------------------------------------------------------------------------------------------------------
@@ -884,10 +876,11 @@ class Experiment(object):
             - ExperimentException : bad save_breakpoints type
 
         Returns:
-            - aggregator (Aggregator)
+            - save_breakpoints (bool)
         """
         if isinstance(save_breakpoints, bool):
             self._save_breakpoints = save_breakpoints
+            # no warning if done during experiment, we may change breakpoint policy at any time
         else:
             self._save_breakpoints = False # robust default
             msg = ErrorNumbers.FB410.value + f' `save_breakpoints` : {type(save_breakpoints)}'
@@ -897,26 +890,59 @@ class Experiment(object):
         return self._save_breakpoints
 
 
-    def set_monitor(self, tensorboard: bool = True, monitor: Monitor = None):
-        """ Setter for monitoring loss values on Tensorboard. Currently, Monitor
-        is used for only displaying loss values on Tensorboard.
+    # TODO: accept an optional Monitor param (`monitor: Monitor = None`)
+    def set_monitor(self, tensorboard: bool) -> Union[Monitor, None]:
+        """ Setter for monitoring in tensorboard + verification on arguments type
 
         Args:
-            tensorboard (bool): If it is true will build Monitor class and register a callback
-            function in Request. Otherwise, it will remove callback from reqeust. Default is True
-            monitor (Monitor): An instance of Monitor class. Default is None
+            - tensorboard (bool, optional): whether to save scalar values 
+                for displaying in Tensorboard during training for each node.
+                Currently it is only used for loss values.
+                * If it is true, monitor instantiates a `Monitor` object that write
+                  scalar logs into `./runs` directory.
+                * If it is False, it stops monitoring if it was active.
+        
+        Raises:
+            - ExperimentException : bad tensorboard type
+
+        Returns:
+            - monitor (Union[Monitor, None])
         """
-        if tensorboard:
-            if monitor:
-                self._monitor = monitor if isinstance(monitor, Callable) else monitor()
-                self._reqs.add_monitor_callback(self._monitor.on_message_handler)
-            else:
-                self._monitor = Monitor()
+        if isinstance(tensorboard, bool):
+            # do nothing if setting is the same as active configuration
+            action = True 
+            try:
+                if self._monitor is not None and tensorboard:
+                    action = False
+                    logger.info('Experimentation monitoring is already active, nothing to do')
+                if self._monitor is None and not tensorboard:
+                    action = False
+                    logger.info('Experimentation monitoring is already inactive, nothing to do')
+            except AttributeError:
+                pass
+
+            # Q: should we issue a warning if activating monitoring during an experiment ?
+
+            if action:
+                #  set monitoring loss values with tensorboard
+                if tensorboard:
+                    self._monitor = Monitor()
+                    self._reqs.add_monitor_callback(self._monitor.on_message_handler)
+                else:
+                    self._monitor = None
+                    # Remove callback. Since request class is singleton callback
+                    # function might be already added into request before.
+                    self._reqs.remove_monitor_callback()
         else:
-            self._monitor = None
-            # Remove callback. Since reqeust class is singleton callback
-            # function might be already added into request before.
+            # bad type
+            self._monitor = None # robust default
             self._reqs.remove_monitor_callback()
+            msg = ErrorNumbers.FB410.value + f' `tensorboard` : {type(tensorboard)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
+
+        # self._monitor exists at this point
+        return self._monitor
 
 
 
