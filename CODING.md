@@ -62,10 +62,10 @@ try:
 
 except SomeError as e:
 
-    msg = ErrorNumbers.FBxxx.value + ": the file " + filename + " does not exist"
+    _msg = ErrorNumbers.FBxxx.value + ": the file " + filename + " does not exist"
 
-    logger.error(msg)
-    raise OneOfFedbiomedException(msg)
+    logger.error(_msg)
+    raise OneOfFedbiomedException(_msg)
 ```
 
 

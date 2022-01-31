@@ -21,7 +21,9 @@ def catch_dataclass_exception(initial_class):
             try:
                 self.initial_instance = initial_class(*args,**kwargs)
             except Exception as e:
-                raise MessageException("Bad number of parameters: " + str(e))
+                _msg = ErrorNumbers.FB601.value + ": bad number of parameters: " + str(e)
+                logger.error(_msg)
+                raise MessageException(_msg)
 
         def __getattribute__(self,s):
             """
@@ -51,12 +53,13 @@ class Message(object):
 
     def __post_init__(self):
         """
-        raise MessageException if parameters of bad type
-        this is not check by @dataclass
+        raise MessageException (FB601 error) if parameters of bad type
+        remark: this is not check by @dataclass
         """
         if not self.__validate(self.__dataclass_fields__.items()):
-            logger.critical("bad input value for message: " + self.__str__())
-            raise MessageException("bad input value for message: " + self.__str__())
+            _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()
+            logger.critical(_msg)
+            raise MessageException(_msg)
 
     def get_param(self, param: str):
         """This method allows to get the value of a given param
@@ -399,7 +402,9 @@ class ResearcherMessages():
         }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            raise MessageException('Bad message type for replay_create: {}'.format(message_type))
+            _msg =  ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
+            logger.error(_msg)
+            raise MessageException(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
@@ -438,7 +443,9 @@ class ResearcherMessages():
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            raise MessageException('Bad message type for request create: {}'.format(message_type))
+            _msg =  ErrorNumbers.FB601.value + ": bad message type for request_create: {}".format(message_type)
+            logger.error(_msg)
+            raise MessageException(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
@@ -470,7 +477,7 @@ class NodeMessages():
             An instance of the corresponding class (TrainRequest,
             SearchRequest, PingRequest)
         """
-        message_type = params['command']  # can be "train", "search", or "ping"
+        message_type = params['command']
         # mapping message type to an object
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainRequest,
                                      'search': SearchRequest,
@@ -480,7 +487,9 @@ class NodeMessages():
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            raise MessageException('Bad message type for request_create: {}'.format(message_type))
+            _msg =  ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
+            logger.error(_msg)
+            raise MessageException(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
@@ -522,5 +531,7 @@ class NodeMessages():
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            raise MessageException('Bad message type for reply_create: {}'.format(message_type))
+            _msg =  ErrorNumbers.FB601.value + ": bad message type for request_create: {}".format(message_type)
+            logger.error(_msg)
+            raise MessageException(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
