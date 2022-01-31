@@ -1,3 +1,10 @@
+'''
+all the fedbiomed constants/enums
+
+do not import other fedbiomed packages here to avoid dependancy loop
+'''
+
+
 from enum import Enum
 
 
@@ -109,6 +116,7 @@ class ErrorNumbers(_BaseEnum):
 
     FB600 = "FB600: environ error"
     FB601 = "FB601: message error"
+    FB602 = "FB602: logger error"
 
     # oops
 

@@ -12,14 +12,18 @@ Add the following features:
 - allow to change log level globally, or on a specific handler (using its key)
 - log levels can be provided as string instead of logging.* levels (no need to
   import logging in caller's code) just as in the initial python logger
+
+be carefull to not create dependancy loop then importing other fedbiomed package
 """
+
 
 import json  # we do not use fedbiomed.common.json to avoid dependancy loops
 
 import logging
 import logging.handlers
 
-# this fedbiomed.* import is OK: singleton.py does not introduce loop
+# these fedbiomed.* import are OK, they do not introduce dependancy loops
+from fedbiomed.common.constants  import ErrorNumbers
 from fedbiomed.common.exceptions import LoggerException
 from fedbiomed.common.singleton  import SingletonMeta
 
@@ -137,6 +141,7 @@ class MqttHandler(logging.Handler):
             self._mqtt.publish(self._topic, json.dumps(msg))
 
         except: # pragma: no cover
+            #
             # obviously cannot call logger here... (infinite loop)
             # cannot also send the message to the researcher
             # (which was the purpose of the try block which failed)
@@ -144,9 +149,10 @@ class MqttHandler(logging.Handler):
             print(
                 record.__dict__["asctime"],
                 record.__dict__["name"],
-                "CRITICAL - Badly formatted MQTT log message. Cannot send MQTT message"
+                "CRITICAL - badly formatted MQTT log message. Cannot send MQTT message"
             )
-            raise LoggerException("Badly formatted MQTT log message. Cannot send MQTT message")
+            _msg = ErrorNumbers.FB602.value + ": badly formatted MQTT log message. Cannot send MQTT message"
+            raise LoggerException(_msg)
 
 
 class _LoggerBase():
