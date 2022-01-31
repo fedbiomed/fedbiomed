@@ -139,7 +139,7 @@ class MqttHandler(logging.Handler):
         except: # pragma: no cover
             # obviously cannot call logger here... (infinite loop)
             # cannot also send the message to the researcher
-            # (which was the purpose of the try block)
+            # (which was the purpose of the try block which failed)
             #
             print(
                 record.__dict__["asctime"],

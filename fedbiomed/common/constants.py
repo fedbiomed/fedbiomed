@@ -105,6 +105,10 @@ class ErrorNumbers(_BaseEnum):
     FB500 = "FB500: undetermined node error, detected by server"
     FB501 = "FB501: node not reacheable"
 
+    # general application errors (common to node/researcher)
+
+    FB600 = "FB600: environ error"
+
     # oops
 
     FB999 = "FB999: unknown error code sent by the node"
