@@ -71,12 +71,11 @@ class Experiment(object):
                   and use this value as training_data. The dict should use node ids as keys,
                   values being list of dicts (each dict representing a dataset on a node).
                 * else if it is None (no training data provided)
-                  - set training_data by
+                  - if `tags` is not None, set training_data by
                     searching for datasets with a query to the nodes using `tags` and `nodes`
-                    (if `tags` is set)
-                  - or set training_data to None (no training_data set yet,
+                  - if `tags` is None, set training_data to None (no training_data set yet,
                     experiment is not fully initialized and cannot be launched)
-                Defaults to None (query nodes for dataset if `tags` is set, set training_data
+                Defaults to None (query nodes for dataset if `tags` is not None, set training_data
                 to None else)
             - aggregator (Union[Aggregator, Type[Aggregator], None], optional):
                 object or class defining the method for aggregating local updates.
@@ -351,8 +350,11 @@ class Experiment(object):
                 * else if it is a dict, create and use a FederatedDataSet object from the dict
                   and use this value as training_data. The dict should use node ids as keys,
                   values being list of dicts (each dict representing a dataset on a node).
-                * else if it is None (no training data provided),
-                  search for datasets by a query to the nodes using `tags` and `nodes`
+                * else if it is None (no training data provided)
+                  - if `tags` is not None, set training_data by
+                    searching for datasets with a query to the nodes using `tags` and `nodes`
+                  - if `tags` is None, set training_data to None (no training_data set yet,
+                    experiment is not fully initialized and cannot be launched)
 
         Raises:
             - TypeError : bad training_data type
