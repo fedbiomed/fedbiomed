@@ -126,7 +126,7 @@ class Environ(metaclass = SingletonMeta):
                 try:
                     os.makedirs(dir)
                 except FileExistsError:
-                    logger.error("path exists but is not a directory " + dir)
+                    logger.critical("path exists but is not a directory " + dir)
                     raise EnvironException("cannot create directories tree to store config/var/run/... : " + dir)
 
         pass
@@ -237,6 +237,7 @@ class Environ(metaclass = SingletonMeta):
         if hashing_algorithm in HashingAlgorithms.list():
             self._values['HASHING_ALGORITHM'] = hashing_algorithm
         else:
+            logger.critical(f'Hashing algorithm must on of: {HashingAlgorithms.list()}')
             raise EnvironException(f'Hashing algorithm must on of: {HashingAlgorithms.list()}')
 
 
