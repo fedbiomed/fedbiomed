@@ -20,7 +20,8 @@ def catch_dataclass_exception(initial_class):
             #
             try:
                 self.initial_instance = initial_class(*args,**kwargs)
-            except Exception as e:
+            except TypeError as e:
+                # this is the error raised by dataclass if number of parameter is wrong
                 _msg = ErrorNumbers.FB601.value + ": bad number of parameters: " + str(e)
                 logger.error(_msg)
                 raise MessageException(_msg)
