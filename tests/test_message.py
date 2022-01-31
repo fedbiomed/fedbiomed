@@ -7,8 +7,14 @@ import testsupport.mock_common_environ
 
 import unittest
 from dataclasses import dataclass
+import sys
 
-import fedbiomed.common.message as message
+from fedbiomed.common.exceptions import MessageException
+import fedbiomed.common.message    as message
+
+# we also want to test the decorator
+from fedbiomed.common.message import catch_dataclass_exception
+
 from fedbiomed.common.constants import ErrorNumbers
 
 class TestMessage(unittest.TestCase):
@@ -62,7 +68,8 @@ class TestMessage(unittest.TestCase):
             if not valid_class:
                 self.fail("check_class_args: bad class name")
 
-        except:
+        except Exception as e:
+            print("===== " + str(e.__class__.__name__) + " trapped: " + str(e))
             result = False
 
         # for DEBUG purpose
@@ -86,8 +93,14 @@ class TestMessage(unittest.TestCase):
 
         pass
 
+
+    #
+    # create a Message class and the decorator to test the raised exception
+    # test also the @catch_dataclass_exception dcorator
+    #
+    @catch_dataclass_exception
     @dataclass
-    class dummyMessage(message.Message):
+    class DummyMessage(message.Message):
         """
         dummy class to fully test the Message class
         """
@@ -95,32 +108,57 @@ class TestMessage(unittest.TestCase):
         b: str
 
 
-    def test_message(self):
+    def test_dummy_message(self):
 
-        m1 = message.Message()
+        m0 = self.DummyMessage( 1, "test")
 
-        # initial dictionnary is empty
-        self.assertEqual( m1.get_dict(), {} )
+        # getter test
+        self.assertEqual( m0.get_param( "a") , 1)
+        self.assertEqual( m0.get_param( "b") , "test")
 
-        # get/set tester
-        m1.set_param( "a", 1);
-        self.assertEqual( m1.get_dict(), { "a" : 1} )
-        self.assertEqual( m1.get_param( "a") , 1)
-
+        # test the validate fonction which sends an exception
         #
-        m1.set_param( "a", 2);
-        m1.set_param( "b", "this_is_a_string");
-        self.assertEqual( m1.get_param( "a") , 2)
-        self.assertEqual( m1.get_param( "b") , "this_is_a_string")
+        # bad parameter type for a
+        bad_result = False
+        try:
+            m1 = self.DummyMessage( a = False , b = "oh my god !")
 
-        # this constructor is not validated until validate() is
-        # effectively called
-        m2 = self.dummyMessage( a = 1 , b = "oh my god !")
-        self.assertEqual( m2.get_param( "a") , 1)
-        self.assertEqual( m2.get_param( "b") , "oh my god !")
+        except MessageException as e:
+            #
+            # we must arrive here, because message is malformed
+            bad_result = True
 
-        # too difficult to test validate directly
-        # it is indirectly tested by the other test_*() calls
+        except Exception as e:
+            # we should not arrive here also
+            self.assertTrue(False, "bad exception caught: " + e.__class__.__name__ + " instead of MessageException")
+
+        self.assertTrue( bad_result,
+                         "dummyMessage: bad params not detected")
+
+
+        # bad params number
+        bad_result = False
+        try:
+            m2 = self.DummyMessage(1, "foobar", False)
+
+        except MessageException as e:
+            #
+            # we must arrive here, because message is malformed
+            bad_result = True
+
+        except Exception as e:
+            #
+            # @dataclass raises TypeError which is renamed
+            # by @catch_dataclass_exception
+            #
+            # !! we should not reach this part of the code !!
+            #
+            self.assertTrue(False, "bad exception caught: " + e.__class__.__name__)
+
+
+        self.assertTrue( bad_result,
+                         "dummyMessage: bad param number not detected")
+
 
         pass
 
@@ -1780,7 +1818,6 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.request_create( params )
         self.assertIsInstance( r, message.PingRequest )
 
-
     def test_logmessages(self):
 
         # error
@@ -1843,7 +1880,7 @@ class TestMessage(unittest.TestCase):
             # should not reach this line
             self.fail("unknown reply message type for researcher not detected")
 
-        except:
+        except Exception as e:
             # should be reached
             self.assertTrue( True, "unknown reply message type for researcher detected")
 

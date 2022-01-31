@@ -22,7 +22,7 @@ nosetests -v
 Because of the code structure (environ singleton), the tests **must** run
 in separate processes
 
-* run a specific test
+* run all tests from a specific file
 
 ```
 cd tests
@@ -36,7 +36,14 @@ cd tests
 nosetests --tests=test_XXX.py
 ```
 
-Remarks: **nose** could also be used to run the test (same test ficles as with
+* run a specific single test. You must specify all the path to this specific test (test\_file.py:TesctClass.specific\_test\_to_run). Eg:
+
+```
+cd tests
+nosetests test_message.py:TestMessage.test_dummy_message
+```
+
+Remarks: **nose** could also be used to run the test (same test files as with
 unittest). One benefit is to have more option to run the test, for example
 have a coverage output, xml output for ci, etc...
 
