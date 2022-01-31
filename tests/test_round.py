@@ -203,6 +203,8 @@ class TestRound(unittest.TestCase):
         dummy_monitor = MagicMock()
         self.r1.monitor = dummy_monitor        
         # action!
+        
+        # test that `training_rountine` has been called
         with patch.object(self.FakeModel, 'training_routine') as mock1:
             msg = self.r1.run_model_training()
         # tests
