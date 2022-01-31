@@ -1,3 +1,15 @@
+# Coding Rules
+
+
+## Introduction
+
+to be completed
+
+## Code writing rules
+
+### regarding the exceptions
+
+
 - use exceptions defined in **fedbiomed.common.exceptions**
 
 - callee side: then detecting a python exception in a fedbiomed layer :
@@ -40,7 +52,7 @@ except Exception as e:   <=== objective: minimize the number of type we arrive h
     etc...
 ```
 
-  - except of the top level function, it is forbidden to trap all exceptions
+  - except of the top level program, it is **forbidden** to trap all exceptions (with ```except:``` or ```except Exception```)
 
 
 - the **try:** block is as small as possible
