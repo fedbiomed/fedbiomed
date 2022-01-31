@@ -151,7 +151,7 @@ class Environ(metaclass = SingletonMeta):
         # and use ID instead
         try:
             _cfg_value = cfg.get('default', 'researcher_id')
-        except Error: # provided by ConfigParser
+        except configparser.Error:
             _msg = ErrorNumbers.FB600.value + ": no default/researcher_id in config file, please recreate a new config file"
             logger.critical(_msg)
             raise EnvironException(_msg)
@@ -193,7 +193,7 @@ class Environ(metaclass = SingletonMeta):
 
         try:
             _cfg_value = cfg.get('default', 'node_id')
-        except Error: # provided by ConfigParser
+        except configparser.Error:
             _msg = ErrorNumbers.FB600.value + ": no default/node_id in config file, please recreate a new config file"
             logger.critical(_msg)
             raise EnvironException(_msg)
@@ -216,7 +216,7 @@ class Environ(metaclass = SingletonMeta):
 
         try:
             _cfg_value = cfg.get('security', 'allow_default_models')
-        except Error: # provided by ConfigParser
+        except configparser.Error:
             _msg = ErrorNumbers.FB600.value + ": no security/allow_default_models in config file, please recreate a new config file"
             logger.critical(_msg)
             raise EnvironException(_msg)
@@ -227,7 +227,7 @@ class Environ(metaclass = SingletonMeta):
 
         try:
             _cfg_value = cfg.get('security', 'model_approval')
-        except Error: # provided by ConfigParser
+        except configparser.Error:
             _msg = ErrorNumbers.FB600.value + ": no security/model_approval in config file, please recreate a new config file"
             logger.critical(_msg)
             raise EnvironException(_msg)
@@ -238,7 +238,7 @@ class Environ(metaclass = SingletonMeta):
 
         try:
             _cfg_value = cfg.get('security', 'hashing_algorithm')
-        except Error: # provided by ConfigParser
+        except configparser.Error:
             _msg = ErrorNumbers.FB600.value + ": no security/hashing_algorithm in config file, please recreate a new config file"
             logger.critical(_msg)
             raise EnvironException(_msg)
@@ -299,7 +299,7 @@ class Environ(metaclass = SingletonMeta):
         # Parser for the .ini file
         try:
             cfg = configparser.ConfigParser()
-        except Error: # provided by ConfigParser class
+        except configparser.Error:
             _msg = ErrorNumbers.FB600.value + ": cannot parse configuration file"
             logger.critical(_msg)
             raise EnvironException(_msg)
@@ -308,7 +308,7 @@ class Environ(metaclass = SingletonMeta):
             # get values from .ini file
             try:
                 cfg.read(CONFIG_FILE)
-            except Error: # provided by ConfigParser class
+            except configparser.Error:
                 _msg = ErrorNumbers.FB600.value + ": cannot read config file, check file permissions"
                 logger.critical(_msg)
                 raise EnvironException(_msg)
@@ -375,7 +375,7 @@ class Environ(metaclass = SingletonMeta):
         try:
             with open(config_file, 'w') as f:
                 cfg.write(f)
-        except Error: # provided by ConfigParser
+        except configparser.Error:
             _msg = ErrorNumbers.FB600.value + ": cannot save config file: " + config_file
             logger.critical(_msg)
             raise EnvironException(_msg)
@@ -412,7 +412,7 @@ class Environ(metaclass = SingletonMeta):
         try:
             with open(config_file, 'w') as f:
                 cfg.write(f)
-        except Error: # provided by ConfigParser
+        except configparser.Error:
             _msg = ErrorNumbers.FB600.value + ": cannot save config file: " + config_file
             logger.critical(_msg)
             raise EnvironException(_msg)
@@ -425,7 +425,7 @@ class Environ(metaclass = SingletonMeta):
         # broker location
         try:
             _cfg_value = cfg.get('mqtt', 'broker_ip')
-        except Error: # provided by ConfigParser
+        except configparser.Error:
             _msg = ErrorNumbers.FB600.value + ": no mqtt/broker_ip in config file, please recreate a new config file"
             logger.critical(_msg)
             raise EnvironException(_msg)
@@ -435,7 +435,7 @@ class Environ(metaclass = SingletonMeta):
 
         try:
             _cfg_value = cfg.get('mqtt', 'port')
-        except Error: # provided by ConfigParser
+        except configparser.Error:
             _msg = ErrorNumbers.FB600.value + ": no mqtt/port in config file, please recreate a new config file"
             logger.critical(_msg)
             raise EnvironException(_msg)
@@ -446,7 +446,7 @@ class Environ(metaclass = SingletonMeta):
         # repository location
         try:
             _cfg_value = cfg.get('default', 'uploads_url')
-        except Error: # provided by ConfigParser
+        except configparser.Error:
             _msg = ErrorNumbers.FB600.value + ": no default/uploads_url in config file, please recreate a new config file"
             logger.critical(_msg)
             raise EnvironException(_msg)
