@@ -31,7 +31,6 @@ from torchvision import datasets, transforms
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.torchnn import TorchTrainingPlan
-#from fedbiomed.researcher.exceptions import TrainingException
 
 # you can use any class name eg:
 # class AlterTrainingPlan(TorchTrainingPlan):
@@ -128,11 +127,7 @@ exp = Experiment(tags=tags,
 # Let's start the experiment.
 # By default, this function doesn't stop until all the `rounds` are done for all the nodes
 
-try:
-    exp.run()
-except Exception as e:
-    logger.critical("Error during experiment.run(): "+str(e))
-    sys.exit(-1)
+exp.run()
 
 # Local training results for each round and each node are available in `exp.training_replies` (index 0 to (`rounds` - 1) ).
 # For example you can view the training results for the last round below.
