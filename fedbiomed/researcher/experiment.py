@@ -157,8 +157,8 @@ class Experiment(object):
         # Note: currently keep this parameter as it cannot be updated in Job()
         # without refactoring Job() first
 
-        # sets self._model_is_defined: is the model properly defined ?
-        # with current version of jobs model requires
+        # sets self._model_is_defined: bool == is the model properly defined ?
+        # with current version of jobs, a correctly defined model requires:
         # - either model_path to None + model_class is the class a training plan
         # - or model_path not None + model_class is a name (str) of a training plan
         #
@@ -170,18 +170,9 @@ class Experiment(object):
         self.set_model_args(model_args)
         self.set_training_args(training_args)
         
+        # set self._job to Union[Job, None]
+        self.set_job()
 
-        status, _ = self._before_job_init()
-        if status:
-            self._job = Job(reqs=self._reqs,
-                            model=self._model_class,
-                            model_path=self._model_path,
-                            model_args=self._model_args,
-                            training_args=self._training_args,
-                            data=self._fds,
-                            keep_files_dir=self.experimentation_path())
-        else:
-            self._job = None
 
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
@@ -238,6 +229,9 @@ class Experiment(object):
     def training_args(self) -> dict:
         return self._training_args
 
+    def job(self) -> Union[Job, None]:
+        return self._job
+
 
 
     def training_replies(self):
@@ -245,9 +239,6 @@ class Experiment(object):
 
     def aggregated_params(self):
         return self._aggregated_params
-
-    def job(self):
-        return self._job
 
     def model_instance(self):
         return self._job.model
@@ -821,6 +812,52 @@ class Experiment(object):
         return self._training_args
 
 
+    # we could also handle `set_job(self, Union[Job, None])` but is it useful as
+    # job is initialized with arguments that can be set ?
+    def set_job(self) -> Union[Job, None]:
+        """Setter for job, it verifies pre-requisites are met for creating a job
+        attached to this experiment. If yes, instantiate a job ; if no, return None.
+
+        Returns:
+            - job (Union[Job, None])
+        """
+        # at this point all are defined among:
+        # self.{_reqs,_fds,_model_is_defined,_model_class,_model_path,_model_args,_training_args}
+        # self._experimentation_folder => self.experimentation_path()
+        # self._round_current
+
+        # _job may not be defined at this point
+        try:
+            if self._job is not None:
+                # a job is already defined, and it may also have run some rounds
+                logger.warning(f'Experimentation `job` changed after running '
+                    '{self._round_current} rounds, may give inconsistent results')
+        except:
+            # nothing to do if not defined yet
+            pass
+
+        if self._model_is_defined is not True:
+            # model not properly defined yet
+            self._job = None
+            logger.warning('Experiment not fully configured yet: no job. Missing proper model '
+                f'definition (model_class={self._model_class} model_path={self._model_path})')
+        elif self._fds is None:
+            # not training data yet
+            self._job = None
+            logger.warning('Experiment not fully configured yet: no job. Missing training data')
+        else:
+            # meeting requisites for instantiating a job
+            self._job = Job(reqs=self._reqs,
+                            model=self._model_class,
+                            model_path=self._model_path,
+                            model_args=self._model_args,
+                            training_args=self._training_args,
+                            data=self._fds,
+                            keep_files_dir=self.experimentation_path())
+
+        return self._job
+
+
 
     def set_breakpoints(self, save_breakpoints: bool = True):
 
@@ -845,26 +882,6 @@ class Experiment(object):
         self._save_breakpoints = save_breakpoints
 
         pass
-
-    def set_job(self):
-        """ Setter for Job class. To be able to set Job, the arguments: model_path, model_class, training_data
-        should be set. Otherwise, set_job() will raise critical error.
-
-        Returns:
-            None
-        """
-        status, messages = self._before_job_init()
-        if status:
-            self._job = Job(reqs=self._reqs,
-                            model=self._model_class,
-                            model_path=self._model_path,
-                            model_args=self._model_args,
-                            training_args=self._training_args,
-                            data=self._fds,
-                            keep_files_dir=self.experimentation_path())
-            return True
-        else:
-            logger.critical('Error while setting Job: \n\n- %s' % '\n- '.join(messages))
 
 
     def set_monitor(self, tensorboard: bool = True, monitor: Monitor = None):
