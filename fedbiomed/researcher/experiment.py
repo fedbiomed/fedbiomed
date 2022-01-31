@@ -31,6 +31,7 @@ _E = TypeVar("Experiment")  # only for typing
 # TODO : should we move this to common/constants.py ?
 training_plans = (TorchTrainingPlan, SGDSkLearnModel)
 # for typing only
+TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SGDSkLearnModel)
 Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SGDSkLearnModel])
 
 
@@ -110,11 +111,11 @@ class Experiment(object):
                 `training_routine` of the training plan when launching it:
                 lr, epochs, batch_size...
                 Defaults to {}.
-
             - save_breakpoints (bool, optional): whether to save breakpoints or
-                not. Breakpoints can be used
-                for resuming a crashed
-                experiment. Defaults to False.
+                not after each training round. Breakpoints can be used for resuming
+                a crashed experiment.
+                Defaults to False.
+
             - tensorboard (bool): Tensorboard flag for displaying scalar values
                 during training in every node. If it is true,
                 monitor will write scalar logs into
@@ -173,9 +174,10 @@ class Experiment(object):
         # set self._job to Union[Job, None]
         self.set_job()
 
-
+        # TODO: rewrite after experiment results refactoring
         self._aggregated_params = {}
-        self._save_breakpoints = save_breakpoints
+
+        self.set_save_breakpoints(save_breakpoints)
 
         #  Monitoring loss values with tensorboard
         if tensorboard:
@@ -214,6 +216,7 @@ class Experiment(object):
     def experimentation_folder(self) -> str:
         return self._experimentation_folder
 
+    # derivative from experimentation_folder
     def experimentation_path(self) -> str:
         return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
 
@@ -233,21 +236,25 @@ class Experiment(object):
         return self._job
 
 
-
-    def training_replies(self):
-        return self._job.training_replies
-
-    def aggregated_params(self):
-        return self._aggregated_params
-
-    def model_instance(self):
-        return self._job.model
-
     def monitor(self):
         return self._monitor
 
-    def breakpoint(self):
+    def save_breakpoints(self):
         return self._save_breakpoints
+
+
+    # TODO: update these getters after experiment results refactor / job refactor 
+
+    def aggregated_params(self) -> dict:
+        return self._aggregated_params
+
+    def training_replies(self) -> dict:
+        return self._job.training_replies
+
+    # TODO: better checking of model object type in Job() to guarantee it is a TrainingPlan
+    def model_instance(self) -> TrainingPlan:
+        return self._job.model
+
 
 
     # Setters ---------------------------------------------------------------------------------------------------------
@@ -858,30 +865,36 @@ class Experiment(object):
         return self._job
 
 
+    # no setter implemented for experiment results, TODO after experiment results refactor
+    # as decided during the refactor
+    #
+    # def set_aggregated_params(...)
 
-    def set_breakpoints(self, save_breakpoints: bool = True):
 
+    def set_save_breakpoints(self, save_breakpoints: bool) -> bool:
+        """ Setter for save_breakpoints + verification on arguments type
+
+        Args:
+            - save_breakpoints (bool, optional): whether to save breakpoints or
+                not after each training round. Breakpoints can be used for resuming
+                a crashed experiment.
+                Defaults to False.
+        
+        Raises:
+            - ExperimentException : bad save_breakpoints type
+
+        Returns:
+            - aggregator (Aggregator)
         """
-            TODO: decide which option is better?
-            breakpoints option 1: keep it as now
-              def breakpoints(self) -> bool:
-              def set_breakpoints(self, save_breakpoints: bool = False) -> bool:
+        if isinstance(save_breakpoints, bool):
+            self._save_breakpoints = save_breakpoints
+        else:
+            self._save_breakpoints = False # robust default
+            msg = ErrorNumbers.FB410.value + f' `save_breakpoints` : {type(save_breakpoints)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
 
-            breakpoints option 2: implement more detail choice of breakpoints save
-               - bkpt_enable True/False => save all/no breakpoints
-               - bkpt_rounds List[int] => round numbers where we save breakpoints
-               - bkpt_every int => save breakpoints every xxx rounds
-               eg: if enable is True, or round number in bkpt_rounds, or bkpt_every
-                       is not None and round is N * bkpt_every then save breakpoint
-               def set_breakpoints(self,
-                     bkpt_enable: bool = False,
-                     bkpt_rounds: List[int] = None,
-                     bkpt_every: int = None)
-
-        """
-        self._save_breakpoints = save_breakpoints
-
-        pass
+        return self._save_breakpoints
 
 
     def set_monitor(self, tensorboard: bool = True, monitor: Monitor = None):
@@ -1030,35 +1043,13 @@ class Experiment(object):
                 self._round_current, self._rounds,
                 self._model_path, self._model_class,
                 self._model_args, self._training_args,
-                self._job, self._save_breakpoint,
+                self._job, self._save_breakpoints,
                 self._experimentation_folder,
                 os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
                 ]
         }
         print(tabulate(info, headers='keys'))
 
-
-    def _before_job_init(self):
-        """ This method checks are all the necessary arguments has been set to
-        initialize `Job` class.
-`
-        Returns:
-            status, missing_attributes (bool, List)
-        """
-        no_none_args_msg = {"_training_args": ErrorNumbers.FB410.value + 'missing training args',
-                            "_fds": ErrorNumbers.FB400.value + 'missing training data',
-                            '_model_class': ErrorNumbers.FB410.value + 'missing model class',
-                            }
-
-        status, messages = self._argument_controller(no_none_args_msg)
-
-        # Model_path is not required if the model_class is a class
-        # if it is string Job requires knowing here model is saved
-        if self._model_path is None and isinstance(self._model_class, str):
-            messages.append(ErrorNumbers.FB410.value + 'missing model path')
-            status = False
-
-        return status, messages
 
     def _before_experiment_run(self):
 
