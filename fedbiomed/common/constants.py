@@ -99,22 +99,8 @@ class ErrorNumbers(_BaseEnum):
     FB407 = "FB407: list of nodes became empty then training"
     FB408 = "FB408: node did not answer during training"
     FB409 = "FB409: node sent Status=Error during training"
-
-    FB410 = "FB410: Bad type for experiment argument `model_args` : '%s'"
-    FB411 = "FB411: Bad type for experiment argument `training_args` : '%s'"
-    FB412 = "FB412: Bad type for experiment argument `model_class` : '%s'"
-    FB413 = "FB413: Bad type for experiment argument `model_path` : '%s'"
+    FB410 = "FB410: Bad type for experiment argument"
     
-    FB414 = "FB414: Please create job with `.set_job()` before running the experiment"
-    FB415 = "FB415: Please set client selection strategy"
-
-    FB416 = "FB416: Bad type for experiment argument `experimentation_folder` : '%s'"
-    FB417 = "FB417: Bad type for experiment argument `rounds` : '%s'"
-    FB418 = "FB418: Bad type for experiment argument `node_selection_strategy` : '%s'"
-    FB419 = "FB419: Bad type for experiment argument `aggregator` : '%s'"
-    FB420 = "FB420: Bad type for experiment argument `training_data` : '%s'"
-    FB421 = "FB421: Bad type for experiment argument `tags` : '%s'"
-    FB422 = "FB422: Bad type for experiment argument `nodes` : '%s'"
     # node problem detected by researcher
 
     FB500 = "FB500: undetermined node error, detected by server"

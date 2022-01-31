@@ -9,6 +9,7 @@ from pathvalidate import sanitize_filename, sanitize_filepath
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import ExperimentException
 from fedbiomed.researcher.environ import environ
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
@@ -270,7 +271,7 @@ class Experiment(object):
                 None (tags not set, cannot search for training_data yet).
 
         Raises:
-            - TypeError : bad tags type
+            - ExperimentException : bad tags type
 
         Returns :
             - tags (Union[List[str], None])
@@ -280,15 +281,18 @@ class Experiment(object):
             for tag in tags:
                 if not isinstance(tag, str):
                     self._tags = [] # robust default, in case we try to continue execution
-                    raise TypeError(ErrorNumbers.FB421.value % f'list of {type(tag)}')
+                    msg = ErrorNumbers.FB410.value + f' `tags` : list of {type(tag)}'
+                    logger.critical(msg)
+                    raise ExperimentException(msg)
         elif isinstance(tags, str):
             self._tags = [tags]
         elif tags is None:
             self._tags = tags
         else:
             self._tags = None # robust default, in case we try to continue execution
-            logger.error(ErrorNumbers.FB421.value % type(tags))
-            raise TypeError(ErrorNumbers.FB421.value % type(tags))
+            msg = ErrorNumbers.FB410.value + f' `tags` : {type(tags)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
         # self._tags always exist at this point
 
         # self._fds doesn't always exist at this point
@@ -310,7 +314,7 @@ class Experiment(object):
                 to be involved in the experiment.
 
         Raises:
-            - TypeError : bad nodes type
+            - ExperimentException : bad nodes type
 
         Returns:
             - nodes (Union[List[str], None])
@@ -320,13 +324,16 @@ class Experiment(object):
             for node in nodes:
                 if not isinstance(node, str):
                     self._nodes = None # robust default
-                    raise TypeError(ErrorNumbers.FB422.value % f'list of {type(node)}')
+                    msg = ErrorNumbers.FB410.value + f' `nodes` : list of {type(node)}'
+                    logger.critical(msg)
+                    raise ExperimentException(msg)
         elif nodes is None:
             self._nodes = nodes
         else:
             self._nodes = None
-            logger.error(ErrorNumbers.FB422.value % type(nodes))
-            raise TypeError(ErrorNumbers.FB422.value % type(nodes))
+            msg = ErrorNumbers.FB410.value + f' `nodes` : {type(nodes)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
         # self._nodes always exist at this point
 
         # self._fds doesn't always exist at this point
@@ -357,7 +364,7 @@ class Experiment(object):
                     experiment is not fully initialized and cannot be launched)
 
         Raises:
-            - TypeError : bad training_data type
+            - ExperimentException : bad training_data type
 
         Returns:
             - nodes (Union[FederatedDataSet, None])
@@ -378,8 +385,9 @@ class Experiment(object):
             self._fds = FederatedDataSet(training_data)
         elif training_data is not None:
             self._fds = None
-            logger.error((ErrorNumbers.FB420.value % type(training_data)))
-            raise TypeError(ErrorNumbers.FB420.value % type(training_data))
+            msg = ErrorNumbers.FB410.value + f' `training_data` : {type(training_data)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
         else:
             self._fds = None
             logger.warning('Experiment not fully configured yet: no training data')
@@ -413,7 +421,7 @@ class Experiment(object):
                 Default to None (use `FedAverage` for aggregation)
         
         Raises:
-            - TypeError : bad aggregator type
+            - ExperimentException : bad aggregator type
 
         Returns:
             - aggregator (Aggregator)
@@ -429,16 +437,18 @@ class Experiment(object):
             else:
                 # bad argument, need to provide an Aggregator class
                 self._aggregator = FedAverage() # be robust if we continue execution
-                logger.error(ErrorNumbers.FB419.value % f'{aggregator} class')
-                raise TypeError(ErrorNumbers.FB419.value % f'{aggregator} class')
+                msg = ErrorNumbers.FB410.value + f' `aggregator` : {aggregator} class'
+                logger.critical(msg)
+                raise ExperimentException(msg) 
         elif isinstance(aggregator, Aggregator):
             # an object of a proper class is provided, nothing to do
             self._aggregator = aggregator
         else:
             # other bad type or object
             self._aggregator = FedAverage() # be robust if we continue execution
-            logger.error(ErrorNumbers.FB419.value % type(aggregator))
-            raise TypeError(ErrorNumbers.FB419.value % type(aggregator))
+            msg = ErrorNumbers.FB410.value + f' `aggregator` : {type(aggregator)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
         
         # at this point self._aggregator is (non-None) aggregator object
         return self._aggregator
@@ -458,7 +468,7 @@ class Experiment(object):
                   be launched yet
 
         Raises:
-            - TypeError : bad strategy type
+            - ExperimentException : bad strategy type
 
         Returns:
             - node_selection_strategy (Union[Strategy, None])
@@ -474,16 +484,20 @@ class Experiment(object):
                 else:
                     # bad argument, need to provide a Strategy class
                     self._node_selection_strategy = DefaultStrategy(self._fds) # be robust
-                    logger.error(ErrorNumbers.FB418.value % f'{node_selection_strategy} class')
-                    raise TypeError(ErrorNumbers.FB418.value % f'{node_selection_strategy} class')
+                    msg = ErrorNumbers.FB410.value + \
+                        f' `node_selection_strategy` : {node_selection_strategy} class'
+                    logger.critical(msg)
+                    raise ExperimentException(msg)
             elif isinstance(node_selection_strategy, Strategy):
                 # an object of a proper class is provided, nothing to do
                 self._node_selection_strategy = node_selection_strategy
             else:
                 # other bad type or object
                 self._node_selection_strategy = DefaultStrategy(self._fds) # be robust
-                logger.error(ErrorNumbers.FB418.value % type(node_selection_strategy))
-                raise TypeError(ErrorNumbers.FB418.value % type(node_selection_strategy))
+                msg = ErrorNumbers.FB410.value + \
+                    f' `node_selection_strategy` : {type(node_selection_strategy)}'
+                logger.critical(msg)
+                raise ExperimentException(msg)                
         else:
             # cannot initialize strategy if not FederatedDataSet yet
             self._node_selection_strategy = None
@@ -501,7 +515,7 @@ class Experiment(object):
                 (nodes <-> central server) of the experiment.
 
         Raise:
-            - TypeError : bad rounds type
+            - ExperimentException : bad rounds type
 
         Returns:
             - rounds (int)
@@ -509,7 +523,9 @@ class Experiment(object):
         # at this point round_current exists and is an int >= 0
         if not isinstance(rounds, int):
             self._rounds = max(1, self._round_current) # robust default
-            raise TypeError(ErrorNumbers.FB417.value % type(rounds))
+            msg = ErrorNumbers.FB410.value + f' `rounds` : {type(rounds)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)            
         else:
             # at this point rounds is an int
             self._rounds = max(rounds, self._round_current)
@@ -524,7 +540,7 @@ class Experiment(object):
 
 
     # no setter for self._round_current eg
-    #def set_round_current(self, round_current: int):
+    #def set_round_current(self, round_current: int) -> int:
     # ...
     #
     # - does not make sense to increase `self._round_current` == padding with "non existing" rounds,
@@ -542,7 +558,7 @@ class Experiment(object):
             - experimentation_folder (Union[str, None], optional): 
 
         Raise:
-            - TypeError : bad experimentation_folder type
+            - ExperimentException : bad experimentation_folder type
 
         Returns:
             - experimentation_folder (str)
@@ -558,7 +574,10 @@ class Experiment(object):
                     f'{experimentation_folder} to {sanitized_folder}')
         else:
             self._experimentation_folder = create_exp_folder() # robust default
-            raise TypeError(ErrorNumbers.FB416.value % type(experimentation_folder))            
+            msg = ErrorNumbers.FB410.value + \
+                f' `experimentation_folder` : {type(experimentation_folder)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)           
         
         # at this point self._experimentation_folder is a str valid for a foldername
 
@@ -587,7 +606,7 @@ class Experiment(object):
                 Defaults to None (no model class defined yet)
 
         Raise:
-            - TypeError : bad model_class type
+            - ExperimentException : bad model_class type
 
         Returns:
             - model_class (Union[Type_TrainingPlan, str, None])
@@ -611,8 +630,9 @@ class Experiment(object):
                 # bad identifier
                 self._model_class = None # be robust if we continue execution
                 self._model_is_defined = False
-                logger.error(ErrorNumbers.FB412.value % f'{model_class} bad identifier')
-                raise TypeError(ErrorNumbers.FB412.value % f'{model_class} bad identifier')
+                msg = ErrorNumbers.FB410.value + f' `model_class` : {model_class} bad identifier'
+                logger.critical(msg)
+                raise ExperimentException(msg)                
         elif inspect.isclass(model_class):
             # model_class must be a subclass of a valid training plan
             if issubclass(model_class, training_plans):
@@ -630,14 +650,16 @@ class Experiment(object):
                 # bad class
                 self._model_class = None # be robust if we continue execution
                 self._model_is_defined = False
-                logger.error(ErrorNumbers.FB412.value % f'{model_class} class')
-                raise TypeError(ErrorNumbers.FB412.value % f'{model_class} class')
+                msg = ErrorNumbers.FB410.value + f' `model_class` : {model_class} class'
+                logger.critical(msg)
+                raise ExperimentException(msg)
         else:
             # bad type
             self._model_class = None # be robust if we continue execution
             self._model_is_defined = False
-            logger.error(ErrorNumbers.FB412.value % type(model_class))
-            raise TypeError(ErrorNumbers.FB412.value % type(model_class))
+            msg = ErrorNumbers.FB410.value + f' `model_class` : type(model_class)'
+            logger.critical(msg)
+            raise ExperimentException(msg)            
 
         # self._model_is_defined and self._model_class always exist at this point
         try:
@@ -671,7 +693,7 @@ class Experiment(object):
                 Defaults to None. 
 
         Raise:
-            - TypeError : bad model_path type
+            - ExperimentException : bad model_path type
 
         Returns:
             - model_path (Union[str, None])
@@ -693,16 +715,17 @@ class Experiment(object):
                 # bad filepath
                 self._model_path = None # be robust if we continue execution
                 self._model_is_defined = inspect.isclass(self._model_class)
-                logger.error(ErrorNumbers.FB413.value %
-                    f'{model_path} is not a sane path to an existing file')
-                raise TypeError(ErrorNumbers.FB413.value %
-                    f'{model_path} is not a sane path to an existing file')
+                msg = ErrorNumbers.FB410.value + \
+                    f' `model_path` : {model_path} is not a sane path to an existing file'
+                logger.critical(msg)
+                raise ExperimentException(msg)
         else:
             # bad type
             self._model_path = None # be robust if we continue execution
             self._model_is_defined = inspect.isclass(self._model_class)
-            logger.error(ErrorNumbers.FB413.value % type(model_path))
-            raise TypeError(ErrorNumbers.FB413.value % type(model_path))
+            msg = ErrorNumbers.FB410.value + f' `model_path` : type(model_path)'
+            logger.critical(msg)
+            raise ExperimentException(msg)
 
         # self._model_path is also defined at this point
         if not self._model_is_defined:
@@ -732,7 +755,7 @@ class Experiment(object):
                 Defaults to {}.
 
         Raise:
-            - TypeError : bad model_args type
+            - ExperimentException : bad model_args type
 
         Returns:
             - model_args (dict)
@@ -742,8 +765,9 @@ class Experiment(object):
         else:
             # bad type
             self._model_args = {}
-            logger.error(ErrorNumbers.FB410.value % type(model_args))
-            raise TypeError(ErrorNumbers.FB410.value % type(model_args))
+            msg = ErrorNumbers.FB410.value + f' `model_args` : {type(model_args)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
         # self._model_args always exist at this point
 
         # _job doesn't always exist at this point
@@ -769,7 +793,7 @@ class Experiment(object):
                 Defaults to {}.
 
         Raise:
-            - TypeError : bad training_args type
+            - ExperimentException : bad training_args type
 
         Returns:
             - training_args (dict)
@@ -779,8 +803,9 @@ class Experiment(object):
         else:
             # bad type
             self._training_args = {}
-            logger.error(ErrorNumbers.FB411.value % type(training_args))
-            raise TypeError(ErrorNumbers.FB411.value % type(training_args))
+            msg = ErrorNumbers.FB410.value + f' `training_args` : {type(training_args)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)            
         # self._training_args always exist at this point
 
         # _job doesn't always exist at this point
@@ -912,7 +937,7 @@ class Experiment(object):
 
             self._round_current += 1
         else:
-            raise ValueError('Error while running the experiment: \n\n- %s' % '\n- '.join(messages))
+            raise ExperimentException('Error while running the experiment: \n\n- %s' % '\n- '.join(messages))
 
     def run(self, rounds: int = None):
         """Runs an experiment, ie trains a model on nodes for a
@@ -1003,9 +1028,9 @@ class Experiment(object):
         Returns:
             status, missing_attributes (bool, List)
         """
-        no_none_args_msg = {"_training_args": ErrorNumbers.FB410.value % 'missing training args',
-                            "_fds": ErrorNumbers.FB420.value % 'missing training data',
-                            '_model_class': ErrorNumbers.FB412.value % 'missing model class',
+        no_none_args_msg = {"_training_args": ErrorNumbers.FB410.value + 'missing training args',
+                            "_fds": ErrorNumbers.FB400.value + 'missing training data',
+                            '_model_class': ErrorNumbers.FB410.value + 'missing model class',
                             }
 
         status, messages = self._argument_controller(no_none_args_msg)
@@ -1013,15 +1038,15 @@ class Experiment(object):
         # Model_path is not required if the model_class is a class
         # if it is string Job requires knowing here model is saved
         if self._model_path is None and isinstance(self._model_class, str):
-            messages.append(ErrorNumbers.FB413.value % 'missing model path')
+            messages.append(ErrorNumbers.FB410.value + 'missing model path')
             status = False
 
         return status, messages
 
     def _before_experiment_run(self):
 
-        no_none_args_msg = {"_job": ErrorNumbers.FB414.value,
-                            "_node_selection_strategy": ErrorNumbers.FB415.value,
+        no_none_args_msg = {"_job": ErrorNumbers.FB410.value + ' job - missing',
+                            "_node_selection_strategy": ErrorNumbers.FB410.value + 'strategy - missing',
                             }
 
         return self._argument_controller(no_none_args_msg)

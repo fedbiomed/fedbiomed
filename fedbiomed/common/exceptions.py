@@ -37,3 +37,9 @@ class TrainingException(FedbiomedException):
     Exception raises then training (researcher/node) class
     """
     pass
+
+class ExperimentException(FedbiomedException):
+    """
+    Exception specific to the Experiment class
+    """
+    pass
