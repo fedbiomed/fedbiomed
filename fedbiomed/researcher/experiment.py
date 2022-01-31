@@ -954,6 +954,12 @@ class Experiment(object):
 
         """
 
+        # TEMPO
+        self._round_current += 1
+        print(f"RUN A ROUND rounds={self._rounds} round_current={self._round_current}")
+        return
+
+        # TODO: increase round number if needed
         if self._round_current >= self._rounds:
             logger.info(f'Round limit has been reached. Number of rounds: {self._rounds} and completed rounds: '
                         f'{self._round_current}. Please set higher value with `.set_rounds` or '
@@ -995,31 +1001,58 @@ class Experiment(object):
         else:
             raise ExperimentException('Error while running the experiment: \n\n- %s' % '\n- '.join(messages))
 
-    def run(self, rounds: int = None):
-        """Runs an experiment, ie trains a model on nodes for a
-        given number of rounds.
-        It involves the following steps:
+    def run(self, run_rounds: int = 0) -> int:
+        """Run one or more rounds of an experiment, continuing from the point the
+        experiment had reached.
 
         Args:
-            rounds (int, optional): Number of round that the experiment will run. If it is not
-            provided method will use built-in rounds
+            - run_rounds (int, optional): Number of experiment rounds to run in this call.
+              * 0 means "run all the rounds remaining in the experiment" computed as
+                total `rounds` minus the number of rounds already run `round_current`
+              * >= 1 means "run exactly this number of rounds". If it goes beyond the
+                total `rounds` of the experiment, change the total `rounds`
+                to (`round_current` + `run_rounds`)
+              Defaults to 0
+        
         Raises:
-            NotImplementedError: [description]
+            - ExperimentException : bad run_rounds type
+        
         Returns:
-            None
+            - run_rounds (int) : number of rounds really run
 
         """
+        # check run_rounds is a >=0 integer
+        if not isinstance(run_rounds, int):
+            msg = ErrorNumbers.FB410.value + f' `run_rounds` : type {type(run_rounds)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
+            # return 0 # robust default          
+        elif run_rounds < 0:
+            msg = ErrorNumbers.FB410.value + f' `run_rounds` : value {run_rounds}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
+            # return 0 # robust default            
 
-        # Extend round if rounds is not None and if it is needed
-        if rounds:
-            rounds_left = self._rounds - self._round_current
-            if rounds_left < rounds:
-                self._rounds = self._rounds + (rounds - rounds_left)
+        # compute number of rounds to run
+        if run_rounds == 0:
+            # all remaining rounds in the experiment
+            run_rounds = self._rounds - self._round_current
+        else:
+            # dont change run_rounds, but extend self._rounds if necessary
+            if (self._round_current + run_rounds) > self._rounds:
+                logger.info(f'Auto increasing total rounds for experiment from {self._rounds} '
+                    f'to {self._round_current + run_rounds}')
+            self._rounds = max (self._rounds, self._round_current + run_rounds)
 
-        for _ in range(self._rounds):
-            status = self.run_once()
-            if status is False:
-                break
+        # run the rounds
+        for _ in range(run_rounds):
+            self.run_once()
+
+        return run_rounds
+
+
+
+    # Model checking functions -------------------------------------------------------------------
 
     def model_file(self, display: bool = True):
 
@@ -1046,6 +1079,7 @@ class Experiment(object):
         """
         responses = self._job.check_model_is_approved_by_nodes()
         return responses
+
 
     def info(self):
         """ Information about status of the current experiment. Method  lists all the

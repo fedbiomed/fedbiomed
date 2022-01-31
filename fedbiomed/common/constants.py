@@ -99,7 +99,7 @@ class ErrorNumbers(_BaseEnum):
     FB407 = "FB407: list of nodes became empty then training"
     FB408 = "FB408: node did not answer during training"
     FB409 = "FB409: node sent Status=Error during training"
-    FB410 = "FB410: Bad type for experiment argument"
+    FB410 = "FB410: Bad type or value for experiment argument"
     
     # node problem detected by researcher
 
