@@ -100,9 +100,8 @@ class ErrorNumbers(_BaseEnum):
     FB408 = "FB408: node did not answer during training"
     FB409 = "FB409: node sent Status=Error during training"
 
-    FB410 = "FB410: Please set training arguments with `.set_training_args()` before setting a `Job`."
-    FB411 = "FB411: No Federated Dataset is found. Please use `.set_training_data()` before setting a `Job`."
-    
+    FB410 = "FB410: Bad type for experiment argument `model_args` : '%s'"
+    FB411 = "FB411: Bad type for experiment argument `training_args` : '%s'"
     FB412 = "FB412: Bad type for experiment argument `model_class` : '%s'"
     FB413 = "FB413: Bad type for experiment argument `model_path` : '%s'"
     

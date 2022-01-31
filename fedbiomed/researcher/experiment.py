@@ -48,7 +48,7 @@ class Experiment(object):
                 model_class: Union[Type_TrainingPlan, str, None] = None,
                 model_path: Union[str, None] = None,
                 model_args: dict = {},
-                training_args: dict = None,
+                training_args: dict = {},
                 save_breakpoints: bool = False,
                 tensorboard: bool = False,
                 experimentation_folder: Union[str, None] = None
@@ -102,12 +102,15 @@ class Experiment(object):
                 model code (`str`) or None (no file containing model code, `model_class`
                 needs to be a class matching `Type_TrainingPlan`)
                 Defaults to None. 
-
-            - model_args (dict, optional): contains output and input feature
-                dimension. Defaults to None.
-            - training_args (dict, optional): contains training parameters:
+            - model_args (dict, optional): contains model arguments passed to the constructor
+                of the training plan when instantiating it : output and input feature
+                dimension, etc.
+                Defaults to {}.
+            - training_args (dict, optional): contains training arguments passed to the 
+                `training_routine` of the training plan when launching it:
                 lr, epochs, batch_size...
-                Defaults to None.
+                Defaults to {}.
+
             - save_breakpoints (bool, optional): whether to save breakpoints or
                 not. Breakpoints can be used
                 for resuming a crashed
@@ -163,9 +166,10 @@ class Experiment(object):
         self.set_model_class(model_class)
         self.set_model_path(model_path)
 
-
-        self._model_args = model_args
-        self._training_args = training_args
+        # set self._model_args and self._training_args to dict
+        self.set_model_args(model_args)
+        self.set_training_args(training_args)
+        
 
         status, _ = self._before_job_init()
         if status:
@@ -191,6 +195,7 @@ class Experiment(object):
             # Remove callback. Since reqeust class is singleton callback
             # function might be already added into request before.
             self._reqs.remove_monitor_callback()
+
 
     # Getters ---------------------------------------------------------------------------------------------------------
 
@@ -227,6 +232,11 @@ class Experiment(object):
     def model_path(self) -> Union[str, None]:
         return self._model_path
 
+    def model_args(self) -> dict:
+        return self._model_args
+
+    def training_args(self) -> dict:
+        return self._training_args
 
 
 
@@ -241,18 +251,6 @@ class Experiment(object):
 
     def model_instance(self):
         return self._job.model
-
-    def model_args(self):
-        return self._model_args
-
-    def training_args(self):
-        return self._training_args
-
-    def model_path(self):
-        return self._model_path
-
-    def model_class(self):
-        return self._model_class
 
     def monitor(self):
         return self._monitor
@@ -292,8 +290,9 @@ class Experiment(object):
             self._tags = None # robust default, in case we try to continue execution
             logger.error(ErrorNumbers.FB421.value % type(tags))
             raise TypeError(ErrorNumbers.FB421.value % type(tags))
+        # self._tags always exist at this point
 
-        # _fds doesn't always exist at this point
+        # self._fds doesn't always exist at this point
         try:
             if self._fds is not None:
                 logger.warning('Experimentation tags changed, you may need to update `training_data`')
@@ -329,14 +328,16 @@ class Experiment(object):
             self._nodes = None
             logger.error(ErrorNumbers.FB422.value % type(nodes))
             raise TypeError(ErrorNumbers.FB422.value % type(nodes))
+        # self._nodes always exist at this point
 
-        # _fds doesn't always exist at this point
+        # self._fds doesn't always exist at this point
         try:
             if self._fds is not None:
                 logger.warning('Experimentation nodes filter changed, you may need to update `training_data`')
         except AttributeError:
             # nothing to do if not defined yet
             pass
+        
         return self._nodes
 
 
@@ -382,7 +383,7 @@ class Experiment(object):
             logger.warning('Experiment not fully configured yet: no training data')
         # at this point, self._fds is either None or a FederatedDataSet object
         
-        # strategy and job don't always exist at this point
+        # self._strategy and self._job don't always exist at this point
         try:
             if self._node_selection_strategy is not None:
                 logger.warning('Training data changed, '
@@ -636,7 +637,7 @@ class Experiment(object):
             logger.error(ErrorNumbers.FB412.value % type(model_class))
             raise TypeError(ErrorNumbers.FB412.value % type(model_class))
 
-        # model_is_defined and model_class always exist at this point
+        # self._model_is_defined and self._model_class always exist at this point
         try:
             self._model_path # raise exception if not defined
             if not self._model_is_defined:
@@ -673,7 +674,7 @@ class Experiment(object):
         Returns:
             - model_path (Union[str, None])
         """
-        # model_class and model_is_defined already exist when entering this function
+        # self._model_class and self._model_is_defined already exist when entering this function
 
         if model_path is None:
             self._model_path = None
@@ -701,7 +702,7 @@ class Experiment(object):
             logger.error(ErrorNumbers.FB413.value % type(model_path))
             raise TypeError(ErrorNumbers.FB413.value % type(model_path))
 
-        # model_path is also defined at this point
+        # self._model_path is also defined at this point
         if not self._model_is_defined:
             logger.warning(f'Experiment not fully configured yet: no valid model, '
                 f'model_class={self._model_class} model_path={self._model_path}')
@@ -717,40 +718,81 @@ class Experiment(object):
         return self._model_path
         
 
-
-
-    def set_model_args(self, model_args: Dict):
-        """ Setter for Model Arguments. This method should also update/set model arguments in
-        Job object.
-
-        Args:
-            model_args (dict): Model arguments
-        """
-
-        # TODO: Job uses model arguments in init method for building TrainingPlan (Model Class).
-        # After Job has initialized setting new model arguments will require to reinitialize the job.
-        # Job needs to be refactored to avoid rebuild after the arguments have changed.
-        self._model_args = model_args
-        if self._job:
-            logger.info('Model arguments has been changed, please update the Job by running `.set_job()`')
-
-        return
-
-    def set_training_args(self, training_args):
-
-        """ Setter for training arguments. Updates the Job object with new
-            training arguments.
+    # TODO: model_args need checking of dict items, to be done by Job and node
+    # (using a training plan method ?)
+    def set_model_args(self, model_args: dict):
+        """Setter for `model_args` + verification on arguments type
 
         Args:
-            training_args (dict): Training arguments
+            - model_args (dict, optional): contains model arguments passed to the constructor
+                of the training plan when instantiating it : output and input feature
+                dimension, etc.
+                Defaults to {}.
+
+        Raise:
+            - TypeError : bad model_args type
+
+        Returns:
+            - model_args (dict)
         """
-        self._training_args = training_args
+        if isinstance(model_args, dict):
+            self._model_args = model_args
+        else:
+            # bad type
+            self._model_args = {}
+            logger.error(ErrorNumbers.FB410.value % type(model_args))
+            raise TypeError(ErrorNumbers.FB410.value % type(model_args))
+        # self._model_args always exist at this point
 
-        # Update training arguments if job is already initialized
-        if self._job:
-            self._job._training_args = training_args
+        # _job doesn't always exist at this point
+        try:
+            if self._job is not None:
+                logger.warning('Experimentation model_args changed, you may need to update `job`')
+        except AttributeError:
+            # nothing to do if not defined yet
+            pass
 
-        return
+        return self._model_args
+
+
+    # TODO: training_args need checking of dict items, to be done by Job and node
+    # (using a training plan method ? changing `training_routine` prototype ?)
+    def set_training_args(self, training_args: dict):
+        """Setter for `training_args` + verification on arguments type
+
+        Args:
+            - training_args (dict, optional): contains training arguments passed to the 
+                `training_routine` of the training plan when launching it:
+                lr, epochs, batch_size...
+                Defaults to {}.
+
+        Raise:
+            - TypeError : bad training_args type
+
+        Returns:
+            - training_args (dict)
+        """
+        if isinstance(training_args, dict):
+            self._training_args = training_args
+        else:
+            # bad type
+            self._training_args = {}
+            logger.error(ErrorNumbers.FB411.value % type(training_args))
+            raise TypeError(ErrorNumbers.FB411.value % type(training_args))
+        # self._training_args always exist at this point
+
+        # _job doesn't always exist at this point
+        try:
+            if self._job is not None:
+                # job setter function exists, use it
+                self._job.training_args = self._training_args
+                logger.debug('Experimentation training_args updated for `job`')
+        except AttributeError:
+            # nothing to do if not defined yet
+            pass
+
+        return self._training_args
+
 
 
     def set_breakpoints(self, save_breakpoints: bool = True):
@@ -935,7 +977,7 @@ class Experiment(object):
                 'Already run rounds', 'Total rounds',
                 'Model Path', 'Model Class',
                 'Model Arguments', 'Training Arguments', 
-                'Job', 'Breakpoint State', 'Exp  folder',
+                'Job', 'Breakpoint State',
                 'Exp folder', 'Exp Path'
                 ],
             'Values': [
@@ -944,11 +986,13 @@ class Experiment(object):
                 self._round_current, self._rounds,
                 self._model_path, self._model_class,
                 self._model_args, self._training_args,
-                self._job, self._save_breakpoint, self._experimentation_folder,
+                self._job, self._save_breakpoint,
+                self._experimentation_folder,
                 os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
                 ]
         }
         print(tabulate(info, headers='keys'))
+
 
     def _before_job_init(self):
         """ This method checks are all the necessary arguments has been set to
@@ -957,8 +1001,8 @@ class Experiment(object):
         Returns:
             status, missing_attributes (bool, List)
         """
-        no_none_args_msg = {"_training_args": ErrorNumbers.FB410.value,
-                            "_fds": ErrorNumbers.FB411.value,
+        no_none_args_msg = {"_training_args": ErrorNumbers.FB410.value % 'missing training args',
+                            "_fds": ErrorNumbers.FB420.value % 'missing training data',
                             '_model_class': ErrorNumbers.FB412.value % 'missing model class',
                             }
 
