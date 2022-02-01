@@ -1,3 +1,10 @@
+'''
+all the fedbiomed exceptions
+
+do not import other fedbiomed package here to avoid dependancy loop
+'''
+
+
 class FedbiomedException(Exception):
     """
     top class of all our exceptions
