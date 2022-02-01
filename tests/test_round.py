@@ -424,7 +424,40 @@ class TestRound(unittest.TestCase):
         
 
         # tests case where uploading model parameters file fails
-        pass
+        TestRound.SLEEPING_TIME = 0
+        URL_MSG = 'http://url/where/my/file?is=True'
+        # initalisation of dummy classes
+        class FakeUuid:
+            # Fake uuid class
+            def __init__(self):
+                self.hex = 1234
+                
+            def __str__(self):
+                return '1234'
+            
+        class FakeNodeMessages:
+            def __init__(self, msg: Dict[str, Any]):
+                self.msg = msg
+
+            def get_dict(self) -> Dict[str, Any]:
+                return self.msg
+        
+        def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
+            fake_node_msg = FakeNodeMessages(msg)
+            return fake_node_msg
+
+        def upload_side_effect(*args, **kwargs):
+            raise Exception("mimicking an error happening during upload")
+        # initialisation of patchers 
+        uuid_patch.return_value = FakeUuid()
+        repository_download_patch.return_value = (200, 'my_python_model')
+        model_manager_patch.return_value = (True, {'name': "model_name"})
+        builtin_exec_patch.return_value = None
+        builtin_eval_patch.return_value = self.FakeModel
+        repository_upload_patch.side_effect = upload_side_effect
+        node_msg_patch.side_effect = node_msg_side_effect
+        
+        self.assertRaises(Exception, self.r1.run_model_training())
     
     def test_run_model_training_06(self):
         # tests case where model is not approved
