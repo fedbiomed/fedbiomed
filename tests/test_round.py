@@ -334,7 +334,7 @@ class TestRound(unittest.TestCase):
         model_manager_patch.side_effect = model_manager_side_effect
         self.assertRaises(Exception, self.r2.run_model_training())
         
-        # TODO: check error message
+        # TODO: complete test by  checking error message
         
         
     def test_run_model_training_04(self):
