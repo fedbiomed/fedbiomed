@@ -181,7 +181,22 @@ class Experiment(object):
 
         self.set_save_breakpoints(save_breakpoints)
         self.set_monitor(tensorboard)
-        
+
+
+    # destructor
+    def __del__(self):
+        # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
+
+        # _monitor may not exist (early del == constructor could not complete - will this happen ?)
+        try:
+            if self._monitor is not None:
+                # stop writing in SummaryWriters
+                self._reqs.remove_monitor_callback()
+                # Close SummaryWriters for tensorboard
+                self._monitor.close_writer()
+        except AttributeError:
+            # no monitor to finish, if not yet defined
+            pass
 
 
     # Getters ---------------------------------------------------------------------------------------------------------
@@ -1025,11 +1040,7 @@ class Experiment(object):
                                                         'params_path': aggregated_params_path}
         if self._save_breakpoints:
             self._save_breakpoint(self._round_current)
-        
-        # TODO PROPERLY HANDLE MONITOR
-        if self._monitor is not None:
-            # Close SummaryWriters for tensorboard
-            self._monitor.close_writer()
+
 
         self._round_current += 1
         return 1
