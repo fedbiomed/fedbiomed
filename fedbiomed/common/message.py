@@ -390,7 +390,12 @@ class ResearcherMessages():
         Returns:
         An instance of the corresponding Message class
         """
-        message_type = params['command']
+        try:
+            message_type = params['command']
+        except KeyError:
+            _msg =  ErrorNumbers.FB601.value + ": message type not specified"
+            logger.error(_msg)
+            raise MessageException(_msg)
 
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
                                      'search': SearchReply,
@@ -434,7 +439,12 @@ class ResearcherMessages():
             An instance of the corresponding Message class
         """
 
-        message_type = params['command']
+        try:
+            message_type = params['command']
+        except KeyError:
+            _msg =  ErrorNumbers.FB601.value + ": message type not specified"
+            logger.error(_msg)
+            raise MessageException(_msg)
 
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainRequest,
                                      'search': SearchRequest,
@@ -478,7 +488,13 @@ class NodeMessages():
             An instance of the corresponding class (TrainRequest,
             SearchRequest, PingRequest)
         """
-        message_type = params['command']
+        try:
+            message_type = params['command']
+        except KeyError:
+            _msg =  ErrorNumbers.FB601.value + ": message type not specified"
+            logger.error(_msg)
+            raise MessageException(_msg)
+
         # mapping message type to an object
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainRequest,
                                      'search': SearchRequest,
@@ -520,7 +536,13 @@ class NodeMessages():
         Returns:
             An instance of the corresponding class
         """
-        message_type = params['command']
+        try:
+            message_type = params['command']
+        except KeyError:
+            _msg =  ErrorNumbers.FB601.value + ": message type not specified"
+            logger.error(_msg)
+            raise MessageException(_msg)
+
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
                                      'search': SearchReply,
                                      'pong': PingReply,
