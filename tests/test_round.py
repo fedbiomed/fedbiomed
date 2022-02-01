@@ -289,12 +289,6 @@ class TestRound(unittest.TestCase):
 
         download_repo_answers_iter = iter(download_repo_answers_gene())
         # initialisation of patchers 
-        uuid_patch.return_value = FakeUuid()
-        repository_download_patch.side_effect = repository_side_effect
-        model_manager_patch.return_value = (True, {'name': "model_name"})
-        builtin_exec_patch.return_value = None
-        builtin_eval_patch.return_value = self.FakeModel
-        repository_upload_patch.return_value
         
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.side_effect = repository_side_effect
@@ -372,7 +366,7 @@ class TestRound(unittest.TestCase):
             fake_node_msg = FakeNodeMessages(msg)
             return fake_node_msg
         def eval_side_effect(*args, **kwargs):
-            raise ImportError("mimicking an error happening during model loading params process")
+            raise ImportError("mimicking an error happening during model loading process")
         # initialisation of patchers 
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, 'my_python_model')
@@ -407,11 +401,32 @@ class TestRound(unittest.TestCase):
         builtin_eval_patch.side_effect = lambda *args, **kwargs: FakeModelRaisingErrorDuringTraining
         
         self.assertRaises(Exception, self.r1.run_model_training())
+
+    def test_run_model_training_04_loading_block(self):
+        # tests loading model block with a real file
+        pass
+
+    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.repository.Repository.upload_file')
+    @patch('builtins.eval')
+    @patch('builtins.exec')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    @patch('uuid.uuid4')    
+    def test_run_model_training_04_uploading_exceptionsk(self,
+                                                         uuid_patch,
+                                                         repository_download_patch,
+                                                         model_manager_patch,
+                                                         builtin_exec_patch,
+                                                         builtin_eval_patch,
+                                                         repository_upload_patch,
+                                                         node_msg_patch): 
         
-    def test_run_model_training_05(self):
-        # tests case where model is not approved
+
+        # tests case where uploading model parameters file fails
         pass
     
     def test_run_model_training_06(self):
-        # tests loading model block with a real file
+        # tests case where model is not approved
         pass
+    
