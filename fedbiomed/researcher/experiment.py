@@ -948,16 +948,47 @@ class Experiment(object):
 
     # Run experiment functions -------------------------------------------------------------------
 
-    def run_once(self):
-        """ Runs the experiment only once. It will increase global round each time
-        this method is called
+    def run_once(self, increase: bool = False) -> int:
+        """Run at most one round of an experiment, continuing from the point the
+        experiment had reached.
+        If the total number of `rounds` of the experiment is already reached:
+        * if `increase` is False, do nothing
+        * if `increase` is True, increment total number of `rounds` and run one round
+
+        Args:
+            - increase (bool, optional) : automatically increase the total `rounds` of the 
+              experiment if needed
+              Defaults to False
+        
+        Raises:
+            - ExperimentException : bad argument type or value
+        
+        Returns:
+            - real rounds (int) : number of rounds really run
 
         """
+        # check increase is a boolean
+        if not isinstance(increase, bool):
+            msg = ErrorNumbers.FB410.value + \
+                f', in method `run_once` param `increase` : type {type(increase)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
+            # return 0 # robust default  
 
-        # TEMPO
+        # robustitfy but should never be self._round_current > self._rounds
+        if self._round_current >= self._rounds:
+            if increase is True:
+                logger.info(f'Auto increasing total rounds for experiment from {self._rounds} '
+                        f'to {self._round_current + 1}')
+                self._rounds = self._round_current + 1
+            else:
+                logger.info(f'Round limit of {self._rounds} was reached, stopping execution')
+                return 0
+
         self._round_current += 1
         print(f"RUN A ROUND rounds={self._rounds} round_current={self._round_current}")
-        return
+        return 1
+
 
         # TODO: increase round number if needed
         if self._round_current >= self._rounds:
@@ -1001,54 +1032,77 @@ class Experiment(object):
         else:
             raise ExperimentException('Error while running the experiment: \n\n- %s' % '\n- '.join(messages))
 
-    def run(self, run_rounds: int = 0) -> int:
+    def run(self, run_rounds: int = 0, increase: bool = False) -> int:
         """Run one or more rounds of an experiment, continuing from the point the
         experiment had reached.
 
         Args:
             - run_rounds (int, optional): Number of experiment rounds to run in this call.
               * 0 means "run all the rounds remaining in the experiment" computed as
-                total `rounds` minus the number of rounds already run `round_current`
-              * >= 1 means "run exactly this number of rounds". If it goes beyond the
-                total `rounds` of the experiment, change the total `rounds`
-                to (`round_current` + `run_rounds`)
+                total rounds (`rounds`) minus the number of rounds already run
+                rounds (`round_current`)
+              * >= 1 means "run `run_rounds` rounds" at most.
+                If it goes beyond the total `rounds` of the experiment:
+                - if `increase` is True,
+                  increase the total `rounds` to (`round_current` + `run_rounds`)
+                  and run `run_rounds` rounds
+                - if `increase` is False, run (`rounds` - `round_current`)
+                  rounds and don't modify the total `rounds` of the experiment
               Defaults to 0
+            - increase (bool, optional) : automatically increase the total `rounds` of the 
+              experiment if needed
+              Defaults to False
         
         Raises:
-            - ExperimentException : bad run_rounds type
+            - ExperimentException : bad argument type or value
         
         Returns:
-            - run_rounds (int) : number of rounds really run
+            - real rounds (int) : number of rounds really run
 
         """
         # check run_rounds is a >=0 integer
         if not isinstance(run_rounds, int):
-            msg = ErrorNumbers.FB410.value + f' `run_rounds` : type {type(run_rounds)}'
+            msg = ErrorNumbers.FB410.value + \
+                f', in method `run` param `run_rounds` : type {type(run_rounds)}'
             logger.critical(msg)
             raise ExperimentException(msg)
             # return 0 # robust default          
         elif run_rounds < 0:
-            msg = ErrorNumbers.FB410.value + f' `run_rounds` : value {run_rounds}'
+            msg = ErrorNumbers.FB410.value + \
+                f', in method `run` param `run_rounds` : value {run_rounds}'
             logger.critical(msg)
             raise ExperimentException(msg)
-            # return 0 # robust default            
+            # return 0 # robust default  
+        # check increase is a boolean
+        if not isinstance(increase, bool):
+            msg = ErrorNumbers.FB410.value + \
+                f', in method `run` param `increase` : type {type(increase)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
+            # return 0 # robust default                  
 
-        # compute number of rounds to run
+        # compute maximum number of rounds to run
         if run_rounds == 0:
             # all remaining rounds in the experiment
             run_rounds = self._rounds - self._round_current
         else:
             # dont change run_rounds, but extend self._rounds if necessary
-            if (self._round_current + run_rounds) > self._rounds:
-                logger.info(f'Auto increasing total rounds for experiment from {self._rounds} '
-                    f'to {self._round_current + run_rounds}')
-            self._rounds = max (self._rounds, self._round_current + run_rounds)
+            if increase is True:
+                if (self._round_current + run_rounds) > self._rounds:
+                    logger.info(f'Auto increasing total rounds for experiment from {self._rounds} '
+                        f'to {self._round_current + run_rounds}')
+                self._rounds = max (self._rounds, self._round_current + run_rounds)
 
         # run the rounds
+        real_rounds = 0
         for _ in range(run_rounds):
-            self.run_once()
+            increment = self.run_once(increase)
+            if increment == 0:
+                logger.info(f'Only {real_rounds} were run out of requested {run_rounds} rounds')
+                break
+            real_rounds += increment
 
-        return run_rounds
+        return real_rounds
 
 
 
