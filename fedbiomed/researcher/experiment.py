@@ -975,7 +975,7 @@ class Experiment(object):
             raise ExperimentException(msg)
             # return 0 # robust default  
 
-        # robustitfy but should never be self._round_current > self._rounds
+        # nota: robustify test, but we should never have self._round_current > self._rounds
         if self._round_current >= self._rounds:
             if increase is True:
                 logger.info(f'Auto increasing total rounds for experiment from {self._rounds} '
@@ -985,52 +985,55 @@ class Experiment(object):
                 logger.info(f'Round limit of {self._rounds} was reached, stopping execution')
                 return 0
 
+        # at this point, self._aggregator always exists and is not None
+        # self.{_node_selection_strategy,_job} exist but may be None
+
+        # check pre-requisites are met for running a round
+        #for component in (self._node_selection_strategy, self._job):
+        if self._node_selection_strategy is None:
+            msg = ErrorNumbers.FB411.value + f', missing `node_selection_strategy`'
+            logger.critical(msg)
+            raise ExperimentException(msg)
+            # return 0 # robust default
+        elif self._job is None:
+            msg = ErrorNumbers.FB411.value + f', missing `job`'
+            logger.critical(msg)
+            raise ExperimentException(msg)
+            # return 0 # robust default
+
+        # Ready to execute a training round using the job, strategy and aggregator
+
+        # Sample nodes using strategy (if given)
+        self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
+        logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
+        # Trigger training round on sampled nodes
+        self._job.start_nodes_training_round(round=self._round_current)
+
+        # refining/normalizing model weights received from nodes
+        model_params, weights = self._node_selection_strategy.refine(
+            self._job.training_replies[self._round_current], self._round_current)
+
+        # aggregate model from nodes to a global model
+        aggregated_params = self._aggregator.aggregate(model_params,
+                                                       weights)
+        # write results of the aggregated model in a temp file
+        aggregated_params_path = self._job.update_parameters(aggregated_params)
+        logger.info(f'Saved aggregated params for round {self._round_current} '
+            f'in {aggregated_params_path}')
+
+        self._aggregated_params[self._round_current] = {'params': aggregated_params,
+                                                        'params_path': aggregated_params_path}
+        if self._save_breakpoints:
+            self._save_breakpoint(self._round_current)
+        
+        # TODO PROPERLY HANDLE MONITOR
+        if self._monitor is not None:
+            # Close SummaryWriters for tensorboard
+            self._monitor.close_writer()
+
         self._round_current += 1
-        print(f"RUN A ROUND rounds={self._rounds} round_current={self._round_current}")
         return 1
 
-
-        # TODO: increase round number if needed
-        if self._round_current >= self._rounds:
-            logger.info(f'Round limit has been reached. Number of rounds: {self._rounds} and completed rounds: '
-                        f'{self._round_current}. Please set higher value with `.set_rounds` or '
-                        f'use `.run(rounds=<number of rounds>)`.')
-            return False
-
-        # FIXME: While running run_one with exp.run(rounds=2) second control will be useless
-        # Check; are all the necessary arguments has been set for running a run
-        status, messages = self._before_experiment_run()
-
-        if status:
-            # Sample nodes using strategy (if given)
-            self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
-            logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
-            # Trigger training round on sampled nodes
-            answering_nodes = self._job.start_nodes_training_round(round=self._round_current)
-
-            # refining/normalizing model weights received from nodes
-            model_params, weights = self._node_selection_strategy.refine(
-                self._job.training_replies[self._round_current], self._round_current)
-
-            # aggregate model from nodes to a global model
-            aggregated_params = self._aggregator.aggregate(model_params,
-                                                           weights)
-            # write results of the aggregated model in a temp file
-            aggregated_params_path = self._job.update_parameters(aggregated_params)
-            logger.info(f'Saved aggregated params for round {self._round_current} in {aggregated_params_path}')
-
-            self._aggregated_params[self._round_current] = {'params': aggregated_params,
-                                                            'params_path': aggregated_params_path}
-            if self._save_breakpoints:
-                self._save_breakpoint(self._round_current)
-
-            if self._monitor is not None:
-                # Close SummaryWriters for tensorboard
-                self._monitor.close_writer()
-
-            self._round_current += 1
-        else:
-            raise ExperimentException('Error while running the experiment: \n\n- %s' % '\n- '.join(messages))
 
     def run(self, run_rounds: int = 0, increase: bool = False) -> int:
         """Run one or more rounds of an experiment, continuing from the point the
@@ -1163,27 +1166,6 @@ class Experiment(object):
                 ]
         }
         print(tabulate(info, headers='keys'))
-
-
-    def _before_experiment_run(self):
-
-        no_none_args_msg = {"_job": ErrorNumbers.FB410.value + ' job - missing',
-                            "_node_selection_strategy": ErrorNumbers.FB410.value + 'strategy - missing',
-                            }
-
-        return self._argument_controller(no_none_args_msg)
-
-    def _argument_controller(self, arguments: dict):
-
-        messages = []
-        for arg, message in arguments.items():
-            if arg in self.__dict__ and self.__dict__[arg] is not None:
-                continue
-            else:
-                messages.append(message)
-        status = True if len(messages) == 0 else False
-
-        return status, messages
 
 
     # Breakpoint functions ----------------------------------------------------------------

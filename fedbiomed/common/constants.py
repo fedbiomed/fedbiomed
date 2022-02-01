@@ -91,15 +91,16 @@ class ErrorNumbers(_BaseEnum):
 
     FB400 = "FB400: undetermined application error"
     FB401 = "FB401: fedaverage method crashes or returns an error"
-    FB402 = "FB402: strategy method creashes or sending an error"
+    FB402 = "FB402: strategy method crashes or sends an error"
     FB403 = "FB403: bad URL (.pt) for model param"
     FB404 = "FB404: bad model param (.pt) format for TrainingPlan"
     FB405 = "FB405: received delayed answer for previous computation round"
     FB406 = "FB406: list of nodes is empty at data lookup phase"
-    FB407 = "FB407: list of nodes became empty then training"
+    FB407 = "FB407: list of nodes became empty when training"
     FB408 = "FB408: node did not answer during training"
     FB409 = "FB409: node sent Status=Error during training"
-    FB410 = "FB410: Bad type or value for experiment argument"
+    FB410 = "FB410: bad type or value for experiment argument"
+    FB411 = "FB411: cannot train an experiment that is not fully defined"
     
     # node problem detected by researcher
 
