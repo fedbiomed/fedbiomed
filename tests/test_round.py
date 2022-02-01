@@ -372,7 +372,7 @@ class TestRound(unittest.TestCase):
             fake_node_msg = FakeNodeMessages(msg)
             return fake_node_msg
         def eval_side_effect(*args, **kwargs):
-            raise ImportError("mimicking an error happening during model loading process")
+            raise ImportError("mimicking an error happening during model loading params process")
         # initialisation of patchers 
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, 'my_python_model')
@@ -383,7 +383,29 @@ class TestRound(unittest.TestCase):
         node_msg_patch.side_effect = node_msg_side_effect
         
         
-        # test 1: tests raise of exception 
+        # test 1: tests raise of exception during model import
+        self.assertRaises(Exception, self.r1.run_model_training())
+        
+        # test 2: tests raise of Exception during loading parameters
+        # into model instance
+        class FakeModelRaisingErrorDuringParameterLoading(TestRound.FakeModel):
+            # Fake model that mimics a Training Plan model
+            def load(self, *args, **kwargs):
+                raise Exception("mimicking an error happening during loading parameters")      
+        
+        builtin_eval_patch.side_effect = lambda *args, **kwargs: FakeModelRaisingErrorDuringParameterLoading
+        self.assertRaises(Exception, self.r1.run_model_training())
+        
+        # test 3: tests raise of Exception during model training
+        # into model instance
+        
+        class FakeModelRaisingErrorDuringTraining(TestRound.FakeModel):
+            # Fake model that mimics a Training Plan model
+            def training_routine(self, **kwargs):
+                raise Exception("mimicking an error happening during model training")            
+        
+        builtin_eval_patch.side_effect = lambda *args, **kwargs: FakeModelRaisingErrorDuringTraining
+        
         self.assertRaises(Exception, self.r1.run_model_training())
         
     def test_run_model_training_05(self):
