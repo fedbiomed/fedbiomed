@@ -124,9 +124,6 @@ class TestRound(unittest.TestCase):
         repository_upload_patch.return_value = {'file': URL_MSG}
         node_msg_patch.side_effect = node_msg_side_effect
         
-        self.r1.training_kwargs = {}
-        self.r1.dataset = {'path': 'my/dataset/path',
-                           'dataset_id': 'id_1234'}
         self.r1.monitor = FakeMonitor()
         
         # action!
@@ -134,8 +131,8 @@ class TestRound(unittest.TestCase):
         
         # check results
         self.assertTrue(msg.get('success', False))
-        self.assertEqual(URL_MSG, msg.get('params_url'))
-        self.assertEqual('train', msg.get('command'))
+        self.assertEqual(URL_MSG, msg.get('params_url', False))
+        self.assertEqual('train', msg.get('command', False))
         
         # timing test
         if not isinstance(msg, dict) or not hasattr(msg, 'get'):
@@ -259,7 +256,7 @@ class TestRound(unittest.TestCase):
                                               builtin_eval_patch,
                                               repository_upload_patch,
                                               node_msg_patch): 
-        # tests failures and exceptions
+        # tests failures and exceptions during the download file process
         TestRound.SLEEPING_TIME = 0
         URL_MSG = 'http://url/where/my/file?is=True'
         # initalisation of dummy classes
@@ -283,7 +280,6 @@ class TestRound(unittest.TestCase):
             for i in [200, 404]:
                 yield i
 
-        download_repo_answers_iter = iter(download_repo_answers_gene())
         def repository_side_effect(model_url: str, model_name: str):
             return 404, 'my_python_model'
         
@@ -291,6 +287,7 @@ class TestRound(unittest.TestCase):
             fake_node_msg = FakeNodeMessages(msg)
             return fake_node_msg
 
+        download_repo_answers_iter = iter(download_repo_answers_gene())
         # initialisation of patchers 
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.side_effect = repository_side_effect
@@ -308,35 +305,91 @@ class TestRound(unittest.TestCase):
         node_msg_patch.side_effect = node_msg_side_effect
         
                 
-        # test 1: first call to `Repository.download` generates HTTP
+        # test 1: case where first call to `Repository.download` generates HTTP
         # status 404 (when downloading model_file)
         
         self.assertRaises(Exception, self.r1.run_model_training())
         
-        # test 2: second call to `Repository.download` generates HTTP
+        # test 2: case where second call to `Repository.download` generates HTTP
         # status 404 (when downloading params_file)
         # overwriting side effect function for second test:
-        def repository_side_effect(model_url: str, model_name: str):
+        def repository_side_effect_2(model_url: str, model_name: str):
             val = next(download_repo_answers_iter)
             return val, 'my_python_model'
         
-        repository_download_patch.side_effect = repository_side_effect
+        repository_download_patch.side_effect = repository_side_effect_2
         self.assertRaises(Exception, self.r1.run_model_training())
         
         # test 3: check if unknown exception is caught during the download
         # files process
         def model_manager_side_effect(*args, **kwargs):
-            raise ValueError('mimicking an error during download process')
+            raise ValueError('mimicking an error during download files process')
         
-        def repository_side_effect(model_url: str, model_name: str):
+        def repository_side_effect_3(model_url: str, model_name: str):
+            """correct answer given by `Repository.download`"""
             return 200, 'my_python_model'
-        repository_download_patch.side_effect = repository_side_effect
+        repository_download_patch.side_effect = repository_side_effect_3
         model_manager_patch.side_effect = model_manager_side_effect
         self.assertRaises(Exception, self.r2.run_model_training())
         
         # TODO: complete test by  checking error message
         
+    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.repository.Repository.upload_file')
+    @patch('builtins.eval')
+    @patch('builtins.exec')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    @patch('uuid.uuid4')    
+    def test_run_model_training_04_import_error(self,
+                                                uuid_patch,
+                                                repository_download_patch,
+                                                model_manager_patch,
+                                                builtin_exec_patch,
+                                                builtin_eval_patch,
+                                                repository_upload_patch,
+                                                node_msg_patch): 
+        # tests case where the import/loading of the model have failed
+        TestRound.SLEEPING_TIME = 0
+        URL_MSG = 'http://url/where/my/file?is=True'
+        # initalisation of dummy classes
+        class FakeUuid:
+            # Fake uuid class
+            def __init__(self):
+                self.hex = 1234
+                
+            def __str__(self):
+                return '1234'
+            
+        class FakeNodeMessages:
+            def __init__(self, msg: Dict[str, Any]):
+                self.msg = msg
+
+            def get_dict(self) -> Dict[str, Any]:
+                return self.msg
         
-    def test_run_model_training_04(self):
-        # test case where model is not approved
+        def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
+            fake_node_msg = FakeNodeMessages(msg)
+            return fake_node_msg
+        def eval_side_effect(*args, **kwargs):
+            raise ImportError("mimicking an error happening during model loading process")
+        # initialisation of patchers 
+        uuid_patch.return_value = FakeUuid()
+        repository_download_patch.return_value = (200, 'my_python_model')
+        model_manager_patch.return_value = (True, {'name': "model_name"})
+        builtin_exec_patch.return_value = None
+        builtin_eval_patch.side_effect = eval_side_effect
+        repository_upload_patch.return_value = {'file': URL_MSG}
+        node_msg_patch.side_effect = node_msg_side_effect
+        
+        
+        # test 1: tests raise of exception 
+        self.assertRaises(Exception, self.r1.run_model_training())
+        
+    def test_run_model_training_05(self):
+        # tests case where model is not approved
+        pass
+    
+    def test_run_model_training_06(self):
+        # tests loading model block with a real file
         pass
