@@ -127,8 +127,8 @@ exp.run()
 
 # Retrieve the federated model parameters
 
-fed_model = exp.model_instance
-fed_model.load_state_dict(exp.aggregated_params[rounds - 1]['params'])
+fed_model = exp.model_instance()
+fed_model.load_state_dict(exp.aggregated_params()[rounds - 1]['params'])
 
 print(fed_model)
 
