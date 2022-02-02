@@ -36,8 +36,8 @@ class TestRound(unittest.TestCase):
             time.sleep(TestRound.SLEEPING_TIME)
         def after_training_params(self)-> List[int]:
             return [1, 2, 3, 4]
-        
-            
+
+
     @patch('fedbiomed.common.repository.Repository.__init__')
     @patch('fedbiomed.node.model_manager.ModelManager.__init__')
     def setUp(self,
@@ -45,14 +45,14 @@ class TestRound(unittest.TestCase):
               reporistory_patch):
         model_manager_patch.return_value = None
         reporistory_patch.return_value = None
-        
+
         # instantiate logger (we will see if exceptions are logged)
         logger.setLevel(DEFAULT_LOG_LEVEL)
         # instanciate Round class 
         self.r1 = Round(model_url='http://somewhere/where/my/model?is_stored=True',
                         model_class='MyTrainingPlan',
                         params_url='https://url/to/model/params?ok=True')
-        
+
         self.r1.training_kwargs = {}
         params = {'path': 'my/dataset/path',
                            'dataset_id': 'id_1234'}
@@ -60,12 +60,16 @@ class TestRound(unittest.TestCase):
         self.r1.job_id = '1234'
         self.r1.researcher_id = '1234'
         dummy_monitor = MagicMock()
-        self.r1.monitor = dummy_monitor 
-        
+        self.r1.monitor = dummy_monitor
+
         self.r2 = Round(model_url='http://a/b/c/model',
                         model_class='another_training_plan',
                         params_url='https://to/my/model/params')
+<<<<<<< HEAD
         self.r2.training_kwargs = {}
+=======
+
+>>>>>>> 1599fad247217bda6f37e285dbfec330fbcf0c01
         self.r2.dataset = params
         self.r2.monitor = dummy_monitor
         
@@ -73,10 +77,10 @@ class TestRound(unittest.TestCase):
 
     def tearDown(self) -> None:
         pass
-    
+
     def _init_normal_case_scenario(self):
         pass
-    
+
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('builtins.eval')
@@ -84,7 +88,7 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
-    def test_run_model_training_01(self, 
+    def test_run_model_training_01(self,
                                    uuid_patch,
                                    repository_download_patch,
                                    model_manager_patch,
@@ -93,7 +97,7 @@ class TestRound(unittest.TestCase):
                                    repository_upload_patch,
                                    node_msg_patch
                                    ):
-        """tests correct execution and message parameters. 
+        """tests correct execution and message parameters.
         Besides test tests the training time.
         """
         TestRound.SLEEPING_TIME = 1
@@ -103,14 +107,14 @@ class TestRound(unittest.TestCase):
             # Fake uuid class
             def __init__(self):
                 self.hex = 1234
-                
+
             def __str__(self):
                 return '1234'
-            
+
         class FakeMonitor:
             def history(self) -> Dict[str, float]:
                 return {'Loss': 0.1}
-            
+
         class FakeNodeMessages:
             def __init__(self, msg: Dict[str, Any]):
                 self.msg = msg
@@ -120,12 +124,12 @@ class TestRound(unittest.TestCase):
 
         def repository_side_effect(model_url: str, model_name: str):
             return 200, 'my_python_model'
-        
+
         def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
             fake_node_msg = FakeNodeMessages(msg)
             return fake_node_msg
 
-        # initialisation of patchers 
+        # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.side_effect = repository_side_effect
         model_manager_patch.return_value = (True, {'name': "model_name"})
@@ -133,7 +137,7 @@ class TestRound(unittest.TestCase):
         builtin_eval_patch.return_value = TestRound.FakeModel
         repository_upload_patch.return_value = {'file': URL_MSG}
         node_msg_patch.side_effect = node_msg_side_effect
-        
+
         self.r1.monitor = FakeMonitor()
         
         # test 1: case where argument `model_kwargs` = None
@@ -170,7 +174,7 @@ class TestRound(unittest.TestCase):
     @patch('builtins.exec')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
     @patch('fedbiomed.common.repository.Repository.download_file')
-    @patch('uuid.uuid4')    
+    @patch('uuid.uuid4')
     def test_run_model_training_02(self,
                                    uuid_patch,
                                    repository_download_patch,
@@ -187,7 +191,7 @@ class TestRound(unittest.TestCase):
         #  - model.training_routine
         #  - model.after_training_params
         #  - model.set_dataset
-        
+
         TestRound.SLEEPING_TIME = 0
         URL_MSG = 'http://url/where/my/file?is=True'
         PARAM_PATH = '/path/to/my/file'
@@ -198,24 +202,24 @@ class TestRound(unittest.TestCase):
             # Fake uuid class
             def __init__(self):
                 self.hex = 1234
-                
+
             def __str__(self):
                 return '1234'
-            
+
         class FakeNodeMessages:
             def __init__(self, msg: Dict[str, Any]):
                 self.msg = msg
 
             def get_dict(self) -> Dict[str, Any]:
                 return self.msg
-        
+
         def repository_side_effect(model_url: str, model_name: str):
             return 200, PARAM_PATH
-        
+
         def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
             fake_node_msg = FakeNodeMessages(msg)
             return fake_node_msg
-        
+
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.side_effect = repository_side_effect
         model_manager_patch.return_value = (True, {'name': "model_name"})
@@ -223,13 +227,13 @@ class TestRound(unittest.TestCase):
         builtin_eval_patch.return_value = self.FakeModel
         repository_upload_patch.return_value = {'file': URL_MSG}
         node_msg_patch.side_effect = node_msg_side_effect
-        
+
         self.r1.training_kwargs = {}
         self.r1.dataset = {'path': 'my/dataset/path',
                            'dataset_id': 'id_1234'}
         dummy_monitor = MagicMock()
-        self.r1.monitor = dummy_monitor   
-             
+        self.r1.monitor = dummy_monitor
+
         # arguments of `save` method
         _model_filename = environ['TMP_DIR'] + '/node_params_1234.pt'
         _model_results = {
@@ -256,13 +260,13 @@ class TestRound(unittest.TestCase):
         mock_load.assert_called_once_with(PARAM_PATH,
                                           to_params=False)
         mock_set_dataset.assert_called_once_with(self.r1.dataset.get('path'))
-              
+
         mock_training_routine.assert_called_once_with( monitor=dummy_monitor,
                                         node_args=None)
-        
+
         mock_after_training_params.assert_called_once()
         mock_save.assert_called_once_with(_model_filename, _model_results)
-    
+
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
@@ -284,17 +288,17 @@ class TestRound(unittest.TestCase):
             # Fake uuid class
             def __init__(self):
                 self.hex = 1234
-                
+
             def __str__(self):
                 return '1234'
-            
+
         class FakeNodeMessages:
             def __init__(self, msg: Dict[str, Any]):
                 self.msg = msg
 
             def get_dict(self) -> Dict[str, Any]:
                 return self.msg
-            
+
         def download_repo_answers_gene() -> int:
             """Generates different values of connections:
             First one is HTTP code 200, second one is HTTP code 404
@@ -305,7 +309,7 @@ class TestRound(unittest.TestCase):
 
         def repository_side_effect(model_url: str, model_name: str):
             return 404, 'my_python_model'
-        
+
         def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
             fake_node_msg = FakeNodeMessages(msg)
             return fake_node_msg
@@ -318,43 +322,43 @@ class TestRound(unittest.TestCase):
         model_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.return_value = {'file': URL_MSG}
         node_msg_patch.side_effect = node_msg_side_effect
-        
+
         # test 1: case where first call to `Repository.download` generates HTTP
         # status 404 (when downloading model_file)
         with self.assertLogs('fedbiomed', logging.ERROR) as captured:
             msg_test_1 = self.r1.run_model_training()
-        
+
         ## checks
         self.assertEqual(
-            captured.records[-1].getMessage(), 
+            captured.records[-1].getMessage(),
             msg_test_1.get('msg'))
         print(msg_test_1.get('msg'))
-        self.assertFalse(msg_test_1.get('success', True))        
-       
+        self.assertFalse(msg_test_1.get('success', True))
+
         # test 2: case where second call to `Repository.download` generates HTTP
         # status 404 (when downloading params_file)
         # overwriting side effect function for second test:
         def repository_side_effect_2(model_url: str, model_name: str):
             val = next(download_repo_answers_iter)
             return val, 'my_python_model'
-        
+
         repository_download_patch.side_effect = repository_side_effect_2
-        
+
         # action
         with self.assertLogs('fedbiomed', logging.ERROR) as captured:
             msg_test_2 = self.r1.run_model_training()
-        
+
         ## checks
         self.assertEqual(
-            captured.records[-1].getMessage(), 
+            captured.records[-1].getMessage(),
             msg_test_2.get('msg'))
-        self.assertFalse(msg_test_2.get('success', True))   
-        
+        self.assertFalse(msg_test_2.get('success', True))
+
         # test 3: check if unknown exception is caught during the download
         # files process
         def model_manager_side_effect(*args, **kwargs):
             raise ValueError('mimicking an error during download files process')
-        
+
         def repository_side_effect_3(model_url: str, model_name: str):
             """correct answer given by `Repository.download`"""
             return 200, 'my_python_model'
@@ -365,21 +369,21 @@ class TestRound(unittest.TestCase):
             msg_test_3 = self.r1.run_model_training()
         ## checks
         self.assertEqual(
-            captured.records[-1].getMessage(), 
+            captured.records[-1].getMessage(),
             msg_test_3.get('msg'))
-        self.assertFalse(msg_test_3.get('success', True)) 
+        self.assertFalse(msg_test_3.get('success', True))
 
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
     @patch('fedbiomed.common.repository.Repository.download_file')
-    @patch('uuid.uuid4')    
+    @patch('uuid.uuid4')
     def test_run_model_training_04_import_error(self,
                                                 uuid_patch,
                                                 repository_download_patch,
                                                 model_manager_patch,
                                                 repository_upload_patch,
-                                                node_msg_patch): 
+                                                node_msg_patch):
         # tests case where the import/loading of the model have failed
         # NB: cannot patch builtin functions with `assertLogs`
         TestRound.SLEEPING_TIME = 0
@@ -389,30 +393,30 @@ class TestRound(unittest.TestCase):
             # Fake uuid class
             def __init__(self):
                 self.hex = 1234
-                
+
             def __str__(self):
                 return '1234'
-            
+
         class FakeNodeMessages:
             def __init__(self, msg: Dict[str, Any]):
                 self.msg = msg
 
             def get_dict(self) -> Dict[str, Any]:
                 return self.msg
-        
+
         def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
             fake_node_msg = FakeNodeMessages(msg)
             return fake_node_msg
-      
-        # initialisation of patchers 
+
+        # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, 'my_python_model')
         model_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.return_value = {'file': URL_MSG}
         node_msg_patch.side_effect = node_msg_side_effect
-        
+
         # test 1: tests raise of exception during model import
-        module_file_path = os.path.join(environ['TMP_DIR'], 'my_model_1234.py')       
+        module_file_path = os.path.join(environ['TMP_DIR'], 'my_model_1234.py')
 
         def exec_side_effect(*args, **kwargs):
             raise Exception("mimicking an exception happening when loading file")
@@ -422,17 +426,17 @@ class TestRound(unittest.TestCase):
               patch.object(builtins, 'eval') as eval_patch):
             eval_patch.side_effect = exec_side_effect
             msg_test_1 = self.r1.run_model_training()
-    
+
         ## checks
         self.assertEqual(
-            captured.records[-1].getMessage(), 
+            captured.records[-1].getMessage(),
             msg_test_1.get('msg'))
         print(msg_test_1.get('msg'))
         self.assertFalse(msg_test_1.get('success', True))
-        
+
         # test 2: tests raise of Exception during loading parameters
         # into model instance
-        
+
         dummy_training_plan_test2 = \
             "class MyTrainingPlan:\n" + \
             "   def __init__(self, **kwargs):\n" + \
@@ -443,20 +447,20 @@ class TestRound(unittest.TestCase):
         # creating file for storing dummy training plan
         with open(module_file_path, "w") as f:
             f.write(dummy_training_plan_test2)
-        
+
         # action
         with self.assertLogs('fedbiomed', logging.ERROR) as captured:
             msg_test_2 = self.r1.run_model_training()
-        
+
         ## checks
         self.assertEqual(
-            captured.records[-1].getMessage(), 
+            captured.records[-1].getMessage(),
             msg_test_2.get('msg'))
         self.assertFalse(msg_test_2.get('success', True))
-        
+
         # remove model file
         os.remove(module_file_path)
-        
+
         # test 3: tests raise of Exception during model training
         # into model instance
         dummy_training_plan_test3 = \
@@ -467,7 +471,7 @@ class TestRound(unittest.TestCase):
             "       pass \n" + \
             "   def training_routine(self, *args, **kwargs):\n" + \
             "       raise Exception('mimicking an error happening during model training')\n"
-     
+
         class FakeModelRaiseExceptionInTraining(TestRound.FakeModel):
             def training_routine(self, **kwargs):
                 """Mimicks an exception happening in the `training_routine`
@@ -489,7 +493,7 @@ class TestRound(unittest.TestCase):
 
         ## checks
         self.assertEqual(
-            captured.records[-1].getMessage(), 
+            captured.records[-1].getMessage(),
             msg_test_3.get('msg'))
 
         self.assertFalse(msg_test_3.get('success', True))
@@ -501,14 +505,14 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
     @patch('fedbiomed.common.repository.Repository.download_file')
-    @patch('uuid.uuid4')    
+    @patch('uuid.uuid4')
     def test_run_model_training_04_uploading_exceptions(self,
                                                          uuid_patch,
                                                          repository_download_patch,
                                                          model_manager_patch,
                                                          repository_upload_patch,
-                                                         node_msg_patch): 
-        
+                                                         node_msg_patch):
+
 
         # tests case where uploading model parameters file fails
         TestRound.SLEEPING_TIME = 0
@@ -518,30 +522,30 @@ class TestRound(unittest.TestCase):
             # Fake uuid class
             def __init__(self):
                 self.hex = 4567
-                
+
             def __str__(self):
                 return '4567'
-            
+
         class FakeNodeMessages:
             def __init__(self, msg: Dict[str, Any]):
                 self.msg = msg
 
             def get_dict(self) -> Dict[str, Any]:
                 return self.msg
-        
+
         def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
             fake_node_msg = FakeNodeMessages(msg)
             return fake_node_msg
 
         def upload_side_effect(*args, **kwargs):
             raise Exception("mimicking an error happening during upload")
-        # initialisation of patchers 
+        # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, 'my_python_model')
         model_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.side_effect = upload_side_effect
         node_msg_patch.side_effect = node_msg_side_effect
-        
+
         # create dummy_model
         dummy_training_plan_test = \
             "class MyTrainingPlan:\n" + \
@@ -557,24 +561,24 @@ class TestRound(unittest.TestCase):
             "       pass\n" + \
             "   def after_training_params(self):\n" + \
             "       return [1,2,3,4]\n"
-        
+
         module_file_path = os.path.join(environ['TMP_DIR'], 'my_model_4567.py')
-        
+
         # creating file for toring dummy training plan
         with open(module_file_path, "w") as f:
             f.write(dummy_training_plan_test)
-        
+
         # action
         with self.assertLogs('fedbiomed', logging.ERROR) as captured:
             msg_test = self.r1.run_model_training()
-        
+
          ## checks
         self.assertEqual(
-            captured.records[-1].getMessage(), 
+            captured.records[-1].getMessage(),
             msg_test.get('msg'))
 
         self.assertFalse(msg_test.get('success', True))
-       
+
         # remove model file
         os.remove(module_file_path)
     
@@ -646,3 +650,6 @@ class TestRound(unittest.TestCase):
         self.assertFalse(self.r1.training_kwargs.get('monitor', False))
         self.assertFalse(self.r1.training_kwargs.get('node_args', False))
         
+
+if __name__ == '__main__': # pragma: no cover
+    unittest.main()
