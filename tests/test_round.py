@@ -65,11 +65,7 @@ class TestRound(unittest.TestCase):
         self.r2 = Round(model_url='http://a/b/c/model',
                         model_class='another_training_plan',
                         params_url='https://to/my/model/params')
-<<<<<<< HEAD
         self.r2.training_kwargs = {}
-=======
-
->>>>>>> 1599fad247217bda6f37e285dbfec330fbcf0c01
         self.r2.dataset = params
         self.r2.monitor = dummy_monitor
         
