@@ -89,7 +89,7 @@ class Node:
                     # remove path from search to avoid privacy issues
                     for d in databases:
                         d.pop('path', None)
-
+                    # FIXME: what happens if len(database) == 0
                     self.messaging.send_message(NodeMessages.reply_create(
                         {'success': True,
                          'command': 'search',
