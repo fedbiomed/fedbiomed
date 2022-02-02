@@ -12,6 +12,7 @@ import tempfile
 import shutil
 
 # dont import fedbiomed.*.environ here
+from fedbiomed.common.exceptions import EnvironException
 
 class TestEnvironCommon(unittest.TestCase):
     '''
@@ -86,7 +87,18 @@ class TestEnvironCommon(unittest.TestCase):
     # TODO : add tests for other environment items
     #
 
-    def test_file_creation(self):
+    def test_environ_00_bad_component(self):
+        from fedbiomed.common.environ import Environ
+        try:
+            env = Environ("==== bad input test")
+            print("==== CANNOT BE HERE")
+        except EnvironException as e:
+            print("==== CAUGHT !!")
+        except Exception as e:
+            print("==== BAD EXCEPTION", e)
+
+
+    def test_environ_01_file_creation(self):
         for env in self.envs:
             for config_file in self.files:
 
@@ -111,7 +123,7 @@ class TestEnvironCommon(unittest.TestCase):
                 if(os.path.isfile(config_path)):
                     os.remove(config_path)
 
-    def test_uploads_url(self):
+    def test_environ_02_uploads_url(self):
 
         config_path = os.path.join(self.config_dir, 'config_url')
         os.environ['CONFIG_FILE'] = config_path
@@ -161,7 +173,7 @@ class TestEnvironCommon(unittest.TestCase):
 
             os.remove(config_path)
 
-    def test_broker(self):
+    def test_environ_03_broker(self):
 
         #import pdb; pdb.set_trace()
 

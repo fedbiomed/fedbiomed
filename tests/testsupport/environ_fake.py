@@ -26,7 +26,7 @@ class Environ(metaclass = SingletonMeta):
         if component != ComponentType.NODE and \
            component != ComponentType.RESEARCHER:
 
-            raise ValueError("environ_fake: component type must be RESEARCHER or NODE")
+            raise EnvironException("environ_fake: component type must be RESEARCHER or NODE")
 
         self.envdir = os.path.join(
             os.path.dirname(
