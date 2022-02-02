@@ -1,14 +1,13 @@
 # Managing NODE, RESEARCHER environ mock before running tests
 import builtins
 import logging
-from pyexpat import model
 from typing import Any, Dict, List
 from testsupport.delete_environ import delete_environ
 # Delete environ. It is necessary to rebuild environ for required component
 delete_environ()
 # overload with fake environ for tests
 import testsupport.mock_common_environ
-# Import environ for researcher, since tests will be running for researcher component
+# Import environ for Node, since tests will be running for Node component
 from fedbiomed.node.environ import environ
 
 import time
@@ -22,6 +21,8 @@ from fedbiomed.common.logger import logger, DEFAULT_LOG_LEVEL
 
 
 class TestRound(unittest.TestCase):
+    
+    # values and attributes for dummy classes
     SLEEPING_TIME = 1  # time that simulate training (in seconds)
     URL_MSG = 'http://url/where/my/file?is=True'
     class FakeModel:
@@ -57,7 +58,8 @@ class TestRound(unittest.TestCase):
     
     @classmethod
     def setUpClass(cls):
-        # defining common side effect functions
+        """Sets up values in the test once """
+        # we define here common side effect functions
         def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
             fake_node_msg = TestRound.FakeNodeMessages(msg)
             return fake_node_msg
@@ -162,7 +164,7 @@ class TestRound(unittest.TestCase):
                                 'param3': None}
         msg_test2 = self.r2.run_model_training()
         
-        # check results
+        # check values in message (output of `run_model_training`)
         self.assertTrue(msg_test2.get('success', False))
         self.assertEqual(TestRound.URL_MSG, msg_test2.get('params_url', False))
         self.assertEqual('train', msg_test2.get('command', False))
@@ -182,7 +184,7 @@ class TestRound(unittest.TestCase):
                                                        builtin_eval_patch,
                                                        repository_upload_patch,
                                                        node_msg_patch):
-        """tests if all methods of `model` have been called when calling"""
+        """tests if all methods of `model` have been called after instanciating"""
         # `run_model_training`, when no issues are found
         # methods tested:
         #  - model.load
@@ -219,8 +221,9 @@ class TestRound(unittest.TestCase):
         }
         
         # define context managers for each model method
-        # we are mocking every methods of our dummy model, and we will check
-        # if there are called when running `run_model_training` 
+        # we are mocking every methods of our dummy model FakeModel,
+        # and we will check if there are called when running
+        # `run_model_training` 
         with (
             patch.object(self.FakeModel, 'load') as mock_load,
             patch.object(self.FakeModel, 'set_dataset') as mock_set_dataset,
@@ -522,8 +525,7 @@ class TestRound(unittest.TestCase):
                                                      repository_upload_patch,
                                                      node_msg_patch):
 
-
-        # tests case where uploading model parameters file fails
+        """tests case where uploading model parameters file fails"""
         TestRound.SLEEPING_TIME = 0
         
         # declaration of side effect functions
@@ -570,7 +572,7 @@ class TestRound(unittest.TestCase):
                                                          builtin_eval_patch,
                                                          repository_upload_patch,
                                                          node_msg_patch):
-        # tests case where training plan contains node_side arguments
+        """tests case where training plan contains node_side arguments"""
         TestRound.SLEEPING_TIME = 1
 
         # initialisation of patchers 
