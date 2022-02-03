@@ -6,6 +6,7 @@ from typing import Callable, Union, Dict, Any, TypeVar, Type, List
 
 from tabulate import tabulate
 from pathvalidate import sanitize_filename, sanitize_filepath
+from re import findall
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
@@ -263,6 +264,73 @@ class Experiment(object):
     # TODO: better checking of model object type in Job() to guarantee it is a TrainingPlan
     def model_instance(self) -> TrainingPlan:
         return self._job.model
+
+
+    # a specific getter-like
+    def info(self) -> None:
+        """Pretty print information about status of the current experiment.
+        
+        Method lists on the standard output all the parameters/arguments of the
+        experiment and inform user whether the the experiment can be run now.
+
+        Raises:
+            - ExperimentException: unconsistant experiment (missing variables)
+
+        """
+        # at this point all attributes are initialized (in constructor)
+        info = {
+            'Arguments': [
+                'Tags', 'Nodes filter', 'Training Data',
+                'Aggregator', 'Strategy', 'Job',
+                'Model Path', 'Model Class',
+                'Model Arguments', 'Training Arguments', 
+                'Rounds already run', 'Rounds total',
+                'Experiment folder', 'Experiment Path',
+                'Breakpoint State', 'Monitoring'
+                ],
+            # max 40 characters per column for values - can we do that with tabulate() ?
+            'Values': [ '\n'.join(findall('.{1,40}', str(e))) for e in
+                    [
+                    self._tags, self._nodes, self._fds,
+                    self._aggregator, self._node_selection_strategy, self._job,
+                    self._model_path, self._model_class,
+                    self._model_args, self._training_args,
+                    self._round_current, self._rounds,
+                    self._experimentation_folder,
+                    self.experimentation_path(),
+                    self._save_breakpoints, self._monitor
+                    ]
+                ]
+        }
+        print(tabulate(info, headers='keys'))
+
+        # definitions that may be missing for running the experiment
+        # (value None == not defined yet for _fds et _job,
+        # False == no valid model for _model_is_defined )
+        may_be_missing = { 
+            '_fds': 'Training Data',
+            '_node_selection_strategy': 'Strategy',
+            '_model_is_defined': 'Model',
+            '_job': 'Job'
+        }
+        # definitions found missing
+        missing = ''
+        
+        for key, value in may_be_missing.items():
+            try:
+                if eval('self.' + key) is None or eval('self.' + key) is False:
+                    missing += f'- {value}\n'
+            except:
+                # should not happen, all eval variables should be defined
+                msg = ErrorNumbers.FB400.value + \
+                    f', in method `info` : self.{key} not defined for experiment'
+                logger.critical(msg)
+                raise ExperimentException(msg)
+        if missing:
+            print(f'\nExperiment cannot be run (not fully defined), missing :\n{missing}')
+        else:
+            print('\nExperiment can be run now (fully defined)')
+
 
 
     # Setters ---------------------------------------------------------------------------------------------------------
@@ -1191,40 +1259,10 @@ class Experiment(object):
             logger.critical(msg)
             raise ExperimentException(msg)
 
-        # always returns a `Responses` object
+        # always returns a `Responses()` object
         responses = self._job.check_model_is_approved_by_nodes()
 
         return responses
-
-
-    def info(self):
-        """ Information about status of the current experiment. Method  lists all the
-        parameters/arguments of the experiment and inform user about the
-        can the experiment be run.
-        """
-
-        info = {
-            'Arguments': [
-                'Tags', 'Nodes filter', 'Training Data',
-                'Aggregator', 'Strategy',
-                'Already run rounds', 'Total rounds',
-                'Model Path', 'Model Class',
-                'Model Arguments', 'Training Arguments', 
-                'Job', 'Breakpoint State',
-                'Exp folder', 'Exp Path'
-                ],
-            'Values': [
-                self._tags, self._nodes, self._fds,
-                self._aggregator,  self._node_selection_strategy,
-                self._round_current, self._rounds,
-                self._model_path, self._model_class,
-                self._model_args, self._training_args,
-                self._job, self._save_breakpoints,
-                self._experimentation_folder,
-                os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
-                ]
-        }
-        print(tabulate(info, headers='keys'))
 
 
     # Breakpoint functions ----------------------------------------------------------------
