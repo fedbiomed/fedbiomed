@@ -229,11 +229,6 @@ class Job:
         return self._model_file
 
 
-
-    # TODO: After refactoring experiment this method can be created
-    # directly in the Experiment class. Since it requires
-    # node ids and model_url to send model approve status it is created
-    # in job class
     def check_model_is_approved_by_nodes(self):
 
         """ Method for checking whether model is approved or not.  This method send
@@ -248,7 +243,7 @@ class Job:
             'command': 'model-status'
         }
 
-        responses = []
+        responses = Responses([])
         replied_nodes = []
         node_ids = self._data.node_ids
 

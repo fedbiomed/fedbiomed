@@ -108,6 +108,7 @@ class ErrorNumbers(_BaseEnum):
     FB409 = "FB409: node sent Status=Error during training"
     FB410 = "FB410: bad type or value for experiment argument"
     FB411 = "FB411: cannot train an experiment that is not fully defined"
+    FB412 = "FB412: cannot do model checking for experiment"
     
     # node problem detected by researcher
 

@@ -20,6 +20,7 @@ from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.requests import Requests
+from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.monitor import Monitor
@@ -1122,30 +1123,77 @@ class Experiment(object):
 
     # Model checking functions -------------------------------------------------------------------
 
-    def model_file(self, display: bool = True):
-
+    def model_file(self, display: bool = True) -> str:
         """ This method displays saved final model for the experiment
             that will be sent to the nodes for training.
 
         Args:
-            display (bool): If `True`, prints content of the model file. Default is `True`
+            - display (bool): If `True`, prints content of the model file.
+            Default is `True`
+
+        Raises:
+            - ExperimentException: bad argument type, or cannot read model file content
+
+        Returns:
+            - model_file (str) : path to model file
         """
+        if not isinstance(display, bool):
+            # bad type
+            msg = ErrorNumbers.FB410.value + \
+                f', in method `model_file` param `display` : type {type(display)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
+
+        # at this point, self._job exists (initialized in constructor)         
+        if self._job is None:
+            # cannot check model file if job not defined
+            msg = ErrorNumbers.FB412.value + \
+                f', in method `model_file` : no `job` defined for experiment'
+            logger.critical(msg)
+            raise ExperimentException(msg)
+
         model_file = self._job.model_file
 
         # Display content so researcher can copy
-        if display:
-            with open(model_file) as file:
-                content = file.read()
-                file.close()
-                print(content)
+        try:
+            if display:
+                with open(model_file) as file:
+                    content = file.read()
+                    file.close()
+                    print(content)
+        except OSError as e:
+            # cannot read model file content
+            msg = ErrorNumbers.FB412.value + \
+                f', in method `model_file` : error when reading model file - {e}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
+
         return self._job.model_file
 
-    def check_model_status(self):
 
-        """ Method for checking model status whether it is approved or
+    # TODO: change format of returned data (during experiment results refactor ?)
+    # a properly defined structure/class instead of the generic responses
+    def check_model_status(self) -> Responses:
+        """ Method for checking model status, ie whether it is approved or
             not by the nodes
+
+        Raises:
+            - ExperimentException: bad argument type
+
+        Returns:
+            - responses (str) : model status for answering nodes
         """
+        # at this point, self._job exists (initialized in constructor)         
+        if self._job is None:
+            # cannot check model status if job not defined
+            msg = ErrorNumbers.FB412.value + \
+                f', in method `check_model_status` : no `job` defined for experiment'
+            logger.critical(msg)
+            raise ExperimentException(msg)
+
+        # always returns a `Responses` object
         responses = self._job.check_model_is_approved_by_nodes()
+
         return responses
 
 
