@@ -18,6 +18,7 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.experiment import Experiment
 
+from testsupport.fake_classes.fake_classes_researcher import FederatedDataSetMock
 
 class TestExperiment(unittest.TestCase):
 
@@ -36,11 +37,6 @@ class TestExperiment(unittest.TestCase):
         os.makedirs(self.experimentation_folder_path) 
 
         # build minimal objects, needed to extract state by calling object method
-        class FederatedDataSetMock():
-            def __init__(self, data):
-                self._data = data
-            def data(self):
-                return self._data
 
         self.patchers = [
             patch('fedbiomed.researcher.requests.Requests.__init__',

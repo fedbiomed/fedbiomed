@@ -10,7 +10,6 @@ import testsupport.mock_common_environ
 # Import environ for Node, since tests will be running for Node component
 from fedbiomed.node.environ import environ
 
-import time
 import sys, os
 
 import unittest
@@ -19,49 +18,21 @@ from unittest.mock import MagicMock, patch
 from fedbiomed.node.round import Round
 from fedbiomed.common.logger import logger, DEFAULT_LOG_LEVEL
 
+# importing fake (=dummy) classes
+from testsupport.fake_classes.fake_classes_common import FakeModel, FakeNodeMessages
+from testsupport.fake_classes.fake_classes_python_library import FakeUuid
 
 class TestRound(unittest.TestCase):
     
     # values and attributes for dummy classes
-    SLEEPING_TIME = 1  # time that simulate training (in seconds)
     URL_MSG = 'http://url/where/my/file?is=True'
-    class FakeModel:
-        # Fake model that mimics a Training Plan model
-        def __init__(self, *args, **kwargs):
-            pass
-        def load(self, path:str, to_params:bool):
-            pass
-        def save(self, filename:str, results: Dict[str, Any]):
-            pass
-        def set_dataset(self, path:str):
-            pass
-        def training_routine(self, **kwargs):
-            time.sleep(TestRound.SLEEPING_TIME)
-        def after_training_params(self)-> List[int]:
-            return [1, 2, 3, 4]
-
-    class FakeUuid:
-        # Fake uuid class
-        def __init__(self):
-            self.hex = 1234
-
-        def __str__(self):
-            return '1234'
-
-    class FakeNodeMessages:
-        # Fake NodeMessage
-        def __init__(self, msg: Dict[str, Any]):
-            self.msg = msg
-
-        def get_dict(self) -> Dict[str, Any]:
-            return self.msg
     
     @classmethod
     def setUpClass(cls):
         """Sets up values in the test once """
         # we define here common side effect functions
         def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
-            fake_node_msg = TestRound.FakeNodeMessages(msg)
+            fake_node_msg = FakeNodeMessages(msg)
             return fake_node_msg
         
         cls.node_msg_side_effect = node_msg_side_effect
@@ -125,7 +96,7 @@ class TestRound(unittest.TestCase):
         # - Test 1: normal case scenario where no model_kwargs has been passed during model instantiation
         # - Test 2: normal case scenario where model_kwargs has been passed when during model instantiation
        
-        TestRound.SLEEPING_TIME = 1
+        FakeModel.SLEEPING_TIME = 1
 
         # initalisation of side effect function
         
@@ -133,11 +104,11 @@ class TestRound(unittest.TestCase):
             return 200, 'my_python_model'
 
         # initialisation of patchers
-        uuid_patch.return_value = TestRound.FakeUuid()
+        uuid_patch.return_value = FakeUuid()
         repository_download_patch.side_effect = repository_side_effect
         model_manager_patch.return_value = (True, {'name': "model_name"})
         builtin_exec_patch.return_value = None
-        builtin_eval_patch.return_value = TestRound.FakeModel
+        builtin_eval_patch.return_value = FakeModel
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         
@@ -153,12 +124,12 @@ class TestRound(unittest.TestCase):
         # timing test
         self.assertAlmostEqual(
             msg_test1.get('timing', {'rtime_training': 0}).get('rtime_training'),
-            TestRound.SLEEPING_TIME,
+            FakeModel.SLEEPING_TIME,
             places=1
                     )
         
         # test 2: redo test 1 but with the case where `model_kwargs` != None
-        TestRound.SLEEPING_TIME = 0
+        FakeModel.SLEEPING_TIME = 0
         self.r2.model_kwargs = {'param1': 1234,
                                 'param2': [1, 2, 3, 4],
                                 'param3': None}
@@ -193,16 +164,16 @@ class TestRound(unittest.TestCase):
         #  - model.after_training_params
         #  - model.set_dataset
 
-        TestRound.SLEEPING_TIME = 0
+        FakeModel.SLEEPING_TIME = 0
         
         MODEL_NAME = "my_model"
         MODEL_PARAMS = [1, 2, 3, 4]
 
-        uuid_patch.return_value = TestRound.FakeUuid()
+        uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, MODEL_NAME)
         model_manager_patch.return_value = (True, {'name': "model_name"})
         builtin_exec_patch.return_value = None
-        builtin_eval_patch.return_value = self.FakeModel
+        builtin_eval_patch.return_value = FakeModel
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
 
@@ -225,11 +196,11 @@ class TestRound(unittest.TestCase):
         # and we will check if there are called when running
         # `run_model_training` 
         with (
-            patch.object(self.FakeModel, 'load') as mock_load,
-            patch.object(self.FakeModel, 'set_dataset') as mock_set_dataset,
-            patch.object(self.FakeModel, 'training_routine') as mock_training_routine,
-            patch.object(self.FakeModel, 'after_training_params', return_value=MODEL_PARAMS) as mock_after_training_params,
-            patch.object(self.FakeModel, 'save') as mock_save
+            patch.object(FakeModel, 'load') as mock_load,
+            patch.object(FakeModel, 'set_dataset') as mock_set_dataset,
+            patch.object(FakeModel, 'training_routine') as mock_training_routine,
+            patch.object(FakeModel, 'after_training_params', return_value=MODEL_PARAMS) as mock_after_training_params,
+            patch.object(FakeModel, 'save') as mock_save
               ):
             msg = self.r1.run_model_training()
             
@@ -258,10 +229,10 @@ class TestRound(unittest.TestCase):
 
 
         """tests normal case scenario with a real model file"""
-        TestRound.SLEEPING_TIME = 0
+        FakeModel.SLEEPING_TIME = 0
 
         # initialisation of patchers
-        uuid_patch.return_value = TestRound.FakeUuid()
+        uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, 'my_python_model')
         model_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
@@ -315,7 +286,7 @@ class TestRound(unittest.TestCase):
         # Tests details:
         # Test 1: tests case where downloading model file fails
         # Test 2: tests case where downloading model paraeters fails
-        TestRound.SLEEPING_TIME = 0
+        FakeModel.SLEEPING_TIME = 0
         
         # initalisation of side effects functions
 
@@ -335,7 +306,7 @@ class TestRound(unittest.TestCase):
         download_repo_answers_iter = iter(download_repo_answers_gene())
         # initialisation of patchers 
 
-        uuid_patch.return_value = TestRound.FakeUuid()
+        uuid_patch.return_value = FakeUuid()
         repository_download_patch.side_effect = repository_side_effect_test_1
         model_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
@@ -415,10 +386,10 @@ class TestRound(unittest.TestCase):
                                                 node_msg_patch):
         """tests case where the import/loading of the model have failed"""
 
-        TestRound.SLEEPING_TIME = 0
+        FakeModel.SLEEPING_TIME = 0
 
         # initialisation of patchers
-        uuid_patch.return_value = TestRound.FakeUuid()
+        uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, 'my_python_model')
         model_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
@@ -455,7 +426,7 @@ class TestRound(unittest.TestCase):
         # but overriding `load` through classes inheritance
         # when `load` is called, an Exception will be raised
         # 
-        class FakeModelRaiseExceptionWhenLoading(TestRound.FakeModel):
+        class FakeModelRaiseExceptionWhenLoading(FakeModel):
             def load(self, **kwargs):
                 """Mimicks an exception happening in the `load`
                 method
@@ -488,7 +459,7 @@ class TestRound(unittest.TestCase):
         # but overriding `training_routine` through classes inheritance
         # when `training_routine` is called, an Exception will be raised
         # 
-        class FakeModelRaiseExceptionInTraining(TestRound.FakeModel):
+        class FakeModelRaiseExceptionInTraining(FakeModel):
             def training_routine(self, **kwargs):
                 """Mimicks an exception happening in the `training_routine`
                 method
@@ -526,7 +497,7 @@ class TestRound(unittest.TestCase):
                                                      node_msg_patch):
 
         """tests case where uploading model parameters file fails"""
-        TestRound.SLEEPING_TIME = 0
+        FakeModel.SLEEPING_TIME = 0
         
         # declaration of side effect functions
 
@@ -535,7 +506,7 @@ class TestRound(unittest.TestCase):
             raise Exception("mimicking an error happening during upload")
         
         # initialisation of patchers
-        uuid_patch.return_value = TestRound.FakeUuid()
+        uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, 'my_python_model')
         model_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.side_effect = upload_side_effect
@@ -544,7 +515,7 @@ class TestRound(unittest.TestCase):
         # action
         with (self.assertLogs('fedbiomed', logging.ERROR) as captured,
               patch.object(builtins, 'exec', return_value=None),
-              patch.object(builtins, 'eval', return_value=TestRound.FakeModel) 
+              patch.object(builtins, 'eval', return_value=FakeModel) 
                 ):
             msg_test = self.r1.run_model_training()
 
@@ -573,14 +544,14 @@ class TestRound(unittest.TestCase):
                                                          repository_upload_patch,
                                                          node_msg_patch):
         """tests case where training plan contains node_side arguments"""
-        TestRound.SLEEPING_TIME = 1
+        FakeModel.SLEEPING_TIME = 1
 
         # initialisation of patchers 
-        uuid_patch.return_value = TestRound.FakeUuid()
+        uuid_patch.return_value = FakeUuid()
         repository_download_patch.return_value = (200, "my_model")
         model_manager_patch.return_value = (True, {'name': "model_name"})
         builtin_exec_patch.return_value = None
-        builtin_eval_patch.return_value = TestRound.FakeModel
+        builtin_eval_patch.return_value = FakeModel
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         
