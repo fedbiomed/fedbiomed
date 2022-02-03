@@ -254,7 +254,8 @@ class TestRound(unittest.TestCase):
             "   def after_training_params(self):\n" + \
             "       return [1,2,3,4]\n"
 
-        module_file_path = os.path.join(environ['TMP_DIR'], 'my_model_1234.py')
+        module_file_path = os.path.join(environ['TMP_DIR'],
+                                        'my_model_' + str(FakeUuid.VALUE) + '.py')
 
         # creating file for toring dummy training plan
         with open(module_file_path, "w") as f:
