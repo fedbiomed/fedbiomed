@@ -39,10 +39,11 @@ class TestNode(unittest.TestCase):
     def setUp(self,
               task_queue_patcher, 
               messaging_patcher):
-        
+            
         task_queue_patcher.return_value = None
         messaging_patcher.return_value = None
         mock_data_manager = MagicMock()
+        mock_data_manager.search_by_tags = MagicMock(return_value=[{'database_id': '1234', 'path': '/path/to/my/dataset'}])
         mock_model_manager = MagicMock()
         
         self.n1 = Node(mock_data_manager, mock_model_manager)
@@ -81,16 +82,18 @@ class TestNode(unittest.TestCase):
     
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.request_create')
     def test_on_message_02_normal_case_scenario_ping(
                                 self,
-                                node_msg_patch,
+                                node_msg_request_patch,
+                                node_msg_reply_patch,
                                 messaging_send_msg_patch
                                 ):
         
-        def node_msg_request_create_side_effect(msg):
-            return msg
-        node_msg_patch.side_effect = TestNode.node_msg_side_effect
-        #messaging_send_msg_patch.return_value = None
+        
+        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
+        # definiing arguments
         ping_msg = {
                 'command': 'ping',
                 'researcher_id': 'researcher_id_1234',
@@ -104,3 +107,36 @@ class TestNode(unittest.TestCase):
                             'success': True
                             })
         messaging_send_msg_patch.assert_called_once_with(ping_msg)
+    
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    def test_on_message_03_normal_case_scenario_search(self,
+                                                       node_msg_request_patch,
+                                                       node_msg_reply_patch,
+                                                       messaging_send_msg_patch
+                                                       ):
+        
+        def side_effect(*args, **kwargs):
+            print("OK")
+        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+    
+        node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
+        database_val = [{'database_id': '1234', 'path': '/path/to/my/dataset'}]
+        # defining arguments
+        search_msg = {
+            'command': 'search',
+            'researcher_id': 'researcher_id_1234',
+            'tags': ['#some_tags']
+        }
+        self.n1.on_message(search_msg)
+        
+        # argument `search_msg` will be modified: we will check if 
+        # message has been modified accordingly
+        database_val[0].pop('path', None)
+        search_msg.pop('tags', None)
+        search_msg.update({'success': True,
+                           'node_id': environ['NODE_ID'],
+                           'databases': database_val,
+                           'count': len(database_val)})
+        messaging_send_msg_patch.assert_called_once_with(search_msg)
