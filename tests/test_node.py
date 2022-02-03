@@ -1,6 +1,7 @@
 # Managing NODE, RESEARCHER environ mock before running tests
 from platform import node
 from typing import Any, Dict
+from fedbiomed.common.constants import ErrorNumbers
 from testsupport.delete_environ import delete_environ
 # Delete environ. It is necessary to rebuild environ for required component
 delete_environ()
@@ -34,19 +35,44 @@ class TestNode(unittest.TestCase):
         
         cls.node_msg_side_effect = node_msg_side_effect
 
-    @patch('fedbiomed.common.messaging.Messaging.__init__')
-    @patch('fedbiomed.common.tasks_queue.TasksQueue.__init__')
+    @patch('fedbiomed.common.messaging.Messaging.__init__', autospec=True)
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.__init__', autospec=True)
     def setUp(self,
-              task_queue_patcher, 
+              task_queue_patcher,
               messaging_patcher):
-            
+
+        
+        self.database_val = [
+        {'database_id': '1234',
+         'path': '/path/to/my/dataset',
+         'name': 'test_dataset'}
+        ]
+        self.database_list = [
+            {'database_id': '1234',
+         'path': '/path/to/my/dataset',
+         'name': 'test_dataset1'},
+            {'database_id': '5678',
+             'path': '/path/to/another/dataset',
+             'name': 'test_dataset2'}
+        ]
+        
+        # patchers
         task_queue_patcher.return_value = None
         messaging_patcher.return_value = None
-        mock_data_manager = MagicMock()
-        mock_data_manager.search_by_tags = MagicMock(return_value=[{'database_id': '1234', 'path': '/path/to/my/dataset'}])
-        mock_model_manager = MagicMock()
         
+        # mocks
+        mock_data_manager = MagicMock()
+        mock_data_manager.search_by_tags = MagicMock(return_value=self.database_val)
+        mock_data_manager.list_my_data = MagicMock(return_value = self.database_list)
+        mock_model_manager = MagicMock()
+        mock_data_manager.reply_model_status_request = MagicMock(return_value = None)
+        self.model_manager_mock = mock_model_manager
+        
+        # with patch.object(Messaging,  autospec=True) as mock:
+        #     mock.return_value = None
         self.n1 = Node(mock_data_manager, mock_model_manager)
+        print("messaging", self.n1.messaging)
+        print('tq', self.n1.tasks_queue)
     
     def tearDown(self) -> None:
         pass
@@ -77,7 +103,10 @@ class TestNode(unittest.TestCase):
         train_msg = {
             'command': 'train'
         }
+        # action
         self.n1.on_message(train_msg)
+        
+        # checks
         node_add_task_patcher.assert_called_once_with(train_msg)
     
     @patch('fedbiomed.common.messaging.Messaging.send_message')
@@ -93,12 +122,14 @@ class TestNode(unittest.TestCase):
         
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
-        # definiing arguments
+        # defining arguments
         ping_msg = {
                 'command': 'ping',
                 'researcher_id': 'researcher_id_1234',
                 'sequence': 1234
             }
+        
+        # action
         self.n1.on_message(ping_msg)
         ping_msg.update(
                         {
@@ -106,6 +137,7 @@ class TestNode(unittest.TestCase):
                             'command': 'pong',
                             'success': True
                             })
+        # checks
         messaging_send_msg_patch.assert_called_once_with(ping_msg)
     
     @patch('fedbiomed.common.messaging.Messaging.send_message')
@@ -117,26 +149,108 @@ class TestNode(unittest.TestCase):
                                                        messaging_send_msg_patch
                                                        ):
         
-        def side_effect(*args, **kwargs):
-            print("OK")
+        # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
-    
         node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
-        database_val = [{'database_id': '1234', 'path': '/path/to/my/dataset'}]
+        
         # defining arguments
         search_msg = {
             'command': 'search',
             'researcher_id': 'researcher_id_1234',
             'tags': ['#some_tags']
         }
+        # action
         self.n1.on_message(search_msg)
         
         # argument `search_msg` will be modified: we will check if 
         # message has been modified accordingly
-        database_val[0].pop('path', None)
+        
+        self.database_val[0].pop('path', None)
         search_msg.pop('tags', None)
         search_msg.update({'success': True,
                            'node_id': environ['NODE_ID'],
-                           'databases': database_val,
-                           'count': len(database_val)})
+                           'databases': self.database_val,
+                           'count': len(self.database_val)})
         messaging_send_msg_patch.assert_called_once_with(search_msg)
+
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    def test_on_message_04_normal_case_scenario_list(self,
+                                                     node_msg_request_patch,
+                                                     node_msg_reply_patch,
+                                                     messaging_send_msg_patch
+                                                     ):
+        # defining patchers
+        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
+        # defining arguments
+        list_msg = {
+            'command': 'list',
+            'researcher_id': 'researcher_id_1234',
+        }
+        
+        # action
+        self.n1.on_message(list_msg)
+        
+        # updating `list_msg` value to match the one sent through
+        # Messaging class
+        for d in self.database_list:
+            for key in ['path', 'dataset_id']:
+                d.pop(key, None)
+        list_msg.update({ 
+                         'success': True,
+                         'node_id': environ['NODE_ID'],
+                         'databases': self.database_list,
+                         'count': len(self.database_list)})
+        
+        # checks
+        messaging_send_msg_patch.assert_called_once_with(list_msg)
+    
+    @patch('fedbiomed.common.message.NodeMessages.request_create')    
+    def test_on_message_05_normal_case_scenario_model_status(self,
+                                                             node_msg_request_patch,
+                                                             ):
+        """Tests normal case senario, if command is equals to 'model-status"""
+        # defining patchers
+        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        # defining arguments
+        model_status_msg = {
+            'command': 'model-status',
+            'researcher_id': 'researcher_id_1234',
+        }
+        
+        # action 
+        self.n1.on_message(model_status_msg)
+        
+        # checks
+        self.model_manager_mock.reply_model_status_request.assert_called_once_with(model_status_msg,
+                                                                                   self.n1.messaging)
+           
+                                                                           
+    @patch('fedbiomed.node.node.Node.send_error') 
+    @patch('fedbiomed.common.message.NodeMessages.request_create')    
+    def test_on_message_06_unknown_command(self,
+                                           node_msg_request_patch,
+                                           send_err_patch):
+        """Tests Exception is raised if command is not a knwon command"""
+        # defining patchers
+        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        
+        # defining arguments
+        unknown_cmd = 'unknown'
+        researcher_id = 'researcher_id_1234'
+        unknown_cmd_msg = {
+            'command': unknown_cmd,
+            'researcher_id': researcher_id,
+        }
+        
+        
+        # action 
+        self.n1.on_message(unknown_cmd_msg)
+        
+        # check
+        send_err_patch.assert_called_once_with(ErrorNumbers.FB301,
+                                               extra_msg=f"Command `{unknown_cmd}` is not implemented",
+                                               researcher_id='researcher_id_1234')
+        
