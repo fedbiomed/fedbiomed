@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import json
 import inspect
 from typing import Callable, Union, Dict, Any, TypeVar, Type, List
@@ -7,10 +8,12 @@ from typing import Callable, Union, Dict, Any, TypeVar, Type, List
 from tabulate import tabulate
 from pathvalidate import sanitize_filename, sanitize_filepath
 from re import findall
+import traceback
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import ExperimentException
+from fedbiomed.common.exceptions import ExperimentException, FedbiomedException, \
+    SilentTerminationException
 from fedbiomed.researcher.environ import environ
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
@@ -37,11 +40,89 @@ TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SGDSkLearnModel)
 Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SGDSkLearnModel])
 
 
+
+# Exception handling at top lever for researcher ---------------------------------------------
+
+def exp_exceptions(function):
+    """Decorator for handling all exceptions in the Experiment class() :
+    pretty print a message for the user, quit Experiment.
+    """
+    # try to guess if running in a notebook 
+    def in_notebook():
+        try:
+            # not imported, just for checking
+            pyshell = get_ipython().__class__.__name__
+            if pyshell == 'ZMQInteractiveShell':
+                # in a notebook
+                return True
+            else:
+                return False
+        except NameError:
+            # not defined : we are not running in ipython, thus not in notebook
+            return False
+
+    # wrap the original function catching the exceptions
+    def payload(*args, **kwargs):
+        code = 0
+        try:
+            ret = function(*args, **kwargs)
+        except SilentTerminationException:
+            # handle the case of nested calls will exception decorator
+            raise
+        except SystemExit as e:
+            # handle the sys.exit() from other clauses
+            sys.exit(e)
+        except KeyboardInterrupt:
+            code = 1
+            print(
+                '\n--------------------',
+                'Fed-BioMed researcher stopped due to keyboard interrupt',
+                '--------------------',
+                sep=os.linesep)
+            logger.critical('Fed-BioMed researcher stopped due to keyboard interrupt')
+        except FedbiomedException as e:
+            code = 1
+            print(
+                '\n--------------------',
+                f'Fed-BioMed researcher stopped due to exception:\n{str(e)}',
+                '--------------------',
+                sep=os.linesep)
+            # redundant, should be already logged when raising exception 
+            logger.critical(f'Fed-BioMed researcher stopped due to exception:\n{str(e)}')
+        except BaseException as e:
+            code = 3
+            print(
+                '\n--------------------',
+                f'Fed-BioMed researcher stopped due to unknown error:\n{str(e)}',
+                '\nThis is either an error not yet caught by Fed-BioMed or a bug',
+                'More details in the backtrace extract below',
+                '--------------------',
+                sep=os.linesep)
+            # at most 5 backtrace entries to avoid too long output 
+            traceback.print_exc(limit=5, file=sys.stdout)
+            print('--------------------')
+            logger.critical(f'Fed-BioMed stopped due to unknown error:\n{str(e)}')
+
+        if code != 0:
+            if in_notebook():
+                # raise a silent specific exception, don't exit the interactive kernel
+                raise SilentTerminationException
+            else:
+                # exit the process
+                sys.exit(code)
+
+        return ret
+    return payload
+
+
+# Experiment ---------------------------------------------------------------------------------
+
 class Experiment(object):
     """
     This class represents the orchestrator managing the federated training
     """
 
+    @exp_exceptions
     def __init__(self,
                 tags: Union[List[str], str, None] = None,
                 nodes: Union[List[str], None] = None,
@@ -186,6 +267,7 @@ class Experiment(object):
 
 
     # destructor
+    @exp_exceptions
     def __del__(self):
         # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
 
@@ -203,70 +285,90 @@ class Experiment(object):
 
     # Getters ---------------------------------------------------------------------------------------------------------
 
+    @exp_exceptions
     def tags(self) -> Union[List[str], None]:
         return self._tags
 
+    @exp_exceptions
     def nodes(self) -> Union[List[str], None]:
         return self._nodes
 
+    @exp_exceptions
     def training_data(self) -> Union[FederatedDataSet, None]:
         return self._fds
 
+    @exp_exceptions
     def aggregator(self) -> Aggregator:
         return self._aggregator
 
+    @exp_exceptions
     def strategy(self) -> Union[Strategy, None]:
         return self._node_selection_strategy
 
+    @exp_exceptions
     def rounds(self) -> int:
         return self._rounds
 
+    @exp_exceptions
     def round_current(self):
         return self._round_current
 
+    @exp_exceptions
     def experimentation_folder(self) -> str:
         return self._experimentation_folder
 
     # derivative from experimentation_folder
+    @exp_exceptions
     def experimentation_path(self) -> str:
         return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
 
+    @exp_exceptions
     def model_class(self) -> Union[Type_TrainingPlan, str, None]:
         return self._model_class
 
+    @exp_exceptions
     def model_path(self) -> Union[str, None]:
         return self._model_path
 
+    @exp_exceptions
     def model_args(self) -> dict:
         return self._model_args
 
+    @exp_exceptions
     def training_args(self) -> dict:
         return self._training_args
 
+    @exp_exceptions
     def job(self) -> Union[Job, None]:
         return self._job
 
+    @exp_exceptions
     def save_breakpoints(self) -> bool:
         return self._save_breakpoints
 
+    @exp_exceptions
     def monitor(self) -> Union[Monitor, None]:
         return self._monitor
 
 
     # TODO: update these getters after experiment results refactor / job refactor 
 
+    @exp_exceptions
     def aggregated_params(self) -> dict:
         return self._aggregated_params
 
+    @exp_exceptions
     def training_replies(self) -> dict:
         return self._job.training_replies
 
     # TODO: better checking of model object type in Job() to guarantee it is a TrainingPlan
+    @exp_exceptions
     def model_instance(self) -> TrainingPlan:
         return self._job.model
 
 
     # a specific getter-like
+    @exp_exceptions
     def info(self) -> None:
         """Pretty print information about status of the current experiment.
         
@@ -315,7 +417,7 @@ class Experiment(object):
         }
         # definitions found missing
         missing = ''
-        
+
         for key, value in may_be_missing.items():
             try:
                 if eval('self.' + key) is None or eval('self.' + key) is False:
@@ -335,6 +437,7 @@ class Experiment(object):
 
     # Setters ---------------------------------------------------------------------------------------------------------
 
+    @exp_exceptions
     def set_tags(self, tags: Union[List[str], str, None]) -> Union[List[str], None]:
         """ Setter for tags + verifications on argument type
 
@@ -380,6 +483,7 @@ class Experiment(object):
         return self._tags
 
 
+    @exp_exceptions
     def set_nodes(self, nodes: Union[List[str], None]) -> Union[List[str], None]:
         """ Setter for nodes + verifications on argument type
 
@@ -421,6 +525,7 @@ class Experiment(object):
         return self._nodes
 
 
+    @exp_exceptions
     def set_training_data(self, training_data: Union[FederatedDataSet, dict, None]) -> \
             Union[FederatedDataSet, None]:
         """ Setter for training data for federated training + verification on arguments type
@@ -485,6 +590,7 @@ class Experiment(object):
         return self._fds
 
 
+    @exp_exceptions
     def set_aggregator(self, aggregator: Union[Aggregator, Type[Aggregator], None]) -> \
             Aggregator:
         """ Setter for aggregator + verification on arguments type
@@ -528,6 +634,7 @@ class Experiment(object):
         return self._aggregator
 
 
+    @exp_exceptions
     def set_strategy(self, node_selection_strategy: Union[Strategy, Type[Strategy], None]) -> \
             Union[Strategy, None]:
         """ Setter for `node_selection_strategy` + verification on arguments type
@@ -581,6 +688,7 @@ class Experiment(object):
         return self._node_selection_strategy
 
 
+    @exp_exceptions
     def set_rounds(self, rounds: int) -> int:
         """Setter for `rounds` + verification on arguments type
 
@@ -625,6 +733,7 @@ class Experiment(object):
     #   load a breakpoint
 
 
+    @exp_exceptions
     def set_experimentation_folder(self, experimentation_folder: Union[str, None]) -> str:
         """Setter for `experimentation_folder` + verification on arguments type
 
@@ -666,6 +775,7 @@ class Experiment(object):
         return self._experimentation_folder
 
 
+    @exp_exceptions
     def set_model_class(self, model_class: Union[Type_TrainingPlan, str, None]) -> \
             Union[Type_TrainingPlan, str, None]:
         """Setter for `model_class` + verification on arguments type
@@ -757,6 +867,7 @@ class Experiment(object):
         return self._model_class
         
 
+    @exp_exceptions
     def set_model_path(self, model_path: Union[str, None]) -> Union[str, None]:
         """Setter for `model_path` + verification on arguments type
 
@@ -819,6 +930,7 @@ class Experiment(object):
 
     # TODO: model_args need checking of dict items, to be done by Job and node
     # (using a training plan method ?)
+    @exp_exceptions
     def set_model_args(self, model_args: dict):
         """Setter for `model_args` + verification on arguments type
 
@@ -857,6 +969,7 @@ class Experiment(object):
 
     # TODO: training_args need checking of dict items, to be done by Job and node
     # (using a training plan method ? changing `training_routine` prototype ?)
+    @exp_exceptions
     def set_training_args(self, training_args: dict):
         """Setter for `training_args` + verification on arguments type
 
@@ -897,6 +1010,7 @@ class Experiment(object):
 
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?
+    @exp_exceptions
     def set_job(self) -> Union[Job, None]:
         """Setter for job, it verifies pre-requisites are met for creating a job
         attached to this experiment. If yes, instantiate a job ; if no, return None.
@@ -947,6 +1061,7 @@ class Experiment(object):
     # def set_aggregated_params(...)
 
 
+    @exp_exceptions
     def set_save_breakpoints(self, save_breakpoints: bool) -> bool:
         """ Setter for save_breakpoints + verification on arguments type
 
@@ -975,6 +1090,7 @@ class Experiment(object):
 
 
     # TODO: accept an optional Monitor param (`monitor: Monitor = None`)
+    @exp_exceptions
     def set_monitor(self, tensorboard: bool) -> Union[Monitor, None]:
         """ Setter for monitoring in tensorboard + verification on arguments type
 
@@ -1032,6 +1148,7 @@ class Experiment(object):
 
     # Run experiment functions -------------------------------------------------------------------
 
+    @exp_exceptions
     def run_once(self, increase: bool = False) -> int:
         """Run at most one round of an experiment, continuing from the point the
         experiment had reached.
@@ -1115,6 +1232,7 @@ class Experiment(object):
         return 1
 
 
+    @exp_exceptions
     def run(self, run_rounds: int = 0, increase: bool = False) -> int:
         """Run one or more rounds of an experiment, continuing from the point the
         experiment had reached.
@@ -1191,6 +1309,7 @@ class Experiment(object):
 
     # Model checking functions -------------------------------------------------------------------
 
+    @exp_exceptions
     def model_file(self, display: bool = True) -> str:
         """ This method displays saved final model for the experiment
             that will be sent to the nodes for training.
@@ -1241,6 +1360,7 @@ class Experiment(object):
 
     # TODO: change format of returned data (during experiment results refactor ?)
     # a properly defined structure/class instead of the generic responses
+    @exp_exceptions
     def check_model_status(self) -> Responses:
         """ Method for checking model status, ie whether it is approved or
             not by the nodes
@@ -1267,6 +1387,7 @@ class Experiment(object):
 
     # Breakpoint functions ----------------------------------------------------------------
 
+    @exp_exceptions
     def _save_breakpoint(self, round: int = 0):
         """
         Saves breakpoint with the state of the training at a current round.
@@ -1330,6 +1451,7 @@ class Experiment(object):
         logger.info(f"breakpoint for round {round} saved at " + \
                     os.path.dirname(breakpoint_file_path))
 
+    @exp_exceptions
     @classmethod
     def load_breakpoint(cls: Type[_E],
                         breakpoint_folder_path: str = None) -> _E:
@@ -1399,6 +1521,7 @@ class Experiment(object):
         logging.info(f"experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp
 
+    @exp_exceptions
     @staticmethod
     def _save_aggregated_params(aggregated_params_init: dict, breakpoint_path: str) -> Dict[int, dict]:
         """Extracts and format fields from aggregated_params that need
@@ -1420,6 +1543,7 @@ class Experiment(object):
 
         return aggregated_params
 
+    @exp_exceptions
     @staticmethod
     def _load_aggregated_params(aggregated_params: Dict[str, dict], func_load_params: Callable
                                 ) -> Dict[int, dict]:
@@ -1448,6 +1572,7 @@ class Experiment(object):
 
     # TODO: factorize code with Job and node
     # TODO: add signal handling for error cases
+    @exp_exceptions
     @staticmethod
     def _create_object(args: Dict[str, Any], **object_kwargs) -> Callable:
         """

@@ -50,3 +50,12 @@ class ExperimentException(FedbiomedException):
     Exception specific to the Experiment class
     """
     pass
+
+
+# specific exception
+class SilentTerminationException(FedbiomedException):
+    """
+    Exception for silently terminating the researcher from a notebook
+    """
+    def _render_traceback_(self):
+        pass
