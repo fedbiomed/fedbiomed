@@ -1,7 +1,13 @@
 # Managing NODE, RESEARCHER environ mock before running tests
+from copy import deepcopy
+import copy
 from platform import node
 from typing import Any, Dict
+
+from numpy import round_
+from sklearn.linear_model import HuberRegressor
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.node.history_monitor import HistoryMonitor
 from testsupport.delete_environ import delete_environ
 # Delete environ. It is necessary to rebuild environ for required component
 delete_environ()
@@ -13,6 +19,7 @@ from fedbiomed.node.environ import environ
 import unittest
 from unittest.mock import MagicMock, patch
 from fedbiomed.node.node import Node
+from fedbiomed.node.round import Round
 
 from json import decoder
 
@@ -27,6 +34,9 @@ class TestNode(unittest.TestCase):
 
         def get_dict(self) -> Dict[str, Any]:
             return self.msg
+        
+        def get_param(self, val: str) -> Any:
+            return self.msg.get(val)
     
     @classmethod
     def setUpClass(cls):
@@ -58,6 +68,13 @@ class TestNode(unittest.TestCase):
              'name': 'test_dataset2'}
         ]
         
+        self.database_id = [
+            {
+                'database_id': '1234',
+                'path': '/path/to/my/dataset',
+                'name': 'test_dataset1'
+            }
+                            ]
         # patchers
         task_queue_patcher.return_value = None
         messaging_patcher.return_value = None
@@ -68,10 +85,14 @@ class TestNode(unittest.TestCase):
         mock_data_manager.list_my_data = MagicMock(return_value = self.database_list)
         mock_model_manager = MagicMock()
         mock_data_manager.reply_model_status_request = MagicMock(return_value = None)
+        mock_data_manager.search_by_id = MagicMock(return_value = self.database_id)
+        
+        
         self.model_manager_mock = mock_model_manager
         
         self.n1 = Node(mock_data_manager, mock_model_manager)
-
+        self.n2 = Node(mock_data_manager, mock_model_manager)
+        
     
     def tearDown(self) -> None:
         pass
@@ -118,9 +139,9 @@ class TestNode(unittest.TestCase):
                                 messaging_send_msg_patch
                                 ):
         
-        
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
+        
         # defining arguments
         ping_msg = {
                 'command': 'ping',
@@ -319,11 +340,11 @@ class TestNode(unittest.TestCase):
                                                      messaging_patch,
                                                      msg_send_error_patch):
         """Tests case where a TypError is raised (because unable to serialize message)"""
-        
+        # JSONDecodeError can be raised from messaging class
         def messaging_side_effect(*args, **kwargs):
             raise TypeError('Mimicking a TypeError happening when serializing message')
         
-        # JSONDecodeError can be raised from messaging class
+        # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
         messaging_patch.side_effect = messaging_side_effect
@@ -344,3 +365,195 @@ class TestNode(unittest.TestCase):
         msg_send_error_patch.assert_called_once_with(ErrorNumbers.FB301,
                                                      extra_msg = 'Message was not serializable',
                                                      researcher_id= resid)   
+    
+    @patch('fedbiomed.node.round.Round.__init__')
+    @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
+    @patch('fedbiomed.common.message.NodeMessages.request_create') 
+    def test_parser_task_01_create_round(self,
+                                         node_msg_request_patch,
+                                         history_monitor_patch,
+                                         round_patch
+                                         ):
+        """Tests if rounds are created accordingly"""
+
+        # defining patchers
+        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        round_patch.return_value = None
+        history_monitor_patch.return_value = None
+
+        # test 1: case where 1 dataset has been found
+        dict_msg_1_dataset = {
+            'model_args': {'lr': 0.1},
+            'training_args': {'some_value': 1234},
+            'model_url': 'https://link.to.somewhere.where.my.model',
+            'model_class': 'my_test_training_plan',
+            'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
+            'job_id': 'job_id_1234',
+            'researcher_id': 'researcher_id_1234',
+            'training_data': {environ['NODE_ID']: ['dataset_id_1234']}
+        }
+        
+        # action
+        self.n1.parser_task(dict_msg_1_dataset)
+    
+        # checks
+        self.assertEqual(round_patch.call_count, 1)
+        self.assertEqual(len(self.n1.rounds), 1)
+        self.assertIsInstance(self.n1.rounds[0], Round)
+        
+        
+        # test 2: case where 2 dataset have been found (training on several dataset)
+        # reset mocks
+        round_patch.reset_mock()
+        round_patch.return_value = None
+        
+        # defining msg argument (where 2 datasets are found)
+        dict_msg_2_datasets = {
+            'model_args': {'lr': 0.1},
+            'training_args': {'some_value': 1234},
+            'model_url': 'https://link.to.somewhere.where.my.model',
+            'model_class': 'my_test_training_plan',
+            'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
+            'job_id': 'job_id_1234',
+            'researcher_id': 'researcher_id_1234',
+            'training_data': {environ['NODE_ID']: ['dataset_id_1234',
+                                                   'dataset_id_6789']}
+        }
+            
+        # action
+        
+        self.n2.parser_task(dict_msg_2_datasets)
+    
+        # hack to get the object HistoryMonitor
+        # FIXME: is this a good idea? Unit test may fail if 
+        # parameters are passed using arg name, 
+        # and if order change
+        history_monitor_ref = round_patch.call_args_list[-1][0][-2]
+        
+        # checks
+        round_patch.assert_called_with(dict_msg_2_datasets['model_args'],
+                                        dict_msg_2_datasets['training_args'],
+                                        self.database_id[0],
+                                        dict_msg_2_datasets['model_url'],
+                                        dict_msg_2_datasets['model_class'],
+                                        dict_msg_2_datasets['params_url'],
+                                        dict_msg_2_datasets['job_id'],
+                                        dict_msg_2_datasets['researcher_id'],
+                                        history_monitor_ref,
+                                        None
+                                    )
+        self.assertEqual(round_patch.call_count, 2)
+        self.assertEqual(len(self.n2.rounds), 2)
+        self.assertIsInstance(self.n2.rounds[0], Round)
+        
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.common.message.NodeMessages.reply_create') 
+    @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
+    @patch('fedbiomed.common.message.NodeMessages.request_create') 
+    def test_parser_task_02_no_dataset_found(self,
+                                             node_msg_request_patch,
+                                             history_monitor_patch,
+                                             node_msg_reply_patch,
+                                             messaging_patch,
+                                             ):
+        # defining patchers
+        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
+        history_monitor_patch.return_value = None
+        
+        # defining arguments
+        resid = 'researcher_id_1234'
+        dict_msg_without_datasets = {
+            'model_args': {'lr': 0.1},
+            'training_args': {'some_value': 1234},
+            'model_url': 'https://link.to.somewhere.where.my.model',
+            'model_class': 'my_test_training_plan',
+            'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
+            'job_id': 'job_id_1234',
+            'researcher_id': resid,
+            'training_data': {environ['NODE_ID']: ['dataset_id_1234']}
+        }
+        # create tested object
+        
+        mock_data_manager = MagicMock()
+        # return emtpy list to mimic dataset that havenot been found
+        mock_data_manager.search_by_id = MagicMock(return_value = [])  
+        
+        self.n1.data_manager = mock_data_manager
+        
+        # action
+        
+        self.n1.parser_task(dict_msg_without_datasets)
+        
+        # checks
+        messaging_patch.assert_called_once_with({
+            'command': 'error',
+            'node_id': environ['NODE_ID'],
+            'researcher_id': resid,
+            'errnum': ErrorNumbers.FB313,
+            'extra_msg': "Did not found proper data in local datasets" 
+        })
+        
+    @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
+    @patch('fedbiomed.common.message.NodeMessages.request_create') 
+    def test_parser_task_03_error_found(self,
+                                        node_msg_request_patch,
+                                        history_monitor_patch,
+                                        ):
+        """Tests correct raise of error (AssertionError) for missing/invalid 
+        entries in input arguments"""
+        
+        # defining patchers
+        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        history_monitor_patch.return_value = None
+        #validator_patch.return_value = True
+        
+        # test 1: test case where exception is raised when model_url is None
+        # defining arguments
+        resid = 'researcher_id_1234'
+        dict_msg_without_model_url = {
+            'model_args': {'lr': 0.1},
+            'training_args': {'some_value': 1234},
+            'model_url': None,
+            'model_class': 'my_test_training_plan',
+            'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
+            'job_id': 'job_id_1234',
+            'researcher_id': resid,
+            'training_data': {environ['NODE_ID']: ['dataset_id_1234']}
+        }
+        
+        # action
+        with self.assertRaises(AssertionError):
+            self.n1.parser_task(dict_msg_without_model_url)
+            
+        # test 2: test case where url is not valid
+        dict_msg_with_unvalid_url = copy.deepcopy(dict_msg_without_model_url)
+        dict_msg_without_model_url['model_url'] =  'this is not a valid url'
+        
+        #validator_patch.return_value = False
+        
+        # action
+        with self.assertRaises(AssertionError):
+            self.n1.parser_task(dict_msg_with_unvalid_url)
+            
+        # test 3: test case where model_class is None
+        dict_msg_without_model_class = copy.deepcopy(dict_msg_without_model_url)
+        dict_msg_without_model_class['model_class'] = None
+        #validator_patch.return_value = True
+        
+         # action
+        with self.assertRaises(AssertionError):
+            self.n1.parser_task(dict_msg_without_model_class)
+            
+        # test 4: test case where model_class is not of type `str`
+        dict_msg_model_class_bad_type = copy.deepcopy(dict_msg_without_model_url)
+        # lets test with integer in place of strings
+        dict_msg_model_class_bad_type['model_class'] = 1234  
+        
+        # action
+        with self.assertRaises(AssertionError):
+            self.n1.parser_task(dict_msg_model_class_bad_type)
+            
+    def test_task_manager_01_correct_run(self):
+        """Tests correct run"""
+        pass
