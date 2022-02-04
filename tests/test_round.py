@@ -19,8 +19,9 @@ from fedbiomed.node.round import Round
 from fedbiomed.common.logger import logger, DEFAULT_LOG_LEVEL
 
 # importing fake (=dummy) classes
-from testsupport.fake_classes.fake_classes_common import FakeModel, FakeNodeMessages
-from testsupport.fake_classes.fake_classes_python_library import FakeUuid
+from testsupport.fake_classes.fake_training_plan import FakeModel
+from testsupport.fake_classes.fake_message import FakeNodeMessages
+from testsupport.fake_classes.fake_uuid import FakeUuid
 
 class TestRound(unittest.TestCase):
     

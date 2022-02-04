@@ -1,8 +1,8 @@
-# contains dummy Classes for unit testing, specifically created for Node
+# contains dummy Classes for unit testing
 # this avoid re-wirting the same fake classes each time we are desinging a 
 # unit test
 
-## Faking FederatedDataSet class
+## Faking FederatedDataSet class (from fedbiomed.common.dataset)
 
 class FederatedDataSetMock():
     def __init__(self, data):

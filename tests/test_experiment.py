@@ -18,7 +18,7 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.experiment import Experiment
 
-from testsupport.fake_classes.fake_classes_researcher import FederatedDataSetMock
+from testsupport.fake_classes.fake_dataset import FederatedDataSetMock
 
 class TestExperiment(unittest.TestCase):
 

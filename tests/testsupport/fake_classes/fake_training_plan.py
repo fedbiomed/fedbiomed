@@ -1,7 +1,5 @@
-# contains dummy Classes for unit testing, for both Node and Researcher
-
-# this avoid re-wirting the same fake classes each time we are desinging a 
-# unit test
+# this fake class is stored outside unit tests in order to avoid re-wirting 
+# the same fake classes each time we are desinging a  unit test
 
 from typing import Dict, Any, List
 import time
@@ -23,13 +21,3 @@ class FakeModel:
         time.sleep(FakeModel.SLEEPING_TIME)
     def after_training_params(self)-> List[int]:
         return [1, 2, 3, 4]
-
-    
-# Fakes NodeMessage (from fedbiomed.common.messages)
-class FakeNodeMessages:
-    # Fake NodeMessage
-    def __init__(self, msg: Dict[str, Any]):
-        self.msg = msg
-
-    def get_dict(self) -> Dict[str, Any]:
-        return self.msg
