@@ -132,6 +132,8 @@ class Node:
                             extra_msg = f"Command `{command}` is not implemented",
                             researcher_id= resid)
         except KeyError:
+            # FIXME: this error could be raised for other missing keys (eg 
+            # researcher_id, ....)
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
             self.send_error(ErrorNumbers.FB301,

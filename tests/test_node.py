@@ -16,6 +16,7 @@ from fedbiomed.node.node import Node
 
 from json import decoder
 
+
 class TestNode(unittest.TestCase):
     
     # Fake classes definition
@@ -265,7 +266,7 @@ class TestNode(unittest.TestCase):
         
         def messaging_side_effect(*args, **kwargs):
             raise decoder.JSONDecodeError('mimicking a JSONDEcodeError',
-                                          doc='a', pos=1)
+                                          doc='a_json_doc', pos=1)
         
         # JSONDecodeError can be raised from messaging class
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
@@ -288,8 +289,58 @@ class TestNode(unittest.TestCase):
         msg_send_error_patch.assert_called_once_with(ErrorNumbers.FB301,
                                                      extra_msg = "Not able to deserialize the message",
                                                      researcher_id= resid)
-        
-    def test_on_message_08_fail_getting_msg_field(self):
+     
+    @patch('fedbiomed.node.node.Node.send_error')    
+    def test_on_message_08_fail_getting_msg_field(self,
+                                                  msg_send_error_patch):
         """Tests case where a KeyError (unable to extract fields of `msg`) Exception
         is raised during process"""
-        pass
+        resid = 'researcher_id_1234'
+        no_command_msg = {
+                'researcher_id': resid,
+                'sequence': 1234
+            }
+        
+        # action
+        self.n1.on_message(no_command_msg)
+        
+        # check
+        msg_send_error_patch.assert_called_once_with(ErrorNumbers.FB301,
+                                                     extra_msg = "'command' property was not found",
+                                                     researcher_id= resid)
+    
+    @patch('fedbiomed.node.node.Node.send_error') 
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.request_create')  
+    def test_on_message_09_fail_msg_not_serializable(self,
+                                                     node_msg_request_patch,
+                                                     node_msg_reply_patch,
+                                                     messaging_patch,
+                                                     msg_send_error_patch):
+        """Tests case where a TypError is raised (because unable to serialize message)"""
+        
+        def messaging_side_effect(*args, **kwargs):
+            raise TypeError('Mimicking a TypeError happening when serializing message')
+        
+        # JSONDecodeError can be raised from messaging class
+        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
+        messaging_patch.side_effect = messaging_side_effect
+        
+        # defining arguments
+        command = 'ping'
+        resid = 'researcher_id_1234'
+        ping_msg = {
+                'command': command,
+                'researcher_id': resid,
+                'sequence': 1234
+            }
+        
+        # action
+        self.n1.on_message(ping_msg)
+        
+        # check
+        msg_send_error_patch.assert_called_once_with(ErrorNumbers.FB301,
+                                                     extra_msg = 'Message was not serializable',
+                                                     researcher_id= resid)   
