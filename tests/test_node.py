@@ -14,6 +14,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from fedbiomed.node.node import Node
 
+from json import decoder
 
 class TestNode(unittest.TestCase):
     
@@ -68,11 +69,8 @@ class TestNode(unittest.TestCase):
         mock_data_manager.reply_model_status_request = MagicMock(return_value = None)
         self.model_manager_mock = mock_model_manager
         
-        # with patch.object(Messaging,  autospec=True) as mock:
-        #     mock.return_value = None
         self.n1 = Node(mock_data_manager, mock_model_manager)
-        print("messaging", self.n1.messaging)
-        print('tq', self.n1.tasks_queue)
+
     
     def tearDown(self) -> None:
         pass
@@ -253,4 +251,45 @@ class TestNode(unittest.TestCase):
         send_err_patch.assert_called_once_with(ErrorNumbers.FB301,
                                                extra_msg=f"Command `{unknown_cmd}` is not implemented",
                                                researcher_id='researcher_id_1234')
+     
+    @patch('fedbiomed.node.node.Node.send_error') 
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.common.message.NodeMessages.reply_create')
+    @patch('fedbiomed.common.message.NodeMessages.request_create')   
+    def test_on_message_07_fail_reading_json(self,
+                                             node_msg_request_patch,
+                                             node_msg_reply_patch,
+                                             messaging_patch,
+                                             msg_send_error_patch):
+        """Tests case where a JSONDecodeError is triggered (JSON cannot be created)"""
         
+        def messaging_side_effect(*args, **kwargs):
+            raise decoder.JSONDecodeError('mimicking a JSONDEcodeError',
+                                          doc='a', pos=1)
+        
+        # JSONDecodeError can be raised from messaging class
+        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
+        messaging_patch.side_effect = messaging_side_effect
+        
+        # defining arguments
+        command = 'ping'
+        resid = 'researcher_id_1234'
+        ping_msg = {
+                'command': command,
+                'researcher_id': resid,
+                'sequence': 1234
+            }
+        
+        # action
+        self.n1.on_message(ping_msg)
+        
+        # check
+        msg_send_error_patch.assert_called_once_with(ErrorNumbers.FB301,
+                                                     extra_msg = "Not able to deserialize the message",
+                                                     researcher_id= resid)
+        
+    def test_on_message_08_fail_getting_msg_field(self):
+        """Tests case where a KeyError (unable to extract fields of `msg`) Exception
+        is raised during process"""
+        pass
