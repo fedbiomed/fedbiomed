@@ -13,7 +13,7 @@ import copy
 import validators
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import TrainingException
+#from fedbiomed.common.exceptions import FedbiomedTrainingError
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.logger import logger
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
