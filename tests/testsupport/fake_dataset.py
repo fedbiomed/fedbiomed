@@ -1,11 +1,22 @@
-# contains dummy Classes for unit testing
-# this avoid re-wirting the same fake classes each time we are desinging a 
-# unit test
+""" This file contains dummy Classes for unit testing. It fakes FederatedDataSet class
+(from fedbiomed.common.dataset) 
+this avoid re-wirting the same fake classes each time we are desinging a 
+unit test"""
 
-## Faking FederatedDataSet class (from fedbiomed.common.dataset)
+from typing import Any
+
 
 class FederatedDataSetMock():
-    def __init__(self, data):
+    """Provides an interface that behave like the FederatedDataset,
+    with a constructor and a `data` method
+    """
+    def __init__(self, data: Any):
         self._data = data
-    def data(self):
+
+    def data(self) -> Any:
+        """Returns data values stored in FederatedDataSetMock
+
+        Returns:
+            Any: values stored in class
+        """
         return self._data

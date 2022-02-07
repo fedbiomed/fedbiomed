@@ -68,11 +68,9 @@ class TestRound(unittest.TestCase):
         self.r2.training_kwargs = {}
         self.r2.dataset = params
         self.r2.monitor = dummy_monitor
-        
-        sys.path.insert(0, environ['TMP_DIR'])
 
     def tearDown(self) -> None:
-        sys.path.remove(environ['TMP_DIR'])
+        pass
 
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')

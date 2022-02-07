@@ -107,6 +107,7 @@ class Round:
 
         except Exception as e:
             is_failed = True
+            # FIXME: this will trigger if model is not approved by node
             error_message = "Cannot download model files:" + str(e)
 
         # import module, declare the model, load parameters
