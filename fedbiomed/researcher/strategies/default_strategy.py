@@ -4,7 +4,7 @@ import uuid
 from typing import List, Tuple, Dict, Any
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import StrategyException
+from fedbiomed.common.exceptions import FedbiomedStrategyError
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.strategies.strategy import Strategy
 
@@ -62,7 +62,7 @@ class DefaultStrategy(Strategy):
                 logger.error(ErrorNumbers.FB407.value)
                 error = ErrorNumbers.FB407
 
-            raise StrategyException(ErrorNumbers.FB402.value)
+            raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
 
         # check that all nodes that answer could successfully train
         self._success_node_history[round_i] = []
@@ -82,7 +82,7 @@ class DefaultStrategy(Strategy):
                              )
 
         if not all_success:
-            raise StrategyException(ErrorNumbers.FB402.value)
+            raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
 
 
         # so far, everything is OK
