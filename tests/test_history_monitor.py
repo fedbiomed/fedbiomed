@@ -6,7 +6,7 @@ import testsupport.mock_common_environ
 # Import environ for node since test will be runing for node component
 from fedbiomed.node.environ import environ
 
-from fedbiomed.common.exceptions import MessageException
+from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.common.messaging import Messaging
 import unittest
@@ -78,7 +78,7 @@ class TestHistoryMonitor(unittest.TestCase):
 
         """Test send message in case of sending wrong types"""
 
-        with self.assertRaises(MessageException):
+        with self.assertRaises(FedbiomedMessageError):
            scalar = self.history_monitor.add_scalar(
                            key=123,
                            value='asdasd',
