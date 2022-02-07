@@ -1,11 +1,17 @@
 # Managing NODE, RESEARCHER environ mock before running tests
+from asyncio import threads
 from copy import deepcopy
 import copy
+import multiprocessing
 from platform import node
+import threading
+import time
 from typing import Any, Dict
+from unittest import mock
 
 from numpy import round_
 from sklearn.linear_model import HuberRegressor
+from fedbiomed.common import tasks_queue
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.node.history_monitor import HistoryMonitor
 from testsupport.delete_environ import delete_environ
@@ -77,6 +83,7 @@ class TestNode(unittest.TestCase):
                             ]
         # patchers
         task_queue_patcher.return_value = None
+        
         messaging_patcher.return_value = None
         
         # mocks
@@ -86,7 +93,6 @@ class TestNode(unittest.TestCase):
         mock_model_manager = MagicMock()
         mock_data_manager.reply_model_status_request = MagicMock(return_value = None)
         mock_data_manager.search_by_id = MagicMock(return_value = self.database_id)
-        
         
         self.model_manager_mock = mock_model_manager
         
@@ -367,7 +373,7 @@ class TestNode(unittest.TestCase):
                                                      researcher_id= resid)   
     
     @patch('fedbiomed.node.round.Round.__init__')
-    @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
+    @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     @patch('fedbiomed.common.message.NodeMessages.request_create') 
     def test_parser_task_01_create_round(self,
                                          node_msg_request_patch,
@@ -379,8 +385,9 @@ class TestNode(unittest.TestCase):
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         round_patch.return_value = None
+        
+        history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
-
         # test 1: case where 1 dataset has been found
         dict_msg_1_dataset = {
             'model_args': {'lr': 0.1},
@@ -424,13 +431,16 @@ class TestNode(unittest.TestCase):
         
         self.n2.parser_task(dict_msg_2_datasets)
     
+        # checks
+        
         # hack to get the object HistoryMonitor
         # FIXME: is this a good idea? Unit test may fail if 
         # parameters are passed using arg name, 
-        # and if order change
-        history_monitor_ref = round_patch.call_args_list[-1][0][-2]
+        # and if order change. Besides, it doesnot test
+        # if value passed is a `Round` object (could be everything, test will pass)
+        # see `sentinel` in unitests documentation 
+        # (difficult to use since we are patching constructor)
         
-        # checks
         round_patch.assert_called_with(dict_msg_2_datasets['model_args'],
                                         dict_msg_2_datasets['training_args'],
                                         self.database_id[0],
@@ -439,11 +449,12 @@ class TestNode(unittest.TestCase):
                                         dict_msg_2_datasets['params_url'],
                                         dict_msg_2_datasets['job_id'],
                                         dict_msg_2_datasets['researcher_id'],
-                                        history_monitor_ref,
+                                        mock.ANY,
                                         None
                                     )
         self.assertEqual(round_patch.call_count, 2)
         self.assertEqual(len(self.n2.rounds), 2)
+        # check if passed value is a `Round` object
         self.assertIsInstance(self.n2.rounds[0], Round)
         
     @patch('fedbiomed.common.messaging.Messaging.send_message')
@@ -553,7 +564,74 @@ class TestNode(unittest.TestCase):
         # action
         with self.assertRaises(AssertionError):
             self.n1.parser_task(dict_msg_model_class_bad_type)
-            
-    def test_task_manager_01_correct_run(self):
-        """Tests correct run"""
-        pass
+    
+    @patch('fedbiomed.node.round.Round.__init__')        
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.node.node.Node.parser_task')     
+    def test_task_manager_01_normal_case_scenario(self,
+                                                  parser_task_patch,
+                                                  send_msg_patch,
+                                                  tasks_queue_get_patch,
+                                                  round_patch):
+        """Tests task_manager in the normal case scenario"""
+        
+        Round = MagicMock(run_model_training = None)
+        #Round.run_model_training = MagicMock(return_value = None)
+        # defining patchers
+        parser_task_patch.return_value = None
+        tasks_queue.return_value = None
+        round_patch.return_value = None
+        send_msg_patch.return_value = None
+        tasks_queue_get_patch.return_value = None
+        # defining arguments
+        self.n1.rounds = [Round(),Round()]
+        
+        
+        # action
+        #thread_test = multiprocessing.Process(target=self.n1.task_manager
+        #                                      )
+        #thread_test.start()
+        #self.n1.task_manager()
+        #time.sleep(5)
+        #print('here', thread_test.is_alive())
+        #thread_test.join()
+        #send_msg_patch.assert_called()
+        #thread_test.terminate()
+        
+        # checks
+        
+        
+        # close thread
+        #thread_test.close()
+    
+    @patch('fedbiomed.common.messaging.Messaging.start')    
+    def test_start_messaging_01(self,
+                                msg_start_patch):
+        """Tests `start_messaging` method (correct execution)"""
+        # arguments
+        block = True
+        # action
+        self.n1.start_messaging(block)
+        
+        # checks
+        msg_start_patch.assert_called_once_with(block)
+        
+    @patch('fedbiomed.common.messaging.Messaging.send_error')
+    def test_send_error(self, msg_send_error_patch):
+        
+        # arguments
+        errnum = ErrorNumbers.FB100
+        extra_msg = "this is a test_send_error"
+        researcher_id = 'researcher_id_1224'
+        
+        # action
+        self.n1.send_error(errnum, extra_msg, researcher_id)
+        
+        # checks
+        
+        msg_send_error_patch.assert_called_once_with(errnum,
+                                                     extra_msg=extra_msg,
+                                                     researcher_id=researcher_id)
+if __name__ == '__main__': 
+    unittest.main()
