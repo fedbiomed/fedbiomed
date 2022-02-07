@@ -97,11 +97,17 @@ training_args = {
     'batch_maxnum': 100  # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
 
-
-#    Define an experiment
-#    - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
-#    - run a round of local training on nodes with model defined in `model_class` + federation with `aggregator`
-#    - run for `rounds` rounds, applying the `node_selection_strategy` between the rounds
+# Define an experiment with saved breakpoints
+# - search nodes serving data for these `tags`, optionally filter 
+#   on a list of node ID with `nodes`
+# - run a round of local training on nodes with model defined in
+#   `model_path` + federation with `aggregator`
+# - run for `rounds` rounds, applying the `node_selection_strategy` between the rounds
+# - specify `save_breakpoints` for saving breakpoint at the end of each round.
+# 
+# Let's call ${FEDBIOMED_DIR} the base directory where you cloned Fed-BioMed.
+# Breakpoints will be saved under `Experiment_xxxx` folder at
+# `${FEDBIOMED_DIR}/var/experiments/Experiment_xxxx/breakpoints_yyyy` (by default).
 
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -174,8 +180,19 @@ del exp
 # 
 # and then use `.run` method as you would do with an existing experiment.
 # 
-# **To load a specific breakpoint** specify breakpoint folder when using `Experiment.load_breakpoint("./var/breakpoints/Experiment_xx/breakpoint_yy)`. Replace `xx` and `yy` by the real values.
+# **To load a specific breakpoint** specify breakpoint folder.
 # 
+# - absolute path: use
+#   `Experiment.load_breakpoint("${FEDBIOMED_DIR}/var/breakpoints/Experiment_xxxx/breakpoint_yyyy)`.
+#    Replace `xxxx` and `yyyy` by the real values.
+# - relative path from a notebook: a notebook is running from the `${FEDBIOMED_DIR}/notebooks` directory
+#   so use `Experiment.load_breakpoint("../var/breakpoints/Experiment_xxxx/breakpoint_yyyy)`.
+#   Replace `xxxx` and `yyyy` by the real values.
+#- relative path from a script: if launching the script from the
+#   ${FEDBIOMED_DIR} directory (eg: `python ./notebooks/general-breakpoint-save-resume.py`)
+#  then use a path relative to the current directory eg:
+# `Experiment.load_breakpoint("./var/breakpoints/Experiment_xxxx/breakpoint_yyyy)`
+
 
 loaded_exp = Experiment.load_breakpoint()
 
