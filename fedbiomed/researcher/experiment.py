@@ -1486,7 +1486,7 @@ class Experiment(object):
         Args:
             - cls (Type[_E]): Experiment class
             - breakpoint_folder_path (str, optional): path of the breakpoint folder.
-              Path can be absolute or relative eg: "var/experiments/Experiment_xx/breakpoints_xx".
+              Path can be absolute or relative eg: "var/experiments/Experiment_xxxx/breakpoints_xxxx".
               If None, loads latest breakpoint of the latest experiment.
               Defaults to None.
 
