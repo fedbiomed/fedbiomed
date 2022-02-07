@@ -19,9 +19,9 @@ from fedbiomed.node.round import Round
 from fedbiomed.common.logger import logger, DEFAULT_LOG_LEVEL
 
 # importing fake (=dummy) classes
-from testsupport.fake_classes.fake_training_plan import FakeModel
-from testsupport.fake_classes.fake_message import FakeNodeMessages
-from testsupport.fake_classes.fake_uuid import FakeUuid
+from tests.testsupport.fake_training_plan import FakeModel
+from tests.testsupport.fake_message import FakeNodeMessages
+from tests.testsupport.fake_uuid import FakeUuid
 
 class TestRound(unittest.TestCase):
     
@@ -374,6 +374,29 @@ class TestRound(unittest.TestCase):
             captured.records[-1].getMessage(),
             msg_test_3.get('msg'))
         self.assertFalse(msg_test_3.get('success', True))
+    
+    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    @patch('uuid.uuid4')
+    def test_run_model_training_xx_modelNot_approved(self,
+                                                     uuid_patch,
+                                                     repository_download_patch,
+                                                     model_manager_patch):
+        FakeModel.SLEEPING_TIME = 0
+
+        # initialisation of patchers
+        uuid_patch.return_value = FakeUuid()
+        repository_download_patch.return_value = (200, 'my_python_model')
+        model_manager_patch.return_value = (False, {'name': "model_name"})
+        # action
+        with self.assertLogs('fedbiomed', logging.ERROR) as captured:
+            msg_test = self.r1.run_model_training()
+        # checks
+        self.assertEqual(
+            captured.records[-1].getMessage(),
+            msg_test.get('msg'))
+
+        self.assertFalse(msg_test.get('success', True))
 
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
