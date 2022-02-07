@@ -11,8 +11,8 @@ import traceback
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import ExperimentException, FedbiomedException, \
-    SilentTerminationException
+from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, \
+    FedbiomedSilentTerminationError
 from fedbiomed.researcher.environ import environ
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
@@ -65,7 +65,7 @@ def exp_exceptions(function):
         code = 0
         try:
             ret = function(*args, **kwargs)
-        except SilentTerminationException:
+        except FedbiomedSilentTerminationError:
             # handle the case of nested calls will exception decorator
             raise
         except SystemExit as e:
@@ -79,7 +79,7 @@ def exp_exceptions(function):
                 '--------------------',
                 sep=os.linesep)
             logger.critical('Fed-BioMed researcher stopped due to keyboard interrupt')
-        except FedbiomedException as e:
+        except FedbiomedError as e:
             code = 1
             print(
                 '\n--------------------',
@@ -105,7 +105,7 @@ def exp_exceptions(function):
         if code != 0:
             if in_notebook():
                 # raise a silent specific exception, don't exit the interactive kernel
-                raise SilentTerminationException
+                raise FedbiomedSilentTerminationError
             else:
                 # exit the process
                 sys.exit(code)
@@ -375,7 +375,7 @@ class Experiment(object):
         experiment and inform user whether the the experiment can be run now.
 
         Raises:
-            - ExperimentException: unconsistant experiment (missing variables)
+            - FedbiomedExperimentError: unconsistant experiment (missing variables)
 
         """
         # at this point all attributes are initialized (in constructor)
@@ -426,7 +426,7 @@ class Experiment(object):
                 msg = ErrorNumbers.FB400.value + \
                     f', in method `info` : self.{key} not defined for experiment'
                 logger.critical(msg)
-                raise ExperimentException(msg)
+                raise FedbiomedExperimentError(msg)
         if missing:
             print(f'\nExperiment cannot be run (not fully defined), missing :\n{missing}')
         else:
@@ -447,7 +447,7 @@ class Experiment(object):
                 None (tags not set, cannot search for training_data yet).
 
         Raises:
-            - ExperimentException : bad tags type
+            - FedbiomedExperimentError : bad tags type
 
         Returns :
             - tags (Union[List[str], None])
@@ -459,7 +459,7 @@ class Experiment(object):
                     self._tags = [] # robust default, in case we try to continue execution
                     msg = ErrorNumbers.FB410.value + f' `tags` : list of {type(tag)}'
                     logger.critical(msg)
-                    raise ExperimentException(msg)
+                    raise FedbiomedExperimentError(msg)
         elif isinstance(tags, str):
             self._tags = [tags]
         elif tags is None:
@@ -468,7 +468,7 @@ class Experiment(object):
             self._tags = None # robust default, in case we try to continue execution
             msg = ErrorNumbers.FB410.value + f' `tags` : {type(tags)}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
         # self._tags always exist at this point
 
         # self._fds doesn't always exist at this point
@@ -491,7 +491,7 @@ class Experiment(object):
                 to be involved in the experiment.
 
         Raises:
-            - ExperimentException : bad nodes type
+            - FedbiomedExperimentError : bad nodes type
 
         Returns:
             - nodes (Union[List[str], None])
@@ -503,14 +503,14 @@ class Experiment(object):
                     self._nodes = None # robust default
                     msg = ErrorNumbers.FB410.value + f' `nodes` : list of {type(node)}'
                     logger.critical(msg)
-                    raise ExperimentException(msg)
+                    raise FedbiomedExperimentError(msg)
         elif nodes is None:
             self._nodes = nodes
         else:
             self._nodes = None
             msg = ErrorNumbers.FB410.value + f' `nodes` : {type(nodes)}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
         # self._nodes always exist at this point
 
         # self._fds doesn't always exist at this point
@@ -542,7 +542,7 @@ class Experiment(object):
                     experiment is not fully initialized and cannot be launched)
 
         Raises:
-            - ExperimentException : bad training_data type
+            - FedbiomedExperimentError : bad training_data type
 
         Returns:
             - nodes (Union[FederatedDataSet, None])
@@ -565,7 +565,7 @@ class Experiment(object):
             self._fds = None
             msg = ErrorNumbers.FB410.value + f' `training_data` : {type(training_data)}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
         else:
             self._fds = None
             logger.warning('Experiment not fully configured yet: no training data')
@@ -600,7 +600,7 @@ class Experiment(object):
                 Default to None (use `FedAverage` for aggregation)
         
         Raises:
-            - ExperimentException : bad aggregator type
+            - FedbiomedExperimentError : bad aggregator type
 
         Returns:
             - aggregator (Aggregator)
@@ -618,7 +618,7 @@ class Experiment(object):
                 self._aggregator = FedAverage() # be robust if we continue execution
                 msg = ErrorNumbers.FB410.value + f' `aggregator` : {aggregator} class'
                 logger.critical(msg)
-                raise ExperimentException(msg) 
+                raise FedbiomedExperimentError(msg) 
         elif isinstance(aggregator, Aggregator):
             # an object of a proper class is provided, nothing to do
             self._aggregator = aggregator
@@ -627,7 +627,7 @@ class Experiment(object):
             self._aggregator = FedAverage() # be robust if we continue execution
             msg = ErrorNumbers.FB410.value + f' `aggregator` : {type(aggregator)}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
         
         # at this point self._aggregator is (non-None) aggregator object
         return self._aggregator
@@ -648,7 +648,7 @@ class Experiment(object):
                   be launched yet
 
         Raises:
-            - ExperimentException : bad strategy type
+            - FedbiomedExperimentError : bad strategy type
 
         Returns:
             - node_selection_strategy (Union[Strategy, None])
@@ -667,7 +667,7 @@ class Experiment(object):
                     msg = ErrorNumbers.FB410.value + \
                         f' `node_selection_strategy` : {node_selection_strategy} class'
                     logger.critical(msg)
-                    raise ExperimentException(msg)
+                    raise FedbiomedExperimentError(msg)
             elif isinstance(node_selection_strategy, Strategy):
                 # an object of a proper class is provided, nothing to do
                 self._node_selection_strategy = node_selection_strategy
@@ -677,7 +677,7 @@ class Experiment(object):
                 msg = ErrorNumbers.FB410.value + \
                     f' `node_selection_strategy` : {type(node_selection_strategy)}'
                 logger.critical(msg)
-                raise ExperimentException(msg)                
+                raise FedbiomedExperimentError(msg)                
         else:
             # cannot initialize strategy if not FederatedDataSet yet
             self._node_selection_strategy = None
@@ -696,7 +696,7 @@ class Experiment(object):
                 (nodes <-> central server) of the experiment.
 
         Raise:
-            - ExperimentException : bad rounds type
+            - FedbiomedExperimentError : bad rounds type
 
         Returns:
             - rounds (int)
@@ -706,7 +706,7 @@ class Experiment(object):
             self._rounds = max(1, self._round_current) # robust default
             msg = ErrorNumbers.FB410.value + f' `rounds` : {type(rounds)}'
             logger.critical(msg)
-            raise ExperimentException(msg)            
+            raise FedbiomedExperimentError(msg)            
         else:
             # at this point rounds is an int
             self._rounds = max(rounds, self._round_current)
@@ -740,7 +740,7 @@ class Experiment(object):
             - experimentation_folder (Union[str, None], optional): 
 
         Raise:
-            - ExperimentException : bad experimentation_folder type
+            - FedbiomedExperimentError : bad experimentation_folder type
 
         Returns:
             - experimentation_folder (str)
@@ -759,7 +759,7 @@ class Experiment(object):
             msg = ErrorNumbers.FB410.value + \
                 f' `experimentation_folder` : {type(experimentation_folder)}'
             logger.critical(msg)
-            raise ExperimentException(msg)           
+            raise FedbiomedExperimentError(msg)           
         
         # at this point self._experimentation_folder is a str valid for a foldername
 
@@ -789,7 +789,7 @@ class Experiment(object):
                 Defaults to None (no model class defined yet)
 
         Raise:
-            - ExperimentException : bad model_class type
+            - FedbiomedExperimentError : bad model_class type
 
         Returns:
             - model_class (Union[Type_TrainingPlan, str, None])
@@ -815,7 +815,7 @@ class Experiment(object):
                 self._model_is_defined = False
                 msg = ErrorNumbers.FB410.value + f' `model_class` : {model_class} bad identifier'
                 logger.critical(msg)
-                raise ExperimentException(msg)                
+                raise FedbiomedExperimentError(msg)                
         elif inspect.isclass(model_class):
             # model_class must be a subclass of a valid training plan
             if issubclass(model_class, training_plans):
@@ -835,14 +835,14 @@ class Experiment(object):
                 self._model_is_defined = False
                 msg = ErrorNumbers.FB410.value + f' `model_class` : {model_class} class'
                 logger.critical(msg)
-                raise ExperimentException(msg)
+                raise FedbiomedExperimentError(msg)
         else:
             # bad type
             self._model_class = None # be robust if we continue execution
             self._model_is_defined = False
             msg = ErrorNumbers.FB410.value + f' `model_class` : type(model_class)'
             logger.critical(msg)
-            raise ExperimentException(msg)            
+            raise FedbiomedExperimentError(msg)            
 
         # self._model_is_defined and self._model_class always exist at this point
         try:
@@ -877,7 +877,7 @@ class Experiment(object):
                 Defaults to None. 
 
         Raise:
-            - ExperimentException : bad model_path type
+            - FedbiomedExperimentError : bad model_path type
 
         Returns:
             - model_path (Union[str, None])
@@ -902,14 +902,14 @@ class Experiment(object):
                 msg = ErrorNumbers.FB410.value + \
                     f' `model_path` : {model_path} is not a sane path to an existing file'
                 logger.critical(msg)
-                raise ExperimentException(msg)
+                raise FedbiomedExperimentError(msg)
         else:
             # bad type
             self._model_path = None # be robust if we continue execution
             self._model_is_defined = inspect.isclass(self._model_class)
             msg = ErrorNumbers.FB410.value + f' `model_path` : type(model_path)'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
 
         # self._model_path is also defined at this point
         if not self._model_is_defined:
@@ -940,7 +940,7 @@ class Experiment(object):
                 Defaults to {}.
 
         Raise:
-            - ExperimentException : bad model_args type
+            - FedbiomedExperimentError : bad model_args type
 
         Returns:
             - model_args (dict)
@@ -952,7 +952,7 @@ class Experiment(object):
             self._model_args = {}
             msg = ErrorNumbers.FB410.value + f' `model_args` : {type(model_args)}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
         # self._model_args always exist at this point
 
         # _job doesn't always exist at this point
@@ -979,7 +979,7 @@ class Experiment(object):
                 Defaults to {}.
 
         Raise:
-            - ExperimentException : bad training_args type
+            - FedbiomedExperimentError : bad training_args type
 
         Returns:
             - training_args (dict)
@@ -991,7 +991,7 @@ class Experiment(object):
             self._training_args = {}
             msg = ErrorNumbers.FB410.value + f' `training_args` : {type(training_args)}'
             logger.critical(msg)
-            raise ExperimentException(msg)            
+            raise FedbiomedExperimentError(msg)            
         # self._training_args always exist at this point
 
         # _job doesn't always exist at this point
@@ -1071,7 +1071,7 @@ class Experiment(object):
                 Defaults to False.
         
         Raises:
-            - ExperimentException : bad save_breakpoints type
+            - FedbiomedExperimentError : bad save_breakpoints type
 
         Returns:
             - save_breakpoints (bool)
@@ -1083,7 +1083,7 @@ class Experiment(object):
             self._save_breakpoints = False # robust default
             msg = ErrorNumbers.FB410.value + f' `save_breakpoints` : {type(save_breakpoints)}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
 
         return self._save_breakpoints
 
@@ -1102,7 +1102,7 @@ class Experiment(object):
                 * If it is False, it stops monitoring if it was active.
         
         Raises:
-            - ExperimentException : bad tensorboard type
+            - FedbiomedExperimentError : bad tensorboard type
 
         Returns:
             - monitor (Union[Monitor, None])
@@ -1138,7 +1138,7 @@ class Experiment(object):
             self._reqs.remove_monitor_callback()
             msg = ErrorNumbers.FB410.value + f' `tensorboard` : {type(tensorboard)}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
 
         # self._monitor exists at this point
         return self._monitor
@@ -1161,7 +1161,7 @@ class Experiment(object):
               Defaults to False
         
         Raises:
-            - ExperimentException : bad argument type or value
+            - FedbiomedExperimentError : bad argument type or value
         
         Returns:
             - real rounds (int) : number of rounds really run
@@ -1172,7 +1172,7 @@ class Experiment(object):
             msg = ErrorNumbers.FB410.value + \
                 f', in method `run_once` param `increase` : type {type(increase)}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
             # return 0 # robust default  
 
         # nota: robustify test, but we should never have self._round_current > self._rounds
@@ -1193,12 +1193,12 @@ class Experiment(object):
         if self._node_selection_strategy is None:
             msg = ErrorNumbers.FB411.value + f', missing `node_selection_strategy`'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
             # return 0 # robust default
         elif self._job is None:
             msg = ErrorNumbers.FB411.value + f', missing `job`'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
             # return 0 # robust default
 
         # Ready to execute a training round using the job, strategy and aggregator
@@ -1253,7 +1253,7 @@ class Experiment(object):
               Defaults to False
         
         Raises:
-            - ExperimentException : bad argument type or value
+            - FedbiomedExperimentError : bad argument type or value
         
         Returns:
             - real rounds (int) : number of rounds really run
@@ -1264,20 +1264,20 @@ class Experiment(object):
             msg = ErrorNumbers.FB410.value + \
                 f', in method `run` param `run_rounds` : type {type(run_rounds)}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
             # return 0 # robust default          
         elif run_rounds < 0:
             msg = ErrorNumbers.FB410.value + \
                 f', in method `run` param `run_rounds` : value {run_rounds}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
             # return 0 # robust default  
         # check increase is a boolean
         if not isinstance(increase, bool):
             msg = ErrorNumbers.FB410.value + \
                 f', in method `run` param `increase` : type {type(increase)}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
             # return 0 # robust default                  
 
         # compute maximum number of rounds to run
@@ -1317,7 +1317,7 @@ class Experiment(object):
             Default is `True`
 
         Raises:
-            - ExperimentException: bad argument type, or cannot read model file content
+            - FedbiomedExperimentError: bad argument type, or cannot read model file content
 
         Returns:
             - model_file (str) : path to model file
@@ -1327,7 +1327,7 @@ class Experiment(object):
             msg = ErrorNumbers.FB410.value + \
                 f', in method `model_file` param `display` : type {type(display)}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
 
         # at this point, self._job exists (initialized in constructor)         
         if self._job is None:
@@ -1335,7 +1335,7 @@ class Experiment(object):
             msg = ErrorNumbers.FB412.value + \
                 f', in method `model_file` : no `job` defined for experiment'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
 
         model_file = self._job.model_file
 
@@ -1351,7 +1351,7 @@ class Experiment(object):
             msg = ErrorNumbers.FB412.value + \
                 f', in method `model_file` : error when reading model file - {e}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
 
         return self._job.model_file
 
@@ -1364,7 +1364,7 @@ class Experiment(object):
             not by the nodes
 
         Raises:
-            - ExperimentException: bad argument type
+            - FedbiomedExperimentError: bad argument type
 
         Returns:
             - responses (str) : model status for answering nodes
@@ -1375,7 +1375,7 @@ class Experiment(object):
             msg = ErrorNumbers.FB412.value + \
                 f', in method `check_model_status` : no `job` defined for experiment'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
 
         # always returns a `Responses()` object
         responses = self._job.check_model_is_approved_by_nodes()
@@ -1405,7 +1405,7 @@ class Experiment(object):
           - job (attributes returned by the Job, aka job state)
          
         Raises: 
-          - ExperimentException: experiment not fully defined ; experiment did not run any
+          - FedbiomedExperimentError: experiment not fully defined ; experiment did not run any
             round yet ; error when saving breakpoint
         """
         # at this point, we run the constructor so all object variables are defined
@@ -1417,22 +1417,22 @@ class Experiment(object):
             msg = ErrorNumbers.FB413.value + \
                 f' - need to run at least 1 before saving a breakpoint'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
         elif self._fds is None:
             msg = ErrorNumbers.FB413.value + \
                 f' - need to define `training_data` for saving a breakpoint'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
         elif self._node_selection_strategy is None:
             msg = ErrorNumbers.FB413.value + \
                 f' - need to define `strategy` for saving a breakpoint'
             logger.critical(msg)
-            raise ExperimentException(msg)  
+            raise FedbiomedExperimentError(msg)  
         elif self._job is None:
             msg = ErrorNumbers.FB413.value + \
                 f' - need to define `job` for saving a breakpoint'
             logger.critical(msg)
-            raise ExperimentException(msg)        
+            raise FedbiomedExperimentError(msg)        
 
 
         # conditions are met, save breakpoint
@@ -1481,7 +1481,7 @@ class Experiment(object):
             # - see json.dump() documentation for documented errors for this call
             msg = ErrorNumbers.FB413.value + f' - save failed with message {str(e)}'
             logger.critical(msg)
-            raise ExperimentException(msg) 
+            raise FedbiomedExperimentError(msg) 
 
 
     @classmethod
@@ -1501,7 +1501,7 @@ class Experiment(object):
             Defaults to None.
 
         Raises: 
-          - ExperimentException: bad argument type ; error when reading breakpoint ; 
+          - FedbiomedExperimentError: bad argument type ; error when reading breakpoint ; 
             bad loaded breakpoint content (corrupted)
 
         Returns:
@@ -1513,12 +1513,12 @@ class Experiment(object):
             msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
                 f'`breakpoint_folder_path` has bad type {type(breakpoint_folder_path)}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
         if not issubclass(cls, Experiment):
             msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
                 f'`Experiment` class has bad type {type(cls)}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
 
         # get breakpoint folder path (if it is None) and state file
         breakpoint_folder_path, state_file = find_breakpoint_path(breakpoint_folder_path)
@@ -1533,7 +1533,7 @@ class Experiment(object):
             msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
                 f'load failed with message {str(e)}'
             logger.critical(msg)
-            raise ExperimentException(msg)
+            raise FedbiomedExperimentError(msg)
 
         # -----  retrieve breakpoint training data ---
         bkpt_fds = FederatedDataSet(saved_state.get('training_data'))

@@ -45,7 +45,7 @@ class FedbiomedTrainingError(FedbiomedError):
     """
     pass
 
-class ExperimentException(FedbiomedException):
+class FedbiomedExperimentError(FedbiomedError):
     """
     Exception specific to the Experiment class
     """
@@ -53,7 +53,7 @@ class ExperimentException(FedbiomedException):
 
 
 # specific exception
-class SilentTerminationException(FedbiomedException):
+class FedbiomedSilentTerminationError(FedbiomedError):
     """
     Exception for silently terminating the researcher from a notebook
     """
