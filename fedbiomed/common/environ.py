@@ -44,7 +44,7 @@ class Environ(metaclass = SingletonMeta):
     this (singleton) class contains all variables for researcher or node
     """
 
-    def __init__(self, component: ComponentType = None):
+    def __init__(self, component: ComponentType = None, rootdir: str = None):
         """
         class constructor
 
@@ -61,7 +61,7 @@ class Environ(metaclass = SingletonMeta):
             raise EnvironException(_msg)
 
         # common values for all components
-        self._init_common()
+        self._init_common( rootdir = rootdir)
 
         # specific configuration values
         if component == ComponentType.RESEARCHER:
@@ -101,20 +101,26 @@ class Environ(metaclass = SingletonMeta):
         return value
 
 
-    def _init_common(self):
+    def _init_common(self, rootdir):
         """
         commun configuration values for researcher and node
         """
 
-        # locate the top dir from the file location (got up twice)
-        ROOT_DIR = os.path.abspath(
-            os.path.join(
-                os.path.dirname(
-                    os.path.abspath(__file__)),
-                '..',
-                '..'
+        # guess the fedbiomed package topir if no rootdir is given
+        if rootdir is None:
+            # locate the top dir from the file location (got up twice)
+            ROOT_DIR = os.path.abspath(
+                os.path.join(
+                    os.path.dirname(
+                        os.path.abspath(__file__)),
+                    '..',
+                    '..'
+                )
             )
-        )
+        else:
+            ROOT_DIR=rootdir
+
+        # intialize all environment values
         self._values['ROOT_DIR'] = ROOT_DIR
 
         # main directories
@@ -131,6 +137,10 @@ class Environ(metaclass = SingletonMeta):
                     os.makedirs(dir)
                 except FileExistsError:
                     _msg = ErrorNumbers.FB600.value + ": path already exists but is not a directory: " + dir
+                    logger.critical(_msg)
+                    raise EnvironException(_msg)
+                except OSError:
+                    _msg = ErrorNumbers.FB600.value + ": cannot create environment subtree in: " + dir
                     logger.critical(_msg)
                     raise EnvironException(_msg)
 
@@ -175,6 +185,10 @@ class Environ(metaclass = SingletonMeta):
                     os.makedirs(dir)
                 except FileExistsError:
                     _msg = ErrorNumbers.FB600.value + ": path already exists but is not a directory " + dir
+                    logger.critical(_msg)
+                    raise EnvironException(_msg)
+                except OSError:
+                    _msg = ErrorNumbers.FB600.value + ": cannot create environment subtree in: " + dir
                     logger.critical(_msg)
                     raise EnvironException(_msg)
 
