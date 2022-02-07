@@ -225,7 +225,7 @@ def _get_latest_file(
     if latest_folder is None: 
         if len(list_name_file) != 0:
             raise FileNotFoundError(
-                "None of those are breakpoints{}".format(", ".join(list_name_file)))
+                "None of those are breakpoints {}".format(", ".join(list_name_file)))
         else:
             raise FileNotFoundError("No files to search for breakpoint")
 

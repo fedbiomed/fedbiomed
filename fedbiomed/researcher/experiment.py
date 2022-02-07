@@ -1224,11 +1224,10 @@ class Experiment(object):
 
         self._aggregated_params[self._round_current] = {'params': aggregated_params,
                                                         'params_path': aggregated_params_path}
-        if self._save_breakpoints:
-            self._save_breakpoint(self._round_current)
-
 
         self._round_current += 1
+        if self._save_breakpoints:
+            self.breakpoint()
         return 1
 
 
@@ -1388,7 +1387,7 @@ class Experiment(object):
     # Breakpoint functions ----------------------------------------------------------------
 
     @exp_exceptions
-    def _save_breakpoint(self, round: int = 0):
+    def breakpoint(self):
         """
         Saves breakpoint with the state of the training at a current round.
         The following Experiment attributes will be saved:
@@ -1405,14 +1404,38 @@ class Experiment(object):
          - model_class
          - aggregated_params
          - job (attributes returned by the Job, aka job state)
-
-        Args:
-            - round (int, optional): number of rounds already executed.
-              Starts from 0. Defaults to 0.
+         
         """
+        # at this point, we run the constructor so all object variables are defined
 
+        # check pre-requisistes for saving a breakpoint
+        #
+        # need to have run at least 1 round to save a breakpoint
+        if self._round_current < 1:
+            msg = ErrorNumbers.FB413.value + \
+                f' - need to run at least 1 before saving a breakpoint'
+            logger.critical(msg)
+            raise ExperimentException(msg)
+        elif self._fds is None:
+            msg = ErrorNumbers.FB413.value + \
+                f' - need to define `training_data` for saving a breakpoint'
+            logger.critical(msg)
+            raise ExperimentException(msg)
+        elif self._node_selection_strategy is None:
+            msg = ErrorNumbers.FB413.value + \
+                f' - need to define `strategy` for saving a breakpoint'
+            logger.critical(msg)
+            raise ExperimentException(msg)  
+        elif self._job is None:
+            msg = ErrorNumbers.FB413.value + \
+                f' - need to define `job` for saving a breakpoint'
+            logger.critical(msg)
+            raise ExperimentException(msg)        
+
+
+        # conditions are met, save breakpoint
         breakpoint_path, breakpoint_file_name = \
-            choose_bkpt_file(self._experimentation_folder, round)
+            choose_bkpt_file(self._experimentation_folder, self._round_current - 1)
 
         state = {
             'training_data': self._fds.data(),
@@ -1422,7 +1445,7 @@ class Experiment(object):
             # with current version
             'model_class': self._job.model_class,  # not always available properly
             # formatted in Experiment with current version
-            'round_number': round + 1,
+            'round_number': self._round_current,
             'round_number_due': self._rounds,
             'experimentation_folder': self._experimentation_folder,
             'aggregator': self._aggregator.save_state(),  # aggregator state
@@ -1438,7 +1461,7 @@ class Experiment(object):
         state['model_path'] = create_unique_link(
             breakpoint_path,
             # - Need a file with a restricted characters set in name to be able to import as module
-            'model_' + str("{:04d}".format(round)), '.py',
+            'model_' + str("{:04d}".format(self._round_current - 1)), '.py',
             # - Prefer relative path, eg for using experiment result after
             # experiment in a different tree
             os.path.join('..', os.path.basename(state["model_path"]))
@@ -1448,7 +1471,7 @@ class Experiment(object):
         breakpoint_file_path = os.path.join(breakpoint_path, breakpoint_file_name)
         with open(breakpoint_file_path, 'w') as bkpt:
             json.dump(state, bkpt)
-        logger.info(f"breakpoint for round {round} saved at " + \
+        logger.info(f"breakpoint for round {self._round_current - 1} saved at " + \
                     os.path.dirname(breakpoint_file_path))
 
     @classmethod
