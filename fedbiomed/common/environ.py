@@ -48,7 +48,10 @@ class Environ(metaclass = SingletonMeta):
         """
         class constructor
 
-        input: type of the component either ComponentType.NODE or ComponentType.RESEARCHER
+        input:
+        - type of the component either ComponentType.NODE or ComponentType.RESEARCHER
+        - root directory: if not provided the rootdirectory is deduced from the package location
+          (mainly used by the test files)
         """
         # dict with contains all configuration values
         self._values = {}

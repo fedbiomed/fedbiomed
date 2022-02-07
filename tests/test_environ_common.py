@@ -12,7 +12,7 @@ import tempfile
 import shutil
 
 # dont import fedbiomed.*.environ here
-from fedbiomed.common.exceptions import EnvironException
+from fedbiomed.common.exceptions import FedbiomedEnvironError
 
 class TestEnvironCommon(unittest.TestCase):
     '''
@@ -92,7 +92,7 @@ class TestEnvironCommon(unittest.TestCase):
         try:
             env = Environ("==== bad input test")
             print("==== CANNOT BE HERE")
-        except EnvironException as e:
+        except FedbiomedEnvironError as e:
             print("==== CAUGHT !!")
         except Exception as e:
             print("==== BAD EXCEPTION", e)
