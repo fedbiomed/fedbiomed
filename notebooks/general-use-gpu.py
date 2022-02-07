@@ -39,7 +39,6 @@ from torchvision import datasets, transforms
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.torchnn import TorchTrainingPlan
-#from fedbiomed.researcher.exceptions import TrainingException
 
 # you can use any class name eg:
 # class AlterTrainingPlan(TorchTrainingPlan):

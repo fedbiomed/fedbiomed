@@ -12,7 +12,7 @@ import os
 import inspect
 import shutil
 
-from fedbiomed.common.exceptions import EnvironException
+from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.singleton  import SingletonMeta
 from fedbiomed.common.constants  import ComponentType
 from fedbiomed.common.logger     import logger
@@ -92,7 +92,7 @@ class Environ(metaclass = SingletonMeta):
     def __setitem__(self, key, value):
         if value is None:
             logger.critical("setting Environ() value to None for key: " + str(key))
-            raise EnvironException("setting Environ() value to None for key: " + str(key))
+            raise FedbiomedEnvironError("setting Environ() value to None for key: " + str(key))
 
         self._values[key] = value
         return value

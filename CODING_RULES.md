@@ -16,7 +16,8 @@ to be completed
 
   - print a logger.*() message
 
-    - could be logger.critical -> stop the software, cannot continue (ex: EnvironException)
+    - could be logger.critical -> stop the software, cannot continue
+      (ex: FedbiomedEnvironError)
     - or logger.error -> software may continue (ex: MessageError)
 
   - raise the exception as a fedbiomed exception
@@ -24,7 +25,7 @@ to be completed
 
 - caller/intermediate side: trap the exceptions:
 
-  - separate the FedbiomedException and other exceptions
+  - separate the FedbiomedError and other exceptions
 
 ```
 try:
@@ -33,7 +34,7 @@ try:
 
 except SysError as e:
     logger.XXX()
-    raise OneOfFedbiomedException()
+    raise OneOfFedbiomedError()
 ```
 
   - example of top level function (eg: Experiment())
@@ -43,7 +44,7 @@ try:
 
     something()
 
-except FedbiomedException as e:
+except FedbiomedError as e:
     etc...
 
 except Exception as e:   <=== objective: minimize the number of type we arrive here !
@@ -77,7 +78,7 @@ except SomeError as e:
     _msg = ErrorNumbers.FBxxx.value + ": the file " + filename + " does not exist"
 
     logger.error(_msg)
-    raise OneOfFedbiomedException(_msg)
+    raise OneOfFedbiomedError(_msg)
 ```
 
 
