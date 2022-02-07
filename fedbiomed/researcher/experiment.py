@@ -1386,24 +1386,27 @@ class Experiment(object):
     # Breakpoint functions ----------------------------------------------------------------
 
     @exp_exceptions
-    def breakpoint(self):
+    def breakpoint(self) -> None:
         """
         Saves breakpoint with the state of the training at a current round.
         The following Experiment attributes will be saved:
-         - round_number
-         - round_number_due
-         - tags
-         - experimentation_folder
-         - aggregator
-         - node_selection_strategy
-         - training_data
-         - training_args
-         - model_args
-         - model_path
-         - model_class
-         - aggregated_params
-         - job (attributes returned by the Job, aka job state)
+          - round_number
+          - round_number_due
+          - tags
+          - experimentation_folder
+          - aggregator
+          - node_selection_strategy
+          - training_data
+          - training_args
+          - model_args
+          - model_path
+          - model_class
+          - aggregated_params
+          - job (attributes returned by the Job, aka job state)
          
+        Raises: 
+          - ExperimentException: experiment not fully defined ; experiment did not run any
+            round yet ; error when saving breakpoint
         """
         # at this point, we run the constructor so all object variables are defined
 
@@ -1468,43 +1471,74 @@ class Experiment(object):
 
         # save state into a json file.
         breakpoint_file_path = os.path.join(breakpoint_path, breakpoint_file_name)
-        with open(breakpoint_file_path, 'w') as bkpt:
-            json.dump(state, bkpt)
-        logger.info(f"breakpoint for round {self._round_current - 1} saved at " + \
-                    os.path.dirname(breakpoint_file_path))
+        try:
+            with open(breakpoint_file_path, 'w') as bkpt:
+                json.dump(state, bkpt)
+            logger.info(f"breakpoint for round {self._round_current - 1} saved at " + \
+                        os.path.dirname(breakpoint_file_path))
+        except (OSError, ValueError, TypeError, RecursionError) as e:
+            # - OSError: heuristic for catching open() and write() errors
+            # - see json.dump() documentation for documented errors for this call
+            msg = ErrorNumbers.FB413.value + f' - save failed with message {str(e)}'
+            logger.critical(msg)
+            raise ExperimentException(msg) 
+
 
     @classmethod
     @exp_exceptions
     def load_breakpoint(cls: Type[_E],
-                        breakpoint_folder_path: str = None) -> _E:
+                        breakpoint_folder_path: Union[str, None] = None) -> _E:
         """
         Loads breakpoint (provided a breakpoint has been saved)
         so experience can be resumed. Useful if training has crashed
         researcher side or if user wants to resume experiment.
 
         Args:
-            - cls (Type[_E]): Experiment class
-            - breakpoint_folder_path (str, optional): path of the breakpoint folder.
-              Path can be absolute or relative eg: "var/experiments/Experiment_xxxx/breakpoints_xxxx".
-              If None, loads latest breakpoint of the latest experiment.
-              Defaults to None.
+          - cls (Type[_E]): Experiment class
+          - breakpoint_folder_path (Unione[str, None], optional): path of the breakpoint folder.
+            Path can be absolute or relative eg: "var/experiments/Experiment_xxxx/breakpoints_xxxx".
+            If None, loads latest breakpoint of the latest experiment.
+            Defaults to None.
+
+        Raises: 
+          - ExperimentException: bad argument type ; error when reading breakpoint ; 
+            bad loaded breakpoint content (corrupted)
 
         Returns:
-            - _E: Reinitialized experiment. With given object,
-              user can then use `.run()` method to pursue model training.
+          - _E: Reinitialized experiment. With given object,
+            user can then use `.run()` method to pursue model training.
         """
+        # check parameters type
+        if not isinstance(breakpoint_folder_path, str) and breakpoint_folder_path is not None:
+            msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
+                f'`breakpoint_folder_path` has bad type {type(breakpoint_folder_path)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
+        if not issubclass(cls, Experiment):
+            msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
+                f'`Experiment` class has bad type {type(cls)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
 
-        # get breakpoint folder path (if it is None) and
-        # state file
+        # get breakpoint folder path (if it is None) and state file
         breakpoint_folder_path, state_file = find_breakpoint_path(breakpoint_folder_path)
         breakpoint_folder_path = os.path.abspath(breakpoint_folder_path)
 
-        # TODO: check if all elements needed for breakpoint are present
-        with open(os.path.join(breakpoint_folder_path, state_file), "r") as f:
-            saved_state = json.load(f)
+        # TODO: check if all elements needed for breakpoint are present ?
+        try:
+            with open(os.path.join(breakpoint_folder_path, state_file), "r") as f:
+                saved_state = json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            # OSError: heuristic for catching file access issues
+            msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
+                f'load failed with message {str(e)}'
+            logger.critical(msg)
+            raise ExperimentException(msg)
 
         # -----  retrieve breakpoint training data ---
         bkpt_fds = FederatedDataSet(saved_state.get('training_data'))
+
+        # TODO : checks in _create_object
 
         # -----  retrieve breakpoint sampling strategy ----
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
@@ -1532,6 +1566,8 @@ class Experiment(object):
 
         # ------- changing `Experiment` attributes -------
         loaded_exp._round_current = saved_state.get('round_number')
+
+        #TODO: checks when loading parameters
         loaded_exp._aggregated_params = loaded_exp._load_aggregated_params(
             saved_state.get('aggregated_params'),
             loaded_exp.model_instance().load
