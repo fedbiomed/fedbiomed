@@ -1,7 +1,6 @@
 """ This file contains dummy Classes for unit testing. It fakes FederatedDataSet class
 (from fedbiomed.common.dataset) 
-this avoid re-wirting the same fake classes each time we are desinging a 
-unit test"""
+"""
 
 from typing import Any
 

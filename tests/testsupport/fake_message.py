@@ -1,7 +1,6 @@
 """ This file contains dummy Classes for unit testing. It fakes NodeMessages
 (from fedbiomed.common.messages) 
-this avoid re-wirting the same fake classes each time we are desinging a 
-unit test"""
+"""
 
 from typing import Any, Dict
 

@@ -1,7 +1,6 @@
 """ This file contains dummy Classes for unit testing. It fakes a TrainingPlan
 (either from `fedbiomed.common.torchnn`` or from `fedbiomed.common.fedbiosklearn`)
-this avoid re-wirting the same fake classes each time we are desinging a 
-unit test"""
+"""
 
 from typing import Dict, Any, List
 import time

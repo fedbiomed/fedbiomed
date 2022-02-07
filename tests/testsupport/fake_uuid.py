@@ -1,7 +1,6 @@
 """ This file contains dummy Classes for unit testing. It fakes uuid
-(from uuid.uuid4()) 
-this avoid re-wirting the same fake classes each time we are desinging a 
-unit test"""
+(from uuid.uuid4()) that comes from the python standard library. 
+"""
 
 
 class FakeUuid:
