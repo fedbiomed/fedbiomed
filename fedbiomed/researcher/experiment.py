@@ -1451,8 +1451,8 @@ class Experiment(object):
         logger.info(f"breakpoint for round {round} saved at " + \
                     os.path.dirname(breakpoint_file_path))
 
-    @exp_exceptions
     @classmethod
+    @exp_exceptions
     def load_breakpoint(cls: Type[_E],
                         breakpoint_folder_path: str = None) -> _E:
         """
@@ -1512,7 +1512,7 @@ class Experiment(object):
         loaded_exp._round_current = saved_state.get('round_number')
         loaded_exp._aggregated_params = loaded_exp._load_aggregated_params(
             saved_state.get('aggregated_params'),
-            loaded_exp.model_instance.load
+            loaded_exp.model_instance().load
         )
 
         # ------- changing `Job` attributes -------
@@ -1521,8 +1521,8 @@ class Experiment(object):
         logging.info(f"experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp
 
-    @exp_exceptions
     @staticmethod
+    @exp_exceptions
     def _save_aggregated_params(aggregated_params_init: dict, breakpoint_path: str) -> Dict[int, dict]:
         """Extracts and format fields from aggregated_params that need
         to be saved in breakpoint. Creates link to the params file from the `breakpoint_path`
@@ -1543,8 +1543,8 @@ class Experiment(object):
 
         return aggregated_params
 
-    @exp_exceptions
     @staticmethod
+    @exp_exceptions
     def _load_aggregated_params(aggregated_params: Dict[str, dict], func_load_params: Callable
                                 ) -> Dict[int, dict]:
         """Reconstruct experiment results aggregated params structure
@@ -1572,8 +1572,8 @@ class Experiment(object):
 
     # TODO: factorize code with Job and node
     # TODO: add signal handling for error cases
-    @exp_exceptions
     @staticmethod
+    @exp_exceptions
     def _create_object(args: Dict[str, Any], **object_kwargs) -> Callable:
         """
         Instantiate a class object from breakpoint arguments.
