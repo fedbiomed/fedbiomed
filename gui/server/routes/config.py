@@ -48,17 +48,24 @@ def fedbiomed_environ():
             result: Object containing configuration values
             message: The message for response
     """
-    res = copy.deepcopy(fedbiomed.node.environ.environ)
-    pops = ['COMPONENT_TYPE']
-    for p in pops:
-        res.pop(p)
-    for key, val in res.items():
-        matched = re.match('^' + app.config['NODE_FEDBIOMED_ROOT'], str(val))
-        if matched:
-            res[key] = res[key].replace(app.config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_ROOT')
+    res = {}
+    env_vars = copy.deepcopy(fedbiomed.node.environ.environ)
+    confs = ['NODE_ID', 'DB_PATH', 'ROOT_DIR',
+             'CONFIG_DIR', 'DEFAULT_MODELS_DIR', 'MESSAGES_QUEUE_DIR',
+             'MQTT_BROKER', 'MQTT_BROKER_PORT', 'UPLOADS_URL',
+             'MODEL_APPROVAL', 'ALLOW_DEFAULT_MODELS', 'HASHING_ALGORITHM']
+
+    for key in confs:
+        try:
+            res[key] = env_vars[key]
+            matched = re.match('^' + app.config['NODE_FEDBIOMED_ROOT'], str(env_vars[key]))
+            if matched and key is not 'ROOT_DIR':
+                res[key] = res[key].replace(app.config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_ROOT')
+        except Exception as e:
+            print(f'ERROR: Fed-BioMed  Node environ object - {e} \n')
+            pass
 
     return response(res), 200
-
 
 # TODO: Should be used when it is required to manage multiple nodes
 # from single GUI. Currently when the config is changed some of the 
