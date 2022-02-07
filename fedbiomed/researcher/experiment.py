@@ -1518,15 +1518,15 @@ class Experiment(object):
 
         loaded_exp = cls(tags=saved_state.get('tags'),
                          nodes=None,  # list of previous nodes is contained in training_data
+                         training_data=bkpt_fds,
+                         aggregator=bkpt_aggregator,
+                         node_selection_strategy=bkpt_sampling_strategy,
+                         rounds=saved_state.get("round_number_due"),
                          model_class=saved_state.get("model_class"),
                          model_path=saved_state.get("model_path"),
                          model_args=saved_state.get("model_args"),
                          training_args=saved_state.get("training_args"),
-                         rounds=saved_state.get("round_number_due"),
-                         aggregator=bkpt_aggregator,
-                         node_selection_strategy=bkpt_sampling_strategy,
                          save_breakpoints=True,
-                         training_data=bkpt_fds,
                          experimentation_folder=saved_state.get('experimentation_folder')
                          )
 
