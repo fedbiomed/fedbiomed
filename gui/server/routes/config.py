@@ -9,7 +9,7 @@ from flask import request, jsonify
 from utils import get_node_id
 from utils import success, error, response
 
-import fedbiomed.node.environ
+from fedbiomed.node.environ import environ
 import fedbiomed.common.environ
 import fedbiomed.node.data_manager
 
@@ -49,7 +49,6 @@ def fedbiomed_environ():
             message: The message for response
     """
     res = {}
-    env_vars = copy.deepcopy(fedbiomed.node.environ.environ)
     confs = ['NODE_ID', 'DB_PATH', 'ROOT_DIR',
              'CONFIG_DIR', 'DEFAULT_MODELS_DIR', 'MESSAGES_QUEUE_DIR',
              'MQTT_BROKER', 'MQTT_BROKER_PORT', 'UPLOADS_URL',
@@ -57,12 +56,12 @@ def fedbiomed_environ():
 
     for key in confs:
         try:
-            res[key] = env_vars[key]
-            matched = re.match('^' + app.config['NODE_FEDBIOMED_ROOT'], str(env_vars[key]))
+            res[key] = environ[key]
+            matched = re.match('^' + app.config['NODE_FEDBIOMED_ROOT'], str(environ[key]))
             if matched and key is not 'ROOT_DIR':
                 res[key] = res[key].replace(app.config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_ROOT')
         except Exception as e:
-            print(f'ERROR: Fed-BioMed  Node environ object - {e} \n')
+            print(f'ERROR: An error occurred while calling /node-environ endpoint - {e} \n')
             pass
 
     return response(res), 200
