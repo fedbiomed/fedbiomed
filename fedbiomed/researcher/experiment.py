@@ -1,4 +1,3 @@
-import logging
 import os
 import sys
 import json
@@ -1541,7 +1540,7 @@ class Experiment(object):
         # ------- changing `Job` attributes -------
         loaded_exp._job.load_state(saved_state.get('job'))
 
-        logging.info(f"experimentation reload from {breakpoint_folder_path} successful!")
+        logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp
 
     @staticmethod

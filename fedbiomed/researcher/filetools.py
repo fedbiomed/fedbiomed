@@ -1,4 +1,3 @@
-import logging
 import os
 import re
 from typing import Tuple, List
@@ -303,14 +302,14 @@ def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
                                   breakpoint_material)
         # there should be at most one - TODO: verify
         if json_match is not None:
-            logging.debug(f"found json file containing states at\
+            logger.debug(f"found json file containing states at\
                 {breakpoint_material}")
             state_file = breakpoint_material
     
     if state_file is None:
         message = f"Cannot find JSON file containing " + \
             f"model state at {breakpoint_folder_path}. Aborting"
-        logging.error(message)
+        logger.error(message)
         raise FileNotFoundError(message)
     
     return breakpoint_folder_path, state_file
