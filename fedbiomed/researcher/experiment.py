@@ -1541,7 +1541,7 @@ class Experiment(object):
         """
         # check parameters type
         if not isinstance(breakpoint_folder_path, str) and breakpoint_folder_path is not None:
-            msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
+            msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
                 f'`breakpoint_folder_path` has bad type {type(breakpoint_folder_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
@@ -1555,7 +1555,7 @@ class Experiment(object):
                 saved_state = json.load(f)
         except (json.JSONDecodeError, OSError) as e:
             # OSError: heuristic for catching file access issues
-            msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
+            msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
                 f'reading breakpoint file failed with message {str(e)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
@@ -1627,12 +1627,12 @@ class Experiment(object):
         """
         # check arguments type, though is should have been done before
         if not isinstance(aggregated_params_init, dict):
-            msg = ErrorNumbers.FB413.value + f' - cannot save breakpoint. ' + \
+            msg = ErrorNumbers.FB413.value + f' - save failed. ' + \
                 f'Bad type for aggregated params, should be `dict` not {type(aggregated_params_init)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         if not isinstance(breakpoint_path, str):
-            msg = ErrorNumbers.FB413.value + f' - cannot save breakpoint. ' + \
+            msg = ErrorNumbers.FB413.value + f' - save failed. ' + \
                 f'Bad type for breakpoint path, should be `str` not {type(breakpoint_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)           
@@ -1640,7 +1640,7 @@ class Experiment(object):
         aggregated_params = {}
         for key, value in aggregated_params_init.items():
             if not isinstance(value, dict):
-                msg = ErrorNumbers.FB413.value + f' - cannot save breakpoint. ' + \
+                msg = ErrorNumbers.FB413.value + f' - save failed. ' + \
                     f'Bad type for aggregated params item {str(key)}, ' + \
                     f'should be `dict` not {type(value)}'
                 logger.critical(msg)
@@ -1699,7 +1699,7 @@ class Experiment(object):
         """
         # check `args` type
         if not isinstance(args, dict):
-            msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
+            msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
                 f'breakpoint file seems corrupted. Bad type {type(args)} for object, ' + \
                 f'should be a `dict`'
             logger.critical(msg)
@@ -1719,7 +1719,7 @@ class Experiment(object):
             # ImportError : bad class name
             # SyntaxError : expression cannot be exec()'ed
             # TypeError : module_path or module_class are not strings
-            msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
+            msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
                 f'breakpoint file seems corrupted. Module import for class {str(module_class)} ' + \
                 f'fails with message {str(e)}'
             logger.critical(msg)
@@ -1731,7 +1731,7 @@ class Experiment(object):
         except Exception as e:
             # can we restrict the type of exception ? difficult as
             # it may be SyntaxError, TypeError, NameError, ValueError, ArithmeticError, etc.
-            msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
+            msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
                 f'breakpoint file seems corrupted. Evaluating class {str(module_class)} ' + \
                 f'fails with message {str(e)}'
             logger.critical(msg)
@@ -1747,7 +1747,7 @@ class Experiment(object):
             # can we restrict the type of exception ? difficult as
             # it may be SyntaxError, TypeError, NameError, ValueError,
             # ArithmeticError, AttributeError, etc.
-            msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
+            msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
                 f'breakpoint file seems corrupted. Instantiating object of class ' + \
                 f'{str(module_class)} fails with message {str(e)}'
             logger.critical(msg)
