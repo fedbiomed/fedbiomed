@@ -111,7 +111,10 @@ class TestNode(unittest.TestCase):
             'msg': "a message for testing",
             'command': 'train'
         }
+        # action
         self.n1.add_task(node_msg_request_create_task)
+        
+        # checks
         task_queue_add_patcher.assert_called_once_with(node_msg_request_create_task)
         
     @patch('fedbiomed.node.node.Node.add_task')
