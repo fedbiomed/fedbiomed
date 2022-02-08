@@ -604,7 +604,104 @@ class TestNode(unittest.TestCase):
         
         # close thread
         #thread_test.close()
+     
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.get')     
+    def test_task_manager_02_exception_raised_task_queue(self,
+                                                         tasks_queue_get_patch):
+        """Tests case where `tasks_queue.get` method raises an exception (SystemError).
+        """
+        # defining patchers
+        tasks_queue_get_patch.side_effect = SystemError("mimicking an exception coming from ")
+        
+        # action
+        with self.assertRaises(SystemError):
+            self.n1.task_manager()
+            
+    @patch('fedbiomed.node.node.Node.parser_task')    
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.get')     
+    def test_task_manager_03_exception_raised_parser_task(self,
+                                                         tasks_queue_get_patch,
+                                                         node_parser_task_patch):
+        """Tests case where `tasks_queue.get` method raises an exception (SystemExit).
+        """
+        # defining patchers
+        tasks_queue_get_patch.return_value = None
+        node_parser_task_patch.side_effect = SystemExit("mimicking an exception"
+                                                        + " coming from parser_task")
+        
+        # action
+        with self.assertRaises(SystemExit):
+            self.n1.task_manager()
     
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.node.node.Node.parser_task')    
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.get')     
+    def test_task_manager_04_exception_raised_send_message(self,
+                                                           tasks_queue_get_patch,
+                                                           node_parser_task_patch,
+                                                           mssging_send_msg_patch):
+        """Tests case where `messaging.send_message` method 
+        raises an exception (SystemExit).
+        """
+        # defining patchers
+        tasks_queue_get_patch.return_value = None
+        node_parser_task_patch.return_value = None
+        mssging_send_msg_patch.side_effect = SystemExit("Mimicking an exception happening in"
+                                                        + "`send_message` method")
+        # defining arguments
+        Round = MagicMock()
+        Round.run_model_training = MagicMock(run_model_training = None)
+        self.n1.rounds = [Round(),Round()]
+        
+        # action
+        with self.assertRaises(SystemExit):
+            self.n1.task_manager()
+    
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.node.node.Node.parser_task')    
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.get')     
+    def test_task_manager_05_exception_raised_task_done(self,
+                                                        tasks_queue_get_patch,
+                                                        node_parser_task_patch,
+                                                        mssging_send_msg_patch,
+                                                        tasks_queue_task_done_patch):
+        
+        # defining patchers
+        tasks_queue_get_patch.return_value = None
+        node_parser_task_patch.return_value = None
+        mssging_send_msg_patch.return_value = None
+        
+        tasks_queue_task_done_patch.side_effect = SystemExit("Mimicking an exception happening in"
+                                                        + "`TasksQueue.task_done` method")
+        # defining arguments
+        Round = MagicMock()
+        Round.run_model_training = MagicMock(run_model_training = None)
+        self.n1.rounds = [Round(),Round()]
+        
+        # action
+        with self.assertRaises(SystemExit):
+            self.n1.task_manager()
+            
+        # checks
+        # check that `Messaging.send_message` have been called twice
+        # (because 2 rounds have been set in `rounds` attribute)
+        self.assertEqual(mssging_send_msg_patch.call_count, 2)
+        
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    @patch('fedbiomed.node.node.Node.parser_task')    
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.get')     
+    def test_task_manager_06_exception_raised_twice_in_send_msg(self,
+                                                        tasks_queue_get_patch,
+                                                        node_parser_task_patch,
+                                                        mssging_send_msg_patch,
+                                                        tasks_queue_task_done_patch):
+        # defining patchers
+        tasks_queue_get_patch.return_value = None
+        node_parser_task_patch.return_value = None
+        mssging_send_msg_patch.return_value = None
+
     @patch('fedbiomed.common.messaging.Messaging.start')    
     def test_start_messaging_01(self,
                                 msg_start_patch):
