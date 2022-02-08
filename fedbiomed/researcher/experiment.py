@@ -466,7 +466,6 @@ class Experiment(object):
             self._tags = tags
             for tag in tags:
                 if not isinstance(tag, str):
-                    self._tags = [] # robust default, in case we try to continue execution
                     msg = ErrorNumbers.FB410.value + f' `tags` : list of {type(tag)}'
                     logger.critical(msg)
                     raise FedbiomedExperimentError(msg)
@@ -475,7 +474,6 @@ class Experiment(object):
         elif tags is None:
             self._tags = tags
         else:
-            self._tags = None # robust default, in case we try to continue execution
             msg = ErrorNumbers.FB410.value + f' `tags` : {type(tags)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
@@ -510,7 +508,6 @@ class Experiment(object):
             self._nodes = nodes
             for node in nodes:
                 if not isinstance(node, str):
-                    self._nodes = None # robust default
                     msg = ErrorNumbers.FB410.value + f' `nodes` : list of {type(node)}'
                     logger.critical(msg)
                     raise FedbiomedExperimentError(msg)
@@ -713,7 +710,6 @@ class Experiment(object):
         """
         # at this point round_current exists and is an int >= 0
         if not isinstance(rounds, int):
-            self._rounds = max(1, self._round_current) # robust default
             msg = ErrorNumbers.FB410.value + f' `rounds` : {type(rounds)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)            
@@ -758,14 +754,12 @@ class Experiment(object):
         """
         # at this point self._round_current exists and is an int >= 0
         if not isinstance(round_current, int):
-            self._round_current = 0 # robust default
             msg = ErrorNumbers.FB410.value + f' `round_current` : {type(round_current)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)            
         else:
             # at this point self._rounds is an int
             if round_current < 0 or round_current > self._rounds:
-                self._round_current = 0 # robust default
                 msg = ErrorNumbers.FB410.value + f' `round_current` : {round_current}'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg) 
@@ -800,7 +794,6 @@ class Experiment(object):
                 logger.warning(f'`experimentation_folder` was sanitized from '
                     f'{experimentation_folder} to {sanitized_folder}')
         else:
-            self._experimentation_folder = create_exp_folder() # robust default
             msg = ErrorNumbers.FB410.value + \
                 f' `experimentation_folder` : {type(experimentation_folder)}'
             logger.critical(msg)
@@ -1121,7 +1114,6 @@ class Experiment(object):
             self._save_breakpoints = save_breakpoints
             # no warning if done during experiment, we may change breakpoint policy at any time
         else:
-            self._save_breakpoints = False # robust default
             msg = ErrorNumbers.FB410.value + f' `save_breakpoints` : {type(save_breakpoints)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
@@ -1175,7 +1167,6 @@ class Experiment(object):
                     self._reqs.remove_monitor_callback()
         else:
             # bad type
-            self._monitor = None # robust default
             self._reqs.remove_monitor_callback()
             msg = ErrorNumbers.FB410.value + f' `tensorboard` : {type(tensorboard)}'
             logger.critical(msg)
@@ -1214,7 +1205,6 @@ class Experiment(object):
                 f', in method `run_once` param `increase` : type {type(increase)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-            # return 0 # robust default  
 
         # nota: robustify test, but we should never have self._round_current > self._rounds
         if self._round_current >= self._rounds:
@@ -1235,12 +1225,10 @@ class Experiment(object):
             msg = ErrorNumbers.FB411.value + f', missing `node_selection_strategy`'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-            # return 0 # robust default
         elif self._job is None:
             msg = ErrorNumbers.FB411.value + f', missing `job`'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-            # return 0 # robust default
 
         # Ready to execute a training round using the job, strategy and aggregator
 
@@ -1305,21 +1293,18 @@ class Experiment(object):
             msg = ErrorNumbers.FB410.value + \
                 f', in method `run` param `run_rounds` : type {type(run_rounds)}'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-            # return 0 # robust default          
+            raise FedbiomedExperimentError(msg)      
         elif run_rounds < 0:
             msg = ErrorNumbers.FB410.value + \
                 f', in method `run` param `run_rounds` : value {run_rounds}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-            # return 0 # robust default  
         # check increase is a boolean
         if not isinstance(increase, bool):
             msg = ErrorNumbers.FB410.value + \
                 f', in method `run` param `increase` : type {type(increase)}'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-            # return 0 # robust default                  
+            raise FedbiomedExperimentError(msg)               
 
         # compute maximum number of rounds to run
         if run_rounds == 0:
