@@ -6,20 +6,22 @@ from testsupport.delete_environ import delete_environ
 delete_environ()
 # overload with fake environ for tests
 import testsupport.mock_common_environ
-from importlib import reload
+import json
 from typing import Callable
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.common.messaging import Messaging
-from fedbiomed.researcher.environ import environ
-from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.message import ResearcherMessages
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 
 class TestRequest(unittest.TestCase):
     """ Test class for Request class """
+
+    class FaceMonitorCallback():
+        pass
 
     def setUp(self):
 
@@ -44,7 +46,7 @@ class TestRequest(unittest.TestCase):
 
         pass
 
-    def test_constructor(self):
+    def test_request_01_constructor(self):
         """ Testing Request constructor """
 
         # Remove previous singleton instance
@@ -54,9 +56,9 @@ class TestRequest(unittest.TestCase):
         # Build brand new reqeust by providing Messaging in advance
         messaging = Messaging()
         req_1 = Requests(mess=messaging)
-        self.assertEqual(0, req_1._sequence)
-        self.assertEqual(None, req_1._monitor_message_callback)
-        self.assertEqual(messaging, req_1.messaging)
+        self.assertEqual(0, req_1._sequence, "Request is not properly initialized")
+        self.assertEqual(None, req_1._monitor_message_callback, "Request is not properly initialized")
+        self.assertEqual(messaging, req_1.messaging, "Request constructor didn't create proper Messaging")
 
         # Remove previous singleton instance
         if Requests in Requests._objects:
@@ -64,12 +66,79 @@ class TestRequest(unittest.TestCase):
 
         # Build new fresh reqeust
         req_2 = Requests(mess=None)
-        self.assertEqual(0, req_1._sequence)
-        self.assertEqual(None, req_1._monitor_message_callback)
-        self.assertIsInstance(req_2.messaging, Messaging)
+        self.assertEqual(0, req_1._sequence, "Request is not properly initialized")
+        self.assertEqual(None, req_1._monitor_message_callback, "Request is not properly initialized")
+        self.assertIsInstance(req_2.messaging, Messaging, "Request constructor didn't create proper Messaging")
+
+    def test_request_02_get_messaging(self):
+        """ Testing the method `get_messaging`
+            TODO: Update this part when refactoring getters and setter for reqeust
+        """
+        req = Requests()
+        messaging = req.get_messaging()
+        self.assertIsInstance(messaging, Messaging, "get_messaging() does not return proper Messaging object")
+
+    @patch('fedbiomed.researcher.requests.Requests.print_node_log_message')
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.add')
+    @patch('fedbiomed.common.logger.logger.error')
+    def test_request_03_on_message(self,
+                                   mock_logger_error,
+                                   mock_task_add,
+                                   mock_print_node_log_message):
+        """ Testing different scenarios for on_message methods """
+
+        # Build reqeust
+        req = Requests()
+
+        msg_logger = {'researcher_id': 'DummyID',
+                      'node_id': 'DummyNodeID',
+                      'level': 'critical',
+                      'msg': '{"message" : "Dummy Message"}',
+                      'command': 'log'}
+
+        # Get researcher reply for `assert_called_with`
+        reply_logger = ResearcherMessages.reply_create(msg_logger).get_dict()
+        req.on_message(msg_logger, topic='general/logger')
+
+        # Check the method has been called
+        mock_print_node_log_message.assert_called_once_with(reply_logger)
+
+        msg_researcher_reply = {'researcher_id': 'DummyID',
+                                'success': True,
+                                'databases': [],
+                                'count': 1,
+                                'node_id': 'DummyNodeID',
+                                'command': 'search'}
+
+        req.on_message(msg_researcher_reply, topic='general/researcher')
+        # Get researcher reply for `assert_called_with`
+        reply_researcher = ResearcherMessages.reply_create(msg_researcher_reply).get_dict()
+        mock_task_add.assert_called_once_with(reply_researcher)
+
+        msg_monitor = {'researcher_id': 'DummyID',
+                       'node_id': 'DummyNodeID',
+                       'job_id': 'DummyJobID',
+                       'key': 'loss',
+                       'value': 12.23,
+                       'epoch': 5,
+                       'iteration': 15,
+                       'command': 'add_scalar'}
+
+        monitor_callback = MagicMock(return_value=None)
+
+        # Get researcher reply for `assert_called_with`
+        reply_monitor = ResearcherMessages.reply_create(msg_monitor).get_dict()
+        # Add callback for monitoring
+        req.add_monitor_callback(monitor_callback)
+        req.on_message(msg_monitor, topic='general/monitoring')
+        monitor_callback.assert_called_once_with(reply_monitor)
+
+        # Test when the topic is unkown, it should call logger to log error
+        req.on_message(msg_monitor, topic='unknown/topic')
+        mock_logger_error.assert_called_once()
 
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
-    def test_list_function(self, request_get_response):
+    def test_request_04_list(self, request_get_response):
 
         # Test with single response database
         res = [
