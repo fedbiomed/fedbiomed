@@ -83,7 +83,6 @@ class TestNode(unittest.TestCase):
                             ]
         # patchers
         task_queue_patcher.return_value = None
-        
         messaging_patcher.return_value = None
         
         # mocks
@@ -96,10 +95,10 @@ class TestNode(unittest.TestCase):
         
         self.model_manager_mock = mock_model_manager
         
+        # creating Node objects
         self.n1 = Node(mock_data_manager, mock_model_manager)
         self.n2 = Node(mock_data_manager, mock_model_manager)
         
-    
     def tearDown(self) -> None:
         pass
     
@@ -119,14 +118,12 @@ class TestNode(unittest.TestCase):
         
     @patch('fedbiomed.node.node.Node.add_task')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
-    def test_on_message_01_normal_case_scenario_train_reply(
+    def test_node_01_on_message_normal_case_scenario_train_reply(
                                            self,
                                            node_msg_req_create_patcher,
                                            node_add_task_patcher,
-                                           
                                            ):
         # test 1: test normal case scenario, where `command` = 'train'
-        
         
         node_msg_req_create_patcher.side_effect = TestNode.node_msg_side_effect
         train_msg = {
@@ -141,7 +138,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
-    def test_on_message_02_normal_case_scenario_ping(
+    def test_node_02_on_message_normal_case_scenario_ping(
                                 self,
                                 node_msg_request_patch,
                                 node_msg_reply_patch,
@@ -172,7 +169,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
-    def test_on_message_03_normal_case_scenario_search(self,
+    def test_node_03_on_message_normal_case_scenario_search(self,
                                                        node_msg_request_patch,
                                                        node_msg_reply_patch,
                                                        messaging_send_msg_patch
@@ -205,11 +202,11 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
-    def test_on_message_04_normal_case_scenario_list(self,
-                                                     node_msg_request_patch,
-                                                     node_msg_reply_patch,
-                                                     messaging_send_msg_patch
-                                                     ):
+    def test_node_04_on_message_normal_case_scenario_list(self,
+                                                          node_msg_request_patch,
+                                                          node_msg_reply_patch,
+                                                          messaging_send_msg_patch
+                                                           ):
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
@@ -237,9 +234,9 @@ class TestNode(unittest.TestCase):
         messaging_send_msg_patch.assert_called_once_with(list_msg)
     
     @patch('fedbiomed.common.message.NodeMessages.request_create')    
-    def test_on_message_05_normal_case_scenario_model_status(self,
-                                                             node_msg_request_patch,
-                                                             ):
+    def test_node_05_on_message_normal_case_scenario_model_status(self,
+                                                                  node_msg_request_patch,
+                                                                  ):
         """Tests normal case senario, if command is equals to 'model-status"""
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
@@ -255,14 +252,14 @@ class TestNode(unittest.TestCase):
         # checks
         self.model_manager_mock.reply_model_status_request.assert_called_once_with(model_status_msg,
                                                                                    self.n1.messaging)
-           
-                                                                           
+                                                                        
     @patch('fedbiomed.node.node.Node.send_error') 
     @patch('fedbiomed.common.message.NodeMessages.request_create')    
-    def test_on_message_06_unknown_command(self,
-                                           node_msg_request_patch,
-                                           send_err_patch):
-        """Tests Exception is raised if command is not a knwon command"""
+    def test_node_06_on_message_unknown_command(self,
+                                                node_msg_request_patch,
+                                                send_err_patch):
+        """Tests Exception is raised if command is not a known command 
+        (in `on_message` method)"""
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         
@@ -273,7 +270,6 @@ class TestNode(unittest.TestCase):
             'command': unknown_cmd,
             'researcher_id': researcher_id,
         }
-        
         
         # action 
         self.n1.on_message(unknown_cmd_msg)
@@ -287,11 +283,11 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.message.NodeMessages.request_create')   
-    def test_on_message_07_fail_reading_json(self,
-                                             node_msg_request_patch,
-                                             node_msg_reply_patch,
-                                             messaging_patch,
-                                             msg_send_error_patch):
+    def test_node_07_on_message_fail_reading_json(self,
+                                                  node_msg_request_patch,
+                                                  node_msg_reply_patch,
+                                                  messaging_patch,
+                                                  msg_send_error_patch):
         """Tests case where a JSONDecodeError is triggered (JSON cannot be created)"""
         
         def messaging_side_effect(*args, **kwargs):
@@ -321,8 +317,8 @@ class TestNode(unittest.TestCase):
                                                      researcher_id= resid)
      
     @patch('fedbiomed.node.node.Node.send_error')    
-    def test_on_message_08_fail_getting_msg_field(self,
-                                                  msg_send_error_patch):
+    def test_node_08_on_message_fail_getting_msg_field(self,
+                                                       msg_send_error_patch):
         """Tests case where a KeyError (unable to extract fields of `msg`) Exception
         is raised during process"""
         resid = 'researcher_id_1234'
@@ -343,11 +339,11 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.message.NodeMessages.request_create')  
-    def test_on_message_09_fail_msg_not_serializable(self,
-                                                     node_msg_request_patch,
-                                                     node_msg_reply_patch,
-                                                     messaging_patch,
-                                                     msg_send_error_patch):
+    def test_node_09_on_message_fail_msg_not_serializable(self,
+                                                          node_msg_request_patch,
+                                                          node_msg_reply_patch,
+                                                          messaging_patch,
+                                                          msg_send_error_patch):
         """Tests case where a TypError is raised (because unable to serialize message)"""
         # JSONDecodeError can be raised from messaging class
         def messaging_side_effect(*args, **kwargs):
@@ -378,12 +374,13 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     @patch('fedbiomed.common.message.NodeMessages.request_create') 
-    def test_parser_task_01_create_round(self,
-                                         node_msg_request_patch,
-                                         history_monitor_patch,
-                                         round_patch
-                                         ):
-        """Tests if rounds are created accordingly"""
+    def test_node_10_parser_task_create_round(self,
+                                              node_msg_request_patch,
+                                              history_monitor_patch,
+                                              round_patch
+                                              ):
+        """Tests if rounds are created accordingly - running normal case scenario 
+        (in `parser_task` method)"""
 
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
@@ -415,6 +412,7 @@ class TestNode(unittest.TestCase):
         # test 2: case where 2 dataset have been found (training on several dataset)
         # reset mocks
         round_patch.reset_mock()
+        history_monitor_patch.reset_mock()
         round_patch.return_value = None
         
         # defining msg argument (where 2 datasets are found)
@@ -436,11 +434,10 @@ class TestNode(unittest.TestCase):
     
         # checks
         
-        # hack to get the object HistoryMonitor
         # FIXME: is this a good idea? Unit test may fail if 
         # parameters are passed using arg name, 
         # and if order change. Besides, it doesnot test
-        # if value passed is a `Round` object (could be everything, test will pass)
+        # if value passed is a `HistoryMonitor` object (could be everything, test will pass)
         # see `sentinel` in unitests documentation 
         # (difficult to use since we are patching constructor)
         
@@ -455,11 +452,17 @@ class TestNode(unittest.TestCase):
                                         mock.ANY,
                                         None
                                     )
+        # check if object `Round()` has been called twice
         self.assertEqual(round_patch.call_count, 2)
         self.assertEqual(len(self.n2.rounds), 2)
         # check if passed value is a `Round` object
         self.assertIsInstance(self.n2.rounds[0], Round)
-        
+        # check if object `HistoryMonitor` has been called
+        history_monitor_patch.assert_called_once()
+        # retrieve HistoryMonitor object
+        #history_monitor_ref = round_patch.call_args_list[-1][0][-2]
+        #self.assertIsInstance(history_monitor_ref, HistoryMonitor)
+
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create') 
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
@@ -508,6 +511,117 @@ class TestNode(unittest.TestCase):
             'extra_msg': "Did not found proper data in local datasets" 
         })
         
+    
+    @patch('fedbiomed.node.round.Round.__init__')
+    @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
+    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    @patch('fedbiomed.common.json.deserialize_msg') 
+    def test_node_11_parser_task_create_round_deserializer_str_msg(self,
+                                                                   json_deserialize_patcher,
+                                                                    node_msg_request_patch,
+                                                                    history_monitor_patch,
+                                                                    round_patch
+                                                                    ):  
+        """Tests if message is correctly deserialized if message is in string"""
+        
+        # defining arguments
+        dict_msg_1_dataset = {
+            'model_args': {'lr': 0.1},
+            'training_args': {'some_value': 1234},
+            'model_url': 'https://link.to.somewhere.where.my.model',
+            'model_class': 'my_test_training_plan',
+            'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
+            'job_id': 'job_id_1234',
+            'researcher_id': 'researcher_id_1234',
+            'training_data': {environ['NODE_ID']: ['dataset_id_1234']}
+        }
+        
+        incoming_msg = str(dict_msg_1_dataset)
+        
+        # defining patchers
+        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        json_deserialize_patcher.return_value = dict_msg_1_dataset
+        round_patch.return_value = None
+        history_monitor_patch.spec = True
+        history_monitor_patch.return_value = None  
+        
+        # action
+        self.n1.parser_task(incoming_msg)
+        
+        # checks
+        json_deserialize_patcher.assert_called_once_with(incoming_msg)
+        round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
+                                            dict_msg_1_dataset['training_args'],
+                                            self.database_id[0],
+                                            dict_msg_1_dataset['model_url'],
+                                            dict_msg_1_dataset['model_class'],
+                                            dict_msg_1_dataset['params_url'],
+                                            dict_msg_1_dataset['job_id'],
+                                            dict_msg_1_dataset['researcher_id'],
+                                            mock.ANY,  # FIXME: should be an history monitor object
+                                            None
+                                        )
+        
+
+    @patch('fedbiomed.node.round.Round.__init__')
+    @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
+    @patch('fedbiomed.common.message.NodeMessages.request_create')
+    @patch('fedbiomed.common.json.deserialize_msg') 
+    def test_node_11_parser_task_create_round_deserializer_bytes_msg(self,
+                                                                   json_deserialize_patcher,
+                                                                    node_msg_request_patch,
+                                                                    history_monitor_patch,
+                                                                    round_patch
+                                                                    ):  
+        """Tests if message is correctly deserialized if message is in bytes"""
+        
+        # defining arguments
+        dict_msg_1_dataset = {
+            "model_args": {"lr": 0.1},
+            "training_args": {"some_value": 1234},
+            "model_url": "https://link.to.somewhere.where.my.model",
+            "model_class": "my_test_training_plan",
+            "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
+            "job_id": "job_id_1234",
+            "researcher_id": "researcher_id_1234",
+            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
+        }
+        
+        # defining same message as `dict_msg_1_dataset` but in bytes
+        incoming_msg = b'{ \
+            "model_args": {"lr": 0.1},\
+            "training_args": {"some_value": 1234},\
+            "model_url": "https://link.to.somewhere.where.my.model",\
+            "model_class": "my_test_training_plan",\
+            "params_url": "https://link.to_somewhere.where.my.model.parameters.is",\
+            "job_id": "job_id_1234",\
+            "researcher_id": "researcher_id_1234",\
+            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}\
+        }'
+        
+        # defining patchers
+        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        json_deserialize_patcher.return_value = dict_msg_1_dataset
+        round_patch.return_value = None
+        history_monitor_patch.spec = True
+        history_monitor_patch.return_value = None  
+        
+        # action
+        self.n1.parser_task(incoming_msg)
+        
+        # checks
+        json_deserialize_patcher.assert_called_once_with(incoming_msg)
+        round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
+                                            dict_msg_1_dataset['training_args'],
+                                            self.database_id[0],
+                                            dict_msg_1_dataset['model_url'],
+                                            dict_msg_1_dataset['model_class'],
+                                            dict_msg_1_dataset['params_url'],
+                                            dict_msg_1_dataset['job_id'],
+                                            dict_msg_1_dataset['researcher_id'],
+                                            mock.ANY,  # FIXME: should be an history_monitor object
+                                            None
+                                        )    
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
     @patch('fedbiomed.common.message.NodeMessages.request_create') 
     def test_parser_task_03_error_found(self,
@@ -578,35 +692,9 @@ class TestNode(unittest.TestCase):
                                                   tasks_queue_get_patch,
                                                   round_patch):
         """Tests task_manager in the normal case scenario"""
-        
-        Round = MagicMock(run_model_training = None)
-        #Round.run_model_training = MagicMock(return_value = None)
-        # defining patchers
-        parser_task_patch.return_value = None
-        tasks_queue.return_value = None
-        round_patch.return_value = None
-        send_msg_patch.return_value = None
-        tasks_queue_get_patch.return_value = None
-        # defining arguments
-        self.n1.rounds = [Round(),Round()]
-        
-        
-        # action
-        #thread_test = multiprocessing.Process(target=self.n1.task_manager
-        #                                      )
-        #thread_test.start()
-        #self.n1.task_manager()
-        #time.sleep(5)
-        #print('here', thread_test.is_alive())
-        #thread_test.join()
-        #send_msg_patch.assert_called()
-        #thread_test.terminate()
-        
-        # checks
-        
-        
-        # close thread
-        #thread_test.close()
+        # TODO: implement such test when we will have methods taht makes
+        # possible to stop Node
+        pass
      
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')     
     def test_task_manager_02_exception_raised_task_queue(self,
@@ -691,19 +779,68 @@ class TestNode(unittest.TestCase):
         # (because 2 rounds have been set in `rounds` attribute)
         self.assertEqual(mssging_send_msg_patch.call_count, 2)
         
+    @patch('fedbiomed.common.message.NodeMessages.reply_create') 
     @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.node.node.Node.parser_task')    
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')     
     def test_task_manager_06_exception_raised_twice_in_send_msg(self,
-                                                        tasks_queue_get_patch,
-                                                        node_parser_task_patch,
-                                                        mssging_send_msg_patch,
-                                                        tasks_queue_task_done_patch):
+                                                                tasks_queue_get_patch,
+                                                                node_parser_task_patch,
+                                                                mssging_send_msg_patch,
+                                                                tasks_queue_task_done_patch,
+                                                                node_msg_reply_create_patch):
+        """
+        Tests `task_manager` method, check what happens if `Messaging.send_message` 
+        triggers an exception.
+        """
+        def send_msg_generator():
+            """Creates a generator that generates Exceptions"""
+            exceptions = [Exception, SystemExit]
+            for exc in exceptions:
+                yield exc
+        
+        send_msg_except_iterator = iter(send_msg_generator())
+        
+        def send_msg_side_effect(*args, **kwargs):
+            """
+            This function raises Exceptions each time it is called:
+            - if called a first time, raises Exception
+            - if called a second time, raises SystemExit
+            - if called 3 times or more, raises StopIteration (due to generator)
+            """
+            val = next(send_msg_except_iterator)
+            raise val('mimicking exceptions') 
+        
+        # defining attributes
+        
+        Round = MagicMock()
+        Round.run_model_training = MagicMock(run_model_training = None)
+        self.n1.rounds = [Round()]
+        
         # defining patchers
         tasks_queue_get_patch.return_value = None
         node_parser_task_patch.return_value = None
-        mssging_send_msg_patch.return_value = None
+        tasks_queue_task_done_patch.return_value = None
+        node_msg_reply_create_patch.side_effect = TestNode.node_msg_side_effect
+        mssging_send_msg_patch.side_effect = send_msg_side_effect
+        
+        # action
+        with self.assertRaises(SystemExit):
+            # checks if `task_manager` triggers SystemExit exception
+            self.n1.task_manager()  
+            
+            # checks if `Messaging.send_message` is called with
+            # good arguments (second time it is called)
+            mssging_send_msg_patch.assert_called_with(
+                {
+                'comand': 'error',
+                'extra_msg': str(Exception('mimicking exceptions')),
+                'node_id': environ['NODE_ID'],
+                'researcher_id': 'NOT_SET',
+                'errnum': ErrorNumbers.FB300
+                })
+            
 
     @patch('fedbiomed.common.messaging.Messaging.start')    
     def test_start_messaging_01(self,
