@@ -357,13 +357,23 @@ class Experiment(object):
         return self._aggregated_params
 
     @exp_exceptions
-    def training_replies(self) -> dict:
-        return self._job.training_replies
+    def training_replies(self) -> Union[dict, None]:
+        # at this point `job` is defined but may be None
+        if self._job is None:
+            logger.warning('No `job` defined for experiment, cannot get `training_replies`')
+            return None
+        else:
+            return self._job.training_replies
 
     # TODO: better checking of model object type in Job() to guarantee it is a TrainingPlan
     @exp_exceptions
-    def model_instance(self) -> TrainingPlan:
-        return self._job.model
+    def model_instance(self) -> Union[TrainingPlan, None]:
+        # at this point `job` is defined but may be None
+        if self._job is None:
+            logger.warning('No `job` defined for experiment, cannot get `model_instance`')
+            return None
+        else:
+            return self._job.model
 
 
     # a specific getter-like
@@ -1557,6 +1567,11 @@ class Experiment(object):
             # OSError: heuristic for catching file access issues
             msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
                 f'reading breakpoint file failed with message {str(e)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+        if not isinstance(saved_state, dict):
+            msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
+                f'breakpoint file seems corrupted. Type should be `dict` not {type(saved_state)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
