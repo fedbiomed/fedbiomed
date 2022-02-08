@@ -360,7 +360,7 @@ class Experiment(object):
     def training_replies(self) -> Union[dict, None]:
         # at this point `job` is defined but may be None
         if self._job is None:
-            logger.warning('No `job` defined for experiment, cannot get `training_replies`')
+            logger.error('No `job` defined for experiment, cannot get `training_replies`')
             return None
         else:
             return self._job.training_replies
@@ -370,7 +370,7 @@ class Experiment(object):
     def model_instance(self) -> Union[TrainingPlan, None]:
         # at this point `job` is defined but may be None
         if self._job is None:
-            logger.warning('No `job` defined for experiment, cannot get `model_instance`')
+            logger.error('No `job` defined for experiment, cannot get `model_instance`')
             return None
         else:
             return self._job.model
@@ -484,7 +484,7 @@ class Experiment(object):
         # self._fds doesn't always exist at this point
         try:
             if self._fds is not None:
-                logger.warning('Experimentation tags changed, you may need to update `training_data`')
+                logger.debug('Experimentation tags changed, you may need to update `training_data`')
         except AttributeError:
             # nothing to do if not defined yet
             pass
@@ -526,7 +526,7 @@ class Experiment(object):
         # self._fds doesn't always exist at this point
         try:
             if self._fds is not None:
-                logger.warning('Experimentation nodes filter changed, you may need to update `training_data`')
+                logger.debug('Experimentation nodes filter changed, you may need to update `training_data`')
         except AttributeError:
             # nothing to do if not defined yet
             pass
@@ -578,20 +578,20 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
         else:
             self._fds = None
-            logger.warning('Experiment not fully configured yet: no training data')
+            logger.debug('Experiment not fully configured yet: no training data')
         # at this point, self._fds is either None or a FederatedDataSet object
         
         # self._strategy and self._job don't always exist at this point
         try:
             if self._node_selection_strategy is not None:
-                logger.warning('Training data changed, '
+                logger.debug('Training data changed, '
                     'you may need to update `node_selection_strategy`')
         except AttributeError:
             # nothing to do if not defined yet
             pass
         try:
             if self._job is not None:
-                logger.warning('Training data changed, you may need to update `job`')
+                logger.debug('Training data changed, you may need to update `job`')
         except AttributeError:
             # nothing to do if not defined yet
             pass
@@ -691,7 +691,7 @@ class Experiment(object):
         else:
             # cannot initialize strategy if not FederatedDataSet yet
             self._node_selection_strategy = None
-            logger.warning('Experiment not fully configured yet: no node selection strategy')
+            logger.debug('Experiment not fully configured yet: no node selection strategy')
 
         # at this point self._node_selection_strategy is a Union[Strategy, None]
         return self._node_selection_strategy
@@ -719,12 +719,12 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)            
         else:
             # at this point rounds is an int
-            self._rounds = max(rounds, self._round_current)
             if rounds < self._round_current:
                 # self._rounds can't be less than current round
-                # need to change round_current if really wanted to set this value
-                logger.warning(f'`rounds` cannot be less than `round_current`: '
-                    f'setting `rounds`={self._round_current}')
+                logger.error(f'cannot set `rounds` to less than number of already run rounds '
+                    f'({self._round_current})')
+            else:
+                self._rounds = rounds
 
         # at this point self._rounds is an int
         return self._rounds
@@ -811,7 +811,7 @@ class Experiment(object):
         # _job doesn't always exist at this point
         try:
             if self._job is not None:
-                logger.warning('Experimentation folder changed, you may need to update `job`')
+                logger.debug('Experimentation folder changed, you may need to update `job`')
         except AttributeError:
             # nothing to do if not defined yet
             pass
@@ -893,7 +893,7 @@ class Experiment(object):
         try:
             self._model_path # raise exception if not defined
             if not self._model_is_defined:
-                logger.warning(f'Experiment not fully configured yet: no valid model, '
+                logger.debug(f'Experiment not fully configured yet: no valid model, '
                     f'model_class={self._model_class} model_path={self._model_path}')
         except AttributeError:
             # we don't want to issue a warning is model_path not initialized yet
@@ -903,7 +903,7 @@ class Experiment(object):
         # _job doesn't always exist at this point
         try:
             if self._job is not None:
-                logger.warning('Experimentation model_class changed, you may need to update `job`')
+                logger.debug('Experimentation model_class changed, you may need to update `job`')
         except AttributeError:
             # nothing to do if not defined yet
             pass
@@ -957,13 +957,13 @@ class Experiment(object):
 
         # self._model_path is also defined at this point
         if not self._model_is_defined:
-            logger.warning(f'Experiment not fully configured yet: no valid model, '
+            logger.debug(f'Experiment not fully configured yet: no valid model, '
                 f'model_class={self._model_class} model_path={self._model_path}')
 
         # _job doesn't always exist at this point
         try:
             if self._job is not None:
-                logger.warning('Experimentation model_path changed, you may need to update `job`')
+                logger.debug('Experimentation model_path changed, you may need to update `job`')
         except AttributeError:
             # nothing to do if not defined yet
             pass
@@ -1001,7 +1001,7 @@ class Experiment(object):
         # _job doesn't always exist at this point
         try:
             if self._job is not None:
-                logger.warning('Experimentation model_args changed, you may need to update `job`')
+                logger.debug('Experimentation model_args changed, you may need to update `job`')
         except AttributeError:
             # nothing to do if not defined yet
             pass
@@ -1068,7 +1068,7 @@ class Experiment(object):
         try:
             if self._job is not None:
                 # a job is already defined, and it may also have run some rounds
-                logger.warning(f'Experimentation `job` changed after running '
+                logger.debug(f'Experimentation `job` changed after running '
                     '{self._round_current} rounds, may give inconsistent results')
         except:
             # nothing to do if not defined yet
@@ -1077,12 +1077,12 @@ class Experiment(object):
         if self._model_is_defined is not True:
             # model not properly defined yet
             self._job = None
-            logger.warning('Experiment not fully configured yet: no job. Missing proper model '
+            logger.debug('Experiment not fully configured yet: no job. Missing proper model '
                 f'definition (model_class={self._model_class} model_path={self._model_path})')
         elif self._fds is None:
             # not training data yet
             self._job = None
-            logger.warning('Experiment not fully configured yet: no job. Missing training data')
+            logger.debug('Experiment not fully configured yet: no job. Missing training data')
         else:
             # meeting requisites for instantiating a job
             self._job = Job(reqs=self._reqs,
