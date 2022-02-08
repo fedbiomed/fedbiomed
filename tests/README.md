@@ -57,6 +57,30 @@ Remarks: **nose** could also be used to run the test (same test files as with
 unittest). One benefit is to have more option to run the test, for example
 have a coverage output, xml output for ci, etc...
 
+### How to write Unit Tests with `unittest` framework: coding conventions
+
+Mocks are objects that isolate the behaviour of an existing class and simulate it by an object less complex. Better said, Mocking is creating objects that simulate the behavior of real objects
+
+* **Patchers**: patchers are Mocking objects, that replace the call to a method
+by a specified value / method. Usually, we want that this method to be very simple in comparison to the patched method
+
+  - how to use patchers?
+    - overriding call to class constructors
+    - overriding call class method
+    - overriding call builtins functions
+  - `return_value` attribute
+  - `side_effect` attribute
+
+* **MagicMock**: a Mocking object that is behaving like a fake class. One can 
+add extra methods to this object
+  - `return_value` attribute
+  - `side_effect` attribute
+
+* **Tests**:
+  - testing returned parameters / modified class attributes
+  - testing the call of specific methods (with correct values)
+  - testing the raise of Exceptions
+  - testing the log generation
 
 ### doc on unittest
 
