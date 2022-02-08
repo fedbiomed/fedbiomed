@@ -595,7 +595,7 @@ class Experiment(object):
         """ Setter for aggregator + verification on arguments type
 
         Args:
-            - aggregator (Union[Aggregator, Type[Aggregator], None], optional):
+            - aggregator (Union[Aggregator, Type[Aggregator], None]):
                 object or class defining the method for aggregating local updates.
                 Default to None (use `FedAverage` for aggregation)
         
@@ -639,7 +639,7 @@ class Experiment(object):
         """ Setter for `node_selection_strategy` + verification on arguments type
 
         Args:
-            - node_selection_strategy (Union[Strategy, Type[Strategy], None], optional):
+            - node_selection_strategy (Union[Strategy, Type[Strategy], None]):
                 object or class defining how nodes are sampled at each round
                 for training, and how non-responding nodes are managed.
                 Defaults to None:
@@ -692,7 +692,7 @@ class Experiment(object):
         """Setter for `rounds` + verification on arguments type
 
         Args:
-            - rounds (int, optional): the total number of training rounds
+            - rounds (int): the total number of training rounds
                 (nodes <-> central server) of the experiment.
 
         Raise:
@@ -731,13 +731,48 @@ class Experiment(object):
     #   change state of aggregator, strategy, etc... == the proper way of doing it is to
     #   load a breakpoint
 
+    # private 'setter' needed when loading experiment - should not be made public
+    @exp_exceptions
+    def _set_round_current(self, round_current: int) -> int:
+        """Private setter for `round_current` + verification on arguments type
+
+        Args:
+            - round_current (int): the number of already completed training rounds
+                in the experiment.
+
+        Raise:
+            - FedbiomedExperimentError : bad round_current type or value
+
+        Returns:
+            - round_current (int)
+        """
+        # at this point self._round_current exists and is an int >= 0
+        if not isinstance(round_current, int):
+            self._round_current = 0 # robust default
+            msg = ErrorNumbers.FB410.value + f' `round_current` : {type(round_current)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)            
+        else:
+            # at this point self._rounds is an int
+            if round_current < 0 or round_current > self._rounds:
+                self._round_current = 0 # robust default
+                msg = ErrorNumbers.FB410.value + f' `round_current` : {round_current}'
+                logger.critical(msg)
+                raise FedbiomedExperimentError(msg) 
+            else:
+                # correct value
+                self._round_current = round_current
+
+        # at this point self._rounds is an int
+        return self._round_current
+
 
     @exp_exceptions
     def set_experimentation_folder(self, experimentation_folder: Union[str, None]) -> str:
         """Setter for `experimentation_folder` + verification on arguments type
 
         Args:
-            - experimentation_folder (Union[str, None], optional): 
+            - experimentation_folder (Union[str, None]): 
 
         Raise:
             - FedbiomedExperimentError : bad experimentation_folder type
@@ -780,7 +815,7 @@ class Experiment(object):
         """Setter for `model_class` + verification on arguments type
 
         Args:
-            - model_class (Union[Type_TrainingPlan, str, None], optional): name of the model class
+            - model_class (Union[Type_TrainingPlan, str, None]): name of the model class
                 (`str`) or model class (`Type_TrainingPlan`) to use for training.
                 For experiment to be properly and fully defined `model_class` needs to be:
                 - a `str` when `model_path` is not None (model class comes from a file).
@@ -871,10 +906,9 @@ class Experiment(object):
         """Setter for `model_path` + verification on arguments type
 
         Args:
-            - model_path (Union[str, None], optional) : path to a file containing
+            - model_path (Union[str, None]) : path to a file containing
                 model code (`str`) or None (no file containing model code, `model_class`
-                needs to be a class matching `Type_TrainingPlan`)
-                Defaults to None. 
+                needs to be a class matching `Type_TrainingPlan`) 
 
         Raise:
             - FedbiomedExperimentError : bad model_path type
@@ -934,10 +968,9 @@ class Experiment(object):
         """Setter for `model_args` + verification on arguments type
 
         Args:
-            - model_args (dict, optional): contains model arguments passed to the constructor
+            - model_args (dict): contains model arguments passed to the constructor
                 of the training plan when instantiating it : output and input feature
                 dimension, etc.
-                Defaults to {}.
 
         Raise:
             - FedbiomedExperimentError : bad model_args type
@@ -973,10 +1006,9 @@ class Experiment(object):
         """Setter for `training_args` + verification on arguments type
 
         Args:
-            - training_args (dict, optional): contains training arguments passed to the 
+            - training_args (dict): contains training arguments passed to the 
                 `training_routine` of the training plan when launching it:
                 lr, epochs, batch_size...
-                Defaults to {}.
 
         Raise:
             - FedbiomedExperimentError : bad training_args type
@@ -1065,10 +1097,9 @@ class Experiment(object):
         """ Setter for save_breakpoints + verification on arguments type
 
         Args:
-            - save_breakpoints (bool, optional): whether to save breakpoints or
+            - save_breakpoints (bool): whether to save breakpoints or
                 not after each training round. Breakpoints can be used for resuming
                 a crashed experiment.
-                Defaults to False.
         
         Raises:
             - FedbiomedExperimentError : bad save_breakpoints type
@@ -1094,7 +1125,7 @@ class Experiment(object):
         """ Setter for monitoring in tensorboard + verification on arguments type
 
         Args:
-            - tensorboard (bool, optional): whether to save scalar values 
+            - tensorboard (bool): whether to save scalar values 
                 for displaying in Tensorboard during training for each node.
                 Currently it is only used for loss values.
                 * If it is true, monitor instantiates a `Monitor` object that write
@@ -1531,10 +1562,10 @@ class Experiment(object):
 
         # -----  retrieve breakpoint training data ---
         bkpt_fds = saved_state.get('training_data')
-        # FederatedDataSet will be instantiated in Experiment.__init__() 
-        # applying checks. More checks to verify the structure/content of
-        # saved_state.get('training_data' should be added in FederatedDataSet.__init__()
-        # when refactoring it
+        # keeping bkpt_fds a dict so that FederatedDataSet will be instantiated
+        # in Experiment.__init__() applying some type checks.
+        # More checks to verify the structure/content of saved_state.get('training_data')
+        # should be added in FederatedDataSet.__init__() when refactoring it
 
         # -----  retrieve breakpoint sampling strategy ----
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
@@ -1561,8 +1592,7 @@ class Experiment(object):
                          )
 
         # ------- changing `Experiment` attributes -------
-        loaded_exp._round_current = saved_state.get('round_number')
-        # TODO : private method for
+        loaded_exp._set_round_current(saved_state.get('round_number'))
 
         #TODO: checks when loading parameters
         loaded_exp._aggregated_params = loaded_exp._load_aggregated_params(
@@ -1572,10 +1602,11 @@ class Experiment(object):
 
         # ------- changing `Job` attributes -------
         loaded_exp._job.load_state(saved_state.get('job'))
-        # nota: exceptions should be handled in job, when refactoring it
+        # nota: exceptions should be handled in Job, when refactoring it
 
         logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp
+
 
     @staticmethod
     @exp_exceptions
@@ -1619,6 +1650,7 @@ class Experiment(object):
             aggregated_params[key] = {'params_path': params_path}
 
         return aggregated_params
+
 
     @staticmethod
     @exp_exceptions
