@@ -1,6 +1,8 @@
 import sys
 from io import StringIO
 import inspect
+from typing import Iterator, Union
+
 from joblib import dump, load
 import numpy as np
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
@@ -13,29 +15,36 @@ class _Capturer(list):
     when the verbose is set to true.
     """
     def __enter__(self):
+        sys.stdout.flush()
         self._stdout = sys.stdout
         sys.stdout = self._stringio = StringIO()
         return self
+
     def __exit__(self, *args):
         self.extend(self._stringio.getvalue().splitlines())
         del self._stringio    # Remove it from memory
         sys.stdout = self._stdout
 
-class SGDSkLearnModel():
 
-    def set_init_params(self, kwargs):
+class SGDSkLearnModel():
+    
+    def set_init_params(self, model_args):
         """
             Initialize model parameters
-            :param kwargs (dictionary) containing model parameters
+
+            Args:
+            - model_args (dict) : model parameters
         """
         if self.model_type in ['SGDRegressor']:
             self.param_list = ['intercept_','coef_']
             init_params = {'intercept_': np.array([0.]),
-                           'coef_':  np.array([0.]*kwargs['n_features'])}
+                           'coef_':  np.array([0.]*model_args['n_features'])}
         elif self.model_type in ['Perceptron', 'SGDClassifier']:
             self.param_list = ['intercept_','coef_']
-            init_params = {'intercept_': np.array([0.]) if (kwargs['n_classes'] == 2) else np.array([0.]*kwargs['n_classes']),
-                           'coef_':  np.array([0.]*kwargs['n_features']).reshape(1,kwargs['n_features']) if (kwargs['n_classes'] == 2) else np.array([0.]*kwargs['n_classes']*kwargs['n_features']).reshape(kwargs['n_classes'],kwargs['n_features'])  }
+            init_params = {
+                'intercept_': np.array([0.]) if (model_args['n_classes'] == 2) else np.array([0.]*model_args['n_classes']),
+                'coef_':  np.array([0.]*model_args['n_features']).reshape(1,model_args['n_features']) if (model_args['n_classes'] == 2) else np.array([0.]*model_args['n_classes']*model_args['n_features']).reshape(model_args['n_classes'],model_args['n_features'])
+            }
 
         for p in self.param_list:
             setattr(self.m, p, init_params[p])
@@ -43,7 +52,7 @@ class SGDSkLearnModel():
         for p in self.params_sgd:
             setattr(self.m, p, self.params_sgd[p])
 
-    def partial_fit(self,X,y):
+    def partial_fit(self,X,y): # seems unused
         """
             Provide partial fit method of scikit learning model here.
             :param X (ndarray)
@@ -68,57 +77,125 @@ class SGDSkLearnModel():
         """
         return {key: getattr(self.m, key) for key in self.param_list}
 
-    def training_routine(self, epochs=1, monitor=None):
+    def _compute_support(self, targets: np.ndarray) -> np.ndarray:
+        """
+        Computes support, i.e. the number of items per
+        classes. It is designed from the way scikit learn linear model 
+        `fit_binary` and `_prepare_fit_binary` have been implemented.
+        
+        Args:
+            targets (np.ndarray): targets that contains labels 
+            used for training models
+
+        Returns:
+            np.ndarray: support 
+        """
+        support = np.zeros((len(self.m.classes_), ))
+        # please visit https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324
+        # and https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L738 
+        # to see how multi classfication is done in sklearn
+        for i, aclass in enumerate(self.m.classes_):
+            # in sklearn code, in `fit_binary1`, `i`` seems to be 
+            # iterated over model.classes_
+            # (https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L774)
+            # We cannot directly know for each loss that has been logged from scikit learn
+            #  which labels it corresponds to. This is our best guest
+            idx = targets == aclass
+            support[i] = np.sum(targets[targets[idx]])
+        return support
+    
+    def training_routine(self,
+                         epochs=1,
+                         monitor=None,
+                         node_args: Union[dict, None] = None):
         """
             Method training_routine called in Round, to change only if you know what you are doing.
-            :param epochs (integer)
-        """
+
+            Args:
+            - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
+            - monitor ([type], optional): [description]. Defaults to None.
+            - node_args (Union[dict, None]): command line arguments for node. Can include:
+                - gpu (bool): propose use a GPU device if any is available. Default False.
+                - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
+                    GPU device if this GPU device is available. Default None.
+                - gpu_only (bool): force use of a GPU device if any available, even if researcher
+                    doesnt request for using a GPU. Default False.
+        """        
+        # issue warning if GPU usage is forced by node : no GPU support for sklearn training
+        # plan currently
+        if node_args is not None and node_args.get('gpu_only', False):
+            logger.warning('Node would like to force GPU usage, but sklearn training plan '
+                + 'does not support it. Training on CPU.')
+
+        #
+        # perform sklearn training
+        #
         (data, target) = self.training_data()
+        classes = np.unique(target)
         for epoch in range(epochs):
             with _Capturer() as output:
                 if self.model_type == 'MultinomialNB' or self.model_type == 'BernoulliNB' or self.model_type == 'Perceptron' or self.model_type == 'SGDClassifier' or self.model_type == 'PassiveAggressiveClassifier' :
-                    self.m.partial_fit(data,target, classes = np.unique(target))
+                    self.m.partial_fit(data,target, classes = classes)
+                    self._is_classif = True
                 elif self.model_type == 'SGDRegressor' or self.model_type == 'PassiveAggressiveRegressor':
                     self.m.partial_fit(data,target)
                 elif self.model_type == 'MiniBatchKMeans' or self.model_type == 'MiniBatchDictionaryLearning':
                     self.m.partial_fit(data)
             
             if monitor is not None:
+                _loss_collector = []
+                if self._is_classif:
+                    if classes.shape[0] < 3:
+                        # check whether it is a binary classification
+                        # or a multiclass classification
+                        self._is_binary_classif = True
                 if self.model_type in self._verbose_capture:
                     for line in output:
+                        # line is of type 'str'
                         if(len(line.split("loss: ")) == 1):
                             continue
                         try:
                             loss = line.split("loss: ")[-1]
-                            
+                            _loss_collector.append(float(loss))
                             # Logging loss values with global logger 
                             logger.info('Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}'.format(
                                             epoch,
                                             float(loss)))
                             
-                            # Batch -1 means Batch Gradient Descent, use all samples
-                            # This part should be changed after mini-batch implementation is completed
-                            monitor.add_scalar('Loss', float(loss), -1 , epoch)
-
                         except ValueError as e:
-                            logger.error("Value error:" + e)
+                            logger.error("Value error during monitoring:" + e)
                         except Exception as e:
                             logger.error("Error during monitoring:" + e)
+
+                    if self._is_classif and not self._is_binary_classif:
+                        # WARNING: only for plain SGD models in scikit learn
+                        # if other models are implemented, should be updated
+                        support = self._compute_support(target)
+                        loss = np.average(_loss_collector, weights=support)  # perform a weighted average
+                        
+                        logger.warning("Loss plot displayed on Tensorboard may be inaccurate (due to some plain" +
+                                        " SGD scikit learn limitations)")
+                    # Batch -1 means Batch Gradient Descent, use all samples
+                    # TODO: This part should be changed after mini-batch implementation is completed
+                    monitor.add_scalar('Loss', float(loss), -1 , epoch)
+
                 elif self.model_type == "MiniBatchKMeans":
                     # Passes inertia value as scalar. It should be emplemented when KMeans implementation is ready 
                     # monitor.add_scalar('Inertia', self.m.inertia_, -1 , epoch)
                     pass
                 elif self.model_type in ['MultinomialNB','BernoulliNB']:
-                    # Need to find a way for Bayesian approaches 
+                    # TODO: Need to find a way for Bayesian approaches 
                     pass
 
+    def __init__(self, model_args: dict = {}):
+        """
+        Class initializer.
 
-    def __init__(self,kwargs):
+        Args:
+        - model_args (dict, optional): model arguments.
         """
-           Class initializer.
-           :param kwargs (dictionary) containing model parameters
-        """
-        self.batch_size = 100
+        #sklearn.utils.parallel_backend("locky", n_jobs=1, inner_max_num_threads=1)
+        self.batch_size = 100  #unused
         self.model_map = {'MultinomialNB', 'BernoulliNB', 'Perceptron', 'SGDClassifier', 'PassiveAggressiveClassifier',
                           'SGDRegressor', 'PassiveAggressiveRegressor', 'MiniBatchKMeans',
                           'MiniBatchDictionaryLearning'}
@@ -128,10 +205,15 @@ class SGDSkLearnModel():
                                 "import numpy as np",
                                 "import pandas as pd",
                              ]
-        if kwargs['model'] not in self.model_map:
-            logger.error('model must be one of, ' +  str(self.model_map))
+        
+        # default value if passed argument with incorrect type
+        if not isinstance(model_args, dict):
+            model_args = {}
+
+        if 'model' not in model_args or model_args['model'] not in self.model_map:
+            logger.error('model must be one of, ' + str(self.model_map))
         else:
-            self.model_type = kwargs['model']
+            self.model_type = model_args['model']
 
             # Sklearn mothods that returns loss value when the verbose flag is provided
             self._verbose_capture = ['Perceptron', 'SGDClassifier', 
@@ -139,21 +221,25 @@ class SGDSkLearnModel():
                                      'SGDRegressor', 
                                      'PassiveAggressiveRegressor']
 
-            # Add verbosity in kwargs if not and model is in verbose capturer
-            if 'verbose' not in kwargs and kwargs['model'] in self._verbose_capture:
-                kwargs['verbose'] = 1
+            # Add verbosity in model_args if not and model is in verbose capturer
+            # TODO: check this - verbose doesn't seem to be used ?
+            if 'verbose' not in model_args and model_args['model'] in self._verbose_capture:
+                model_args['verbose'] = 1
             
-            elif kwargs['model'] not in self._verbose_capture:
+            elif model_args['model'] not in self._verbose_capture:
                 logger.info("[TENSORBOARD ERROR]: cannot compute loss for " +\
-                    kwargs['model'] + ": it needs to be implemeted")
+                    model_args['model'] + ": it needs to be implemeted")
+                
             self.m = eval(self.model_type)()
             self.params_sgd = self.m.get_params()
-            from_kwargs_sgd_proper_pars = {key: kwargs[key] for key in kwargs if key in self.params_sgd}
-            self.params_sgd.update(from_kwargs_sgd_proper_pars)
+            from_args_sgd_proper_pars = {key: model_args[key] for key in model_args if key in self.params_sgd}
+            self.params_sgd.update(from_args_sgd_proper_pars)
             self.param_list = []
-            self.set_init_params(kwargs)
+            self.set_init_params(model_args)
             self.dataset_path = None
-
+            self._is_classif = False  # whether the model selected is a classifier or not
+            self._is_binary_classif = False  # whether the classification is binary or multi classes 
+            # (for classification only)
 
     # provided by fedbiomed // necessary to save the model code into a file
     def add_dependency(self, dep):

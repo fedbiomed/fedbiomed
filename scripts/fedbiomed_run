@@ -24,7 +24,90 @@ eval "$(conda shell.bash hook)"
 basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit
 
-#
+
+
+# Colors
+RED='\033[0;31m' #red
+YLW='\033[1;33m' #yellow
+NC='\033[0m' #no color
+
+# Default GUI host and port variables
+GUI_HOST="localhost"
+GUI_PORT="8484"
+GUI_DEBUG=False
+# Script for starting GUI
+function start_gui() {
+    # Check config file status
+    if [ -n "$CONFIG_FILE" ]; then
+      echo -e "${YLW}INFO${NC}: Using $CONFIG_FILE file as GUI node config"
+    else
+      CONFIG_FILE="config_node.ini"
+      echo -e "${YLW}INFO${NC}: Config file has not been provided, default config 'config_node.ini' will be used for GUI"
+    fi
+
+    # Configure data path
+    if [ ! -n "$DATA_PATH" ]; then
+      DATA_PATH="data"
+      echo -e "${YLW}INFO${NC}: Data path has not been provided. Trying to use FEDBIOMED_ROOT/data dir"
+      if [ ! -d "$basedir/$DATA_PATH" ]; then
+        echo "ERROR: 'data' folder does not exist in Fed-BioMed root"
+        exit 1
+      fi
+    else
+        # If the path is absolute
+        if [[ $DATA_PATH == /* ]]; then
+            if [[ ! -d "$DATA_PATH" ]]; then
+              echo -e "${RED}ERROR${NC}: folder '$DATA_PATH' does not exist. Can not continue.\n"
+              exit 1
+            fi
+        # If the path is relative
+        else
+            if [ ! -d "$basedir/$DATA_PATH" ]; then
+              echo -e "${RED}ERROR${NC}: folder '$basedir/${DATA_PATH}' does not exist. Can not continue.\n"
+              exit 1
+            else
+              DATA_PATH="$(cd "$basedir/$DATA_PATH" && pwd)"
+            fi
+            echo "$DATA_PATH"
+        fi
+    fi
+
+    # Activate Fed-BioMed GUI environment
+    source ./scripts/fedbiomed_environment gui
+
+    # Install npm modules
+    echo -e "${YLW}INFO${NC}: Controlling react bundle and modules"
+    cd ./gui/ui
+
+    # Create bundle if there is no build directory/node_modules or recreate is active
+    if  [ ! -d "$basedir/gui/ui/node_modules" ] || [ ! -d "$basedir/var/gui-build" ] || [ -n "$RECREATE" ];then
+        echo -e "${YLW}INFO${NC}: Installing npm modules"
+        npm install || exit
+
+        echo -e "${YLW}INFO${NC}: Building Fed-BioMed GUI"
+        npm run build || exit
+
+        if [ -d "$basedir/var/gui-build" ];then
+          rm -Rf "$basedir/var/gui-build";
+        fi
+
+        mv "$basedir/gui/ui/build/" "$basedir/var/gui-build"
+    fi
+
+    cd ../server
+    # Starting flask
+    echo -e "${YLW}INFO:${NC} Starting Flask Server and API services...."
+    FEDBIOMED_ROOT="$basedir" \
+      NODE_CONFIG_FILE="$CONFIG_FILE" \
+      BUILD_DIR="$basedir/var/gui-build" \
+      DATA_PATH="$DATA_PATH" \
+      HOST="$GUI_HOST" \
+      PORT="$GUI_PORT" \
+      DEBUG="$GUI_DEBUG" \
+      FLASK_ENV="development" \
+      python app.py
+}
+
 case $1 in
 
     network)
@@ -36,7 +119,60 @@ case $1 in
           docker-compose build restful mqtt
         docker-compose up -d restful mqtt
         ;;
-
+    gui)
+        while true ; do
+            case $2 in
+              config|--config|-c)
+                    if [ $# -lt 3 ] ; then
+                        echo -e "${RED}ERROR${NC}: missing config file name"
+                        exit 1
+                    fi
+                    CONFIG_FILE=$3
+                    shift
+                    shift
+              ;;
+              data-folder|--data-folder|-df)
+                  if [ $# -lt 3 ] ; then
+                      echo -e "${RED}ERROR${NC}: missing data folder path"
+                      exit 1
+                  fi
+                  DATA_PATH="$3"
+                  shift
+                  shift
+                  ;;
+              port|--port |-p)
+                  GUI_PORT="$3"
+                  shift
+                  shift
+                  ;;
+              host|--host|-h)
+                  GUI_HOST="$3"
+                  shift
+                  shift
+                  ;;
+              recreate | --recreate | -rc )
+                  RECREATE=True
+                  shift
+                  ;;
+              debug|--debug|-dbg)
+                  GUI_DEBUG=True
+                  shift
+                  ;;
+              *)
+                  break
+                  ;;
+            esac
+        done
+        case $2 in
+            start)
+                start_gui
+                ;;
+            *)
+              echo -e "${RED}ERROR:${NC}: Node GUI command should be used with start. Please make sure that your command is correct"
+              exit 1
+              ;;
+        esac
+      ;;
     node)
 
         while true ; do
@@ -211,7 +347,8 @@ usage: fedbiomed_run network
        fedbiomed_run researcher [ip_address IP_ADDRESS]
        fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-model-approval | disable-model-approval | allow-default-models | disable-default-models ]
                          (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | register-model | delete-model | update-model) PARAMS
-
+        febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | host IP_ADDRESS | port PORT | --recreate]
+                         (start)
 
 Runs the fedbiomed components after properly initializing the environments.
 The component name is mandatory.
@@ -229,7 +366,7 @@ node      : a second argument is mandatory
             - add-mnist PATH_TO_DATASET non-interactively adds a mnist dataset
             - add-dataset-from-file PATH_TO_JSON_FILE non-interactively adds a dataset
                 described in a json file with the following format
-                
+
                 {
                     "path": "/path/to/dataset",
                     "data_type": "csv|default|images",
@@ -257,12 +394,27 @@ node      : a second argument is mandatory
             - allow-default-models      | --allow-default-models    : to allow default model for model approval mode
             - disable-model-approval    | --disable-model-approval  : to disable model approval mode
             - disable-default-models    | --disable-default-models  : to disable default models for model approval mode
+gui       :
+            Options:
+            - data-folder | --data-folder | -df  [<path>]   : Folder that data files are stored, by default script will
+                                                              look for `data` in Fed-BioMed directory
+            - config      | --config      | -c   [<config>] : Name of the node's config file. GUI will be configured
+                                                              based on given config file. By default, `config_node.ini`.
+                                                              If config file doesn't exist script will raise an error.
+            - port        | --port        | -p   [<port>]   : HTTP port that GUI will be served. Default is `8484`
+            - host        | --host        | -h   [<host>]   : HTTP host that GUI will be served, Default is `localhost`
+            - recreate    | --recreate    | -rc             : Flag that indicates, UI will be rebuilt while launching
+                                                              the GUI. Use this option if you have updated UI scripts.
+            - debug       | --debug       | -dbg            : Flag that will start Flask (Server) in debug mode.
+
+            Commands:
+            - start: Launches the Node GUI with given options.
 
 EOF
         ;;
 
     *)
-        echo "Please specify the component you want to run between: network, node, researcher"
+        echo "Please specify the component you want to run between: network, node, researcher, gui"
         exit -1
         ;;
 esac

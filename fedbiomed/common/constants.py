@@ -1,3 +1,10 @@
+'''
+all the fedbiomed constants/enums
+
+do not import other fedbiomed packages here to avoid dependancy loop
+'''
+
+
 from enum import Enum
 
 
@@ -85,6 +92,7 @@ class ErrorNumbers(_BaseEnum):
     FB310 = "FB310: bad data format"
     FB311 = "FB311: receiving a new computation request during a running computation"
     FB312 = "FB312: Node stopped in SIGTERM signal handler"
+    FB313 = "FB313: no dataset matching request"
 
     # application error on researcher
 
@@ -103,6 +111,12 @@ class ErrorNumbers(_BaseEnum):
 
     FB500 = "FB500: undetermined node error, detected by server"
     FB501 = "FB501: node not reacheable"
+
+    # general application errors (common to node/researcher/..)
+
+    FB600 = "FB600: environ error"
+    FB601 = "FB601: message error"
+    FB602 = "FB602: logger error"
 
     # oops
 

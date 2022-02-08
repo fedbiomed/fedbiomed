@@ -1,5 +1,13 @@
 # Fed-BioMed changelog
 
+## 2022-XX-YY version 3.4
+
+- add single GPU training support for PyTorch
+- add a gui to manage data on nodes
+- update of sklearn sgdregressor notebook
+- update of monai notebook
+- Tensorboard fixes
+
 ## 2022-01-07 version 3.3
 
 - add MONAI support and example notebooks

@@ -4,8 +4,8 @@ import uuid
 from typing import List, Tuple, Dict, Any
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedStrategyError
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.exceptions import DefaultStrategyException
 from fedbiomed.researcher.strategies.strategy import Strategy
 
 
@@ -62,7 +62,7 @@ class DefaultStrategy(Strategy):
                 logger.error(ErrorNumbers.FB407.value)
                 error = ErrorNumbers.FB407
 
-            raise DefaultStrategyException(ErrorNumbers.FB402.value)
+            raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
 
         # check that all nodes that answer could successfully train
         self._success_node_history[round_i] = []
@@ -82,7 +82,7 @@ class DefaultStrategy(Strategy):
                              )
 
         if not all_success:
-            raise DefaultStrategyException(ErrorNumbers.FB402.value)
+            raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
 
 
         # so far, everything is OK
@@ -90,4 +90,3 @@ class DefaultStrategy(Strategy):
         weights = [val[0]["shape"][0] / totalrows for (key,val) in self._fds.data().items()]
         logger.info('Nodes that successfully reply in round ' + str(round_i) + ' ' + str(self._success_node_history[round_i] ))
         return models_params, weights
-
