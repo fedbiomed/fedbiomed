@@ -13,6 +13,7 @@ from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.message import ResearcherMessages
+from fedbiomed.common.tasks_queue import exceptionsEmpty
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -37,6 +38,8 @@ class TestRequest(unittest.TestCase):
         self.message_init.return_value = None
         self.message_start.return_value = None
         self.message_send.return_value = None
+
+        self.requests = Requests()
 
     def tearDown(self):
 
@@ -87,9 +90,6 @@ class TestRequest(unittest.TestCase):
                                    mock_print_node_log_message):
         """ Testing different scenarios for on_message methods """
 
-        # Build reqeust
-        req = Requests()
-
         msg_logger = {'researcher_id': 'DummyID',
                       'node_id': 'DummyNodeID',
                       'level': 'critical',
@@ -98,7 +98,7 @@ class TestRequest(unittest.TestCase):
 
         # Get researcher reply for `assert_called_with`
         reply_logger = ResearcherMessages.reply_create(msg_logger).get_dict()
-        req.on_message(msg_logger, topic='general/logger')
+        self.requests.on_message(msg_logger, topic='general/logger')
 
         # Check the method has been called
         mock_print_node_log_message.assert_called_once_with(reply_logger)
@@ -110,7 +110,7 @@ class TestRequest(unittest.TestCase):
                                 'node_id': 'DummyNodeID',
                                 'command': 'search'}
 
-        req.on_message(msg_researcher_reply, topic='general/researcher')
+        self.requests.on_message(msg_researcher_reply, topic='general/researcher')
         # Get researcher reply for `assert_called_with`
         reply_researcher = ResearcherMessages.reply_create(msg_researcher_reply).get_dict()
         mock_task_add.assert_called_once_with(reply_researcher)
@@ -129,13 +129,100 @@ class TestRequest(unittest.TestCase):
         # Get researcher reply for `assert_called_with`
         reply_monitor = ResearcherMessages.reply_create(msg_monitor).get_dict()
         # Add callback for monitoring
-        req.add_monitor_callback(monitor_callback)
-        req.on_message(msg_monitor, topic='general/monitoring')
+        self.requests.add_monitor_callback(monitor_callback)
+        self.requests.on_message(msg_monitor, topic='general/monitoring')
         monitor_callback.assert_called_once_with(reply_monitor)
 
         # Test when the topic is unkown, it should call logger to log error
-        req.on_message(msg_monitor, topic='unknown/topic')
+        self.requests.on_message(msg_monitor, topic='unknown/topic')
         mock_logger_error.assert_called_once()
+
+        # Test invalid `on_message calls`
+        with self.assertRaises(Exception):
+            self.requests.on_message()
+            self.requests.on_message(msg_monitor)
+            self.requests.on_message(topic='unknown/topic')
+
+    @patch('fedbiomed.common.logger.logger.info')
+    def test_request_04_print_node_log_message(self, mock_logger_info):
+        """ Testing printing log messages that comes from node """
+
+        msg_logger = {'researcher_id': 'DummyID',
+                      'node_id': 'DummyNodeID',
+                      'level': 'critical',
+                      'msg': '{"message" : "Dummy Message"}',
+                      'command': 'log'}
+        self.requests.print_node_log_message(msg_logger)
+        mock_logger_info.assert_called_once()
+
+        with self.assertRaises(Exception):
+            self.requests.print_node_log_message()
+
+    @patch('fedbiomed.common.logger.logger.debug')
+    def test_request_05_send_message(self, mock_logger_debug):
+        """ Testing send message method of Request """
+
+        self.requests.send_message({}, None)
+        self.requests.send_message({}, 'NodeID')
+
+        self.assertEqual(self.message_send.call_count, 2)
+        self.assertEqual(mock_logger_debug.call_count, 2)
+
+        # Test invalid call of send_message
+        with self.assertRaises(Exception):
+            self.requests.send_message()
+
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.qsize')
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
+    @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
+    def test_request_06_get_messages(self,
+                                     mock_task_get,
+                                     mock_task_task_done,
+                                     mock_task_qsize):
+
+        mock_task_qsize.return_value = 1
+        mock_task_task_done.return_value = None
+
+        # Test with empty Task
+        self.requests.get_messages(commands=['search'])
+        mock_task_get.return_value = {}
+
+        # Test with task
+        data = {"command": 'train'}
+        mock_task_get.return_value = data
+        response = self.requests.get_messages(commands=['train'])
+
+        # Check methods are called
+        self.assertEqual(mock_task_task_done.call_count, 2)
+        self.assertEqual(mock_task_get.call_count, 2)
+
+        # Check result of the get_messages
+        self.assertListEqual(response.data, [data], 'get_messages result is set correctly')
+
+        # Test try/except block when .get() method exception
+        mock_task_get.side_effect = exceptionsEmpty()
+        self.requests.get_messages(commands=['test-1'])
+
+        # Test try/except block when .task_done() method raises exception
+        mock_task_get.side_effect = None
+        mock_task_task_done.side_effect = exceptionsEmpty
+        self.requests.get_messages(commands=['test-2'])
+
+    @patch('fedbiomed.researcher.requests.Requests.get_messages')
+    def test_request_07_get_responses(self, mock_get_messages):
+
+        call = 0
+
+        def get_messages_side_effect(call):
+            if call == 0:
+                call += 1
+                return Responses([[{'command': 'test', 'success': True}]])
+            else:
+                return Responses([])
+
+        mock_get_messages.side_effect = [Responses([{'command': 'test', 'success': True}]), Responses([])]
+        responses = self.requests.get_responses(look_for_commands='test', timeout=0.1)
+        
 
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     def test_request_04_list(self, request_get_response):
