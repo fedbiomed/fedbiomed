@@ -1610,10 +1610,17 @@ class Experiment(object):
         loaded_exp._set_round_current(saved_state.get('round_number'))
 
         #TODO: checks when loading parameters
-        loaded_exp._aggregated_params = loaded_exp._load_aggregated_params(
-            saved_state.get('aggregated_params'),
-            loaded_exp.model_instance().load
-        )
+        model_instance = loaded_exp.model_instance()
+        if model_instance is None:
+            msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
+                f'breakpoint file seems corrupted, `model_instance` is None'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+        else:
+            loaded_exp._aggregated_params = loaded_exp._load_aggregated_params(
+                saved_state.get('aggregated_params'),
+                model_instance.load
+            )
 
         # ------- changing `Job` attributes -------
         loaded_exp._job.load_state(saved_state.get('job'))
@@ -1683,16 +1690,37 @@ class Experiment(object):
         Returns:
             - Dict[int, dict] : reconstructed aggregated params from breakpoint
         """
+        # check arguments type
+        if not isinstance(aggregated_params, dict):
+            msg = ErrorNumbers.FB413.value + f' - load failed. ' + \
+                f'Bad type for aggregated params, should be `dict` not {type(aggregated_params)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+        if not callable(func_load_params):
+            msg = ErrorNumbers.FB413.value + f' - load failed. ' + \
+                f'Bad type for aggregated params loader function, ' + \
+                f'should be `Callable` not {type(func_load_params)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)        
+
         # needed for iteration on dict for renaming keys
         keys = [key for key in aggregated_params.keys()]
         # JSON converted all keys from int to string, need to revert
-        for key in keys:
-            aggregated_params[int(key)] = aggregated_params.pop(key)
+        try:
+            for key in keys:
+                aggregated_params[int(key)] = aggregated_params.pop(key)
+        except (TypeError, ValueError) as e:
+            msg = ErrorNumbers.FB413.value + f' - load failed. ' + \
+                f'Bad key {str(key)} in aggregated params, should be convertible to int'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
 
         for aggreg in aggregated_params.values():
             aggreg['params'] = func_load_params(aggreg['params_path'], to_params=True)
+            # errors should be handled in training plan loader function
 
         return aggregated_params
+
 
     # TODO: factorize code with Job and node
     @staticmethod
