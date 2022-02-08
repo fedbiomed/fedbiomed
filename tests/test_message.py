@@ -9,7 +9,7 @@ import unittest
 from dataclasses import dataclass
 import sys
 
-from fedbiomed.common.exceptions import MessageException
+from fedbiomed.common.exceptions import FedbiomedMessageError
 import fedbiomed.common.message    as message
 
 # we also want to test the decorator
@@ -123,14 +123,14 @@ class TestMessage(unittest.TestCase):
         try:
             m1 = self.DummyMessage( a = False , b = "oh my god !")
 
-        except MessageException as e:
+        except FedbiomedMessageError as e:
             #
             # we must arrive here, because message is malformed
             bad_result = True
 
         except Exception as e:
             # we should not arrive here also
-            self.assertTrue(False, "bad exception caught: " + e.__class__.__name__ + " instead of MessageException")
+            self.assertTrue(False, "bad exception caught: " + e.__class__.__name__ + " instead of FedbiomedMessageError")
 
         self.assertTrue( bad_result,
                          "dummyMessage: bad params not detected")
@@ -141,7 +141,7 @@ class TestMessage(unittest.TestCase):
         try:
             m2 = self.DummyMessage(1, "foobar", False)
 
-        except MessageException as e:
+        except FedbiomedMessageError as e:
             #
             # we must arrive here, because message is malformed
             bad_result = True
