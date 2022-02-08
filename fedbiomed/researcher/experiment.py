@@ -1514,11 +1514,6 @@ class Experiment(object):
                 f'`breakpoint_folder_path` has bad type {type(breakpoint_folder_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-        if not issubclass(cls, Experiment):
-            msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
-                f'`Experiment` class has bad type {type(cls)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
 
         # get breakpoint folder path (if it is None) and state file
         breakpoint_folder_path, state_file = find_breakpoint_path(breakpoint_folder_path)
