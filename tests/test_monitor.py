@@ -109,7 +109,7 @@ class TestMonitor(unittest.TestCase):
 
         mocking_summary_writer_add_scalar.assert_called_once()
         self.assertEqual(monitor._event_writers[node_id]['step'], 3)
-        self.assertEqual(monitor._event_writers[node_id]['stepper'], 3)
+        self.assertEqual(monitor._event_writers[node_id]['stepper'], 0)
         self.assertEqual(monitor._event_writers[node_id]['step_state'], 0)
 
         del monitor
