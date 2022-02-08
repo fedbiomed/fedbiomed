@@ -183,9 +183,9 @@ class TorchTrainingPlan(nn.Module):
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
         self.data = self.training_data(batch_size=batch_size)
-        
+
         try:
-            self.preprocess() # Check whether preprocess method exists, and use it 
+            self.preprocess() # Check whether preprocess method exists, and use it
         except AttributeError:
             # Method does not exist; skip
             pass
@@ -200,7 +200,14 @@ class TorchTrainingPlan(nn.Module):
                 self.optimizer.zero_grad()
                 # (below) calling method `training_step` defined on
                 # researcher's notebook
-                res = self.training_step(data, target)
+                try:
+                    res = self.training_step(data, target)
+                except AttributeError:
+                    # Method does not exist -> quit
+                    # TODO: raise an exception ? new error number ?
+                    logger.critical("training_step method not provided by the model")
+                    break
+
                 res.backward()
                 self.optimizer.step()
 
@@ -290,7 +297,7 @@ class TorchTrainingPlan(nn.Module):
         """
         if params is not None:
             try:
-                params = self.postprocess(params) # Check whether postprocess method exists, and use it 
+                params = self.postprocess(params) # Check whether postprocess method exists, and use it
             except AttributeError:
                 # Method does not exist; skip
                 pass
