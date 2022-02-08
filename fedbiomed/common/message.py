@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Dict, Any, List, Union
 
 from fedbiomed.common.constants  import ErrorNumbers
-from fedbiomed.common.exceptions import MessageException
+from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger     import logger
 
 
@@ -10,7 +10,7 @@ def catch_dataclass_exception(initial_class):
     """
     Decorator: it encapsulate the __init__() method of dataclass
     in order to transform the exceptions sent by the dataclass
-    into oour own exception (MessageException)
+    into oour own exception (FedbiomedMessageError)
     """
     class NewCls():
         """
@@ -24,7 +24,7 @@ def catch_dataclass_exception(initial_class):
                 # this is the error raised by dataclass if number of parameter is wrong
                 _msg = ErrorNumbers.FB601.value + ": bad number of parameters: " + str(e)
                 logger.error(_msg)
-                raise MessageException(_msg)
+                raise FedbiomedMessageError(_msg)
 
         def __getattribute__(self,s):
             """
@@ -54,13 +54,13 @@ class Message(object):
 
     def __post_init__(self):
         """
-        raise MessageException (FB601 error) if parameters of bad type
+        raise FedbiomedMessageError (FB601 error) if parameters of bad type
         remark: this is not check by @dataclass
         """
         if not self.__validate(self.__dataclass_fields__.items()):
             _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()
             logger.critical(_msg)
-            raise MessageException(_msg)
+            raise FedbiomedMessageError(_msg)
 
     def get_param(self, param: str):
         """This method allows to get the value of a given param
@@ -107,7 +107,7 @@ class ModelStatusReply(Message):
         Message ([type]): Parent class allows to get and set message params
 
     Raises:
-        MessageException: triggered if message's fields validation failed
+        FedbiomedMessageError: triggered if message's fields validation failed
 
     Keys:
         researcher_id       : Id of the researcher that sends the request
@@ -143,7 +143,7 @@ class SearchReply(Message):
         Message ([type]): Parent class allows to get and set message params
 
     Raises:
-        MessageException: triggered if message's fields validation failed
+        FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
     success: bool
@@ -164,7 +164,7 @@ class ListReply(Message):
         Message ([type]): Parent class allows to get and set message params
 
     Raises:
-        MessageException: triggered if message's fields validation failed
+        FedbiomedMessageError: triggered if message's fields validation failed
     """
 
     researcher_id: str
@@ -183,7 +183,7 @@ class PingReply(Message):
     This class describes a ping message sent by the node
 
     Raises:
-        MessageException: triggered if message's fields validation failed
+        FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
     node_id: str
@@ -200,7 +200,7 @@ class TrainReply(Message):
     This class describes a train message sent by the node
 
     Raises:
-        MessageException: triggered if message's fields validation failed
+        FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
     job_id: str
@@ -220,7 +220,7 @@ class AddScalarReply(Message):
     This class describes a add_scalar message sent by the node
 
     Raises:
-        MessageException: triggered if message's fields validation failed
+        FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
     node_id: str
@@ -240,7 +240,7 @@ class LogMessage(Message):
     This class describes a log message sent by the node
 
     Raises:
-        MessageException: triggered if message's fields validation failed
+        FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
     node_id: str
@@ -256,7 +256,7 @@ class ErrorMessage(Message):
     This class describes an error message sent by the node
 
     Raises:
-        MessageException: triggered if message's fields validation failed
+        FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
     node_id: str
@@ -277,7 +277,7 @@ class ModelStatusRequest(Message):
         Message ([type]): Parent class allows to get and set message params
 
     Raises:
-        MessageException: triggered if message's fields validation failed
+        FedbiomedMessageError: triggered if message's fields validation failed
 
 
     Keys:
@@ -301,7 +301,7 @@ class SearchRequest(Message):
     This class describes a search message sent by the researcher
 
     Raises:
-       MessageException: triggered if message's fields validation failed
+       FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
     tags: list
@@ -317,7 +317,7 @@ class ListRequest(Message):
     datasets belonging to each node.
 
     Raises:
-       MessageException: triggered if message's fields validation failed
+       FedbiomedMessageError: triggered if message's fields validation failed
     """
 
     researcher_id: str
@@ -331,7 +331,7 @@ class PingRequest(Message):
     This class describes a ping message sent by the researcher
 
     Raises:
-        MessageException: triggered if message's fields validation failed
+        FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
     sequence: int
@@ -346,7 +346,7 @@ class TrainRequest(Message):
     This class describes a train message sent by the researcher
 
     Raises:
-        MessageException: triggered if message's fields validation failed
+        FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
     job_id: str
@@ -383,7 +383,7 @@ class ResearcherMessages():
         - the structure of the received message
 
         Raises:
-        MessageException: triggered if the message is not allowed to
+        FedbiomedMessageError: triggered if the message is not allowed to
         be received by the researcher
         KeyError: triggered if 'command' field is not present in `params`
 
@@ -395,7 +395,7 @@ class ResearcherMessages():
         except KeyError:
             _msg =  ErrorNumbers.FB601.value + ": message type not specified"
             logger.error(_msg)
-            raise MessageException(_msg)
+            raise FedbiomedMessageError(_msg)
 
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
                                      'search': SearchReply,
@@ -410,7 +410,7 @@ class ResearcherMessages():
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
             _msg =  ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
             logger.error(_msg)
-            raise MessageException(_msg)
+            raise FedbiomedMessageError(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
@@ -433,7 +433,7 @@ class ResearcherMessages():
         params (dict): dictionary containing the message.
 
         Raises:
-            MessageException: if the message is not allowed to be sent by the researcher
+            FedbiomedMessageError: if the message is not allowed to be sent by the researcher
             KeyError ?
         Returns:
             An instance of the corresponding Message class
@@ -444,7 +444,7 @@ class ResearcherMessages():
         except KeyError:
             _msg =  ErrorNumbers.FB601.value + ": message type not specified"
             logger.error(_msg)
-            raise MessageException(_msg)
+            raise FedbiomedMessageError(_msg)
 
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainRequest,
                                      'search': SearchRequest,
@@ -456,7 +456,7 @@ class ResearcherMessages():
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
             _msg =  ErrorNumbers.FB601.value + ": bad message type for request_create: {}".format(message_type)
             logger.error(_msg)
-            raise MessageException(_msg)
+            raise FedbiomedMessageError(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
@@ -480,7 +480,7 @@ class NodeMessages():
         - the structure of the created message
 
         Raises:
-            MessageException: triggered if the message is not allowed te be sent
+            FedbiomedMessageError: triggered if the message is not allowed te be sent
             by the node (ie if message `command` field is not either a
             train request, search request or a ping request)
 
@@ -493,7 +493,7 @@ class NodeMessages():
         except KeyError:
             _msg =  ErrorNumbers.FB601.value + ": message type not specified"
             logger.error(_msg)
-            raise MessageException(_msg)
+            raise FedbiomedMessageError(_msg)
 
         # mapping message type to an object
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainRequest,
@@ -506,7 +506,7 @@ class NodeMessages():
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
             _msg =  ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
             logger.error(_msg)
-            raise MessageException(_msg)
+            raise FedbiomedMessageError(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
 
@@ -528,7 +528,7 @@ class NodeMessages():
         - the structure of the received message
 
         Raises:
-            MessageException: if the message is not allowed te be received by
+            FedbiomedMessageError: if the message is not allowed te be received by
             the node (ie if message `command` field is not either a
             train request, search request, a ping request, add scalar
             request, or error message)
@@ -541,7 +541,7 @@ class NodeMessages():
         except KeyError:
             _msg =  ErrorNumbers.FB601.value + ": message type not specified"
             logger.error(_msg)
-            raise MessageException(_msg)
+            raise FedbiomedMessageError(_msg)
 
         MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
                                      'search': SearchReply,
@@ -556,5 +556,5 @@ class NodeMessages():
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
             _msg =  ErrorNumbers.FB601.value + ": bad message type for request_create: {}".format(message_type)
             logger.error(_msg)
-            raise MessageException(_msg)
+            raise FedbiomedMessageError(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
