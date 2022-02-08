@@ -79,15 +79,15 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
-    def test_run_model_training_01(self,
-                                   uuid_patch,
-                                   repository_download_patch,
-                                   model_manager_patch,
-                                   builtin_exec_patch,
-                                   builtin_eval_patch,
-                                   repository_upload_patch,
-                                   node_msg_patch
-                                   ):
+    def test_round_01_run_model_training_normal_case(self,
+                                                     uuid_patch,
+                                                     repository_download_patch,
+                                                     model_manager_patch,
+                                                     builtin_exec_patch,
+                                                     builtin_eval_patch,
+                                                     repository_upload_patch,
+                                                     node_msg_patch
+                                                     ):
         """tests correct execution and message parameters.
         Besides  tests the training time.
          """
@@ -146,14 +146,14 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
-    def test_run_model_training_02_correct_model_calls(self,
-                                                       uuid_patch,
-                                                       repository_download_patch,
-                                                       model_manager_patch,
-                                                       builtin_exec_patch,
-                                                       builtin_eval_patch,
-                                                       repository_upload_patch,
-                                                       node_msg_patch):
+    def test_round_02_run_model_training_correct_model_calls(self,
+                                                             uuid_patch,
+                                                             repository_download_patch,
+                                                             model_manager_patch,
+                                                             builtin_exec_patch,
+                                                             builtin_eval_patch,
+                                                             repository_upload_patch,
+                                                             node_msg_patch):
         """tests if all methods of `model` have been called after instanciating"""
         # `run_model_training`, when no issues are found
         # methods tested:
