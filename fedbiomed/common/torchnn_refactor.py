@@ -61,7 +61,7 @@ class TorchTrainingPlan(nn.Module):
             self.use_gpu = model_args.get('use_gpu', False)
 
         # list dependencies of the model
-        self.dependencies = ["from fedbiomed.common.torchnn import TorchTrainingPlan",
+        self.dependencies = ["from fedbiomed.common.torchnn_refactor import TorchTrainingPlan",
                              "import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
@@ -183,18 +183,11 @@ class TorchTrainingPlan(nn.Module):
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
         self.data = self.training_data(batch_size=batch_size)
-
-        #if hasattr(self.__class__, 'preprocess') and callable(getattr(self.__class__, 'preprocess')):
-        #    self.preprocess() # Check whether preprocess method exists, and use it 
-        #    print('PREPROCESS EXECUTED')
-        #else:
-        #    print('PREPROCESS DOESNOT EXIST')
+        
         try:
-            self.preprocess()
-            print('PREPROCESS EXECUTED')
+            self.preprocess() # Check whether preprocess method exists, and use it 
         except AttributeError:
             # Method does not exist; skip
-            print('PREPROCESS DOESNOT EXIST')
             pass
 
         for epoch in range(1, epochs + 1):
@@ -234,17 +227,6 @@ class TorchTrainingPlan(nn.Module):
                         self.to(self.device_init)
                         torch.cuda.empty_cache()
                         return
-
-        #if hasattr(self.__class__, 'postprocess') and callable(getattr(self.__class__, 'postprocess')):
-        #    self.postprocess() # Check whether postprocess method exists, and use it 
-        #    print('POSTPROCESS EXECUTED')
-        try:
-            self.postprocess()
-            print('POSTPROCESS EXECUTED')
-        except AttributeError:
-            # Method does not exist; skip
-            print('POSTPROCESS DOES NOT EXIST')
-            pass
 
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
@@ -307,6 +289,11 @@ class TorchTrainingPlan(nn.Module):
             none
         """
         if params is not None:
+            try:
+                params = self.postprocess(params) # Check whether postprocess method exists, and use it 
+            except AttributeError:
+                # Method does not exist; skip
+                pass
             return(torch.save(params, filename))
         else:
             return torch.save(self.state_dict(), filename)
