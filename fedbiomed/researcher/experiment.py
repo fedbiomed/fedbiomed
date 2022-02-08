@@ -1562,6 +1562,7 @@ class Experiment(object):
 
         # ------- changing `Experiment` attributes -------
         loaded_exp._round_current = saved_state.get('round_number')
+        # TODO : private method for
 
         #TODO: checks when loading parameters
         loaded_exp._aggregated_params = loaded_exp._load_aggregated_params(
@@ -1571,6 +1572,7 @@ class Experiment(object):
 
         # ------- changing `Job` attributes -------
         loaded_exp._job.load_state(saved_state.get('job'))
+        # nota: exceptions should be handled in job, when refactoring it
 
         logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp
@@ -1586,11 +1588,32 @@ class Experiment(object):
             - breakpoint_path (str): path to the directory where breakpoints files
                 and links will be saved
 
+        Raises:
+            - FedbiomedExperimentError: bad arguments type
+
         Returns:
             - Dict[int, dict] : extract from `aggregated_params`
         """
+        # check arguments type, though is should have been done before
+        if not isinstance(aggregated_params_init, dict):
+            msg = ErrorNumbers.FB413.value + f' - cannot save breakpoint. ' + \
+                f'Bad type for aggregated params, should be `dict` not {type(aggregated_params_init)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+        if not isinstance(breakpoint_path, str):
+            msg = ErrorNumbers.FB413.value + f' - cannot save breakpoint. ' + \
+                f'Bad type for breakpoint path, should be `str` not {type(breakpoint_path)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)           
+
         aggregated_params = {}
         for key, value in aggregated_params_init.items():
+            if not isinstance(value, dict):
+                msg = ErrorNumbers.FB413.value + f' - cannot save breakpoint. ' + \
+                    f'Bad type for aggregated params item {str(key)}, ' + \
+                    f'should be `dict` not {type(value)}'
+                logger.critical(msg)
+                raise FedbiomedExperimentError(msg)                
             params_path = create_unique_file_link(breakpoint_path,
                                                   value.get('params_path'))
             aggregated_params[key] = {'params_path': params_path}
