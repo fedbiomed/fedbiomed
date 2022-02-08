@@ -47,7 +47,9 @@ class TestRound(unittest.TestCase):
         reporistory_patch.return_value = None
 
         # instantiate logger (we will see if exceptions are logged)
-        logger.setLevel(DEFAULT_LOG_LEVEL)
+        # we are setting the logger level to "ERROR" to output
+        # logs messages
+        logger.setLevel("ERROR") 
         # instanciate Round class 
         self.r1 = Round(model_url='http://somewhere/where/my/model?is_stored=True',
                         model_class='MyTrainingPlan',
@@ -154,7 +156,8 @@ class TestRound(unittest.TestCase):
                                                              builtin_eval_patch,
                                                              repository_upload_patch,
                                                              node_msg_patch):
-        """tests if all methods of `model` have been called after instanciating"""
+        """tests if all methods of `model` have been called after instanciating
+        (in run_model_training)"""
         # `run_model_training`, when no issues are found
         # methods tested:
         #  - model.load
@@ -219,14 +222,12 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
-    def test_run_model_training_03_test_with_real_model(self,
-                                                        uuid_patch,
-                                                        repository_download_patch,
-                                                        model_manager_patch,
-                                                        repository_upload_patch,
-                                                        node_msg_patch):
-
-
+    def test_round_03_test_run_model_training_with_real_model(self,
+                                                              uuid_patch,
+                                                              repository_download_patch,
+                                                              model_manager_patch,
+                                                              repository_upload_patch,
+                                                              node_msg_patch):
         """tests normal case scenario with a real model file"""
         FakeModel.SLEEPING_TIME = 0
 
@@ -276,13 +277,14 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')    
-    def test_run_model_training_04_bad_http_status(self,
-                                                   uuid_patch,
-                                                   repository_download_patch,
-                                                   model_manager_patch,
-                                                   repository_upload_patch,
-                                                   node_msg_patch): 
-        """tests failures and exceptions during the download file process"""
+    def test_rounds_04_run_model_training_bad_http_status(self,
+                                                          uuid_patch,
+                                                          repository_download_patch,
+                                                          model_manager_patch,
+                                                          repository_upload_patch,
+                                                          node_msg_patch): 
+        """tests failures and exceptions during the download file process
+        (in run_model_training)"""
         # Tests details:
         # Test 1: tests case where downloading model file fails
         # Test 2: tests case where downloading model paraeters fails
@@ -376,10 +378,10 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
-    def test_run_model_training_xx_modelNot_approved(self,
-                                                     uuid_patch,
-                                                     repository_download_patch,
-                                                     model_manager_patch):
+    def test_round_05_run_model_training_model_not_approved(self,
+                                                            uuid_patch,
+                                                            repository_download_patch,
+                                                            model_manager_patch):
         FakeModel.SLEEPING_TIME = 0
 
         # initialisation of patchers
@@ -401,12 +403,12 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
-    def test_run_model_training_05_import_error(self,
-                                                uuid_patch,
-                                                repository_download_patch,
-                                                model_manager_patch,
-                                                repository_upload_patch,
-                                                node_msg_patch):
+    def test_round_06_run_model_training_import_error(self,
+                                                      uuid_patch,
+                                                      repository_download_patch,
+                                                      model_manager_patch,
+                                                      repository_upload_patch,
+                                                      node_msg_patch):
         """tests case where the import/loading of the model have failed"""
 
         FakeModel.SLEEPING_TIME = 0
@@ -512,12 +514,12 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
-    def test_run_model_training_07_upload_file_fails(self,
-                                                     uuid_patch,
-                                                     repository_download_patch,
-                                                     model_manager_patch,
-                                                     repository_upload_patch,
-                                                     node_msg_patch):
+    def test_round_07_run_model_training_upload_file_fails(self,
+                                                           uuid_patch,
+                                                           repository_download_patch,
+                                                           model_manager_patch,
+                                                           repository_upload_patch,
+                                                           node_msg_patch):
 
         """tests case where uploading model parameters file fails"""
         FakeModel.SLEEPING_TIME = 0
@@ -558,14 +560,14 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4') 
-    def test_run_model_training_08_bad_training_argument(self,
-                                                         uuid_patch,
-                                                         repository_download_patch,
-                                                         model_manager_patch,
-                                                         builtin_exec_patch,
-                                                         builtin_eval_patch,
-                                                         repository_upload_patch,
-                                                         node_msg_patch):
+    def test_round_08_run_model_training_bad_training_argument(self,
+                                                               uuid_patch,
+                                                               repository_download_patch,
+                                                               model_manager_patch,
+                                                               builtin_exec_patch,
+                                                               builtin_eval_patch,
+                                                               repository_upload_patch,
+                                                               node_msg_patch):
         """tests case where training plan contains node_side arguments"""
         FakeModel.SLEEPING_TIME = 1
 
