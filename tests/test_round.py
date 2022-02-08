@@ -42,9 +42,9 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.model_manager.ModelManager.__init__')
     def setUp(self,
               model_manager_patch,
-              reporistory_patch):
+              repository_patch):
         model_manager_patch.return_value = None
-        reporistory_patch.return_value = None
+        repository_patch.return_value = None
 
         # instantiate logger (we will see if exceptions are logged)
         # we are setting the logger level to "ERROR" to output
