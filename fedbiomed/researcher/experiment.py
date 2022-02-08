@@ -1519,21 +1519,22 @@ class Experiment(object):
         breakpoint_folder_path, state_file = find_breakpoint_path(breakpoint_folder_path)
         breakpoint_folder_path = os.path.abspath(breakpoint_folder_path)
 
-        # TODO: check if all elements needed for breakpoint are present ?
         try:
             with open(os.path.join(breakpoint_folder_path, state_file), "r") as f:
                 saved_state = json.load(f)
         except (json.JSONDecodeError, OSError) as e:
             # OSError: heuristic for catching file access issues
             msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
-                f'load failed with message {str(e)}'
+                f'reading breakpoint file failed with message {str(e)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
         # -----  retrieve breakpoint training data ---
-        bkpt_fds = FederatedDataSet(saved_state.get('training_data'))
-
-        # TODO : checks in _create_object
+        bkpt_fds = saved_state.get('training_data')
+        # FederatedDataSet will be instantiated in Experiment.__init__() 
+        # applying checks. More checks to verify the structure/content of
+        # saved_state.get('training_data' should be added in FederatedDataSet.__init__()
+        # when refactoring it
 
         # -----  retrieve breakpoint sampling strategy ----
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
@@ -1624,10 +1625,9 @@ class Experiment(object):
         return aggregated_params
 
     # TODO: factorize code with Job and node
-    # TODO: add signal handling for error cases
     @staticmethod
     @exp_exceptions
-    def _create_object(args: Dict[str, Any], **object_kwargs) -> Callable:
+    def _create_object(args: Dict[str, Any], **object_kwargs) -> Any:
         """
         Instantiate a class object from breakpoint arguments.
 
@@ -1636,24 +1636,70 @@ class Experiment(object):
               `module` (module path) and optional additional parameters containing object state
             - **object_kwargs : optional named arguments for object constructor
 
+        Raises:
+            - FedbiomedExperimentError: bad object definition
+
         Returns:
-            - Callable: object of the class defined by `args` with state restored from breakpoint
+            - Any: instance of the class defined by `args` with state restored from breakpoint
         """
+        # check `args` type
+        if not isinstance(args, dict):
+            msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
+                f'breakpoint file seems corrupted. Bad type {type(args)} for object, ' + \
+                f'should be a `dict`'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
         module_class = args.get("class")
         module_path = args.get("module")
-        import_str = 'from ' + module_path + ' import ' + module_class
 
-        # import module
-        exec(import_str)
+        # import module class
+        try:
+            import_str = 'from ' + module_path + ' import ' + module_class
+            exec(import_str)
+        # could do a `except Exception as e` as exceptions may be diverse
+        # reasonable heuristic:
+        except (ModuleNotFoundError, ImportError, SyntaxError, TypeError) as e:
+            # ModuleNotFoundError : bad module name
+            # ImportError : bad class name
+            # SyntaxError : expression cannot be exec()'ed
+            # TypeError : module_path or module_class are not strings
+            msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
+                f'breakpoint file seems corrupted. Module import for class {str(module_class)} ' + \
+                f'fails with message {str(e)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
         # create a class variable containing the class
-        class_code = eval(module_class)
+        try:
+            class_code = eval(module_class)
+        except Exception as e:
+            # can we restrict the type of exception ? difficult as
+            # it may be SyntaxError, TypeError, NameError, ValueError, ArithmeticError, etc.
+            msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
+                f'breakpoint file seems corrupted. Evaluating class {str(module_class)} ' + \
+                f'fails with message {str(e)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
         # instantiate object from module
-        if object_kwargs is None:
-            object_instance = class_code()
-        else:
-            object_instance = class_code(**object_kwargs)
+        try:
+            if object_kwargs is None:
+                object_instance = class_code()
+            else:
+                object_instance = class_code(**object_kwargs)
+        except Exception as e:
+            # can we restrict the type of exception ? difficult as
+            # it may be SyntaxError, TypeError, NameError, ValueError,
+            # ArithmeticError, AttributeError, etc.
+            msg = ErrorNumbers.FB413.value + f' - cannot load breakpoint, ' + \
+                f'breakpoint file seems corrupted. Instantiating object of class ' + \
+                f'{str(module_class)} fails with message {str(e)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
 
         # load breakpoint state for object
         object_instance.load_state(args)
+        # note: exceptions for `load_state` should be handled in training plan
 
         return object_instance
