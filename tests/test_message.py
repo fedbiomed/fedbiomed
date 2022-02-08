@@ -108,7 +108,7 @@ class TestMessage(unittest.TestCase):
         b: str
 
 
-    def test_dummy_message(self):
+    def test_message_01_dummy(self):
 
         m0 = self.DummyMessage( 1, "test")
 
@@ -162,7 +162,7 @@ class TestMessage(unittest.TestCase):
 
         pass
 
-    def test_searchreply(self):
+    def test_message_02_searchreply(self):
 
         # verify necessary arguments of all message creation
 
@@ -299,7 +299,7 @@ class TestMessage(unittest.TestCase):
 
         pass
 
-    def test_pingreply(self):
+    def test_message_03_pingreply(self):
 
         # verify necessary arguments of all message creation
 
@@ -410,7 +410,7 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_trainreply(self):
+    def test_message_04_trainreply(self):
 
         # well formatted message
         self.check_class_args(
@@ -634,7 +634,7 @@ class TestMessage(unittest.TestCase):
 
         pass
 
-    def test_listreply(self):
+    def test_message_05_listreply(self):
 
         # well formatted message
         self.check_class_args(
@@ -769,7 +769,7 @@ class TestMessage(unittest.TestCase):
 
 
 
-    def test_addscalarreply(self):
+    def test_message_06_addscalarreply(self):
         # well formatted message
 
         self.check_class_args(
@@ -913,7 +913,7 @@ class TestMessage(unittest.TestCase):
 
         pass
 
-    def test_modelstatusreply(self):
+    def test_message_07_modelstatusreply(self):
 
         self.check_class_args(
             message.ModelStatusReply,
@@ -1022,7 +1022,7 @@ class TestMessage(unittest.TestCase):
 
 
 
-    def test_logmessage(self):
+    def test_message_08_log(self):
 
         # well formatted message
         self.check_class_args(
@@ -1137,7 +1137,7 @@ class TestMessage(unittest.TestCase):
 
         pass
 
-    def test_errormessage(self):
+    def test_message_09_error(self):
 
         # well formatted message
         self.check_class_args(
@@ -1253,7 +1253,7 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_searchrequest(self):
+    def test_message_10_searchrequest(self):
         # well formatted message
         self.check_class_args(
             message.SearchRequest,
@@ -1314,7 +1314,7 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_pingrequest(self):
+    def test_message_11_pingrequest(self):
         # well formatted message
         self.check_class_args(
             message.PingRequest,
@@ -1384,7 +1384,7 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_trainrequest(self):
+    def test_message_12_trainrequest(self):
         # well formatted message
         self.check_class_args(
             message.TrainRequest,
@@ -1602,7 +1602,8 @@ class TestMessage(unittest.TestCase):
 
 
         pass
-    def test_listrequest(self):
+
+    def test_message_13_listrequest(self):
 
         # well formatted message
         self.check_class_args(
@@ -1649,7 +1650,7 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_modelstatusrequest(self):
+    def test_message_14_modelstatusrequest(self):
 
         self.check_class_args(
             message.ModelStatusRequest,
@@ -1699,7 +1700,7 @@ class TestMessage(unittest.TestCase):
 
     # test ResearcherMessage and NodeMessagess classes
     # (next 9 tests)
-    def test_trainmessages(self):
+    def test_message_15_trainmessages(self):
 
         params = {
             "researcher_id" : 'toto',
@@ -1735,7 +1736,7 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.request_create( params )
         self.assertIsInstance( r, message.TrainRequest )
 
-    def test_listmessages(self):
+    def test_message_16_listmessages(self):
 
         """  Test list datasets messages for node and researcher """
         params = {
@@ -1763,7 +1764,7 @@ class TestMessage(unittest.TestCase):
         self.assertIsInstance( r, message.ListRequest )
 
 
-    def test_searchmessages(self):
+    def test_message_17_searchmessages(self):
 
         params = {
             "researcher_id" : 'toto',
@@ -1791,7 +1792,7 @@ class TestMessage(unittest.TestCase):
         self.assertIsInstance( r, message.SearchRequest )
 
 
-    def test_pingmessages(self):
+    def test_message_18_pingmessages(self):
 
         # ping
         params = {
@@ -1818,7 +1819,7 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.request_create( params )
         self.assertIsInstance( r, message.PingRequest )
 
-    def test_logmessages(self):
+    def test_message_19_logmessages(self):
 
         # error
         params = {
@@ -1834,7 +1835,7 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.reply_create( params )
         self.assertIsInstance( r, message.LogMessage )
 
-    def test_errormessages(self):
+    def test_message_10_errormessages(self):
 
         # error
         params = {
@@ -1850,7 +1851,7 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.reply_create( params )
         self.assertIsInstance( r, message.ErrorMessage )
 
-    def test_addscalarmessages(self):
+    def test_message_21_addscalarmessages(self):
 
         # addScalar
         params = {
@@ -1869,7 +1870,7 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.reply_create( params )
         self.assertIsInstance( r, message.AddScalarReply )
 
-    def test_unknowmessages(self):
+    def test_message_22_unknowmessages(self):
         # we only test one error (to get 100% coverage)
         # all test have been made above
 
@@ -1913,7 +1914,52 @@ class TestMessage(unittest.TestCase):
             self.assertTrue( True, "unknown request message type for node detected")
         pass
 
-    def test_model_status_messages(self):
+    def test_message_23_badly_formed(self):
+        # we only test one error (to get 100% coverage)
+        # all test have been made above
+
+        params = { 'nocommandprovided' : 'fichtre!'}
+
+        msg = "unknown reply message type for researcher not detected"
+        try:
+            r = message.ResearcherMessages.reply_create( params )
+            # should not reach this line
+            self.fail(msg)
+
+        except Exception as e:
+            # should be reached
+            self.assertTrue(True, msg)
+
+        try:
+            r = message.ResearcherMessages.request_create( params )
+            # should not reach this line
+            self.fail(msg)
+
+        except:
+            # should be reached
+            self.assertTrue(True, msg)
+        pass
+
+        try:
+            r = message.NodeMessages.reply_create( params )
+            # should not reach this line
+            self.fail(msg)
+
+        except:
+            # should be reached
+            self.assertTrue(True, msg)
+
+        try:
+            r = message.NodeMessages.request_create( params )
+            # should not reach this line
+            self.fail(msg)
+
+        except:
+            # should be reached
+            self.assertTrue(True, msg)
+        pass
+
+    def test_message_24_model_status_messages(self):
 
         params_reply =  {
             'researcher_id'           : 'toto',
