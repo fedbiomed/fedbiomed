@@ -24,7 +24,7 @@ import logging.handlers
 
 # these fedbiomed.* import are OK, they do not introduce dependancy loops
 from fedbiomed.common.constants  import ErrorNumbers
-from fedbiomed.common.exceptions import LoggerException
+from fedbiomed.common.exceptions import FedbiomedLoggerError
 from fedbiomed.common.singleton  import SingletonMeta
 
 # default values
@@ -152,7 +152,7 @@ class MqttHandler(logging.Handler):
                 "CRITICAL - badly formatted MQTT log message. Cannot send MQTT message"
             )
             _msg = ErrorNumbers.FB602.value + ": badly formatted MQTT log message. Cannot send MQTT message"
-            raise LoggerException(_msg)
+            raise FedbiomedLoggerError(_msg)
 
 
 class _LoggerBase():

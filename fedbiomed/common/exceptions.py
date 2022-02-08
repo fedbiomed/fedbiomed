@@ -1,45 +1,45 @@
 '''
-all the fedbiomed exceptions
+all the fedbiomed errors
 
 do not import other fedbiomed package here to avoid dependancy loop
 '''
 
 
-class FedbiomedException(Exception):
+class FedbiomedError(Exception):
     """
     top class of all our exceptions
 
-    permit to catch everything in one except:
+    this allows to catch every Fedbiomed*Errors in a single except block
     """
     pass
 
-class EnvironException(FedbiomedException):
+class FedbiomedEnvironError(FedbiomedError):
     """
     Exception specific to the Environ class
     """
     pass
 
-class LoggerException(FedbiomedException):
+class FedbiomedLoggerError(FedbiomedError):
     """
     Exception specific to the Logger class
     """
     pass
 
-class MessageException(FedbiomedException):
+class FedbiomedMessageError(FedbiomedError):
     """
     Exception specific to the Message class
     usually a badly formed message
     """
     pass
 
-class StrategyException(FedbiomedException):
+class FedbiomedStrategyError(FedbiomedError):
     """
     Exception specific to the Strategy class and subclasses
     """
     pass
 
 
-class TrainingException(FedbiomedException):
+class FedbiomedTrainingError(FedbiomedError):
     """
     Exception raises then training (researcher/node) class
     """
