@@ -3,5 +3,5 @@
     "description": "Mednist part 1",
     "tags": "mednist",
     "data_type": "images",
-    "path": "$HOME/tmp/MedNIST/client_1"
+    "path": "$HOME/Data/fedbiomed/MedNIST/client_1"
 }
