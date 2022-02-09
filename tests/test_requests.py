@@ -392,7 +392,7 @@ class TestRequest(unittest.TestCase):
         mock_logger_info.reset_mock()
         request_get_response.return_value = [node_3]
         result = self.requests.list(verbose=True)
-        self.assertEqual(mock_tabulate.call_count, 0, 'tabulate has been called, when it should not have been')
+        mock_tabulate.assert_not_called()
         # Logger will be called 2 times
         self.assertEqual(mock_logger_info.call_count, 2, 'Logger called unexpected number of times, expected: 2')
 
