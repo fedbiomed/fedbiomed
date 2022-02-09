@@ -14,6 +14,7 @@ from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.tasks_queue import exceptionsEmpty
+from fedbiomed.common.tasks_queue import TasksQueue
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -21,31 +22,32 @@ from unittest.mock import patch, MagicMock
 class TestRequest(unittest.TestCase):
     """ Test class for Request class """
 
-    class FaceMonitorCallback():
-        pass
-
     def setUp(self):
-
         """Setup mocks for Messaging class"""
-        self.req_pathcer1 = patch('fedbiomed.common.messaging.Messaging.__init__')
-        self.req_pathcer2 = patch('fedbiomed.common.messaging.Messaging.start')
-        self.req_pathcer3 = patch('fedbiomed.common.messaging.Messaging.send_message')
 
-        self.message_init = self.req_pathcer1.start()
-        self.message_start = self.req_pathcer2.start()
-        self.message_send = self.req_pathcer3.start()
+        self.req_patcher1 = patch('fedbiomed.common.messaging.Messaging.__init__')
+        self.req_patcher2 = patch('fedbiomed.common.messaging.Messaging.start')
+        self.req_patcher3 = patch('fedbiomed.common.messaging.Messaging.send_message')
+        self.req_patcher4 = patch('fedbiomed.common.tasks_queue.TasksQueue.__init__')
+
+        self.message_init = self.req_patcher1.start()
+        self.message_start = self.req_patcher2.start()
+        self.message_send = self.req_patcher3.start()
+        self.task_queue_init = self.req_patcher4.start()
 
         self.message_init.return_value = None
         self.message_start.return_value = None
         self.message_send.return_value = None
+        self.task_queue_init.return_value = None
 
         self.requests = Requests()
 
     def tearDown(self):
 
-        self.req_pathcer1.stop()
-        self.req_pathcer2.stop()
-        self.req_pathcer3.stop()
+        self.req_patcher1.stop()
+        self.req_patcher2.stop()
+        self.req_patcher3.stop()
+        self.req_patcher4.stop()
 
         pass
 
@@ -62,6 +64,7 @@ class TestRequest(unittest.TestCase):
         self.assertEqual(0, req_1._sequence, "Request is not properly initialized")
         self.assertEqual(None, req_1._monitor_message_callback, "Request is not properly initialized")
         self.assertEqual(messaging, req_1.messaging, "Request constructor didn't create proper Messaging")
+        self.assertIsInstance(req_1.queue, TasksQueue, "Request constructor didn't create proper TasksQueue")
 
         # Remove previous singleton instance
         if Requests in Requests._objects:
@@ -72,13 +75,13 @@ class TestRequest(unittest.TestCase):
         self.assertEqual(0, req_1._sequence, "Request is not properly initialized")
         self.assertEqual(None, req_1._monitor_message_callback, "Request is not properly initialized")
         self.assertIsInstance(req_2.messaging, Messaging, "Request constructor didn't create proper Messaging")
+        self.assertIsInstance(req_2.queue, TasksQueue, "Request constructor didn't create proper TasksQueue")
 
     def test_request_02_get_messaging(self):
         """ Testing the method `get_messaging`
             TODO: Update this part when refactoring getters and setter for reqeust
         """
-        req = Requests()
-        messaging = req.get_messaging()
+        messaging = self.requests.get_messaging()
         self.assertIsInstance(messaging, Messaging, "get_messaging() does not return proper Messaging object")
 
     @patch('fedbiomed.researcher.requests.Requests.print_node_log_message')
@@ -165,8 +168,10 @@ class TestRequest(unittest.TestCase):
         self.requests.send_message({}, None)
         self.requests.send_message({}, 'NodeID')
 
-        self.assertEqual(self.message_send.call_count, 2)
-        self.assertEqual(mock_logger_debug.call_count, 2)
+        self.assertEqual(self.message_send.call_count, 2, 'Requests: send_message -> m.send_message called unexpected '
+                                                          'number of times, expected: 2')
+        self.assertEqual(mock_logger_debug.call_count, 2, 'Requests: send_message -> logger.debug called unexpected '
+                                                          'number of times, expected: 2')
 
         # Test invalid call of send_message
         with self.assertRaises(Exception):
@@ -193,11 +198,13 @@ class TestRequest(unittest.TestCase):
         response = self.requests.get_messages(commands=['train'])
 
         # Check methods are called
-        self.assertEqual(mock_task_task_done.call_count, 2)
-        self.assertEqual(mock_task_get.call_count, 2)
+        self.assertEqual(mock_task_task_done.call_count, 2, 'Requests:  get_messages -> queue.get called unexpected '
+                                                            'number of times, expected: 2')
+        self.assertEqual(mock_task_get.call_count, 2, 'Requests:  get_messages -> queue.get called unexpected number '
+                                                      'of times, expected: 2')
 
         # Check result of the get_messages
-        self.assertListEqual(response.data, [data], 'get_messages result is set correctly')
+        self.assertListEqual(response.data, [data], 'get_messages result is not set correctly')
 
         # Test try/except block when .get() method exception
         mock_task_get.side_effect = exceptionsEmpty()
@@ -210,155 +217,213 @@ class TestRequest(unittest.TestCase):
 
     @patch('fedbiomed.researcher.requests.Requests.get_messages')
     def test_request_07_get_responses(self, mock_get_messages):
+        """ Testing get responses method """
 
-        call = 0
+        test_response = [{'command': 'test', 'success': True}]
+        mock_get_messages.side_effect = [test_response,
+                                         []]
 
-        def get_messages_side_effect(call):
-            if call == 0:
-                call += 1
-                return Responses([[{'command': 'test', 'success': True}]])
-            else:
-                return Responses([])
+        responses_1 = self.requests.get_responses(look_for_commands='test', timeout=0.1)
+        self.assertEqual(responses_1[0], test_response[0], 'Length of provided responses and len of result does not '
+                                                           'match')
 
-        mock_get_messages.side_effect = [Responses([{'command': 'test', 'success': True}]), Responses([])]
-        responses = self.requests.get_responses(look_for_commands='test', timeout=0.1)
-        
+        # Test when `only_successful` is False
+        mock_get_messages.side_effect = [test_response,
+                                         []]
+        responses_2 = self.requests.get_responses(look_for_commands='test', timeout=0.1, only_successful=False)
+        self.assertEqual(responses_2[0], test_response[0], 'Length of provided responses and len of result does not '
+                                                           'match')
+
+        mock_get_messages.side_effect = [Exception()]
+        with self.assertRaises(Exception):
+            self.requests.get_responses(look_for_commands='test', timeout=0.1, only_successful=False)
+
+        # Get into Except block by providing incorrect message
+        mock_get_messages.side_effect = [[{}]]
+        responses_3 = self.requests.get_responses(look_for_commands='test', timeout=0.1)
+        self.assertEqual(len(responses_3), 0, 'The length of responses are more than 0')
 
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
-    def test_request_04_list(self, request_get_response):
+    def test_request_08_ping_nodes(self, mock_get_responses):
+
+        mock_get_responses.return_value = [
+            {'command': 'ping', 'node_id': 'dummy-id-1'},
+            {'command': 'ping', 'node_id': 'dummy-id-2'},
+        ]
+
+        result = self.requests.ping_nodes()
+
+        self.message_send.assert_called_once()
+        self.assertEqual(result[0], 'dummy-id-1', 'Ping result does not contain provided node id `dummy-id-1`')
+        self.assertEqual(result[1], 'dummy-id-2', 'Ping result does not contain provided node id `dummy-id-2`')
+
+    @patch('fedbiomed.researcher.requests.Requests.get_responses')
+    @patch('fedbiomed.common.logger.logger.info')
+    def test_reqeust_09_search(self,
+                               mock_logger_info,
+                               mock_get_responses):
+
+        mock_logger_info.return_value = None
+
+        node_1 = {'node_id': 'node-1',
+                  'researcher_id': 'r-xxx',
+                  'databases': [
+                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
+                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
+                  ],
+                  'success': True,
+                  'count': 2,
+                  'command': 'search'
+                  }
+
+        node_2 = {'node_id': 'node-2',
+                  'researcher_id': 'r-xxx',
+                  'databases': [
+                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
+                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
+                  ],
+                  'success': True,
+                  'count': 2,
+                  'command': 'search'
+                  }
+
+        tags = ['test']
+
+        # Test with single node without providing node ids
+        mock_get_responses.return_value = [node_1]
+        search_result = self.requests.search(tags=tags)
+        self.assertTrue('node-1' in search_result, 'Requests search result does not contain `node-1`')
+        self.assertEqual(mock_logger_info.call_count, 2, 'Requests: Search- > Logger called unexpected number of '
+                                                         'times, expected: 2')
+
+        # Test with multiple nodes by providing node ids
+        mock_logger_info.reset_mock()
+        mock_get_responses.return_value = [node_1, node_2]
+        search_result_2 = self.requests.search(tags=tags, nodes=['node-1', 'node-2'])
+        self.assertTrue('node-1' in search_result_2, 'Requests search result does not contain `node-1`')
+        self.assertTrue('node-2' in search_result_2, 'Requests search result does not contain `node-2`')
+        self.assertEqual(mock_logger_info.call_count, 3, 'Requests: Search- > Logger called unexpected number of '
+                                                         'times, expected: 3')
+        # Test with empty response
+        mock_logger_info.reset_mock()
+        mock_get_responses.return_value = []
+        search_result_3 = self.requests.search(tags=tags)
+        self.assertDictEqual(search_result_3, {})
+        self.assertEqual(mock_logger_info.call_count, 2, 'Requests: Search- > Logger called unexpected number of '
+                                                         'times, expected: 2')
+
+    @patch('fedbiomed.researcher.requests.Requests.get_responses')
+    @patch('tabulate.tabulate')
+    @patch('fedbiomed.common.logger.logger.info')
+    def test_request_10_list(self,
+                             mock_logger_info,
+                             mock_tabulate,
+                             request_get_response):
+
+        mock_tabulate.return_value = 'Test'
+        mock_logger_info.return_value = None
 
         # Test with single response database
-        res = [
-            {'node_id': 'node-1',
-             'researcher_id': 'r-xxx',
-             'databases': [
-                 {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
-                 {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
-             ],
-             'success': True,
-             'count': 2,
-             'command': 'list'
-             }
-        ]
+        node_1 = {'node_id': 'node-1',
+                  'researcher_id': 'r-xxx',
+                  'databases': [
+                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
+                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
+                  ],
+                  'success': True,
+                  'count': 2,
+                  'command': 'list'
+                  }
 
-        responses = Responses(res)
-        request_get_response.return_value = responses
-        try:
-            req = Requests()
-            result = req.list()
-        except:
-            self.assertTrue(False, 'List method failed even data is okay')
+        node_2 = {'node_id': 'node-2',
+                  'researcher_id': 'r-xxx',
+                  'databases': [
+                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
+                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
+                  ],
+                  'success': True,
+                  'count': 2,
+                  'command': 'list'
+                  }
 
+        node_3 = {'node_id': 'node-2',
+                  'researcher_id': 'r-xxx',
+                  'databases': [],
+                  'success': True,
+                  'count': 2,
+                  'command': 'list'
+                  }
+
+        request_get_response.return_value = [node_1]
+        result = self.requests.list()
+        self.assertIsInstance(result, object)
+        self.assertEqual(True, 'node-1' in result, 'List result does not contain `node-1`')
+
+        # Test with multiple nodes
+        request_get_response.return_value = [node_1, node_2]
+        result = self.requests.list()
+        self.assertTrue('node-1' in result, 'List result does not contain `node-1` while testing multiple')
+        self.assertTrue('node-2' in result, 'List result does not contain `node-1` while testing multiple')
         self.assertIsInstance(result, object)
 
-        # Test with multiple database response
-        res = [
-            {'node_id': 'node-1',
-             'researcher_id': 'r-xxx',
-             'databases': [
-                 {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
-                 {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
-             ],
-             'success': True,
-             'count': 2,
-             'command': 'list'
-             },
-            {'node_id': 'node-2',
-             'researcher_id': 'r-xxx',
-             'databases': [
-                 {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
-                 {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
-             ],
-             'success': True,
-             'count': 2,
-             'command': 'list'
-             }
-        ]
+        # Test verbosity
+        request_get_response.return_value = [node_1, node_2]
+        result = self.requests.list(verbose=True)
+        self.assertTrue('node-1' in result, 'List result does not contain `node-1` while testing verbosity')
+        self.assertTrue('node-2' in result, 'List result does not contain `node-1` while testing verbosity')
+        self.assertEqual(mock_tabulate.call_count, 2, 'tabulate called unexpected number of times, expected: 2')
+        # Logger will be called 5 times
+        self.assertEqual(mock_logger_info.call_count, 5, 'logger.info called unexpected number of times, expected: 5')
 
-        responses = Responses(res)
+        # Test verbosity with empty list of dataset
+        mock_tabulate.reset_mock()
+        mock_logger_info.reset_mock()
+        request_get_response.return_value = [node_3]
+        result = self.requests.list(verbose=True)
+        self.assertEqual(mock_tabulate.call_count, 0, 'tabulate has been called, when it should not have been')
+        # Logger will be called 2 times
+        self.assertEqual(mock_logger_info.call_count, 2, 'Logger called unexpected number of times, expected: 2')
+
+        # Test by providing node_ids
+        self.message_send.reset_mock()
+        responses = Responses([node_1, node_2])
         request_get_response.return_value = responses
+        result = self.requests.list(nodes=['node-1', 'node-2'])
+        self.assertEqual(self.message_send.call_count, 2, 'send_message has been called times that are not equal to '
+                                                          'expected')
 
-        try:
-            req = Requests()
-            result = req.list()
-        except:
-            self.assertTrue(False, 'List method failed even data is okay')
+        self.assertTrue('node-1' in result, 'List result does not contain correct values')
+        self.assertTrue('node-2' in result, 'List result does not contain correct values')
 
-        self.assertIsInstance(result, object)
+    @patch('fedbiomed.researcher.monitor.Monitor.__init__')
+    @patch('fedbiomed.researcher.monitor.Monitor.on_message_handler')
+    def test_request_11_add_monitor_callback(self,
+                                             mock_monitor_message_handler,
+                                             mock_monitor_init):
 
-        # Test with verbose mode
-        res = [
-            {'node_id': 'node',
-             'researcher_id': 'r-xxx',
-             'databases': [
-                 {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
-                 {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
-             ],
-             'success': True,
-             'count': 2,
-             'command': 'list'
-             },
-        ]
-
-        responses = Responses(res)
-        request_get_response.return_value = responses
-
-        try:
-            req = Requests(verbose=True)
-            result = req.list()
-        except:
-            self.assertTrue(False, 'List method failed even data is okay')
-
-        self.assertIsInstance(result, object)
-        # Test with node ids
-        res = [
-            {'toto': 'node',
-             'researcher_id': 'r-xxx',
-             'databases': [
-                 {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
-                 {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
-             ],
-             'success': True,
-             'count': 2,
-             'command': 'list'
-             },
-            {'node_id': 'node-2',
-             'researcher_id': 'r-xxx',
-             'databases': [
-                 {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
-                 {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
-             ],
-             'success': True,
-             'count': 2,
-             'command': 'list'
-             }
-        ]
-
-        responses = Responses(res)
-        request_get_response.return_value = responses
-
-        try:
-            req = Requests(nodes=['node-1', 'node-2'])
-            result = req.list()
-        except:
-            self.assertTrue(False, 'List method failed even data is okay')
-
-        self.assertIsInstance(result, object)
-
-    def test_add_remove_monitor_callback(self):
-
-        """ Test adding and removing monitor message callbacks """
-
-        req = Requests()
+        """ Test adding monitor message callbacks """
+        mock_monitor_init.return_value = None
+        mock_monitor_message_handler.return_value = None
         monitor = Monitor()
 
         # Test adding monitor callback
-        req.add_monitor_callback(monitor.on_message_handler)
-        self.assertIsInstance(req._monitor_message_callback, Callable, "Monitor callback hasn't been added properly")
+        self.requests.add_monitor_callback(monitor.on_message_handler)
 
-        # Test removing monitor callback
-        req.remove_monitor_callback()
-        self.assertIsNone(req._monitor_message_callback, "Monitor callback han't been removed")
+    @patch('fedbiomed.researcher.monitor.Monitor.__init__')
+    @patch('fedbiomed.researcher.monitor.Monitor.on_message_handler')
+    def test_request_12_remove_monitor_callback(self,
+                                                mock_monitor_message_handler,
+                                                mock_monitor_init
+                                                ):
+        """ Test removing monitor message callback """
+
+        mock_monitor_init.return_value = None
+        mock_monitor_message_handler.return_value = None
+        monitor = Monitor()
+
+        self.requests.add_monitor_callback(monitor.on_message_handler)
+        self.requests.remove_monitor_callback()
+        self.assertIsNone(self.requests._monitor_message_callback, "Monitor callback hasn't been removed")
 
 
 if __name__ == '__main__':  # pragma: no cover
