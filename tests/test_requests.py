@@ -370,15 +370,13 @@ class TestRequest(unittest.TestCase):
 
         request_get_response.return_value = [node_1]
         result = self.requests.list()
-        self.assertIsInstance(result, object)
-        self.assertEqual(True, 'node-1' in result, 'List result does not contain `node-1`')
+        self.assertTrue('node-1' in result, 'List result does not contain `node-1`')
 
         # Test with multiple nodes
         request_get_response.return_value = [node_1, node_2]
         result = self.requests.list()
         self.assertTrue('node-1' in result, 'List result does not contain `node-1` while testing multiple')
         self.assertTrue('node-2' in result, 'List result does not contain `node-1` while testing multiple')
-        self.assertIsInstance(result, object)
 
         # Test verbosity
         request_get_response.return_value = [node_1, node_2]
