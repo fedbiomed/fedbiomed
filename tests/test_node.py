@@ -69,8 +69,6 @@ class TestNode(unittest.TestCase):
                                      autospec=True,
                                      return_value=None)
         self.messaging_patcher = self.messaging_patch.start()
-        # task_queue_patcher.return_value = None
-        # messaging_patcher.return_value = None
 
         # mocks
         mock_data_manager = MagicMock()
@@ -113,6 +111,7 @@ class TestNode(unittest.TestCase):
             node_msg_req_create_patcher,
             node_add_task_patcher,
     ):
+        """Tests `on_message` method (normal case scenario), with train command"""
         # test 1: test normal case scenario, where `command` = 'train'
 
         node_msg_req_create_patcher.side_effect = TestNode.node_msg_side_effect
@@ -134,7 +133,7 @@ class TestNode(unittest.TestCase):
             node_msg_reply_patch,
             messaging_send_msg_patch
     ):
-
+        """Tests `on_message` method (normal case scenario), with ping command"""
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
 
@@ -164,7 +163,7 @@ class TestNode(unittest.TestCase):
                                                             node_msg_reply_patch,
                                                             messaging_send_msg_patch
                                                             ):
-
+        """Tests `on_message` method (normal case scenario), with search command"""
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
@@ -197,6 +196,7 @@ class TestNode(unittest.TestCase):
                                                           node_msg_reply_patch,
                                                           messaging_send_msg_patch
                                                           ):
+        """Tests `on_message` method (normal case scenario), with list command"""
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
@@ -229,7 +229,7 @@ class TestNode(unittest.TestCase):
     def test_node_06_on_message_normal_case_scenario_model_status(self,
                                                                   node_msg_request_patch,
                                                                   ):
-        """Tests normal case senario, if command is equals to 'model-status"""
+        """Tests normal case scenario, if command is equals to 'model-status"""
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         # defining arguments
@@ -250,7 +250,7 @@ class TestNode(unittest.TestCase):
     def test_node_07_on_message_unknown_command(self,
                                                 node_msg_request_patch,
                                                 send_err_patch):
-        """Tests Exception is raised if command is not a known command 
+        """Tests Exception is handled if command is not a known command 
         (in `on_message` method)"""
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
@@ -338,7 +338,7 @@ class TestNode(unittest.TestCase):
                                                           msg_send_error_patch):
         """Tests case where a TypError is raised (because unable to serialize message)"""
 
-        # JSONDecodeError can be raised from messaging class
+        # a TypeError can be raised from json serializer (ie from  `Messaging.send_message`)
         def messaging_side_effect(*args, **kwargs):
             raise TypeError('Mimicking a TypeError happening when serializing message')
 
@@ -401,7 +401,7 @@ class TestNode(unittest.TestCase):
         # check that `Round` has been called once
         self.assertEqual(round_patch.call_count, 1)
         # check the attribute `rounds` of `Node` (should be a
-        # list containing )
+        # list containing `Round` objects)
         self.assertEqual(len(self.n1.rounds), 1)
         self.assertIsInstance(self.n1.rounds[0], Round)
         # #####
@@ -457,7 +457,7 @@ class TestNode(unittest.TestCase):
         history_monitor_patch.assert_called_once()
         # retrieve `HistoryMonitor` object
         history_monitor_ref = round_patch.call_args_list[-1][0][-2]
-        # check 
+        # check id retrieve object is a HistoryMonitor object
         self.assertIsInstance(history_monitor_ref, HistoryMonitor)
 
     @patch('fedbiomed.common.messaging.Messaging.send_message')
@@ -470,6 +470,7 @@ class TestNode(unittest.TestCase):
                                                   node_msg_reply_patch,
                                                   messaging_patch,
                                                   ):
+        """Tests parser_task method, case where no dataset has been found """
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
@@ -632,7 +633,7 @@ class TestNode(unittest.TestCase):
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         history_monitor_patch.return_value = None
-        # FIXME: should we patch `validator` too (currently not patched)
+        # FIXME: should we patch `validator` too (currently not patched) ?
         # validator_patch.return_value = True
 
         # test 1: test case where exception is raised when model_url is None
@@ -707,7 +708,7 @@ class TestNode(unittest.TestCase):
     # in the method, we are triggering `SystemExit` Exception to leave it
     # (SystemExit is an exception that is not caught by statement 
     # `except Exception as e:`). When a more graceful way of exiting infinite loop
-    # has been created, those tests should be updated
+    # will be created, those tests should be updated
 
     @patch('fedbiomed.node.node.Node.parser_task')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
@@ -800,29 +801,7 @@ class TestNode(unittest.TestCase):
         Tests `task_manager` method, check what happens if `Messaging.send_message` 
         triggers an exception.
         """
-
-        # defining side effect functions
-        # We define here a generator that will be used inside a side_effect
-        # function, so its behaviour changes when called more than once
-        def send_msg_generator():
-            """Creates a generator that generates Exceptions"""
-            exceptions = [Exception, SystemExit]
-            for exc in exceptions:
-                yield exc
-
-        send_msg_except_iterator = iter(send_msg_generator())  # makes generator iterable
-
-        def send_msg_side_effect(*args, **kwargs):
-            """
-            This function raises Exceptions each time it is called:
-            - if called a first time, raises Exception
-            - if called a second time, raises SystemExit
-            - if called 3 times or more, raises StopIteration (due to generator)
-            """
-            val = next(send_msg_except_iterator)
-            raise val('mimicking exceptions')
-
-            # defining attributes
+        # defining attributes
 
         Round = MagicMock()
         Round.run_model_training = MagicMock(run_model_training=None)
@@ -835,7 +814,7 @@ class TestNode(unittest.TestCase):
         node_parser_task_patch.return_value = None
         tasks_queue_task_done_patch.return_value = None
         node_msg_reply_create_patch.side_effect = TestNode.node_msg_side_effect
-        mssging_send_msg_patch.side_effect = send_msg_side_effect
+        mssging_send_msg_patch.side_effect = [Exception, SystemExit]
 
         # action
         with self.assertRaises(SystemExit):
