@@ -4,7 +4,8 @@ from typing import Any, Callable, Union
 import paho.mqtt.client as mqtt
 
 from fedbiomed.common import json
-from fedbiomed.common.constants import ComponentType, ErrorNumbers
+from fedbiomed.common.constants  import ComponentType, ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedMessagingError, FedbiomedError
 import fedbiomed.common.message as message
 from fedbiomed.common.logger import logger
 from fedbiomed.common.logger import DEFAULT_LOG_TOPIC
@@ -183,7 +184,13 @@ class Messaging:
         """
         # will try a connect even if is_failed or is_connected, to give a chance to resolve problems
 
-        self.mqtt.connect(self.mqtt_broker, self.mqtt_broker_port, keepalive=60)
+        try:
+            self.mqtt.connect(self.mqtt_broker, self.mqtt_broker_port, keepalive=60)
+        except ConnectionRefusedError as e:
+            msg = "cannot connect to MQTT (error=" + str(e)+ ")"
+            logger.critical(msg)
+            raise FedbiomedMessagingError(msg)
+
         if block:
             # TODO : not used, should probably be removed
             self.mqtt.loop_forever()
@@ -253,10 +260,9 @@ class Messaging:
             return
 
         if not self.is_connected:
-            logger.warning("MQTT not initialized yet (error to transmit="+
-                           errnum+
-                           ")")
-            return
+            msg = "MQTT not initialized yet (error to transmit=" + errnum.value + ")"
+            logger.critical(msg)
+            raise FedbiomedMessagingError(msg)
 
 
         # format error message and send it

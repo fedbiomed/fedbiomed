@@ -108,20 +108,24 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 tags =  ['#MNIST', '#dataset']
 rounds = 2
 
-exp = Experiment(tags=tags,
-                #nodes=None,
-                # 
-                # difference with a notebook : with a python script the `MyTrainingPlan``
-                # contains the model code, so you don't need to use a file (`model_path`)
-                # for passing the model to the experiment
-                model_class=MyTrainingPlan,
-                # model_class=AlterTrainingPlan,
-                # model_path='/path/to/model_file.py',
-                model_args=model_args,
-                training_args=training_args,
-                rounds=rounds,
-                aggregator=FedAverage(),
-                node_selection_strategy=None)
+try:
+    exp = Experiment(tags=tags,
+                     #nodes=None,
+                     #
+                     # difference with a notebook : with a python script the `MyTrainingPlan``
+                     # contains the model code, so you don't need to use a file (`model_path`)
+                     # for passing the model to the experiment
+                     model_class=MyTrainingPlan,
+                     # model_class=AlterTrainingPlan,
+                     # model_path='/path/to/model_file.py',
+                     model_args=model_args,
+                     training_args=training_args,
+                     rounds=rounds,
+                     aggregator=FedAverage(),
+                     node_selection_strategy=None)
+except Exception as e:
+    logger.critical("Error during Experiment() initialisation: "+str(e))
+    sys.exit(-1)
 
 
 # Let's start the experiment.
@@ -168,4 +172,3 @@ print("\t- params_path: ", exp.aggregated_params[rounds - 1]['params_path'])
 print("\t- parameter data: ", exp.aggregated_params[rounds - 1]['params'].keys())
 
 # Feel free to run other sample notebooks or try your own models :D
-
