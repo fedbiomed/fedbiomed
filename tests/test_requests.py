@@ -13,7 +13,6 @@ from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.common.messaging import Messaging
-from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.tasks_queue import exceptionsEmpty
 from fedbiomed.common.tasks_queue import TasksQueue
 import unittest
@@ -24,7 +23,7 @@ class TestRequest(unittest.TestCase):
     """ Test class for Request class """
 
     def setUp(self):
-        """Setup mocks for Messaging class"""
+        """Setup Requests and patches for testing"""
 
         self.req_patcher1 = patch('fedbiomed.common.messaging.Messaging.__init__')
         self.req_patcher2 = patch('fedbiomed.common.messaging.Messaging.start')
@@ -98,7 +97,7 @@ class TestRequest(unittest.TestCase):
                                    mock_logger_error,
                                    mock_task_add,
                                    mock_print_node_log_message):
-        """ Testing different scenarios for on_message methods """
+        """ Testing on_message method """
 
         msg_logger = {'researcher_id': 'DummyID',
                       'node_id': 'DummyNodeID',
@@ -191,6 +190,7 @@ class TestRequest(unittest.TestCase):
                                      mock_task_get,
                                      mock_task_task_done,
                                      mock_task_qsize):
+        """ Testing get_messages """
 
         mock_task_qsize.return_value = 1
         mock_task_task_done.return_value = None
@@ -252,6 +252,7 @@ class TestRequest(unittest.TestCase):
 
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     def test_request_08_ping_nodes(self, mock_get_responses):
+        """ Testing ping method """
 
         mock_get_responses.return_value = [
             {'command': 'ping', 'node_id': 'dummy-id-1'},
@@ -269,6 +270,7 @@ class TestRequest(unittest.TestCase):
     def test_reqeust_09_search(self,
                                mock_logger_info,
                                mock_get_responses):
+        """ Testing search reqeust """
 
         mock_logger_info.return_value = None
 
@@ -326,6 +328,7 @@ class TestRequest(unittest.TestCase):
                              mock_logger_info,
                              mock_tabulate,
                              request_get_response):
+        """ Testing list reqeust """
 
         mock_tabulate.return_value = 'Test'
         mock_logger_info.return_value = None
