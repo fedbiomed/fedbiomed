@@ -20,7 +20,7 @@ class Messaging:
                  messaging_type: ComponentType,
                  messaging_id: Union[int, str],
                  mqtt_broker: str = 'localhost',
-                 mqtt_broker_port: int = 80):
+                 mqtt_broker_port: int = 1883):
         """ Constructor of the messaging class.
         Creates an instance of MQTT Client, and MQTT message handler.
         Creates topics on which to send messages through Messager.
@@ -70,7 +70,7 @@ class Messaging:
             self.default_send_topic = 'general/nodes'
         elif self.messaging_type is ComponentType.NODE:
             self.default_send_topic = 'general/researcher'
-        else:  # should not occur
+        else:
             self.default_send_topic = None
 
 
