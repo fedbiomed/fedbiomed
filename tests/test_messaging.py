@@ -18,6 +18,7 @@ from fedbiomed.common.constants      import ComponentType
 from fedbiomed.common.message        import ResearcherMessages
 from fedbiomed.common.message        import NodeMessages
 
+
 class TestMessaging(unittest.TestCase):
     '''
     Test the Messaging class connect/disconnect
@@ -40,7 +41,6 @@ class TestMessagingResearcher(unittest.TestCase):
     '''
     Test the Messaging class from the researcher point of view
     '''
-
 
     # once in test lifetime
     @classmethod
@@ -92,8 +92,6 @@ class TestMessagingResearcher(unittest.TestCase):
 
     # tests
     def test_messaging_researcher_00_init(self):
-        if not self._broker_ok:
-            self.skipTest('no broker available for this test')
 
         self.assertEqual( self._m.default_send_topic, "general/nodes")
         self.assertEqual( self._m.on_message_handler, TestMessagingResearcher.on_message)
@@ -147,7 +145,6 @@ class TestMessagingNode(unittest.TestCase):
 
         pass
 
-
     @classmethod
     def tearDownClass(cls):
         if not cls._broker_ok:
@@ -172,8 +169,6 @@ class TestMessagingNode(unittest.TestCase):
 
     # tests
     def test_messaging_node_00_init(self):
-        if not self._broker_ok:
-            self.skipTest('no broker available for this test')
 
         self.assertEqual( self._m.default_send_topic, "general/researcher")
         self.assertEqual( self._m.on_message_handler, TestMessagingNode.on_message)
