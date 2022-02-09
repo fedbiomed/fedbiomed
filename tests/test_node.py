@@ -34,11 +34,7 @@ class TestNode(unittest.TestCase):
         
         cls.node_msg_side_effect = node_msg_side_effect
 
-    @patch('fedbiomed.common.messaging.Messaging.__init__', autospec=True)
-    @patch('fedbiomed.common.tasks_queue.TasksQueue.__init__', autospec=True)
-    def setUp(self,
-              task_queue_patcher,
-              messaging_patcher):
+    def setUp(self):
         """Sets up objects for unit tests"""
         
         self.database_val = [
@@ -62,9 +58,18 @@ class TestNode(unittest.TestCase):
                 'name': 'test_dataset1'
             }
                             ]
+        
         # patchers
-        task_queue_patcher.return_value = None
-        messaging_patcher.return_value = None
+        self.task_queue_patch = patch('fedbiomed.common.messaging.Messaging.__init__',
+                                      autospec=True,
+                                      return_value = None)
+        self.task_patcher = self.task_queue_patch.start()
+        self.messaging_patch = patch('fedbiomed.common.tasks_queue.TasksQueue.__init__',
+                                     autospec=True,
+                                     return_value = None)
+        self.messaging_patcher = self.messaging_patch.start()
+        # task_queue_patcher.return_value = None
+        # messaging_patcher.return_value = None
         
         # mocks
         mock_data_manager = MagicMock()
@@ -81,7 +86,9 @@ class TestNode(unittest.TestCase):
         self.n2 = Node(mock_data_manager, mock_model_manager)
         
     def tearDown(self) -> None:
-        pass
+        # stopping patches
+        self.task_queue_patch.stop()
+        self.messaging_patch.stop()
     
     @patch('fedbiomed.common.tasks_queue.TasksQueue.add')
     def test_add_task(self, task_queue_add_patcher):
