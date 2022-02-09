@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 # Managing NODE, RESEARCHER environ mock before running tests
 from testsupport.delete_environ import delete_environ
@@ -8,6 +8,7 @@ delete_environ()
 # overload with fake environ for tests
 import testsupport.mock_common_environ
 from testsupport.fake_message import FakeMessages
+from testsupport.fake_responses import FakeResponses
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.monitor import Monitor
@@ -29,7 +30,6 @@ class TestRequest(unittest.TestCase):
             return fake_node_msg
 
         cls.msg_side_effect = msg_side_effect
-
 
     def setUp(self):
         """Setup Requests and patches for testing"""
@@ -303,7 +303,7 @@ class TestRequest(unittest.TestCase):
         tags = ['test']
 
         # Test with single node without providing node ids
-        mock_get_responses.return_value = [node_1]
+        mock_get_responses.return_value = FakeResponses([node_1])
         search_result = self.requests.search(tags=tags)
         self.assertTrue('node-1' in search_result, 'Requests search result does not contain `node-1`')
         self.assertEqual(mock_logger_info.call_count, 2, 'Requests: Search- > Logger called unexpected number of '
@@ -311,7 +311,7 @@ class TestRequest(unittest.TestCase):
 
         # Test with multiple nodes by providing node ids
         mock_logger_info.reset_mock()
-        mock_get_responses.return_value = [node_1, node_2]
+        mock_get_responses.return_value = FakeResponses([node_1, node_2])
         search_result_2 = self.requests.search(tags=tags, nodes=['node-1', 'node-2'])
         self.assertTrue('node-1' in search_result_2, 'Requests search result does not contain `node-1`')
         self.assertTrue('node-2' in search_result_2, 'Requests search result does not contain `node-2`')
@@ -319,7 +319,7 @@ class TestRequest(unittest.TestCase):
                                                          'times, expected: 3')
         # Test with empty response
         mock_logger_info.reset_mock()
-        mock_get_responses.return_value = []
+        mock_get_responses.return_value = FakeResponses([])
         search_result_3 = self.requests.search(tags=tags)
         self.assertDictEqual(search_result_3, {})
         self.assertEqual(mock_logger_info.call_count, 2, 'Requests: Search- > Logger called unexpected number of '
@@ -368,18 +368,18 @@ class TestRequest(unittest.TestCase):
                   'command': 'list'
                   }
 
-        request_get_response.return_value = [node_1]
+        request_get_response.return_value = FakeResponses([node_1])
         result = self.requests.list()
         self.assertTrue('node-1' in result, 'List result does not contain `node-1`')
 
         # Test with multiple nodes
-        request_get_response.return_value = [node_1, node_2]
+        request_get_response.return_value = FakeResponses([node_1, node_2])
         result = self.requests.list()
         self.assertTrue('node-1' in result, 'List result does not contain `node-1` while testing multiple')
         self.assertTrue('node-2' in result, 'List result does not contain `node-1` while testing multiple')
 
         # Test verbosity
-        request_get_response.return_value = [node_1, node_2]
+        request_get_response.return_value = FakeResponses([node_1, node_2])
         result = self.requests.list(verbose=True)
         self.assertTrue('node-1' in result, 'List result does not contain `node-1` while testing verbosity')
         self.assertTrue('node-2' in result, 'List result does not contain `node-1` while testing verbosity')
@@ -390,7 +390,7 @@ class TestRequest(unittest.TestCase):
         # Test verbosity with empty list of dataset
         mock_tabulate.reset_mock()
         mock_logger_info.reset_mock()
-        request_get_response.return_value = [node_3]
+        request_get_response.return_value = FakeResponses([node_3])
         result = self.requests.list(verbose=True)
         mock_tabulate.assert_not_called()
         # Logger will be called 2 times
@@ -398,8 +398,7 @@ class TestRequest(unittest.TestCase):
 
         # Test by providing node_ids
         self.message_send.reset_mock()
-        responses = Responses([node_1, node_2])
-        request_get_response.return_value = responses
+        request_get_response.return_value = FakeResponses([node_1, node_2])
         result = self.requests.list(nodes=['node-1', 'node-2'])
         self.assertEqual(self.message_send.call_count, 2, 'send_message has been called times that are not equal to '
                                                           'expected')
