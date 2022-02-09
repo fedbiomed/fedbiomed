@@ -39,7 +39,7 @@ class TestNode(unittest.TestCase):
     def setUp(self,
               task_queue_patcher,
               messaging_patcher):
-
+        """Sets up objects for unit tests"""
         
         self.database_val = [
         {'database_id': '1234',
@@ -140,9 +140,9 @@ class TestNode(unittest.TestCase):
         self.n1.on_message(ping_msg)
         ping_msg.update(
                         {
-                            'node_id': environ['NODE_ID'],
-                            'command': 'pong',
-                            'success': True
+                        'node_id': environ['NODE_ID'],
+                        'command': 'pong',
+                        'success': True
                             })
         # checks
         messaging_send_msg_patch.assert_called_once_with(ping_msg)
@@ -151,10 +151,10 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
     def test_node_03_on_message_normal_case_scenario_search(self,
-                                                       node_msg_request_patch,
-                                                       node_msg_reply_patch,
-                                                       messaging_send_msg_patch
-                                                       ):
+                                                            node_msg_request_patch,
+                                                            node_msg_reply_patch,
+                                                            messaging_send_msg_patch
+                                                            ):
         
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
@@ -187,7 +187,7 @@ class TestNode(unittest.TestCase):
                                                           node_msg_request_patch,
                                                           node_msg_reply_patch,
                                                           messaging_send_msg_patch
-                                                           ):
+                                                          ):
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         node_msg_reply_patch.side_effect = TestNode.node_msg_side_effect
@@ -201,10 +201,12 @@ class TestNode(unittest.TestCase):
         self.n1.on_message(list_msg)
         
         # updating `list_msg` value to match the one sent through
-        # Messaging class
+        # Messaging class (here we are removing `path` and `dataset_id` 
+        # entries in the `database_list`)
         for d in self.database_list:
             for key in ['path', 'dataset_id']:
                 d.pop(key, None)
+                
         list_msg.update({ 
                          'success': True,
                          'node_id': environ['NODE_ID'],
@@ -347,7 +349,8 @@ class TestNode(unittest.TestCase):
         # action
         self.n1.on_message(ping_msg)
         
-        # check
+        # checks
+        # check if `Messaging.send_message` has been called with good arguments
         msg_send_error_patch.assert_called_once_with(ErrorNumbers.FB301,
                                                      extra_msg = 'Message was not serializable',
                                                      researcher_id= resid)   
@@ -385,18 +388,20 @@ class TestNode(unittest.TestCase):
         self.n1.parser_task(dict_msg_1_dataset)
     
         # checks
+        # check that `Round` has been called once
         self.assertEqual(round_patch.call_count, 1)
+        # check the attribute `rounds` of `Node` (should be a
+        # list containing )
         self.assertEqual(len(self.n1.rounds), 1)
         self.assertIsInstance(self.n1.rounds[0], Round)
-        
-        
+        # #####
         # test 2: case where 2 dataset have been found (training on several dataset)
-        # reset mocks
+        # reset mocks (for second test)
         round_patch.reset_mock()
         history_monitor_patch.reset_mock()
         round_patch.return_value = None
         
-        # defining msg argument (where 2 datasets are found)
+        # defining msg argument (case where 2 datasets are found)
         dict_msg_2_datasets = {
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
@@ -440,7 +445,7 @@ class TestNode(unittest.TestCase):
         self.assertIsInstance(self.n2.rounds[0], Round)
         # check if object `HistoryMonitor` has been called
         history_monitor_patch.assert_called_once()
-        # retrieve HistoryMonitor object
+        # retrieve `HistoryMonitor` object
         history_monitor_ref = round_patch.call_args_list[-1][0][-2]
         # check 
         self.assertIsInstance(history_monitor_ref, HistoryMonitor)
@@ -492,7 +497,6 @@ class TestNode(unittest.TestCase):
             'errnum': ErrorNumbers.FB313,
             'extra_msg': "Did not found proper data in local datasets" 
         })
-        
     
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
@@ -517,11 +521,13 @@ class TestNode(unittest.TestCase):
             'researcher_id': 'researcher_id_1234',
             'training_data': {environ['NODE_ID']: ['dataset_id_1234']}
         }
-        
+        # we convert this dataset into a string
         incoming_msg = str(dict_msg_1_dataset)
         
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        # we are not testing deserialization here, we are assuming here 
+        # that deserialization is working fine
         json_deserialize_patcher.return_value = dict_msg_1_dataset
         round_patch.return_value = None
         history_monitor_patch.spec = True
@@ -544,7 +550,6 @@ class TestNode(unittest.TestCase):
                                             None
                                         )
         
-
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     @patch('fedbiomed.common.message.NodeMessages.request_create')
@@ -578,8 +583,8 @@ class TestNode(unittest.TestCase):
             "params_url": "https://link.to_somewhere.where.my.model.parameters.is",\
             "job_id": "job_id_1234",\
             "researcher_id": "researcher_id_1234",\
-            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}\
-        }'
+            "training_data": {%b: ["dataset_id_1234"]}\
+        }' % (bytes(environ["NODE_ID"], 'utf-8'))
         
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
@@ -616,6 +621,7 @@ class TestNode(unittest.TestCase):
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         history_monitor_patch.return_value = None
+        # FIXME: should we patch `validator` too (currently not patched)
         #validator_patch.return_value = True
         
         # test 1: test case where exception is raised when model_url is None
@@ -641,8 +647,6 @@ class TestNode(unittest.TestCase):
         dict_msg_with_unvalid_url = copy.deepcopy(dict_msg_without_model_url)
         dict_msg_without_model_url['model_url'] =  'this is not a valid url'
         
-        #validator_patch.return_value = False
-        
         # action
         with self.assertRaises(AssertionError):
             # checks if `AssertionError` is raised when `model_url` is invalid
@@ -651,7 +655,6 @@ class TestNode(unittest.TestCase):
         # test 3: test case where model_class is None
         dict_msg_without_model_class = copy.deepcopy(dict_msg_without_model_url)
         dict_msg_without_model_class['model_class'] = None
-        #validator_patch.return_value = True
         
          # action
         with self.assertRaises(AssertionError):
@@ -688,9 +691,13 @@ class TestNode(unittest.TestCase):
             # checks if `SystemError` is caught (triggered by patched `tasks_queue.get`)
             self.n1.task_manager()
     
-    # NOTA BENE: for test xx to test xx (testing `task_manager` method)      
-    #
-    # 
+    # NOTA BENE: for test 14 to test 17 (testing `task_manager` method)      
+    # Since we don't have any proper way to stop the infinite loop defined
+    # in the method, we are triggering `SystemExit` Exception to leave it
+    # (SystemExit is an exception that is not caught by statement 
+    # `except Exception as e:`). When a more graceful way of exiting infinte loop
+    # has been created, those tests should be updated
+
     @patch('fedbiomed.node.node.Node.parser_task')    
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')     
     def test_node_14_task_manager_exception_raised_parser_task(self,
@@ -744,7 +751,8 @@ class TestNode(unittest.TestCase):
                                                              node_parser_task_patch,
                                                              mssging_send_msg_patch,
                                                              tasks_queue_task_done_patch):
-        """Tests if an Exception (SytemExit) is triggered when calling `TasksQueue.task_done`"""
+        """Tests if an Exception (SytemExit) is triggered when calling
+        `TasksQueue.task_done` method"""
         # defining patchers
         tasks_queue_get_patch.return_value = None
         node_parser_task_patch.return_value = None
