@@ -20,7 +20,7 @@ from fedbiomed.common.logger import logger, DEFAULT_LOG_LEVEL
 
 # importing fake (=dummy) classes
 from tests.testsupport.fake_training_plan import FakeModel
-from tests.testsupport.fake_message import FakeNodeMessages
+from tests.testsupport.fake_message import FakeMessages
 from tests.testsupport.fake_uuid import FakeUuid
 
 class TestRound(unittest.TestCase):
@@ -33,7 +33,7 @@ class TestRound(unittest.TestCase):
         """Sets up values in the test once """
         # we define here common side effect functions
         def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
-            fake_node_msg = FakeNodeMessages(msg)
+            fake_node_msg = FakeMessages(msg)
             return fake_node_msg
         
         cls.node_msg_side_effect = node_msg_side_effect

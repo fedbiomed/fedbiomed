@@ -8,6 +8,7 @@ delete_environ()
 import testsupport.mock_common_environ
 import json
 from typing import Callable
+from testsupport.fake_message import FakeMessages
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.monitor import Monitor
@@ -29,16 +30,19 @@ class TestRequest(unittest.TestCase):
         self.req_patcher2 = patch('fedbiomed.common.messaging.Messaging.start')
         self.req_patcher3 = patch('fedbiomed.common.messaging.Messaging.send_message')
         self.req_patcher4 = patch('fedbiomed.common.tasks_queue.TasksQueue.__init__')
+        self.req_patcher5 = patch('fedbiomed.common.message.ResearcherMessages.request_create')
 
         self.message_init = self.req_patcher1.start()
         self.message_start = self.req_patcher2.start()
         self.message_send = self.req_patcher3.start()
         self.task_queue_init = self.req_patcher4.start()
+        self.request_create = self.req_patcher5.start()
 
         self.message_init.return_value = None
         self.message_start.return_value = None
         self.message_send.return_value = None
         self.task_queue_init.return_value = None
+        self.request_create.return_value = FakeMessages({})
 
         self.requests = Requests()
 
@@ -48,6 +52,7 @@ class TestRequest(unittest.TestCase):
         self.req_patcher2.stop()
         self.req_patcher3.stop()
         self.req_patcher4.stop()
+        self.req_patcher5.stop()
 
         pass
 
@@ -87,7 +92,9 @@ class TestRequest(unittest.TestCase):
     @patch('fedbiomed.researcher.requests.Requests.print_node_log_message')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.add')
     @patch('fedbiomed.common.logger.logger.error')
+    @patch('fedbiomed.common.message.ResearcherMessages.reply_create')
     def test_request_03_on_message(self,
+                                   mock_reply_create,
                                    mock_logger_error,
                                    mock_task_add,
                                    mock_print_node_log_message):
@@ -100,11 +107,11 @@ class TestRequest(unittest.TestCase):
                       'command': 'log'}
 
         # Get researcher reply for `assert_called_with`
-        reply_logger = ResearcherMessages.reply_create(msg_logger).get_dict()
+        reply_logger = FakeMessages(msg_logger)
+        mock_reply_create.return_value = reply_logger
         self.requests.on_message(msg_logger, topic='general/logger')
-
         # Check the method has been called
-        mock_print_node_log_message.assert_called_once_with(reply_logger)
+        mock_print_node_log_message.assert_called_once_with(reply_logger.get_dict())
 
         msg_researcher_reply = {'researcher_id': 'DummyID',
                                 'success': True,
@@ -113,10 +120,11 @@ class TestRequest(unittest.TestCase):
                                 'node_id': 'DummyNodeID',
                                 'command': 'search'}
 
+        reply_researcher = FakeMessages(msg_researcher_reply)
+        mock_reply_create.return_value = reply_researcher
         self.requests.on_message(msg_researcher_reply, topic='general/researcher')
         # Get researcher reply for `assert_called_with`
-        reply_researcher = ResearcherMessages.reply_create(msg_researcher_reply).get_dict()
-        mock_task_add.assert_called_once_with(reply_researcher)
+        mock_task_add.assert_called_once_with(reply_researcher.get_dict())
 
         msg_monitor = {'researcher_id': 'DummyID',
                        'node_id': 'DummyNodeID',
@@ -128,13 +136,12 @@ class TestRequest(unittest.TestCase):
                        'command': 'add_scalar'}
 
         monitor_callback = MagicMock(return_value=None)
-
-        # Get researcher reply for `assert_called_with`
-        reply_monitor = ResearcherMessages.reply_create(msg_monitor).get_dict()
+        reply_monitor = FakeMessages(msg_monitor)
+        mock_reply_create.return_value = reply_monitor
         # Add callback for monitoring
         self.requests.add_monitor_callback(monitor_callback)
         self.requests.on_message(msg_monitor, topic='general/monitoring')
-        monitor_callback.assert_called_once_with(reply_monitor)
+        monitor_callback.assert_called_once_with(reply_monitor.get_dict())
 
         # Test when the topic is unkown, it should call logger to log error
         self.requests.on_message(msg_monitor, topic='unknown/topic')
@@ -346,7 +353,7 @@ class TestRequest(unittest.TestCase):
                   'command': 'list'
                   }
 
-        node_3 = {'node_id': 'node-2',
+        node_3 = {'node_id': 'node-3',
                   'researcher_id': 'r-xxx',
                   'databases': [],
                   'success': True,
