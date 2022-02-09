@@ -91,8 +91,9 @@ class TestNode(unittest.TestCase):
         self.messaging_patch.stop()
     
     @patch('fedbiomed.common.tasks_queue.TasksQueue.add')
-    def test_add_task(self, task_queue_add_patcher):
-        """Tests add_task method"""
+    def test_node_01_add_task_normal_case_scenario(self, task_queue_add_patcher):
+        """Tests add_task method (in the normal case scenario)"""
+        # arguments
         # a dummy message
         node_msg_request_create_task = {
             'msg': "a message for testing",
@@ -106,7 +107,7 @@ class TestNode(unittest.TestCase):
         
     @patch('fedbiomed.node.node.Node.add_task')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
-    def test_node_01_on_message_normal_case_scenario_train_reply(
+    def test_node_02_on_message_normal_case_scenario_train_reply(
                                            self,
                                            node_msg_req_create_patcher,
                                            node_add_task_patcher,
@@ -126,7 +127,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
-    def test_node_02_on_message_normal_case_scenario_ping(
+    def test_node_03_on_message_normal_case_scenario_ping(
                                 self,
                                 node_msg_request_patch,
                                 node_msg_reply_patch,
@@ -157,7 +158,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
-    def test_node_03_on_message_normal_case_scenario_search(self,
+    def test_node_04_on_message_normal_case_scenario_search(self,
                                                             node_msg_request_patch,
                                                             node_msg_reply_patch,
                                                             messaging_send_msg_patch
@@ -190,7 +191,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.message.NodeMessages.request_create')
-    def test_node_04_on_message_normal_case_scenario_list(self,
+    def test_node_05_on_message_normal_case_scenario_list(self,
                                                           node_msg_request_patch,
                                                           node_msg_reply_patch,
                                                           messaging_send_msg_patch
@@ -224,7 +225,7 @@ class TestNode(unittest.TestCase):
         messaging_send_msg_patch.assert_called_once_with(list_msg)
     
     @patch('fedbiomed.common.message.NodeMessages.request_create')    
-    def test_node_05_on_message_normal_case_scenario_model_status(self,
+    def test_node_06_on_message_normal_case_scenario_model_status(self,
                                                                   node_msg_request_patch,
                                                                   ):
         """Tests normal case senario, if command is equals to 'model-status"""
@@ -245,7 +246,7 @@ class TestNode(unittest.TestCase):
                                                                         
     @patch('fedbiomed.node.node.Node.send_error') 
     @patch('fedbiomed.common.message.NodeMessages.request_create')    
-    def test_node_06_on_message_unknown_command(self,
+    def test_node_07_on_message_unknown_command(self,
                                                 node_msg_request_patch,
                                                 send_err_patch):
         """Tests Exception is raised if command is not a known command 
@@ -273,7 +274,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.message.NodeMessages.request_create')   
-    def test_node_07_on_message_fail_reading_json(self,
+    def test_node_08_on_message_fail_reading_json(self,
                                                   node_msg_request_patch,
                                                   node_msg_reply_patch,
                                                   messaging_patch,
@@ -307,7 +308,7 @@ class TestNode(unittest.TestCase):
                                                      researcher_id= resid)
      
     @patch('fedbiomed.node.node.Node.send_error')    
-    def test_node_08_on_message_fail_getting_msg_field(self,
+    def test_node_09_on_message_fail_getting_msg_field(self,
                                                        msg_send_error_patch):
         """Tests case where a KeyError (unable to extract fields of `msg`) Exception
         is raised during process"""
@@ -329,7 +330,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.message.NodeMessages.request_create')  
-    def test_node_09_on_message_fail_msg_not_serializable(self,
+    def test_node_10_on_message_fail_msg_not_serializable(self,
                                                           node_msg_request_patch,
                                                           node_msg_reply_patch,
                                                           messaging_patch,
@@ -365,7 +366,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     @patch('fedbiomed.common.message.NodeMessages.request_create') 
-    def test_node_10_parser_task_create_round(self,
+    def test_node_11_parser_task_create_round(self,
                                               node_msg_request_patch,
                                               history_monitor_patch,
                                               round_patch
@@ -461,7 +462,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.message.NodeMessages.reply_create') 
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
     @patch('fedbiomed.common.message.NodeMessages.request_create') 
-    def test_node_10_parser_task_no_dataset_found(self,
+    def test_node_12_parser_task_no_dataset_found(self,
                                                   node_msg_request_patch,
                                                   history_monitor_patch,
                                                   node_msg_reply_patch,
@@ -509,7 +510,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     @patch('fedbiomed.common.message.NodeMessages.request_create')
     @patch('fedbiomed.common.json.deserialize_msg') 
-    def test_node_11_parser_task_create_round_deserializer_str_msg(self,
+    def test_node_13_parser_task_create_round_deserializer_str_msg(self,
                                                                    json_deserialize_patcher,
                                                                    node_msg_request_patch,
                                                                    history_monitor_patch,
@@ -561,7 +562,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     @patch('fedbiomed.common.message.NodeMessages.request_create')
     @patch('fedbiomed.common.json.deserialize_msg') 
-    def test_node_12_parser_task_create_round_deserializer_bytes_msg(self,
+    def test_node_14_parser_task_create_round_deserializer_bytes_msg(self,
                                                                    json_deserialize_patcher,
                                                                     node_msg_request_patch,
                                                                     history_monitor_patch,
@@ -618,10 +619,10 @@ class TestNode(unittest.TestCase):
                                         )    
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
     @patch('fedbiomed.common.message.NodeMessages.request_create') 
-    def test_parser_task_03_error_found(self,
-                                        node_msg_request_patch,
-                                        history_monitor_patch,
-                                        ):
+    def test_node_15_parser_task_error_found(self,
+                                             node_msg_request_patch,
+                                             history_monitor_patch,
+                                             ):
         """Tests correct raise of error (AssertionError) for missing/invalid 
         entries in input arguments"""
         
@@ -679,14 +680,14 @@ class TestNode(unittest.TestCase):
             # of type string
             self.n1.parser_task(dict_msg_model_class_bad_type)
         
-    def test_node_12_task_manager_normal_case_scenario(self):
+    def test_node_16_task_manager_normal_case_scenario(self):
         """Tests task_manager in the normal case scenario"""
         # TODO: implement such test when we will have methods that makes
         # possible to stop Node
         pass
      
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')     
-    def test_node_13_task_manager_exception_raised_task_queue(self,
+    def test_node_17_task_manager_exception_raised_task_queue(self,
                                                               tasks_queue_get_patch):
         """Simulates an Exception (SystemError) triggered by `tasks_queue.get`
         """
@@ -707,7 +708,7 @@ class TestNode(unittest.TestCase):
 
     @patch('fedbiomed.node.node.Node.parser_task')    
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')     
-    def test_node_14_task_manager_exception_raised_parser_task(self,
+    def test_node_18_task_manager_exception_raised_parser_task(self,
                                                                tasks_queue_get_patch,
                                                                node_parser_task_patch):
         """Tests case where `tasks_queue.get` method raises an exception (SystemExit).
@@ -726,7 +727,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.node.node.Node.parser_task')    
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')     
-    def test_node_15_task_manager_exception_raised_send_message(self,
+    def test_node_19_task_manager_exception_raised_send_message(self,
                                                                 tasks_queue_get_patch,
                                                                 node_parser_task_patch,
                                                                 mssging_send_msg_patch):
@@ -753,7 +754,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.node.node.Node.parser_task')    
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')     
-    def test_node_16_task_manager_exception_raised_task_done(self,
+    def test_node_20_task_manager_exception_raised_task_done(self,
                                                              tasks_queue_get_patch,
                                                              node_parser_task_patch,
                                                              mssging_send_msg_patch,
@@ -786,7 +787,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.common.messaging.Messaging.send_message')
     @patch('fedbiomed.node.node.Node.parser_task')    
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')     
-    def test_node_17_task_manager_exception_raised_twice_in_send_msg(self,
+    def test_node_21_task_manager_exception_raised_twice_in_send_msg(self,
                                                                      tasks_queue_get_patch,
                                                                      node_parser_task_patch,
                                                                      mssging_send_msg_patch,
@@ -850,7 +851,7 @@ class TestNode(unittest.TestCase):
             
 
     @patch('fedbiomed.common.messaging.Messaging.start')    
-    def test_node_18_start_messaging_normal_case_scenario(self,
+    def test_node_22_start_messaging_normal_case_scenario(self,
                                                           msg_start_patch):
         """Tests `start_messaging` method (normal_case_scenario)"""
         # arguments
@@ -863,7 +864,7 @@ class TestNode(unittest.TestCase):
         msg_start_patch.assert_called_once_with(block)
         
     @patch('fedbiomed.common.messaging.Messaging.send_error')
-    def test_node_19_send_error_normal_case_scenario(self, msg_send_error_patch):
+    def test_node_23_send_error_normal_case_scenario(self, msg_send_error_patch):
         """Tests `send_error` method (normal case scenario)"""
         # arguments
         errnum = ErrorNumbers.FB100
