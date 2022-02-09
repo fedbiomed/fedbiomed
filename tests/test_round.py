@@ -206,16 +206,16 @@ class TestRound(unittest.TestCase):
               ):
             msg = self.r1.run_model_training()
             
-        # test if all methods have been called once with the good arguments
-        mock_load.assert_called_once_with(MODEL_NAME,
-                                          to_params=False)
-        mock_set_dataset.assert_called_once_with(self.r1.dataset.get('path'))
+            # test if all methods have been called once with the good arguments
+            mock_load.assert_called_once_with(MODEL_NAME,
+                                              to_params=False)
+            mock_set_dataset.assert_called_once_with(self.r1.dataset.get('path'))
 
-        mock_training_routine.assert_called_once_with( monitor=self.r1.monitor,
-                                                       node_args=None)
+            mock_training_routine.assert_called_once_with( monitor=self.r1.monitor,
+                                                           node_args=None)
 
-        mock_after_training_params.assert_called_once()
-        mock_save.assert_called_once_with(_model_filename, _model_results)
+            mock_after_training_params.assert_called_once()
+            mock_save.assert_called_once_with(_model_filename, _model_results)
 
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
