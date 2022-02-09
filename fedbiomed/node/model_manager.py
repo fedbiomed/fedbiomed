@@ -1,5 +1,6 @@
 import os
 import hashlib
+from typing import Any, Dict, Tuple
 import uuid
 
 from tinydb import TinyDB, Query
@@ -159,7 +160,7 @@ class ModelManager:
                     logger.info(f'Model : {model["name"]} could not found in : {model["model_path"]}, will be removed')
                     self._db.remove(doc_ids=[model.doc_id])
 
-    def check_is_model_approved(self, path):
+    def check_is_model_approved(self, path) -> Tuple[bool, Dict[str, Any]]:
 
         """ This method checks wheter model is approved by the node. It send a query to
         database to search for hash of requested model. If it the hash matches with one of the
