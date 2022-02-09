@@ -23,3 +23,12 @@ class FakeResponses:
     def __getitem__(self, item):
         """  """
         return self._data[item]
+
+    def __repr__(self) -> str:
+        """Makes Responses object representable
+        (one can use built-in `repr()` function)
+
+        Returns:
+            str: the representation of the data
+        """
+        return repr(self._data)
