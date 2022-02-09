@@ -1,6 +1,6 @@
 # Fed-BioMed
 
-version 3 implementation of the Fed-BioMed project
+Version 3 implementation of the Fed-BioMed project
 
 ## Install and run in development environment
 
