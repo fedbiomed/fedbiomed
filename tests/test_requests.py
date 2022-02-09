@@ -409,7 +409,9 @@ class TestRequest(unittest.TestCase):
 
     @patch('fedbiomed.researcher.monitor.Monitor.__init__')
     @patch('fedbiomed.researcher.monitor.Monitor.on_message_handler')
+    @patch('fedbiomed.researcher.requests.Requests.add_monitor_callback')
     def test_request_11_add_monitor_callback(self,
+                                             mock_monitor_callback,
                                              mock_monitor_message_handler,
                                              mock_monitor_init):
 
@@ -420,6 +422,7 @@ class TestRequest(unittest.TestCase):
 
         # Test adding monitor callback
         self.requests.add_monitor_callback(monitor.on_message_handler)
+        mock_monitor_callback.assert_called_once_with(monitor.on_message_handler)
 
     @patch('fedbiomed.researcher.monitor.Monitor.__init__')
     @patch('fedbiomed.researcher.monitor.Monitor.on_message_handler')
