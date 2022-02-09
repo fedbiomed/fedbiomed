@@ -63,6 +63,7 @@ class TestMessagingResearcher(unittest.TestCase):
             cls._broker_ok = False
 
         time.sleep(1.0) # give some time to the thread to listen to the given port
+        print("MQTT connexion status =" , cls._broker_ok)
 
         pass
 
@@ -90,11 +91,17 @@ class TestMessagingResearcher(unittest.TestCase):
 
 
     # tests
-    def test_messaging_researcher_00_send(self):
+    def test_messaging_researcher_00_init(self):
+        if not self._broker_ok:
+            self.skipTest('no broker available for this test')
+
+        self.assertEqual( self._m.default_send_topic, "general/nodes")
+        self.assertEqual( self._m.on_message_handler, TestMessagingResearcher.on_message)
+
+    def test_messaging_researcher_01_send(self):
         '''
         send a message on MQTT
         '''
-        print("connexion status =" , self._broker_ok)
         if not self._broker_ok:
             self.skipTest('no broker available for this test')
 
@@ -136,6 +143,7 @@ class TestMessagingNode(unittest.TestCase):
             cls._broker_ok = False
 
         time.sleep(1.0) # give some time to the thread to listen to the given port
+        print("MQTT connexion status =" , cls._broker_ok)
 
         pass
 
@@ -163,11 +171,17 @@ class TestMessagingNode(unittest.TestCase):
 
 
     # tests
-    def test_messaging_node_00_send(self):
+    def test_messaging_node_00_init(self):
+        if not self._broker_ok:
+            self.skipTest('no broker available for this test')
+
+        self.assertEqual( self._m.default_send_topic, "general/researcher")
+        self.assertEqual( self._m.on_message_handler, TestMessagingNode.on_message)
+
+    def test_messaging_node_01_send(self):
         '''
         send a message on MQTT
         '''
-        print("connexion status =" , self._broker_ok)
         if not self._broker_ok:
             self.skipTest('no broker available for this test')
 
