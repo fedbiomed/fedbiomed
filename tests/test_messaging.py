@@ -22,19 +22,75 @@ class TestMessaging(unittest.TestCase):
     '''
     Test the Messaging class connect/disconnect
     '''
-    def test_messaging_00_bad_init(self):
 
+    # before all the tests
+    def setUp(self):
         self._m = Messaging(on_message       = None,
                             messaging_type   = None,
                             messaging_id     = 1234,
                             mqtt_broker      = "1.2.3.4",
                             mqtt_broker_port = 1)
 
+        pass
+
+
+    def test_messaging_00_bad_init(self):
+
         self.assertFalse( self._m.is_connected )
         self.assertEqual( self._m.default_send_topic, None)
 
+        try:
+            self._m.start()
+            self.assertFalse( True, "Should not connect to fake server (KO)")
+        except:
+            self.assertTrue( True, "Should not connect to fake server (OK)")
 
-    def test_messaging_01_researcher_init(self):
+
+    def test_messaging_01_connect(self):
+
+        self._m.on_connect(None, # client
+                           None, # userdata
+                           None, # flags
+                           0     # rc (ok)
+                           )
+        self.assertTrue( self._m.is_connected )
+
+
+        try:
+            self._m.on_connect(None, # client
+                               None, # userdata
+                               None, # flags
+                               1     # rc (error)
+                               )
+            self.assertFalse(True, "bad disconnexion")
+        except:
+            self.assertTrue(True, "bad disconnexion")
+            self.assertTrue( self._m.is_failed)
+
+    def test_messaging_02_disconnect(self):
+
+        # disconnexion from server
+        self._m.is_connected = True
+        self._m.on_disconnect(None, # client
+                              None, # userdata
+                              0)    # rc (OK)
+        self.assertFalse( self._m.is_connected )
+
+        # failed disconnexion from server
+        self._m.is_connected = True
+        try:
+            self._m.on_disconnect(None, # client
+                                  None, # userdata
+                                  1)    # rc (error)
+            self.assertFalse( True, "Disconnexion should failed and raise SystemExit")
+        except:
+            self.assertTrue( True, "Disconnexion should failed and raise SystemExit")
+
+        self.assertFalse( self._m.is_connected )
+        self.assertTrue( self._m.is_failed)
+
+
+    def test_messaging_03_researcher_init(self):
 
         self._m = Messaging(on_message       = None,
                             messaging_type   = ComponentType.RESEARCHER,
@@ -45,7 +101,7 @@ class TestMessaging(unittest.TestCase):
         self.assertFalse( self._m.is_connected )
         self.assertEqual( self._m.default_send_topic, "general/nodes")
 
-    def test_messaging_01_node_init(self):
+    def test_messaging_04_node_init(self):
 
         self._m = Messaging(on_message       = None,
                             messaging_type   = ComponentType.NODE,

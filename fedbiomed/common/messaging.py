@@ -109,8 +109,10 @@ class Messaging:
         if rc == 0:
             logger.info("Messaging " + str(self.messaging_id) + " successfully connected to the message broker, object = " + str(self))
         else:
-            logger.error("Messaging " + str(self.messaging_id) + " could not connect to the message broker, object = " + str(self))
+            msg = ErrorNumbers.FB101.value + ": " + str(self.messaging_id) + " could not connect to the message broker"
+            logger.critical(msg)
             self.is_failed = True
+            raise FedbiomedMessagingError(msg)
 
         if self.messaging_type is ComponentType.RESEARCHER:
             for channel in ('general/researcher', 'general/monitoring'):
@@ -119,7 +121,7 @@ class Messaging:
                     logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel" + str(channel))
                     self.is_failed = True
 
-            # PoC subscibe also to error channel
+            # PoC subscribe also to error channel
             result, _ = self.mqtt.subscribe('general/logger')
             if result != mqtt.MQTT_ERR_SUCCESS:
                 logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel general/error")
@@ -152,7 +154,7 @@ class Messaging:
 
         if rc == 0:
             # should this ever happen ? we're not disconnecting intentionally yet
-            logger.info("Messaging " + str(self.messaging_id) + " disconnected without error, object = " + str(self))
+            logger.info("Messaging " + str(self.messaging_id) + " disconnected without error")
         else:
             # see MQTT specs : when another client connects with same client_id, the previous one
             # is disconnected https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901205
@@ -160,7 +162,6 @@ class Messaging:
             #print("[ERROR] Messaging ", self.messaging_id, " disconnected with error code rc = ", rc, " object = ", self,
             #    " - Hint: check for another instance of the same component running or for communication error")
             logger.error("Messaging " + str(self.messaging_id) + " disconnected with error code rc = " + str(rc) +
-                         " object = " + str(self) +
                          " - Hint: check for another instance of the same component running or for communication error")
 
             self.is_failed = True
@@ -227,7 +228,7 @@ class Messaging:
         if client is None:
             channel = self.default_send_topic
         else:
-            channel = "general/" + client
+            channel = "general/" + str(client)
         if channel is not None:
             messinfo = self.mqtt.publish(channel, json.serialize_msg(msg))
             if messinfo.rc != mqtt.MQTT_ERR_SUCCESS:
