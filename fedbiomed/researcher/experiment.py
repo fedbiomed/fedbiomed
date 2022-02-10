@@ -128,7 +128,7 @@ class Experiment(object):
                 training_data: Union[FederatedDataSet, dict, None] = None,
                 aggregator: Union[Aggregator, Type[Aggregator], None] = None,
                 node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
-                rounds: int = 1,
+                round_limit: int = 1,
                 model_class: Union[Type_TrainingPlan, str, None] = None,
                 model_path: Union[str, None] = None,
                 model_args: dict = {},
@@ -171,7 +171,7 @@ class Experiment(object):
                 - use `DefaultStrategy` if training_data is initialized
                 - else strategy is None (cannot be initialized), experiment cannot
                   be launched yet
-            - rounds (int, optional): the total number of training rounds
+            - round_limit (int, optional): the total number of training rounds
                 (nodes <-> central server) of the experiment.
                 Defaults to 1.
             - model_class (Union[Type_TrainingPlan, str, None], optional): name of the model class
@@ -235,7 +235,7 @@ class Experiment(object):
 
         # "current" means number of rounds already trained
         self._round_current = 0
-        self.set_rounds(rounds)
+        self.set_round_limit(round_limit)
 
         # set self._experimentation_folder: type str
         self.set_experimentation_folder(experimentation_folder)
@@ -305,8 +305,8 @@ class Experiment(object):
         return self._node_selection_strategy
 
     @exp_exceptions
-    def rounds(self) -> int:
-        return self._rounds
+    def round_limit(self) -> int:
+        return self._round_limit
 
     @exp_exceptions
     def round_current(self):
@@ -406,7 +406,7 @@ class Experiment(object):
                     self._aggregator, self._node_selection_strategy, self._job,
                     self._model_path, self._model_class,
                     self._model_args, self._training_args,
-                    self._round_current, self._rounds,
+                    self._round_current, self._round_limit,
                     self._experimentation_folder,
                     self.experimentation_path(),
                     self._save_breakpoints, self._monitor
@@ -695,35 +695,35 @@ class Experiment(object):
 
 
     @exp_exceptions
-    def set_rounds(self, rounds: int) -> int:
-        """Setter for `rounds` + verification on arguments type
+    def set_round_limit(self, round_limit: int) -> int:
+        """Setter for `round_limit` + verification on arguments type
 
         Args:
-            - rounds (int): the total number of training rounds
+            - round_limit (int): the total maximum number of training rounds
                 (nodes <-> central server) of the experiment.
 
         Raise:
             - FedbiomedExperimentError : bad rounds type
 
         Returns:
-            - rounds (int)
+            - round_limit (int)
         """
         # at this point round_current exists and is an int >= 0
-        if not isinstance(rounds, int):
-            msg = ErrorNumbers.FB410.value + f' `rounds` : {type(rounds)}'
+        if not isinstance(round_limit, int):
+            msg = ErrorNumbers.FB410.value + f' `round_limit` : {type(round_limit)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)            
         else:
-            # at this point rounds is an int
-            if rounds < self._round_current:
-                # self._rounds can't be less than current round
-                logger.error(f'cannot set `rounds` to less than number of already run rounds '
+            # at this point round_limit is an int
+            if round_limit < self._round_current:
+                # self._round_limit can't be less than current round
+                logger.error(f'cannot set `round_limit` to less than number of already run rounds '
                     f'({self._round_current})')
             else:
-                self._rounds = rounds
+                self._round_limit = round_limit
 
-        # at this point self._rounds is an int
-        return self._rounds
+        # at this point self._round_limit is an int
+        return self._round_limit
 
 
     # no setter for self._round_current eg
@@ -758,8 +758,8 @@ class Experiment(object):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)            
         else:
-            # at this point self._rounds is an int
-            if round_current < 0 or round_current > self._rounds:
+            # at this point self._round_limit is an int
+            if round_current < 0 or round_current > self._round_limit:
                 msg = ErrorNumbers.FB410.value + f' `round_current` : {round_current}'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg) 
@@ -767,7 +767,7 @@ class Experiment(object):
                 # correct value
                 self._round_current = round_current
 
-        # at this point self._rounds is an int
+        # at this point self._round_limit is an int
         return self._round_current
 
 
@@ -1183,12 +1183,12 @@ class Experiment(object):
     def run_once(self, increase: bool = False) -> int:
         """Run at most one round of an experiment, continuing from the point the
         experiment had reached.
-        If the total number of `rounds` of the experiment is already reached:
+        If the maximum number of rounds `round_limit` of the experiment is already reached:
         * if `increase` is False, do nothing
-        * if `increase` is True, increment total number of `rounds` and run one round
+        * if `increase` is True, increment total number of round `round_limit` and run one round
 
         Args:
-            - increase (bool, optional) : automatically increase the total `rounds` of the 
+            - increase (bool, optional) : automatically increase the `round_limit` of the 
               experiment if needed
               Defaults to False
         
@@ -1206,14 +1206,14 @@ class Experiment(object):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        # nota: robustify test, but we should never have self._round_current > self._rounds
-        if self._round_current >= self._rounds:
+        # nota: robustify test, but we should never have self._round_current > self._round_limit
+        if self._round_current >= self._round_limit:
             if increase is True:
-                logger.info(f'Auto increasing total rounds for experiment from {self._rounds} '
+                logger.info(f'Auto increasing total rounds for experiment from {self._round_limit} '
                         f'to {self._round_current + 1}')
-                self._rounds = self._round_current + 1
+                self._round_limit = self._round_current + 1
             else:
-                logger.info(f'Round limit of {self._rounds} was reached, stopping execution')
+                logger.info(f'Round limit of {self._round_limit} was reached, stopping execution')
                 return 0
 
         # at this point, self._aggregator always exists and is not None
@@ -1267,18 +1267,18 @@ class Experiment(object):
         Args:
             - run_rounds (int, optional): Number of experiment rounds to run in this call.
               * 0 means "run all the rounds remaining in the experiment" computed as
-                total rounds (`rounds`) minus the number of rounds already run
+                maximum rounds (`round_limit`) minus the number of rounds already run
                 rounds (`round_current`)
               * >= 1 means "run `run_rounds` rounds" at most.
-                If it goes beyond the total `rounds` of the experiment:
+                If it goes beyond the maximum rounds `round_limit` of the experiment:
                 - if `increase` is True,
-                  increase the total `rounds` to (`round_current` + `run_rounds`)
+                  increase the `round_limit` to (`round_current` + `run_rounds`)
                   and run `run_rounds` rounds
-                - if `increase` is False, run (`rounds` - `round_current`)
-                  rounds and don't modify the total `rounds` of the experiment
+                - if `increase` is False, run (`round_limit` - `round_current`)
+                  rounds and don't modify the maximum `round_limit` of the experiment
               Defaults to 0
-            - increase (bool, optional) : automatically increase the total `rounds` of the 
-              experiment if needed
+            - increase (bool, optional) : automatically increase the maximum
+              number of rounds `round_limit` of the experiment if needed
               Defaults to False
         
         Raises:
@@ -1309,14 +1309,14 @@ class Experiment(object):
         # compute maximum number of rounds to run
         if run_rounds == 0:
             # all remaining rounds in the experiment
-            run_rounds = self._rounds - self._round_current
+            run_rounds = self._round_limit - self._round_current
         else:
-            # dont change run_rounds, but extend self._rounds if necessary
+            # dont change run_rounds, but extend self._round_limit if necessary
             if increase is True:
-                if (self._round_current + run_rounds) > self._rounds:
-                    logger.info(f'Auto increasing total rounds for experiment from {self._rounds} '
+                if (self._round_current + run_rounds) > self._round_limit:
+                    logger.info(f'Auto increasing total rounds for experiment from {self._round_limit} '
                         f'to {self._round_current + run_rounds}')
-                self._rounds = max (self._rounds, self._round_current + run_rounds)
+                self._round_limit = max (self._round_limit, self._round_current + run_rounds)
 
         # run the rounds
         real_rounds = 0
@@ -1474,7 +1474,7 @@ class Experiment(object):
             'model_class': self._job.model_class,  # not always available properly
             # formatted in Experiment with current version
             'round_number': self._round_current,
-            'round_number_due': self._rounds,
+            'round_number_due': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
             'aggregator': self._aggregator.save_state(),  # aggregator state
             'node_selection_strategy': self._node_selection_strategy.save_state(),
@@ -1582,7 +1582,7 @@ class Experiment(object):
                          training_data=bkpt_fds,
                          aggregator=bkpt_aggregator,
                          node_selection_strategy=bkpt_sampling_strategy,
-                         rounds=saved_state.get("round_number_due"),
+                         round_limit=saved_state.get("round_number_due"),
                          model_class=saved_state.get("model_class"),
                          model_path=saved_state.get("model_path"),
                          model_args=saved_state.get("model_args"),
