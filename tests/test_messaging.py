@@ -8,14 +8,13 @@ import testsupport.mock_common_environ
 from fedbiomed.researcher.environ import environ
 
 import unittest
-import random
 import sys
 import threading
 import time
 
 from fedbiomed.common.messaging      import Messaging
 from fedbiomed.common.constants      import ComponentType
-from fedbiomed.common.message        import ResearcherMessages
+from fedbiomed.common.message        import PingReply
 from fedbiomed.common.message        import NodeMessages
 
 
@@ -23,7 +22,6 @@ class TestMessaging(unittest.TestCase):
     '''
     Test the Messaging class connect/disconnect
     '''
-
     def test_messaging_00_bad_init(self):
 
         self._m = Messaging(on_message       = None,
@@ -36,6 +34,28 @@ class TestMessaging(unittest.TestCase):
         self.assertEqual( self._m.default_send_topic, None)
 
 
+    def test_messaging_01_researcher_init(self):
+
+        self._m = Messaging(on_message       = None,
+                            messaging_type   = ComponentType.RESEARCHER,
+                            messaging_id     = 1234,
+                            mqtt_broker      = "1.2.3.4",
+                            mqtt_broker_port = 1)
+
+        self.assertFalse( self._m.is_connected )
+        self.assertEqual( self._m.default_send_topic, "general/nodes")
+
+    def test_messaging_01_node_init(self):
+
+        self._m = Messaging(on_message       = None,
+                            messaging_type   = ComponentType.NODE,
+                            messaging_id     = 1234,
+                            mqtt_broker      = "1.2.3.4",
+                            mqtt_broker_port = 1)
+
+        self.assertFalse( self._m.is_connected )
+        self.assertEqual( self._m.default_send_topic, "general/researcher")
+
 
 class TestMessagingResearcher(unittest.TestCase):
     '''
@@ -46,7 +66,6 @@ class TestMessagingResearcher(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
-        random.seed()
         # verify that a broker is available
         try:
             print("connecting to:", environ['MQTT_BROKER'], "/", environ['MQTT_BROKER_PORT'])
@@ -86,8 +105,18 @@ class TestMessagingResearcher(unittest.TestCase):
 
 
     # mqqt callbacks
-    def on_message(msg, topic):
-        print("RECV:", topic, msg)
+
+    @classmethod
+    def on_message(cls, msg, topic):
+        # classmethod necessary to have access to self via cls
+        print("RESH_RECV:", topic, msg)
+
+        # fake pong reply
+        cls.assertTrue(cls, topic, "general/researcher")
+        cls.assertTrue(cls, msg['researcher_id'], "researcher_001")
+        cls.assertTrue(cls, msg['node_id'], "node_1234")
+        cls.assertTrue(cls, msg['sequence'], 1234)
+        cls.assertTrue(cls, msg['command'], 'pong')
 
 
     # tests
@@ -104,31 +133,48 @@ class TestMessagingResearcher(unittest.TestCase):
             self.skipTest('no broker available for this test')
 
         try:
-            ping = ResearcherMessages.request_create(
-                {'researcher_id' : environ['RESEARCHER_ID'],
-                 'sequence'      : random.randint(1, 65535),
-                 'command'       :'ping'}).get_dict()
-            self._m.send_message(ping)
-            self.assertTrue( True, "ping message correctly sent")
+            # bypass NodeMessages.reply_create
+            # to fake and answer from a node
+            # call to NodeMessages will fail anyway because
+            # this is the researcher side !!!
+
+            # we simulate a message sent by a node
+            # 1/ bypass the NodeMessages.reply_create
+            # 2/ cheat with the default channel
+            # (if we don't do that, the message will not be caught by
+            # the on_message hlandler)
+            pong = PingReply(
+                researcher_id = 'researcher_001',
+                node_id       = 'node_1234',
+                success       = True,
+                sequence      = 1234,
+                command       ='pong').get_dict()
+            self._m.default_send_topic = "general/researcher"
+
+            self._m.send_message(pong)
+            self.assertTrue( True, "fake pong message correctly sent")
 
         except:
-            self.assertTrue( False, "ping message not sent")
+            self.assertTrue( False, "fake pong message not sent")
+
+        # give time to the on_message to get the msg
+        # message content is tested at on_message()
+        time.sleep(1.0)
 
 
 class TestMessagingNode(unittest.TestCase):
     '''
-    Test the Messaging class from the Node point of view
+    Test the Messaging class from the researcher point of view
     '''
 
     # once in test lifetime
     @classmethod
     def setUpClass(cls):
 
-        random.seed()
         # verify that a broker is available
         try:
             print("connecting to:", environ['MQTT_BROKER'], "/", environ['MQTT_BROKER_PORT'])
-            cls._m = Messaging(cls.on_message,
+            cls._m = Messaging(None,
                                ComponentType.NODE,
                                environ['NODE_ID'],
                                environ['MQTT_BROKER'],
@@ -144,6 +190,7 @@ class TestMessagingNode(unittest.TestCase):
         print("MQTT connexion status =" , cls._broker_ok)
 
         pass
+
 
     @classmethod
     def tearDownClass(cls):
@@ -162,37 +209,11 @@ class TestMessagingNode(unittest.TestCase):
         pass
 
 
-    # mqqt callbacks
-    def on_message(msg, topic):
-        print("RECV:", topic, msg)
-
-
     # tests
-    def test_messaging_node_00_init(self):
+    def test_messaging_researcher_00_init(self):
 
         self.assertEqual( self._m.default_send_topic, "general/researcher")
-        self.assertEqual( self._m.on_message_handler, TestMessagingNode.on_message)
-
-    def test_messaging_node_01_send(self):
-        '''
-        send a message on MQTT
-        '''
-        if not self._broker_ok:
-            self.skipTest('no broker available for this test')
-
-        try:
-            ping = NodeMessages.reply_create(
-                {'researcher_id' : 'XXX',
-                 'node_id'       : environ['NODE_ID'],
-                 'sequence'      : random.randint(1, 65535),
-                 'success'       : True,
-                 'command'       :'pong'}).get_dict()
-            self._m.send_message(ping)
-            self.assertTrue( True, "pong message correctly sent")
-
-        except:
-            self.assertTrue( False, "pong message not sent")
-
+        self.assertEqual( self._m.on_message_handler, None)
 
 
 if __name__ == '__main__':  # pragma: no cover
