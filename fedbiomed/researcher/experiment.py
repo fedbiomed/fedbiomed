@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import inspect
+from tempfile import TemporaryDirectory
 from typing import Callable, Union, Dict, Any, TypeVar, Type, List
 
 from tabulate import tabulate
@@ -306,11 +307,11 @@ class Experiment(object):
         return self._node_selection_strategy
 
     @exp_exceptions
-    def round_limit(self) -> int:
+    def round_limit(self) -> Union[int, None]:
         return self._round_limit
 
     @exp_exceptions
-    def round_current(self):
+    def round_current(self) -> int:
         return self._round_current
 
     @exp_exceptions
@@ -1197,13 +1198,14 @@ class Experiment(object):
     def run_once(self, increase: bool = False) -> int:
         """Run at most one round of an experiment, continuing from the point the
         experiment had reached.
-        If the maximum number of rounds `round_limit` of the experiment is already reached:
-        * if `increase` is False, do nothing
+        If `round_limit` is `None` for the experiment (no round limit defined), run one round.
+        If `round_limit` is not `None` and the `round_limit` of the experiment is already reached:
+        * if `increase` is False, do nothing and issue a warning
         * if `increase` is True, increment total number of round `round_limit` and run one round
 
         Args:
             - increase (bool, optional) : automatically increase the `round_limit` of the 
-              experiment if needed
+              experiment if needed. Does nothing if `round_limit` is `None`
               Defaults to False
         
         Raises:
@@ -1220,14 +1222,14 @@ class Experiment(object):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        # nota: robustify test, but we should never have self._round_current > self._round_limit
-        if self._round_current >= self._round_limit:
+        # nota:  we should never have self._round_current > self._round_limit, only ==
+        if self._round_limit is not None and self._round_current >= self._round_limit:
             if increase is True:
-                logger.info(f'Auto increasing total rounds for experiment from {self._round_limit} '
+                logger.debug(f'Auto increasing total rounds for experiment from {self._round_limit} '
                         f'to {self._round_current + 1}')
                 self._round_limit = self._round_current + 1
             else:
-                logger.info(f'Round limit of {self._round_limit} was reached, stopping execution')
+                logger.warning(f'Round limit of {self._round_limit} was reached, do nothing')
                 return 0
 
         # at this point, self._aggregator always exists and is not None
@@ -1274,25 +1276,31 @@ class Experiment(object):
 
 
     @exp_exceptions
-    def run(self, rounds: int = 0, increase: bool = False) -> int:
+    def run(self, rounds: Union[int, None] = None, increase: bool = False) -> int:
         """Run one or more rounds of an experiment, continuing from the point the
         experiment had reached.
 
         Args:
-            - rounds (int, optional): Number of experiment rounds to run in this call.
-              * 0 means "run all the rounds remaining in the experiment" computed as
-                maximum rounds (`round_limit`) minus the number of rounds already run
-                rounds (`round_current`)
-              * >= 1 means "run `rounds` rounds" at most.
-                If it goes beyond the maximum rounds `round_limit` of the experiment:
-                - if `increase` is True,
-                  increase the `round_limit` to (`round_current` + `rounds`)
-                  and run `rounds` rounds
+            - rounds (Union[int, None], optional): Number of experiment rounds to run
+              in this call.
+              * `None` means "run all the rounds remaining in the experiment" computed as
+                maximum rounds (`round_limit` for this experiment) minus the number of
+                rounds already run rounds (`round_current` for this experiment).
+                It does nothing and issues a warning if `round_limit` is `None` (no
+                round limit defined for the experiment)
+              * `int` >= 1 means "run at most `rounds` rounds".
+                If `round_limit` is `None` for the experiment, run exactly `rounds` rounds.
+                If a `round_limit` is set for the experiment and the number or rounds would
+                increase beyond the `round_limit` of the experiment:
+                - if `increase` is True, increase the `round_limit` to
+                  (`round_current` + `rounds`) and run `rounds` rounds
                 - if `increase` is False, run (`round_limit` - `round_current`)
-                  rounds and don't modify the maximum `round_limit` of the experiment
-              Defaults to 0
-            - increase (bool, optional) : automatically increase the maximum
-              number of rounds `round_limit` of the experiment if needed
+                  rounds, don't modify the maximum `round_limit` of the experiment
+                  and issue a warning.
+              Defaults to None
+            - increase (bool, optional) : automatically increase the `round_limit`
+              of the experiment for executing the specified number of `rounds`.
+              Does nothing if `round_limit` is `None` or `rounds` is None.
               Defaults to False
         
         Raises:
@@ -1302,17 +1310,21 @@ class Experiment(object):
             - real rounds (int) : number of rounds really run
 
         """
-        # check rounds is a >=0 integer
-        if not isinstance(rounds, int):
+        # check rounds is a >=1 integer or None
+        if rounds is None:
+            pass
+        elif isinstance(rounds, int):
+            if rounds < 1:
+                msg = ErrorNumbers.FB410.value + \
+                    f', in method `run` param `rounds` : value {rounds}'
+                logger.critical(msg)
+                raise FedbiomedExperimentError(msg)
+        else:
+            # bad type
             msg = ErrorNumbers.FB410.value + \
                 f', in method `run` param `rounds` : type {type(rounds)}'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)      
-        elif rounds < 0:
-            msg = ErrorNumbers.FB410.value + \
-                f', in method `run` param `rounds` : value {rounds}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+            raise FedbiomedExperimentError(msg) 
         # check increase is a boolean
         if not isinstance(increase, bool):
             msg = ErrorNumbers.FB410.value + \
@@ -1320,29 +1332,57 @@ class Experiment(object):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)               
 
-        # compute maximum number of rounds to run
-        if rounds == 0:
-            # all remaining rounds in the experiment
-            rounds = self._round_limit - self._round_current
+        # compute number of rounds to run + updated rounds limit
+        if rounds is None:
+            if isinstance(self._round_limit, int):
+                # run all remaining rounds in the experiment
+                rounds = self._round_limit - self._round_current
+                if rounds == 0:
+                    # limit already reached
+                    logger.warning(f'Round limit of {self._round_limit} already reached '
+                        'for this experiment, do nothing.')
+                    return 0
+            else:
+                # cannot run if no number of rounds given and no round limit exists
+                logger.warning('Cannot run, please specify a number of `rounds` to run or '
+                    'set a `round_limit` to the experiment')
+                return 0
+
         else:
-            # dont change rounds, but extend self._round_limit if necessary
-            if increase is True:
+            # at this point, rounds is an int >= 1
+            if isinstance(self._round_limit, int):
                 if (self._round_current + rounds) > self._round_limit:
-                    logger.info(f'Auto increasing total rounds for experiment from {self._round_limit} '
-                        f'to {self._round_current + rounds}')
-                self._round_limit = max (self._round_limit, self._round_current + rounds)
+                    if increase:
+                        # dont change rounds, but extend self._round_limit as necessary
+                        logger.debug(f'Auto increasing total rounds for experiment from {self._round_limit} '
+                            f'to {self._round_current + rounds}')
+                        self._round_limit = self._round_current + rounds
+                    else:
+                        new_rounds = self._round_limit - self._round_current 
+                        if new_rounds ==0:
+                            # limit already reached
+                            logger.warning(f'Round limit of {self._round_limit} already reached '
+                                'for this experiment, do nothing.')
+                            return 0
+                        else:
+                            # reduce the number of rounds to run in the experiment
+                            logger.warning(f'Limit of {self._round_limit} rounds for the experiment '
+                                f'will be reached, reducing the number of rounds for this '
+                                f'run from {rounds} to {new_rounds}')
+                            rounds = new_rounds           
 
         # run the rounds
-        real_rounds = 0
+        # - at this point `rounds` is an int > 0 (not None)
         for _ in range(rounds):
-            increment = self.run_once(increase)
+            increment = self.run_once(increase=False)
             if increment == 0:
-                logger.info(f'Only {real_rounds} were run out of requested {rounds} rounds')
-                break
-            real_rounds += increment
+                # should not happen
+                msg = ErrorNumbers.FB400.value + \
+                    f', in method `run` method `run_once` returns {increment}'
+                logger.critical(msg)
+                raise FedbiomedExperimentError(msg) 
 
-        return real_rounds
-
+        return rounds
 
 
     # Model checking functions -------------------------------------------------------------------
