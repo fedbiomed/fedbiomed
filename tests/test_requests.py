@@ -204,7 +204,8 @@ class TestRequest(unittest.TestCase):
 
         mock_task_qsize.return_value = 1
         mock_task_task_done.return_value = None
-
+        #mock_responses_init.return_value = None
+        
         # Test with empty Task
         self.requests.get_messages(commands=['search'])
         mock_task_get.return_value = {}
@@ -225,12 +226,17 @@ class TestRequest(unittest.TestCase):
 
         # Test try/except block when .get() method exception
         mock_task_get.side_effect = exceptionsEmpty()
-        self.requests.get_messages(commands=['test-1'])
+    
+        resp1 = self.requests.get_messages(commands=['test-1'])
+        # check if ouput is a `Responses` object
+        self.assertIsInstance(resp1, Responses)
 
         # Test try/except block when .task_done() method raises exception
         mock_task_get.side_effect = None
         mock_task_task_done.side_effect = exceptionsEmpty
-        self.requests.get_messages(commands=['test-2'])
+        resp2 = self.requests.get_messages(commands=['test-2'])
+        # check if ouput is a `Responses` object
+        self.assertIsInstance(resp2, Responses)
 
     @patch('fedbiomed.researcher.requests.Requests.get_messages')
     @patch('fedbiomed.researcher.responses.Responses')
@@ -254,7 +260,7 @@ class TestRequest(unittest.TestCase):
                                                        FakeResponses([])]
 
         responses_2 = self.requests.get_responses(look_for_commands='test', timeout=0.1, only_successful=False)
-        self.assertEqual(responses_2[0], test_response[0], 'Length of provided responses and len of result does not '
+        self.assertEqual(responses_2[0], test_response[0], 'Values of provided responses and values of result does not '
                                                            'match')
 
         mock_get_messages.side_effect = [Exception()]
