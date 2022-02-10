@@ -23,3 +23,11 @@ class FakeResponses:
     def __getitem__(self, item):
         """  """
         return self._data[item]
+
+    @property
+    def data(self) -> list:
+        """setter
+        Returns:
+            list:  data of the class `Responses`
+        """
+        return (self._data)
