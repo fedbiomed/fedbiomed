@@ -111,12 +111,15 @@ class TestMessagingResearcher(unittest.TestCase):
         # classmethod necessary to have access to self via cls
         print("RESH_RECV:", topic, msg)
 
-        # fake pong reply
+        # verify the channel
         cls.assertTrue(cls, topic, "general/researcher")
-        cls.assertTrue(cls, msg['researcher_id'], "researcher_001")
-        cls.assertTrue(cls, msg['node_id'], "node_1234")
-        cls.assertTrue(cls, msg['sequence'], 1234)
-        cls.assertTrue(cls, msg['command'], 'pong')
+
+        # verify the received msg only if sent by ourself
+        if  msg['researcher_id'] == 'TEST_MESSAGING_RANDOM_ID_6735424425_DO_NOT_USE_ELSEWHERE':
+            cls.assertTrue(cls, msg['node_id'], "node_1234")
+            cls.assertTrue(cls, msg['success'], True)
+            cls.assertTrue(cls, msg['sequence'], 12345)
+            cls.assertTrue(cls, msg['command'], 'pong')
 
 
     # tests
@@ -133,22 +136,19 @@ class TestMessagingResearcher(unittest.TestCase):
             self.skipTest('no broker available for this test')
 
         try:
-            # bypass NodeMessages.reply_create
-            # to fake and answer from a node
-            # call to NodeMessages will fail anyway because
-            # this is the researcher side !!!
-
-            # we simulate a message sent by a node
-            # 1/ bypass the NodeMessages.reply_create
-            # 2/ cheat with the default channel
+            # here we create a PingReply as a node
+            # 1/ use NodeMessages.reply_create
+            # 2/ cheat with the default channel to send a msg to ourself
             # (if we don't do that, the message will not be caught by
-            # the on_message hlandler)
-            pong = PingReply(
-                researcher_id = 'researcher_001',
-                node_id       = 'node_1234',
-                success       = True,
-                sequence      = 1234,
-                command       ='pong').get_dict()
+            # the on_message handler)
+
+            pong = NodeMessages.reply_create( {
+                'researcher_id' : 'TEST_MESSAGING_RANDOM_ID_6735424425_DO_NOT_USE_ELSEWHERE',
+                'node_id'       : 'node_1234',
+                'success'       : True,
+                'sequence'      : 12345,
+                'command'       :'pong' } ).get_dict()
+
             self._m.default_send_topic = "general/researcher"
 
             self._m.send_message(pong)
@@ -157,8 +157,7 @@ class TestMessagingResearcher(unittest.TestCase):
         except:
             self.assertTrue( False, "fake pong message not sent")
 
-        # give time to the on_message to get the msg
-        # message content is tested at on_message()
+        # give time to the on_message() handler to get and test the content of msg
         time.sleep(1.0)
 
 
@@ -176,7 +175,7 @@ class TestMessagingNode(unittest.TestCase):
             print("connecting to:", environ['MQTT_BROKER'], "/", environ['MQTT_BROKER_PORT'])
             cls._m = Messaging(None,
                                ComponentType.NODE,
-                               environ['NODE_ID'],
+                               'node_1234',
                                environ['MQTT_BROKER'],
                                environ['MQTT_BROKER_PORT']
                             )
