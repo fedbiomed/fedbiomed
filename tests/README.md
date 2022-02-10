@@ -66,8 +66,8 @@ by a specified value / method. Usually, we want that this method to be very simp
 
   - how to use patchers?
     - overriding call to class constructors
-    - overriding call class method
-    - overriding call builtins functions
+    - overriding call to class method
+    - overriding call to builtins functions
   - `return_value` attribute
   - `side_effect` attribute
 
@@ -75,6 +75,7 @@ by a specified value / method. Usually, we want that this method to be very simp
 add extra methods to this object
   - `return_value` attribute
   - `side_effect` attribute
+  - `spec` attribute
 
 * **Tests**:
   - testing returned parameters / modified class attributes
