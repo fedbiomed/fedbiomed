@@ -9,7 +9,6 @@ delete_environ()
 import testsupport.mock_common_environ
 # Import environ for researcher, since tests will be running for researcher component
 from fedbiomed.researcher.environ import environ
-
 from fedbiomed.researcher.monitor import Monitor
 from unittest.mock import patch, MagicMock
 
