@@ -236,7 +236,7 @@ class Experiment(object):
         self.set_strategy(node_selection_strategy)
 
         # "current" means number of rounds already trained
-        self._round_current = 0
+        self._set_round_current(0)
         self.set_round_limit(round_limit)
 
         # set self._experimentation_folder: type str
@@ -433,7 +433,7 @@ class Experiment(object):
             try:
                 if eval('self.' + key) is None or eval('self.' + key) is False:
                     missing += f'- {value}\n'
-            except:
+            except Exception:
                 # should not happen, all eval variables should be defined
                 msg = ErrorNumbers.FB400.value + \
                     f', in method `info` : self.{key} not defined for experiment'
@@ -764,23 +764,30 @@ class Experiment(object):
         Returns:
             - round_current (int)
         """
-        # at this point self._round_current exists and is an int >= 0
         if not isinstance(round_current, int):
             msg = ErrorNumbers.FB410.value + f' `round_current` : {type(round_current)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)            
+
+        # at this point self._round_limit may be undefined (in constructor)
+        try:
+            # raise error if not existing
+            self._round_limit
+            is_defined = True
+        except AttributeError:
+            is_defined = False
+
+        # at this point self._round_limit is an int
+        if round_current < 0 or ( is_defined and isinstance(self._round_limit, int) \
+                and round_current > self._round_limit ):
+            # cannot set a round <0
+            # cannot set a round over the round_limit (when it is not None)
+            msg = ErrorNumbers.FB410.value + f' `round_current` : {round_current}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
         else:
-            # at this point self._round_limit is an int
-            if round_current < 0 or ( isinstance(self._round_limit, int) \
-                    and round_current > self._round_limit ):
-                # cannot set a round <0
-                # cannot set a round over the round_limit (when it is not None)
-                msg = ErrorNumbers.FB410.value + f' `round_current` : {round_current}'
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
-            else:
-                # correct value
-                self._round_current = round_current
+            # correct value
+            self._round_current = round_current
 
         # at this point self._round_current is an int
         return self._round_current
@@ -1078,7 +1085,7 @@ class Experiment(object):
                 # a job is already defined, and it may also have run some rounds
                 logger.debug(f'Experimentation `job` changed after running '
                     '{self._round_current} rounds, may give inconsistent results')
-        except:
+        except AttributeError:
             # nothing to do if not defined yet
             pass
 
