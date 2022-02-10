@@ -62,7 +62,7 @@ def choose_bkpt_file(
             round: int = 0) -> Tuple[str, str]:
     """It creates a breakpoint folder and chooses a breakpoint file name for each round.
     Args:
-        - round (int, optional): the current number of rounds minus one.
+        - round (int, optional): the current number of already run rounds minus one.
             Starts from 0. Defaults to 0.
         - experimentation_folder (str): indicates the experimentation folder name.
             This should just contain the name of the folder not a full path.

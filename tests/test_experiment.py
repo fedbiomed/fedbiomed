@@ -61,13 +61,13 @@ class TestExperiment(unittest.TestCase):
         for patcher in self.patchers:
             patcher.start()
 
-        self.rounds = 4
+        self.round_limit = 4
         self.tags = ['some_tag', 'more_tag']
 
         # useful for all tests, except load_breakpoint
         self.test_exp = Experiment(
             tags = self.tags,
-            rounds = self.rounds,
+            round_limit = self.round_limit,
             tensorboard=True,
             save_breakpoints=True)
 
@@ -95,7 +95,7 @@ class TestExperiment(unittest.TestCase):
     @patch('fedbiomed.researcher.experiment.choose_bkpt_file')
     # testing _save_breakpoint + _save_aggregated_params
     # (not exactly a unit test, but probably more interesting)
-    def test_private_save_breakpoint(
+    def test_private_breakpoint(
             self,
             patch_choose_bkpt_file,
             patch_job_model_file,
@@ -169,7 +169,8 @@ class TestExperiment(unittest.TestCase):
         self.test_exp._fds = FederatedDataSet(training_data)
 
         # action
-        self.test_exp._save_breakpoint(round_current)
+        self.test_exp._set_round_current(round_current)
+        self.test_exp.breakpoint()
         
 
         # verification
@@ -193,8 +194,8 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(final_state['model_args'], model_args)
         self.assertEqual(final_state['model_path'], final_model_path)
         self.assertEqual(final_state['model_class'], model_class)
-        self.assertEqual(final_state['round_current'], round_current + 1)
-        self.assertEqual(final_state['round_limit'], self.rounds)
+        self.assertEqual(final_state['round_current'], round_current)
+        self.assertEqual(final_state['round_limit'], self.round_limit)
         self.assertEqual(final_state['experimentation_folder'], self.experimentation_folder)
         self.assertEqual(final_state['aggregator'], aggregator_state)
         self.assertEqual(final_state['node_selection_strategy'], strategy_state)
@@ -248,7 +249,7 @@ class TestExperiment(unittest.TestCase):
             'model_path': model_path,
             'model_class': model_class,
             'round_current': round_current + 1,
-            'round_limit': self.rounds,
+            'round_limit': self.round_limit,
             'experimentation_folder': experimentation_folder,
             'aggregator': aggregator,
             'node_selection_strategy': strategy,
@@ -304,8 +305,8 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(loaded_exp._model_args, model_args)
         self.assertEqual(loaded_exp._model_path, model_path)
         self.assertEqual(loaded_exp._model_class, model_class)
-        self.assertEqual(loaded_exp._round_init, round_current + 1)
-        self.assertEqual(loaded_exp._rounds, self.rounds)
+        self.assertEqual(loaded_exp._round_current, round_current + 1)
+        self.assertEqual(loaded_exp._round_limit, self.round_limit)
         self.assertEqual(loaded_exp._experimentation_folder, self.experimentation_folder)
         self.assertEqual(loaded_exp._aggregator, final_aggregator)
         self.assertEqual(loaded_exp._node_selection_strategy, final_strategy)
