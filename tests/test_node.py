@@ -21,7 +21,7 @@ from fedbiomed.node.round import Round
 from json import decoder
 
 # import dummy classes
-from testsupport.fake_message import FakeNodeMessages
+from testsupport.fake_message import FakeMessages
 
 
 class TestNode(unittest.TestCase):
@@ -30,7 +30,7 @@ class TestNode(unittest.TestCase):
     def setUpClass(cls):
         # defining common side effect functions
         def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
-            fake_node_msg = FakeNodeMessages(msg)
+            fake_node_msg = FakeMessages(msg)
             return fake_node_msg
 
         cls.node_msg_side_effect = node_msg_side_effect
