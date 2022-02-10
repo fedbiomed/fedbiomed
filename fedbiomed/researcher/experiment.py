@@ -128,7 +128,7 @@ class Experiment(object):
                 training_data: Union[FederatedDataSet, dict, None] = None,
                 aggregator: Union[Aggregator, Type[Aggregator], None] = None,
                 node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
-                round_limit: int = 1,
+                round_limit: Union[int, None] = None,
                 model_class: Union[Type_TrainingPlan, str, None] = None,
                 model_path: Union[str, None] = None,
                 model_args: dict = {},
@@ -171,9 +171,10 @@ class Experiment(object):
                 - use `DefaultStrategy` if training_data is initialized
                 - else strategy is None (cannot be initialized), experiment cannot
                   be launched yet
-            - round_limit (int, optional): the total number of training rounds
-                (nodes <-> central server) of the experiment.
-                Defaults to 1.
+            - round_limit (Union[int, None]), optional): the maximum number of training rounds
+                (nodes <-> central server) that should be executed for the experiment.
+                `None` means that no limit is defined.
+                Defaults to None.
             - model_class (Union[Type_TrainingPlan, str, None], optional): name of the model class
                 (`str`) or model class (`Type_TrainingPlan`) to use for training.
                 For experiment to be properly and fully defined `model_class` needs to be:
@@ -695,21 +696,22 @@ class Experiment(object):
 
 
     @exp_exceptions
-    def set_round_limit(self, round_limit: int) -> int:
+    def set_round_limit(self, round_limit: Union[int, None]) -> Union[int, None]:
         """Setter for `round_limit` + verification on arguments type
 
         Args:
-            - round_limit (int): the total maximum number of training rounds
-                (nodes <-> central server) of the experiment.
+            - round_limit (Union[int, None]), optional): the maximum number of training rounds
+                (nodes <-> central server) that should be executed for the experiment.
+                `None` means that no limit is defined.
 
         Raise:
-            - FedbiomedExperimentError : bad rounds type
+            - FedbiomedExperimentError : bad rounds type or value
 
         Returns:
-            - round_limit (int)
+            - round_limit (Union[int, None])
         """
         # at this point round_current exists and is an int >= 0
-        if not isinstance(round_limit, int):
+        if not isinstance(round_limit, int) and round_limit is not None:
             msg = ErrorNumbers.FB410.value + f' `round_limit` : {type(round_limit)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)            
@@ -717,7 +719,7 @@ class Experiment(object):
             # at this point round_limit is an int
             if round_limit < self._round_current:
                 # self._round_limit can't be less than current round
-                logger.error(f'cannot set `round_limit` to less than number of already run rounds '
+                logger.error(f'cannot set `round_limit` to less than the number of already run rounds '
                     f'({self._round_current})')
             else:
                 self._round_limit = round_limit
@@ -759,15 +761,18 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)            
         else:
             # at this point self._round_limit is an int
-            if round_current < 0 or round_current > self._round_limit:
+            if round_current < 0 or ( isinstance(self._round_limit, int) \
+                    and round_current > self._round_limit ):
+                # cannot set a round <0
+                # cannot set a round over the round_limit (when it is not None)
                 msg = ErrorNumbers.FB410.value + f' `round_current` : {round_current}'
                 logger.critical(msg)
-                raise FedbiomedExperimentError(msg) 
+                raise FedbiomedExperimentError(msg)
             else:
                 # correct value
                 self._round_current = round_current
 
-        # at this point self._round_limit is an int
+        # at this point self._round_current is an int
         return self._round_current
 
 
