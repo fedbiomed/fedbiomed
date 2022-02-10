@@ -711,20 +711,29 @@ class Experiment(object):
             - round_limit (Union[int, None])
         """
         # at this point round_current exists and is an int >= 0
-        if not isinstance(round_limit, int) and round_limit is not None:
-            msg = ErrorNumbers.FB410.value + f' `round_limit` : {type(round_limit)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)            
-        else:
+  
+        if round_limit is None:
+            # no limit for training rounds
+            self._round_limit = None         
+        elif isinstance(round_limit, int):
             # at this point round_limit is an int
             if round_limit < self._round_current:
+                # need to ensure self._round_limit is set
+                try:
+                    self._round_limit # raise exception if not defined
+                except AttributeError:
+                    self._round_limit = None
                 # self._round_limit can't be less than current round
                 logger.error(f'cannot set `round_limit` to less than the number of already run rounds '
                     f'({self._round_current})')
             else:
                 self._round_limit = round_limit
+        else:
+            msg = ErrorNumbers.FB410.value + f' `round_limit` : {type(round_limit)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
 
-        # at this point self._round_limit is an int
+        # at this point self._round_limit is a Union[int, None]
         return self._round_limit
 
 
