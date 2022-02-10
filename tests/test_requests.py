@@ -204,7 +204,6 @@ class TestRequest(unittest.TestCase):
 
         mock_task_qsize.return_value = 1
         mock_task_task_done.return_value = None
-        #mock_responses_init.return_value = None
         
         # Test with empty Task
         self.requests.get_messages(commands=['search'])
@@ -228,14 +227,14 @@ class TestRequest(unittest.TestCase):
         mock_task_get.side_effect = exceptionsEmpty()
     
         resp1 = self.requests.get_messages(commands=['test-1'])
-        # check if ouput is a `Responses` object
+        # check if output is a `Responses` object
         self.assertIsInstance(resp1, Responses)
 
         # Test try/except block when .task_done() method raises exception
         mock_task_get.side_effect = None
         mock_task_task_done.side_effect = exceptionsEmpty
         resp2 = self.requests.get_messages(commands=['test-2'])
-        # check if ouput is a `Responses` object
+        # check if output is a `Responses` object
         self.assertIsInstance(resp2, Responses)
 
     @patch('fedbiomed.researcher.requests.Requests.get_messages')
