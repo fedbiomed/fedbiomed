@@ -22,9 +22,13 @@ class FederatedDataSet:
 
     @property
     def sample_sizes(self) -> List[int]:
-        """Returns a list with data sample sizes"""
-        # TODO
-        pass
+        """Returns a list with data sample sizes """
+
+        sample_sizes = []
+        for (key, val) in self._data.items():
+            sample_sizes.append(val[0]["shape"][0])
+
+        return sample_sizes
 
     @property
     def shapes(self) -> Dict[uuid.UUID, int]:
@@ -32,4 +36,5 @@ class FederatedDataSet:
         for node_id, node_data_size in zip(self.node_ids,
                                            self.sample_sizes):
             shapes_dict[node_id] = node_data_size
+
         return shapes_dict
