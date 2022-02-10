@@ -1,6 +1,8 @@
 # Managing NODE, RESEARCHER environ mock before running tests
 
 from re import search
+from this import d
+from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -20,6 +22,7 @@ import os
 import inspect
 import torch
 from torch.utils.data import Dataset
+from torchvision import transforms
 
 print(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))))
 
@@ -30,16 +33,29 @@ class TestDataManager(unittest.TestCase):
     Args:
         unittest ([type]): [description]
     """
-    class FakeQuery:
-        DATASET_ID = 'dataset_id_1234'
-        def __init__(self):
-            self.dataset_id = self.DATASET_ID
+    class FakeDataset(Dataset):
+            """This class present a very simple custom dataset,
+            that should be used within PyTorch framework"""
+            def __init__(self, data, labels):
+                self._data = data
+                self._labels = labels
+                
+            def __len__(self):
+                return len(self._data)
             
-    class DataSetID:
-        def __init__(self):
-            pass
-        def all(self, dataet_id:str):
-            pass
+            def __getitem__(self, idx):
+                return self._data[idx], self._labels[idx]
+     
+    @classmethod
+    def setUpClass(cls) -> None:
+        fake_dataset_shape = (12_345, 10, 20, 30)
+        fake_data = torch.rand(fake_dataset_shape)
+        fake_labels = torch.randint(0,2, (fake_dataset_shape[0],))
+        fake_dataset = TestDataManager.FakeDataset(fake_data, fake_labels)
+        cls.fake_dataset_shape = fake_dataset_shape
+        cls.fake_dataset = fake_dataset  # we might need a fake dataset 
+        # for testing
+        
     # Setup data manager
     def setUp(self):
 
@@ -51,7 +67,9 @@ class TestDataManager(unittest.TestCase):
             )
 
         self.data_manager = DataManager()
-        pass
+        
+        # creating arguments
+        
 
     # after the tests
     def tearDown(self):
@@ -162,33 +180,19 @@ class TestDataManager(unittest.TestCase):
 
     def test_data_manager_07_get_torch_dataset_shape(self):
         """Tests if method `get_torch_dataset_shape` works
-        on a handmade dataset"""
-        class FakeDataset(Dataset):
-            """This class present a very simple custom dataset,
-            that should be used within PyTorch framework"""
-            def __init__(self, data, labels):
-                self._data = data
-                self._labels = labels
-                
-            def __len__(self):
-                return len(self._data)
-            
-            def __getitem__(self, idx):
-                return self._data[idx], self._labels[idx]
-
+        on a custom dataset"""
+        
         # creating agruments
-        fake_dataset_shape = (12_345, 10, 20, 30)
-        fake_data = torch.rand(fake_dataset_shape)
-        fake_labels = torch.randint(0,2, (fake_dataset_shape[0],))
-        fake_dataset = FakeDataset(fake_data, fake_labels)
+        
         
         # action
-        res = self.data_manager.get_torch_dataset_shape(fake_dataset)
+        res = self.data_manager.get_torch_dataset_shape(self.fake_dataset)
         
         #checks
-        self.assertEqual(res, list(fake_dataset_shape))
+        self.assertEqual(res, list(self.fake_dataset_shape))
     
     def test_data_manager_08_get_csv_data_types(self):
+        "Tests `get_csv_data_type` (norma case scenario)"
         # creating argument for unittest
         
         data = {'integers': [1,2,3,4,5,6,7,8,9,0],
@@ -204,8 +208,110 @@ class TestDataManager(unittest.TestCase):
         # checks
         self.assertEqual(data_types, ['int64', 'float64', 'object', 'bool'])
     
-    def test_data_manager_XX_add_database(self):
+    @patch('torchvision.datasets.MNIST')
+    def test_data_manager_09_load_default_database_as_dataset(self,
+                                                              dataset_mnist_patch):
+        """Tests if `load_default_dataset` is loading the default dataset and
+        returns it (arg `as_dataset` set to True)"""
 
+        # defining patcher
+        dataset_mnist_patch.return_value = self.fake_dataset
+        
+        # defining arguments
+        database_name = 'MNIST'
+        database_path = '/path/to/MNIST/dataset'
+        # action
+        # currently, only MNIST dataset is considered as the default dataset
+        
+        res_dataset = self.data_manager.load_default_database(database_name,
+                                                              database_path,
+                                                              as_dataset=True)
+        # checks
+        self.assertEqual(res_dataset, self.fake_dataset)
+        dataset_mnist_patch.assett_called_once_with(root=database_path,
+                                                    download=True,
+                                                    transform=mock.ANY)
+        
+    @patch('fedbiomed.node.data_manager.DataManager.get_torch_dataset_shape')
+    @patch('torchvision.datasets.MNIST')
+    def test_data_manager_10_load_default_database_as_dataset_false(self,
+                                                                    dataset_mnist_patch,
+                                                                    load_default_database_patch):
+        """Tests if `load_default_dataset` is loading the default dataset and
+        returns its shape (arg `as_dataset` set to False)"""
+        dataset_mnist_patch.return_value = self.fake_dataset
+        
+        # defining arguments
+        database_name = 'MNIST'
+        database_path = '/path/to/MNIST/dataset'
+        
+        # action
+        res_dataset = self.data_manager.load_default_database(
+                                                            database_name,
+                                                            database_path,
+                                                            as_dataset=False)
+        # checks
+        dataset_mnist_patch.assert_called_once_with(root=database_path,
+                                                    download=True,
+                                                    transform=mock.ANY)
+    
+        load_default_database_patch.assert_called_once_with(self.fake_dataset)
+    
+    def test_data_manager_10_load_default_database_exception(self):
+        """Tests if exception `NotImplemntedError` is triggered 
+        when passing an unknown dataset
+        """
+        with self.assertRaises(NotImplementedError):
+            # action: we are here passing an unknown dataset
+            self.data_manager.load_default_database('my_default_dataset',
+                                                    '/path/to/my/default/dataset')
+    
+    @patch('torchvision.datasets.ImageFolder')
+    def test_data_manager_11_load_images_dataset_as_dataset_true(self, imgfolder_patch):
+        """Tests case where one is loading image dataset with argument
+        `as_dataset` is set to True"""
+        # defining patcher
+        imgfolder_patch.return_value = self.fake_dataset
+        
+        # arguments
+        database_path = '/path/to/MNIST/dataset'
+        # action
+        dataset = self.data_manager.load_images_dataset(database_path, as_dataset=True)
+        
+        # checks
+        self.assertEqual(dataset, self.fake_dataset)
+        imgfolder_patch.assert_called_once_with(database_path,
+                                                transform=mock.ANY)
+        
+    def test_data_manager_12_load_images_dataset_as_dataset_false(self):
+        """Tests case where one is loading image dataset with argument 
+        `as_dataset` is set to False"""
+ 
+        # arguments
+        dataset_path = os.path.join( self.testdir,
+                                        "images"
+                                    )
+
+        # action
+        res_dataset_shape = self.data_manager.load_images_dataset(dataset_path,
+                                                                  as_dataset=False)
+
+        # checks
+        self.assertEqual(res_dataset_shape, [5, 3, 30, 60])
+        
+    @patch('fedbiomed.node.data_manager.DataManager.read_csv')    
+    def test_data_manager_13_load_csv_dataset(self, read_csv_patch):
+        """Tests `load_csv_method` (normal case scenario)"""
+        # arguments
+        database_path = '/path/to/MNIST/dataset'
+        
+        # action
+        self.data_manager.load_csv_dataset(database_path)
+        
+        # checks
+        read_csv_patch.assert_called_once_with(database_path)
+    
+    def test_data_manager_XX_add_database(self):
         """ Test add_database method for loading csv datasets """
 
         # Load data with header example
