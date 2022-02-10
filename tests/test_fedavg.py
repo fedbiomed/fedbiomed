@@ -87,7 +87,9 @@ class TestFedaverage(unittest.TestCase):
             'parameters': {'param': True}
         }
         self.aggregator.load_state(state)
-        self.assertDictEqual(self.aggregator._aggregator_params, state['parameters'])
+        self.assertDictEqual(self.aggregator._aggregator_params,
+                             state['parameters'],
+                             'The state of the aggregator class has not been loaded correctly')
 
 
 if __name__ == '__main__':  # pragma: no cover
