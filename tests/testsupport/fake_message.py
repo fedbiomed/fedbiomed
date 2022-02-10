@@ -5,7 +5,7 @@
 from typing import Any, Dict
 
 
-class FakeNodeMessages:
+class FakeMessages:
     """Fakes NodeMessages class. 
     Provides a constructor and a `get_item` method
     """
