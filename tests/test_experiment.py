@@ -120,7 +120,7 @@ class TestExperiment(unittest.TestCase):
         self.test_exp._model_args = model_args
         model_file = '/path/to/my/model_file.py'
         model_class = 'MyOwnTrainingPlan'
-        round_number = 2
+        round_current = 2
         aggregator_state = { 'aggparam1': 'param_value', 'aggparam2': 987, 'aggparam3': True }
         strategy_state = { 'stratparam1': False, 'stratparam2': 'my_strategy', 'aggparam3': 0.45 }
         job_state = { 'jobparam1': { 'sub1': 1, 'sub2': 'two'}, 'jobparam2': 'myjob_value' }
@@ -169,13 +169,13 @@ class TestExperiment(unittest.TestCase):
         self.test_exp._fds = FederatedDataSet(training_data)
 
         # action
-        self.test_exp._save_breakpoint(round_number)
+        self.test_exp._save_breakpoint(round_current)
         
 
         # verification
         final_model_path = os.path.join(
             self.experimentation_folder_path, 
-            'model_' + str("{:04d}".format(round_number)) + '.py')
+            'model_' + str("{:04d}".format(round_current)) + '.py')
         final_agg_params = {
             'entry1': {
                 'params_path': os.path.join(self.experimentation_folder_path, 'params_path.pt')
@@ -193,8 +193,8 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(final_state['model_args'], model_args)
         self.assertEqual(final_state['model_path'], final_model_path)
         self.assertEqual(final_state['model_class'], model_class)
-        self.assertEqual(final_state['round_number'], round_number + 1)
-        self.assertEqual(final_state['round_number_due'], self.rounds)
+        self.assertEqual(final_state['round_current'], round_current + 1)
+        self.assertEqual(final_state['round_limit'], self.rounds)
         self.assertEqual(final_state['experimentation_folder'], self.experimentation_folder)
         self.assertEqual(final_state['aggregator'], aggregator_state)
         self.assertEqual(final_state['node_selection_strategy'], strategy_state)
@@ -247,8 +247,8 @@ class TestExperiment(unittest.TestCase):
             'model_args': model_args,
             'model_path': model_path,
             'model_class': model_class,
-            'round_number': round_current + 1,
-            'round_number_due': self.rounds,
+            'round_current': round_current + 1,
+            'round_limit': self.rounds,
             'experimentation_folder': experimentation_folder,
             'aggregator': aggregator,
             'node_selection_strategy': strategy,

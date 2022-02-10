@@ -1416,8 +1416,8 @@ class Experiment(object):
         """
         Saves breakpoint with the state of the training at a current round.
         The following Experiment attributes will be saved:
-          - round_number
-          - round_number_due
+          - round_current
+          - round_limit
           - tags
           - experimentation_folder
           - aggregator
@@ -1473,8 +1473,8 @@ class Experiment(object):
             # with current version
             'model_class': self._job.model_class,  # not always available properly
             # formatted in Experiment with current version
-            'round_number': self._round_current,
-            'round_number_due': self._round_limit,
+            'round_current': self._round_current,
+            'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
             'aggregator': self._aggregator.save_state(),  # aggregator state
             'node_selection_strategy': self._node_selection_strategy.save_state(),
@@ -1582,7 +1582,7 @@ class Experiment(object):
                          training_data=bkpt_fds,
                          aggregator=bkpt_aggregator,
                          node_selection_strategy=bkpt_sampling_strategy,
-                         round_limit=saved_state.get("round_number_due"),
+                         round_limit=saved_state.get("round_limit"),
                          model_class=saved_state.get("model_class"),
                          model_path=saved_state.get("model_path"),
                          model_args=saved_state.get("model_args"),
@@ -1592,7 +1592,7 @@ class Experiment(object):
                          )
 
         # ------- changing `Experiment` attributes -------
-        loaded_exp._set_round_current(saved_state.get('round_number'))
+        loaded_exp._set_round_current(saved_state.get('round_current'))
 
         #TODO: checks when loading parameters
         model_instance = loaded_exp.model_instance()
