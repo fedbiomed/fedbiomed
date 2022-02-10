@@ -1,5 +1,3 @@
-import shutil
-import os
 import unittest
 
 # Managing NODE, RESEARCHER environ mock before running tests
@@ -10,7 +8,6 @@ delete_environ()
 import testsupport.mock_common_environ
 # Import environ for researcher, since tests will be running for researcher component
 from fedbiomed.researcher.datasets import FederatedDataSet
-from unittest.mock import patch, MagicMock
 
 
 class TestFederatedDataset(unittest.TestCase):
@@ -38,7 +35,7 @@ class TestFederatedDataset(unittest.TestCase):
         """
 
         data = self.fds.data()
-        self.assertDictEqual(self.data, data, 'Can not get data properly from FederetedDataset')
+        self.assertDictEqual(self.data, data, 'Can not get data properly from FederatedDataset')
 
     def test_federated_dataset_02_node_ids(self):
         """ Testing node_ids getter/properties
