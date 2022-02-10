@@ -101,7 +101,7 @@ training_args = {
 #    Define an experiment
 #    - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
 #    - run a round of local training on nodes with model defined in `model_class` + federation with `aggregator`
-#    - run for `rounds` rounds, applying the `node_selection_strategy` between the rounds
+#    - run for `round_limit` rounds, applying the `node_selection_strategy` between the rounds
 
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -116,7 +116,7 @@ exp = Experiment(tags=tags,
                 # model_path='/path/to/model_file.py',
                 model_args=model_args,
                 training_args=training_args,
-                rounds=rounds,
+                round_limit=rounds,
                 aggregator=FedAverage(),
                 node_selection_strategy=None,
                 tensorboard=True)
@@ -127,7 +127,7 @@ exp = Experiment(tags=tags,
 # fedbiomed-researcher conda environment is active.
 
 # Let's start the experiment.
-# By default, this function doesn't stop until all the `rounds` are done for all the nodes
+# By default, this function doesn't stop until all the `round_limit` rounds are done for all the nodes
 
 exp.run()
 
