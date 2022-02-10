@@ -173,7 +173,8 @@ class TestRequest(unittest.TestCase):
         self.requests.print_node_log_message(msg_logger)
         mock_logger_info.assert_called_once()
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(TypeError):
+            # testing what is happening when no argument are provided
             self.requests.print_node_log_message()
 
     @patch('fedbiomed.common.logger.logger.debug')
@@ -189,7 +190,7 @@ class TestRequest(unittest.TestCase):
                                                           'number of times, expected: 2')
 
         # Test invalid call of send_message
-        with self.assertRaises(Exception):
+        with self.assertRaises(TypeError):
             self.requests.send_message()
 
     @patch('fedbiomed.common.tasks_queue.TasksQueue.qsize')
@@ -241,16 +242,16 @@ class TestRequest(unittest.TestCase):
         mock_responses_init.side_effect = TestRequest.responses_side_effect
 
         test_response = FakeResponses([{'command': 'test', 'success': True}])
-        mock_get_messages.side_effect = FakeResponses([test_response,
-                                                       FakeResponses([])])
+        mock_get_messages.side_effect = [test_response,
+                                                       FakeResponses([])]
 
         responses_1 = self.requests.get_responses(look_for_commands='test', timeout=0.1)
         self.assertEqual(responses_1[0], test_response[0], 'Values of provided responses and values of result does not '
                                                            'match')
 
         # Test when `only_successful` is False
-        mock_get_messages.side_effect = FakeResponses([test_response,
-                                                       FakeResponses([])])
+        mock_get_messages.side_effect = [test_response,
+                                                       FakeResponses([])]
 
         responses_2 = self.requests.get_responses(look_for_commands='test', timeout=0.1, only_successful=False)
         self.assertEqual(responses_2[0], test_response[0], 'Length of provided responses and len of result does not '
@@ -261,7 +262,7 @@ class TestRequest(unittest.TestCase):
             self.requests.get_responses(look_for_commands='test', timeout=0.1, only_successful=False)
 
         # Get into Except block by providing incorrect message
-        mock_get_messages.side_effect = FakeResponses([FakeResponses([{}])])
+        mock_get_messages.side_effect = [FakeResponses([{}])]
         responses_3 = self.requests.get_responses(look_for_commands='test', timeout=0.1)
         self.assertEqual(len(responses_3), 0, 'The length of responses are more than 0')
 
