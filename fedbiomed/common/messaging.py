@@ -63,7 +63,7 @@ class Messaging:
         self._broker_port = mqtt_broker_port
 
         # protection for logger initialisation (mqqt handler)
-        self._logger_initialized = False
+        self._logger_handler_installed = False
 
         self._on_message_handler = on_message  # store the caller's mesg handler
         if on_message is None:
@@ -117,7 +117,7 @@ class Messaging:
         else:
             msg = ErrorNumbers.FB101.value + ": " + str(self._messaging_id) + " could not connect to the message broker"
             logger.delMqttHandler()  # just in case !
-            self._logger_initialized = False
+            self._logger_handler_installed = False
 
             logger.critical(msg)
             self._is_failed = True
@@ -143,7 +143,7 @@ class Messaging:
                     logger.error("Messaging " + str(self._messaging_id) + " failed subscribe to channel" + str(channel))
                     self._is_failed = True
 
-            if not self._logger_initialized:
+            if not self._logger_handler_installed:
                 # add the MQTT handler for logger
                 # this should be done once.
                 # This is sldo tested by the addHandler() method, but
@@ -154,7 +154,7 @@ class Messaging:
                 )
                 # to get Train/Epoch messages on console and on MQTT
                 logger.setLevel("DEBUG")
-                self._logger_initialized = True
+                self._logger_handler_installed = True
 
         self._is_connected = True
 
@@ -199,7 +199,7 @@ class Messaging:
         except (ConnectionRefusedError, TimeoutError, socket.timeout ) as e:
 
             logger.delMqttHandler()  # just in case !
-            self._logger_initialized = False
+            self._logger_handler_installed = False
 
             msg = "cannot connect to MQTT (error=" + str(e)+ ")"
             logger.critical(msg)
@@ -275,7 +275,7 @@ class Messaging:
 
         if not self._is_connected:
             logger.delMqttHandler() # just in case
-            self._logger_initialized = False
+            self._logger_handler_installed = False
 
             msg = "MQTT not initialized yet (error to transmit=" + errnum.value + ")"
             logger.critical(msg)
