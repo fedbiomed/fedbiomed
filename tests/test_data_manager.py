@@ -1,7 +1,8 @@
 # Managing NODE, RESEARCHER environ mock before running tests
 
+import copy
 from re import search
-from this import d
+
 from unittest import mock
 
 import numpy as np
@@ -56,6 +57,14 @@ class TestDataManager(unittest.TestCase):
         cls.fake_dataset = fake_dataset  # we might need a fake dataset 
         # for testing
         
+        dummy_data = {
+                'integers': [1,2,3,4,5,6,7,8,9,0],
+                'floats': [1.1, 1.2, 1.3, 1.4, 1.5, 2.6, 2.7, 1.8, 2.9, 1.0],
+                'chars': ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
+                'booleans': [True, False, True, False, True] * 2
+                }
+        cls.dummy_data = dummy_data
+
     # Setup data manager
     def setUp(self):
 
@@ -195,12 +204,8 @@ class TestDataManager(unittest.TestCase):
         "Tests `get_csv_data_type` (norma case scenario)"
         # creating argument for unittest
         
-        data = {'integers': [1,2,3,4,5,6,7,8,9,0],
-                'floats': [1.1, 1.2, 1.3, 1.4, 1.5, 2.6, 2.7, 1.8, 2.9, 1.0],
-                'chars': ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
-                'booleans': [True, False, True, False, True] * 2
-                }
-        fake_csv_dataframe = pd.DataFrame(data)
+        
+        fake_csv_dataframe = pd.DataFrame(self.dummy_data)
         
         # action
         data_types = self.data_manager.get_csv_data_types(fake_csv_dataframe)
@@ -302,16 +307,54 @@ class TestDataManager(unittest.TestCase):
     @patch('fedbiomed.node.data_manager.DataManager.read_csv')    
     def test_data_manager_13_load_csv_dataset(self, read_csv_patch):
         """Tests `load_csv_method` (normal case scenario)"""
+        
+        # patcher
+        dummy_data = pd.DataFrame(self.dummy_data)
+        read_csv_patch.return_value = dummy_data
         # arguments
         database_path = '/path/to/MNIST/dataset'
         
         # action
-        self.data_manager.load_csv_dataset(database_path)
+        data = self.data_manager.load_csv_dataset(database_path)
         
         # checks
         read_csv_patch.assert_called_once_with(database_path)
+        # if below assertion is True, will return None, ottherwise, 
+        # if False, triggers an error
+        self.assertTrue(np.testing.assert_array_equal(data.values,
+                                                      dummy_data.values) == None)
     
-    def test_data_manager_XX_add_database(self):
+    @patch('tinydb.table.Table.insert')
+    @patch('fedbiomed.node.data_manager.DataManager.load_default_database')
+    @patch('os.path.isdir')
+    def test_data_manager_14_add_database_default_dataset(self,
+                                                          os_listdir_patch,
+                                                          datamanager_load_default_dataset_patch,
+                                                          insert_table_patch):
+        # unit test parameters
+        fake_dataset_shape = copy.deepcopy(self.fake_dataset_shape)
+        fake_dataset_shape = list(fake_dataset_shape)
+        fake_dataset_path = '/path/to/some/dataset'
+        fake_dataset_id = 'dataset_id_12234'
+        fake_dataset_name = 'test'
+        # patchers
+        os_listdir_patch.return_value = True
+        datamanager_load_default_dataset_patch.return_value = fake_dataset_shape
+        insert_table_patch.return_value = None
+        # action
+        dataset_id = self.data_manager.add_database(name=fake_dataset_name,
+                                                    data_type='default',
+                                                    tags=['unit', 'test'],
+                                                    description='some description',
+                                                    path= fake_dataset_path,
+                                                    dataset_id=fake_dataset_id
+                                                    )
+        # checks
+        self.assertEqual(dataset_id, fake_dataset_id)
+        datamanager_load_default_dataset_patch.assert_called_once_with(fake_dataset_name,
+                                                                       fake_dataset_path)
+        
+    def test_data_manager_15_add_database_real_csv_examples_based(self):
         """ Test add_database method for loading csv datasets """
 
         # Load data with header example
@@ -360,7 +403,17 @@ class TestDataManager(unittest.TestCase):
                                                               )
                                            )
 
-
+    
+    def test_data_manager_16_add_database_wrong_datatype(self):
+        """Tests if NotImplementedError is raised when specifying
+        an unknown data type in add_database method"""
+        with self.assertRaises(NotImplementedError):
+            self.data_manager.add_database(name='test',
+                                           data_type='unknwon format',
+                                           tags=['test'],
+                                           description='this is a test',
+                                           path='/a/path/to/some/data')
+        
     def test_load_image_dataset(self):
 
         """ Test function for loading image dataset """
