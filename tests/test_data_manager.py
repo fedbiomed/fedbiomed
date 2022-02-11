@@ -2,6 +2,7 @@
 
 import copy
 from re import search
+from typing import Dict
 
 from unittest import mock
 
@@ -17,13 +18,14 @@ from fedbiomed.node.environ    import environ
 
 from fedbiomed.node.data_manager import DataManager
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 import os
 
 import inspect
 import torch
 from torch.utils.data import Dataset
-from torchvision import transforms
+
+from tests.testsupport.fake_uuid import FakeUuid
 
 print(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))))
 
@@ -355,19 +357,22 @@ class TestDataManager(unittest.TestCase):
                                                                        fake_dataset_path)
         
     def test_data_manager_15_add_database_real_csv_examples_based(self):
-        """ Test add_database method for loading csv datasets """
+        """ Test add_database method for loading real csv datasets """
 
+        fake_dataset_id = 'dataset_id_1232345'
         # Load data with header example
-        self.data_manager.add_database( name='test',
-                                        tags=['titi'],
-                                        data_type='csv',
-                                        description='description',
-                                        path=os.path.join( self.testdir,
-                                                           "csv",
-                                                           "tata-header.csv"
-                                                          )
-                                        )
+        dataset_id = self.data_manager.add_database(name='test',
+                                                    tags=['titi'],
+                                                    data_type='csv',
+                                                    description='description',
+                                                    path=os.path.join( self.testdir,
+                                                                    "csv",
+                                                                    "tata-header.csv"
+                                                                    ),
+                                                    dataset_id=fake_dataset_id
+                                                    )
 
+        self.assertEqual(dataset_id, fake_dataset_id)
         # Should raise error due to same tag
         with self.assertRaises(Exception):
             self.data_manager.add_database( name='test',
@@ -402,7 +407,18 @@ class TestDataManager(unittest.TestCase):
                                                                "toto-error.csv"
                                                               )
                                            )
-
+            
+        # should raise n error because it is not a csv file (but data_format passed
+        # as 'csv' file)
+        with self.assertRaises(AssertionError):
+            dataset_id = self.data_manager.add_database(name='test',
+                                                        tags=['titi'],
+                                                        data_type='csv',
+                                                        description='description',
+                                                        path=os.path.join( self.testdir,
+                                                                        "images"
+                                                                        )
+                                                    )
     
     def test_data_manager_16_add_database_wrong_datatype(self):
         """Tests if NotImplementedError is raised when specifying
@@ -414,20 +430,26 @@ class TestDataManager(unittest.TestCase):
                                            description='this is a test',
                                            path='/a/path/to/some/data')
         
-    def test_load_image_dataset(self):
+    @patch('uuid.uuid4')
+    def test_data_manager_17_add_database_real_images_example_based(self, uuid_patch):
 
-        """ Test function for loading image dataset """
-
+        """ Test data_manager method for loading real images datasets """
+        FakeUuid.VALUE = 123456
+        # patchers:
+        uuid_patch.return_value = FakeUuid()
+        
         # Load data with header example
-        self.data_manager.add_database( name='test',
-                                        tags=['titi'],
-                                        data_type='images',
-                                        description='description',
-                                        path=os.path.join( self.testdir,
-                                                           "images"
-                                                          )
-                                       )
-
+        dataset_id = self.data_manager.add_database(name='test',
+                                                    tags=['titi'],
+                                                    data_type='images',
+                                                    description='description',
+                                                    path=os.path.join( self.testdir,
+                                                                    "images"
+                                                                    )
+                                                )
+        # check if dataset_id is correct when none is passed as argument
+        self.assertEqual('dataset_' + str(FakeUuid.VALUE), dataset_id)
+        
         # Should raise error due to same tag
         with self.assertRaises(Exception):
             self.data_manager.add_database( name='test',
@@ -438,7 +460,29 @@ class TestDataManager(unittest.TestCase):
                                                                "images"
                                                               )
                                            )
-            pass
+            
+        # should raise error because a csv dataset is loaded as image
+        
+        with self.assertRaises(AssertionError):
+            self.data_manager.add_database(name='test',
+                                            tags=['titi'],
+                                            data_type='images',
+                                            description='description',
+                                            path=os.path.join( self.testdir,
+                                                            "csv",
+                                                            "tata-header.csv"
+                                                            ),
+                                                    )
+    
+    def test_data_manager_18_remove_database(self):
+        def doc_id_side_effect(doc: Dict[str, Dict[str, str]]):
+            return doc.get()
+        # arguments
+        doc1_id = '1'
+        doc1 = MagicMock(doc_id=doc1_id)
+        search_results = [{"1": {"name": "MNIST", "data_type": "default", "tags": ["#MNIST", "#dataset"], "description": "MNIST database", "shape": [60000, 1, 28, 28], "path": "/path/to/MNIST", "dataset_id": "dataset_1234", "dtypes": []},
+                           "2": {"name": "test", "data_type": "csv", "tags": ["some", "tags"], "description": "test", "shape": [1000,2], "path": "/path/to/my/data", "dataset_id": "dataset_4567", "dtypes": ["float64", "int64"]}}]
+        dataset_tags = ['some', 'tags']
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
