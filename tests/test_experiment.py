@@ -19,6 +19,8 @@ from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.experiment import Experiment
 
 from tests.testsupport.fake_dataset import FederatedDataSetMock
+from tests.testsupport.fake_experiment import ExperimentMock
+
 
 class TestExperiment(unittest.TestCase):
 
@@ -204,19 +206,16 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(final_state['job'], job_state)
 
 
-    @patch('fedbiomed.researcher.job.Job.load_state')
-    @patch('fedbiomed.researcher.experiment.Experiment.model_instance.load')
     @patch('fedbiomed.researcher.experiment.Experiment.model_instance')
     @patch('fedbiomed.researcher.experiment.Experiment._create_object')
     @patch('fedbiomed.researcher.experiment.find_breakpoint_path')
-    # test load_breakpoint + _load_aggregated_params + Experiment constructor
+    # test load_breakpoint + _load_aggregated_params
+    # cannot test Experiment constructor, need to fake it
     # (not exactly a unit test, but probably more interesting)
     def test_load_breakpoint(self,
                              patch_find_breakpoint_path,
                              patch_create_object,
-                             patch_model_instance,
-                             patch_model_instance_load,
-                             patch_job_load_state
+                             patch_model_instance
                              ):
         """ test `load_breakpoint` :
             1. if breakpoint file is json loadable
@@ -273,47 +272,62 @@ class TestExperiment(unittest.TestCase):
         for aggpar in final_aggregated_params.values():
             aggpar['params'] = model_params
         # target breakpoint element arguments
+        final_tags = self.tags
+        final_experimentation_folder = experimentation_folder
         final_training_data = { 'train_node1': 'my_first_dataset', '2': 243 }
         final_training_args = { '1': 'my_first arg', 'training_arg2': 123.45 }
         final_aggregator = { 'aggreg1': False, 'aggreg2': 'dummy_agg_param', '18': 'agg_param18' }
         final_strategy = { 'strat1': 'test_strat_param', 'strat2': 421, '3': 'strat_param3' }
         final_job = { '1': 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999 }
 
-
         # patch functions for loading breakpoint
         patch_find_breakpoint_path.return_value = self.experimentation_folder_path, bkpt_file
+        
         def side_create_object(args, **kwargs):
             return args
         patch_create_object.side_effect = side_create_object
-        patch_model_instance_load.return_value = model_params
+        
+        class FakeModelInstance:
+            def load(self, aggreg, to_params):
+                return model_params
+        patch_model_instance.return_value = FakeModelInstance()
 
-        # keep job state to ensure it was properly initialized
-        self.job_state = None
-        def side_job_load_state(job_state):
-            self.job_state = job_state
-        patch_job_load_state.side_effect = side_job_load_state
+        # could not have it working with a decorator or by patching the whole class
+        # (we are in a special case : constructor of
+        # an object instantiated from the `cls` of a class function)
+        patches_experiment = [
+            patch('fedbiomed.researcher.experiment.Experiment.__init__',
+                ExperimentMock.__init__),
+            patch('fedbiomed.researcher.experiment.Experiment._set_round_current',
+                ExperimentMock._set_round_current)
+        ]
+        for p in patches_experiment:
+            p.start()
 
         
         # action
         loaded_exp = Experiment.load_breakpoint(self.experimentation_folder_path)
 
+        for p in patches_experiment:
+            p.stop()
+
         # verification
         self.assertTrue(isinstance(loaded_exp, Experiment))
-        self.assertTrue(isinstance(loaded_exp._fds, FederatedDataSet))
-        self.assertEqual(loaded_exp._fds.data(), final_training_data)
-        self.assertEqual(loaded_exp._training_args, final_training_args)
-        self.assertEqual(loaded_exp._model_args, model_args)
-        self.assertEqual(loaded_exp._model_path, model_path)
-        self.assertEqual(loaded_exp._model_class, model_class)
-        self.assertEqual(loaded_exp._round_current, round_current)
-        self.assertEqual(loaded_exp._round_limit, self.round_limit)
-        self.assertEqual(loaded_exp._experimentation_folder, self.experimentation_folder)
+        self.assertEqual(loaded_exp._tags, final_tags)
+        self.assertEqual(loaded_exp._fds, final_training_data)
         self.assertEqual(loaded_exp._aggregator, final_aggregator)
         self.assertEqual(loaded_exp._node_selection_strategy, final_strategy)
-        self.assertEqual(loaded_exp._tags, self.tags)
+        self.assertEqual(loaded_exp._round_current, round_current)
+        self.assertEqual(loaded_exp._round_limit, self.round_limit)
+        self.assertEqual(loaded_exp._experimentation_folder, final_experimentation_folder)
+        self.assertEqual(loaded_exp._model_class, model_class)
+        self.assertEqual(loaded_exp._model_path, model_path)
+        self.assertEqual(loaded_exp._model_args, model_args)
+        self.assertEqual(loaded_exp._training_args, final_training_args)
+        self.assertEqual(loaded_exp._job._saved_state, final_job)
         self.assertEqual(loaded_exp._aggregated_params, final_aggregated_params)
-        self.assertTrue(isinstance(loaded_exp._job, Job))
-        self.assertEqual(self.job_state, final_job)
+        self.assertTrue(loaded_exp._save_breakpoints)
+        self.assertFalse(loaded_exp._monitor)
 
 
     def test_private_create_object(self):
