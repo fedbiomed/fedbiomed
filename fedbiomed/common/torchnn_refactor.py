@@ -184,12 +184,6 @@ class TorchTrainingPlan(nn.Module):
 
         self.data = self.training_data(batch_size=batch_size)
 
-        try:
-            self.preprocess() # Check whether preprocess method exists, and use it
-        except AttributeError:
-            # Method does not exist; skip
-            pass
-
         for epoch in range(1, epochs + 1):
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
