@@ -246,7 +246,7 @@ class TestLogger(unittest.TestCase):
 
         # try to connect to MQTT
         self._mqtt_is_connected  = False
-        self._node_id            = str(uuid.uuid4())
+        self._node_id            = "test_logger_node_" + str(uuid.uuid4())
         self._mqtt               = mqtt.Client(client_id = self._node_id)
         self._mqtt.on_message    = self.on_message
         self._mqtt.on_connect    = self.on_connect
@@ -275,6 +275,12 @@ class TestLogger(unittest.TestCase):
 
         logger.debug("mqtt+console DEBUG message")
         logger.error("mqtt+console ERROR message")
+
+        #
+        logger.setLevel("DEBUG")
+        logger.delMqttHandler()
+        logger.critical("verify that logger still works properly")
+
         self._mqtt.loop_stop()
         pass
 

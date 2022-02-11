@@ -226,6 +226,7 @@ class _LoggerBase():
         """
         if handler is None:
             if output in self._handlers:
+                self.removeHandler(self._handlers[output])
                 del self._handlers[output]
                 self._logger.debug(" removing handler for: " + output)
             return
