@@ -2,7 +2,7 @@
 
 import copy
 from re import search
-from typing import Dict
+from typing import Dict, List
 
 from unittest import mock
 
@@ -79,8 +79,23 @@ class TestDataManager(unittest.TestCase):
 
         self.data_manager = DataManager()
         
-        # creating arguments
-        
+        # arguments
+        self.fake_database = {"1": {"name": "MNIST",
+                               "data_type": "default",
+                               "tags": ["#MNIST", "#dataset"],
+                               "description": "MNIST database",
+                               "shape": [60000, 1, 28, 28],
+                               "path": "/path/to/MNIST", 
+                               "dataset_id": "dataset_1234",
+                               "dtypes": []},
+                           "2": {"name": "test",
+                                 "data_type": "csv",
+                                 "tags": ["some", "tags"],
+                                 "description": "test",
+                                 "shape": [1000,2],
+                                 "path": "/path/to/my/data",
+                                 "dataset_id": "dataset_4567",
+                                 "dtypes": ["float64", "int64"]}}
 
     # after the tests
     def tearDown(self):
@@ -264,7 +279,7 @@ class TestDataManager(unittest.TestCase):
     
         load_default_database_patch.assert_called_once_with(self.fake_dataset)
     
-    def test_data_manager_10_load_default_database_exception(self):
+    def test_data_manager_11_load_default_database_exception(self):
         """Tests if exception `NotImplemntedError` is triggered 
         when passing an unknown dataset
         """
@@ -274,7 +289,7 @@ class TestDataManager(unittest.TestCase):
                                                     '/path/to/my/default/dataset')
     
     @patch('torchvision.datasets.ImageFolder')
-    def test_data_manager_11_load_images_dataset_as_dataset_true(self, imgfolder_patch):
+    def test_data_manager_12_load_images_dataset_as_dataset_true(self, imgfolder_patch):
         """Tests case where one is loading image dataset with argument
         `as_dataset` is set to True"""
         # defining patcher
@@ -290,7 +305,7 @@ class TestDataManager(unittest.TestCase):
         imgfolder_patch.assert_called_once_with(database_path,
                                                 transform=mock.ANY)
         
-    def test_data_manager_12_load_images_dataset_as_dataset_false(self):
+    def test_data_manager_13_load_images_dataset_as_dataset_false(self):
         """Tests case where one is loading image dataset with argument 
         `as_dataset` is set to False"""
  
@@ -307,7 +322,7 @@ class TestDataManager(unittest.TestCase):
         self.assertEqual(res_dataset_shape, [5, 3, 30, 60])
         
     @patch('fedbiomed.node.data_manager.DataManager.read_csv')    
-    def test_data_manager_13_load_csv_dataset(self, read_csv_patch):
+    def test_data_manager_14_load_csv_dataset(self, read_csv_patch):
         """Tests `load_csv_method` (normal case scenario)"""
         
         # patcher
@@ -329,7 +344,7 @@ class TestDataManager(unittest.TestCase):
     @patch('tinydb.table.Table.insert')
     @patch('fedbiomed.node.data_manager.DataManager.load_default_database')
     @patch('os.path.isdir')
-    def test_data_manager_14_add_database_default_dataset(self,
+    def test_data_manager_15_add_database_default_dataset(self,
                                                           os_listdir_patch,
                                                           datamanager_load_default_dataset_patch,
                                                           insert_table_patch):
@@ -356,7 +371,7 @@ class TestDataManager(unittest.TestCase):
         datamanager_load_default_dataset_patch.assert_called_once_with(fake_dataset_name,
                                                                        fake_dataset_path)
         
-    def test_data_manager_15_add_database_real_csv_examples_based(self):
+    def test_data_manager_16_add_database_real_csv_examples_based(self):
         """ Test add_database method for loading real csv datasets """
 
         fake_dataset_id = 'dataset_id_1232345'
@@ -420,7 +435,7 @@ class TestDataManager(unittest.TestCase):
                                                                         )
                                                     )
     
-    def test_data_manager_16_add_database_wrong_datatype(self):
+    def test_data_manager_17_add_database_wrong_datatype(self):
         """Tests if NotImplementedError is raised when specifying
         an unknown data type in add_database method"""
         with self.assertRaises(NotImplementedError):
@@ -431,10 +446,9 @@ class TestDataManager(unittest.TestCase):
                                            path='/a/path/to/some/data')
         
     @patch('uuid.uuid4')
-    def test_data_manager_17_add_database_real_images_example_based(self, uuid_patch):
+    def test_data_manager_18_add_database_real_images_example_based(self, uuid_patch):
 
         """ Test data_manager method for loading real images datasets """
-        FakeUuid.VALUE = 123456
         # patchers:
         uuid_patch.return_value = FakeUuid()
         
@@ -473,16 +487,102 @@ class TestDataManager(unittest.TestCase):
                                                             "tata-header.csv"
                                                             ),
                                                     )
-    
-    def test_data_manager_18_remove_database(self):
-        def doc_id_side_effect(doc: Dict[str, Dict[str, str]]):
-            return doc.get()
+    @patch('tinydb.table.Table.remove')
+    @patch('fedbiomed.node.data_manager.DataManager.search_by_tags')
+    def test_data_manager_19_remove_database(self,
+                                             search_by_tags_patch,
+                                             db_remove_patch):
+        """Tests `remove_database` an simulates the removal of a database
+        through its tags.
+        """
         # arguments
-        doc1_id = '1'
-        doc1 = MagicMock(doc_id=doc1_id)
-        search_results = [{"1": {"name": "MNIST", "data_type": "default", "tags": ["#MNIST", "#dataset"], "description": "MNIST database", "shape": [60000, 1, 28, 28], "path": "/path/to/MNIST", "dataset_id": "dataset_1234", "dtypes": []},
-                           "2": {"name": "test", "data_type": "csv", "tags": ["some", "tags"], "description": "test", "shape": [1000,2], "path": "/path/to/my/data", "dataset_id": "dataset_4567", "dtypes": ["float64", "int64"]}}]
+        doc1 = MagicMock(doc_id=1)  # adding the attribute `doc_id` to doc
+        # (usually, datasets are added with an integer from 1 to the number of datasets 
+        # contained in the database)
+        
         dataset_tags = ['some', 'tags']
+        search_result = [doc1]
+        
+        fake_database = copy.deepcopy(self.fake_database)
+        
+        # side effect functions
+        
+        def db_remove_side_effect(doc_ids: List[int]):
+            """Removes from `fake_database entries contained
+            in doc_ids 
+            Args: 
+            doc_ids (List[int]): list of doc ids
+            """
+            for doc_id in doc_ids:
+                fake_database.pop(str(doc_id))
+                
+        
+        # patchers
+        search_by_tags_patch.return_value = search_result
+        db_remove_patch.side_effect = db_remove_side_effect
+        
+        # action
+        self.data_manager.remove_database(dataset_tags)
+        
+        # checks
+        search_by_tags_patch.assert_called_once_with(dataset_tags)
+        db_remove_patch.assert_called_once_with(doc_ids=[1])
+        self.assertFalse(fake_database.get('1', False))
 
+    @patch('tinydb.table.Table.update')
+    @patch('tinydb.queries.Query.all')
+    def test_data_manager_20_modify_database_info(self,
+                                                  query_all_patch,
+                                                  tinydb_update_patch):
+        
+        """Tests modify_databae_info (normal case scenario), 
+        where one replaces an existing dataset by another one
+        """
+        fake_database = copy.deepcopy(self.fake_database)
+        
+        # side effect function
+        def tinydb_update_side_effect(new_dataset: dict, existing_dataset: List[int]):
+            """side effect function that mimicks the update of the database 
+            `fake_database`
+
+            Args:
+                new_dataset (dict): the new dataset to update
+                existing_dataset (List[int]): unused, but should 
+                be a list of doc ids that corresponds to the output 
+                `Query.tags.all(tags)` dataset query.
+            """
+            fake_database['2'] = new_dataset
+            
+        new_dataset = {"name": "anther_test",
+                        "data_type": "csv",
+                        "tags": [ "other_tags"],
+                        "description": "another_description",
+                        "shape": [2000,2],
+                        "path": "/path/to/my/other/data",
+                        "dataset_id": "dataset_9876",
+                        "dtypes": ["int64", "float64"]}
+        
+        tags = ['some', 'tags']
+        query_all_patch.return_value = [fake_database.get('2')]
+        tinydb_update_patch.side_effect = tinydb_update_side_effect
+        
+        # action
+        self.data_manager.modify_database_info(tags, new_dataset)
+        
+        # checks
+        # check that correct calls are made
+        query_all_patch.assert_called_once_with(tags)
+        tinydb_update_patch.assert_called_once_with(new_dataset, 
+                                                    [self.fake_database.get('2')])
+        # check database status after updating
+        # first entry in database should be left unchanged ...
+        self.assertEqual(fake_database.get('1'), self.fake_database.get('1'))
+        # ... whereas second entry should be updated
+        self.assertNotEqual(fake_database.get('2'), self.fake_database.get('2'))
+        self.assertEqual(fake_database.get('2'), new_dataset)
+        
+    def test_data_manager_21_list_my_data(self):
+        pass
+        
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
