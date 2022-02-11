@@ -222,10 +222,16 @@ class _LoggerBase():
 
         parameters:
         output  = tag for the logger ("CONSOLE", "FILE"), this is a string used as an hash key
-        handler = proper handler to install
+        handler = proper handler to install. if handler is None, it will remove the previous installed handler
         """
+        if handler is None:
+            if output in self._handlers:
+                del self._handlers[output]
+                self._logger.debug(" removing handler for: " + output)
+            return
+
         if output not in self._handlers:
-            self._logger.debug(" adding handler: " + output)
+            self._logger.debug(" adding handler for: " + output)
             self._handlers[output] = handler
             self._logger.addHandler(handler)
             self._handlers[output].setLevel( self._default_level)
@@ -358,6 +364,8 @@ class _LoggerBase():
         self.setLevel(level , "MQTT")
         pass
 
+    def delMqttHandler(self):
+        self._internalAddHandler("MQTT", None)
 
     def log(self, level, msg):
         """
