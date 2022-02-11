@@ -95,7 +95,7 @@ class TestExperiment(unittest.TestCase):
     @patch('fedbiomed.researcher.experiment.choose_bkpt_file')
     # testing _save_breakpoint + _save_aggregated_params
     # (not exactly a unit test, but probably more interesting)
-    def test_private_breakpoint(
+    def test_save_breakpoint(
             self,
             patch_choose_bkpt_file,
             patch_job_model_file,
@@ -248,7 +248,7 @@ class TestExperiment(unittest.TestCase):
             'model_args': model_args,
             'model_path': model_path,
             'model_class': model_class,
-            'round_current': round_current + 1,
+            'round_current': round_current,
             'round_limit': self.round_limit,
             'experimentation_folder': experimentation_folder,
             'aggregator': aggregator,
@@ -305,7 +305,7 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(loaded_exp._model_args, model_args)
         self.assertEqual(loaded_exp._model_path, model_path)
         self.assertEqual(loaded_exp._model_class, model_class)
-        self.assertEqual(loaded_exp._round_current, round_current + 1)
+        self.assertEqual(loaded_exp._round_current, round_current)
         self.assertEqual(loaded_exp._round_limit, self.round_limit)
         self.assertEqual(loaded_exp._experimentation_folder, self.experimentation_folder)
         self.assertEqual(loaded_exp._aggregator, final_aggregator)
