@@ -8,14 +8,15 @@ import testsupport.mock_common_environ
 from fedbiomed.researcher.environ import environ
 
 import unittest
+from unittest.mock import patch, PropertyMock, Mock
 import sys
 import threading
 import time
 
-from fedbiomed.common.messaging      import Messaging
 from fedbiomed.common.constants      import ComponentType
-from fedbiomed.common.message        import PingReply
-from fedbiomed.common.message        import NodeMessages
+from fedbiomed.common.exceptions     import FedbiomedMessagingError
+from fedbiomed.common.message        import PingReply, NodeMessages
+from fedbiomed.common.messaging      import Messaging
 
 
 class TestMessaging(unittest.TestCase):
@@ -36,7 +37,7 @@ class TestMessaging(unittest.TestCase):
 
     def test_messaging_00_bad_init(self):
 
-        self.assertFalse( self._m.is_connected )
+        self.assertFalse( self._m.is_connected() )
         self.assertEqual( self._m.default_send_topic, None)
 
         try:
@@ -46,14 +47,37 @@ class TestMessaging(unittest.TestCase):
             self.assertTrue( True, "Should not connect to fake server (OK)")
 
 
-    def test_messaging_01_connect(self):
+    def test_messaging_01_researcher_init(self):
+
+        self._m = Messaging(on_message       = None,
+                            messaging_type   = ComponentType.RESEARCHER,
+                            messaging_id     = 1234,
+                            mqtt_broker      = "1.2.3.4",
+                            mqtt_broker_port = 1)
+
+        self.assertFalse( self._m.is_connected() )
+        self.assertEqual( self._m.default_send_topic, "general/nodes")
+
+    def test_messaging_02_node_init(self):
+
+        self._m = Messaging(on_message       = None,
+                            messaging_type   = ComponentType.NODE,
+                            messaging_id     = 1234,
+                            mqtt_broker      = "1.2.3.4",
+                            mqtt_broker_port = 1)
+
+        self.assertFalse( self._m.is_connected() )
+        self.assertEqual( self._m.default_send_topic, "general/researcher")
+
+
+    def test_messaging_03_connect(self):
 
         self._m.on_connect(None, # client
                            None, # userdata
                            None, # flags
                            0     # rc (ok)
                            )
-        self.assertTrue( self._m.is_connected )
+        self.assertTrue( self._m.is_connected() )
 
 
         try:
@@ -65,53 +89,57 @@ class TestMessaging(unittest.TestCase):
             self.assertFalse(True, "bad disconnexion")
         except:
             self.assertTrue(True, "bad disconnexion")
-            self.assertTrue( self._m.is_failed)
+            self.assertTrue( self._m.is_failed())
 
-    def test_messaging_02_disconnect(self):
+    def test_messaging_04_disconnect(self):
 
         # disconnexion from server
-        self._m.is_connected = True
+        self._m._is_connected = True
         self._m.on_disconnect(None, # client
                               None, # userdata
                               0)    # rc (OK)
-        self.assertFalse( self._m.is_connected )
+        self.assertFalse( self._m.is_connected() )
 
         # failed disconnexion from server
-        self._m.is_connected = True
+        self._m.i_s_connected = True
         try:
             self._m.on_disconnect(None, # client
                                   None, # userdata
                                   1)    # rc (error)
             self.assertFalse( True, "Disconnexion should failed and raise SystemExit")
         except:
-            self.assertTrue( True, "Disconnexion should failed and raise SystemExit")
+            self.assertTrue( True, "Disconnexion has failed and raised SystemExit")
 
-        self.assertFalse( self._m.is_connected )
-        self.assertTrue( self._m.is_failed)
+        self.assertFalse( self._m.is_connected() )
+        self.assertTrue( self._m.is_failed())
 
 
-    def test_messaging_03_researcher_init(self):
+    def test_messaging_05_bad_start(self):
 
-        self._m = Messaging(on_message       = None,
-                            messaging_type   = ComponentType.RESEARCHER,
-                            messaging_id     = 1234,
-                            mqtt_broker      = "1.2.3.4",
-                            mqtt_broker_port = 1)
+        with patch('paho.mqtt.client.Client.connect',
+                   new_callable=PropertyMock,side_effect = ConnectionRefusedError('Boom!')):
+            try:
+                self._m.start()
+                self.assertFalse( True, "Connexion exception not detected at start()")
+            except FedbiomedMessagingError as e:
+                self.assertTrue( True, "Connexion exception detected at start()")
+            except Exception as e:
+                self.assertFalse( True, "Bad Exception for connexion exception at start()")
 
-        self.assertFalse( self._m.is_connected )
-        self.assertEqual( self._m.default_send_topic, "general/nodes")
 
-    def test_messaging_04_node_init(self):
 
-        self._m = Messaging(on_message       = None,
-                            messaging_type   = ComponentType.NODE,
-                            messaging_id     = 1234,
-                            mqtt_broker      = "1.2.3.4",
-                            mqtt_broker_port = 1)
+    @patch('paho.mqtt.client.Client.loop_forever', Mock(return_value=True))
+    @patch('paho.mqtt.client.Client.connect', Mock(return_value=True))
+    def test_messaging_06_good_start(self):
 
-        self.assertFalse( self._m.is_connected )
-        self.assertEqual( self._m.default_send_topic, "general/researcher")
+        try:
+            self._m.start(block = True)
+            self.assertTrue( True, "Connexion correctely started")
+        except Exception as e:
+            print("CAUGHT:", e)
+            self.assertFalse( True, "Connexion correctly started and detected as no")
 
+        self._m.stop()
 
 class TestMessagingResearcher(unittest.TestCase):
     '''

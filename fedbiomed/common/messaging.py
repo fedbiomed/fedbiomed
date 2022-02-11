@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Any, Callable, Union
 
 import paho.mqtt.client as mqtt
+import socket
 
 from fedbiomed.common import json
 from fedbiomed.common.constants  import ComponentType, ErrorNumbers
@@ -40,8 +41,8 @@ class Messaging:
         """
         self.messaging_type = messaging_type
         self.messaging_id = str(messaging_id)
-        self.is_connected = False
-        self.is_failed = False
+        self._is_connected = False
+        self._is_failed = False
 
         # Client() will generate a random client_id if not given
         # this means we choose not to use the {node,researcher}_id for this purpose
@@ -110,8 +111,11 @@ class Messaging:
             logger.info("Messaging " + str(self.messaging_id) + " successfully connected to the message broker, object = " + str(self))
         else:
             msg = ErrorNumbers.FB101.value + ": " + str(self.messaging_id) + " could not connect to the message broker"
+            logger.delMqttHandler()  # just in case !
+            self.logger_initialized = False
+
             logger.critical(msg)
-            self.is_failed = True
+            self._is_failed = True
             raise FedbiomedMessagingError(msg)
 
         if self.messaging_type is ComponentType.RESEARCHER:
@@ -119,20 +123,20 @@ class Messaging:
                 result, _ = self.mqtt.subscribe(channel)
                 if result != mqtt.MQTT_ERR_SUCCESS:
                     logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel" + str(channel))
-                    self.is_failed = True
+                    self._is_failed = True
 
             # PoC subscribe also to error channel
             result, _ = self.mqtt.subscribe('general/logger')
             if result != mqtt.MQTT_ERR_SUCCESS:
                 logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel general/error")
-                self.is_failed = True
+                self._is_failed = True
 
         elif self.messaging_type is ComponentType.NODE:
             for channel in ('general/nodes', 'general/' + self.messaging_id):
                 result, _ = self.mqtt.subscribe(channel)
                 if result != mqtt.MQTT_ERR_SUCCESS:
                     logger.error("Messaging " + str(self.messaging_id) + " failed subscribe to channel" + str(channel))
-                    self.is_failed = True
+                    self._is_failed = True
 
             if not self.logger_initialized:
                 # add the MQTT handler for logger
@@ -147,10 +151,10 @@ class Messaging:
                 logger.setLevel("DEBUG")
                 self.logger_initialized = True
 
-        self.is_connected = True
+        self._is_connected = True
 
     def on_disconnect(self, client, userdata, rc):
-        self.is_connected = False
+        self._is_connected = False
 
         if rc == 0:
             # should this ever happen ? we're not disconnecting intentionally yet
@@ -164,7 +168,7 @@ class Messaging:
             logger.error("Messaging " + str(self.messaging_id) + " disconnected with error code rc = " + str(rc) +
                          " - Hint: check for another instance of the same component running or for communication error")
 
-            self.is_failed = True
+            self._is_failed = True
             # quit messaging to avoid connect/disconnect storm in case multiple nodes with same id
             raise SystemExit
 
@@ -187,7 +191,11 @@ class Messaging:
 
         try:
             self.mqtt.connect(self.mqtt_broker, self.mqtt_broker_port, keepalive=60)
-        except ConnectionRefusedError as e:
+        except (ConnectionRefusedError, TimeoutError, socket.timeout ) as e:
+
+            logger.delMqttHandler()  # just in case !
+            self.logger_initialized = False
+
             msg = "cannot connect to MQTT (error=" + str(e)+ ")"
             logger.critical(msg)
             raise FedbiomedMessagingError(msg)
@@ -195,9 +203,9 @@ class Messaging:
         if block:
             # TODO : not used, should probably be removed
             self.mqtt.loop_forever()
-        elif not self.is_connected:
+        elif not self._is_connected:
             self.mqtt.loop_start()
-            while not self.is_connected:
+            while not self._is_connected:
                 pass
 
     def stop(self):
@@ -218,10 +226,10 @@ class Messaging:
                                 message will be sent. Defaults to None(all
                                 clients)
         """
-        if self.is_failed:
+        if self._is_failed:
             logger.error('Messaging has failed, will not try to send message')
             return
-        elif not self.is_connected:
+        elif not self._is_connected:
             logger.error('Messaging is not connected, will not try to send message')
             return
 
@@ -240,7 +248,7 @@ class Messaging:
                              str(self) +
                              " message = " +
                              str(msg))
-                self.is_failed = True
+                self._is_failed = True
         else:
             logger.warning("send_message: channel must be specifiec (None at the moment)")
 
@@ -260,7 +268,10 @@ class Messaging:
                            ") through MQTT")
             return
 
-        if not self.is_connected:
+        if not self._is_connected:
+            logger.delMqttHandler() # just in case
+            self.logger_initialized = False
+
             msg = "MQTT not initialized yet (error to transmit=" + errnum.value + ")"
             logger.critical(msg)
             raise FedbiomedMessagingError(msg)
@@ -277,3 +288,16 @@ class Messaging:
 
         r = message.NodeMessages.reply_create(msg)
         self.mqtt.publish("general/researcher", json.serialize_msg(msg))
+
+
+    def is_failed(self):
+        '''
+        getter for the is_failed status flag
+        '''
+        return self._is_failed
+
+    def is_connected(self):
+        '''
+        getter for the is_connected status flag
+        '''
+        return self._is_connected
