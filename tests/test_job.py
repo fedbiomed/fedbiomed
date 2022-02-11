@@ -13,8 +13,8 @@ from fedbiomed.researcher.environ import environ
 import os
 import inspect
 import unittest
-from unittest.mock import patch, MagicMock
-
+from unittest.mock import patch, MagicMock, PropertyMock
+from typing import Dict, Any
 import torch
 import numpy as np
 
@@ -22,8 +22,11 @@ from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.responses import Responses
 from testsupport.fake_responses import FakeResponses
 from testsupport.fake_model import FakeModel
+from testsupport.fake_message import FakeMessages
+from testsupport.fake_responses import FakeResponses
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.common.constants import ErrorNumbers
 
 
 class TestJob(unittest.TestCase):
@@ -49,7 +52,18 @@ class TestJob(unittest.TestCase):
     # once in test lifetime
     @classmethod
     def setUpClass(cls):
-        pass
+
+        def msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
+            fake_node_msg = FakeMessages(msg)
+            return fake_node_msg
+
+        cls.msg_side_effect = msg_side_effect
+
+        def fake_responses(data: Dict):
+            fake = FakeResponses(data)
+            return fake
+
+        cls.fake_responses_side_effect = fake_responses
 
     @classmethod
     def tearDownClass(cls):
@@ -61,22 +75,36 @@ class TestJob(unittest.TestCase):
                              return_value=None)
         self.patcher2 = patch('fedbiomed.common.repository.Repository.upload_file',
                               return_value={"file": environ['UPLOADS_URL']})
+        self.patcher3 = patch('fedbiomed.common.repository.Repository.download_file',
+                              return_value=(True, environ['TMP_DIR']))
+        self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.request_create')
+        # self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.reply_create')
+
         self.mock_reqeust = self.patcher.start()
         self.mock_upload_file = self.patcher2.start()
+        self.mock_download_file = self.patcher3.start()
+        self.mock_reqeust_create = self.patcher4.start()
 
         # Globally create mock for Model and FederatedDataset
         self.model = MagicMock(return_value=None)
         self.model.save = MagicMock(return_value=None)
         self.model.save_code = MagicMock(return_value=None)
-
+        self.model.load = MagicMock(return_value={'model_params': True})
         self.fds = MagicMock()
+
         self.fds.data = MagicMock(return_value={})
-        # ----------------------------------------------------
+        self.mock_reqeust_create.side_effect = TestJob.msg_side_effect
+
+        self.job = Job(model=self.model,
+                       data=self.fds)
 
     def tearDown(self) -> None:
 
         self.patcher.stop()
         self.patcher2.stop()
+        self.patcher3.stop()
+        self.patcher4.stop()
+
         # shutil.rmtree(os.path.join(VAR_DIR, "breakpoints"))
         # (above) remove files created during these unit tests
 
@@ -131,6 +159,7 @@ class TestJob(unittest.TestCase):
 
         # Get source of the model and save in tmp directory for just test purposes
         tmp_dir_model = TestJob.create_fake_model('fake_model.py')
+        self.mock_upload_file.reset_mock()
 
         j = Job(model_path=tmp_dir_model,
                 model='FakeModel')
@@ -213,28 +242,205 @@ class TestJob(unittest.TestCase):
 
     def test_job_06_properties_setters(self):
 
+        self.assertEqual(self.model, self.job.model, 'Can not get Requests attribute from Job properly')
+        self.assertEqual('MagicMock', self.job.model_class, 'Can not model class properly')
+        self.assertEqual(self.job._reqs, self.job.requests, 'Can not get Requests attribute from Job properly')
 
-        j = Job(model=self.model,
-                data=self.fds)
-
-        self.assertEqual(self.model, j.model, 'Can not get Requests attribute from Job properly')
-        self.assertEqual('MagicMock', j.model_class, 'Can not model class properly')
-        self.assertEqual(j._reqs, j.requests, 'Can not get Requests attribute from Job properly')
-
-        model_file = j.model_file
-        self.assertEqual(model_file, j._model_file, 'model_file attribute of job is not got correctly')
+        model_file = self.job.model_file
+        self.assertEqual(model_file, self.job._model_file, 'model_file attribute of job is not got correctly')
 
         nodes = {'node-1': 1, 'node-2': 2}
-        j.nodes = nodes
-        self.assertDictEqual(nodes, j.nodes, 'Can not set or get properly nodes attribute of Job')
+        self.job.nodes = nodes
+        self.assertDictEqual(nodes, self.job.nodes, 'Can not set or get properly nodes attribute of Job')
 
-        tr = j.training_replies
-        self.assertEqual(j._training_replies, tr, 'Can not get training_replies correctly')
+        tr = self.job.training_replies
+        self.assertEqual(self.job._training_replies, tr, 'Can not get training_replies correctly')
 
-        j.training_args = {'test': 'test'}
-        targs = j.training_args
+        self.job.training_args = {'test': 'test'}
+        targs = self.job.training_args
         self.assertDictEqual({'test': 'test'}, targs, 'Can not get or set training_args correctly')
 
+    @patch('fedbiomed.researcher.requests.Requests.send_message')
+    @patch('fedbiomed.researcher.requests.Requests.get_responses')
+    def test_job_07_check_model_is_approved_by_nodes(self,
+                                                     mock_requests_get_responses,
+                                                     mock_requests_send_message):
+
+        type(self.fds).node_ids = PropertyMock(return_value=['node-1', 'node-2'])
+        mock_requests_send_message.return_value = None
+
+        message = {'researcher_id': self.job._researcher_id,
+                   'job_id': self.job._id,
+                   'model_url': self.job._repository_args['model_url'],
+                   'command': 'model-status'}
+
+        # Test when model is approved by all nodes
+        responses = FakeResponses(
+            [
+                {'node_id': 'node-1', 'success': True, 'approval_obligation': True, 'is_approved': True},
+                {'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'is_approved': True}
+            ]
+        )
+        mock_requests_get_responses.return_value = responses
+        result = self.job.check_model_is_approved_by_nodes()
+        calls = mock_requests_send_message.call_args_list
+        self.assertListEqual(list(calls[0][0]), [message, 'node-1'])
+        self.assertListEqual(list(calls[1][0]), [message, 'node-2'])
+        self.assertListEqual(responses.data, result,
+                             'Response of `check_model_is_approved_by_nodes` is not as expected')
+
+        # Test when model is approved by only one node
+        responses = FakeResponses([
+            {'node_id': 'node-1', 'success': True, 'approval_obligation': True, 'is_approved': True},
+            {'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'is_approved': False}
+        ])
+        mock_requests_get_responses.return_value = responses
+        result = self.job.check_model_is_approved_by_nodes()
+        self.assertListEqual(responses.data, result,
+                             'Response of `check_model_is_approved_by_nodes` is not as expected')
+
+        # Test when model approval obligation is False by one node
+        responses = FakeResponses([
+            {'node_id': 'node-1', 'success': True, 'approval_obligation': False, 'is_approved': False},
+            {'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'is_approved': True}
+        ])
+        mock_requests_get_responses.return_value = responses
+        result = self.job.check_model_is_approved_by_nodes()
+        self.assertListEqual(responses.data, result,
+                             'Response of `check_model_is_approved_by_nodes` is not as expected')
+
+        # Test when one of the reply success status is False
+        responses = FakeResponses([
+            {'node_id': 'node-1', 'success': False, 'approval_obligation': False, 'is_approved': False},
+            {'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'is_approved': True}
+        ])
+        mock_requests_get_responses.return_value = responses
+        result = self.job.check_model_is_approved_by_nodes()
+        self.assertListEqual(responses.data, result,
+                             'Response of `check_model_is_approved_by_nodes` is not as expected')
+
+        # Test when one of the nodes does not reply
+        responses = FakeResponses([
+            {'node_id': 'node-1', 'success': True, 'approval_obligation': False, 'is_approved': False}
+        ])
+        mock_requests_get_responses.return_value = responses
+        result = self.job.check_model_is_approved_by_nodes()
+        self.assertListEqual(list(calls[0][0]), [message, 'node-1'])
+        self.assertListEqual(list(calls[1][0]), [message, 'node-2'])
+        self.assertListEqual(responses.data, result,
+                             'Response of `check_model_is_approved_by_nodes` is not as expected')
+
+    def test_job_08_waiting_for_nodes(self):
+
+        responses = FakeResponses([
+            {'node_id': 'node-1'}
+        ])
+
+        # Test False
+        self.job._nodes = ['node-1']
+        result = self.job.waiting_for_nodes(responses)
+        self.assertFalse(result, 'wating_for_nodes method return True while expected is False')
+
+        # Test True
+        self.job._nodes = ['node-1', 'node-2']
+        result = self.job.waiting_for_nodes(responses)
+        self.assertTrue(result, 'waiting_for_nodes method return False while expected is True')
+
+        responses = MagicMock(return_value=None)
+        type(responses).dataframe = PropertyMock(side_effect=KeyError)
+        result = self.job.waiting_for_nodes(responses)
+        self.assertTrue(result, 'waiting_for_nodes returned False while expected is False')
+
+    @patch('fedbiomed.researcher.requests.Requests.send_message')
+    @patch('fedbiomed.researcher.requests.Requests.get_responses')
+    @patch('fedbiomed.researcher.responses.Responses')
+    def test_job_09_start_training_round(self,
+                                         mock_responses,
+                                         mock_requests_get_responses,
+                                         mock_requests_send_message
+                                         ):
+        mock_responses.side_effect = TestJob.fake_responses_side_effect
+
+        self.job._nodes = ['node-1', 'node-2']
+        self.fds.data = MagicMock(return_value={
+            'node-1': [{'dataset_id': '1234'}],
+            'node-2': [{'dataset_id': '12345'}]
+        })
+
+        response_1 = {'node_id': 'node-1', 'researcher_id': environ['RESEARCHER_ID'],
+                      'job_id': self.job._id, 'params_url': 'http://test.test',
+                      'timing': {'rtime_total': 12},
+                      'success': True,
+                      'msg': 'MSG',
+                      'dataset_id': '1234'
+                      }
+
+        response_2 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
+                      'job_id': self.job._id, 'params_url': 'http://test.test',
+                      'timing': {'rtime_total': 12},
+                      'success': True,
+                      'msg': 'MSG',
+                      'dataset_id': '1234'
+                      }
+
+        response_3 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
+                      'job_id': self.job._id, 'params_url': 'http://test.test',
+                      'timing': {'rtime_total': 12},
+                      'success': True,
+                      'msg': 'MSG',
+                      'errnum': ErrorNumbers.FB100,
+                      'extra_msg': 'this extra msg',
+                      'dataset_id': '1234'
+                      }
+
+        response_4 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
+                      'job_id': self.job._id, 'params_url': 'http://test.test',
+                      'timing': {'rtime_total': 12},
+                      'success': True,
+                      'msg': 'MSG',
+                      'extra_msg': False,
+                      'errnum': ErrorNumbers.FB100,
+                      'dataset_id': '1234'
+                      }
+
+        responses = FakeResponses([response_1, response_2])
+
+        mock_requests_get_responses.return_value = responses
+
+        # headers = {
+        #     'researcher_id': self.job._researcher_id,
+        #     'job_id': self.job._id,
+        #     'training_args': self.job._training_args,
+        #     'model_args': self.job._model_args,
+        #     'command': 'train'
+        # }
+        # msg_1 = {**headers, **self.job._repository_args, 'training_data': {'node-1': ['1234']}}
+        # msg_2 = {**headers, **self.job._repository_args, 'training_data': {'node-2': ['12345']}}
+
+        # Test - 1
+        nodes = self.job.start_nodes_training_round(1)
+        calls = mock_requests_send_message.call_args_list
+        self.assertEqual(mock_requests_send_message.call_count, 2)
+        self.assertListEqual(nodes, ['node-1', 'node-2'])
+
+        # Test - 2 When one of the nodes returns error
+        mock_requests_send_message.reset_mock()
+        responses = FakeResponses([response_1, response_3])
+        mock_requests_get_responses.return_value = responses
+        nodes = self.job.start_nodes_training_round(2)
+        calls = mock_requests_send_message.call_args_list
+        self.assertEqual(mock_requests_send_message.call_count, 2)
+        self.assertListEqual(nodes, ['node-1'])
+
+        # Test - 2 When one of the nodes returns error without extra_msg and
+        # check node-2 is removed since it returned error in the previous test call
+        mock_requests_send_message.reset_mock()
+        responses = FakeResponses([response_1, response_4])
+        mock_requests_get_responses.return_value = responses
+        nodes = self.job.start_nodes_training_round(3)
+        calls = mock_requests_send_message.call_args_list
+        self.assertEqual(mock_requests_send_message.call_count, 1)
+        self.assertListEqual(nodes, ['node-1'])
 
     def test_job_01_save_private_training_replies(self):
         """

@@ -1,3 +1,5 @@
+import pandas as pd
+
 from typing import Union
 
 
@@ -23,6 +25,13 @@ class FakeResponses:
     def __getitem__(self, item):
         """  """
         return self._data[item]
+
+    def get_data(self):
+        return (self._data)
+
+    @property
+    def dataframe(self) -> pd.DataFrame:
+        return pd.DataFrame(self._data)
 
     @property
     def data(self) -> list:
