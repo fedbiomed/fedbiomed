@@ -91,18 +91,12 @@ class TestExperiment(unittest.TestCase):
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
     @patch('fedbiomed.researcher.experiment.create_unique_link')
-    @patch('fedbiomed.researcher.job.Job.save_state')
-    @patch('fedbiomed.researcher.job.Job.model_class')
-    @patch('fedbiomed.researcher.job.Job.model_file')
     @patch('fedbiomed.researcher.experiment.choose_bkpt_file')
     # testing _save_breakpoint + _save_aggregated_params
     # (not exactly a unit test, but probably more interesting)
     def test_save_breakpoint(
             self,
             patch_choose_bkpt_file,
-            patch_job_model_file,
-            patch_job_model_class,
-            patch_job_save_state,
             patch_create_ul,
             patch_create_ufl
             ):
@@ -148,13 +142,6 @@ class TestExperiment(unittest.TestCase):
             return os.path.join(bkpt_folder_path, os.path.basename(file_path))
         patch_create_ufl.side_effect = side_create_ufl
 
-        # patch Job state
-        patch_job_save_state.return_value  = job_state
-
-        # patch Job model_class / model_file
-        self.test_exp._job.model_file = model_file
-        self.test_exp._job.model_class = model_class
-
         # build minimal objects, needed to extract state by calling object method
         # (cannot just patch a method of a non existing object)
         class Aggregator():
@@ -170,15 +157,27 @@ class TestExperiment(unittest.TestCase):
         # use the mocked FederatedDataSet
         self.test_exp._fds = FederatedDataSet(training_data)
 
+        # could also do: self.test_exp._set_round_current(round_current)
+        self.test_exp._round_current = round_current
+        
+        # build minimal Job object
+        class Job():
+            def save_state(self, breakpoint_path):
+                return job_state
+        self.test_exp._job = Job()
+        # patch Job model_class / model_file
+        self.test_exp._job.model_file = model_file
+        self.test_exp._job.model_class = model_class
+
+
         # action
-        self.test_exp._set_round_current(round_current)
         self.test_exp.breakpoint()
         
 
         # verification
         final_model_path = os.path.join(
             self.experimentation_folder_path, 
-            'model_' + str("{:04d}".format(round_current)) + '.py')
+            'model_' + str("{:04d}".format(round_current - 1)) + '.py')
         final_agg_params = {
             'entry1': {
                 'params_path': os.path.join(self.experimentation_folder_path, 'params_path.pt')
