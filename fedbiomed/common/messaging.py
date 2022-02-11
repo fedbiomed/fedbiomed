@@ -39,40 +39,42 @@ class Messaging:
             mqtt_broker_port (int, optional): Defaults to 80 (http
             default port).
         """
-        self.messaging_type = messaging_type
-        self.messaging_id = str(messaging_id)
+        self._messaging_type = messaging_type
+        self._messaging_id = str(messaging_id)
         self._is_connected = False
         self._is_failed = False
 
         # Client() will generate a random client_id if not given
         # this means we choose not to use the {node,researcher}_id for this purpose
-        self.mqtt = mqtt.Client()
+        self._mqtt = mqtt.Client()
         # defining a client.
         # defining MQTT 's `on_connect` and `on_message` handlers
         # (see MQTT paho documentation for further information
         # _ https://github.com/eclipse/paho.mqtt.python)
-        self.mqtt.on_connect = self.on_connect
-        self.mqtt.on_message = self.on_message
-        self.mqtt.on_disconnect = self.on_disconnect
+        self._mqtt.on_connect = self.on_connect
+        self._mqtt.on_message = self.on_message
+        self._mqtt.on_disconnect = self.on_disconnect
 
-        self.mqtt_broker = mqtt_broker
-        self.mqtt_broker_port = mqtt_broker_port
+        self._mqtt_broker = mqtt_broker
+        self._mqtt_broker_port = mqtt_broker_port
 
         # memorize mqqt parameters
         self._broker_host = mqtt_broker
         self._broker_port = mqtt_broker_port
 
         # protection for logger initialisation (mqqt handler)
-        self.logger_initialized = False
+        self._logger_initialized = False
 
-        self.on_message_handler = on_message  # store the caller's mesg handler
+        self._on_message_handler = on_message  # store the caller's mesg handler
+        if on_message is None:
+            logger.warning("no message handler defined")
 
-        if self.messaging_type is ComponentType.RESEARCHER:
-            self.default_send_topic = 'general/nodes'
-        elif self.messaging_type is ComponentType.NODE:
-            self.default_send_topic = 'general/researcher'
+        if self._messaging_type is ComponentType.RESEARCHER:
+            self._default_send_topic = 'general/nodes'
+        elif self._messaging_type is ComponentType.NODE:
+            self._default_send_topic = 'general/researcher'
         else:
-            self.default_send_topic = None
+            self._default_send_topic = None
 
 
     def on_message(self,
@@ -89,8 +91,11 @@ class Messaging:
             msg: mqtt on_message arg
         """
 
-        message = json.deserialize_msg(msg.payload)
-        self.on_message_handler( msg = message, topic = msg.topic)
+        if not self._on_message_handler is None:
+            message = json.deserialize_msg(msg.payload)
+            self._on_message_handler( msg = message, topic = msg.topic)
+        else:
+            logger.warning("no message handler defined")
 
     def on_connect(self,
                    client: mqtt.Client,
@@ -108,48 +113,48 @@ class Messaging:
         """
 
         if rc == 0:
-            logger.info("Messaging " + str(self.messaging_id) + " successfully connected to the message broker, object = " + str(self))
+            logger.info("Messaging " + str(self._messaging_id) + " successfully connected to the message broker, object = " + str(self))
         else:
-            msg = ErrorNumbers.FB101.value + ": " + str(self.messaging_id) + " could not connect to the message broker"
+            msg = ErrorNumbers.FB101.value + ": " + str(self._messaging_id) + " could not connect to the message broker"
             logger.delMqttHandler()  # just in case !
-            self.logger_initialized = False
+            self._logger_initialized = False
 
             logger.critical(msg)
             self._is_failed = True
             raise FedbiomedMessagingError(msg)
 
-        if self.messaging_type is ComponentType.RESEARCHER:
+        if self._messaging_type is ComponentType.RESEARCHER:
             for channel in ('general/researcher', 'general/monitoring'):
-                result, _ = self.mqtt.subscribe(channel)
+                result, _ = self._mqtt.subscribe(channel)
                 if result != mqtt.MQTT_ERR_SUCCESS:
-                    logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel" + str(channel))
+                    logger.error("Messaging " + str(self._messaging_id) + "failed subscribe to channel" + str(channel))
                     self._is_failed = True
 
             # PoC subscribe also to error channel
-            result, _ = self.mqtt.subscribe('general/logger')
+            result, _ = self._mqtt.subscribe('general/logger')
             if result != mqtt.MQTT_ERR_SUCCESS:
-                logger.error("Messaging " + str(self.messaging_id) + "failed subscribe to channel general/error")
+                logger.error("Messaging " + str(self._messaging_id) + "failed subscribe to channel general/error")
                 self._is_failed = True
 
-        elif self.messaging_type is ComponentType.NODE:
-            for channel in ('general/nodes', 'general/' + self.messaging_id):
-                result, _ = self.mqtt.subscribe(channel)
+        elif self._messaging_type is ComponentType.NODE:
+            for channel in ('general/nodes', 'general/' + self._messaging_id):
+                result, _ = self._mqtt.subscribe(channel)
                 if result != mqtt.MQTT_ERR_SUCCESS:
-                    logger.error("Messaging " + str(self.messaging_id) + " failed subscribe to channel" + str(channel))
+                    logger.error("Messaging " + str(self._messaging_id) + " failed subscribe to channel" + str(channel))
                     self._is_failed = True
 
-            if not self.logger_initialized:
+            if not self._logger_initialized:
                 # add the MQTT handler for logger
                 # this should be done once.
                 # This is sldo tested by the addHandler() method, but
                 # it may raise a MQTT message (that we prefer not to send)
                 logger.addMqttHandler(
-                    mqtt          = self.mqtt,
-                    node_id       = self.messaging_id
+                    mqtt          = self._mqtt,
+                    node_id       = self._messaging_id
                 )
                 # to get Train/Epoch messages on console and on MQTT
                 logger.setLevel("DEBUG")
-                self.logger_initialized = True
+                self._logger_initialized = True
 
         self._is_connected = True
 
@@ -158,14 +163,14 @@ class Messaging:
 
         if rc == 0:
             # should this ever happen ? we're not disconnecting intentionally yet
-            logger.info("Messaging " + str(self.messaging_id) + " disconnected without error")
+            logger.info("Messaging " + str(self._messaging_id) + " disconnected without error")
         else:
             # see MQTT specs : when another client connects with same client_id, the previous one
             # is disconnected https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901205
 
-            #print("[ERROR] Messaging ", self.messaging_id, " disconnected with error code rc = ", rc, " object = ", self,
+            #print("[ERROR] Messaging ", self._messaging_id, " disconnected with error code rc = ", rc, " object = ", self,
             #    " - Hint: check for another instance of the same component running or for communication error")
-            logger.error("Messaging " + str(self.messaging_id) + " disconnected with error code rc = " + str(rc) +
+            logger.error("Messaging " + str(self._messaging_id) + " disconnected with error code rc = " + str(rc) +
                          " - Hint: check for another instance of the same component running or for communication error")
 
             self._is_failed = True
@@ -190,11 +195,11 @@ class Messaging:
         # will try a connect even if is_failed or is_connected, to give a chance to resolve problems
 
         try:
-            self.mqtt.connect(self.mqtt_broker, self.mqtt_broker_port, keepalive=60)
+            self._mqtt.connect(self._mqtt_broker, self._mqtt_broker_port, keepalive=60)
         except (ConnectionRefusedError, TimeoutError, socket.timeout ) as e:
 
             logger.delMqttHandler()  # just in case !
-            self.logger_initialized = False
+            self._logger_initialized = False
 
             msg = "cannot connect to MQTT (error=" + str(e)+ ")"
             logger.critical(msg)
@@ -202,9 +207,9 @@ class Messaging:
 
         if block:
             # TODO : not used, should probably be removed
-            self.mqtt.loop_forever()
+            self._mqtt.loop_forever()
         elif not self._is_connected:
-            self.mqtt.loop_start()
+            self._mqtt.loop_start()
             while not self._is_connected:
                 pass
 
@@ -215,7 +220,7 @@ class Messaging:
         only. It stops the background thread for messaging.
         """
         # will try a stop even if is_failed or not is_connected, to give a chance to clean state
-        self.mqtt.loop_stop()
+        self._mqtt.loop_stop()
 
     def send_message(self, msg: dict, client: str = None):
         """This method sends a message to a given client
@@ -234,14 +239,14 @@ class Messaging:
             return
 
         if client is None:
-            channel = self.default_send_topic
+            channel = self._default_send_topic
         else:
             channel = "general/" + str(client)
         if channel is not None:
-            messinfo = self.mqtt.publish(channel, json.serialize_msg(msg))
+            messinfo = self._mqtt.publish(channel, json.serialize_msg(msg))
             if messinfo.rc != mqtt.MQTT_ERR_SUCCESS:
                 logger.error("Messaging " +
-                             str(self.messaging_id) +
+                             str(self._messaging_id) +
                              " failed sending message with code rc = ",
                              str(messinfo.rc) +
                              " object = " +
@@ -260,9 +265,9 @@ class Messaging:
         before sending the message
         """
 
-        if self.messaging_type != ComponentType.NODE:
+        if self._messaging_type != ComponentType.NODE:
             logger.warning("this component (" +
-                           self.messaging_type +
+                           self._messaging_type +
                            ") cannot send error message ("+
                            errnum.value +
                            ") through MQTT")
@@ -270,7 +275,7 @@ class Messaging:
 
         if not self._is_connected:
             logger.delMqttHandler() # just in case
-            self.logger_initialized = False
+            self._logger_initialized = False
 
             msg = "MQTT not initialized yet (error to transmit=" + errnum.value + ")"
             logger.critical(msg)
@@ -281,13 +286,13 @@ class Messaging:
         msg = dict(
             command       = 'error',
             errnum        = errnum,
-            node_id       = self.messaging_id,
+            node_id       = self._messaging_id,
             extra_msg     = extra_msg,
             researcher_id = researcher_id
         )
 
         r = message.NodeMessages.reply_create(msg)
-        self.mqtt.publish("general/researcher", json.serialize_msg(msg))
+        self._mqtt.publish("general/researcher", json.serialize_msg(msg))
 
 
     def is_failed(self):
@@ -301,3 +306,9 @@ class Messaging:
         getter for the is_connected status flag
         '''
         return self._is_connected
+
+    def default_send_topic(self):
+        '''
+        getter for default_send_topic
+        '''
+        return self._default_send_topic

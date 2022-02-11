@@ -38,7 +38,7 @@ class TestMessaging(unittest.TestCase):
     def test_messaging_00_bad_init(self):
 
         self.assertFalse( self._m.is_connected() )
-        self.assertEqual( self._m.default_send_topic, None)
+        self.assertEqual( self._m.default_send_topic(), None)
 
         try:
             self._m.start()
@@ -56,7 +56,7 @@ class TestMessaging(unittest.TestCase):
                             mqtt_broker_port = 1)
 
         self.assertFalse( self._m.is_connected() )
-        self.assertEqual( self._m.default_send_topic, "general/nodes")
+        self.assertEqual( self._m.default_send_topic(), "general/nodes")
 
     def test_messaging_02_node_init(self):
 
@@ -67,7 +67,7 @@ class TestMessaging(unittest.TestCase):
                             mqtt_broker_port = 1)
 
         self.assertFalse( self._m.is_connected() )
-        self.assertEqual( self._m.default_send_topic, "general/researcher")
+        self.assertEqual( self._m.default_send_topic(), "general/researcher")
 
 
     def test_messaging_03_connect(self):
@@ -94,7 +94,10 @@ class TestMessaging(unittest.TestCase):
     def test_messaging_04_disconnect(self):
 
         # disconnexion from server
+
+        # ugly but we dont have/want a setter for this
         self._m._is_connected = True
+
         self._m.on_disconnect(None, # client
                               None, # userdata
                               0)    # rc (OK)
@@ -209,8 +212,10 @@ class TestMessagingResearcher(unittest.TestCase):
     # tests
     def test_messaging_researcher_00_init(self):
 
-        self.assertEqual( self._m.default_send_topic, "general/nodes")
-        self.assertEqual( self._m.on_message_handler, TestMessagingResearcher.on_message)
+        self.assertEqual( self._m.default_send_topic(), "general/nodes")
+
+        # ugly, but we dont really hace/need a getter for this
+        self.assertEqual( self._m._on_message_handler, TestMessagingResearcher.on_message)
 
     def test_messaging_researcher_01_send(self):
         '''
@@ -233,7 +238,8 @@ class TestMessagingResearcher(unittest.TestCase):
                 'sequence'      : 12345,
                 'command'       :'pong' } ).get_dict()
 
-            self._m.default_send_topic = "general/researcher"
+            # ugly, but we dont have/want a setter for this
+            self._m._default_send_topic = "general/researcher"
 
             self._m.send_message(pong)
             self.assertTrue( True, "fake pong message correctly sent")
@@ -295,8 +301,10 @@ class TestMessagingNode(unittest.TestCase):
     # tests
     def test_messaging_researcher_00_init(self):
 
-        self.assertEqual( self._m.default_send_topic, "general/researcher")
-        self.assertEqual( self._m.on_message_handler, None)
+        self.assertEqual( self._m.default_send_topic(), "general/researcher")
+
+        # ugly, but we dont really hace/need a getter for this
+        self.assertEqual( self._m._on_message_handler, None)
 
 
 if __name__ == '__main__':  # pragma: no cover
