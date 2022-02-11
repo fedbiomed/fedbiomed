@@ -5,7 +5,7 @@
 from typing import Any, Dict
 
 
-class FakeNodeMessages:
+class FakeMessages:
     """Fakes NodeMessages class. 
     Provides a constructor and a `get_item` method
     """
@@ -24,3 +24,6 @@ class FakeNodeMessages:
             Dict[str, Any]: returns the message stored in class
         """
         return self.msg
+    
+    def get_param(self, val: str) -> Any:
+            return self.msg.get(val)
