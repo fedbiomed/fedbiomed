@@ -442,6 +442,116 @@ class TestJob(unittest.TestCase):
         self.assertEqual(mock_requests_send_message.call_count, 1)
         self.assertListEqual(nodes, ['node-1'])
 
+    def test_job_11_update_parameters_with_all_arguments(self):
+        """ Testing update_parameters method with all available arguments"""
+
+        # Reset calls that comes from init time
+        self.mock_upload_file.reset_mock()
+
+        params = {'params': [1, 2, 3, 4]}
+        # Test by passing all arguments
+        result = self.job.update_parameters(params=params, filename='dummy/file/name/')
+        self.assertEqual(self.job._model_params_file, result)
+        self.mock_upload_file.assert_called_once_with('dummy/file/name/')
+
+    def test_job_12_update_parameters_with_passing_params_only(self):
+        """ Testing update_parameters by passing only params """
+
+        # Reset model.save mock
+        self.model.save.reset_mock()
+
+        params = {'params': [1, 2, 3, 4]}
+        # Test without passing filename
+
+        result = self.job.update_parameters(params=params)
+        self.assertEqual(self.job._model_params_file, result)
+        self.model.save.assert_called_once()
+
+    def test_job_13_update_parameters_assert(self):
+        """ Testing assertion of update_parameters by not providing any arguments """
+
+        # Test without passing parameters should raise ValueError
+        with self.assertRaises(SystemExit):
+            result = self.job.update_parameters()
+
+    @patch('fedbiomed.common.logger.logger.error')
+    def test_job_check_dataset_quality(self, mock_logger_error):
+
+        # CSV - Check dataset when everything is okay
+        self.fds.data.return_value = {
+            'node-1': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}],
+            'node-2': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}]
+        }
+        try:
+            self.job.check_data_quality()
+        except:
+            self.assertTrue(True, 'Raised error when given CSV datasets are OK')
+
+        # CSV - Check when data types are different
+        self.fds.data.return_value = {
+            'node-1': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}],
+            'node-2': [{'data_type': 'image', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}]
+        }
+        with self.assertRaises(Exception):
+            self.job.check_data_quality()
+
+        # CSV - Check when dimensions are different
+        self.fds.data.return_value = {
+            'node-1': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 15]}],
+            'node-2': [{'data_type': 'csv', 'dtypes': ['float', 'float', 'float'], 'shape': [10, 5]}]
+        }
+        with self.assertRaises(Exception):
+            self.job.check_data_quality()
+
+        # CSV - Check when dtypes do not match
+        self.fds.data.return_value = {
+            'node-1': [{'data_type': 'csv', 'dtypes': ['float', 'int', 'float'], 'shape': [10, 15]}],
+            'node-2': [{'data_type': 'csv', 'dtypes': ['int', 'float', 'float'], 'shape': [10, 5]}]
+        }
+        with self.assertRaises(Exception):
+            self.job.check_data_quality()
+
+        # Image Dataset - Check when datasets are OK
+        self.fds.data.return_value = {
+            'client-1': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]}],
+            'client-2': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]}],
+        }
+        try:
+            self.job.check_data_quality()
+        except:
+            self.assertTrue(True, 'Raised error when given datasets are OK')
+
+        # Image Dataset - Check when color channels do not match
+        self.fds.data.return_value = {
+            'client-1': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]}],
+            'client-2': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 5, 10, 10]}],
+        }
+        # Logs error instead of raising error
+        mock_logger_error.reset_mock()
+        self.job.check_data_quality()
+        mock_logger_error.assert_called_once()
+
+        # Image Dataset - Check when dimensions do not match
+        self.fds.data.return_value = {
+            'client-1': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 16, 10]}],
+            'client-2': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 10, 10]}],
+        }
+        # Logs error instead of raising error
+        mock_logger_error.reset_mock()
+        self.job.check_data_quality()
+        mock_logger_error.assert_called_once()
+
+        # Image Dataset - Check when dimensions and color channels do not match
+        self.fds.data.return_value = {
+            'client-1': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 3, 16, 10]}],
+            'client-2': [{'data_type': 'images', 'dtypes': [], 'shape': [1000, 5, 10, 10]}],
+        }
+        # Logs error instead of raising error
+        mock_logger_error.reset_mock()
+        self.job.check_data_quality()
+        self.assertEqual(mock_logger_error.call_count, 2)
+
+
     def test_job_01_save_private_training_replies(self):
         """
         tests if `_save_training_replies` is properly extracting
