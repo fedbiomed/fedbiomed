@@ -78,7 +78,6 @@ class TestJob(unittest.TestCase):
         self.patcher3 = patch('fedbiomed.common.repository.Repository.download_file',
                               return_value=(True, environ['TMP_DIR']))
         self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.request_create')
-        # self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.reply_create')
 
         self.mock_reqeust = self.patcher.start()
         self.mock_upload_file = self.patcher2.start()
@@ -95,6 +94,7 @@ class TestJob(unittest.TestCase):
         self.fds.data = MagicMock(return_value={})
         self.mock_reqeust_create.side_effect = TestJob.msg_side_effect
 
+        # Build Global Job that will be used in most of the tests
         self.job = Job(model=self.model,
                        data=self.fds)
 
