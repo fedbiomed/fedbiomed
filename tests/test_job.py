@@ -41,7 +41,8 @@ class TestJob(unittest.TestCase):
 
         tmp_dir = os.path.join(environ['TMP_DIR'], 'tmp_models')
         tmp_dir_model = os.path.join(tmp_dir, name)
-        os.mkdir(tmp_dir)
+        if not os.path.isdir(tmp_dir):
+            os.mkdir(tmp_dir)
         content = inspect.getsource(FakeModel)
         file = open(tmp_dir_model, "w")
         file.write(content)
@@ -112,16 +113,6 @@ class TestJob(unittest.TestCase):
         tmp_dir = os.path.join(environ['TMP_DIR'], 'tmp_models')
         if os.path.isdir(tmp_dir):
             shutil.rmtree(tmp_dir)
-
-    # tests
-    def test_job(self):
-        '''
-
-        '''
-        # does not work yet !!
-        # j = Job()
-
-        pass
 
     @patch('fedbiomed.common.logger.logger.critical')
     def test_job_01_init_t1(self,
