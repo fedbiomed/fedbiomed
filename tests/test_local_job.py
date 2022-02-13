@@ -82,7 +82,7 @@ class TestLocalJob(unittest.TestCase):
             self.local_job = localJob(model_path=model_file_path,
                                       model_class='FakeModel')
 
-    def test_local_job_01_initialization_with_model_instance(self):
+    def test_local_job_02_initialization_with_model_instance(self):
         """ Testing Local Job initialization by passing model_class as python instance -> `built class`"""
 
         # Rebuild local jon for init test
@@ -91,7 +91,7 @@ class TestLocalJob(unittest.TestCase):
                          'Provided model and model instance of Job do not match, '
                          'while initializing Local Job with already built model class')
 
-    def test_local_job_01_initialization_with_model_arguments(self):
+    def test_local_job_03_initialization_with_model_arguments(self):
         """Testing Local Job initialization with model_arguments"""
 
         # Testing Local Job with model arguments
@@ -102,14 +102,14 @@ class TestLocalJob(unittest.TestCase):
         self.assertEqual(self.local_job.model_instance.__class__.__name__, 'FakeModel',
                          'Provided model and model instance of Local Job do not match, ')
 
-    def test_local_job_01_initialization_with_model_class_as_string(self):
+    def test_local_job_04_initialization_with_model_class_as_string(self):
         """Testing Local Job by passing only model class as string"""
 
         # FIXME: Local Job should not accept string type model class unless model_path is provided
         self.local_job = localJob(model_class='DummyClass')
         self.assertEqual(self.local_job.model_instance, 'DummyClass')
 
-    def test_local_job_01_setters_and_getters(self):
+    def test_local_job_05_setters_and_getters(self):
 
         model = self.local_job.model
         self.assertEqual(model, self.local_job.model, 'Getter did not return proper model instance')
@@ -120,7 +120,7 @@ class TestLocalJob(unittest.TestCase):
                          'Setter or getter did not properly set or get training arguments')
 
     @patch('fedbiomed.common.logger.logger.error')
-    def test_local_job_01_start_training(self, mock_logger_error):
+    def test_local_job_06_start_training(self, mock_logger_error):
         """ Test Local Job start_training method """
 
         # Set training arguments

@@ -322,6 +322,7 @@ class TestJob(unittest.TestCase):
                              'Response of `check_model_is_approved_by_nodes` is not as expected')
 
     def test_job_08_waiting_for_nodes(self):
+        """ Testing the method waiting_for_nodes method that runs during federated training """
 
         responses = FakeResponses([
             {'node_id': 'node-1'}
@@ -350,6 +351,15 @@ class TestJob(unittest.TestCase):
                                          mock_requests_get_responses,
                                          mock_requests_send_message
                                          ):
+        """ Test Job - start_training_round method with 3 different scenarios
+
+            Test - 1 : When all the nodes successful completes training
+            Test - 2 : When one of the nodes returns error during training
+            Test - 3 : When one of the nodes returns error without extra_msg
+                       This test also checks whether previous node (which returned)
+                       error is removed or not
+        """
+
         mock_responses.side_effect = TestJob.fake_responses_side_effect
 
         self.job._nodes = ['node-1', 'node-2']
@@ -397,16 +407,6 @@ class TestJob(unittest.TestCase):
         responses = FakeResponses([response_1, response_2])
 
         mock_requests_get_responses.return_value = responses
-
-        # headers = {
-        #     'researcher_id': self.job._researcher_id,
-        #     'job_id': self.job._id,
-        #     'training_args': self.job._training_args,
-        #     'model_args': self.job._model_args,
-        #     'command': 'train'
-        # }
-        # msg_1 = {**headers, **self.job._repository_args, 'training_data': {'node-1': ['1234']}}
-        # msg_2 = {**headers, **self.job._repository_args, 'training_data': {'node-2': ['12345']}}
 
         # Test - 1
         nodes = self.job.start_nodes_training_round(1)
@@ -466,7 +466,8 @@ class TestJob(unittest.TestCase):
             result = self.job.update_parameters()
 
     @patch('fedbiomed.common.logger.logger.error')
-    def test_job_check_dataset_quality(self, mock_logger_error):
+    def test_job__14_check_dataset_quality(self, mock_logger_error):
+        """ Test for checking data quality in Job by providing different FederatedDatasets """
 
         # CSV - Check dataset when everything is okay
         self.fds.data.return_value = {
@@ -542,17 +543,12 @@ class TestJob(unittest.TestCase):
         self.job.check_data_quality()
         self.assertEqual(mock_logger_error.call_count, 2)
 
-
-    def test_job_01_save_private_training_replies(self):
+    def test_job_15_save_private_training_replies(self):
         """
         tests if `_save_training_replies` is properly extracting
         breakpoint info from `training_replies`. It uses a dummy class
         FakeResponses, a weak implementation of `Responses` class
         """
-
-        # instantiate job
-        test_job = Job(model=self.model,
-                       data=self.fds)
 
         # first create a `_training_replies` variable
         training_replies = {
@@ -573,7 +569,7 @@ class TestJob(unittest.TestCase):
         }
 
         # action
-        new_training_replies = test_job._save_training_replies(training_replies)
+        new_training_replies = self.job._save_training_replies(training_replies)
 
         # check if `training_replies` is  saved accordingly
         self.assertTrue(type(new_training_replies) is list)
@@ -583,7 +579,7 @@ class TestJob(unittest.TestCase):
 
     @patch('fedbiomed.researcher.responses.Responses.__getitem__')
     @patch('fedbiomed.researcher.responses.Responses.__init__')
-    def test_private_load_training_replies(
+    def test_job_16_private_load_training_replies(
             self,
             patch_responses_init,
             patch_responses_getitem
@@ -667,7 +663,6 @@ class TestJob(unittest.TestCase):
         self.assertTrue(isinstance(torch_training_replies[0], Responses))
 
         ##### REPRODUCE TESTS BUT FOR SKLEARN MODELS AND 2 ROUNDS
-
         # create a `training_replies` variable
         loaded_training_replies_sklearn = [
             [
@@ -715,7 +710,7 @@ class TestJob(unittest.TestCase):
 
     @patch('fedbiomed.researcher.job.Job._load_training_replies')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
-    def test_load_state(
+    def test_job_17_load_state(
             self,
             patch_job_update_parameters,
             patch_job_load_training_replies
@@ -738,29 +733,17 @@ class TestJob(unittest.TestCase):
         # patch `_load_training_replies`
         patch_job_load_training_replies.return_value = new_training_replies
 
-        # mock FederatedDataSet
-        fds = MagicMock()
-        fds.data = MagicMock(return_value={})
-
-        # mock Pytorch model object
-        model_object = MagicMock(return_value=None)
-        model_object.save = MagicMock(return_value=None)
-
-        # instantiate job
-        test_job_torch = Job(model=model_object,
-                             data=fds)
-
         # action
-        test_job_torch.load_state(job_state)
+        self.job.load_state(job_state)
 
-        self.assertEqual(test_job_torch._researcher_id, job_state['researcher_id'])
-        self.assertEqual(test_job_torch._id, job_state['job_id'])
-        self.assertEqual(test_job_torch._training_replies, new_training_replies)
+        self.assertEqual(self.job._researcher_id, job_state['researcher_id'])
+        self.assertEqual(self.job._id, job_state['job_id'])
+        self.assertEqual(self.job._training_replies, new_training_replies)
 
     @patch('fedbiomed.researcher.job.create_unique_link')
     @patch('fedbiomed.researcher.job.create_unique_file_link')
     @patch('fedbiomed.researcher.job.Job._save_training_replies')
-    def test_save_state(
+    def test_job_18_save_state(
             self,
             patch_job_save_training_replies,
             patch_create_unique_file_link,
@@ -800,26 +783,14 @@ class TestJob(unittest.TestCase):
 
         patch_job_save_training_replies.return_value = new_training_replies
 
-        # mock FederatedDataSet
-        fds = MagicMock()
-        fds.data = MagicMock(return_value={})
-
-        # mock Pytorch model object
-        model_object = MagicMock(return_value=None)
-        model_object.save = MagicMock(return_value=None)
-
-        # instantiate job
-        test_job_torch = Job(model=model_object,
-                             data=fds)
-
         # choose arguments for saving state
         breakpoint_path = 'xxx'
 
         # action
-        save_state = test_job_torch.save_state(breakpoint_path)
+        save_state = self.job.save_state(breakpoint_path)
 
         self.assertEqual(environ['RESEARCHER_ID'], save_state['researcher_id'])
-        self.assertEqual(test_job_torch._id, save_state['job_id'])
+        self.assertEqual(self.job._id, save_state['job_id'])
         self.assertEqual(link_path, save_state['model_params_path'])
         # check transformation of training replies
         for round_i, round in enumerate(new_training_replies):
