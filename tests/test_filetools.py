@@ -1,5 +1,6 @@
 # Managing NODE, RESEARCHER environ mock before running tests
 from testsupport.delete_environ import delete_environ
+
 # Delete environ. It is necessary to rebuild environ for required component
 delete_environ()
 # overload with fake environ for tests
@@ -45,8 +46,7 @@ class TestFiletools(unittest.TestCase):
         except FileNotFoundError:
             pass
 
-
-    def test_create_exp_folder(self):
+    def test_filetools_01_create_exp_folder(self):
         """
         Tests method `create_exp_folder`
         """
@@ -85,8 +85,7 @@ class TestFiletools(unittest.TestCase):
         os.chmod(self.testdir, 0o700)
         environ['EXPERIMENTS_DIR'] = saved_expdir
 
-
-    def test_choose_bkpt_file(self):
+    def test_filetools_02_choose_bkpt_file(self):
         """
         Tests method `choose_bkpt_file`.
         Checks the correct spelling of breakpoint and state file.
@@ -110,8 +109,19 @@ class TestFiletools(unittest.TestCase):
                          breakpoint_folder_name + str("{:04d}".format(2)) + ".json")
         self.assertTrue(os.path.isdir(bkpt_folder))
 
+    @patch('os.mkdir')
+    def test_filetools_03_choose_bkpt_file_exception(self, mock_mkdir):
+        """ Test PermissionError and OSError while choosing breakpoint file """
 
-    def test_create_unique_link(self):
+        mock_mkdir.side_effect = [PermissionError, OSError]
+
+        with self.assertRaises(PermissionError):
+            bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round=0)
+
+        with self.assertRaises(OSError):
+            bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round=0)
+
+    def test_filetools_04_create_unique_link(self):
         """
         Test method `create_unique_link`
         """
@@ -121,13 +131,13 @@ class TestFiletools(unittest.TestCase):
         link_suffix = '_tutu'
 
         link_path = filetools.create_unique_link(
-                self.testdir,
-                link_prefix,
-                link_suffix,
-                'any_target_is_ok')
+            self.testdir,
+            link_prefix,
+            link_suffix,
+            'any_target_is_ok')
         self.assertEqual(
-                link_path,
-                os.path.join(self.testdir, link_prefix + link_suffix))
+            link_path,
+            os.path.join(self.testdir, link_prefix + link_suffix))
         self.assertTrue(os.path.islink(link_path))
 
         for index in range(1, 4):
@@ -163,17 +173,17 @@ class TestFiletools(unittest.TestCase):
             'a_target_name')
         os.chmod(bkpt_folder_path, 0o700)
 
-
     @patch('fedbiomed.researcher.filetools.create_unique_link')
-    def test_create_unique_file_link(
-        self,
-        patch_create_ul):
+    def test_filetools_05_create_unique_file_link(
+            self,
+            patch_create_ul):
         """
         Test `create_unique_file_link` method
         """
 
         def side_create_ul(bkpt_folder_path, link_src_prefix, link_src_postfix, link_target):
             return os.path.join(bkpt_folder_path, link_src_prefix + link_src_postfix)
+
         patch_create_ul.side_effect = side_create_ul
 
         # OK choosing link source in same dir with good name
@@ -189,7 +199,7 @@ class TestFiletools(unittest.TestCase):
 
             link_path = filetools.create_unique_file_link(src_folder, target_file_path)
 
-            self.assertEqual( link_path, target_file_path)
+            self.assertEqual(link_path, target_file_path)
 
         # OK choosing link source in subdir with good name
         src_folder = os.path.join(self.testdir, 'yet_another_dir')
@@ -199,8 +209,7 @@ class TestFiletools(unittest.TestCase):
 
         link_path = filetools.create_unique_file_link(src_folder, target_file_path)
 
-        self.assertEqual( link_path, os.path.join(src_folder, target_file))
-
+        self.assertEqual(link_path, os.path.join(src_folder, target_file))
 
         # KO choosing link source in same dir with bad name
         src_folder = self.testdir
@@ -242,9 +251,7 @@ class TestFiletools(unittest.TestCase):
                 folder,
                 file)
 
-
-
-    def test_private_get_latest_file(self):
+    def test_filetools_06_private_get_latest_file(self):
         """
         Tests if `_get_latest_file` returns more recent file
         """
@@ -252,15 +259,15 @@ class TestFiletools(unittest.TestCase):
         # test 1
         files = ["Experiment_0",
                  "Experiment_4",
-                 "EXperiment_5",
+                 "Experiment_5",
                  "blabla",
                  "99_blabla"]
 
         pathfile_test = "/path/to/a/file"
 
         latest_file = filetools._get_latest_file(pathfile_test,
-                                                  files,
-                                                  only_folder=False)
+                                                 files,
+                                                 only_folder=False)
         self.assertEqual(files[2], latest_file)
 
         # test 2: in this test, we patch isdir builtin function
@@ -269,25 +276,25 @@ class TestFiletools(unittest.TestCase):
                                               return_value=True)
         patcher_builtin_os_path_isdir.start()
         latest_file = filetools._get_latest_file(pathfile_test,
-                                                  files,
-                                                  only_folder=True)
+                                                 files,
+                                                 only_folder=True)
         self.assertEqual(files[2], latest_file)
         patcher_builtin_os_path_isdir.stop()
 
         # test 3: file provided are not directory, raise exception
         self.assertRaises(FileNotFoundError,
-                  filetools._get_latest_file,
-                  pathfile_test,
-                  files,
-                  only_folder=True)
+                          filetools._get_latest_file,
+                          pathfile_test,
+                          files,
+                          only_folder=True)
 
         # test 4: no file provided, raises exception
         files = []
         self.assertRaises(FileNotFoundError,
-                  filetools._get_latest_file,
-                  pathfile_test,
-                  files,
-                  only_folder=False)
+                          filetools._get_latest_file,
+                          pathfile_test,
+                          files,
+                          only_folder=False)
 
         # test 5: test if exception is raised because no matching file
         # (ie finishing with numbers)
@@ -299,10 +306,9 @@ class TestFiletools(unittest.TestCase):
                           files,
                           only_folder=False)
 
-
     @patch('os.path.isdir')
     @patch('os.listdir')
-    def test_private_find_breakpoint_path_1(self,
+    def test_filetools_07_private_find_breakpoint_path_1(self,
                                             patch_os_listdir,
                                             patch_os_path_isdir
                                             ):
@@ -320,7 +326,7 @@ class TestFiletools(unittest.TestCase):
     @patch('fedbiomed.researcher.filetools._get_latest_file')
     @patch('os.path.isdir')
     @patch('os.listdir')
-    def test_private_find_breakpoint_path_2(self,
+    def test_filetools_08_private_find_breakpoint_path_2(self,
                                             patch_os_listdir,
                                             patch_os_path_isdir,
                                             patch_get_latest_file
@@ -341,7 +347,7 @@ class TestFiletools(unittest.TestCase):
 
     @patch('os.path.isdir')
     @patch('os.listdir')
-    def test_private_find_breakpoint_path_raise_err1(self,
+    def test_filetools_09_private_find_breakpoint_path_raise_err1(self,
                                                      patch_os_listdir,
                                                      patch_os_path_isdir):
         # test 3 : triggers error FileNotFoundError, given breakpoint folder
@@ -357,7 +363,7 @@ class TestFiletools(unittest.TestCase):
     @patch('os.path.isfile')
     @patch('os.path.isdir')
     @patch('os.listdir')
-    def test_private_find_breakpoint_path_raise_err2(self,
+    def test_filetools_10_private_find_breakpoint_path_raise_err2(self,
                                                      patch_os_listdir,
                                                      patch_os_path_isdir,
                                                      patch_os_path_isfile):
@@ -370,7 +376,7 @@ class TestFiletools(unittest.TestCase):
         self.assertRaises(FileNotFoundError,
                           filetools.find_breakpoint_path)
 
-    def test_private_find_breakpoint_raise_err_3(self):
+    def test_filetools_11_private_find_breakpoint_raise_err_3(self):
         # test 5 : triggers error FileNotFoundError, cannot guess a folder
         # when none exist.
         self.assertRaises(FileNotFoundError,
@@ -379,7 +385,7 @@ class TestFiletools(unittest.TestCase):
 
     @patch('os.path.isdir')
     @patch('os.listdir')
-    def test_private_find_breakpoint_path_raise_err4(self,
+    def test_filetools_12_private_find_breakpoint_path_raise_err4(self,
                                                      patch_os_listdir,
                                                      patch_os_path_isdir):
         # test 6 : triggers error FileNotFoundError, no file
@@ -391,13 +397,12 @@ class TestFiletools(unittest.TestCase):
                           filetools.find_breakpoint_path,
                           bkpt_folder)
 
-
     @patch('os.path.isdir')
     @patch('os.listdir')
-    def test_private_find_breakpoint_raise_err_5(self,
+    def test_filetools_13_private_find_breakpoint_raise_err_5(self,
                                                  patch_os_listdir,
                                                  patch_os_path_isdir):
-        # test 7: test if rerror is raised when json file
+        # test 7: test if error is raised when json file
         # not found in a breakpoint folder specified by user
         bkpt_folder = "/path/to/breakpoint"
         patch_os_listdir.return_value = ['one_file',

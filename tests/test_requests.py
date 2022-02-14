@@ -60,6 +60,12 @@ class TestRequest(unittest.TestCase):
         self.request_create.side_effect = TestRequest.msg_side_effect
         self.reply_create.side_effect = TestRequest.msg_side_effect
 
+        # Remove singleton object and create fresh Request.
+        # This is required to avoid attribute errors when there are
+        # mocked Requests classes that come from other tests when running
+        # tests on parallel with nosetests (did not worked in `tearDown`)
+        if Requests in Requests._objects:
+            del Requests._objects[Requests]
         self.requests = Requests()
 
     def tearDown(self):
@@ -204,7 +210,7 @@ class TestRequest(unittest.TestCase):
 
         mock_task_qsize.return_value = 1
         mock_task_task_done.return_value = None
-        
+
         # Test with empty Task
         self.requests.get_messages(commands=['search'])
         mock_task_get.return_value = {}
@@ -221,11 +227,11 @@ class TestRequest(unittest.TestCase):
                                                       'of times, expected: 2')
 
         # Check result of the get_messages
-        self.assertListEqual(response.data, [data], 'get_messages result is not set correctly')
+        self.assertListEqual(response.data(), [data], 'get_messages result is not set correctly')
 
         # Test try/except block when .get() method exception
         mock_task_get.side_effect = exceptionsEmpty()
-    
+
         resp1 = self.requests.get_messages(commands=['test-1'])
         # check if output is a `Responses` object
         self.assertIsInstance(resp1, Responses)
@@ -248,7 +254,7 @@ class TestRequest(unittest.TestCase):
 
         test_response = FakeResponses([{'command': 'test', 'success': True}])
         mock_get_messages.side_effect = [test_response,
-                                                       FakeResponses([])]
+                                         FakeResponses([])]
 
         responses_1 = self.requests.get_responses(look_for_commands='test', timeout=0.1)
         self.assertEqual(responses_1[0], test_response[0], 'Values of provided responses and values of result does not '
@@ -256,7 +262,7 @@ class TestRequest(unittest.TestCase):
 
         # Test when `only_successful` is False
         mock_get_messages.side_effect = [test_response,
-                                                       FakeResponses([])]
+                                         FakeResponses([])]
 
         responses_2 = self.requests.get_responses(look_for_commands='test', timeout=0.1, only_successful=False)
         self.assertEqual(responses_2[0], test_response[0], 'Values of provided responses and values of result does not '
