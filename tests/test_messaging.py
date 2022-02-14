@@ -118,7 +118,7 @@ class TestMessaging(unittest.TestCase):
         self.assertFalse( self._m.is_connected() )
 
         # failed disconnexion from server
-        self._m.i_s_connected = True
+        self._m._is_connected = True
         try:
             self._m.on_disconnect(None,  # client
                                   None,  # userdata
