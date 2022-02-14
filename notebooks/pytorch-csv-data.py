@@ -147,7 +147,7 @@ exp.run()
 print("\nList the training rounds : ", exp.training_replies().keys())
 
 print("\nList the nodes for the last training round and their timings : ")
-round_data = exp.training_replies()[rounds - 1].data
+round_data = exp.training_replies()[rounds - 1].data()
 for c in range(len(round_data)):
     print("\t- {id} :\
     \n\t\trtime_training={rtraining:.2f} seconds\
@@ -158,7 +158,7 @@ for c in range(len(round_data)):
         rtotal = round_data[c]['timing']['rtime_total']))
 print('\n')
 
-exp.training_replies()[rounds - 1].dataframe
+exp.training_replies()[rounds - 1].dataframe()
 
 
 # Federated parameters for each round are available via `exp.aggregated_params()` (index 0 to (`rounds` - 1) ).

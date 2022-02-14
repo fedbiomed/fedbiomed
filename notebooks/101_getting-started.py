@@ -100,7 +100,7 @@ training_args = {
 #    ## Declare and run the experiment
 #    - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
 #    - run a round of local training on nodes with model defined in `model_class` + federation with `aggregator`
-#    - run for `round_limit` rounds, applying the `node_selection_strategy` between the rounds
+#    - run for `rounds` rounds, applying the `node_selection_strategy` between the rounds
 
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -140,7 +140,7 @@ exp.run()
 print("\nList the training rounds : ", exp.training_replies().keys())
 
 print("\nList the nodes for the last training round and their timings : ")
-round_data = exp.training_replies()[rounds - 1].data
+round_data = exp.training_replies()[rounds - 1].data()
 for c in range(len(round_data)):
     print("\t- {id} :\
         \n\t\trtime_training={rtraining:.2f} seconds\
@@ -151,7 +151,7 @@ for c in range(len(round_data)):
                 rtotal = round_data[c]['timing']['rtime_total']))
 print('\n')
 
-print(exp.training_replies()[rounds - 1].dataframe)
+print(exp.training_replies()[rounds - 1].dataframe())
 
 
 # Federated parameters for each round are available via `exp.aggregated_params()` (index 0 to (`rounds` - 1) ).

@@ -13,11 +13,13 @@ class FedbiomedError(Exception):
     """
     pass
 
+
 class FedbiomedEnvironError(FedbiomedError):
     """
     Exception specific to the Environ class
     """
     pass
+
 
 class FedbiomedLoggerError(FedbiomedError):
     """
@@ -25,12 +27,14 @@ class FedbiomedLoggerError(FedbiomedError):
     """
     pass
 
+
 class FedbiomedMessageError(FedbiomedError):
     """
     Exception specific to the Message class
     usually a badly formed message
     """
     pass
+
 
 class FedbiomedStrategyError(FedbiomedError):
     """
@@ -44,6 +48,7 @@ class FedbiomedTrainingError(FedbiomedError):
     Exception raises then training (researcher/node) class
     """
     pass
+
 
 class FedbiomedExperimentError(FedbiomedError):
     """
@@ -59,3 +64,10 @@ class FedbiomedSilentTerminationError(FedbiomedError):
     """
     def _render_traceback_(self):
         pass
+
+
+class FedbiomedResponsesError(FedbiomedError):
+    """
+    Exception specific to Responses class
+    """
+    pass

@@ -98,13 +98,13 @@ training_args = {
 }
 
 # Define an experiment with saved breakpoints
-# - search nodes serving data for these `tags`, optionally filter 
+# - search nodes serving data for these `tags`, optionally filter
 #   on a list of node ID with `nodes`
 # - run a round of local training on nodes with model defined in
 #   `model_path` + federation with `aggregator`
 # - run for `round_limit` rounds, applying the `node_selection_strategy` between the rounds
 # - specify `save_breakpoints` for saving breakpoint at the end of each round.
-# 
+#
 # Let's call ${FEDBIOMED_DIR} the base directory where you cloned Fed-BioMed.
 # Breakpoints will be saved under `Experiment_xxxx` folder at
 # `${FEDBIOMED_DIR}/var/experiments/Experiment_xxxx/breakpoints_yyyy` (by default).
@@ -148,7 +148,7 @@ print("______________ original training replies_________________")
 print("\nList the training rounds : ", exp.training_replies().keys())
 
 print("\nList the nodes for the last training round and their timings : ")
-round_data = exp.training_replies()[rounds - 1].data
+round_data = exp.training_replies()[rounds - 1].data()
 for c in range(len(round_data)):
     print("\t- {id} :\
         \n\t\trtime_training={rtraining:.2f} seconds\
@@ -188,7 +188,7 @@ del exp
 # - relative path from a notebook: a notebook is running from the `${FEDBIOMED_DIR}/notebooks` directory
 #   so use `Experiment.load_breakpoint("../var/breakpoints/Experiment_xxxx/breakpoint_yyyy)`.
 #   Replace `xxxx` and `yyyy` by the real values.
-#- relative path from a script: if launching the script from the
+# - relative path from a script: if launching the script from the
 #   ${FEDBIOMED_DIR} directory (eg: `python ./notebooks/general-breakpoint-save-resume.py`)
 #  then use a path relative to the current directory eg:
 # `Experiment.load_breakpoint("./var/breakpoints/Experiment_xxxx/breakpoint_yyyy)`
@@ -209,7 +209,7 @@ print("______________ loaded training replies_________________")
 print("\nList the training rounds : ", loaded_exp.training_replies().keys())
 
 print("\nList the nodes for the last training round and their timings : ")
-round_data = loaded_exp.training_replies()[rounds - 1].data
+round_data = loaded_exp.training_replies()[rounds - 1].data()
 for c in range(len(round_data)):
     #print(round_data[c])
     print("\t- {id} :\
@@ -221,7 +221,7 @@ for c in range(len(round_data)):
                 rtotal = round_data[c]['timing']['rtime_total']))
 print('\n')
 
-print(loaded_exp.training_replies()[rounds - 1].dataframe)
+print(loaded_exp.training_replies()[rounds - 1].dataframe())
 
 
 # Federated parameters for each round are available via `exp.aggregated_params()` (index 0 to (`rounds` - 1) ).
