@@ -9,20 +9,33 @@ class FederatedDataSet:
     such as client ids, data size that can be useful for
     aggregating or sampling strategies on researcher's side
     """
-    def __init__(self, data: dict):
+    def __init__(self, data: Dict):
         self._data = data
 
-    def data(self):
+    def data(self) -> Dict:
+        """ Getter for FederatedDataset
+
+        Returns:
+            Dict: Dict of federated datasets, keys as node ids
+        """
+
         return self._data
 
-    @property
     def node_ids(self) -> List[uuid.UUID]:
-        """Returns a list with client ids"""
+        """Getter for Node ids
+
+        Returns:
+            List[str]: list of node ids
+        """
         return list(self._data.keys())
 
-    @property
     def sample_sizes(self) -> List[int]:
-        """Returns a list with data sample sizes """
+        """Returns a list with data sample sizes
+
+        Returns:
+            List[int]: List of sample sizes in federated datasets
+                       in the same order with node_ids()
+        """
 
         sample_sizes = []
         for (key, val) in self._data.items():
@@ -30,11 +43,16 @@ class FederatedDataSet:
 
         return sample_sizes
 
-    @property
     def shapes(self) -> Dict[uuid.UUID, int]:
+        """ Getter for shapes of FederatedDatasets by node ids
+
+        Returns:
+            Dict[str, int]: Dict that includes sample_sizes by node_ids
+        """
+
         shapes_dict = {}
-        for node_id, node_data_size in zip(self.node_ids,
-                                           self.sample_sizes):
+        for node_id, node_data_size in zip(self.node_ids(),
+                                           self.sample_sizes()):
             shapes_dict[node_id] = node_data_size
 
         return shapes_dict

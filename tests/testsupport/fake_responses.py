@@ -27,16 +27,14 @@ class FakeResponses:
         return self._data[item]
 
     def get_data(self):
-        return (self._data)
+        return self._data
 
-    @property
     def dataframe(self) -> pd.DataFrame:
         return pd.DataFrame(self._data)
 
-    @property
     def data(self) -> list:
         """setter
         Returns:
             list:  data of the class `Responses`
         """
-        return (self._data)
+        return self._data

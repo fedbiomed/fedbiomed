@@ -227,7 +227,7 @@ class TestRequest(unittest.TestCase):
                                                       'of times, expected: 2')
 
         # Check result of the get_messages
-        self.assertListEqual(response.data, [data], 'get_messages result is not set correctly')
+        self.assertListEqual(response.data(), [data], 'get_messages result is not set correctly')
 
         # Test try/except block when .get() method exception
         mock_task_get.side_effect = exceptionsEmpty()

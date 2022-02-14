@@ -276,7 +276,7 @@ class TestJob(unittest.TestCase):
         calls = mock_requests_send_message.call_args_list
         self.assertListEqual(list(calls[0][0]), [message, 'node-1'])
         self.assertListEqual(list(calls[1][0]), [message, 'node-2'])
-        self.assertListEqual(responses.data, result,
+        self.assertListEqual(responses.data(), result,
                              'Response of `check_model_is_approved_by_nodes` is not as expected')
 
         # Test when model is approved by only one node
@@ -286,7 +286,7 @@ class TestJob(unittest.TestCase):
         ])
         mock_requests_get_responses.return_value = responses
         result = self.job.check_model_is_approved_by_nodes()
-        self.assertListEqual(responses.data, result,
+        self.assertListEqual(responses.data(), result,
                              'Response of `check_model_is_approved_by_nodes` is not as expected')
 
         # Test when model approval obligation is False by one node
@@ -296,7 +296,7 @@ class TestJob(unittest.TestCase):
         ])
         mock_requests_get_responses.return_value = responses
         result = self.job.check_model_is_approved_by_nodes()
-        self.assertListEqual(responses.data, result,
+        self.assertListEqual(responses.data(), result,
                              'Response of `check_model_is_approved_by_nodes` is not as expected')
 
         # Test when one of the reply success status is False
@@ -306,7 +306,7 @@ class TestJob(unittest.TestCase):
         ])
         mock_requests_get_responses.return_value = responses
         result = self.job.check_model_is_approved_by_nodes()
-        self.assertListEqual(responses.data, result,
+        self.assertListEqual(responses.data(), result,
                              'Response of `check_model_is_approved_by_nodes` is not as expected')
 
         # Test when one of the nodes does not reply
@@ -317,7 +317,7 @@ class TestJob(unittest.TestCase):
         result = self.job.check_model_is_approved_by_nodes()
         self.assertListEqual(list(calls[0][0]), [message, 'node-1'])
         self.assertListEqual(list(calls[1][0]), [message, 'node-2'])
-        self.assertListEqual(responses.data, result,
+        self.assertListEqual(responses.data(), result,
                              'Response of `check_model_is_approved_by_nodes` is not as expected')
 
     def test_job_08_waiting_for_nodes(self):
@@ -338,7 +338,7 @@ class TestJob(unittest.TestCase):
         self.assertTrue(result, 'waiting_for_nodes method return False while expected is True')
 
         responses = MagicMock(return_value=None)
-        type(responses).dataframe = PropertyMock(side_effect=KeyError)
+        type(responses).dataframe = MagicMock(side_effect=KeyError)
         result = self.job.waiting_for_nodes(responses)
         self.assertTrue(result, 'waiting_for_nodes returned False while expected is False')
 

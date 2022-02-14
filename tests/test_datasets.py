@@ -42,7 +42,7 @@ class TestFederatedDataset(unittest.TestCase):
             FIXME: When refactoring properties as getters
         """
 
-        node_ids = self.fds.node_ids
+        node_ids = self.fds.node_ids()
         self.assertListEqual(node_ids, ['node-1', 'node-2'], 'Can not get node ids of FederatedDataset properly')
 
     def test_federated_dataset_03_sample_sizes(self):
@@ -51,7 +51,7 @@ class TestFederatedDataset(unittest.TestCase):
        """
         # Nothing to do it is an empty method
         sizes = [val[0]["shape"][0] for (key, val) in self.data.items()]
-        sample_sizes = self.fds.sample_sizes
+        sample_sizes = self.fds.sample_sizes()
         self.assertListEqual(sizes, sample_sizes, 'Provided sample sizes and result of sample_sizes do not match')
 
     def test_federated_dataset_04_shapes(self):
@@ -63,7 +63,7 @@ class TestFederatedDataset(unittest.TestCase):
         size_1 = self.data[node_1][0]['shape'][0]
         size_2 = self.data[node_2][0]['shape'][0]
 
-        shapes = self.fds.shapes
+        shapes = self.fds.shapes()
         self.assertEqual(shapes[node_1], size_1)
         self.assertEqual(shapes[node_2], size_2)
 
