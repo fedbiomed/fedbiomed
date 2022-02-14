@@ -1,6 +1,4 @@
 # Managing NODE, RESEARCHER environ mock before running tests
-import shutil
-
 from testsupport.delete_environ import delete_environ
 
 # Delete environ. It is necessary to rebuild environ for required component
@@ -8,24 +6,23 @@ delete_environ()
 # overload with fake environ for tests
 import testsupport.mock_common_environ
 # Import environ for researcher, since tests will be running for researcher component
-from fedbiomed.researcher.environ import environ
 
 import os
 import inspect
+import shutil
 import unittest
-from unittest.mock import patch, MagicMock, PropertyMock
-from typing import Dict, Any
 import torch
 import numpy as np
 
+from fedbiomed.researcher.environ import environ
+from unittest.mock import patch, MagicMock, PropertyMock
+from typing import Dict, Any
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.responses import Responses
-from testsupport.fake_responses import FakeResponses
 from testsupport.fake_model import FakeModel
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_responses import FakeResponses
 from fedbiomed.researcher.requests import Requests
-from fedbiomed.common.torchnn import TorchTrainingPlan
 from fedbiomed.common.constants import ErrorNumbers
 
 
@@ -72,15 +69,15 @@ class TestJob(unittest.TestCase):
 
     def setUp(self):
 
-        self.patcher = patch('fedbiomed.researcher.requests.Requests.__init__',
-                             return_value=None)
+        self.patcher1 = patch('fedbiomed.researcher.requests.Requests.__init__',
+                              return_value=None)
         self.patcher2 = patch('fedbiomed.common.repository.Repository.upload_file',
                               return_value={"file": environ['UPLOADS_URL']})
         self.patcher3 = patch('fedbiomed.common.repository.Repository.download_file',
                               return_value=(True, environ['TMP_DIR']))
         self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.request_create')
 
-        self.mock_reqeust = self.patcher.start()
+        self.mock_reqeust = self.patcher1.start()
         self.mock_upload_file = self.patcher2.start()
         self.mock_download_file = self.patcher3.start()
         self.mock_reqeust_create = self.patcher4.start()
@@ -101,7 +98,7 @@ class TestJob(unittest.TestCase):
 
     def tearDown(self) -> None:
 
-        self.patcher.stop()
+        self.patcher1.stop()
         self.patcher2.stop()
         self.patcher3.stop()
         self.patcher4.stop()
@@ -145,7 +142,6 @@ class TestJob(unittest.TestCase):
         self.assertEqual(j._reqs, reqs, 'Job did not initialize provided Reqeust object')
 
     def test_job_02_init_building_model_from_path(self):
-
         """ Test model is passed as static python file with model_path """
 
         # Get source of the model and save in tmp directory for just test purposes
@@ -232,7 +228,9 @@ class TestJob(unittest.TestCase):
         mock_logger_error.assert_called_once()
 
     def test_job_06_properties_setters(self):
-
+        """ Testing all properties and setters of Job class
+            TODO: Change this part after refactoring getters and setters
+        """
         self.assertEqual(self.model, self.job.model, 'Can not get Requests attribute from Job properly')
         self.assertEqual('MagicMock', self.job.model_class, 'Can not model class properly')
         self.assertEqual(self.job._reqs, self.job.requests, 'Can not get Requests attribute from Job properly')
@@ -256,6 +254,7 @@ class TestJob(unittest.TestCase):
     def test_job_07_check_model_is_approved_by_nodes(self,
                                                      mock_requests_get_responses,
                                                      mock_requests_send_message):
+        """ Testing the method that check model approval status of the nodes"""
 
         type(self.fds).node_ids = PropertyMock(return_value=['node-1', 'node-2'])
         mock_requests_send_message.return_value = None
@@ -419,7 +418,6 @@ class TestJob(unittest.TestCase):
         responses = FakeResponses([response_1, response_3])
         mock_requests_get_responses.return_value = responses
         nodes = self.job.start_nodes_training_round(2)
-        calls = mock_requests_send_message.call_args_list
         self.assertEqual(mock_requests_send_message.call_count, 2)
         self.assertListEqual(nodes, ['node-1'])
 
@@ -429,7 +427,6 @@ class TestJob(unittest.TestCase):
         responses = FakeResponses([response_1, response_4])
         mock_requests_get_responses.return_value = responses
         nodes = self.job.start_nodes_training_round(3)
-        calls = mock_requests_send_message.call_args_list
         self.assertEqual(mock_requests_send_message.call_count, 1)
         self.assertListEqual(nodes, ['node-1'])
 
