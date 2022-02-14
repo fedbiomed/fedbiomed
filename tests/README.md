@@ -71,7 +71,7 @@ by a specified value / method. Usually, we want that this method to be very simp
   - `return_value` attribute
   - `side_effect` attribute
 
-* **MagicMock**: a Mocking object that is behaving like a fake class. One can 
+* **MagicMock**: a Mocking object that is behaving like a fake class. One can
 add extra methods to this object
   - `return_value` attribute
   - `side_effect` attribute
@@ -123,12 +123,16 @@ class TestXXX(unittest.TestCase):
     '''
     Test the XXX class
     '''
-    # before each individual test
     def setUp(self):
+        '''
+        before each individual test
+        '''
         pass
 
-    # after each individual test
     def tearDown(self):
+        '''
+        after each individual test
+        '''
         pass
 
 
@@ -136,6 +140,7 @@ class TestXXX(unittest.TestCase):
         '''
         test the whatever feature
         '''
+
         # some code
         ...
         self.assertEqual( data, expected)
