@@ -103,7 +103,7 @@ class TestLogger(unittest.TestCase):
         try:
             logger.this_method_does_not_exists()
             self.fail("calling this_method_does_not_exists()")
-        except:
+        except AttributeError:
             self.assertTrue( True,
                              "calling this_method_does_not_exists() detected")
 
@@ -265,8 +265,6 @@ class TestLogger(unittest.TestCase):
         # only test this if a mqtt server is available
         if not self._mqtt_is_connected:
             self.skipTest("no MQTT server - skipping test")
-            #print("no MQTT server - skipping test")
-            #return
 
         #
         logger.addMqttHandler(
