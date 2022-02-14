@@ -56,3 +56,10 @@ class FedbiomedTrainingError(FedbiomedError):
     Exception raised then training fails
     """
     pass
+
+
+class FedbiomedResponsesError(FedbiomedError):
+    """
+    Exception specific to Responses class
+    """
+    pass
