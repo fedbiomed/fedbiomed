@@ -9,13 +9,11 @@ from fedbiomed.researcher.environ import environ
 
 import unittest
 from unittest.mock import patch, PropertyMock, Mock
-import sys
-import threading
 import time
 
 from fedbiomed.common.constants      import ComponentType
 from fedbiomed.common.exceptions     import FedbiomedMessagingError
-from fedbiomed.common.message        import PingReply, NodeMessages
+from fedbiomed.common.message        import NodeMessages
 from fedbiomed.common.messaging      import Messaging
 
 
@@ -72,19 +70,19 @@ class TestMessaging(unittest.TestCase):
 
     def test_messaging_03_connect(self):
 
-        self._m.on_connect(None, # client
-                           None, # userdata
-                           None, # flags
-                           0     # rc (ok)
+        self._m.on_connect(None,  # client
+                           None,  # userdata
+                           None,  # flags
+                           0      # rc (ok)
                            )
         self.assertTrue( self._m.is_connected() )
 
 
         try:
-            self._m.on_connect(None, # client
-                               None, # userdata
-                               None, # flags
-                               1     # rc (error)
+            self._m.on_connect(None,  # client
+                               None,  # userdata
+                               None,  # flags
+                               1      # rc (error)
                                )
             self.assertFalse(True, "bad disconnexion")
         except:
@@ -98,17 +96,17 @@ class TestMessaging(unittest.TestCase):
         # ugly but we dont have/want a setter for this
         self._m._is_connected = True
 
-        self._m.on_disconnect(None, # client
-                              None, # userdata
-                              0)    # rc (OK)
+        self._m.on_disconnect(None,  # client
+                              None,  # userdata
+                              0)     # rc (OK)
         self.assertFalse( self._m.is_connected() )
 
         # failed disconnexion from server
         self._m.i_s_connected = True
         try:
-            self._m.on_disconnect(None, # client
-                                  None, # userdata
-                                  1)    # rc (error)
+            self._m.on_disconnect(None,  # client
+                                  None,  # userdata
+                                  1)     # rc (error)
             self.assertFalse( True, "Disconnexion should failed and raise SystemExit")
         except:
             self.assertTrue( True, "Disconnexion has failed and raised SystemExit")
@@ -120,13 +118,13 @@ class TestMessaging(unittest.TestCase):
     def test_messaging_05_bad_start(self):
 
         with patch('paho.mqtt.client.Client.connect',
-                   new_callable=PropertyMock,side_effect = ConnectionRefusedError('Boom!')):
+                   new_callable=PropertyMock, side_effect = ConnectionRefusedError('Boom!')):
             try:
                 self._m.start()
                 self.assertFalse( True, "Connexion exception not detected at start()")
-            except FedbiomedMessagingError as e:
+            except FedbiomedMessagingError:
                 self.assertTrue( True, "Connexion exception detected at start()")
-            except Exception as e:
+            except Exception:
                 self.assertFalse( True, "Bad Exception for connexion exception at start()")
 
 
@@ -143,6 +141,7 @@ class TestMessaging(unittest.TestCase):
             self.assertFalse( True, "Connexion correctly started and detected as no")
 
         self._m.stop()
+
 
 class TestMessagingResearcher(unittest.TestCase):
     '''
@@ -161,14 +160,14 @@ class TestMessagingResearcher(unittest.TestCase):
                                environ['RESEARCHER_ID'],
                                environ['MQTT_BROKER'],
                                environ['MQTT_BROKER_PORT']
-                            )
+                               )
 
             cls._m.start()
             cls._broker_ok = True
-        except Exception as e:
+        except Exception:
             cls._broker_ok = False
 
-        time.sleep(1.0) # give some time to the thread to listen to the given port
+        time.sleep(1.0)  # give some time to the thread to listen to the server
         print("MQTT connexion status =" , cls._broker_ok)
 
         pass
@@ -181,37 +180,44 @@ class TestMessagingResearcher(unittest.TestCase):
         pass
 
 
-    # before all the tests
     def setUp(self):
+        '''
+        before all the tests
+        '''
         pass
 
 
-    # after all the tests
     def tearDown(self):
+        '''
+        after all the tests
+        '''
         pass
 
-
-    # mqqt callbacks
 
     @classmethod
     def on_message(cls, msg, topic):
-        # classmethod necessary to have access to self via cls
+        '''
+        on_message MQTT handler
+
+        classmethod necessary to have access to self via cls
+        '''
         print("RESH_RECV:", topic, msg)
 
         # verify the channel
         cls.assertTrue(cls, topic, "general/researcher")
 
         # verify the received msg only if sent by ourself
-        if  msg['researcher_id'] == 'TEST_MESSAGING_RANDOM_ID_6735424425_DO_NOT_USE_ELSEWHERE':
+        if msg['researcher_id'] == 'TEST_MESSAGING_RANDOM_ID_6735424425_DO_NOT_USE_ELSEWHERE':
             cls.assertTrue(cls, msg['node_id'], "node_1234")
             cls.assertTrue(cls, msg['success'], True)
             cls.assertTrue(cls, msg['sequence'], 12345)
             cls.assertTrue(cls, msg['command'], 'pong')
 
 
-    # tests
     def test_messaging_researcher_00_init(self):
-
+        '''
+        test __init__()
+        '''
         self.assertEqual( self._m.default_send_topic(), "general/nodes")
 
         # ugly, but we dont really hace/need a getter for this
@@ -236,7 +242,7 @@ class TestMessagingResearcher(unittest.TestCase):
                 'node_id'       : 'node_1234',
                 'success'       : True,
                 'sequence'      : 12345,
-                'command'       :'pong' } ).get_dict()
+                'command'       : 'pong' } ).get_dict()
 
             # ugly, but we dont have/want a setter for this
             self._m._default_send_topic = "general/researcher"
@@ -268,14 +274,14 @@ class TestMessagingNode(unittest.TestCase):
                                'node_1234',
                                environ['MQTT_BROKER'],
                                environ['MQTT_BROKER_PORT']
-                            )
+                               )
 
             cls._m.start()
             cls._broker_ok = True
-        except Exception as e:
+        except Exception:
             cls._broker_ok = False
 
-        time.sleep(1.0) # give some time to the thread to listen to the given port
+        time.sleep(1.0)  # give some time to the thread to listen to the server
         print("MQTT connexion status =" , cls._broker_ok)
 
         pass
@@ -288,19 +294,24 @@ class TestMessagingNode(unittest.TestCase):
         pass
 
 
-    # before all the tests
     def setUp(self):
+        '''
+        before all the tests
+        '''
         pass
 
 
-    # after all the tests
     def tearDown(self):
+        '''
+        after all the tests
+        '''
         pass
 
 
-    # tests
     def test_messaging_researcher_00_init(self):
-
+        '''
+        test __init__
+        '''
         self.assertEqual( self._m.default_send_topic(), "general/researcher")
 
         # ugly, but we dont really hace/need a getter for this
