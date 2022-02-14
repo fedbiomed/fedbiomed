@@ -17,6 +17,9 @@ ignore =
     # unexpected spaces around keyword / parameter equals
     E251,
 
+    # multiple spaces before keyword
+    E272,
+
     # too many blanck lines
     E303,
 

@@ -36,6 +36,14 @@ class FedbiomedMessageError(FedbiomedError):
     pass
 
 
+class FedbiomedMessagingError(FedbiomedError):
+    """
+    Exception specific to the Messaging (communication) class
+    usually a problem with the communication framework
+    """
+    pass
+
+
 class FedbiomedStrategyError(FedbiomedError):
     """
     Exception specific to the Strategy class and subclasses
@@ -45,7 +53,7 @@ class FedbiomedStrategyError(FedbiomedError):
 
 class FedbiomedTrainingError(FedbiomedError):
     """
-    Exception raises then training (researcher/node) class
+    Exception raised then training fails
     """
     pass
 
