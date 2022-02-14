@@ -161,7 +161,6 @@ class TestMessaging(unittest.TestCase):
             self._m.start(block = True)
             self.assertTrue( True, "Connexion correctely started")
         except Exception as e:
-            print("CAUGHT:", e)
             self.assertFalse( True, "Connexion correctly started and detected as no")
 
         self._m.stop()
