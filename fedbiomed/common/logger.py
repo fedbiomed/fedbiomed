@@ -282,7 +282,7 @@ class _LoggerBase():
         # because this method is called by __init__
         # (where else to log this really ?)
         self._logger.warning("calling selLevel() with bad value: " + str(level))
-        self._logger.warning("setting WARNING level instead")
+        self._logger.warning("setting " + self._levelToName[DEFAULT_LOG_LEVEL] + " level instead")
         return DEFAULT_LOG_LEVEL
 
 
