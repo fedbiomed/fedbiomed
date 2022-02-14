@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Any, Callable, Union
 
 import paho.mqtt.client as mqtt
@@ -6,10 +5,9 @@ import socket
 
 from fedbiomed.common import json
 from fedbiomed.common.constants  import ComponentType, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedMessagingError, FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedMessagingError
 import fedbiomed.common.message as message
 from fedbiomed.common.logger import logger
-from fedbiomed.common.logger import DEFAULT_LOG_TOPIC
 
 
 class Messaging:
@@ -91,7 +89,7 @@ class Messaging:
             msg: mqtt on_message arg
         """
 
-        if not self._on_message_handler is None:
+        if self._on_message_handler is not None:
             message = json.deserialize_msg(msg.payload)
             self._on_message_handler( msg = message, topic = msg.topic)
         else:
@@ -165,11 +163,9 @@ class Messaging:
             # should this ever happen ? we're not disconnecting intentionally yet
             logger.info("Messaging " + str(self._messaging_id) + " disconnected without error")
         else:
-            # see MQTT specs : when another client connects with same client_id, the previous one
-            # is disconnected https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901205
-
-            #print("[ERROR] Messaging ", self._messaging_id, " disconnected with error code rc = ", rc, " object = ", self,
-            #    " - Hint: check for another instance of the same component running or for communication error")
+            # see MQTT specs : when another client connects with same client_id,
+            # the previous one is disconnected
+            # https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901205
             logger.error("Messaging " + str(self._messaging_id) + " disconnected with error code rc = " + str(rc) +
                          " - Hint: check for another instance of the same component running or for communication error")
 
@@ -201,7 +197,7 @@ class Messaging:
             logger.delMqttHandler()  # just in case !
             self._logger_handler_installed = False
 
-            msg = "cannot connect to MQTT (error=" + str(e)+ ")"
+            msg = "cannot connect to MQTT (error=" + str(e) + ")"
             logger.critical(msg)
             raise FedbiomedMessagingError(msg)
 
@@ -268,13 +264,13 @@ class Messaging:
         if self._messaging_type != ComponentType.NODE:
             logger.warning("this component (" +
                            self._messaging_type +
-                           ") cannot send error message ("+
+                           ") cannot send error message (" +
                            errnum.value +
                            ") through MQTT")
             return
 
         if not self._is_connected:
-            logger.delMqttHandler() # just in case
+            logger.delMqttHandler()  # just in case
             self._logger_handler_installed = False
 
             msg = "MQTT not initialized yet (error to transmit=" + errnum.value + ")"
@@ -291,7 +287,8 @@ class Messaging:
             researcher_id = researcher_id
         )
 
-        r = message.NodeMessages.reply_create(msg)
+        # just check the syntax bfore sendind
+        _ = message.NodeMessages.reply_create(msg)
         self._mqtt.publish("general/researcher", json.serialize_msg(msg))
 
 
