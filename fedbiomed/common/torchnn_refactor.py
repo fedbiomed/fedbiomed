@@ -227,6 +227,7 @@ class TorchTrainingPlan(nn.Module):
                     if dry_run:
                         self.to(self.device_init)
                         torch.cuda.empty_cache()
+                        self._call_postprocess()
                         return
 
         # release gpu usage as much as possible though:
@@ -234,6 +235,22 @@ class TorchTrainingPlan(nn.Module):
         # - and some gpu memory remains used until process (cuda kernel ?) finishes
         self.to(self.device_init)
         torch.cuda.empty_cache()
+        self._call_postprocess()
+
+    def _call_postprocess(self):
+        '''
+        effectively call the user defined postprocess function (if provided)
+
+        - if provided, the function ispart of pytorch model defined by the researcher
+        - and expect the model parameters as argument
+        '''
+        if self.state_dict() is not None:
+            try:
+                # Check whether postprocess method exists, and use it
+                self.postprocess(self.state_dict())
+            except AttributeError:
+                # Method does not exist; skip
+                pass
 
     # provided by fedbiomed // necessary to save the model code into a file
     def add_dependency(self, dep: List[str]):
@@ -290,11 +307,11 @@ class TorchTrainingPlan(nn.Module):
             none
         """
         if params is not None:
-            try:
-                params = self.postprocess(params) # Check whether postprocess method exists, and use it
-            except AttributeError:
-                # Method does not exist; skip
-                pass
+#            try:
+#                params = self.postprocess(params) # Check whether postprocess method exists, and use it
+#            except AttributeError:
+#                # Method does not exist; skip
+#                pass
             return(torch.save(params, filename))
         else:
             return torch.save(self.state_dict(), filename)
