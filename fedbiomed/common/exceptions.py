@@ -53,6 +53,6 @@ class FedbiomedStrategyError(FedbiomedError):
 
 class FedbiomedTrainingError(FedbiomedError):
     """
-    Exception raises then training (researcher/node) class
+    Exception raised then training fails
     """
     pass
