@@ -97,6 +97,8 @@ class Requests(metaclass=SingletonMeta):
         """
 
         # log contains the original message sent by the node
+        # FIXME: we should use `fedbioed.common.json.deserialize` method
+        # instead of the json method when extracting json message
         original_msg = json.loads(log["msg"])
 
         logger.info("log from: " +
