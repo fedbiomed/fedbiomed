@@ -264,9 +264,9 @@ class TestLogger(unittest.TestCase):
 
         # only test this if a mqtt server is available
         if not self._mqtt_is_connected:
-            # self.skipTest("no MQTT server")
-            print("no MQTT server - skipping test")
-            return
+            self.skipTest("no MQTT server - skipping test")
+            #print("no MQTT server - skipping test")
+            #return
 
         #
         logger.addMqttHandler(
