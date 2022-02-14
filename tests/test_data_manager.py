@@ -614,12 +614,15 @@ class TestDataManager(unittest.TestCase):
         query_all_patch.return_value = table_all_query
         
         # action
-        
         all_data = self.data_manager.list_my_data(True)
         
         # checks
-        print(all_data)
         query_all_patch.assert_called_once()
+        clear_cache_patch.assert_called_once()
+        # check that none of the database contained on the node 
+        # doesnot contain `dtype`entry
+        self.assertNotIn('types', table_all_query[0].keys())
+        self.assertNotIn('types', table_all_query[1].keys())
         
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
