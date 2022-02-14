@@ -129,14 +129,13 @@ class TestLogger(unittest.TestCase):
         self.assertEqual( logger.getEffectiveLevel() , DEFAULT_LOG_LEVEL)
 
         # chech setLevel
-        for l in [ logging.DEBUG,
-                   logging.INFO,
-                   logging.WARNING,
-                   logging.ERROR,
-                   logging.CRITICAL,
-                  ]  :
-            logger.setLevel(l)
-            self.assertEqual( logger.getEffectiveLevel() , l)
+        for lvl in [ logging.DEBUG,
+                     logging.INFO,
+                     logging.WARNING,
+                     logging.ERROR,
+                     logging.CRITICAL ] :
+            logger.setLevel(lvl)
+            self.assertEqual( logger.getEffectiveLevel() , lvl)
 
         # bounds
         logger.setLevel( 10000 )
@@ -236,8 +235,10 @@ class TestLogger(unittest.TestCase):
     # the self._mqtt_is_connected will conditionnate the tests later
     def on_message(self, client, userdata, msg):
         pass
+
     def on_connect(self, client, userdata, flags, rc):
         self._mqtt_is_connected = True
+
     def on_disconnect(self, client, userdata, flags, rc):
         self._mqtt_is_connected = False
 
@@ -263,7 +264,7 @@ class TestLogger(unittest.TestCase):
 
         # only test this if a mqtt server is available
         if not self._mqtt_is_connected:
-            #self.skipTest("no MQTT server")
+            # self.skipTest("no MQTT server")
             print("no MQTT server - skipping test")
             return
 
