@@ -13,7 +13,7 @@ import copy
 import validators
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import TrainingException
+#from fedbiomed.common.exceptions import FedbiomedTrainingError
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.logger import logger
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
@@ -300,7 +300,7 @@ class Job:
             True if waiting for at least one node.
         """
         try:
-            nodes_done = set(responses.dataframe['node_id'])
+            nodes_done = set(responses.dataframe()['node_id'])
         except KeyError:
             nodes_done = set()
 
@@ -344,7 +344,7 @@ class Job:
             #print("=== DEBUG START start_nodes_training_round")
             #print(models_done)
             #print("=== DEBUG STOP  start_nodes_training_round")
-            for m in models_done.get_data():  # retrieve all models
+            for m in models_done.data():  # retrieve all models
                 # (there should have as many models done as nodes)
 
                 # manage error messages during training
@@ -496,7 +496,7 @@ class Job:
         converted_training_replies = []
 
         for round in training_replies.keys():
-            training_reply = copy.deepcopy(training_replies[round].data)
+            training_reply = copy.deepcopy(training_replies[round].data())
             # we want to strip some fields for the breakpoint
             for node in training_reply:
                 del node['params']

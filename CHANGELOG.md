@@ -6,6 +6,7 @@
 - add a gui to manage data on nodes
 - update of sklearn sgdregressor notebook
 - update of monai notebook
+- Tensorboard fixes
 
 ## 2022-01-07 version 3.3
 

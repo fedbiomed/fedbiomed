@@ -11,140 +11,139 @@ class TestException(unittest.TestCase):
 
         flag = False
         try:
-            raise EnvironException("test")
+            raise FedbiomedEnvironError("test")
 
-        except EnvironException as e:
+        except FedbiomedEnvironError as e:
             flag = True
 
         except Exception as e:
             flag - False
 
-        self.assertTrue(flag, "Bad exception was caught for EnvironException")
+        self.assertTrue(flag, "Bad exception was caught for FedbiomedEnvironError")
 
 
         flag = False
         try:
-            raise EnvironException("test")
+            raise FedbiomedEnvironError("test")
 
-        except FedbiomedException as e:
+        except FedbiomedError as e:
             flag = True
 
         except Exception as e:
             flag - False
 
-        self.assertTrue(flag, "Bad exception was caught for EnvironException")
+        self.assertTrue(flag, "Bad exception was caught for FedbiomedEnvironError")
 
 
     def test_exception_logger(self):
 
         flag = False
         try:
-            raise LoggerException("test")
+            raise FedbiomedLoggerError("test")
 
-        except LoggerException as e:
+        except FedbiomedLoggerError as e:
             flag = True
 
         except Exception as e:
             flag - False
 
-        self.assertTrue(flag, "Bad exception was caught for LoggerException")
+        self.assertTrue(flag, "Bad exception was caught for FedbiomedLoggerError")
 
 
         flag = False
         try:
-            raise LoggerException("test")
+            raise FedbiomedLoggerError("test")
 
-        except FedbiomedException as e:
+        except FedbiomedError as e:
             flag = True
 
         except Exception as e:
             flag - False
 
-        self.assertTrue(flag, "Bad exception was caught for LoggerException")
+        self.assertTrue(flag, "Bad exception was caught for FedbiomedLoggerError")
 
 
     def test_exception_message(self):
 
         flag = False
         try:
-            raise MessageException("test")
+            raise FedbiomedMessageError("test")
 
-        except MessageException as e:
+        except FedbiomedMessageError as e:
             flag = True
 
         except Exception as e:
             flag - False
 
-        self.assertTrue(flag, "Bad exception was caught for MessageException")
+        self.assertTrue(flag, "Bad exception was caught for FedbiomedMessageError")
 
 
         flag = False
         try:
-            raise MessageException("test")
+            raise FedbiomedMessageError("test")
 
-        except FedbiomedException as e:
+        except FedbiomedError as e:
             flag = True
 
         except Exception as e:
             flag - False
-
-        self.assertTrue(flag, "Bad exception was caught for MessageException")
+        self.assertTrue(flag, "Bad exception was caught for FedbiomedMessageError")
 
 
     def test_exception_strategy(self):
 
         flag = False
         try:
-            raise StrategyException("test")
+            raise FedbiomedStrategyError("test")
 
-        except StrategyException as e:
+        except FedbiomedStrategyError as e:
             flag = True
 
         except Exception as e:
             flag - False
 
-        self.assertTrue(flag, "Bad exception was caught for StrategyException")
+        self.assertTrue(flag, "Bad exception was caught for FedbiomedStrategyError")
 
 
         flag = False
         try:
-            raise StrategyException("test")
+            raise FedbiomedStrategyError("test")
 
-        except FedbiomedException as e:
+        except FedbiomedError as e:
             flag = True
 
         except Exception as e:
             flag - False
 
-        self.assertTrue(flag, "Bad exception was caught for StrategyException")
+        self.assertTrue(flag, "Bad exception was caught for FedbiomedStrategyError")
 
 
     def test_exception_training(self):
 
         flag = False
         try:
-            raise TrainingException("test")
+            raise FedbiomedTrainingError("test")
 
-        except TrainingException as e:
+        except FedbiomedTrainingError as e:
             flag = True
 
         except Exception as e:
             flag - False
 
-        self.assertTrue(flag, "Bad exception was caught for TrainingException")
+        self.assertTrue(flag, "Bad exception was caught for FedbiomedTrainingError")
 
 
         flag = False
         try:
-            raise TrainingException("test")
+            raise FedbiomedTrainingError("test")
 
-        except FedbiomedException as e:
+        except FedbiomedError as e:
             flag = True
 
         except Exception as e:
             flag - False
 
-        self.assertTrue(flag, "Bad exception was caught for TrainingException")
+        self.assertTrue(flag, "Bad exception was caught for FedbiomedTrainingError")
 
 
 if __name__ == '__main__': # pragma: no cover

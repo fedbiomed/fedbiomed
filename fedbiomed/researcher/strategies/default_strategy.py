@@ -4,7 +4,7 @@ import uuid
 from typing import List, Tuple, Dict, Any
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import StrategyException
+from fedbiomed.common.exceptions import FedbiomedStrategyError
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.strategies.strategy import Strategy
 
@@ -34,15 +34,16 @@ class DefaultStrategy(Strategy):
           node_ids: list of all node ids considered for training during
           this round `round_i.
         """
-        self._sampling_node_history[round_i] = self._fds.node_ids
-        return self._fds.node_ids
+        self._sampling_node_history[round_i] = self._fds.node_ids()
+
+        return self._fds.node_ids()
 
     def refine(self, training_replies, round_i) -> Tuple[List, List]:
         models_params = []
         weights = []
 
         # check that all nodes answered
-        cl_answered = [val['node_id'] for val in training_replies.data]
+        cl_answered = [val['node_id'] for val in training_replies.data()]
 
         answers_count = 0
         for cl in self.sample_nodes(round_i):
@@ -62,7 +63,7 @@ class DefaultStrategy(Strategy):
                 logger.error(ErrorNumbers.FB407.value)
                 error = ErrorNumbers.FB407
 
-            raise StrategyException(ErrorNumbers.FB402.value)
+            raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
 
         # check that all nodes that answer could successfully train
         self._success_node_history[round_i] = []
@@ -82,7 +83,7 @@ class DefaultStrategy(Strategy):
                              )
 
         if not all_success:
-            raise StrategyException(ErrorNumbers.FB402.value)
+            raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
 
 
         # so far, everything is OK

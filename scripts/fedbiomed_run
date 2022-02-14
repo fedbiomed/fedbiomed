@@ -114,10 +114,17 @@ case $1 in
         source ./scripts/fedbiomed_environment network
         cd ./envs/development/docker
         #
-        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
-          CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) \
-          docker-compose build restful mqtt
-        docker-compose up -d restful mqtt
+        case $2 in
+            stop)
+                docker-compose down
+            ;;
+            *)
+                CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
+                             CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) \
+                             docker-compose build restful mqtt
+                docker-compose up -d restful mqtt
+                ;;
+        esac
         ;;
     gui)
         while true ; do
@@ -343,16 +350,18 @@ case $1 in
 
     help|-h|--help)
         cat <<EOF
-usage: fedbiomed_run network
+usage: fedbiomed_run network (stop)
        fedbiomed_run researcher [ip_address IP_ADDRESS]
        fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-model-approval | disable-model-approval | allow-default-models | disable-default-models ]
                          (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | register-model | delete-model | update-model) PARAMS
-
+        febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | host IP_ADDRESS | port PORT | --recreate]
+                         (start)
 
 Runs the fedbiomed components after properly initializing the environments.
 The component name is mandatory.
 
 network   : run the necessary docker containers (in development mode)
+            stop the containers if stop argument is provided
 
 researcher: launch a researcher notebook
 
@@ -413,7 +422,7 @@ EOF
         ;;
 
     *)
-        echo "Please specify the component you want to run between: network, node, researcher"
+        echo "Please specify the component you want to run between: network, node, researcher, gui"
         exit -1
         ;;
 esac
