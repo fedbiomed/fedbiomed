@@ -251,7 +251,7 @@ class Messaging:
                              str(msg))
                 self._is_failed = True
         else:
-            logger.warning("send_message: channel must be specifiec (None at the moment)")
+            logger.warning("send_message: channel must be specific (None at the moment)")
 
     def send_error(self, errnum: ErrorNumbers, extra_msg: str = "", researcher_id: str = "<unknown>"):
         """
