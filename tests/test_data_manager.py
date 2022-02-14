@@ -581,7 +581,9 @@ class TestDataManager(unittest.TestCase):
         self.assertNotEqual(fake_database.get('2'), self.fake_database.get('2'))
         self.assertEqual(fake_database.get('2'), new_dataset)
         
-    def test_data_manager_21_list_my_data(self):
+    @patch('tinydb.table.Table.clear_cache')
+    def test_data_manager_21_list_my_data(self,
+                                          clear_cache_patch):
         pass
         
 if __name__ == '__main__':  # pragma: no cover
