@@ -14,9 +14,11 @@ import tkinter.filedialog
 import tkinter.messagebox
 from tkinter import _tkinter
 
-from fedbiomed.node.environ import environ
-from fedbiomed.common.constants import ModelTypes, ErrorNumbers
+from fedbiomed.common.constants  import ModelTypes, ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedError
+
 from fedbiomed.node.data_manager import DataManager
+from fedbiomed.node.environ import environ
 from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.node import Node
 
@@ -279,10 +281,14 @@ def manage_node(node_args: Union[dict, None] = None):
         logger.info('Starting task manager')
         node.task_manager()  # handling training tasks in queue
 
+    except FedbiomedError as e:
+        logger.critical("Node stopped.")
+        # we may add extra information for the user depending on the error
+
     except Exception as e:
-        # must send info to the researcher
+        # must send info to the researcher (no mqqt should be handled by the previous FedbiomedError)
         node.send_error(ErrorNumbers.FB300, extra_msg = "Error = " + str(e))
-        logger.critical("Node stopped. Error = " + str(e))
+        logger.critical("Node stopped.")
 
     finally:
         # this is triggered by the signal.SIGTERM handler SystemExit(0)
@@ -548,11 +554,11 @@ def launch_cli():
     parser.add_argument('-gn', '--gpu-num',
                         help='Use GPU device with the specified number instead of default device, if available',
                         type=int,
-                        action='store')  
+                        action='store')
     parser.add_argument('-go', '--gpu-only',
                         help='Force use of a GPU device, if any available, even if researcher doesnt '
                         + 'request it (default: dont use GPU)',
-                        action='store_true')                      
+                        action='store_true')
     args = parser.parse_args()
 
     if not any(args.__dict__.values()):
