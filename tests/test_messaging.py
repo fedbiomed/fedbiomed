@@ -22,8 +22,10 @@ class TestMessaging(unittest.TestCase):
     Test the Messaging class connect/disconnect
     '''
 
-    # before all the tests
     def setUp(self):
+        '''
+        before all the tests
+        '''
         self._m = Messaging(on_message       = None,
                             messaging_type   = None,
                             messaging_id     = 1234,
@@ -34,6 +36,9 @@ class TestMessaging(unittest.TestCase):
 
 
     def test_messaging_00_bad_init(self):
+        '''
+        bad __init__ calls
+        '''
 
         self.assertFalse( self._m.is_connected() )
         self.assertEqual( self._m.default_send_topic(), None)
@@ -46,7 +51,9 @@ class TestMessaging(unittest.TestCase):
 
 
     def test_messaging_01_researcher_init(self):
-
+        '''
+        as test name says...
+        '''
         self._m = Messaging(on_message       = None,
                             messaging_type   = ComponentType.RESEARCHER,
                             messaging_id     = 1234,
@@ -57,6 +64,9 @@ class TestMessaging(unittest.TestCase):
         self.assertEqual( self._m.default_send_topic(), "general/nodes")
 
     def test_messaging_02_node_init(self):
+        '''
+        as test name says...
+        '''
 
         self._m = Messaging(on_message       = None,
                             messaging_type   = ComponentType.NODE,
@@ -69,6 +79,9 @@ class TestMessaging(unittest.TestCase):
 
 
     def test_messaging_03_connect(self):
+        '''
+        as test name says...
+        '''
 
         self._m.on_connect(None,  # client
                            None,  # userdata
@@ -90,6 +103,9 @@ class TestMessaging(unittest.TestCase):
             self.assertTrue( self._m.is_failed())
 
     def test_messaging_04_disconnect(self):
+        '''
+        as test name says...
+        '''
 
         # disconnexion from server
 
@@ -108,14 +124,19 @@ class TestMessaging(unittest.TestCase):
                                   None,  # userdata
                                   1)     # rc (error)
             self.assertFalse( True, "Disconnexion should failed and raise SystemExit")
-        except:
+        except SystemExit:
             self.assertTrue( True, "Disconnexion has failed and raised SystemExit")
+        except:
+            self.assertFalse( True, "Disconnexion has failed and dit not raised SystemExit")
 
         self.assertFalse( self._m.is_connected() )
         self.assertTrue( self._m.is_failed())
 
 
     def test_messaging_05_bad_start(self):
+        '''
+        as test name says...
+        '''
 
         with patch('paho.mqtt.client.Client.connect',
                    new_callable=PropertyMock, side_effect = ConnectionRefusedError('Boom!')):
@@ -132,6 +153,9 @@ class TestMessaging(unittest.TestCase):
     @patch('paho.mqtt.client.Client.loop_forever', Mock(return_value=True))
     @patch('paho.mqtt.client.Client.connect', Mock(return_value=True))
     def test_messaging_06_good_start(self):
+        '''
+        as test name says...
+        '''
 
         try:
             self._m.start(block = True)
@@ -148,9 +172,12 @@ class TestMessagingResearcher(unittest.TestCase):
     Test the Messaging class from the researcher point of view
     '''
 
-    # once in test lifetime
     @classmethod
     def setUpClass(cls):
+        '''
+        connect to the broker and setup a global variable
+        used to skip the test is no broker is present
+        '''
 
         # verify that a broker is available
         try:
@@ -175,6 +202,9 @@ class TestMessagingResearcher(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        '''
+        disconnect to the broker if broker was present at init time
+        '''
         if not cls._broker_ok:
             cls._m.stop()
         pass
@@ -201,6 +231,7 @@ class TestMessagingResearcher(unittest.TestCase):
 
         classmethod necessary to have access to self via cls
         '''
+
         print("RESH_RECV:", topic, msg)
 
         # verify the channel
@@ -262,9 +293,12 @@ class TestMessagingNode(unittest.TestCase):
     Test the Messaging class from the researcher point of view
     '''
 
-    # once in test lifetime
     @classmethod
     def setUpClass(cls):
+        '''
+        connect to the broker and setup a global variable
+        used to skip the test is no broker is present
+        '''
 
         # verify that a broker is available
         try:
@@ -289,6 +323,9 @@ class TestMessagingNode(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        '''
+        disconnect from broker if broker was present at init time
+        '''
         if not cls._broker_ok:
             cls._m.stop()
         pass
