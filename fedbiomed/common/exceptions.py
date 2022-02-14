@@ -13,17 +13,20 @@ class FedbiomedError(Exception):
     """
     pass
 
+
 class FedbiomedEnvironError(FedbiomedError):
     """
     Exception specific to the Environ class
     """
     pass
 
+
 class FedbiomedLoggerError(FedbiomedError):
     """
     Exception specific to the Logger class
     """
     pass
+
 
 class FedbiomedMessageError(FedbiomedError):
     """
@@ -32,12 +35,14 @@ class FedbiomedMessageError(FedbiomedError):
     """
     pass
 
+
 class FedbiomedMessagingError(FedbiomedError):
     """
     Exception specific to the Messaging (communication) class
     usually a problem with the communication framework
     """
     pass
+
 
 class FedbiomedStrategyError(FedbiomedError):
     """
