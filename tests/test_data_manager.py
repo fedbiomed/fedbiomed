@@ -589,9 +589,29 @@ class TestDataManager(unittest.TestCase):
     def test_data_manager_21_list_my_data(self,
                                           clear_cache_patch,
                                           query_all_patch):
+        # arguments
+        
+        table_all_query = [{"name": "MNIST",
+                               "data_type": "default",
+                               "tags": ["#MNIST", "#dataset"],
+                               "description": "MNIST database",
+                               "shape": [60000, 1, 28, 28],
+                               "path": "/path/to/MNIST", 
+                               "dataset_id": "dataset_1234",
+                               "dtypes": []},
+                           {"name": "test",
+                                 "data_type": "csv",
+                                 "tags": ["some", "tags"],
+                                 "description": "test",
+                                 "shape": [1000,2],
+                                 "path": "/path/to/my/data",
+                                 "dataset_id": "dataset_4567",
+                                 "dtypes": ["float64", "int64"]}
+                           ]
+        
         # patchers
         clear_cache_patch.return_value = None
-        query_all_patch.return_value = self.fake_database
+        query_all_patch.return_value = table_all_query
         
         # action
         
