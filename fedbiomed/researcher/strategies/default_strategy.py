@@ -34,15 +34,16 @@ class DefaultStrategy(Strategy):
           node_ids: list of all node ids considered for training during
           this round `round_i.
         """
-        self._sampling_node_history[round_i] = self._fds.node_ids
-        return self._fds.node_ids
+        self._sampling_node_history[round_i] = self._fds.node_ids()
+
+        return self._fds.node_ids()
 
     def refine(self, training_replies, round_i) -> Tuple[List, List]:
         models_params = []
         weights = []
 
         # check that all nodes answered
-        cl_answered = [val['node_id'] for val in training_replies.data]
+        cl_answered = [val['node_id'] for val in training_replies.data()]
 
         answers_count = 0
         for cl in self.sample_nodes(round_i):
