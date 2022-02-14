@@ -211,9 +211,6 @@ class TestDataManager(unittest.TestCase):
         """Tests if method `get_torch_dataset_shape` works
         on a custom dataset"""
         
-        # creating agruments
-        
-        
         # action
         res = self.data_manager.get_torch_dataset_shape(self.fake_dataset)
         
@@ -222,9 +219,7 @@ class TestDataManager(unittest.TestCase):
     
     def test_data_manager_08_get_csv_data_types(self):
         "Tests `get_csv_data_type` (norma case scenario)"
-        # creating argument for unittest
-        
-        
+        # creating argument for unittest      
         fake_csv_dataframe = pd.DataFrame(self.dummy_data)
         
         # action
@@ -538,7 +533,7 @@ class TestDataManager(unittest.TestCase):
                                                   query_all_patch,
                                                   tinydb_update_patch):
         
-        """Tests modify_databae_info (normal case scenario), 
+        """Tests modify_database_info (normal case scenario), 
         where one replaces an existing dataset by another one
         """
         fake_database = copy.deepcopy(self.fake_database)
@@ -652,31 +647,55 @@ class TestDataManager(unittest.TestCase):
         self.assertEqual(res['tags'], fake_default_dataset['tags'])
         self.assertEqual(res['path'], fake_default_dataset['path'])
         
-@patch('fedbiomed.node.data_manager.DataManager.load_images_dataset')       
-def test_data_manager_23_load_as_dataloader_images(self, 
-                                                   load_images_dataset_patch):
-    """Tests `load_as_dataloader` method where  the input
-        dataset is an images dataset"""
-    # argments
-    
-    fake_dataset  = {"name": "test",
-                    "data_type": "images",
-                    "tags": ["some", "tags"],
-                    "description": "test",
-                    "shape": [1000,2],
-                    "path": "/path/to/my/data",
-                    "dataset_id": "dataset_4567"}
-    
-    # patchers
-    load_images_dataset_patch.return_value = fake_dataset
-    
-    # action
-    self.data_manager.load_as_dataloader(fake_dataset)
-    
-    # checks
-    
-    load_images_dataset_patch.assert_called_once_with(folder_path=fake_dataset['path'],
-                                                      as_dataset=True)
 
+    @patch('fedbiomed.node.data_manager.DataManager.load_images_dataset')       
+    def test_data_manager_23_load_as_dataloader_images(self, load_images_dataset_patch):
+        """Tests `load_as_dataloader` method where  the input
+            dataset is an images dataset"""
+        # argments
+        
+        fake_dataset  = {"name": "test",
+                        "data_type": "images",
+                        "tags": ["some", "tags"],
+                        "description": "test",
+                        "shape": [1000,2],
+                        "path": "/path/to/my/data",
+                        "dataset_id": "dataset_4567"}
+        
+        # patchers
+        load_images_dataset_patch.return_value = fake_dataset
+        
+        # action
+        self.data_manager.load_as_dataloader(fake_dataset)
+        
+        # checks
+        
+        load_images_dataset_patch.assert_called_once_with(folder_path=fake_dataset['path'],
+                                                        as_dataset=True)
+
+    @patch('fedbiomed.node.data_manager.DataManager.read_csv')
+    @patch('os.path.isfile')
+    @patch('fedbiomed.node.data_manager.DataManager.search_by_tags')
+    def test_data_manager_24_load_data_read_csv(self,
+                                                search_by_tags_patch,
+                                                os_isfile_patch,
+                                                read_csv_patch
+                                                ):
+        
+        # arguments
+        tags = ['some', 'tags']
+        # patchers
+        search_by_tags_patch.return_value = [{'dataset_id': 'datset_id_1234', 
+                                              'path': 'path/to/my/dataset'}]
+        os_isfile_patch.return_value = True
+        read_csv_patch.return_value = self.fake_database['2']
+        
+        # action
+        self.data_manager.load_data(tags, mode = 'pandas')
+        
+        # checks
+        search_by_tags_patch.assert_called_once()
+        # to be completeted
+        
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

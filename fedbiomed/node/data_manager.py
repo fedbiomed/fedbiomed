@@ -301,7 +301,7 @@ class DataManager: # should this be in camelcase (smthg like DataManager)?
         modes = ['pandas', 'torch_dataset', 'torch_tensor', 'numpy']
         if mode not in modes:
             raise NotImplementedError(f'Data mode `{mode}` was not found.'
-                                      ' Data modes available: {modes}')
+                                      f' Data modes available: {modes}')
 
         # Look for dataset in database
         dataset = self.search_by_tags(tags)[0]
