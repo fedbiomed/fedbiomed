@@ -51,6 +51,8 @@ class TestDataManager(unittest.TestCase):
      
     @classmethod
     def setUpClass(cls) -> None:
+        
+        # creating a fake pytorch dataset:
         fake_dataset_shape = (12_345, 10, 20, 30)
         fake_data = torch.rand(fake_dataset_shape)
         fake_labels = torch.randint(0,2, (fake_dataset_shape[0],))
@@ -59,6 +61,7 @@ class TestDataManager(unittest.TestCase):
         cls.fake_dataset = fake_dataset  # we might need a fake dataset 
         # for testing
         
+        # dummy_data for pandas dataframe stuff
         dummy_data = {
                 'integers': [1,2,3,4,5,6,7,8,9,0],
                 'floats': [1.1, 1.2, 1.3, 1.4, 1.5, 2.6, 2.7, 1.8, 2.9, 1.0],
@@ -155,7 +158,7 @@ class TestDataManager(unittest.TestCase):
         """Simulates a query with correct dataset tags by patching Query and 
         Table.search object/methods"""
         # arguments
-        search_results = [{'dataset_id':'datset_id_1234'}]
+        search_results = [{'dataset_id': 'datset_id_1234'}]
         dataset_tags = ['some', 'tags']
         
         # patches
@@ -581,10 +584,22 @@ class TestDataManager(unittest.TestCase):
         self.assertNotEqual(fake_database.get('2'), self.fake_database.get('2'))
         self.assertEqual(fake_database.get('2'), new_dataset)
         
+    @patch('tinydb.table.Table.all')
     @patch('tinydb.table.Table.clear_cache')
     def test_data_manager_21_list_my_data(self,
-                                          clear_cache_patch):
-        pass
+                                          clear_cache_patch,
+                                          query_all_patch):
+        # patchers
+        clear_cache_patch.return_value = None
+        query_all_patch.return_value = self.fake_database
+        
+        # action
+        
+        all_data = self.data_manager.list_my_data(True)
+        
+        # checks
+        print(all_data)
+        query_all_patch.assert_called_once()
         
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
