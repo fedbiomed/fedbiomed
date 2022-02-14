@@ -66,9 +66,9 @@ class ErrorNumbers(_BaseEnum):
 
     # MQTT errors
     FB100 = "FB100: undetermined messaging server error"
-    FB101 = "FB101: cannot connect to the server"
-    FB102 = "FB102: server does not answer in dedicated time"
-    FB103 = "FB103: mqqt call error"
+    FB101 = "FB101: cannot connect to the messaging server"
+    FB102 = "FB102: messaging server does not answer in dedicated time"
+    FB103 = "FB103: messaging call error"
     FB104 = "FB104: message echange error"
 
     # HTTP errors

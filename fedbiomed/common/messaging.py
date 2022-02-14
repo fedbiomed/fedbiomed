@@ -197,7 +197,7 @@ class Messaging:
             logger.delMqttHandler()  # just in case !
             self._logger_handler_installed = False
 
-            msg = "cannot connect to MQTT (error=" + str(e) + ")"
+            msg = ErrorNumbers.FB101.value + "(error = " + str(e) + ")"
             logger.critical(msg)
             raise FedbiomedMessagingError(msg)
 
