@@ -589,6 +589,9 @@ class TestDataManager(unittest.TestCase):
     def test_data_manager_21_list_my_data(self,
                                           clear_cache_patch,
                                           query_all_patch):
+        """
+        Checks `list_my_data` method in the normal case scenario
+        """
         # arguments
         
         table_all_query = [{"name": "MNIST",
@@ -623,6 +626,57 @@ class TestDataManager(unittest.TestCase):
         # doesnot contain `dtype`entry
         self.assertNotIn('types', table_all_query[0].keys())
         self.assertNotIn('types', table_all_query[1].keys())
+     
+    @patch('fedbiomed.node.data_manager.DataManager.load_default_database')   
+    def test_data_manager_22_load_as_dataloader_default(self,
+                                                        load_as_dataloader_patch):
+        """Tests `load_as_dataloader` method where  the input
+        dataset is the default dataset"""
+        # arguments 
         
+        # first entry in fake dataset is a MNIST default dataset
+        fake_default_dataset = self.fake_database['1']
+        
+        # patchers
+        load_as_dataloader_patch.return_value = fake_default_dataset
+        
+        # action
+        res = self.data_manager.load_as_dataloader(fake_default_dataset)
+        
+        # checks
+        load_as_dataloader_patch.assert_called_once_with(name=fake_default_dataset.get('name'),
+                                                         path=fake_default_dataset.get('path'),
+                                                         as_dataset=True)
+        self.assertEqual(res['name'], fake_default_dataset['name'])
+        self.assertEqual(res['dtypes'], fake_default_dataset['dtypes'])
+        self.assertEqual(res['tags'], fake_default_dataset['tags'])
+        self.assertEqual(res['path'], fake_default_dataset['path'])
+        
+@patch('fedbiomed.node.data_manager.DataManager.load_images_dataset')       
+def test_data_manager_23_load_as_dataloader_images(self, 
+                                                   load_images_dataset_patch):
+    """Tests `load_as_dataloader` method where  the input
+        dataset is an images dataset"""
+    # argments
+    
+    fake_dataset  = {"name": "test",
+                    "data_type": "images",
+                    "tags": ["some", "tags"],
+                    "description": "test",
+                    "shape": [1000,2],
+                    "path": "/path/to/my/data",
+                    "dataset_id": "dataset_4567"}
+    
+    # patchers
+    load_images_dataset_patch.return_value = fake_dataset
+    
+    # action
+    self.data_manager.load_as_dataloader(fake_dataset)
+    
+    # checks
+    
+    load_images_dataset_patch.assert_called_once_with(folder_path=fake_dataset['path'],
+                                                      as_dataset=True)
+
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
