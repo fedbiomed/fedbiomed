@@ -32,10 +32,13 @@ DEFAULT_LOG_FILE   = 'mylog.log'
 DEFAULT_LOG_LEVEL  = logging.WARNING
 DEFAULT_LOG_TOPIC  = 'general/logger'
 
-#
-# mqtt  formatter
-#
+
 class MqttFormatter(logging.Formatter):
+    '''
+
+    mqtt  formatter
+
+    '''
 
     def __init__(self, node_id):
         super().__init__()
@@ -137,10 +140,10 @@ class MqttHandler(logging.Handler):
             import fedbiomed.common.message as message
 
             # verify the message content with Message validator
-            r = message.NodeMessages.reply_create( msg )
+            _ = message.NodeMessages.reply_create( msg )
             self._mqtt.publish(self._topic, json.dumps(msg))
 
-        except: # pragma: no cover
+        except:  # pragma: no cover
             #
             # obviously cannot call logger here... (infinite loop)
             # cannot also send the message to the researcher
@@ -419,7 +422,7 @@ class _LoggerBase():
 
 
 
-    def __getattr__(self,s):
+    def __getattr__(self, s):
         """
         call the method from self._logger if not overrided by this class
         """
@@ -429,7 +432,7 @@ class _LoggerBase():
             _x = self._logger.__getattribute__(s)
             return _x
         else:
-            return _x # pragma: no cover
+            return _x  # pragma: no cover
 
 
 #
