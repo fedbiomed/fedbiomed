@@ -440,6 +440,50 @@ class TestExperiment(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.test_exp.set_strategy(node_selection_strategy=strategy_expected)
 
+    def test_experiment_07_set_round_limit(self):
+        """Testing setter for round limit"""
+
+        # Test setting round limit to None
+        rl_expected = None
+        round_limit = self.test_exp.set_round_limit(round_limit=rl_expected)
+        self.assertEqual(round_limit, rl_expected, 'Setter for round limit did not set round_limit to None')
+
+        # Test setting round limit less than current round
+        self.mock_logger_error.reset_mock()
+        self.test_exp._round_current = 2
+        rl_expected = 1
+        self.test_exp.set_round_limit(round_limit=rl_expected)
+        self.mock_logger_error.assert_called_once()
+
+        # Back to normal
+        self.test_exp._round_current = 0
+
+        # Test setting round_limit properly
+        rl_expected = 1
+        round_limit = self.test_exp.set_round_limit(round_limit=rl_expected)
+        self.assertEqual(round_limit, rl_expected, 'Setter for round limit did not set round_limit to 1')
+
+        # Test when self._round_limit is not defined
+        del self.test_exp._round_limit
+        self.test_exp._round_current = 2
+        rl_expected = 1
+        round_limit = self.test_exp.set_round_limit(round_limit=rl_expected)
+        self.assertIsNone(round_limit, 'Setter for round limit did not set round_limit to None, this expected '
+                                       'behaviour when self._round_limit is not defined')
+
+        # back to normal
+        self.test_exp._round_current = 0
+        self.test_exp.set_round_limit(round_limit=4)
+
+        # Test passing invalid type for round_limit
+        rl_expected = 'toto'
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_round_limit(round_limit=rl_expected)
+
+        # Test passing negative round_limit
+        rl_expected = -2
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_round_limit(round_limit=rl_expected)
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
     @patch('fedbiomed.researcher.experiment.create_unique_link')
