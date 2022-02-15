@@ -28,6 +28,7 @@ from tests.testsupport.fake_dataset import FederatedDataSetMock
 from tests.testsupport.fake_experiment import ExperimentMock
 from tests.testsupport.fake_training_plan import FakeModel
 
+
 class TestExperiment(unittest.TestCase):
 
     def setUp(self):
@@ -48,11 +49,6 @@ class TestExperiment(unittest.TestCase):
         # build minimal objects, needed to extract state by calling object method
 
         self.patchers = [
-            patch('fedbiomed.researcher.requests.Requests.__init__',
-                  return_value=None),
-            patch('fedbiomed.researcher.requests.Requests.search',
-                  return_value={}),
-            # patch the whole class
             patch('fedbiomed.researcher.datasets.FederatedDataSet',
                   FederatedDataSetMock),
             patch('fedbiomed.researcher.experiment.create_exp_folder',
@@ -71,11 +67,25 @@ class TestExperiment(unittest.TestCase):
                   return_value=None)
         ]
 
-        self.patcher_job = patch('fedbiomed.researcher.job.Job.__init__', MagicMock(return_value=None))
-        self.patcher_logger_error = patch('fedbiomed.common.logger.logger.error', MagicMock(return_value=None))
+        self.patcher_job = patch('fedbiomed.researcher.job.Job.__init__',
+                                 MagicMock(return_value=None))
+        self.patcher_logger_error = patch('fedbiomed.common.logger.logger.error',
+                                          MagicMock(return_value=None))
+        self.patcher_logger_critical = patch('fedbiomed.common.logger.logger.critical',
+                                             MagicMock(return_value=None))
+        self.patcher_logger_debug = patch('fedbiomed.common.logger.logger.debug',
+                                          MagicMock(return_value=None))
+        self.patcher_request_init = patch('fedbiomed.researcher.requests.Requests.__init__',
+                                          MagicMock(return_value=None))
+        self.patcher_request_search = patch('fedbiomed.researcher.requests.Requests.search',
+                                            MagicMock(return_value={}))
 
         self.mock_logger_error = self.patcher_logger_error.start()
+        self.mock_logger_critical = self.patcher_logger_critical.start()
+        self.mock_logger_debug = self.patcher_logger_debug.start()
         self.mock_job = self.patcher_job.start()
+        self.mock_request_init = self.patcher_request_init.start()
+        self.mock_request_search = self.patcher_request_search.start()
 
         for patcher in self.patchers:
             patcher.start()
@@ -100,6 +110,11 @@ class TestExperiment(unittest.TestCase):
         # Stop patchers
         self.patcher_job.stop()
         self.patcher_logger_error.stop()
+        self.patcher_logger_critical.stop()
+        self.patcher_request_init.stop()
+        self.patcher_request_search.stop()
+        self.patcher_logger_debug.stop()
+
 
         if environ['EXPERIMENTS_DIR'] in sys.path:
             sys.path.remove(environ['EXPERIMENTS_DIR'])
@@ -231,7 +246,7 @@ class TestExperiment(unittest.TestCase):
 
         # Test info by completing missing parts for proper .run
         mock_print.reset_mock()
-        self.test_exp._fds = FederatedDataSetMock({'node-1' : []})
+        self.test_exp._fds = FederatedDataSetMock({'node-1': []})
         self.test_exp._job = self.mock_job
         self.test_exp._model_is_defined = True
         self.test_exp.info()
@@ -246,6 +261,104 @@ class TestExperiment(unittest.TestCase):
         mock_eval.side_effect = Exception
         with self.assertRaises(SystemExit):
             self.test_exp.info()
+
+    def test_experiment_03_set_tags(self):
+        """ Testing setter for _tags attribute of Experiment """
+
+        # Test tags as List
+        tags_expected = ['tags-1', 'tag-2']
+        tags = self.test_exp.set_tags(tags_expected)
+        self.assertListEqual(tags, tags_expected, 'Setter for tags can not set tags properly')
+
+        # Test tags as String
+        tags_expected = 'tag-1'
+        tags = self.test_exp.set_tags(tags_expected)
+        self.assertListEqual(tags, [tags_expected], 'Setter for tags can not set tags properly when tags argument is '
+                                                    'in string type')
+
+        # Test bad type of tags
+        tags_expected = MagicMock(return_value=None)
+        with self.assertRaises(SystemExit):
+            tags = self.test_exp.set_tags(tags_expected)
+
+        # Test bad types in tags array
+        tags_expected = [{}, {}]
+        with self.assertRaises(SystemExit):
+            tags = self.test_exp.set_tags(tags_expected)
+
+        # Test set tags as none
+        tags_expected = None
+        tags = self.test_exp.set_tags(tags_expected)
+        self.assertEqual(tags, tags_expected, f'Expected tags should be None not {tags}')
+
+    def test_experiment_04_set_nodes(self):
+
+        # Test tags as List
+        nodes_expected = ['node-1', 'node-2']
+        nodes = self.test_exp.set_nodes(nodes_expected)
+        self.assertListEqual(nodes, nodes_expected, 'Setter for nodes can not set nodes properly')
+
+        # Test bad type of nodes
+        nodes_expected = MagicMock(return_value=None)
+        with self.assertRaises(SystemExit):
+            nodes = self.test_exp.set_nodes(nodes_expected)
+
+        # Test nodes as String (bad type)
+        nodes_expected = 'tag-1'
+        with self.assertRaises(SystemExit):
+            nodes = self.test_exp.set_nodes(nodes_expected)
+
+        # Test bad types in nodes array
+        nodes_expected = [{}, {}]
+        with self.assertRaises(SystemExit):
+            nodes = self.test_exp.set_nodes(nodes_expected)
+
+        # Test set nodes as none
+        nodes_expected = None
+        nodes = self.test_exp.set_nodes(nodes_expected)
+        self.assertEqual(nodes, nodes_expected, f'Expected nodes should be None not {nodes}')
+
+    def test_experiment_04_set_training_data(self):
+
+        # Test by passing training data as None when there are tags already set
+        td_expected = None
+        training_data = self.test_exp.set_training_data(training_data=td_expected)
+        self.assertIsInstance(training_data, FederatedDataSet, 'Setter for training_data did not set '
+                                                               'proper FederatedDataset object')
+
+        # Test by passing training data as Node when the tags is None
+        td_expected = None
+        tags = self.test_exp.set_tags(tags=None)
+        training_data = self.test_exp.set_training_data(training_data=td_expected)
+        self.assertEqual(training_data, td_expected, 'Setter for training data is not set as expected: None')
+
+        # Test by passing FederatedDataset object
+        # Do not use mock otherwise it will raise a type error
+        td_expected = FederatedDataSet({'node-1': [{'dataset_id': 'ids'}]})
+        training_data = self.test_exp.set_training_data(training_data=td_expected)
+        self.assertEqual(training_data, td_expected, 'Setter for training data did not set given FederatedDataset '
+                                                     'object')
+
+        # Test by passing dict
+        td_expected = {'node-1': [{'dataset_id': 'ids'}]}
+        training_data = self.test_exp.set_training_data(training_data=td_expected)
+        self.assertEqual(training_data.data(), td_expected, 'Setter for training data did not set given '
+                                                            'FederatedDataset object')
+
+        # Test by passing invalid type of training_data
+        td_expected = 12
+        with self.assertRaises(SystemExit):
+            training_data = self.test_exp.set_training_data(training_data=td_expected)
+
+        # Test when job is not None
+        self.mock_logger_debug.reset_mock()
+        td_expected = {'node-1': [{'dataset_id': 'ids'}]}
+        self.test_exp._job = MagicMock()
+        training_data = self.test_exp.set_training_data(training_data=td_expected)
+        self.assertEqual(training_data.data(), td_expected, 'Setter for training data did not set given '
+                                                            'FederatedDataset object')
+        self.assertEqual(self.mock_logger_debug.call_count, 2, "Logger debug is called unexpected times")
+
 
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
