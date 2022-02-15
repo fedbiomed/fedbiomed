@@ -61,7 +61,7 @@ class TorchTrainingPlan(nn.Module):
             self.use_gpu = model_args.get('use_gpu', False)
 
         # list dependencies of the model
-        self.dependencies = ["from fedbiomed.common.torchnn_refactor import TorchTrainingPlan",
+        self.dependencies = ["from fedbiomed.common.torchnn import TorchTrainingPlan",
                              "import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
