@@ -7,6 +7,7 @@ from tinydb import TinyDB, Query
 import pandas as pd
 from tabulate import tabulate  # only used for printing
 import torch
+import torch.utils.data as data
 from torchvision import datasets
 from torchvision import transforms
 
@@ -103,6 +104,7 @@ class DataManager: # should this be in camelcase (smthg like DataManager)?
 
     def load_default_database(self,
                               name: str,
+                              description: str,
                               path: str,
                               as_dataset: bool = False) -> Union[List[int],
                                                                 torch.utils.data.Dataset]:
@@ -110,8 +112,8 @@ class DataManager: # should this be in camelcase (smthg like DataManager)?
         is used as the default dataset.
 
         Args:
-            name (str): name of the default dataset. Currently,
-            only MNIST is accepted.
+            name (str): name of the default dataset. 
+            description (str): description of the dataset (contains information about ratio)
             path (str): pathfile to MNIST dataset.
             as_dataset (bool, optional): whether to return
             the complete dataset (True) or dataset dimensions (False).
@@ -127,13 +129,22 @@ class DataManager: # should this be in camelcase (smthg like DataManager)?
             if set to False, returns the size of the dataset stored inside
             a list (type: List[int])
         """
+
+        loader_def = getattr(datasets, name)
+
         kwargs = dict(root=path, download=True, transform=transforms.ToTensor())
 
-        if 'mnist' in name.lower():
-            dataset = datasets.MNIST(**kwargs)
-        else:
-            raise NotImplementedError(f'Default dataset `{name}` has'
-                                      'not been implemented.')
+        dataset = loader_def(**kwargs)
+
+        # Create random split to assign only a subset of the dataset to the current node
+        ratio_str = description.replace(' percent of '+name+' database',"")       
+        ratio=float(ratio_str)/100
+
+        if ratio < 1:
+            train_set_size = int(len(dataset) * ratio)
+            valid_set_size = len(dataset) - train_set_size
+            dataset, valid_set = data.random_split(dataset, [train_set_size, valid_set_size])
+
         if as_dataset:
             return dataset
         else:
@@ -209,7 +220,7 @@ class DataManager: # should this be in camelcase (smthg like DataManager)?
 
         if data_type == 'default':
             assert os.path.isdir(path), f'Folder {path} for Default Dataset does not exist.'
-            shape = self.load_default_database(name, path)
+            shape = self.load_default_database(name, description, path)
         elif data_type == 'csv':
             assert os.path.isfile(path), f'Path provided ({path}) does not correspond to a CSV file.'
             dataset = self.load_csv_dataset(path)
