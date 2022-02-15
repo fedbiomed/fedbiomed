@@ -31,6 +31,20 @@ from tests.testsupport.fake_training_plan import FakeModel
 
 class TestExperiment(unittest.TestCase):
 
+    @classmethod
+    def setUpClass(cls) -> None:
+
+        # Create FakeAggregator that does not have subclass
+        class FakeAggregator:
+            pass
+
+        # Create FakeStrategy does not have subclass
+        class FakeStrategy:
+            pass
+
+        cls.fake_strategy = FakeStrategy
+        cls.fake_aggregator = FakeAggregator
+
     def setUp(self):
 
         try:
@@ -114,7 +128,6 @@ class TestExperiment(unittest.TestCase):
         self.patcher_request_init.stop()
         self.patcher_request_search.stop()
         self.patcher_logger_debug.stop()
-
 
         if environ['EXPERIMENTS_DIR'] in sys.path:
             sys.path.remove(environ['EXPERIMENTS_DIR'])
@@ -319,7 +332,7 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(nodes, nodes_expected, f'Expected nodes should be None not {nodes}')
 
     def test_experiment_04_set_training_data(self):
-
+        """ Testing setter for ._fds attribute of Experiment """
         # Test by passing training data as None when there are tags already set
         td_expected = None
         training_data = self.test_exp.set_training_data(training_data=td_expected)
@@ -359,6 +372,73 @@ class TestExperiment(unittest.TestCase):
                                                             'FederatedDataset object')
         self.assertEqual(self.mock_logger_debug.call_count, 2, "Logger debug is called unexpected times")
 
+    def test_experiment_05_set_aggregator(self):
+        """Testing setter for aggregator attribute of Experiment class"""
+
+        # Set aggregator with None
+        aggregator = self.test_exp.set_aggregator(aggregator = None)
+        self.assertIsInstance(aggregator, FedAverage, 'Setter for aggregator did not set proper FedAverage instance')
+
+        # Set aggregator with an built object
+        agg_expected = FedAverage()
+        aggregator = self.test_exp.set_aggregator(aggregator = agg_expected)
+        self.assertEqual(aggregator, agg_expected, 'Setter for aggregator did not set given aggregator object')
+
+        # Set aggregator with an instance
+        agg_expected = FedAverage
+        aggregator = self.test_exp.set_aggregator(aggregator = agg_expected)
+        self.assertIsInstance(aggregator, FedAverage, 'Setter for aggregator did not set given aggregator instance')
+
+        # Set aggregator that does not inherits base Aggregator class
+        agg_expected = TestExperiment.fake_aggregator
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_aggregator(aggregator=agg_expected)
+
+        # Set aggregator that does not have proper type
+        agg_expected = 13
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_aggregator(aggregator=agg_expected)
+
+    def test_experiment_06_set_strategy(self):
+        """Testing setter for node_selection_strategy attribute of Experiment class"""
+
+
+        # Test by passing strategy as None
+        strategy = self.test_exp.set_strategy(node_selection_strategy=None)
+        self.assertIsInstance(strategy, DefaultStrategy, 'Setter for strategy did not set proper '
+                                                         'DefaultStrategy instance')
+
+        # Test when ._fds is None
+        self.test_exp.set_tags(None)
+        self.test_exp.set_training_data(None)
+        strategy = self.test_exp.set_strategy(None)
+        self.assertIsNone(strategy, 'Strategy is not Nano where it should be')
+
+        # Back to normal
+        self.test_exp.set_tags(['tag-1', 'tag-2'])
+        self.test_exp.set_training_data(None)
+
+        # Test by passing Strategy instance
+        strategy_expected = DefaultStrategy
+        strategy = self.test_exp.set_strategy(node_selection_strategy=strategy_expected)
+        self.assertIsInstance(strategy, DefaultStrategy, 'Setter for strategy did not set proper '
+                                                         'DefaultStrategy instance')
+
+        # Test by passing built Strategy object
+        fds = FederatedDataSetMock({})
+        strategy_expected = DefaultStrategy(fds)
+        strategy = self.test_exp.set_strategy(node_selection_strategy=strategy_expected)
+        self.assertEqual(strategy, strategy_expected, 'Setter for strategy did not set expected strategy object')
+
+        # Set strategy that does not inherit base Strategy class
+        strategy_expected = TestExperiment.fake_strategy
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_strategy(node_selection_strategy=strategy_expected)
+
+        # Set strategy that is not in proper type
+        strategy_expected = 13
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_strategy(node_selection_strategy=strategy_expected)
 
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
