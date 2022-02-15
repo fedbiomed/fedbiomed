@@ -61,7 +61,7 @@ class TorchTrainingPlan(nn.Module):
             self.use_gpu = model_args.get('use_gpu', False)
 
         # list dependencies of the model
-        self.dependencies = ["from fedbiomed.common.torchnn import TorchTrainingPlan",
+        self.dependencies = ["from fedbiomed.common.torchnn_refactor import TorchTrainingPlan",
                              "import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
@@ -150,8 +150,7 @@ class TorchTrainingPlan(nn.Module):
         Args:
             - epochs (int, optional): number of epochs (complete pass on data).
                 Defaults to 2.
-            - log_interval (int, optional): frequency of logging and displaying
-                losses for each batch of data of a given epoch. Defaults to 10.
+            - log_interval (int, optional): frequency of logging. Defaults to 10.
                 lr (Union[int, float], optional): learning rate. Defaults to 1e-3.
             - batch_size (int, optional): size of batch. Defaults to 48.
             - batch_maxnum (int, optional): equals number of data devided
@@ -183,17 +182,26 @@ class TorchTrainingPlan(nn.Module):
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
+        self.data = self.training_data(batch_size=batch_size)
+
         for epoch in range(1, epochs + 1):
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
-            training_data = self.training_data(batch_size=batch_size)
-            for batch_idx, (data, target) in enumerate(training_data):
+            # training_data = self.training_data(batch_size=batch_size)
+            for batch_idx, (data, target) in enumerate(self.data):
                 self.train()  # model training
                 data, target = data.to(self.device), target.to(self.device)
                 self.optimizer.zero_grad()
                 # (below) calling method `training_step` defined on
                 # researcher's notebook
-                res = self.training_step(data, target)
+                try:
+                    res = self.training_step(data, target)
+                except AttributeError:
+                    # Method does not exist -> quit
+                    # TODO: raise an exception ? new error number ?
+                    logger.critical("training_step method not provided by the model")
+                    break
+
                 res.backward()
                 self.optimizer.step()
 
@@ -208,8 +216,8 @@ class TorchTrainingPlan(nn.Module):
                     logger.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
                         batch_idx * len(data),
-                        len(training_data.dataset),
-                        100 * batch_idx / len(training_data),
+                        len(self.data.dataset),
+                        100 * batch_idx / len(self.data),
                         res.item()))
 
                     # Send scalar values via general/feedback topic
@@ -334,4 +342,21 @@ class TorchTrainingPlan(nn.Module):
         pass
 
     def after_training_params(self):
+        '''
+        effectively call the user defined postprocess function (if provided)
+
+        - if provided, the function ispart of pytorch model defined by the researcher
+        - and expect the model parameters as argument
+
+        and returns the (modified) state_dict of the model
+        '''
+        try:
+            # Check whether postprocess method exists, and use it
+            logger.debug("running model.postprocess() method")
+            return self.postprocess(self.state_dict())
+        except AttributeError:
+            # Method does not exist; skip
+            logger.debug("model.postprocess() method not provided")
+            pass
+
         return self.state_dict()
