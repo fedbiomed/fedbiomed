@@ -29,7 +29,6 @@ from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.monitor import Monitor
 
-
 _E = TypeVar("Experiment")  # only for typing
 
 # for checking class passed to experiment
@@ -40,14 +39,14 @@ TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SGDSkLearnModel)
 Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SGDSkLearnModel])
 
 
-
 # Exception handling at top lever for researcher ---------------------------------------------
 
 def exp_exceptions(function):
     """Decorator for handling all exceptions in the Experiment class() :
     pretty print a message for the user, quit Experiment.
     """
-    # try to guess if running in a notebook 
+
+    # try to guess if running in a notebook
     def in_notebook():
         try:
             # not imported, just for checking
@@ -112,6 +111,7 @@ def exp_exceptions(function):
                 sys.exit(code)
 
         return ret
+
     return payload
 
 
@@ -124,20 +124,20 @@ class Experiment(object):
 
     @exp_exceptions
     def __init__(self,
-                tags: Union[List[str], str, None] = None,
-                nodes: Union[List[str], None] = None,
-                training_data: Union[FederatedDataSet, dict, None] = None,
-                aggregator: Union[Aggregator, Type[Aggregator], None] = None,
-                node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
-                round_limit: Union[int, None] = None,
-                model_class: Union[Type_TrainingPlan, str, None] = None,
-                model_path: Union[str, None] = None,
-                model_args: dict = {},
-                training_args: dict = {},
-                save_breakpoints: bool = False,
-                tensorboard: bool = False,
-                experimentation_folder: Union[str, None] = None
-                ):
+                 tags: Union[List[str], str, None] = None,
+                 nodes: Union[List[str], None] = None,
+                 training_data: Union[FederatedDataSet, dict, None] = None,
+                 aggregator: Union[Aggregator, Type[Aggregator], None] = None,
+                 node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
+                 round_limit: Union[int, None] = None,
+                 model_class: Union[Type_TrainingPlan, str, None] = None,
+                 model_path: Union[str, None] = None,
+                 model_args: dict = {},
+                 training_args: dict = {},
+                 save_breakpoints: bool = False,
+                 tensorboard: bool = False,
+                 experimentation_folder: Union[str, None] = None
+                 ):
 
         """ Constructor of the class.
 
@@ -256,7 +256,7 @@ class Experiment(object):
         # set self._model_args and self._training_args to dict
         self.set_model_args(model_args)
         self.set_training_args(training_args)
-        
+
         # set self._job to Union[Job, None]
         self.set_job()
 
@@ -265,7 +265,6 @@ class Experiment(object):
 
         self.set_save_breakpoints(save_breakpoints)
         self.set_monitor(tensorboard)
-
 
     # destructor
     @exp_exceptions
@@ -282,7 +281,6 @@ class Experiment(object):
         except AttributeError:
             # no monitor to finish, if not yet defined
             pass
-
 
     # Getters ---------------------------------------------------------------------------------------------------------
 
@@ -351,8 +349,7 @@ class Experiment(object):
     def monitor(self) -> Union[Monitor, None]:
         return self._monitor
 
-
-    # TODO: update these getters after experiment results refactor / job refactor 
+    # TODO: update these getters after experiment results refactor / job refactor
 
     @exp_exceptions
     def aggregated_params(self) -> dict:
@@ -377,7 +374,6 @@ class Experiment(object):
         else:
             return self._job.model
 
-
     # a specific getter-like
     @exp_exceptions
     def info(self) -> None:
@@ -396,31 +392,31 @@ class Experiment(object):
                 'Tags', 'Nodes filter', 'Training Data',
                 'Aggregator', 'Strategy', 'Job',
                 'Model Path', 'Model Class',
-                'Model Arguments', 'Training Arguments', 
+                'Model Arguments', 'Training Arguments',
                 'Rounds already run', 'Rounds total',
                 'Experiment folder', 'Experiment Path',
                 'Breakpoint State', 'Monitoring'
-                ],
+            ],
             # max 40 characters per column for values - can we do that with tabulate() ?
-            'Values': [ '\n'.join(findall('.{1,40}', str(e))) for e in
-                    [
-                    self._tags, self._nodes, self._fds,
-                    self._aggregator, self._node_selection_strategy, self._job,
-                    self._model_path, self._model_class,
-                    self._model_args, self._training_args,
-                    self._round_current, self._round_limit,
-                    self._experimentation_folder,
-                    self.experimentation_path(),
-                    self._save_breakpoints, self._monitor
-                    ]
-                ]
+            'Values': ['\n'.join(findall('.{1,40}', str(e))) for e in
+                       [
+                           self._tags, self._nodes, self._fds,
+                           self._aggregator, self._node_selection_strategy, self._job,
+                           self._model_path, self._model_class,
+                           self._model_args, self._training_args,
+                           self._round_current, self._round_limit,
+                           self._experimentation_folder,
+                           self.experimentation_path(),
+                           self._save_breakpoints, self._monitor
+                       ]
+                       ]
         }
         print(tabulate(info, headers='keys'))
 
         # definitions that may be missing for running the experiment
         # (value None == not defined yet for _fds et _job,
         # False == no valid model for _model_is_defined )
-        may_be_missing = { 
+        may_be_missing = {
             '_fds': 'Training Data',
             '_node_selection_strategy': 'Strategy',
             '_model_is_defined': 'Model',
@@ -436,15 +432,13 @@ class Experiment(object):
             except Exception:
                 # should not happen, all eval variables should be defined
                 msg = ErrorNumbers.FB400.value + \
-                    f', in method `info` : self.{key} not defined for experiment'
+                      f', in method `info` : self.{key} not defined for experiment'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
         if missing:
             print(f'\nExperiment cannot be run (not fully defined), missing :\n{missing}')
         else:
             print('\nExperiment can be run now (fully defined)')
-
-
 
     # Setters ---------------------------------------------------------------------------------------------------------
 
@@ -491,7 +485,6 @@ class Experiment(object):
 
         return self._tags
 
-
     @exp_exceptions
     def set_nodes(self, nodes: Union[List[str], None]) -> Union[List[str], None]:
         """ Setter for nodes + verifications on argument type
@@ -529,9 +522,8 @@ class Experiment(object):
         except AttributeError:
             # nothing to do if not defined yet
             pass
-        
-        return self._nodes
 
+        return self._nodes
 
     @exp_exceptions
     def set_training_data(self, training_data: Union[FederatedDataSet, dict, None]) -> \
@@ -579,12 +571,12 @@ class Experiment(object):
             self._fds = None
             logger.debug('Experiment not fully configured yet: no training data')
         # at this point, self._fds is either None or a FederatedDataSet object
-        
+
         # self._strategy and self._job don't always exist at this point
         try:
             if self._node_selection_strategy is not None:
                 logger.debug('Training data changed, '
-                    'you may need to update `node_selection_strategy`')
+                             'you may need to update `node_selection_strategy`')
         except AttributeError:
             # nothing to do if not defined yet
             pass
@@ -596,7 +588,6 @@ class Experiment(object):
             pass
 
         return self._fds
-
 
     @exp_exceptions
     def set_aggregator(self, aggregator: Union[Aggregator, Type[Aggregator], None]) -> \
@@ -624,23 +615,22 @@ class Experiment(object):
                 self._aggregator = aggregator()
             else:
                 # bad argument, need to provide an Aggregator class
-                self._aggregator = FedAverage() # be robust if we continue execution
+                self._aggregator = FedAverage()  # be robust if we continue execution
                 msg = ErrorNumbers.FB410.value + f' `aggregator` : {aggregator} class'
                 logger.critical(msg)
-                raise FedbiomedExperimentError(msg) 
+                raise FedbiomedExperimentError(msg)
         elif isinstance(aggregator, Aggregator):
             # an object of a proper class is provided, nothing to do
             self._aggregator = aggregator
         else:
             # other bad type or object
-            self._aggregator = FedAverage() # be robust if we continue execution
+            self._aggregator = FedAverage()  # be robust if we continue execution
             msg = ErrorNumbers.FB410.value + f' `aggregator` : {type(aggregator)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-        
+
         # at this point self._aggregator is (non-None) aggregator object
         return self._aggregator
-
 
     @exp_exceptions
     def set_strategy(self, node_selection_strategy: Union[Strategy, Type[Strategy], None]) -> \
@@ -672,9 +662,9 @@ class Experiment(object):
                     self._node_selection_strategy = node_selection_strategy(self._fds)
                 else:
                     # bad argument, need to provide a Strategy class
-                    self._node_selection_strategy = DefaultStrategy(self._fds) # be robust
+                    self._node_selection_strategy = DefaultStrategy(self._fds)  # be robust
                     msg = ErrorNumbers.FB410.value + \
-                        f' `node_selection_strategy` : {node_selection_strategy} class'
+                          f' `node_selection_strategy` : {node_selection_strategy} class'
                     logger.critical(msg)
                     raise FedbiomedExperimentError(msg)
             elif isinstance(node_selection_strategy, Strategy):
@@ -682,11 +672,11 @@ class Experiment(object):
                 self._node_selection_strategy = node_selection_strategy
             else:
                 # other bad type or object
-                self._node_selection_strategy = DefaultStrategy(self._fds) # be robust
+                self._node_selection_strategy = DefaultStrategy(self._fds)  # be robust
                 msg = ErrorNumbers.FB410.value + \
-                    f' `node_selection_strategy` : {type(node_selection_strategy)}'
+                      f' `node_selection_strategy` : {type(node_selection_strategy)}'
                 logger.critical(msg)
-                raise FedbiomedExperimentError(msg)                
+                raise FedbiomedExperimentError(msg)
         else:
             # cannot initialize strategy if not FederatedDataSet yet
             self._node_selection_strategy = None
@@ -694,7 +684,6 @@ class Experiment(object):
 
         # at this point self._node_selection_strategy is a Union[Strategy, None]
         return self._node_selection_strategy
-
 
     @exp_exceptions
     def set_round_limit(self, round_limit: Union[int, None]) -> Union[int, None]:
@@ -712,21 +701,21 @@ class Experiment(object):
             - round_limit (Union[int, None])
         """
         # at this point round_current exists and is an int >= 0
-  
+
         if round_limit is None:
             # no limit for training rounds
-            self._round_limit = None         
+            self._round_limit = None
         elif isinstance(round_limit, int):
             # at this point round_limit is an int
             if round_limit < self._round_current:
                 # need to ensure self._round_limit is set
                 try:
-                    self._round_limit # raise exception if not defined
+                    self._round_limit  # raise exception if not defined
                 except AttributeError:
                     self._round_limit = None
                 # self._round_limit can't be less than current round
                 logger.error(f'cannot set `round_limit` to less than the number of already run rounds '
-                    f'({self._round_current})')
+                             f'({self._round_current})')
             else:
                 self._round_limit = round_limit
         else:
@@ -737,9 +726,8 @@ class Experiment(object):
         # at this point self._round_limit is a Union[int, None]
         return self._round_limit
 
-
     # no setter for self._round_current eg
-    #def set_round_current(self, round_current: int) -> int:
+    # def set_round_current(self, round_current: int) -> int:
     # ...
     #
     # - does not make sense to increase `self._round_current` == padding with "non existing" rounds,
@@ -767,9 +755,9 @@ class Experiment(object):
         if not isinstance(round_current, int):
             msg = ErrorNumbers.FB410.value + f' `round_current` : {type(round_current)}'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)            
+            raise FedbiomedExperimentError(msg)
 
-        # at this point self._round_limit may be undefined (in constructor)
+            # at this point self._round_limit may be undefined (in constructor)
         try:
             # raise error if not existing
             self._round_limit
@@ -778,8 +766,8 @@ class Experiment(object):
             is_defined = False
 
         # at this point self._round_limit is an int
-        if round_current < 0 or ( is_defined and isinstance(self._round_limit, int) \
-                and round_current > self._round_limit ):
+        if round_current < 0 or (is_defined and isinstance(self._round_limit, int) \
+                                 and round_current > self._round_limit):
             # cannot set a round <0
             # cannot set a round over the round_limit (when it is not None)
             msg = ErrorNumbers.FB410.value + f' `round_current` : {round_current}'
@@ -791,7 +779,6 @@ class Experiment(object):
 
         # at this point self._round_current is an int
         return self._round_current
-
 
     @exp_exceptions
     def set_experimentation_folder(self, experimentation_folder: Union[str, None]) -> str:
@@ -812,16 +799,16 @@ class Experiment(object):
             sanitized_folder = sanitize_filename(experimentation_folder, platform='auto')
             self._experimentation_folder = create_exp_folder(sanitized_folder)
 
-            if(sanitized_folder != experimentation_folder):
+            if (sanitized_folder != experimentation_folder):
                 logger.warning(f'`experimentation_folder` was sanitized from '
-                    f'{experimentation_folder} to {sanitized_folder}')
+                               f'{experimentation_folder} to {sanitized_folder}')
         else:
             msg = ErrorNumbers.FB410.value + \
-                f' `experimentation_folder` : {type(experimentation_folder)}'
+                  f' `experimentation_folder` : {type(experimentation_folder)}'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)           
-        
-        # at this point self._experimentation_folder is a str valid for a foldername
+            raise FedbiomedExperimentError(msg)
+
+            # at this point self._experimentation_folder is a str valid for a foldername
 
         # _job doesn't always exist at this point
         try:
@@ -832,7 +819,6 @@ class Experiment(object):
             pass
 
         return self._experimentation_folder
-
 
     @exp_exceptions
     def set_model_class(self, model_class: Union[Type_TrainingPlan, str, None]) -> \
@@ -871,11 +857,11 @@ class Experiment(object):
                     self._model_is_defined = False
             else:
                 # bad identifier
-                self._model_class = None # be robust if we continue execution
+                self._model_class = None  # be robust if we continue execution
                 self._model_is_defined = False
                 msg = ErrorNumbers.FB410.value + f' `model_class` : {model_class} bad identifier'
                 logger.critical(msg)
-                raise FedbiomedExperimentError(msg)                
+                raise FedbiomedExperimentError(msg)
         elif inspect.isclass(model_class):
             # model_class must be a subclass of a valid training plan
             if issubclass(model_class, training_plans):
@@ -891,25 +877,25 @@ class Experiment(object):
                     self._model_is_defined = False
             else:
                 # bad class
-                self._model_class = None # be robust if we continue execution
+                self._model_class = None  # be robust if we continue execution
                 self._model_is_defined = False
                 msg = ErrorNumbers.FB410.value + f' `model_class` : {model_class} class'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
         else:
             # bad type
-            self._model_class = None # be robust if we continue execution
+            self._model_class = None  # be robust if we continue execution
             self._model_is_defined = False
             msg = ErrorNumbers.FB410.value + f' `model_class` : type(model_class)'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)            
+            raise FedbiomedExperimentError(msg)
 
-        # self._model_is_defined and self._model_class always exist at this point
+            # self._model_is_defined and self._model_class always exist at this point
         try:
-            self._model_path # raise exception if not defined
+            self._model_path  # raise exception if not defined
             if not self._model_is_defined:
                 logger.debug(f'Experiment not fully configured yet: no valid model, '
-                    f'model_class={self._model_class} model_path={self._model_path}')
+                             f'model_class={self._model_class} model_path={self._model_path}')
         except AttributeError:
             # we don't want to issue a warning is model_path not initialized yet
             # (== still initializing the class)
@@ -924,7 +910,6 @@ class Experiment(object):
             pass
 
         return self._model_class
-        
 
     @exp_exceptions
     def set_model_path(self, model_path: Union[str, None]) -> Union[str, None]:
@@ -956,15 +941,15 @@ class Experiment(object):
                 self._model_is_defined = isinstance(self._model_class, str)
             else:
                 # bad filepath
-                self._model_path = None # be robust if we continue execution
+                self._model_path = None  # be robust if we continue execution
                 self._model_is_defined = inspect.isclass(self._model_class)
                 msg = ErrorNumbers.FB410.value + \
-                    f' `model_path` : {model_path} is not a sane path to an existing file'
+                      f' `model_path` : {model_path} is not a sane path to an existing file'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
         else:
             # bad type
-            self._model_path = None # be robust if we continue execution
+            self._model_path = None  # be robust if we continue execution
             self._model_is_defined = inspect.isclass(self._model_class)
             msg = ErrorNumbers.FB410.value + f' `model_path` : type(model_path)'
             logger.critical(msg)
@@ -973,7 +958,7 @@ class Experiment(object):
         # self._model_path is also defined at this point
         if not self._model_is_defined:
             logger.debug(f'Experiment not fully configured yet: no valid model, '
-                f'model_class={self._model_class} model_path={self._model_path}')
+                         f'model_class={self._model_class} model_path={self._model_path}')
 
         # _job doesn't always exist at this point
         try:
@@ -984,7 +969,6 @@ class Experiment(object):
             pass
 
         return self._model_path
-        
 
     # TODO: model_args need checking of dict items, to be done by Job and node
     # (using a training plan method ?)
@@ -1023,7 +1007,6 @@ class Experiment(object):
 
         return self._model_args
 
-
     # TODO: training_args need checking of dict items, to be done by Job and node
     # (using a training plan method ? changing `training_routine` prototype ?)
     @exp_exceptions
@@ -1048,8 +1031,8 @@ class Experiment(object):
             self._training_args = {}
             msg = ErrorNumbers.FB410.value + f' `training_args` : {type(training_args)}'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)            
-        # self._training_args always exist at this point
+            raise FedbiomedExperimentError(msg)
+            # self._training_args always exist at this point
 
         # _job doesn't always exist at this point
         try:
@@ -1062,7 +1045,6 @@ class Experiment(object):
             pass
 
         return self._training_args
-
 
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?
@@ -1084,7 +1066,7 @@ class Experiment(object):
             if self._job is not None:
                 # a job is already defined, and it may also have run some rounds
                 logger.debug(f'Experimentation `job` changed after running '
-                    '{self._round_current} rounds, may give inconsistent results')
+                             '{self._round_current} rounds, may give inconsistent results')
         except AttributeError:
             # nothing to do if not defined yet
             pass
@@ -1093,7 +1075,7 @@ class Experiment(object):
             # model not properly defined yet
             self._job = None
             logger.debug('Experiment not fully configured yet: no job. Missing proper model '
-                f'definition (model_class={self._model_class} model_path={self._model_path})')
+                         f'definition (model_class={self._model_class} model_path={self._model_path})')
         elif self._fds is None:
             # not training data yet
             self._job = None
@@ -1110,12 +1092,10 @@ class Experiment(object):
 
         return self._job
 
-
     # no setter implemented for experiment results, TODO after experiment results refactor
     # as decided during the refactor
     #
     # def set_aggregated_params(...)
-
 
     @exp_exceptions
     def set_save_breakpoints(self, save_breakpoints: bool) -> bool:
@@ -1142,7 +1122,6 @@ class Experiment(object):
 
         return self._save_breakpoints
 
-
     # TODO: accept an optional Monitor param (`monitor: Monitor = None`)
     @exp_exceptions
     def set_monitor(self, tensorboard: bool) -> Union[Monitor, None]:
@@ -1164,7 +1143,7 @@ class Experiment(object):
         """
         if isinstance(tensorboard, bool):
             # do nothing if setting is the same as active configuration
-            action = True 
+            action = True
             try:
                 if self._monitor is not None and tensorboard:
                     action = False
@@ -1197,8 +1176,6 @@ class Experiment(object):
         # self._monitor exists at this point
         return self._monitor
 
-
-
     # Run experiment functions -------------------------------------------------------------------
 
     @exp_exceptions
@@ -1225,7 +1202,7 @@ class Experiment(object):
         # check increase is a boolean
         if not isinstance(increase, bool):
             msg = ErrorNumbers.FB410.value + \
-                f', in method `run_once` param `increase` : type {type(increase)}'
+                  f', in method `run_once` param `increase` : type {type(increase)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1233,7 +1210,7 @@ class Experiment(object):
         if self._round_limit is not None and self._round_current >= self._round_limit:
             if increase is True:
                 logger.debug(f'Auto increasing total rounds for experiment from {self._round_limit} '
-                        f'to {self._round_current + 1}')
+                             f'to {self._round_current + 1}')
                 self._round_limit = self._round_current + 1
             else:
                 logger.warning(f'Round limit of {self._round_limit} was reached, do nothing')
@@ -1243,7 +1220,7 @@ class Experiment(object):
         # self.{_node_selection_strategy,_job} exist but may be None
 
         # check pre-requisites are met for running a round
-        #for component in (self._node_selection_strategy, self._job):
+        # for component in (self._node_selection_strategy, self._job):
         if self._node_selection_strategy is None:
             msg = ErrorNumbers.FB411.value + f', missing `node_selection_strategy`'
             logger.critical(msg)
@@ -1271,7 +1248,7 @@ class Experiment(object):
         # write results of the aggregated model in a temp file
         aggregated_params_path = self._job.update_parameters(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
-            f'in {aggregated_params_path}')
+                    f'in {aggregated_params_path}')
 
         self._aggregated_params[self._round_current] = {'params': aggregated_params,
                                                         'params_path': aggregated_params_path}
@@ -1280,7 +1257,6 @@ class Experiment(object):
         if self._save_breakpoints:
             self.breakpoint()
         return 1
-
 
     @exp_exceptions
     def run(self, rounds: Union[int, None] = None, increase: bool = False) -> int:
@@ -1323,21 +1299,21 @@ class Experiment(object):
         elif isinstance(rounds, int):
             if rounds < 1:
                 msg = ErrorNumbers.FB410.value + \
-                    f', in method `run` param `rounds` : value {rounds}'
+                      f', in method `run` param `rounds` : value {rounds}'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
         else:
             # bad type
             msg = ErrorNumbers.FB410.value + \
-                f', in method `run` param `rounds` : type {type(rounds)}'
+                  f', in method `run` param `rounds` : type {type(rounds)}'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg) 
-        # check increase is a boolean
+            raise FedbiomedExperimentError(msg)
+            # check increase is a boolean
         if not isinstance(increase, bool):
             msg = ErrorNumbers.FB410.value + \
-                f', in method `run` param `increase` : type {type(increase)}'
+                  f', in method `run` param `increase` : type {type(increase)}'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)               
+            raise FedbiomedExperimentError(msg)
 
         # compute number of rounds to run + updated rounds limit
         if rounds is None:
@@ -1347,12 +1323,12 @@ class Experiment(object):
                 if rounds == 0:
                     # limit already reached
                     logger.warning(f'Round limit of {self._round_limit} already reached '
-                        'for this experiment, do nothing.')
+                                   'for this experiment, do nothing.')
                     return 0
             else:
                 # cannot run if no number of rounds given and no round limit exists
                 logger.warning('Cannot run, please specify a number of `rounds` to run or '
-                    'set a `round_limit` to the experiment')
+                               'set a `round_limit` to the experiment')
                 return 0
 
         else:
@@ -1362,35 +1338,34 @@ class Experiment(object):
                     if increase:
                         # dont change rounds, but extend self._round_limit as necessary
                         logger.debug(f'Auto increasing total rounds for experiment from {self._round_limit} '
-                            f'to {self._round_current + rounds}')
+                                     f'to {self._round_current + rounds}')
                         self._round_limit = self._round_current + rounds
                     else:
-                        new_rounds = self._round_limit - self._round_current 
-                        if new_rounds ==0:
+                        new_rounds = self._round_limit - self._round_current
+                        if new_rounds == 0:
                             # limit already reached
                             logger.warning(f'Round limit of {self._round_limit} already reached '
-                                'for this experiment, do nothing.')
+                                           'for this experiment, do nothing.')
                             return 0
                         else:
                             # reduce the number of rounds to run in the experiment
                             logger.warning(f'Limit of {self._round_limit} rounds for the experiment '
-                                f'will be reached, reducing the number of rounds for this '
-                                f'run from {rounds} to {new_rounds}')
-                            rounds = new_rounds           
+                                           f'will be reached, reducing the number of rounds for this '
+                                           f'run from {rounds} to {new_rounds}')
+                            rounds = new_rounds
 
-        # run the rounds
-        # - at this point `rounds` is an int > 0 (not None)
+                            # run the rounds
+        # At this point `rounds` is an int > 0 (not None)
         for _ in range(rounds):
             increment = self.run_once(increase=False)
             if increment == 0:
                 # should not happen
                 msg = ErrorNumbers.FB400.value + \
-                    f', in method `run` method `run_once` returns {increment}'
+                      f', in method `run` method `run_once` returns {increment}'
                 logger.critical(msg)
-                raise FedbiomedExperimentError(msg) 
+                raise FedbiomedExperimentError(msg)
 
         return rounds
-
 
     # Model checking functions -------------------------------------------------------------------
 
@@ -1412,7 +1387,7 @@ class Experiment(object):
         if not isinstance(display, bool):
             # bad type
             msg = ErrorNumbers.FB410.value + \
-                f', in method `model_file` param `display` : type {type(display)}'
+                  f', in method `model_file` param `display` : type {type(display)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1420,7 +1395,7 @@ class Experiment(object):
         if self._job is None:
             # cannot check model file if job not defined
             msg = ErrorNumbers.FB412.value + \
-                f', in method `model_file` : no `job` defined for experiment'
+                  f', in method `model_file` : no `job` defined for experiment'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1436,12 +1411,11 @@ class Experiment(object):
         except OSError as e:
             # cannot read model file content
             msg = ErrorNumbers.FB412.value + \
-                f', in method `model_file` : error when reading model file - {e}'
+                  f', in method `model_file` : error when reading model file - {e}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
         return self._job.model_file
-
 
     # TODO: change format of returned data (during experiment results refactor ?)
     # a properly defined structure/class instead of the generic responses
@@ -1460,7 +1434,7 @@ class Experiment(object):
         if self._job is None:
             # cannot check model status if job not defined
             msg = ErrorNumbers.FB412.value + \
-                f', in method `check_model_status` : no `job` defined for experiment'
+                  f', in method `check_model_status` : no `job` defined for experiment'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1468,7 +1442,6 @@ class Experiment(object):
         responses = self._job.check_model_is_approved_by_nodes()
 
         return responses
-
 
     # Breakpoint functions ----------------------------------------------------------------
 
@@ -1502,27 +1475,26 @@ class Experiment(object):
         # need to have run at least 1 round to save a breakpoint
         if self._round_current < 1:
             msg = ErrorNumbers.FB413.value + \
-                f' - need to run at least 1 before saving a breakpoint'
+                  f' - need to run at least 1 before saving a breakpoint'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         elif self._fds is None:
             msg = ErrorNumbers.FB413.value + \
-                f' - need to define `training_data` for saving a breakpoint'
+                  f' - need to define `training_data` for saving a breakpoint'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         elif self._node_selection_strategy is None:
             msg = ErrorNumbers.FB413.value + \
-                f' - need to define `strategy` for saving a breakpoint'
+                  f' - need to define `strategy` for saving a breakpoint'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)  
+            raise FedbiomedExperimentError(msg)
         elif self._job is None:
             msg = ErrorNumbers.FB413.value + \
-                f' - need to define `job` for saving a breakpoint'
+                  f' - need to define `job` for saving a breakpoint'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)        
+            raise FedbiomedExperimentError(msg)
 
-
-        # conditions are met, save breakpoint
+            # conditions are met, save breakpoint
         breakpoint_path, breakpoint_file_name = \
             choose_bkpt_file(self._experimentation_folder, self._round_current - 1)
 
@@ -1568,8 +1540,7 @@ class Experiment(object):
             # - see json.dump() documentation for documented errors for this call
             msg = ErrorNumbers.FB413.value + f' - save failed with message {str(e)}'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg) 
-
+            raise FedbiomedExperimentError(msg)
 
     @classmethod
     @exp_exceptions
@@ -1598,7 +1569,7 @@ class Experiment(object):
         # check parameters type
         if not isinstance(breakpoint_folder_path, str) and breakpoint_folder_path is not None:
             msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
-                f'`breakpoint_folder_path` has bad type {type(breakpoint_folder_path)}'
+                  f'`breakpoint_folder_path` has bad type {type(breakpoint_folder_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1612,12 +1583,12 @@ class Experiment(object):
         except (json.JSONDecodeError, OSError) as e:
             # OSError: heuristic for catching file access issues
             msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
-                f'reading breakpoint file failed with message {str(e)}'
+                  f'reading breakpoint file failed with message {str(e)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         if not isinstance(saved_state, dict):
             msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
-                f'breakpoint file seems corrupted. Type should be `dict` not {type(saved_state)}'
+                  f'breakpoint file seems corrupted. Type should be `dict` not {type(saved_state)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1655,11 +1626,11 @@ class Experiment(object):
         # ------- changing `Experiment` attributes -------
         loaded_exp._set_round_current(saved_state.get('round_current'))
 
-        #TODO: checks when loading parameters
+        # TODO: checks when loading parameters
         model_instance = loaded_exp.model_instance()
         if model_instance is None:
             msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
-                f'breakpoint file seems corrupted, `model_instance` is None'
+                  f'breakpoint file seems corrupted, `model_instance` is None'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         else:
@@ -1674,7 +1645,6 @@ class Experiment(object):
 
         logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp
-
 
     @staticmethod
     @exp_exceptions
@@ -1696,29 +1666,28 @@ class Experiment(object):
         # check arguments type, though is should have been done before
         if not isinstance(aggregated_params_init, dict):
             msg = ErrorNumbers.FB413.value + f' - save failed. ' + \
-                f'Bad type for aggregated params, should be `dict` not {type(aggregated_params_init)}'
+                  f'Bad type for aggregated params, should be `dict` not {type(aggregated_params_init)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         if not isinstance(breakpoint_path, str):
             msg = ErrorNumbers.FB413.value + f' - save failed. ' + \
-                f'Bad type for breakpoint path, should be `str` not {type(breakpoint_path)}'
+                  f'Bad type for breakpoint path, should be `str` not {type(breakpoint_path)}'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)           
+            raise FedbiomedExperimentError(msg)
 
         aggregated_params = {}
         for key, value in aggregated_params_init.items():
             if not isinstance(value, dict):
                 msg = ErrorNumbers.FB413.value + f' - save failed. ' + \
-                    f'Bad type for aggregated params item {str(key)}, ' + \
-                    f'should be `dict` not {type(value)}'
+                      f'Bad type for aggregated params item {str(key)}, ' + \
+                      f'should be `dict` not {type(value)}'
                 logger.critical(msg)
-                raise FedbiomedExperimentError(msg)                
+                raise FedbiomedExperimentError(msg)
             params_path = create_unique_file_link(breakpoint_path,
                                                   value.get('params_path'))
             aggregated_params[key] = {'params_path': params_path}
 
         return aggregated_params
-
 
     @staticmethod
     @exp_exceptions
@@ -1739,17 +1708,17 @@ class Experiment(object):
         # check arguments type
         if not isinstance(aggregated_params, dict):
             msg = ErrorNumbers.FB413.value + f' - load failed. ' + \
-                f'Bad type for aggregated params, should be `dict` not {type(aggregated_params)}'
+                  f'Bad type for aggregated params, should be `dict` not {type(aggregated_params)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         if not callable(func_load_params):
             msg = ErrorNumbers.FB413.value + f' - load failed. ' + \
-                f'Bad type for aggregated params loader function, ' + \
-                f'should be `Callable` not {type(func_load_params)}'
+                  f'Bad type for aggregated params loader function, ' + \
+                  f'should be `Callable` not {type(func_load_params)}'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)        
+            raise FedbiomedExperimentError(msg)
 
-        # needed for iteration on dict for renaming keys
+            # needed for iteration on dict for renaming keys
         keys = [key for key in aggregated_params.keys()]
         # JSON converted all keys from int to string, need to revert
         try:
@@ -1757,7 +1726,7 @@ class Experiment(object):
                 aggregated_params[int(key)] = aggregated_params.pop(key)
         except (TypeError, ValueError) as e:
             msg = ErrorNumbers.FB413.value + f' - load failed. ' + \
-                f'Bad key {str(key)} in aggregated params, should be convertible to int'
+                  f'Bad key {str(key)} in aggregated params, should be convertible to int'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1766,7 +1735,6 @@ class Experiment(object):
             # errors should be handled in training plan loader function
 
         return aggregated_params
-
 
     # TODO: factorize code with Job and node
     @staticmethod
@@ -1789,8 +1757,8 @@ class Experiment(object):
         # check `args` type
         if not isinstance(args, dict):
             msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
-                f'breakpoint file seems corrupted. Bad type {type(args)} for object, ' + \
-                f'should be a `dict`'
+                  f'breakpoint file seems corrupted. Bad type {type(args)} for object, ' + \
+                  f'should be a `dict`'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1809,8 +1777,8 @@ class Experiment(object):
             # SyntaxError : expression cannot be exec()'ed
             # TypeError : module_path or module_class are not strings
             msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
-                f'breakpoint file seems corrupted. Module import for class {str(module_class)} ' + \
-                f'fails with message {str(e)}'
+                  f'breakpoint file seems corrupted. Module import for class {str(module_class)} ' + \
+                  f'fails with message {str(e)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1821,8 +1789,8 @@ class Experiment(object):
             # can we restrict the type of exception ? difficult as
             # it may be SyntaxError, TypeError, NameError, ValueError, ArithmeticError, etc.
             msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
-                f'breakpoint file seems corrupted. Evaluating class {str(module_class)} ' + \
-                f'fails with message {str(e)}'
+                  f'breakpoint file seems corrupted. Evaluating class {str(module_class)} ' + \
+                  f'fails with message {str(e)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1837,8 +1805,8 @@ class Experiment(object):
             # it may be SyntaxError, TypeError, NameError, ValueError,
             # ArithmeticError, AttributeError, etc.
             msg = ErrorNumbers.FB413.value + f' - load failed, ' + \
-                f'breakpoint file seems corrupted. Instantiating object of class ' + \
-                f'{str(module_class)} fails with message {str(e)}'
+                  f'breakpoint file seems corrupted. Instantiating object of class ' + \
+                  f'{str(module_class)} fails with message {str(e)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
