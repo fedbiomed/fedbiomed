@@ -38,7 +38,6 @@ training_plans = (TorchTrainingPlan, SGDSkLearnModel)
 TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SGDSkLearnModel)
 Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SGDSkLearnModel])
 
-
 # Exception handling at top lever for researcher ---------------------------------------------
 
 def exp_exceptions(function):
@@ -459,12 +458,12 @@ class Experiment(object):
             - tags (Union[List[str], None])
         """
         if isinstance(tags, list):
-            self._tags = tags
             for tag in tags:
                 if not isinstance(tag, str):
                     msg = ErrorNumbers.FB410.value + f' `tags` : list of {type(tag)}'
                     logger.critical(msg)
                     raise FedbiomedExperimentError(msg)
+            self._tags = tags
         elif isinstance(tags, str):
             self._tags = [tags]
         elif tags is None:
