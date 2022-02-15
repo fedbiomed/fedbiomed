@@ -787,7 +787,9 @@ class TestDataManager(unittest.TestCase):
         # (for the other modes) are raised 
         with self.assertRaises(NotImplementedError):
             self.data_manager.load_data(tags, mode='torch_tensor')
+        with self.assertRaises(NotImplementedError):
             self.data_manager.load_data(tags, mode='numpy')
+        with self.assertRaises(NotImplementedError):
             self.data_manager.load_data(tags, mode='pandas')
         
     def test_data_manager_26_load_data_exception(self):
