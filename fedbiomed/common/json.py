@@ -19,12 +19,7 @@ def deserialize_msg(msg: Union[str, bytes]) -> dict:
     :param msg: message in JSON format but encoded as string or bytes
     :return: parsed message as python dictionary.
     """
-    try:
-        decode = json.loads(msg)
-    except decoder.JSONDecodeError:
-        msg = ErrorNumbers.FB300.value + ": error in json content"
-        logger.critical(msg)
-        raise FedbiomedJsonError(msg)
+    decode = json.loads(msg)
 
     # errnum is present in ErrorMessage and is an Enum
     # which need to be deserialized
