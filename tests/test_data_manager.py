@@ -1,8 +1,7 @@
 # Managing NODE, RESEARCHER environ mock before running tests
 
 import copy
-from re import search
-from typing import Dict, List
+from typing import List
 
 from unittest import mock
 
@@ -27,12 +26,13 @@ from torch.utils.data import Dataset
 
 from tests.testsupport.fake_uuid import FakeUuid
 
+
 print(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))))
 
 
 class TestDataManager(unittest.TestCase):
     """
-    Unit Tests for DataManager class using 
+    Unit Tests for DataManager class.
     """
     class FakePytorchDataset(Dataset):
         """
@@ -50,71 +50,67 @@ class TestDataManager(unittest.TestCase):
         
         def __getitem__(self, idx):
             return self._data[idx], self._labels[idx]
-     
-    @classmethod
-    def setUpClass(cls) -> None:
-        
-        # creating a fake pytorch dataset:
-        fake_dataset_shape = (12_345, 10, 20, 30)
-        fake_data = torch.rand(fake_dataset_shape)
-        fake_labels = torch.randint(0,2, (fake_dataset_shape[0],))
-        fake_dataset = TestDataManager.FakePytorchDataset(fake_data, fake_labels)
-        cls.fake_dataset_shape = fake_dataset_shape
-        cls.fake_dataset = fake_dataset  # we might need a fake dataset 
-        # for testing
-        
-        # dummy_data for pandas dataframe stuff
-        dummy_data = {
-                    'integers': [1, 2, 3, 4, 5, 6, 7, 8, 9, 0],
-                    'floats': [1.1, 1.2, 1.3, 1.4, 1.5, 2.6, 2.7, 1.8, 2.9, 1.0],
-                    'chars': ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
-                    'booleans': [True, False, True, False, True] * 2
-                     }
-        cls.dummy_data = dummy_data
 
     # Setup data manager
     def setUp(self):
         # run this at the begining of each tests
 
-        # get the path of the test data
+        # get the path of the test data folder (containing real data 
+        # for tests)
         self.testdir = os.path.join(
             os.path.dirname(
                 os.path.abspath(inspect.getfile(inspect.currentframe()))
-                ),
-            "test-data"
-            )
+                    ),
+                     "test-data")
 
+        # create an instance of DataManager
         self.data_manager = DataManager()
         
         # fake arguments
+        # fake_database attribute fakes the resut of query over 
+        # a database (eg `tinydb.queries.Query.all`)
         self.fake_database = {"1": {"name": "MNIST",
-                               "data_type": "default",
-                               "tags": ["#MNIST", "#dataset"],
-                               "description": "MNIST database",
-                               "shape": [60000, 1, 28, 28],
-                               "path": "/path/to/MNIST", 
-                               "dataset_id": "dataset_1234",
-                               "dtypes": []},
-                           "2": {"name": "test",
-                                 "data_type": "csv",
-                                 "tags": ["some", "tags"],
-                                 "description": "test",
-                                 "shape": [1000,2],
-                                 "path": "/path/to/my/data",
-                                 "dataset_id": "dataset_4567",
-                                 "dtypes": ["float64", "int64"]}}
+                                    "data_type": "default",
+                                    "tags": ["#MNIST", "#dataset"],
+                                    "description": "MNIST database",
+                                    "shape": [60000, 1, 28, 28],
+                                    "path": "/path/to/MNIST", 
+                                    "dataset_id": "dataset_1234",
+                                    "dtypes": []},
+                              "2": {"name": "test",
+                                    "data_type": "csv",
+                                    "tags": ["some", "tags"],
+                                    "description": "test",
+                                    "shape": [1000, 2],
+                                    "path": "/path/to/my/data",
+                                    "dataset_id": "dataset_4567",
+                                    "dtypes": ["float64", "int64"]}
+                              }
+        
+        # creating a fake pytorch dataset:
+        self.fake_dataset_shape = (12_345, 10, 20, 30)
+        fake_data = torch.rand(self.fake_dataset_shape)
+        fake_labels = torch.randint(0, 2, (self.fake_dataset_shape[0],))
+        self.fake_dataset = TestDataManager.FakePytorchDataset(fake_data, fake_labels)
 
+        
+        # dummy_data for pandas dataframe stuff
+        self.dummy_data = {'integers': [1, 2, 3, 4, 5, 6, 7, 8, 9, 0],
+                           'floats': [1.1, 1.2, 1.3, 1.4, 1.5, 2.6, 2.7, 1.8, 2.9, 1.0],
+                           'chars': ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
+                           'booleans': [True, False, True, False, True] * 2
+                           }
+        
     # after the tests
     def tearDown(self):
         self.data_manager.db.close()
         os.remove(environ['DB_PATH'])
-        pass
 
     @patch('tinydb.table.Table.clear_cache')
-    def test_data_manager_01_search_by_id(self,
-                                          tinydb_cache_patch,):
-        
-        """tests `search_by_id` method with a non existing id
+    def test_data_manager_01_search_by_id_non_existing_dataset_id(self,
+                                                                  tinydb_cache_patch,):
+        """
+        Tests `search_by_id` method with a non existing id
         """
         tinydb_cache_patch.return_value = None
         # action (should retrun an empty array)
@@ -131,7 +127,7 @@ class TestDataManager(unittest.TestCase):
         """Simulates a query with a correct dataset id by patching Query and 
         Table.search object/methods"""
         # arguments
-        search_results = [{'dataset_id':'datset_id_1234'}]
+        search_results = [{'dataset_id': 'datset_id_1234'}]
         dataset_id = 'dataset_id_1234'
         # patches
         tinydb_cache_patch.return_value = None
@@ -146,7 +142,8 @@ class TestDataManager(unittest.TestCase):
         tinydb_search_patch.assert_called_once()
         
     def test_data_manager_03_search_by_tags(self):
-        """tests `search_by_tags` with a non existing tags
+        """
+        tests `search_by_tags` method with non existing tags
         """
         res = self.data_manager.search_by_tags('dataset_id_1234')
         self.assertEqual(res, [])
@@ -182,15 +179,15 @@ class TestDataManager(unittest.TestCase):
         the csv file 'tata-header.csv' (containing a header)
         """
         # action
-        res = self.data_manager.read_csv(os.path.join(
-                                                    self.testdir,
-                                                    "csv",
-                                                    "tata-header.csv"
-                                                    )
-                                         )
+        res = self.data_manager.read_csv(
+            os.path.join(self.testdir,
+                         "csv",
+                         "tata-header.csv"
+                         )
+                    )
         # checks if the file has been correctly parsed
         self.assertIsInstance(res, pd.DataFrame)
-        self.assertEqual(list(res.columns), ['Titi','Tata','Toto'])
+        self.assertEqual(list(res.columns), ['Titi', 'Tata', 'Toto'])
         
     def test_data_manager_06_red_csv_without_header(self):
         """Tests if `read_csv` method is able to identify and parse 
@@ -319,8 +316,7 @@ class TestDataManager(unittest.TestCase):
  
         # arguments
         dataset_path = os.path.join(self.testdir,
-                                    "images"
-                                    )
+                                    "images")
 
         # action
         res_dataset_shape = self.data_manager.load_images_dataset(dataset_path,
@@ -333,9 +329,10 @@ class TestDataManager(unittest.TestCase):
     def test_data_manager_14_load_csv_dataset(self, read_csv_patch):
         """Tests `load_csv_method` (normal case scenario)"""
         
-        # patcher
+        # patchers
         dummy_data = pd.DataFrame(self.dummy_data)
         read_csv_patch.return_value = dummy_data
+        
         # arguments
         database_path = '/path/to/MNIST/dataset'
         
@@ -514,8 +511,6 @@ class TestDataManager(unittest.TestCase):
         dataset_tags = ['some', 'tags']
         search_result = [doc1]
         
-        fake_database = copy.deepcopy(self.fake_database)
-        
         # side effect functions
         
         def db_remove_side_effect(doc_ids: List[int]):
@@ -525,7 +520,7 @@ class TestDataManager(unittest.TestCase):
             doc_ids (List[int]): list of doc ids
             """
             for doc_id in doc_ids:
-                fake_database.pop(str(doc_id))
+                self.fake_database.pop(str(doc_id))
                 
         
         # patchers
@@ -538,7 +533,7 @@ class TestDataManager(unittest.TestCase):
         # checks
         search_by_tags_patch.assert_called_once_with(dataset_tags)
         db_remove_patch.assert_called_once_with(doc_ids=[1])
-        self.assertFalse(fake_database.get('1', False))
+        self.assertFalse(self.fake_database.get('1', False))
 
     @patch('tinydb.table.Table.update')
     @patch('tinydb.queries.Query.all')
@@ -637,7 +632,7 @@ class TestDataManager(unittest.TestCase):
      
     @patch('fedbiomed.node.data_manager.DataManager.load_default_database')   
     def test_data_manager_22_load_as_dataloader_default(self,
-                                                        load_as_dataloader_patch):
+                                                        load_default_database_patch):
         """Tests `load_as_dataloader` method where  the input
         dataset is the default dataset"""
         # arguments 
@@ -646,13 +641,13 @@ class TestDataManager(unittest.TestCase):
         fake_default_dataset = self.fake_database['1']
         
         # patchers
-        load_as_dataloader_patch.return_value = fake_default_dataset
+        load_default_database_patch.return_value = fake_default_dataset
         
         # action
         res = self.data_manager.load_as_dataloader(fake_default_dataset)
         
         # checks
-        load_as_dataloader_patch.assert_called_once_with(
+        load_default_database_patch.assert_called_once_with(
                             name=fake_default_dataset.get('name'),
                             path=fake_default_dataset.get('path'),
                             as_dataset=True)
@@ -761,6 +756,7 @@ class TestDataManager(unittest.TestCase):
                                               os_isfile_patch,
                                               os_isdir_patch,
                                               load_as_dataloader_patch):
+        """Tests `load_data` method, in the cae where a folder is loaded"""
         # arguments
         tags = ['some', 'tags']
         search_by_tags_query = {'dataset_id': 'datset_id_1234', 
