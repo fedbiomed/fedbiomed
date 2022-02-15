@@ -13,7 +13,7 @@ from torchvision import transforms
 from fedbiomed.node.environ import environ
 
 
-class DataManager: # should this be in camelcase (smthg like DataManager)?
+class DataManager:
     """Interface over TinyDB database.
     Facility fot storing, retrieving data and get data info
     on the data stored into TinyDB database.
@@ -105,7 +105,7 @@ class DataManager: # should this be in camelcase (smthg like DataManager)?
                               name: str,
                               path: str,
                               as_dataset: bool = False) -> Union[List[int],
-                                                                torch.utils.data.Dataset]:
+                                                                 torch.utils.data.Dataset]:
         """Loads a default dataset. Currently, only MNIST dataset
         is used as the default dataset.
 
@@ -199,7 +199,7 @@ class DataManager: # should this be in camelcase (smthg like DataManager)?
         # Check that there are not existing databases with the same name
         assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
 
-        dtypes = [] # empty list for Image datasets
+        dtypes = []  # empty list for Image datasets
         data_types = ['csv', 'default', 'images']
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
@@ -326,10 +326,10 @@ class DataManager: # should this be in camelcase (smthg like DataManager)?
                 return self.load_as_dataloader(dataset)
             elif mode == 'torch_tensor':
                 raise NotImplementedError('We are working on this'
-                        ' implementation!')
+                                          ' implementation!')
             elif mode == 'numpy':
                 raise NotImplementedError('We are working on this'
-                        'implementation!')
+                                          'implementation!')
             else:
                 raise NotImplementedError(f'Mode `{mode}` has not been'
-                        ' implemented on this version.')
+                                          ' implemented on this version.')
