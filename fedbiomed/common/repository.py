@@ -64,8 +64,22 @@ class Repository:
         try:
             _res = requests.post(self.uploads_url, files=files)
         except requests.Timeout:
-            pass
+            # request exceeded timeout set 
+            _msg = ErrorNumbers.FB201 + ' : requests time exceed Timeout'
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        except requests.TooManyRedirects:
+            # request had too any redirections
+            _msg = ErrorNumbers.FB201 + ' : requests time exceed number of redirection'
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        except requests.URLRequired:
+            # request has been badly formatted
+            _msg = ErrorNumbers.FB603.value + f" : URL not specified when uploading file {filename}"
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
         except requests.ConnectionError:
+            # an error during connection has occured
             _msg = ErrorNumbers.FB201.value + f' when uploading file {filename},' 
             ' name or service not known'
             logger.error(_msg)
@@ -80,21 +94,27 @@ class Repository:
             raise FedbiomedRepositoryError(_msg)
         
         # checking status of HTTP request
-        if _res.status_code == 404:
-            # handling case where status code of HTTP request equals 404
-            _msg = ErrorNumbers.FB202.value + f' when uploading file {filename}'
+        try:
+            # `raise_for_status` method raises an HTTPError if the status code 
+            # is 4xx or 500
+            _res.raise_for_status()
+        except requests.HTTPError as err:
+            if _res.status_code == 404:
+                # handling case where status code of HTTP request equals 404
+                _msg = ErrorNumbers.FB202.value + f' when uploading file {filename}'
+                
+            else:
+                # handling case where status code of HTTP request is 4xx or 500
+                _msg = ErrorNumbers.FB203.value + f' when uploading file {filename}'
+                f'(status code: {_res.status_code})'
+            
             logger.error(_msg)
+            logger.debug('Details of exception: ' + str(err))
             raise FedbiomedRepositoryError(_msg)
-        
-        elif _res.status_code  // 100 == 4 or _res.status_code == 500:
-            # handling case where status code of HTTP request is 4xx or 500
-            _msg = ErrorNumbers.FB203.value + f' when uploading file {filename}'
-            logger.error(_msg)
-            raise FedbiomedRepositoryError(_msg)
-        
+
         else:
             logger.debug(f'upload (HTTP POST request) of file {filename} successful,' 
-                         ' with status code {_res.status_code}')
+                         f' with status code {_res.status_code}')
             
         # finally, we are deserializing message from JSON
         try:

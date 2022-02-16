@@ -75,8 +75,8 @@ class ErrorNumbers(_BaseEnum):
 
     FB200 = "FB200: undetermined repository server error"
     FB201 = "FB201: server not reachable"
-    FB202 = "FB202: server return 404 error"
-    FB203 = "FB203: server return other 4xx or 500 error"
+    FB202 = "FB202: server returns 404 error"
+    FB203 = "FB203: server returns other 4xx or 500 error"
 
     # application error on node
 
