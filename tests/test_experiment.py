@@ -874,9 +874,127 @@ class TestExperiment(unittest.TestCase):
                          'Round limit has not been increased after running run_once with '
                          'incrrease=True')
 
-    def test_experiment_18_run(self):
+    @patch('fedbiomed.researcher.experiment.Experiment.run_once')
+    def test_experiment_18_run(self, mock_exp_run_once):
         """ Testing run method of Experiment class """
-        pass
+
+        def run_once_side_effect(increase):
+            inc = self.test_exp.round_current() + 1
+            self.test_exp._set_round_current(inc)
+            return 1
+
+        mock_exp_run_once.side_effect = run_once_side_effect
+
+        # Test if rounds is not `int`
+        with self.assertRaises(SystemExit):
+            self.test_exp.run(rounds='not-int')
+
+        # Test if round is less than 1
+        with self.assertRaises(SystemExit):
+            self.test_exp.run(rounds=0)
+
+        # Test if increase is not bool
+        with self.assertRaises(SystemExit):
+            self.test_exp.run(rounds=2, increase='not-bool')
+
+        # Test run() without passing any argument
+        expected_rounds = self.test_exp.round_limit()
+        print(expected_rounds)
+        rounds = self.test_exp.run()
+        self.assertEqual(rounds, expected_rounds, 'Rounds  result of run() function do not match with round limit')
+
+        # Test run if all rounds has been completed
+        # (round hsa been completed in the previous exp.run())
+        self.mock_logger_warning.reset_mock()
+        rounds = self.test_exp.run()
+        self.assertEqual(rounds, 0, f'run() returned {rounds} where the expected value is 0')
+        # Logger warning should be called once to inform user about the round
+        # limit has been reached
+        self.mock_logger_warning.assert_called_once()
+
+        # Test run by passing rounds lees than round limit
+        # Since increase is True by default round_limit will increase
+        round_limit_before = self.test_exp.round_limit()
+        expected_rounds = 2
+        rounds = self.test_exp.run(rounds=expected_rounds, increase=True)
+        self.assertEqual(rounds, 2, 'Rounds  result of run() function do not match with round limit')
+        self.assertEqual(self.test_exp.round_limit(),
+                         round_limit_before + expected_rounds,
+                         'run() function did not update round limit when round limit is reach and increase is True')
+
+        # Test run by passing rounds more than round_limit but with increase=False
+        self.mock_logger_warning.reset_mock()
+        expected_rounds = self.test_exp.round_limit() + 1
+        rounds = self.test_exp.run(rounds=expected_rounds, increase=False)
+        self.assertEqual(rounds, 0, f'run() returned {rounds} where the expected value is 0')
+        self.mock_logger_warning.assert_called_once()
+
+        # Test reducing the number of rounds to run in the experiment
+        self.mock_logger_warning.reset_mock()
+        self.test_exp.set_round_limit(self.test_exp.round_limit() + 1)
+        expected_rounds = self.test_exp.round_limit() + 1
+        rounds = self.test_exp.run(rounds=expected_rounds, increase=False)
+        self.assertEqual(rounds, 1, f'run() returned {rounds} where the expected value is 0')
+        # Logger.warning will inform user about the number of rounds will be reduced
+        self.mock_logger_warning.assert_called_once()
+
+        # Test if _round_limit is not int
+        self.test_exp.set_round_limit(None)
+        self.mock_logger_warning.reset_mock()
+        rounds = self.test_exp.run()
+        self.assertEqual(rounds, 0, f'run() returned {rounds} where the expected value is 0')
+        # Logger warning should be called once to inform user about the round
+        # limit should be set
+        self.mock_logger_warning.assert_called_once()
+
+        # Test the case where run_once returns 0
+        mock_exp_run_once.side_effect = None
+        mock_exp_run_once.return_value = 0
+        with self.assertRaises(SystemExit):
+            self.test_exp.run(rounds=1)
+
+    @patch('builtins.open')
+    @patch('fedbiomed.researcher.job.Job.__init__', return_value=None)
+    @patch('fedbiomed.researcher.job.Job.model_file', new_callable=PropertyMock)
+    def test_experiment_19_model_file(self,
+                                      mock_model_file,
+                                      mock_job_init,
+                                      mock_open):
+        """ Testing getter model_file of the experiment class """
+
+        m_open = MagicMock()
+        m_open.read = MagicMock(return_value=None)
+        m_open.close.return_value = None
+
+        mock_open.return_value = m_open
+        mock_model_file.return_value = 'path/to/model'
+
+        # Test if ._job is not defined
+        with self.assertRaises(SystemExit):
+            self.test_exp.model_file()
+
+        # Test if display is not bool
+        with self.assertRaises(SystemExit):
+            self.test_exp.model_file(display='not-bool')
+
+        # Test when display is false
+        self.test_exp.set_model_class(TestExperiment.FakeModelTorch)
+        self.test_exp.set_job()
+        result = self.test_exp.model_file(display=False)
+        self.assertEqual(result,
+                         'path/to/model',
+                         f'model_file() returned {result} where it should have returned `path/to/model`')
+
+        # Test when display is true
+        result = self.test_exp.model_file(display=True)
+        self.assertEqual(result,
+                         'path/to/model',
+                         f'model_file() returned {result} where it should have returned `path/to/model`')
+
+        # Test if `open()` raises OSError
+        mock_open.side_effect = OSError
+        with self.assertRaises(SystemExit):
+            result = self.test_exp.model_file(display=True)
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
     @patch('fedbiomed.researcher.experiment.create_unique_link')
