@@ -801,7 +801,6 @@ class Experiment(object):
         elif isinstance(experimentation_folder, str):
             sanitized_folder = sanitize_filename(experimentation_folder, platform='auto')
             self._experimentation_folder = create_exp_folder(sanitized_folder)
-
             if (sanitized_folder != experimentation_folder):
                 logger.warning(f'`experimentation_folder` was sanitized from '
                                f'{experimentation_folder} to {sanitized_folder}')

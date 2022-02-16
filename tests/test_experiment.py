@@ -14,7 +14,10 @@ import os
 import sys
 import shutil
 import json
+import pathvalidate
+import fedbiomed.researcher.experiment
 
+from fedbiomed.common.torchnn import TorchTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.experiment import Experiment, exp_exceptions
@@ -30,6 +33,13 @@ from tests.testsupport.fake_training_plan import FakeModel
 
 
 class TestExperiment(unittest.TestCase):
+    class ZMQInteractiveShell:
+        def __call__(self):
+            pass
+
+    # For testing model_class setter of Experiment
+    class FakeModelTorch(TorchTrainingPlan):
+        pass
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -65,8 +75,6 @@ class TestExperiment(unittest.TestCase):
         self.patchers = [
             patch('fedbiomed.researcher.datasets.FederatedDataSet',
                   FederatedDataSetMock),
-            patch('fedbiomed.researcher.experiment.create_exp_folder',
-                  return_value=self.experimentation_folder),
             patch('fedbiomed.researcher.job.Job.__init__',
                   return_value=None),
             patch('fedbiomed.researcher.monitor.Monitor.__init__',
@@ -81,6 +89,8 @@ class TestExperiment(unittest.TestCase):
                   return_value=None)
         ]
 
+        self.patcher_cr_folder = patch('fedbiomed.researcher.experiment.create_exp_folder',
+                                       return_value=self.experimentation_folder)
         self.patcher_job = patch('fedbiomed.researcher.job.Job.__init__',
                                  MagicMock(return_value=None))
         self.patcher_logger_error = patch('fedbiomed.common.logger.logger.error',
@@ -89,14 +99,19 @@ class TestExperiment(unittest.TestCase):
                                              MagicMock(return_value=None))
         self.patcher_logger_debug = patch('fedbiomed.common.logger.logger.debug',
                                           MagicMock(return_value=None))
+        self.patcher_logger_warning = patch('fedbiomed.common.logger.logger.warning',
+                                            MagicMock(return_value=None))
+
         self.patcher_request_init = patch('fedbiomed.researcher.requests.Requests.__init__',
                                           MagicMock(return_value=None))
         self.patcher_request_search = patch('fedbiomed.researcher.requests.Requests.search',
                                             MagicMock(return_value={}))
 
+        self.mock_create_folder = self.patcher_cr_folder.start()
         self.mock_logger_error = self.patcher_logger_error.start()
         self.mock_logger_critical = self.patcher_logger_critical.start()
         self.mock_logger_debug = self.patcher_logger_debug.start()
+        self.mock_logger_warning = self.patcher_logger_warning.start()
         self.mock_job = self.patcher_job.start()
         self.mock_request_init = self.patcher_request_init.start()
         self.mock_request_search = self.patcher_request_search.start()
@@ -122,12 +137,14 @@ class TestExperiment(unittest.TestCase):
             patcher.stop()
 
         # Stop patchers
+        self.patcher_cr_folder.stop()
         self.patcher_job.stop()
         self.patcher_logger_error.stop()
         self.patcher_logger_critical.stop()
         self.patcher_request_init.stop()
         self.patcher_request_search.stop()
         self.patcher_logger_debug.stop()
+        self.patcher_logger_warning.stop()
 
         if environ['EXPERIMENTS_DIR'] in sys.path:
             sys.path.remove(environ['EXPERIMENTS_DIR'])
@@ -326,6 +343,18 @@ class TestExperiment(unittest.TestCase):
         with self.assertRaises(SystemExit):
             nodes = self.test_exp.set_nodes(nodes_expected)
 
+        # Test raising SilentTerminationError
+        with patch.object(fedbiomed.researcher.experiment, 'get_ipython',
+                          create=True) as m:
+            m.side_effect = TestExperiment.ZMQInteractiveShell
+
+            with self.assertRaises(FedbiomedSilentTerminationError):
+                self.test_exp.set_nodes(nodes_expected)
+
+            nodes_expected = 'tag-1'
+            with self.assertRaises(FedbiomedSilentTerminationError):
+                nodes = self.test_exp.set_nodes(nodes_expected)
+
         # Test set nodes as none
         nodes_expected = None
         nodes = self.test_exp.set_nodes(nodes_expected)
@@ -376,17 +405,17 @@ class TestExperiment(unittest.TestCase):
         """Testing setter for aggregator attribute of Experiment class"""
 
         # Set aggregator with None
-        aggregator = self.test_exp.set_aggregator(aggregator = None)
+        aggregator = self.test_exp.set_aggregator(aggregator=None)
         self.assertIsInstance(aggregator, FedAverage, 'Setter for aggregator did not set proper FedAverage instance')
 
         # Set aggregator with an built object
         agg_expected = FedAverage()
-        aggregator = self.test_exp.set_aggregator(aggregator = agg_expected)
+        aggregator = self.test_exp.set_aggregator(aggregator=agg_expected)
         self.assertEqual(aggregator, agg_expected, 'Setter for aggregator did not set given aggregator object')
 
         # Set aggregator with an instance
         agg_expected = FedAverage
-        aggregator = self.test_exp.set_aggregator(aggregator = agg_expected)
+        aggregator = self.test_exp.set_aggregator(aggregator=agg_expected)
         self.assertIsInstance(aggregator, FedAverage, 'Setter for aggregator did not set given aggregator instance')
 
         # Set aggregator that does not inherits base Aggregator class
@@ -401,7 +430,6 @@ class TestExperiment(unittest.TestCase):
 
     def test_experiment_06_set_strategy(self):
         """Testing setter for node_selection_strategy attribute of Experiment class"""
-
 
         # Test by passing strategy as None
         strategy = self.test_exp.set_strategy(node_selection_strategy=None)
@@ -484,6 +512,108 @@ class TestExperiment(unittest.TestCase):
         rl_expected = -2
         with self.assertRaises(SystemExit):
             self.test_exp.set_round_limit(round_limit=rl_expected)
+
+    def test_experiment_08_private_set_round_current(self):
+        """ Testing private method for setting round current for the experiment """
+
+        # Test raise SystemExit when argument not in valid int type
+        with self.assertRaises(SystemExit):
+            self.test_exp._set_round_current('tot')
+
+        # Test setting round current to negative
+        with self.assertRaises(SystemExit):
+            self.test_exp._set_round_current(-1)
+
+        # Test setting round current more then round limit
+        rc = self.test_exp.round_limit() + 1
+        with self.assertRaises(SystemExit):
+            self.test_exp._set_round_current(rc)
+
+        # Test setting proper round current
+        rcurrent_expected = 2
+        rcurrent = self.test_exp._set_round_current(rcurrent_expected)
+        self.assertEqual(rcurrent, rcurrent_expected, 'Setter for round current did not properly set the current round')
+
+    def test_experiment_09_set_experimentation_folder(self):
+        """ Test setting experimentation folder for the experiment """
+
+        # Test passing None for folder path
+        folder = self.test_exp.set_experimentation_folder(None)
+        self.assertEqual(folder, 'Experiment_101', 'set_experimentation_folder did not properly create folder')
+
+        # create_folder will return `Experiment_101` since it is mocked
+        expected_folder = 'Experiment_101'
+        folder = self.test_exp.set_experimentation_folder(expected_folder)
+        self.assertEqual(folder, expected_folder, 'Folder for experiment is not set correctly')
+
+        # Test raising SystemExit
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_experimentation_folder(12)
+
+        # Test warning
+        with patch.object(fedbiomed.researcher.experiment, 'sanitize_filename') as m:
+            self.mock_logger_warning.reset_mock()
+            self.test_exp.set_experimentation_folder('test')
+            self.mock_logger_warning.assert_called_once()
+
+        # Test debug message when job is not None
+        self.mock_logger_debug.reset_mock()
+        self.test_exp._job = MagicMock(return_value=True)
+        self.test_exp.set_experimentation_folder('12')
+        self.mock_logger_debug.assert_called_once()
+
+    def test_experiment_10_set_model_class(self):
+
+        # Test setting model_class to None
+        model_class = self.test_exp.set_model_class(None)
+        self.assertIsNone(model_class, 'Model class is not set as None')
+
+        # Setting model_class as string
+        mc_expected = 'TestModel'
+        model_class = self.test_exp.set_model_class(mc_expected)
+        self.assertEqual(model_class, mc_expected, 'Model class is not set properly while setting it in `str` type')
+
+        # Setting AttributeError when model path is not defined
+        del self.test_exp._model_path
+        self.test_exp.set_model_class(mc_expected)
+        self.assertEqual(self.test_exp._model_is_defined, False)
+
+        # Back to normal
+        self.test_exp._model_path = None
+
+        # Test by passing class
+        model_class = self.test_exp.set_model_class(TestExperiment.FakeModelTorch)
+        self.assertEqual(model_class, TestExperiment.FakeModelTorch, 'Model class is not set properly while setting it as class')
+
+        # Test by passing class which has no subclass of one of the training plan
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_model_class(FakeModel)
+
+        # Test by passing class when self._model_path is not defined
+        del self.test_exp._model_path
+        model_class = self.test_exp.set_model_class(TestExperiment.FakeModelTorch)
+        self.assertEqual(self.test_exp._model_is_defined, False)
+
+        # Back to normal
+        self.test_exp._model_path = None
+
+        #  Test passing incorrect python identifier
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_model_class('Fake Model')
+
+        # Test passing class built object
+        with self.assertRaises(SystemExit):
+            model_class = self.test_exp.set_model_class(TestExperiment.FakeModelTorch())
+
+        # Test passing class invalid type
+        with self.assertRaises(SystemExit):
+            model_class = self.test_exp.set_model_class(12)
+
+        # Test passing class invalid type
+        with self.assertRaises(SystemExit):
+            model_class = self.test_exp.set_model_class({})
+
+
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
     @patch('fedbiomed.researcher.experiment.create_unique_link')
