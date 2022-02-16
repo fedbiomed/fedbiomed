@@ -108,20 +108,24 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 tags =  ['#MNIST', '#dataset']
 rounds = 2
 
-exp = Experiment(tags=tags,
-                #nodes=None,
-                # 
-                # difference with a notebook : with a python script the `MyTrainingPlan``
-                # contains the model code, so you don't need to use a file (`model_path`)
-                # for passing the model to the experiment
-                model_class=MyTrainingPlan,
-                # model_class=AlterTrainingPlan,
-                # model_path='/path/to/model_file.py',
-                model_args=model_args,
-                training_args=training_args,
-                rounds=rounds,
-                aggregator=FedAverage(),
-                node_selection_strategy=None)
+try:
+    exp = Experiment(tags=tags,
+                     #nodes=None,
+                     #
+                     # difference with a notebook : with a python script the `MyTrainingPlan``
+                     # contains the model code, so you don't need to use a file (`model_path`)
+                     # for passing the model to the experiment
+                     model_class=MyTrainingPlan,
+                     # model_class=AlterTrainingPlan,
+                     # model_path='/path/to/model_file.py',
+                     model_args=model_args,
+                     training_args=training_args,
+                     rounds=rounds,
+                     aggregator=FedAverage(),
+                     node_selection_strategy=None)
+except Exception as e:
+    logger.critical("Error during Experiment() initialisation: "+str(e))
+    sys.exit(-1)
 
 
 # Let's start the experiment.
@@ -144,7 +148,7 @@ except Exception as e:
 print("\nList the training rounds : ", exp.training_replies.keys())
 
 print("\nList the nodes for the last training round and their timings : ")
-round_data = exp.training_replies[rounds - 1].data
+round_data = exp.training_replies[rounds - 1].data()
 for c in range(len(round_data)):
     print("\t- {id} :\
         \n\t\trtime_training={rtraining:.2f} seconds\
@@ -155,7 +159,7 @@ for c in range(len(round_data)):
                 rtotal = round_data[c]['timing']['rtime_total']))
 print('\n')
 
-print(exp.training_replies[rounds - 1].dataframe)
+print(exp.training_replies[rounds - 1].dataframe())
 
 
 # Federated parameters for each round are available in `exp.aggregated_params` (index 0 to (`rounds` - 1) ).
@@ -168,4 +172,3 @@ print("\t- params_path: ", exp.aggregated_params[rounds - 1]['params_path'])
 print("\t- parameter data: ", exp.aggregated_params[rounds - 1]['params'].keys())
 
 # Feel free to run other sample notebooks or try your own models :D
-

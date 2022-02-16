@@ -13,11 +13,13 @@ class FedbiomedError(Exception):
     """
     pass
 
+
 class FedbiomedEnvironError(FedbiomedError):
     """
     Exception specific to the Environ class
     """
     pass
+
 
 class FedbiomedLoggerError(FedbiomedError):
     """
@@ -25,12 +27,22 @@ class FedbiomedLoggerError(FedbiomedError):
     """
     pass
 
+
 class FedbiomedMessageError(FedbiomedError):
     """
     Exception specific to the Message class
     usually a badly formed message
     """
     pass
+
+
+class FedbiomedMessagingError(FedbiomedError):
+    """
+    Exception specific to the Messaging (communication) class
+    usually a problem with the communication framework
+    """
+    pass
+
 
 class FedbiomedStrategyError(FedbiomedError):
     """
@@ -41,6 +53,13 @@ class FedbiomedStrategyError(FedbiomedError):
 
 class FedbiomedTrainingError(FedbiomedError):
     """
-    Exception raises then training (researcher/node) class
+    Exception raised then training fails
+    """
+    pass
+
+
+class FedbiomedResponsesError(FedbiomedError):
+    """
+    Exception specific to Responses class
     """
     pass
