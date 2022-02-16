@@ -2,6 +2,11 @@ import os
 
 import requests  # Python built-in library
 from typing import Dict, Any, Tuple, Text, Union
+from fedbiomed.common.logger import logger
+
+from fedbiomed.common.exceptions import FedbiomedRepositoryError
+from fedbiomed.common.constants import ErrorNumbers
+from json import JSONDecodeError
 
 
 class Repository:
@@ -30,10 +35,76 @@ class Repository:
         Returns:
             res (Dict[str, Any]): the result of the request under JSON
             format.
+        Raises: 
+            FedbiomedRepositoryError: when unable to read the file 'filename'
+            FedbiomedRepositoryError: when POST HTTP request fails or returns
+            a HTTP status 4xx (bad request) or 500 (internal server error)
+            FedbiomedRepositoryError: when unable to deserialize JSON from
+            the request
         """
-        files = {'file': open(filename, 'rb')}
-        res = requests.post(self.uploads_url, files=files)
-        return res.json()
+        # first, we are trying to open the file `filename` and catch
+        # any known exceptions related top `open` builtin function
+        try:
+            files = {'file': open(filename, 'rb')}
+        except FileNotFoundError:
+            _msg = ErrorNumbers.FB603.value + f': File {filename} not found, cannot upload it'
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        except PermissionError:
+            _msg = ErrorNumbers.FB603.value + f': Unable to read {filename} due to unsatisfactory privileges'
+            ", cannot upload it"
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        except OSError:
+            _msg = ErrorNumbers.FB603.value + f': Cannot read file {filename} when uploading'
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        
+        # second, we are issuing an HTTP 'POST' request to the HTTP server
+        try:
+            _res = requests.post(self.uploads_url, files=files)
+        except requests.Timeout:
+            pass
+        except requests.ConnectionError:
+            _msg = ErrorNumbers.FB201.value + f' when uploading file {filename},' 
+            ' name or service not known'
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        
+        except requests.RequestException as err:
+            # requests.ConnectionError should catch all exceptions
+            # triggered by `requests` package
+            _msg = ErrorNumbers.FB200.value + f': when uploading file {filename}'
+            ' (HTTP POST request failed). Details: ' + str(err)
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        
+        # checking status of HTTP request
+        if _res.status_code == 404:
+            # handling case where status code of HTTP request equals 404
+            _msg = ErrorNumbers.FB202.value + f' when uploading file {filename}'
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        
+        elif _res.status_code  // 100 == 4 or _res.status_code == 500:
+            # handling case where status code of HTTP request is 4xx or 500
+            _msg = ErrorNumbers.FB203.value + f' when uploading file {filename}'
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        
+        else:
+            logger.debug(f'upload (HTTP POST request) of file {filename} successful,' 
+                         ' with status code {_res.status_code}')
+            
+        # finally, we are deserializing message from JSON
+        try:
+            json_res = _res.json()
+        except JSONDecodeError:
+            # might be triggered by `request` package when deserializing
+            _msg = 'Unable to deserialize JSON from HTTP POST request (when uploading file)'
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        return json_res
 
     def download_file(self, url: str, filename: str) -> Tuple[int, str]:
         """

@@ -63,3 +63,10 @@ class FedbiomedResponsesError(FedbiomedError):
     Exception specific to Responses class
     """
     pass
+
+
+class FedbiomedRepositoryError(FedbiomedError):
+    """
+    Exception of the `Repository` class
+    """
+    pass
