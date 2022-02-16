@@ -109,25 +109,24 @@ class TestExperiment(unittest.TestCase):
                   return_value=None)
         ]
 
+
+        # Define patchers ---------------------------------------------------------------------------------------
         self.patcher_cr_folder = patch('fedbiomed.researcher.experiment.create_exp_folder',
                                        return_value=self.experimentation_folder)
-        self.patcher_job = patch('fedbiomed.researcher.job.Job.__init__',
-                                 MagicMock(return_value=None))
-        self.patcher_logger_error = patch('fedbiomed.common.logger.logger.error',
-                                          MagicMock(return_value=None))
-        self.patcher_logger_critical = patch('fedbiomed.common.logger.logger.critical',
-                                             MagicMock(return_value=None))
-        self.patcher_logger_debug = patch('fedbiomed.common.logger.logger.debug',
-                                          MagicMock(return_value=None))
-        self.patcher_logger_warning = patch('fedbiomed.common.logger.logger.warning',
-                                            MagicMock(return_value=None))
-
+        self.patcher_job = patch('fedbiomed.researcher.job.Job.__init__',MagicMock(return_value=None))
+        self.patcher_logger_info = patch('fedbiomed.common.logger.logger.info', MagicMock(return_value=None))
+        self.patcher_logger_error = patch('fedbiomed.common.logger.logger.error',MagicMock(return_value=None))
+        self.patcher_logger_critical = patch('fedbiomed.common.logger.logger.critical', MagicMock(return_value=None))
+        self.patcher_logger_debug = patch('fedbiomed.common.logger.logger.debug', MagicMock(return_value=None))
+        self.patcher_logger_warning = patch('fedbiomed.common.logger.logger.warning', MagicMock(return_value=None))
         self.patcher_request_init = patch('fedbiomed.researcher.requests.Requests.__init__',
                                           MagicMock(return_value=None))
-        self.patcher_request_search = patch('fedbiomed.researcher.requests.Requests.search',
-                                            MagicMock(return_value={}))
+        self.patcher_request_search = patch('fedbiomed.researcher.requests.Requests.search', MagicMock(return_value={}))
 
+
+        # Define mocks from patchers ---------------------------------------------------------------------------
         self.mock_create_folder = self.patcher_cr_folder.start()
+        self.mock_logger_info = self.patcher_logger_info.start()
         self.mock_logger_error = self.patcher_logger_error.start()
         self.mock_logger_critical = self.patcher_logger_critical.start()
         self.mock_logger_debug = self.patcher_logger_debug.start()
@@ -159,6 +158,7 @@ class TestExperiment(unittest.TestCase):
         # Stop patchers
         self.patcher_cr_folder.stop()
         self.patcher_job.stop()
+        self.patcher_logger_info.stop()
         self.patcher_logger_error.stop()
         self.patcher_logger_critical.stop()
         self.patcher_request_init.stop()
@@ -745,7 +745,6 @@ class TestExperiment(unittest.TestCase):
         # Back to normal
         self.test_exp._job = None
 
-
         # Test when ._fds is None
         self.test_exp._model_is_defined = True
         self.test_exp._fds = None
@@ -772,6 +771,34 @@ class TestExperiment(unittest.TestCase):
         # test valid type of argument
         sb = self.test_exp.set_save_breakpoints(True)
         self.assertTrue(sb, 'save_breakpoint has not been set correctly')
+
+    def test_experiment_16_set_monitor(self):
+        """ Test setter for monitor attribute of experiment class"""
+
+        # Type invalid type for tensorboard argument
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_monitor('FALSE')
+
+        # Test set_monitor to True
+        # At this point monitor is already defined, since in tenserboard is passed as
+        # True while build self.test_exp in setUp method. Then setting monitor again
+        # should log info about monitor is already defined, and result should instance of Monitor class
+        self.mock_logger_info.reset_mock()
+        monitor = self.test_exp.set_monitor(True)
+        self.mock_logger_info.assert_called_once()
+        self.assertIsInstance(monitor, Monitor)
+
+        # Test tensorboard False
+        monitor = self.test_exp.set_monitor(False)
+        self.assertIsNone(monitor, 'Monitor has not been deactivated')
+
+        # Test tensorboard False even monitor is in active
+        # monitor should be inactive because of previous call of set_monitor
+        self.mock_logger_info.reset_mock()
+        monitor = self.test_exp.set_monitor(False)
+        # Should be one call of logger.info that says Monitor is already inactive
+        self.mock_logger_info.assert_called_once()
+        self.assertIsNone(monitor, 'Monitor is not inactivate')
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
     @patch('fedbiomed.researcher.experiment.create_unique_link')
