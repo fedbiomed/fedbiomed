@@ -15,6 +15,7 @@ import sys
 import shutil
 import json
 import pathvalidate
+import inspect
 import fedbiomed.researcher.experiment
 
 from fedbiomed.common.torchnn import TorchTrainingPlan
@@ -40,6 +41,25 @@ class TestExperiment(unittest.TestCase):
     # For testing model_class setter of Experiment
     class FakeModelTorch(TorchTrainingPlan):
         pass
+
+    @classmethod
+    def create_fake_model_file(cls, name: str):
+        """ Class method saving codes of FakeModel
+
+        Args:
+            name (str): Name of the model file that will be created
+        """
+
+        tmp_dir = os.path.join(environ['TMP_DIR'], 'tmp_models')
+        tmp_dir_model = os.path.join(tmp_dir, name)
+        if not os.path.isdir(tmp_dir):
+            os.mkdir(tmp_dir)
+        content = inspect.getsource(FakeModel)
+        file = open(tmp_dir_model, "w")
+        file.write(content)
+        file.close()
+
+        return tmp_dir_model
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -154,6 +174,11 @@ class TestExperiment(unittest.TestCase):
             # clean up existing experiments
         except FileNotFoundError:
             pass
+
+        # Remove if there is dummy model file
+        tmp_dir = os.path.join(environ['TMP_DIR'], 'tmp_models')
+        if os.path.isdir(tmp_dir):
+            shutil.rmtree(tmp_dir)
 
     def test_experiment_01_getters(self):
         """ Testings getters of Experiment class """
@@ -583,7 +608,8 @@ class TestExperiment(unittest.TestCase):
 
         # Test by passing class
         model_class = self.test_exp.set_model_class(TestExperiment.FakeModelTorch)
-        self.assertEqual(model_class, TestExperiment.FakeModelTorch, 'Model class is not set properly while setting it as class')
+        self.assertEqual(model_class, TestExperiment.FakeModelTorch,
+                         'Model class is not set properly while setting it as class')
 
         # Test by passing class which has no subclass of one of the training plan
         with self.assertRaises(SystemExit):
@@ -613,7 +639,139 @@ class TestExperiment(unittest.TestCase):
         with self.assertRaises(SystemExit):
             model_class = self.test_exp.set_model_class({})
 
+        # Test if ._job is not None
+        self.mock_logger_debug.reset_mock()
+        self.test_exp._job = MagicMock(return_value=True)
+        self.test_exp.set_model_class('FakeModel')
+        # There will be two logger.debug call
+        #  First    : Experiment is not fully configured since model_path is still None
+        #  Second   : Update Job since model_class has changed
+        self.assertEqual(self.mock_logger_debug.call_count, 2, 'Logger debug is called unexpected time while setting '
+                                                               'model class')
 
+    def test_experiment_11_set_model_path(self):
+        """ Testing setter for model_path of experiment """
+
+        # Test model_path is None
+        model_path = self.test_exp.set_model_path(None)
+        self.assertIsNone(model_path, 'Setter for model_path did not set model_path to None')
+
+        # Test passing path for model_file
+        fake_model_path = self.create_fake_model_file('fake_model.py')
+        model_path = self.test_exp.set_model_path(fake_model_path)
+        self.assertEqual(model_path, fake_model_path, 'Setter for model_path did not set model_path properly')
+
+        # Test
+        with patch.object(fedbiomed.researcher.experiment, 'sanitize_filepath') as m:
+            m.return_value = 'test'
+            with self.assertRaises(SystemExit):
+                self.test_exp.set_model_path(fake_model_path)
+
+        # Test invalid type of model_path argument
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_model_path(12)
+
+        # Test when mode class is also set
+        self.test_exp.set_model_class('FakeModel')
+        self.test_exp.set_model_path(fake_model_path)
+        self.assertEqual(self.test_exp._model_is_defined, True, '_model_is_defined returns False even model_class and '
+                                                                'model_path is fully configured')
+        # Test if `._job` is not None
+        self.mock_logger_debug.reset_mock()
+        self.test_exp._job = MagicMock(return_value=True)
+        self.test_exp.set_model_path(fake_model_path)
+        # There will be one debug call. If model_is_defined is False there might be two calls.
+        # Since _model_is_defined has become True with previous test block there will be only one call
+        self.mock_logger_debug.assert_called_once()
+
+    def test_experiment_12_set_model_arguments(self):
+        """ Testing setter for model arguments of Experiment """
+
+        # Test setting model_args as in invalid type
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_model_args(None)
+
+        # Test setting model_args properly with dict
+        ma_expected = {'arg-1': 100}
+        model_args = self.test_exp.set_model_args(ma_expected)
+        self.assertDictEqual(ma_expected, model_args, 'Model arguments has not been set correctly by setter')
+
+        # Test setting model_args while the ._job is not None
+        self.mock_logger_debug.reset_mock()
+        self.test_exp._job = MagicMock(return_value=True)
+        model_args = self.test_exp.set_model_args(ma_expected)
+        # There will be one debug call.
+        self.assertDictEqual(ma_expected, model_args, 'Model arguments has not been set correctly by setter')
+        self.mock_logger_debug.assert_called_once()
+
+    def test_experiment_13_set_training_arguments(self):
+        """ Testing setter for training arguments of Experiment """
+
+        # Test setting model_args as in invalid type
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_training_args(None)
+
+        # Test setting model_args properly with dict
+        ma_expected = {'arg-1': 100}
+        model_args = self.test_exp.set_training_args(ma_expected)
+        self.assertDictEqual(ma_expected, model_args, 'Training arguments has not been set correctly by setter')
+
+        # Test setting model_args while the ._job is not None
+        self.mock_logger_debug.reset_mock()
+        self.test_exp._job = MagicMock(return_value=True)
+        model_args = self.test_exp.set_training_args(ma_expected)
+        # There will be one debug call.
+        self.assertDictEqual(ma_expected, model_args, 'Training arguments has not been set correctly by setter')
+        self.mock_logger_debug.assert_called_once()
+
+    @patch('fedbiomed.researcher.job.Job')
+    @patch('fedbiomed.researcher.job.Job.__init__')
+    def test_experiment_14_set_job(self, mock_job_init, mock_job):
+        """ Testing setter for Job in Experiment class """
+
+        job_expected = "JOB"
+        mock_job.return_value = job_expected
+        mock_job_init.return_value = None
+
+        # Test to override existing Job with set_job
+        self.mock_logger_debug.reset_mock()
+        self.test_exp._job = True # Assign any value to not make it None
+        self.test_exp.set_job()
+        # There will two logger.debug calls
+        # First  : About Experiment Job has been changed
+        # Second : Missing proper model definition
+        self.assertEqual(self.mock_logger_debug.call_count, 2)
+
+        # Back to normal
+        self.test_exp._job = None
+
+
+        # Test when ._fds is None
+        self.test_exp._model_is_defined = True
+        self.test_exp._fds = None
+        self.mock_logger_debug.reset_mock()
+        self.test_exp.set_job()
+        self.mock_logger_debug.assert_called_once()
+
+        # Back to normal
+        self.test_exp._fds = True # Assign any value to not make it None
+
+        # Test proper set job when everything is ready to create Job
+        self.test_exp._model_is_defined = True
+        self.test_exp.set_model_class = TestExperiment.FakeModelTorch
+        job = self.test_exp.set_job()
+        self.assertIsInstance(job, Job, 'Job has not been set properly')
+
+    def test_experiment_15_set_save_breakpoints(self):
+        """ Test setter for save_breakpoints attr of experiment class """
+
+        # Test invalid type of argument
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_save_breakpoints(None)
+
+        # test valid type of argument
+        sb = self.test_exp.set_save_breakpoints(True)
+        self.assertTrue(sb, 'save_breakpoint has not been set correctly')
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
     @patch('fedbiomed.researcher.experiment.create_unique_link')

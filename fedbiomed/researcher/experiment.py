@@ -946,7 +946,7 @@ class Experiment(object):
                 self._model_path = None  # be robust if we continue execution
                 self._model_is_defined = inspect.isclass(self._model_class)
                 msg = ErrorNumbers.FB410.value + \
-                      f' `model_path` : {model_path} is not a sane path to an existing file'
+                      f' `model_path` : {model_path} is not a same path to an existing file'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
         else:
