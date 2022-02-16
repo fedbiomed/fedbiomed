@@ -996,6 +996,53 @@ class TestExperiment(unittest.TestCase):
         with self.assertRaises(SystemExit):
             result = self.test_exp.model_file(display=True)
 
+    @patch('fedbiomed.researcher.job.Job.__init__', return_value=None)
+    @patch('fedbiomed.researcher.job.Job.check_model_is_approved_by_nodes')
+    def test_experiment_20_check_model_status(self,
+                                              mock_job_model_is_approved,
+                                              mock_job):
+        """Testing method that checks model status """
+
+        # Test error if ._job is not defined
+        with self.assertRaises(SystemExit):
+            self.test_exp.check_model_status()
+
+        # Test when job is defined
+        expected_approved_result = {'node-1': {'is_approved': False}}
+        mock_job_model_is_approved.return_value = expected_approved_result
+        self.test_exp.set_model_class(TestExperiment.FakeModelTorch)
+        self.test_exp.set_job()
+        result = self.test_exp.check_model_status()
+        self.assertDictEqual(result, expected_approved_result, 'check_model_status did not return expected value')
+
+    def test_experiment_21_breakpoint_raises(self):
+        """ Testing the scenarios where the method breakpoint() raises error """
+
+        # Test if self._round_current is less than 1
+        with self.assertRaises(SystemExit):
+            self.test_exp.breakpoint()
+
+        # Test if ._fds is None
+        self.test_exp._set_round_current(1)
+        self.test_exp._fds = None
+        with self.assertRaises(SystemExit):
+            self.test_exp.breakpoint()
+
+        # Back to normal fds
+        self.test_exp.set_training_data(None)
+
+        # Test if stragety is None
+        self.test_exp._node_selection_strategy = None
+        with self.assertRaises(SystemExit):
+            self.test_exp.breakpoint()
+
+        # Back to normal strategy
+        self.test_exp.set_strategy(None)
+
+        # Test if _job is None (it is already None by default)
+        with self.assertRaises(SystemExit):
+            self.test_exp.breakpoint()
+
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
     @patch('fedbiomed.researcher.experiment.create_unique_link')
     @patch('fedbiomed.researcher.experiment.choose_bkpt_file')
@@ -1114,6 +1161,27 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(final_state['tags'], self.tags)
         self.assertEqual(final_state['aggregated_params'], final_agg_params)
         self.assertEqual(final_state['job'], job_state)
+
+
+        # Test errors while writing brkp json file
+        with patch.object(fedbiomed.researcher.experiment, 'open' ) as m:
+            m.side_effect = OSError
+            with self.assertRaises(SystemExit):
+                self.test_exp.breakpoint()
+
+        with patch.object(fedbiomed.researcher.experiment.json, 'dump') as m:
+            m.side_effect = OSError
+            with self.assertRaises(SystemExit):
+                self.test_exp.breakpoint()
+
+            m.side_effect = TypeError
+            with self.assertRaises(SystemExit):
+                self.test_exp.breakpoint()
+
+            m.side_effect = RecursionError
+            with self.assertRaises(SystemExit):
+                self.test_exp.breakpoint()
+
 
     @patch('fedbiomed.researcher.experiment.Experiment.model_instance')
     @patch('fedbiomed.researcher.experiment.Experiment._create_object')
