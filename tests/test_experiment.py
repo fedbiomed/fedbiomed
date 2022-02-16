@@ -109,20 +109,18 @@ class TestExperiment(unittest.TestCase):
                   return_value=None)
         ]
 
-
         # Define patchers ---------------------------------------------------------------------------------------
         self.patcher_cr_folder = patch('fedbiomed.researcher.experiment.create_exp_folder',
                                        return_value=self.experimentation_folder)
-        self.patcher_job = patch('fedbiomed.researcher.job.Job.__init__',MagicMock(return_value=None))
+        self.patcher_job = patch('fedbiomed.researcher.job.Job.__init__', MagicMock(return_value=None))
         self.patcher_logger_info = patch('fedbiomed.common.logger.logger.info', MagicMock(return_value=None))
-        self.patcher_logger_error = patch('fedbiomed.common.logger.logger.error',MagicMock(return_value=None))
+        self.patcher_logger_error = patch('fedbiomed.common.logger.logger.error', MagicMock(return_value=None))
         self.patcher_logger_critical = patch('fedbiomed.common.logger.logger.critical', MagicMock(return_value=None))
         self.patcher_logger_debug = patch('fedbiomed.common.logger.logger.debug', MagicMock(return_value=None))
         self.patcher_logger_warning = patch('fedbiomed.common.logger.logger.warning', MagicMock(return_value=None))
         self.patcher_request_init = patch('fedbiomed.researcher.requests.Requests.__init__',
                                           MagicMock(return_value=None))
         self.patcher_request_search = patch('fedbiomed.researcher.requests.Requests.search', MagicMock(return_value={}))
-
 
         # Define mocks from patchers ---------------------------------------------------------------------------
         self.mock_create_folder = self.patcher_cr_folder.start()
@@ -735,7 +733,7 @@ class TestExperiment(unittest.TestCase):
 
         # Test to override existing Job with set_job
         self.mock_logger_debug.reset_mock()
-        self.test_exp._job = True # Assign any value to not make it None
+        self.test_exp._job = True  # Assign any value to not make it None
         self.test_exp.set_job()
         # There will two logger.debug calls
         # First  : About Experiment Job has been changed
@@ -753,7 +751,7 @@ class TestExperiment(unittest.TestCase):
         self.mock_logger_debug.assert_called_once()
 
         # Back to normal
-        self.test_exp._fds = True # Assign any value to not make it None
+        self.test_exp._fds = True  # Assign any value to not make it None
 
         # Test proper set job when everything is ready to create Job
         self.test_exp._model_is_defined = True
@@ -780,7 +778,7 @@ class TestExperiment(unittest.TestCase):
             self.test_exp.set_monitor('FALSE')
 
         # Test set_monitor to True
-        # At this point monitor is already defined, since in tenserboard is passed as
+        # At this point monitor is already defined, since in tensorboard is passed as
         # True while build self.test_exp in setUp method. Then setting monitor again
         # should log info about monitor is already defined, and result should instance of Monitor class
         self.mock_logger_info.reset_mock()
@@ -799,6 +797,86 @@ class TestExperiment(unittest.TestCase):
         # Should be one call of logger.info that says Monitor is already inactive
         self.mock_logger_info.assert_called_once()
         self.assertIsNone(monitor, 'Monitor is not inactivate')
+
+    @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
+    @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
+    @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
+    @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
+    @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
+    @patch('fedbiomed.researcher.job.Job.update_parameters')
+    @patch('fedbiomed.researcher.job.Job.__init__')
+    def test_experiment_17_run_once(self,
+                                    mock_job_init,
+                                    mock_job_updates_params,
+                                    mock_job_training,
+                                    mock_job_training_replies,
+                                    mock_strategy_refine,
+                                    mock_fedavg_aggregate,
+                                    mock_experiment_breakpoint):
+        """ Testing run_once method of Experiment class """
+
+        mock_job_init.return_value = None
+        mock_job_training.return_value = None
+        mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
+        mock_strategy_refine.return_value = ({'param': 1}, [12.2])
+        mock_fedavg_aggregate.return_value = None
+        mock_job_updates_params.return_value = None
+        mock_experiment_breakpoint.return_value = None
+
+        # Test invalid `increase` arguments
+        with self.assertRaises(SystemExit):
+            self.test_exp.run_once(1)
+        with self.assertRaises(SystemExit):
+            self.test_exp.run_once("1")
+
+        # Test when ._job is None
+        with self.assertRaises(SystemExit):
+            self.test_exp.run_once()
+
+        # Test when strategy is None
+        with self.assertRaises(SystemExit):
+            self.test_exp._node_selection_strategy = None
+            self.test_exp.run_once()
+
+        # Test run_once when everything is ready to run
+
+        # Set model class to be able to create Job
+        self.test_exp.set_model_class(TestExperiment.FakeModelTorch)
+        # Set default Job
+        self.test_exp.set_job()
+        # Set strategy again (it was removed)
+        self.test_exp.set_strategy(None)
+
+        result = self.test_exp.run_once()
+        self.assertEqual(result, 1, "run_once did not successfully run the round")
+        mock_job_training.assert_called_once()
+        mock_strategy_refine.assert_called_once()
+        mock_fedavg_aggregate.assert_called_once()
+        mock_job_updates_params.assert_called_once()
+        mock_experiment_breakpoint.assert_called_once()
+
+        # Test the scenario where round_limit is reached
+        self.test_exp.set_round_limit(1)
+        # run once should log warning message
+        self.mock_logger_warning.reset_mock()
+        result = self.test_exp.run_once()
+        self.assertEqual(result, 0)
+        self.mock_logger_warning.assert_called_once()
+
+        # Update training_replies mock value since round_current has been increased
+        mock_job_training_replies.return_value = {self.test_exp.round_current(): 'reply'}
+
+        # Try same scenario with increase argument as True
+        round_limit = self.test_exp.round_limit()
+        result = self.test_exp.run_once(increase=True)
+        self.assertEqual(result, 1, 'Run once did not run the training where it should')
+        self.assertEqual(self.test_exp.round_limit(), round_limit + 1,
+                         'Round limit has not been increased after running run_once with '
+                         'incrrease=True')
+
+    def test_experiment_18_run(self):
+        """ Testing run method of Experiment class """
+        pass
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
     @patch('fedbiomed.researcher.experiment.create_unique_link')
