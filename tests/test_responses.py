@@ -1,12 +1,6 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-
-# Delete environ. It is necessary to rebuild environ for required component
-delete_environ()
-# overload with fake environ for tests
-import testsupport.mock_common_environ
-
 import unittest
+
+import testsupport.mock_researcher_environ
 
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.common.exceptions import FedbiomedResponsesError

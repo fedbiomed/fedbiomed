@@ -1,17 +1,12 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-# Detele environ. It is necessary to rebuild environ for required component
-delete_environ()
-import testsupport.mock_common_environ
-# Import environ for node since test will be runing for node component
-from fedbiomed.node.environ import environ
+import unittest
+from unittest.mock import patch
 
+import testsupport.mock_node_environ
+
+from fedbiomed.node.environ import environ
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.common.messaging import Messaging
-import unittest
-
-from unittest.mock import patch
 
 
 class TestHistoryMonitor(unittest.TestCase):
