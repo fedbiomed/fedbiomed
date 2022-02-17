@@ -27,7 +27,7 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedSilentTerminationError
+from fedbiomed.common.exceptions import  FedbiomedSilentTerminationError
 from tests.testsupport.fake_dataset import FederatedDataSetMock
 from tests.testsupport.fake_experiment import ExperimentMock
 from tests.testsupport.fake_training_plan import FakeModel
@@ -433,7 +433,7 @@ class TestExperiment(unittest.TestCase):
         aggregator = self.test_exp.set_aggregator(aggregator=None)
         self.assertIsInstance(aggregator, FedAverage, 'Setter for aggregator did not set proper FedAverage instance')
 
-        # Set aggregator with an built object
+        # Set aggregator with a built object
         agg_expected = FedAverage()
         aggregator = self.test_exp.set_aggregator(aggregator=agg_expected)
         self.assertEqual(aggregator, agg_expected, 'Setter for aggregator did not set given aggregator object')
@@ -588,6 +588,7 @@ class TestExperiment(unittest.TestCase):
         self.mock_logger_debug.assert_called_once()
 
     def test_experiment_10_set_model_class(self):
+        """ Testing setter for model_class  """
 
         # Test setting model_class to None
         model_class = self.test_exp.set_model_class(None)
@@ -874,7 +875,7 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(result, 1, 'Run once did not run the training where it should')
         self.assertEqual(self.test_exp.round_limit(), round_limit + 1,
                          'Round limit has not been increased after running run_once with '
-                         'incrrease=True')
+                         'increase=True')
 
     @patch('fedbiomed.researcher.experiment.Experiment.run_once')
     def test_experiment_18_run(self, mock_exp_run_once):
@@ -1033,7 +1034,7 @@ class TestExperiment(unittest.TestCase):
         # Back to normal fds
         self.test_exp.set_training_data(None)
 
-        # Test if stragety is None
+        # Test if strategy is None
         self.test_exp._node_selection_strategy = None
         with self.assertRaises(SystemExit):
             self.test_exp.breakpoint()
@@ -1102,7 +1103,7 @@ class TestExperiment(unittest.TestCase):
         patch_create_ufl.side_effect = side_create_ufl
 
         # build minimal objects, needed to extract state by calling object method
-        # (cannot just patch a method of a non existing object)
+        # (cannot just patch a method of a non-existing object)
         class Aggregator():
             def save_state(self):
                 return aggregator_state
@@ -1288,7 +1289,7 @@ class TestExperiment(unittest.TestCase):
         with self.assertRaises(SystemExit):
             Experiment.load_breakpoint(breakpoint_folder_path=True)  # Not str
 
-        # Test if open `open`  and json.load returns expection
+        # Test if open `open`  and json.load returns exception
         with patch.object(fedbiomed.researcher.experiment, 'open') as m_open, \
                 patch.object(fedbiomed.researcher.experiment.json, 'load') as m_load:
 
