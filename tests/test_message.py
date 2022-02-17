@@ -1,21 +1,14 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-# Delete environ. It is necessary to rebuild environ for required component
-delete_environ()
-# overload with fake environ for tests
-import testsupport.mock_common_environ
-
-import unittest
 from dataclasses import dataclass
 import sys
+import unittest
 
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError
 import fedbiomed.common.message    as message
 
 # we also want to test the decorator
 from fedbiomed.common.message import catch_dataclass_exception
 
-from fedbiomed.common.constants import ErrorNumbers
 
 class TestMessage(unittest.TestCase):
     '''

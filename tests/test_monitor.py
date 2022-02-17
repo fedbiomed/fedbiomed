@@ -1,16 +1,12 @@
-import shutil
 import os
+import shutil
 import unittest
+from unittest.mock import patch, MagicMock
 
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-# Detele environ. It is necessary to rebuild environ for required component
-delete_environ()
-import testsupport.mock_common_environ
-# Import environ for researcher, since tests will be running for researcher component
+import testsupport.mock_researcher_environ
+
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.monitor import Monitor
-from unittest.mock import patch, MagicMock
 
 
 def create_file(file_name: str):
