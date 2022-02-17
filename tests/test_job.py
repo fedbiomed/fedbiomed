@@ -1,11 +1,3 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-#from testsupport.delete_environ import delete_environ
-
-# Delete environ. It is necessary to rebuild environ for required component
-#delete_environ()
-# overload with fake environ for tests
-# Import environ for researcher, since tests will be running for researcher component
-
 import os
 import inspect
 import shutil
