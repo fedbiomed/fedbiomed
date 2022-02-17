@@ -2,20 +2,13 @@ import shutil
 import os
 import inspect
 import unittest
-
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-
-# Delete environ. It is necessary to rebuild environ for required component
-delete_environ()
-# overload with fake environ for tests
-import testsupport.mock_common_environ
-# Import environ for researcher, since tests will be running for researcher component
-from fedbiomed.researcher.environ import environ
-
 from unittest.mock import patch, MagicMock, PropertyMock
-from fedbiomed.researcher.job import localJob
+
+import testsupport.mock_researcher_environ
 from testsupport.fake_model import FakeModel
+
+from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.job import localJob
 
 
 class TestLocalJob(unittest.TestCase):

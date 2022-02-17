@@ -1,10 +1,3 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-# Delete environ. It is necessary to rebuild environ for required component
-delete_environ()
-# overload with fake environ for tests
-import testsupport.mock_common_environ
-
 import unittest
 import os
 import sys
@@ -12,6 +5,7 @@ import tempfile
 import shutil
 
 # dont import fedbiomed.*.environ here
+from fedbiomed.common.constants  import ComponentType
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 
 class TestEnvironCommon(unittest.TestCase):
@@ -21,7 +15,7 @@ class TestEnvironCommon(unittest.TestCase):
     # before the tests
     def setUp(self):
 
-        self.envs = [ 'fedbiomed.node.environ', 'fedbiomed.researcher.environ' ]
+        self.envs = [ ComponentType.NODE, ComponentType.RESEARCHER ]
 
         # need a temp config dir inside ./etc to be able to test relative path CONFIG_FILE
         self.config_subdir = next(tempfile._get_candidate_names())
@@ -29,6 +23,7 @@ class TestEnvironCommon(unittest.TestCase):
         # needed if etc does not exists (fresh install)
         os.makedirs(self.config_dir)
 
+        print("===== configdir:", self.config_dir)
         # test config file names
         self.files = [
             # Cannot test with relative
@@ -62,15 +57,12 @@ class TestEnvironCommon(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.config_dir)
 
-    def reload_environ(self, module: str):
+    def suppress_environ(self):
         #
         # as environ is a singleton, we must reinforce
         # the loading of all modules
         #
-        for m in ['fedbiomed.common.environ',
-                  'fedbiomed.node.environ',
-                  'fedbiomed.researcher.environ',
-                  ]:
+        for m in [ 'fedbiomed.common.environ' ]:
             if m in sys.modules:
                 # clean namespace before next test
                 del sys.modules[m]
@@ -78,10 +70,6 @@ class TestEnvironCommon(unittest.TestCase):
         # we should also delete the global variable
         if 'environ' in globals():
             del globals()['environ']
-
-        # and reimport the requested module
-        exec('from ' + module + ' import environ', globals())
-
 
     #
     # TODO : add tests for other environment items
@@ -114,7 +102,9 @@ class TestEnvironCommon(unittest.TestCase):
 
                 os.environ['CONFIG_FILE'] = str(config_var)
                 # environment initialization done at module import
-                self.reload_environ(env)
+                self.suppress_environ()
+                from fedbiomed.common.environ import Environ
+                environ = Environ(env)
 
                 # config file should now exist
                 self.assertTrue(os.path.isfile(config_path))
@@ -135,10 +125,14 @@ class TestEnvironCommon(unittest.TestCase):
 
             if os.path.isfile(config_path):
                  os.remove(config_path)
-            self.reload_environ(env)
+            self.suppress_environ()
+            from fedbiomed.common.environ import Environ
+            environ = Environ(env)
             self.assertEqual(environ['UPLOADS_URL'], 'http://localhost:8844/upload/')
 
-            self.reload_environ(env)
+            self.suppress_environ()
+            from fedbiomed.common.environ import Environ
+            environ = Environ(env)
             self.assertEqual(environ['UPLOADS_URL'], 'http://localhost:8844/upload/')
 
 
@@ -148,13 +142,19 @@ class TestEnvironCommon(unittest.TestCase):
 
                 if os.path.isfile(config_path):
                     os.remove(config_path)
-                self.reload_environ(env)
+                self.suppress_environ()
+                from fedbiomed.common.environ import Environ
+                environ = Environ(env)
+
                 self.assertEqual(used_url, environ['UPLOADS_URL'])
 
                 # reload the same config from existing file (not from variable)
                 del os.environ['UPLOADS_URL']
 
-                self.reload_environ(env)
+                self.suppress_environ()
+                from fedbiomed.common.environ import Environ
+                environ = Environ(env)
+
                 self.assertEqual(used_url, environ['UPLOADS_URL'])
 
             # test upload url from IP
@@ -163,12 +163,18 @@ class TestEnvironCommon(unittest.TestCase):
 
             if os.path.isfile(config_path):
                 os.remove(config_path)
-            self.reload_environ(env)
+            self.suppress_environ()
+            from fedbiomed.common.environ import Environ
+            environ = Environ(env)
+
             self.assertEqual(environ['UPLOADS_URL'], 'http://' + uploads_ip + ':8844/upload/')
 
             # reload the config from existing file
             del os.environ['UPLOADS_IP']
-            self.reload_environ(env)
+            self.suppress_environ()
+            from fedbiomed.common.environ import Environ
+            environ = Environ(env)
+
             self.assertEqual(environ['UPLOADS_URL'], 'http://' + uploads_ip + ':8844/upload/')
 
             os.remove(config_path)
@@ -187,10 +193,16 @@ class TestEnvironCommon(unittest.TestCase):
 
             if os.path.isfile(config_path):
                  os.remove(config_path)
-            self.reload_environ(env)
+            self.suppress_environ()
+            from fedbiomed.common.environ import Environ
+            environ = Environ(env)
+
             self.assertEqual(environ['MQTT_BROKER'], 'localhost')
 
-            self.reload_environ(env)
+            self.suppress_environ()
+            from fedbiomed.common.environ import Environ
+            environ = Environ(env)
+
             self.assertEqual(environ['MQTT_BROKER'], 'localhost')
 
 
@@ -200,14 +212,20 @@ class TestEnvironCommon(unittest.TestCase):
 
                 if os.path.isfile(config_path):
                     os.remove(config_path)
-                self.reload_environ(env)
+                self.suppress_environ()
+                from fedbiomed.common.environ import Environ
+                environ = Environ(env)
+
 
                 self.assertEqual(ip, environ['MQTT_BROKER'])
 
                 # reload the same config from existing file (not from variable)
                 del os.environ['MQTT_BROKER']
 
-                self.reload_environ(env)
+                self.suppress_environ()
+                from fedbiomed.common.environ import Environ
+                environ = Environ(env)
+
                 self.assertEqual(ip, environ['MQTT_BROKER'])
 
             if os.path.isfile(config_path):
