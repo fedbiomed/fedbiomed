@@ -15,7 +15,7 @@ from fedbiomed.researcher.environ import environ
 
 from unittest.mock import patch, MagicMock, PropertyMock
 from fedbiomed.researcher.job import localJob
-from testsupport.fake_model import FakeModel
+from testsupport.fake_training_plan import FakeModel
 
 
 class TestLocalJob(unittest.TestCase):
@@ -32,7 +32,10 @@ class TestLocalJob(unittest.TestCase):
         tmp_dir_model = os.path.join(tmp_dir, name)
         if not os.path.isdir(tmp_dir):
             os.mkdir(tmp_dir)
-        content = inspect.getsource(FakeModel)
+
+        content = "from typing import Dict, Any, List\n"
+        content += "import time\n"
+        content += inspect.getsource(FakeModel)
         file = open(tmp_dir_model, "w")
         file.write(content)
         file.close()

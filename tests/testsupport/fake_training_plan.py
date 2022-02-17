@@ -32,7 +32,7 @@ class FakeModel:
         """
         pass
     
-    def save(self, filename: str, results: Dict[str, Any]):
+    def save(self, filename: str, results: Dict[str, Any] = None):
         """
         Fakes `save` method of TrainingPlan classes, originally used for
         saving node's local model. Passed argument are unused.
@@ -45,6 +45,17 @@ class FakeModel:
             results of the training. Unused in this method.
         """
         pass
+
+    def save_code(self, path: str):
+        """
+        Fakes `save_code` method of TrainingPlan classes, originally used for
+        saving codes of model calss. Passed argument are unused.
+
+        Args:
+            path (str): saving path
+        """
+        pass
+
     
     def set_dataset(self, path: str):
         """Fakes `set_dataset` method of TrainingPlan classes. Originally 

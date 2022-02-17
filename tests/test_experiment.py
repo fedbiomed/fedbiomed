@@ -54,7 +54,10 @@ class TestExperiment(unittest.TestCase):
         tmp_dir_model = os.path.join(tmp_dir, name)
         if not os.path.isdir(tmp_dir):
             os.mkdir(tmp_dir)
-        content = inspect.getsource(FakeModel)
+
+        content = "from typing import Dict, Any, List\n"
+        content += "import time\n"
+        content += inspect.getsource(FakeModel)
         file = open(tmp_dir_model, "w")
         file.write(content)
         file.close()
