@@ -118,6 +118,7 @@ class ErrorNumbers(_BaseEnum):
     FB600 = "FB600: environ error"
     FB601 = "FB601: message error"
     FB602 = "FB602: logger error"
+    FB603 = "FB603: task queue error"
 
     # oops
 

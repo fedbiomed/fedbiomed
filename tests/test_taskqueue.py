@@ -4,7 +4,8 @@ import unittest
 
 import testsupport.mock_researcher_environ
 
-from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
+from fedbiomed.common.exceptions  import FedbiomedTaskQueueError
+from fedbiomed.common.tasks_queue import TasksQueue
 
 class TestTasksQueue(unittest.TestCase):
     '''
@@ -42,9 +43,9 @@ class TestTasksQueue(unittest.TestCase):
         # get data from an empty queue
         try:
             t1 = q1.get( block = False)
-            # the follonwing lines cannot be reached
+            # the following lines cannot be reached
             self.fail( "reading from empty queue must raise an exception" )
-        except exceptionsEmpty:
+        except FedbiomedTaskQueueError:
             self.assertEqual( q1.qsize() , 0 )
         except:
             # this must not happen

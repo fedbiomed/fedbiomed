@@ -44,6 +44,13 @@ class FedbiomedMessagingError(FedbiomedError):
     pass
 
 
+class FedbiomedTaskQueueError(FedbiomedError):
+    """
+    Exception specific to the internal queuing system
+    """
+    pass
+
+
 class FedbiomedStrategyError(FedbiomedError):
     """
     Exception specific to the Strategy class and subclasses

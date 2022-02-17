@@ -7,12 +7,13 @@ import testsupport.mock_researcher_environ
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_responses import FakeResponses
 
+from fedbiomed.common.exceptions import FedbiomedTaskQueueError
+from fedbiomed.common.messaging import Messaging
+from fedbiomed.common.tasks_queue import TasksQueue
+
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.monitor import Monitor
-from fedbiomed.common.messaging import Messaging
-from fedbiomed.common.tasks_queue import exceptionsEmpty
-from fedbiomed.common.tasks_queue import TasksQueue
 
 
 class TestRequest(unittest.TestCase):
@@ -226,7 +227,7 @@ class TestRequest(unittest.TestCase):
         self.assertListEqual(response.data(), [data], 'get_messages result is not set correctly')
 
         # Test try/except block when .get() method exception
-        mock_task_get.side_effect = exceptionsEmpty()
+        mock_task_get.side_effect = FedbiomedTaskQueueError()
 
         resp1 = self.requests.get_messages(commands=['test-1'])
         # check if output is a `Responses` object
@@ -234,7 +235,7 @@ class TestRequest(unittest.TestCase):
 
         # Test try/except block when .task_done() method raises exception
         mock_task_get.side_effect = None
-        mock_task_task_done.side_effect = exceptionsEmpty
+        mock_task_task_done.side_effect = FedbiomedTaskQueueError
         resp2 = self.requests.get_messages(commands=['test-2'])
         # check if output is a `Responses` object
         self.assertIsInstance(resp2, Responses)
