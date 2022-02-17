@@ -57,6 +57,9 @@ Remarks: **nose** could also be used to run the test (same test files as with
 unittest). One benefit is to have more option to run the test, for example
 have a coverage output, xml output for ci, etc...
 
+Remarks: coverage is configured via the **.covergaerc** file situated at top directory. Documentation available here:
+https://coverage.readthedocs.io/en/stable/config.html
+
 ### How to write Unit Tests with `unittest` framework: coding conventions
 
 Mocks are objects that isolate the behaviour of an existing class and simulate it by an object less complex. Better said, Mocking is creating objects that simulate the behavior of real objects
