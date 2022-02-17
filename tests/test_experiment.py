@@ -1048,7 +1048,7 @@ class TestExperiment(unittest.TestCase):
     @patch('fedbiomed.researcher.experiment.choose_bkpt_file')
     # testing _save_breakpoint + _save_aggregated_params
     # (not exactly a unit test, but probably more interesting)
-    def test_save_breakpoint(
+    def test_experiment_22_save_breakpoint(
             self,
             patch_choose_bkpt_file,
             patch_create_ul,
@@ -1162,9 +1162,8 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(final_state['aggregated_params'], final_agg_params)
         self.assertEqual(final_state['job'], job_state)
 
-
         # Test errors while writing brkp json file
-        with patch.object(fedbiomed.researcher.experiment, 'open' ) as m:
+        with patch.object(fedbiomed.researcher.experiment, 'open') as m:
             m.side_effect = OSError
             with self.assertRaises(SystemExit):
                 self.test_exp.breakpoint()
@@ -1182,24 +1181,23 @@ class TestExperiment(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 self.test_exp.breakpoint()
 
-
     @patch('fedbiomed.researcher.experiment.Experiment.model_instance')
     @patch('fedbiomed.researcher.experiment.Experiment._create_object')
     @patch('fedbiomed.researcher.experiment.find_breakpoint_path')
     # test load_breakpoint + _load_aggregated_params
     # cannot test Experiment constructor, need to fake it
     # (not exactly a unit test, but probably more interesting)
-    def test_load_breakpoint(self,
-                             patch_find_breakpoint_path,
-                             patch_create_object,
-                             patch_model_instance
-                             ):
+    def test_experiment_22_static_load_breakpoint(self,
+                                                  patch_find_breakpoint_path,
+                                                  patch_create_object,
+                                                  patch_model_instance
+                                                  ):
         """ test `load_breakpoint` :
             1. if breakpoint file is json loadable
             2. if experiment is correctly configured from breakpoint
         """
 
-        # breakpoint values
+        # Prepare breakpoint data ----------------------------------------------------------------
         bkpt_file = 'file_4_breakpoint'
 
         training_data = {'train_node1': 'my_first_dataset', 2: 243}
@@ -1237,6 +1235,9 @@ class TestExperiment(unittest.TestCase):
         with open(os.path.join(self.experimentation_folder_path, bkpt_file), "w") as f:
             json.dump(state, f)
 
+        # patch functions for loading breakpoint
+        patch_find_breakpoint_path.return_value = self.experimentation_folder_path, bkpt_file
+
         # mocked model params
         model_params = {'something.bias': [12, 14], 'something.weight': [13, 15]}
 
@@ -1255,9 +1256,6 @@ class TestExperiment(unittest.TestCase):
         final_aggregator = {'aggreg1': False, 'aggreg2': 'dummy_agg_param', '18': 'agg_param18'}
         final_strategy = {'strat1': 'test_strat_param', 'strat2': 421, '3': 'strat_param3'}
         final_job = {'1': 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
-
-        # patch functions for loading breakpoint
-        patch_find_breakpoint_path.return_value = self.experimentation_folder_path, bkpt_file
 
         def side_create_object(args, **kwargs):
             return args
@@ -1282,7 +1280,33 @@ class TestExperiment(unittest.TestCase):
         for p in patches_experiment:
             p.start()
 
-        # action
+        # Action - Tests ----------------------------------------------------------------------------------
+
+        # Test if breakpoint argument is not type of `str`
+        with self.assertRaises(SystemExit):
+            Experiment.load_breakpoint(breakpoint_folder_path=True)  # Not str
+
+        # Test if open `open`  and json.load returns expection
+        with patch.object(fedbiomed.researcher.experiment, 'open') as m_open, \
+                patch.object(fedbiomed.researcher.experiment.json, 'load') as m_load:
+
+            m_load = MagicMock()
+            m_open.side_effect = OSError
+            with self.assertRaises(SystemExit):
+                Experiment.load_breakpoint(self.experimentation_folder_path)
+
+            m_open.side_effect = None
+            m_load.side_effect = json.JSONDecodeError
+            with self.assertRaises(SystemExit):
+                Experiment.load_breakpoint(self.experimentation_folder_path)
+
+        # Test if model instance is None
+        with patch.object(fedbiomed.researcher.experiment.Experiment, 'model_instance') as m_mi:
+            m_mi.return_value = None
+            with self.assertRaises(SystemExit):
+                Experiment.load_breakpoint(self.experimentation_folder_path)
+
+        # Test when everything is OK
         loaded_exp = Experiment.load_breakpoint(self.experimentation_folder_path)
 
         for p in patches_experiment:
@@ -1306,11 +1330,86 @@ class TestExperiment(unittest.TestCase):
         self.assertTrue(loaded_exp._save_breakpoints)
         self.assertFalse(loaded_exp._monitor)
 
-    def test_private_create_object(self):
+    @patch('fedbiomed.researcher.experiment.create_unique_file_link')
+    def test_experiment_23_static_save_aggregated_params(self,
+                                                         mock_create_unique_file_link):
+        """Testing static private method of experiment for saving aggregated params"""
+
+        mock_create_unique_file_link.return_value = '/test/path/'
+
+        # Test invalid type of arguments
+        agg_params = 12  #
+        with self.assertRaises(SystemExit):
+            Experiment._save_aggregated_params(aggregated_params_init=agg_params, breakpoint_path="./")
+        with self.assertRaises(SystemExit):
+            Experiment._save_aggregated_params(aggregated_params_init={}, breakpoint_path=True)
+
+        # Test if aggregated_params_init is dict but values not
+        agg_params = {"node-1": True, "node-2": False}
+        with self.assertRaises(SystemExit):
+            Experiment._save_aggregated_params(aggregated_params_init=agg_params, breakpoint_path='/')
+
+        # Test expected sceneries
+        agg_params = {
+            "node-1": {'params_path': '/'},
+            "node-2": {'params_path': '/'}
+        }
+        expected_agg_params = {
+            "node-1": {'params_path': '/test/path/'},
+            "node-2": {'params_path': '/test/path/'}
+        }
+        agg_p = Experiment._save_aggregated_params(aggregated_params_init=agg_params, breakpoint_path='/')
+        self.assertDictEqual(agg_p, expected_agg_params, '_save_aggregated_params result is not as expected')
+
+    def test_experiment_24_static_load_aggregated_params(self):
+        """ Testing static method for loading aggregated params of Experiment"""
+
+        def load_func(x, to_params):
+            return False
+
+        # Test invalid type of aggregated params (should be dict)
+        with self.assertRaises(SystemExit):
+            Experiment._load_aggregated_params(True, load_func)
+
+        # Test invalid type of load func params (should be callable)
+        with self.assertRaises(SystemExit):
+            Experiment._load_aggregated_params({}, True)
+
+        # Test invalid key in aggregated params
+        agg_params = {
+            "node-1": {'params_path': '/test/path/'},
+            "node-2": {'params_path': '/test/path/'}
+        }
+        with self.assertRaises(SystemExit):
+            Experiment._load_aggregated_params(agg_params, load_func)
+
+        # Test normal scenario
+        agg_params = {
+            "0": {'params_path': '/test/path/'},
+            "1": {'params_path': '/test/path/'}
+        }
+        expected = {0: {'params_path': '/test/path/', 'params': False},
+                    1: {'params_path': '/test/path/', 'params': False}}
+        result = Experiment._load_aggregated_params(agg_params, load_func)
+        self.assertDictEqual(result, expected, '_load_aggregated_params did not return as expected')
+
+    def test_experiment_25_private_create_object(self):
         """tests `_create_object_ method : 
         Importing class, creating and initializing multiple objects from
         breakpoint state for object and file containing class code
         """
+
+        # Test if args is not instance of dict
+        with self.assertRaises(SystemExit):
+            Experiment._create_object(args=True)
+
+        # Test if module does not exist
+        args = {
+            'class' : 'Test',
+            'module': 'test.test'
+        }
+        with self.assertRaises(SystemExit):
+            Experiment._create_object(args=args)
 
         # need EXPERIMENTS_DIR in PYTHONPATH to use it as directory for saving module
         sys.path.append(
@@ -1326,24 +1425,56 @@ class TestExperiment(unittest.TestCase):
             "   def load_state(self, state :str):\n" + \
             "       self._state = state\n"
 
+        class_source_exception = \
+            "class TestClassException:\n" + \
+            "   def __init__(self, **kwargs):\n" + \
+            "       self._kwargs = kwargs\n" + \
+            "       raise Exception()\n" + \
+            "   def load_state(self, state :str):\n" + \
+            "       self._state = state\n"
+
         test_class_name = 'TestClass'
         module_name = 'testmodule'
-
+        test_class_name_exc = 'TestClassException'
+        module_name_exc = 'testmoduleexc'
         # arguments for creating object
         object_def = {
             'class': test_class_name,
             'module': module_name,
             'other': 'my_arbitrary_field'
         }
+
+        # arguments for creating object for raising exception
+        object_def_exception = {
+            'class': test_class_name_exc,
+            'module': module_name_exc,
+            'other': 'my_arbitrary_field'
+        }
+
         # optional object arguments
         object_kwargs = {'toto': 321, 'titi': 'dummy_par'}
 
         # input file contains code for object creation
         module_file_path = os.path.join(self.experimentation_folder_path, module_name + '.py')
+        module_file_path_exc = os.path.join(self.experimentation_folder_path, module_name_exc + '.py')
         with open(module_file_path, "w") as f:
             f.write(class_source)
+        with open(module_file_path_exc, "w") as f:
+            f.write(class_source_exception)
 
-        # action : instantiate multiple objects of the class
+        # action
+
+        # Test `eval` exception while building class
+        with patch.object(fedbiomed.researcher.experiment, 'eval') as m_eval:
+            m_eval.side_effect = Exception
+            with self.assertRaises(SystemExit):
+                Experiment._create_object(object_def)
+
+        # Test when class_code() (building class) raises error
+        with self.assertRaises(SystemExit):
+            Experiment._create_object(args=object_def_exception)
+
+        # Test instantiate multiple objects of the class
         loaded_objects_noarg = []
         for _ in range(0, 2):
             loaded_objects_noarg.append(Experiment._create_object(object_def))
