@@ -1,22 +1,18 @@
 from typing import Any, Dict, Union
+import unittest
+from unittest.mock import patch, MagicMock
 
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
+import testsupport.mock_researcher_environ
 
-# Delete environ. It is necessary to rebuild environ for required component
-delete_environ()
-# overload with fake environ for tests
-import testsupport.mock_common_environ
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_responses import FakeResponses
+
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import exceptionsEmpty
 from fedbiomed.common.tasks_queue import TasksQueue
-import unittest
-from unittest.mock import patch, MagicMock
 
 
 class TestRequest(unittest.TestCase):

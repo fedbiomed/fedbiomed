@@ -16,7 +16,11 @@ class FakeModel:
     """
     SLEEPING_TIME = 1  # time that simulate training (in seconds)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, model_args: Dict = None, *args, **kwargs):
+
+        # For testing Job model_args
+        self.model_args = model_args
+
         pass
 
     def load(self, path: str, to_params: bool):

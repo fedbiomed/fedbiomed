@@ -1,15 +1,7 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-
-# Delete environ. It is necessary to rebuild environ for required component
-delete_environ()
-# overload with fake environ for tests
-import testsupport.mock_common_environ
-# Import environ for researcher, since tests will be running for researcher component
+import testsupport.mock_researcher_environ
 from fedbiomed.researcher.environ import environ
 
 import unittest
-from unittest.mock import patch, MagicMock, PropertyMock
 import os
 import sys
 import shutil
@@ -18,10 +10,11 @@ import pathvalidate
 import inspect
 import fedbiomed.researcher.experiment
 
+from unittest.mock import patch, MagicMock, PropertyMock
 from fedbiomed.common.torchnn import TorchTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.job import Job
-from fedbiomed.researcher.experiment import Experiment, exp_exceptions
+from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator

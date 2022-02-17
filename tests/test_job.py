@@ -1,20 +1,12 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-
-# Delete environ. It is necessary to rebuild environ for required component
-delete_environ()
-# overload with fake environ for tests
-import testsupport.mock_common_environ
-# Import environ for researcher, since tests will be running for researcher component
-
 import os
 import inspect
 import shutil
 import unittest
 import torch
 import numpy as np
-
+import testsupport.mock_researcher_environ
 from fedbiomed.researcher.environ import environ
+
 from unittest.mock import patch, MagicMock, PropertyMock
 from typing import Dict, Any
 from fedbiomed.researcher.job import Job
@@ -200,13 +192,12 @@ class TestJob(unittest.TestCase):
 
         model_args = {"test": "test"}
 
-        try:
-            j = Job(model=FakeModel,
-                    data=self.fds,
-                    model_args=model_args)
-        except:
-            self.assertTrue(True, 'Job has not been instantiated with model_args')
+        j = Job(model=FakeModel,
+                data=self.fds,
+                model_args=model_args)
 
+        self.assertDictEqual(j.model_instance.model_args, model_args,
+                             'Model arguments has not been instantiated properly')
 
     @patch('fedbiomed.common.logger.logger.error')
     def test_job_05_initialization_raising_exception_save_and_save_code(self,
@@ -281,7 +272,7 @@ class TestJob(unittest.TestCase):
         self.assertListEqual(list(calls[1][0]), [message, 'node-2'])
 
         self.assertListEqual(responses.data(), result.data(),
-                              'Response of `check_model_is_approved_by_nodes` is not as expected')
+                             'Response of `check_model_is_approved_by_nodes` is not as expected')
 
         # Test when model is approved by only one node
         responses = FakeResponses([

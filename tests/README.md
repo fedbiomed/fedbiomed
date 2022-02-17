@@ -57,6 +57,9 @@ Remarks: **nose** could also be used to run the test (same test files as with
 unittest). One benefit is to have more option to run the test, for example
 have a coverage output, xml output for ci, etc...
 
+Remarks: coverage is configured via the **.covergaerc** file situated at top directory. Documentation available here:
+https://coverage.readthedocs.io/en/stable/config.html
+
 ### How to write Unit Tests with `unittest` framework: coding conventions
 
 Mocks are objects that isolate the behaviour of an existing class and simulate it by an object less complex. Better said, Mocking is creating objects that simulate the behavior of real objects
@@ -154,6 +157,35 @@ if __name__ == '__main__':  # pragma: no cover
 Remark: a test file may implement more than one class (we may for example create a **TestMessagingResearcher** and a **TestMessagingNode** in the same **test\_messaging.py** file.
 
 We may also provide two test file for the same purpose. The choice depend on the content of the tests and on the code which can be shared between these files (for example, we may implement a connexion to a MQTT server in a setupMethod() if we include the two classes in a single test file.
+
+### how to mock environ in a test
+
+#### fake\_researcher\_environ
+
+If the test concern the **researcher** component, the test file should import the mock environment **before** fedbiomed.researcher.environ
+
+```
+import testsupport.mock_researcher_environ
+from fedbiomed.researcher.environ import environ
+```
+
+Remark: the testsupport/fake\_researcher\_environ.py file **must not** be imported direclty (because it only create a Environ() class but does not instantiate it and does not mock the sys.module python environment.
+
+#### fake\_node\_environ
+
+If the test concern the **researcher** component, the test file should import the mock environment **before** fedbiomed.researcher.environ
+
+```
+import testsupport.mock_node_environ
+from fedbiomed.node.environ import environ
+```
+
+Remark: the testsupport/fake\_node\_environ.py file **must not** be imported direclty (because it only create a Environ() class but does not instantiate it and does not mock the sys.module python environment.
+
+#### test\_environ\_common.py
+
+This file tests the fedbiomed.common.environ module. It is the only test which does not use fake\_*\_environ.
+Reciprocally: all others tests **must** use the mocked environ.
 
 
 ### setUp/tearDown

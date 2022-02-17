@@ -1,33 +1,24 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-
 import copy
-from typing import List
-
-from unittest import mock
-
-import numpy as np
-import pandas as pd
-from testsupport.delete_environ import delete_environ
-# Detele environ. It is necessary to rebuild environ for required component
-delete_environ()
-import testsupport.mock_common_environ
-# Import environ for node since test will be runing for node component
-from fedbiomed.node.environ    import environ
-
-
-from fedbiomed.node.data_manager import DataManager
-import unittest
-from unittest.mock import MagicMock, patch
-import os
-
 import inspect
+import numpy as np
+import os
+import pandas as pd
+from typing import List
+import unittest
+from unittest import mock
+from unittest.mock import MagicMock, patch
+
 import torch
 from torch.utils.data import Dataset
 
+
+
+import testsupport.mock_node_environ
 from tests.testsupport.fake_uuid import FakeUuid
 
+from fedbiomed.node.environ    import environ
+from fedbiomed.node.data_manager import DataManager
 
-print(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))))
 
 
 class TestDataManager(unittest.TestCase):
