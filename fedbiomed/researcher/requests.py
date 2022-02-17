@@ -3,18 +3,20 @@ import json
 import os
 import signal
 import sys
+import tabulate
 import threading
 from time import sleep
 from typing import Any, Dict, Callable
 import uuid
-import tabulate
 
-from fedbiomed.common.singleton import SingletonMeta
+from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.exceptions import FedbiomedTaskQueueError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
-from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
 from fedbiomed.common.messaging import Messaging
-from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.singleton import SingletonMeta
+from fedbiomed.common.tasks_queue import TasksQueue
+
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
 
@@ -79,6 +81,10 @@ class Requests(metaclass=SingletonMeta):
             #
             # *Reply messages (SearchReply, TrainReply) added to the TaskQueue
             self.queue.add(ResearcherMessages.reply_create(msg).get_dict())
+
+            # we may trap FedbiomedTaskQueueError here then queue full
+            # but what can we do except of quitting ?
+
         elif topic == "general/monitoring":
             if self._monitor_message_callback is not None:
                 # Pass message to Monitor's on message handler
@@ -153,7 +159,9 @@ class Requests(metaclass=SingletonMeta):
                     # currently trash all other messages
                     pass
                     #self.queue.add(item)
-            except exceptionsEmpty:
+            except FedbiomedTaskQueueError:
+                # may happend on self.queue.get()
+                # if queue is empty -> we ignore it
                 pass
 
         return Responses(answers)
