@@ -8,7 +8,6 @@ import testsupport.mock_common_environ
 # Import environ for researcher, since tests will be running for researcher component
 
 import os
-import importlib.util
 import inspect
 import shutil
 import unittest

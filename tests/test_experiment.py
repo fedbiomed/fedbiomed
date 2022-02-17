@@ -93,13 +93,11 @@ class TestExperiment(unittest.TestCase):
             os.path.join(environ['EXPERIMENTS_DIR'], self.experimentation_folder)
         os.makedirs(self.experimentation_folder_path)
 
-        # build minimal objects, needed to extract state by calling object method
-
+        # Define patchers ---------------------------------------------------------------------------------------
+        # Patchers that are not required be modified during the tests
         self.patchers = [
             patch('fedbiomed.researcher.datasets.FederatedDataSet',
                   FederatedDataSetMock),
-            patch('fedbiomed.researcher.job.Job.__init__',
-                  return_value=None),
             patch('fedbiomed.researcher.monitor.Monitor.__init__',
                   return_value=None),
             patch('fedbiomed.researcher.monitor.Monitor.on_message_handler',
@@ -112,7 +110,7 @@ class TestExperiment(unittest.TestCase):
                   return_value=None)
         ]
 
-        # Define patchers ---------------------------------------------------------------------------------------
+        # Patchers that required be modified during the tests
         self.patcher_cr_folder = patch('fedbiomed.researcher.experiment.create_exp_folder',
                                        return_value=self.experimentation_folder)
         self.patcher_job = patch('fedbiomed.researcher.job.Job.__init__', MagicMock(return_value=None))
@@ -125,6 +123,9 @@ class TestExperiment(unittest.TestCase):
                                           MagicMock(return_value=None))
         self.patcher_request_search = patch('fedbiomed.researcher.requests.Requests.search', MagicMock(return_value={}))
 
+        for patcher in self.patchers:
+            patcher.start()
+
         # Define mocks from patchers ---------------------------------------------------------------------------
         self.mock_create_folder = self.patcher_cr_folder.start()
         self.mock_logger_info = self.patcher_logger_info.start()
@@ -135,9 +136,6 @@ class TestExperiment(unittest.TestCase):
         self.mock_job = self.patcher_job.start()
         self.mock_request_init = self.patcher_request_init.start()
         self.mock_request_search = self.patcher_request_search.start()
-
-        for patcher in self.patchers:
-            patcher.start()
 
         self.round_limit = 4
         self.tags = ['some_tag', 'more_tag']
@@ -153,6 +151,7 @@ class TestExperiment(unittest.TestCase):
 
     def tearDown(self) -> None:
 
+        # Stop patchers patched in array
         for patcher in self.patchers:
             patcher.stop()
 
@@ -658,7 +657,7 @@ class TestExperiment(unittest.TestCase):
         self.assertIsNone(model_path, 'Setter for model_path did not set model_path to None')
 
         # Test passing path for model_file
-        fake_model_path = self.create_fake_model_file('fake_model.py')
+        fake_model_path = self.create_fake_model_file('fake_model_2.py')
         model_path = self.test_exp.set_model_path(fake_model_path)
         self.assertEqual(model_path, fake_model_path, 'Setter for model_path did not set model_path properly')
 
