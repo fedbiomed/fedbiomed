@@ -1798,7 +1798,7 @@ class Experiment(object):
 
         # instantiate object from module
         try:
-            if object_kwargs is None:
+            if not object_kwargs:
                 object_instance = class_code()
             else:
                 object_instance = class_code(**object_kwargs)
