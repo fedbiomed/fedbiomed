@@ -47,16 +47,16 @@ class Repository:
         try:
             files = {'file': open(filename, 'rb')}
         except FileNotFoundError:
-            _msg = ErrorNumbers.FB603.value + f': File {filename} not found, cannot upload it'
+            _msg = ErrorNumbers.FB604.value + f': File {filename} not found, cannot upload it'
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
         except PermissionError:
-            _msg = ErrorNumbers.FB603.value + f': Unable to read {filename} due to unsatisfactory privileges'
+            _msg = ErrorNumbers.FB604.value + f': Unable to read {filename} due to unsatisfactory privileges'
             ", cannot upload it"
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
         except OSError:
-            _msg = ErrorNumbers.FB603.value + f': Cannot read file {filename} when uploading'
+            _msg = ErrorNumbers.FB604.value + f': Cannot read file {filename} when uploading'
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
         
@@ -75,7 +75,7 @@ class Repository:
             raise FedbiomedRepositoryError(_msg)
         except requests.URLRequired:
             # request has been badly formatted
-            _msg = ErrorNumbers.FB603.value + f" : URL not specified when uploading file {filename}"
+            _msg = ErrorNumbers.FB604.value + f" : URL not specified when uploading file {filename}"
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
         except requests.ConnectionError:

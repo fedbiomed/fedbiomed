@@ -1,27 +1,20 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-
 import copy
+from json import decoder
 from typing import Any, Dict
-
-from testsupport.delete_environ import delete_environ
-
-# Delete environ. It is necessary to rebuild environ for required component
-delete_environ()
-# overload with fake environ for tests
-import testsupport.mock_common_environ
-
-from fedbiomed.node.environ import environ
-
 import unittest
 from unittest.mock import MagicMock, patch
+
+import testsupport.mock_node_environ
+
+# import dummy classes
+from testsupport.fake_message import FakeMessages
+
+from fedbiomed.node.environ import environ
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
-from json import decoder
 
-# import dummy classes
-from testsupport.fake_message import FakeMessages
 
 
 class TestNode(unittest.TestCase):
@@ -177,7 +170,7 @@ class TestNode(unittest.TestCase):
         # action
         self.n1.on_message(search_msg)
 
-        # argument `search_msg` will be modified: we will check if 
+        # argument `search_msg` will be modified: we will check if
         # message has been modified accordingly
 
         self.database_val[0].pop('path', None)
@@ -210,7 +203,7 @@ class TestNode(unittest.TestCase):
         self.n1.on_message(list_msg)
 
         # updating `list_msg` value to match the one sent through
-        # Messaging class (here we are removing `path` and `dataset_id` 
+        # Messaging class (here we are removing `path` and `dataset_id`
         # entries in the `database_list`)
         for d in self.database_list:
             for key in ['path', 'dataset_id']:
@@ -238,7 +231,7 @@ class TestNode(unittest.TestCase):
             'researcher_id': 'researcher_id_1234',
         }
 
-        # action 
+        # action
         self.n1.on_message(model_status_msg)
 
         # checks
@@ -250,7 +243,7 @@ class TestNode(unittest.TestCase):
     def test_node_07_on_message_unknown_command(self,
                                                 node_msg_request_patch,
                                                 send_err_patch):
-        """Tests Exception is handled if command is not a known command 
+        """Tests Exception is handled if command is not a known command
         (in `on_message` method)"""
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
@@ -263,7 +256,7 @@ class TestNode(unittest.TestCase):
             'researcher_id': researcher_id,
         }
 
-        # action 
+        # action
         self.n1.on_message(unknown_cmd_msg)
 
         # check
@@ -373,7 +366,7 @@ class TestNode(unittest.TestCase):
                                               history_monitor_patch,
                                               round_patch
                                               ):
-        """Tests if rounds are created accordingly - running normal case scenario 
+        """Tests if rounds are created accordingly - running normal case scenario
         (in `parser_task` method)"""
 
         # defining patchers
@@ -430,8 +423,8 @@ class TestNode(unittest.TestCase):
 
         # checks
 
-        # FIXME: is this a good idea? Unit test may fail if 
-        # parameters are passed using arg name, 
+        # FIXME: is this a good idea? Unit test may fail if
+        # parameters are passed using arg name,
         # and if order change. Besides, it doesn't test
         # if value passed is a `HistoryMonitor` object (could be everything, test will pass)
         # see `sentinel` in unittests documentation
@@ -537,7 +530,7 @@ class TestNode(unittest.TestCase):
 
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
-        # we are not testing deserialization here, we are assuming here 
+        # we are not testing deserialization here, we are assuming here
         # that deserialization is working fine
         json_deserialize_patcher.return_value = dict_msg_1_dataset
         round_patch.return_value = None
@@ -631,7 +624,7 @@ class TestNode(unittest.TestCase):
                                              node_msg_request_patch,
                                              history_monitor_patch,
                                              ):
-        """Tests correct raise of error (AssertionError) for missing/invalid 
+        """Tests correct raise of error (AssertionError) for missing/invalid
         entries in input arguments"""
 
         # defining patchers
@@ -707,10 +700,10 @@ class TestNode(unittest.TestCase):
             # checks if `SystemError` is caught (triggered by patched `tasks_queue.get`)
             self.n1.task_manager()
 
-    # NOTA BENE: for test 14 to test 17 (testing `task_manager` method)      
+    # NOTA BENE: for test 14 to test 17 (testing `task_manager` method)
     # Since we don't have any proper way to stop the infinite loop defined
     # in the method, we are triggering `SystemExit` Exception to leave it
-    # (SystemExit is an exception that is not caught by statement 
+    # (SystemExit is an exception that is not caught by statement
     # `except Exception as e:`). When a more graceful way of exiting infinite loop
     # will be created, those tests should be updated
 
@@ -728,7 +721,7 @@ class TestNode(unittest.TestCase):
 
         # action
         with self.assertRaises(SystemExit):
-            # checks if `SystemExit` is caught 
+            # checks if `SystemExit` is caught
             # (should be triggered by `tasks_queue.get` method)
             self.n1.task_manager()
 
@@ -739,7 +732,7 @@ class TestNode(unittest.TestCase):
                                                                 tasks_queue_get_patch,
                                                                 node_parser_task_patch,
                                                                 mssging_send_msg_patch):
-        """Tests case where `messaging.send_message` method 
+        """Tests case where `messaging.send_message` method
         raises an exception (SystemExit).
         """
         # defining patchers
@@ -802,14 +795,14 @@ class TestNode(unittest.TestCase):
                                                                      tasks_queue_task_done_patch,
                                                                      node_msg_reply_create_patch):
         """
-        Tests `task_manager` method, check what happens if `Messaging.send_message` 
+        Tests `task_manager` method, check what happens if `Messaging.send_message`
         triggers an exception.
         """
         # defining attributes
 
         Round = MagicMock()
         Round.run_model_training = MagicMock(run_model_training=None)
-        self.n1.rounds = [Round()]  # only one item in the Round, so 
+        self.n1.rounds = [Round()]  # only one item in the Round, so
         # second exception will be raised within the `except Exception as e` block
         # of `task_manager`
 
