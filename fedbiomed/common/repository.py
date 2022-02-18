@@ -93,7 +93,8 @@ class Repository:
         #     ' (HTTP POST request failed). Details: ' + str(err)
         #     logger.error(_msg)
         #     raise FedbiomedRepositoryError(_msg)
-        _res = self._connection_handler(requests.post, filename, 'POST', files=files)
+        _res = self._connection_handler(requests.post, self.uploads_url,
+                                        filename, 'POST', files=files)
         # checking status of HTTP request
         # try:
         #     # `raise_for_status` method raises an HTTPError if the status code 
@@ -173,19 +174,19 @@ class Repository:
         #     logger.error(_msg)
         #     raise FedbiomedRepositoryError(_msg)
         
-        res = self._connection_handler(requests.get, filename, 'GET')
+        res = self._connection_handler(requests.get, url, filename, 'GET')
         self._raise_for_status_handler(res, filename)
         filepath = os.path.join(self.tmp_dir, filename)
         
         try:
             open(filepath, 'wb').write(res.content)
-        except FileNotFoundError:
-            _msg = ErrorNumbers.FB604.value + f': File {filepath} not found, cannot upload it'
+        except FileNotFoundError as err:
+            _msg = ErrorNumbers.FB604.value + str(err) + ', cannot save the downloaded content into it'
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
         except PermissionError:
             _msg = ErrorNumbers.FB604.value + f': Unable to read {filepath} due to unsatisfactory privileges'
-            ", cannot upload it"
+            ", cannot write the downloaded content into it"
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
         except MemoryError:
@@ -193,9 +194,10 @@ class Repository:
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
         except OSError:
-            _msg = ErrorNumbers.FB604.value + f': Cannot read file {filepath} when uploading'
+            _msg = ErrorNumbers.FB604.value + f': Cannot open file {filepath} after downloading'
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
+        
         return res.status_code, filepath
     
     def _raise_for_status_handler(self, rq_result: requests, filename: str = ''):
@@ -223,25 +225,25 @@ class Repository:
 
     def _get_method_request(self, req_type: str, ) -> str:
         
-        if req_type == "POST":
+        if req_type.upper() == "POST":
             method_msg = "uploading file"
-        elif req_type == "GET":
+        elif req_type.upper() == "GET":
             method_msg = "downloading file"
         else:
             method_msg = 'issuing unknown HTTP request'
         return method_msg
-    
-    
+ 
     def _connection_handler(self,
                             callable_method: Callable,
-                            filename:str,
+                            url: str,
+                            filename: str,
                             req_method: str,
                             *args,
-                            **kwargs):
+                            **kwargs) -> requests:
         
         _method_msg = self._get_method_request(req_method)
         try:
-            res = callable_method(self.uploads_url, *args, **kwargs)
+            res = callable_method(url, *args, **kwargs)
         except requests.Timeout:
             # request exceeded timeout set 
             _msg = ErrorNumbers.FB201.value + f' : {req_method} HTTP request time exceeds Timeout'
