@@ -65,30 +65,31 @@ class Repository:
             _res = requests.post(self.uploads_url, files=files)
         except requests.Timeout:
             # request exceeded timeout set 
-            _msg = ErrorNumbers.FB201 + ' : requests time exceed Timeout'
+            _msg = ErrorNumbers.FB201.value + ' : request time exceeds Timeout'
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
         except requests.TooManyRedirects:
             # request had too any redirections
-            _msg = ErrorNumbers.FB201 + ' : requests time exceed number of redirection'
+            _msg = ErrorNumbers.FB201.value + ' : request exceeds max number of redirection'
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
-        except requests.URLRequired:
+        except (requests.URLRequired, ValueError) as err:
             # request has been badly formatted
-            _msg = ErrorNumbers.FB604.value + f" : URL not specified when uploading file {filename}"
+            _msg = ErrorNumbers.FB604.value + f" : bad URL when uploading file {filename}" + \
+            "(details :" + str(err) + " )"
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
         except requests.ConnectionError:
             # an error during connection has occured
-            _msg = ErrorNumbers.FB201.value + f' when uploading file {filename},' 
-            ' name or service not known'
+            _msg = ErrorNumbers.FB201.value + f' when uploading file {filename}' + \
+            f' to {self.uploads_url}: name or service not known'
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
         
         except requests.RequestException as err:
             # requests.ConnectionError should catch all exceptions
             # triggered by `requests` package
-            _msg = ErrorNumbers.FB200.value + f': when uploading file {filename}'
+            _msg = ErrorNumbers.FB200.value + f': when uploading file {filename}' + \
             ' (HTTP POST request failed). Details: ' + str(err)
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
