@@ -1,7 +1,7 @@
 import os
 
 import requests  # Python built-in library
-from typing import Dict, Any, Tuple, Text, Union
+from typing import Callable, Dict, Any, Tuple, Text, Union
 from fedbiomed.common.logger import logger
 
 from fedbiomed.common.exceptions import FedbiomedRepositoryError
@@ -61,61 +61,60 @@ class Repository:
             raise FedbiomedRepositoryError(_msg)
         
         # second, we are issuing an HTTP 'POST' request to the HTTP server
-        try:
-            _res = requests.post(self.uploads_url, files=files)
-        except requests.Timeout:
-            # request exceeded timeout set 
-            _msg = ErrorNumbers.FB201.value + ' : request time exceeds Timeout'
-            logger.error(_msg)
-            raise FedbiomedRepositoryError(_msg)
-        except requests.TooManyRedirects:
-            # request had too any redirections
-            _msg = ErrorNumbers.FB201.value + ' : request exceeds max number of redirection'
-            logger.error(_msg)
-            raise FedbiomedRepositoryError(_msg)
-        except (requests.URLRequired, ValueError) as err:
-            # request has been badly formatted
-            _msg = ErrorNumbers.FB604.value + f" : bad URL when uploading file {filename}" + \
-            "(details :" + str(err) + " )"
-            logger.error(_msg)
-            raise FedbiomedRepositoryError(_msg)
-        except requests.ConnectionError:
-            # an error during connection has occured
-            _msg = ErrorNumbers.FB201.value + f' when uploading file {filename}' + \
-            f' to {self.uploads_url}: name or service not known'
-            logger.error(_msg)
-            raise FedbiomedRepositoryError(_msg)
+        # try:
+        #     _res = requests.post(self.uploads_url, files=files)
+        # except requests.Timeout:
+        #     # request exceeded timeout set 
+        #     _msg = ErrorNumbers.FB201.value + ' : HTTP POST request time exceeds Timeout'
+        #     logger.error(_msg)
+        #     raise FedbiomedRepositoryError(_msg)
+        # except requests.TooManyRedirects:
+        #     # request had too any redirections
+        #     _msg = ErrorNumbers.FB201.value + ' : request exceeds max number of redirection'
+        #     logger.error(_msg)
+        #     raise FedbiomedRepositoryError(_msg)
+        # except (requests.URLRequired, ValueError) as err:
+        #     # request has been badly formatted
+        #     _msg = ErrorNumbers.FB604.value + f" : bad URL when uploading file {filename}" + \
+        #     "(details :" + str(err) + " )"
+        #     logger.error(_msg)
+        #     raise FedbiomedRepositoryError(_msg)
+        # except requests.ConnectionError:
+        #     # an error during connection has occured
+        #     _msg = ErrorNumbers.FB201.value + f' when uploading file {filename}' + \
+        #     f' to {self.uploads_url}: name or service not known'
+        #     logger.error(_msg)
+        #     raise FedbiomedRepositoryError(_msg)
         
-        except requests.RequestException as err:
-            # requests.ConnectionError should catch all exceptions
-            # triggered by `requests` package
-            _msg = ErrorNumbers.FB200.value + f': when uploading file {filename}' + \
-            ' (HTTP POST request failed). Details: ' + str(err)
-            logger.error(_msg)
-            raise FedbiomedRepositoryError(_msg)
-        
+        # except requests.RequestException as err:
+        #     # requests.ConnectionError should catch all exceptions
+        #     # triggered by `requests` package
+        #     _msg = ErrorNumbers.FB200.value + f': when uploading file {filename}' + \
+        #     ' (HTTP POST request failed). Details: ' + str(err)
+        #     logger.error(_msg)
+        #     raise FedbiomedRepositoryError(_msg)
+        _res = self._connection_handler(requests.post, filename, 'POST', files=files)
         # checking status of HTTP request
-        try:
-            # `raise_for_status` method raises an HTTPError if the status code 
-            # is 4xx or 500
-            _res.raise_for_status()
-        except requests.HTTPError as err:
-            if _res.status_code == 404:
-                # handling case where status code of HTTP request equals 404
-                _msg = ErrorNumbers.FB202.value + f' when uploading file {filename}'
+        # try:
+        #     # `raise_for_status` method raises an HTTPError if the status code 
+        #     # is 4xx or 500
+        #     _res.raise_for_status()
+        # except requests.HTTPError as err:
+        #     if _res.status_code == 404:
+        #         # handling case where status code of HTTP request equals 404
+        #         _msg = ErrorNumbers.FB202.value + f' when uploading file {filename}'
                 
-            else:
-                # handling case where status code of HTTP request is 4xx or 500
-                _msg = ErrorNumbers.FB203.value + f' when uploading file {filename}'
-                f'(status code: {_res.status_code})'
+        #     else:
+        #         # handling case where status code of HTTP request is 4xx or 500
+        #         _msg = ErrorNumbers.FB203.value + f' when uploading file {filename}'
+        #         f'(status code: {_res.status_code})'
             
-            logger.error(_msg)
-            logger.debug('Details of exception: ' + str(err))
-            raise FedbiomedRepositoryError(_msg)
+        #     logger.error(_msg)
+        #     logger.debug('Details of exception: ' + str(err))
+        #     raise FedbiomedRepositoryError(_msg)
+        self._raise_for_status_handler(_res, filename)
 
-        else:
-            logger.debug(f'upload (HTTP POST request) of file {filename} successful,' 
-                         f' with status code {_res.status_code}')
+        
             
         # finally, we are deserializing message from JSON
         try:
@@ -141,7 +140,136 @@ class Repository:
             filepath (str): the complete pathfile under
             which the temporary file is saved
         """
-        res = requests.get(url)
+        # try:
+        #     res = requests.get(url)
+        # except requests.Timeout:
+        #     # request exceeded timeout set 
+        #     _msg = ErrorNumbers.FB201.value + ' : GET HTTP request time exceeds Timeout'
+        #     logger.error(_msg)
+        #     raise FedbiomedRepositoryError(_msg)
+        # except requests.TooManyRedirects:
+        #     # request had too any redirections
+        #     _msg = ErrorNumbers.FB201.value + ' : request exceeds max number of redirection'
+        #     logger.error(_msg)
+        #     raise FedbiomedRepositoryError(_msg)
+        # except (requests.URLRequired, ValueError) as err:
+        #     # request has been badly formatted
+        #     _msg = ErrorNumbers.FB604.value + f" : bad URL when downloading file {filename}" + \
+        #     "(details :" + str(err) + " )"
+        #     logger.error(_msg)
+        #     raise FedbiomedRepositoryError(_msg)
+        # except requests.ConnectionError:
+        #     # an error during connection has occured
+        #     _msg = ErrorNumbers.FB201.value + f' when uploading file {filename}' + \
+        #     f' to {self.uploads_url}: name or service not known'
+        #     logger.error(_msg)
+        #     raise FedbiomedRepositoryError(_msg)
+        
+        # except requests.RequestException as err:
+        #     # requests.ConnectionError should catch all exceptions
+        #     # triggered by `requests` package
+        #     _msg = ErrorNumbers.FB200.value + f': when uploading file {filename}' + \
+        #     ' (HTTP POST request failed). Details: ' + str(err)
+        #     logger.error(_msg)
+        #     raise FedbiomedRepositoryError(_msg)
+        
+        res = self._connection_handler(requests.get, filename, 'GET')
+        self._raise_for_status_handler(res, filename)
         filepath = os.path.join(self.tmp_dir, filename)
-        open(filepath, 'wb').write(res.content)
+        
+        try:
+            open(filepath, 'wb').write(res.content)
+        except FileNotFoundError:
+            _msg = ErrorNumbers.FB604.value + f': File {filepath} not found, cannot upload it'
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        except PermissionError:
+            _msg = ErrorNumbers.FB604.value + f': Unable to read {filepath} due to unsatisfactory privileges'
+            ", cannot upload it"
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        except MemoryError:
+            _msg = ErrorNumbers.FB604.value + f" : cannot write on {filepath}: out of memory!"
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        except OSError:
+            _msg = ErrorNumbers.FB604.value + f': Cannot read file {filepath} when uploading'
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
         return res.status_code, filepath
+    
+    def _raise_for_status_handler(self, rq_result: requests, filename: str = ''):
+        
+        _method_msg = self._get_method_request(rq_result.request.method)
+        try:
+            # `raise_for_status` method raises an HTTPError if the status code 
+            # is 4xx or 500
+            rq_result.raise_for_status()
+        except requests.HTTPError as err:
+            if rq_result.status_code == 404:
+                # handling case where status code of HTTP request equals 404
+                _msg = ErrorNumbers.FB202.value + f' when {_method_msg} {filename}'
+                
+            else:
+                # handling case where status code of HTTP request is 4xx or 500
+                _msg = ErrorNumbers.FB203.value + f' when {_method_msg} {filename}' +\
+                f'(status code: {rq_result.status_code})'
+            logger.error(_msg)
+            logger.debug('Details of exception: ' + str(err))
+            raise FedbiomedRepositoryError(_msg)
+        else:
+            logger.debug(f'upload (HTTP {rq_result.request.method} request) of file {filename} successful,' 
+                         f' with status code {rq_result.status_code}')
+
+    def _get_method_request(self, req_type: str, ) -> str:
+        
+        if req_type == "POST":
+            method_msg = "uploading file"
+        elif req_type == "GET":
+            method_msg = "downloading file"
+        else:
+            method_msg = 'issuing unknown HTTP request'
+        return method_msg
+    
+    
+    def _connection_handler(self,
+                            callable_method: Callable,
+                            filename:str,
+                            req_method: str,
+                            *args,
+                            **kwargs):
+        
+        _method_msg = self._get_method_request(req_method)
+        try:
+            res = callable_method(self.uploads_url, *args, **kwargs)
+        except requests.Timeout:
+            # request exceeded timeout set 
+            _msg = ErrorNumbers.FB201.value + f' : {req_method} HTTP request time exceeds Timeout'
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        except requests.TooManyRedirects:
+            # request had too any redirections
+            _msg = ErrorNumbers.FB201.value + f' : {req_method} HTTP request exceeds max number of redirection'
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        except (requests.URLRequired, ValueError) as err:
+            # request has been badly formatted
+            _msg = ErrorNumbers.FB604.value + f" : bad URL when {_method_msg} {filename}" + \
+            "(details :" + str(err) + " )"
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        except requests.ConnectionError:
+            # an error during connection has occured
+            _msg = ErrorNumbers.FB201.value + f' when {_method_msg} {filename}' + \
+            f' to {self.uploads_url}: name or service not known'
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        
+        except requests.RequestException as err:
+            # requests.ConnectionError should catch all exceptions
+            # triggered by `requests` package
+            _msg = ErrorNumbers.FB200.value + f': when {_method_msg} {filename}' + \
+            ' (HTTP POST request failed). Details: ' + str(err)
+            logger.error(_msg)
+            raise FedbiomedRepositoryError(_msg)
+        return res
