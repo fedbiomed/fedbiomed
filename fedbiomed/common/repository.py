@@ -61,62 +61,13 @@ class Repository:
             raise FedbiomedRepositoryError(_msg)
         
         # second, we are issuing an HTTP 'POST' request to the HTTP server
-        # try:
-        #     _res = requests.post(self.uploads_url, files=files)
-        # except requests.Timeout:
-        #     # request exceeded timeout set 
-        #     _msg = ErrorNumbers.FB201.value + ' : HTTP POST request time exceeds Timeout'
-        #     logger.error(_msg)
-        #     raise FedbiomedRepositoryError(_msg)
-        # except requests.TooManyRedirects:
-        #     # request had too any redirections
-        #     _msg = ErrorNumbers.FB201.value + ' : request exceeds max number of redirection'
-        #     logger.error(_msg)
-        #     raise FedbiomedRepositoryError(_msg)
-        # except (requests.URLRequired, ValueError) as err:
-        #     # request has been badly formatted
-        #     _msg = ErrorNumbers.FB604.value + f" : bad URL when uploading file {filename}" + \
-        #     "(details :" + str(err) + " )"
-        #     logger.error(_msg)
-        #     raise FedbiomedRepositoryError(_msg)
-        # except requests.ConnectionError:
-        #     # an error during connection has occured
-        #     _msg = ErrorNumbers.FB201.value + f' when uploading file {filename}' + \
-        #     f' to {self.uploads_url}: name or service not known'
-        #     logger.error(_msg)
-        #     raise FedbiomedRepositoryError(_msg)
-        
-        # except requests.RequestException as err:
-        #     # requests.ConnectionError should catch all exceptions
-        #     # triggered by `requests` package
-        #     _msg = ErrorNumbers.FB200.value + f': when uploading file {filename}' + \
-        #     ' (HTTP POST request failed). Details: ' + str(err)
-        #     logger.error(_msg)
-        #     raise FedbiomedRepositoryError(_msg)
+ 
         _res = self._connection_handler(requests.post, self.uploads_url,
                                         filename, 'POST', files=files)
         # checking status of HTTP request
-        # try:
-        #     # `raise_for_status` method raises an HTTPError if the status code 
-        #     # is 4xx or 500
-        #     _res.raise_for_status()
-        # except requests.HTTPError as err:
-        #     if _res.status_code == 404:
-        #         # handling case where status code of HTTP request equals 404
-        #         _msg = ErrorNumbers.FB202.value + f' when uploading file {filename}'
-                
-        #     else:
-        #         # handling case where status code of HTTP request is 4xx or 500
-        #         _msg = ErrorNumbers.FB203.value + f' when uploading file {filename}'
-        #         f'(status code: {_res.status_code})'
-            
-        #     logger.error(_msg)
-        #     logger.debug('Details of exception: ' + str(err))
-        #     raise FedbiomedRepositoryError(_msg)
-        self._raise_for_status_handler(_res, filename)
 
-        
-            
+        self._raise_for_status_handler(_res, filename)
+  
         # finally, we are deserializing message from JSON
         try:
             json_res = _res.json()
@@ -141,38 +92,6 @@ class Repository:
             filepath (str): the complete pathfile under
             which the temporary file is saved
         """
-        # try:
-        #     res = requests.get(url)
-        # except requests.Timeout:
-        #     # request exceeded timeout set 
-        #     _msg = ErrorNumbers.FB201.value + ' : GET HTTP request time exceeds Timeout'
-        #     logger.error(_msg)
-        #     raise FedbiomedRepositoryError(_msg)
-        # except requests.TooManyRedirects:
-        #     # request had too any redirections
-        #     _msg = ErrorNumbers.FB201.value + ' : request exceeds max number of redirection'
-        #     logger.error(_msg)
-        #     raise FedbiomedRepositoryError(_msg)
-        # except (requests.URLRequired, ValueError) as err:
-        #     # request has been badly formatted
-        #     _msg = ErrorNumbers.FB604.value + f" : bad URL when downloading file {filename}" + \
-        #     "(details :" + str(err) + " )"
-        #     logger.error(_msg)
-        #     raise FedbiomedRepositoryError(_msg)
-        # except requests.ConnectionError:
-        #     # an error during connection has occured
-        #     _msg = ErrorNumbers.FB201.value + f' when uploading file {filename}' + \
-        #     f' to {self.uploads_url}: name or service not known'
-        #     logger.error(_msg)
-        #     raise FedbiomedRepositoryError(_msg)
-        
-        # except requests.RequestException as err:
-        #     # requests.ConnectionError should catch all exceptions
-        #     # triggered by `requests` package
-        #     _msg = ErrorNumbers.FB200.value + f': when uploading file {filename}' + \
-        #     ' (HTTP POST request failed). Details: ' + str(err)
-        #     logger.error(_msg)
-        #     raise FedbiomedRepositoryError(_msg)
         
         res = self._connection_handler(requests.get, url, filename, 'GET')
         self._raise_for_status_handler(res, filename)
@@ -201,8 +120,21 @@ class Repository:
         return res.status_code, filepath
     
     def _raise_for_status_handler(self, rq_result: requests, filename: str = ''):
-        
-        _method_msg = self._get_method_request(rq_result.request.method)
+        """
+        Handler that deals with exceptions and raises the appropriate 
+        exception if the HTTP request has failed with a code error (eg 4xx or 500)
+
+        Args:
+            rq_result (requests): the HTTP request (eg `requests.post` result).
+            filename (str, optional): the name of the file that is uploaded/downloaded, 
+            (regarding the HTTP request issued).
+            Defaults to ''.
+
+        Raises:
+            FedbiomedRepositoryError: if request has failed, raises an FedBiomedError
+            with the appropriate code error/ message
+        """
+        _method_msg = self._get_method_request_msg(rq_result.request.method)
         try:
             # `raise_for_status` method raises an HTTPError if the status code 
             # is 4xx or 500
@@ -223,8 +155,18 @@ class Repository:
             logger.debug(f'upload (HTTP {rq_result.request.method} request) of file {filename} successful,' 
                          f' with status code {rq_result.status_code}')
 
-    def _get_method_request(self, req_type: str, ) -> str:
-        
+    def _get_method_request_msg(self, req_type: str) -> str:
+        """
+        Returns the appropraite message whether the HTTP request is GET (downloading)
+        or POST (uploading)
+
+        Args:
+            req_type (str): the request type ('GET', 'POST')
+
+        Returns:
+            str: the appropriate message (that will be used for the error message
+            if any error ha been found)
+        """
         if req_type.upper() == "POST":
             method_msg = "uploading file"
         elif req_type.upper() == "GET":
@@ -240,9 +182,32 @@ class Repository:
                             req_method: str,
                             *args,
                             **kwargs) -> requests:
-        
-        _method_msg = self._get_method_request(req_method)
+        """
+        Handles error that can trigger if the HTTP request fails (eg
+        if request exceeded timeout, ...)
+
+        Args:
+            callable_method (Callable): the requests HTTP method (callable)
+            url (str): the url method to which to connect to
+            filename (str): the name of the file to upload / download
+            req_method (str): the name of the HTTP request (eg 'POST', 'GET', ...)
+            *args, **kwargs: argument to be passed to the callable method.
+
+        Raises:
+            FedbiomedRepositoryError: Triggers if the Timeout has exceeded.
+            FedbiomedRepositoryError: Triggers if the request has faced too many redirect.
+            FedbiomedRepositoryError: Triggers if URL is badly written, or missing some
+            parts (eg: missing scheme).
+            FedbiomedRepositoryError: Triggers if the connection was unsuccessful, when the service 
+            to connect is unknown.         
+            FedbiomedRepositoryError: Catches other exceptions coming from requests package
+
+        Returns:
+            requests: the result of the request if request is successful
+        """
+        _method_msg = self._get_method_request_msg(req_method)
         try:
+            # issuing the HTTP request
             res = callable_method(url, *args, **kwargs)
         except requests.Timeout:
             # request exceeded timeout set 

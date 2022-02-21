@@ -1,4 +1,5 @@
 import os
+from typing import Callable
 import requests
 import builtins
 from json import JSONDecodeError
@@ -28,22 +29,37 @@ class FakeRequest:
         
         
 class TestRepository(unittest.TestCase):
+    """
+    Runs unit tests for Repository class (from fedbiomed.common.repository)
+
+    """
     class OpenMock:
+        """
+        Mimicks the builtin function `open`
+        """
         file_name = None
         
         def write(self, content):
             self.content = content
+
     # before the tests
     def setUp(self):
+         
+        # creating arguments
+        self.uploads_url = 'http://a.fake.url'
+        self.builtin_open_fake = TestRepository.OpenMock()
         
-        self.uploads_url='http://a.fake.url'
-        # instanciating objects
-        
+        # instanciating Reporsitory objects 
         self.r1 = Repository(uploads_url=self.uploads_url,
                              tmp_dir='/my/temporary_folder/path',
                              cache_dir='/path/to/my/cache/dir')
 
         self.r2 = Repository(None, None, None)
+        
+        def open_side_effect(file_name, mode):
+            self.builtin_open_fake.file_name = file_name
+            return self.builtin_open_fake   
+        self.open_side_effect = open_side_effect
         
     # after the tests
     def tearDown(self):
@@ -64,24 +80,37 @@ class TestRepository(unittest.TestCase):
 
         # arguments
         fake_filename = 'my/file/to/upload'
-        open_fake = TestRepository.OpenMock()
 
-        def open_side_effect(file_name, mode):
-            open_fake.file_name = file_name
-            return open_fake         
+        # side effect funtions    
         
-        def connection_handler_side_effect(callable_method, url,
-                                           filename, req_method, *args, **kwargs):
+        def connection_handler_side_effect(callable_method: Callable,
+                                           url: str,
+                                           filename: str,
+                                           req_method: str,
+                                           *args,
+                                           **kwargs) -> FakeRequest:
+            """Mimicks `_connection_handler` private method of `Repository` class.
+
+            Args:
+                callable_method (Callable): a callable method (unused in this test)
+                url (str): a url to connect to (unused in this test)
+                filename (str): the name of the file to upload
+                req_method (str): the name of the HTTP request (should be "POST")
+
+            Returns:
+                FakeRequest: a FakeRequest object that mimicks the result of 
+                a Request
+            """
             fake_req = FakeRequest(files = kwargs.get('files'))
             setattr(fake_req, 'request', req_method)
-            return fake_req    
+            return fake_req
+    
         # patches & Mocking
-        
-        builtins_open_patch.side_effect = open_side_effect
+        builtins_open_patch.side_effect = self.open_side_effect
         connection_handler_patch.side_effect = connection_handler_side_effect
         raise_for_status_handler_patch.return_value = None
-        # action
         
+        # action
         res = self.r1.upload_file(fake_filename)
         print(res)
         # checks
@@ -91,11 +120,11 @@ class TestRepository(unittest.TestCase):
                                                          self.uploads_url,
                                                          fake_filename,
                                                          'POST',
-                                                         files={'file': open_fake})
+                                                         files={'file': self.builtin_open_fake})
         
         # check result of request
-        self.assertEqual(res, {'file': open_fake})
-        self.assertEqual(fake_filename, open_fake.file_name)
+        self.assertEqual(res, {'file': self.builtin_open_fake})
+        self.assertEqual(fake_filename, self.builtin_open_fake.file_name)
     
     
     def test_repository_02_upload_file_open_exceptions(self):
@@ -106,8 +135,8 @@ class TestRepository(unittest.TestCase):
         2. a PermissionError due to unsatisfactory privileges
         3. a OSError due to the unability to read specified file
         
-        when those errors are triggered, `upload_file` must trigger a FedBimedRepositoryError
-        with the corresponding message wrt the occured error
+        When those errors are triggered, `upload_file` must catch those errors and trigger instead
+        a FedBimedRepositoryError with the corresponding message wrt the occured error.
         """
         with self.assertRaises(FedbiomedRepositoryError):
             self.r1.upload_file('/a/file/that/should/not/be/found/on/your/computer')
@@ -131,7 +160,8 @@ class TestRepository(unittest.TestCase):
                                                                   connection_handler_patch,
                                                                   raise_for_status_handler_patch):
         """
-        Checks if JSON DecodeError is handled correclty when trying to deserialize message.
+        Checks if in `upload_file` JSON DecodeError is handled correclty when
+        trying to deserialize message.
         """                                                  
         # patches and mocks
         builtins_open_patch.return_value = None
@@ -142,8 +172,8 @@ class TestRepository(unittest.TestCase):
                                                                    "is not deserializable", doc='a_doc', pos=22))
         connection_handler_patch.return_value = requests_post
         raise_for_status_handler_patch.return_value = None
-        # action & checks
         
+        # action & checks
         with self.assertRaises(FedbiomedRepositoryError):
             self.r1.upload_file('a/file/to/upload')
     
@@ -157,18 +187,18 @@ class TestRepository(unittest.TestCase):
                                                       raise_for_status_handler_patch,
                                                       open_patch):
         
-        open_fake = TestRepository.OpenMock()
-        def open_side_effect(file_name, mode):
-            open_fake.file_name = file_name
-            return open_fake  
+        """
+        Tests  `download_file` Repository method in the normal case scenario.
+        """
         
         # arguments
         url = 'http://a.url.from.which.to?download#file'
         path_file = '/a/path/to/a/file/on/which/downloaded/content/will/be/saved'
+        
         # Patches & Mocks
         connection_handler_patch.side_effect = FakeRequest
         raise_for_status_handler_patch.return_value = None
-        open_patch.side_effect = open_side_effect
+        open_patch.side_effect = self.open_side_effect
         
         # action
         status_code, filepath = self.r1.download_file(url,
@@ -185,7 +215,7 @@ class TestRepository(unittest.TestCase):
                                            'wb')
         
         self.assertEqual(filepath, expected_path_file)
-        self.assertEqual(status_code, 200)
+        self.assertEqual(status_code, 200)  # HTTP request should be ok (status code = 200)
         
     @patch('builtins.open')
     @patch('fedbiomed.common.repository.Repository._raise_for_status_handler')
@@ -194,10 +224,20 @@ class TestRepository(unittest.TestCase):
                                                          connection_handler_patch, 
                                                          raise_for_status_patch,
                                                          open_patch):
+        """
+        Tests exceptions regarding file opening are appropriately handled
+        in `download_file` method. 
         
+        In this test we will trigger :
+        - FileNotFoundError
+        - PermissionError
+        - OSError
+        - MemoryError
+        """
         # arguments
         url = 'http://a.url.from.which.to?download#file'
         path_file = '/a/path/to/a/file/on/which/downloaded/content/will/be/saved'
+        
         # patches and mocks
         connection_handler_patch.return_value = None
         raise_for_status_patch.return_value = None
@@ -217,9 +257,8 @@ class TestRepository(unittest.TestCase):
         # check MemoryError
         
         open_mock = MagicMock(return_value = None)
-        open_mock.write = MagicMock(side_effect=MemoryError("mimicking situation where there is no available"
+        open_mock.write = MagicMock(side_effect=MemoryError("mimicking case where there is no available"
                                                             " space on system disk"))
-        #open_mock.write = 
         connection_handler_patch.return_value = FakeRequest()
         open_patch.side_effect = None
         open_patch.return_value = open_mock
@@ -227,16 +266,20 @@ class TestRepository(unittest.TestCase):
             self.r1.download_file(url, path_file)
         
         # check OSError
-        open_mock.write = MagicMock(side_effect=OSError("mimicking situation where file cannot be read"
+        open_mock.write = MagicMock(side_effect=OSError("mimicking case where file cannot be read"
                                                         " (eg used by another process)"))
         open_patch.return_value = open_mock
         
         with self.assertRaises(FedbiomedRepositoryError):
             self.r1.download_file(url, path_file)
     
-    @patch('fedbiomed.common.repository.Repository._get_method_request')
+    @patch('fedbiomed.common.repository.Repository._get_method_request_msg')
     def test_repository_06_private_raise_for_status_handler_normal_case(self, 
                                                                         get_method_req_patch):
+        """
+        Tests private method `_raise_for_status_handler` in the normal case scenario 
+        (when no errors are triggered)
+        """
         
         req = FakeRequest()
         get_method_req_patch.return_value = "issuing some HTTP requests"
@@ -247,11 +290,15 @@ class TestRepository(unittest.TestCase):
             # we are checking here if `raise_for_status` has been called
             raise_for_status_mock.assert_called_once()
 
-    @patch('fedbiomed.common.repository.Repository._get_method_request')       
+    @patch('fedbiomed.common.repository.Repository._get_method_request_msg')       
     def test_repository_07_private_raise_for_status_exceptions(self,
                                                                get_method_req_patch):
+        """
+        Tests private method `_raise_for_status_handler` when HTTP request status code is 
+        either 404 or 500, and checks if error is raised.
+        """
         # run a first test that triggers HTTPError with status code error 404
-        # patches and mocks
+        # patches and mocks definintion
         
         requests_mock = MagicMock(return_value=None)
         requests_mock.raise_for_status = MagicMock(side_effect=requests.HTTPError("mimicking an HTTP error"))
@@ -265,43 +312,57 @@ class TestRepository(unittest.TestCase):
                                               'my/file/to/upload')
             
         # run a second test that triggers HTTPError with status code error 500
-        # patches and mocks
+        # patches and mocks defintion
+        
         requests_mock.status_code = 500
+        
         # action & checks
         with self.assertRaises(FedbiomedRepositoryError):
             self.r1._raise_for_status_handler(requests_mock, 'my/other/file/to/upload')
         
     def test_repository_08_get_method_request(self):
+        """
+        Tests priavte method `_get_method_request` of Repository for different 
+        HTTP requests ('GET', 'POST' or unknown)
+        """
         # test 1 with a HTTP POST request
         
-        msg_test_1 = self.r1._get_method_request("post")  
+        msg_test_1 = self.r1._get_method_request_msg("post")  
         self.assertEqual(msg_test_1, "uploading file")  
         
         # test 2 with a HTTP GET request
         
-        msg_test_2 = self.r1._get_method_request("get")
+        msg_test_2 = self.r1._get_method_request_msg("get")
         self.assertEqual(msg_test_2, 'downloading file')
         
         # test 3 with an unknown HTTP request
         
-        msg_test_3 = self.r1._get_method_request('unknown request')
+        msg_test_3 = self.r1._get_method_request_msg('unknown request')
         self.assertEqual('issuing unknown HTTP request', msg_test_3)
 
-    @patch('fedbiomed.common.repository.Repository._get_method_request')
+    @patch('fedbiomed.common.repository.Repository._get_method_request_msg')
     def test_repository_09_private_connection_handler_normal_case(self, 
                                                                   get_method_req_patch):
+        """
+        Tests normal case scenario when using `_connection_handler` 
+        private method
+        """
+        # side effect function definition
         def a_callable(url):
             return FakeRequest(url)
 
+        # patches and mocks
         get_method_req_patch.return_value = "do some operation on file"
+        request_callable = MagicMock(side_effect = a_callable)
         
         # action
-        res = self.r1._connection_handler(a_callable, 
+        res = self.r1._connection_handler(request_callable, 
                                           'http://a.fake.url',
                                           'a/file/path',
                                           req_method="unknown_method")
         
         # checks
+        request_callable.assert_called_once()
         self.assertIsInstance(res, FakeRequest)
         
                  
@@ -309,7 +370,7 @@ class TestRepository(unittest.TestCase):
         """
         Checks that errors tirggered through `requests.post` (ie when issuing a HTTP POST Request)
         have been handled accordingly in `upload_file` method
-        Errors triggered during runtime executions are :
+        Errors triggered during unit test runtime executions are :
         1. requests.Timeout
         2. requests.TooManyRedirects
         3. requests.connectionError
@@ -321,7 +382,7 @@ class TestRepository(unittest.TestCase):
         filename = 'a/file/path'
         req_method = "unknown_method"
 
-        # defining closures
+        # defining side effect functions
         def callable_raising_timeout_exception(*args, **kwargs):
             raise requests.Timeout("Mimicking a Timeout error due to a connection that"
                                    " exceeded timeout")
