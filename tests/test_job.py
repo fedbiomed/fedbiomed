@@ -1,21 +1,23 @@
-import os
 import inspect
+import os
 import shutil
-import unittest
-import torch
-import numpy as np
-import testsupport.mock_researcher_environ
-from fedbiomed.researcher.environ import environ
-
-from unittest.mock import patch, MagicMock, PropertyMock
 from typing import Dict, Any
-from fedbiomed.researcher.job import Job
-from fedbiomed.researcher.responses import Responses
+import unittest
+from unittest.mock import patch, MagicMock, PropertyMock
+
+import numpy as np
+import torch
+
+import testsupport.mock_researcher_environ
 from testsupport.fake_training_plan import FakeModel
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_responses import FakeResponses
-from fedbiomed.researcher.requests import Requests
+
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.job import Job
+from fedbiomed.researcher.requests import Requests
+from fedbiomed.researcher.responses import Responses
 
 
 class TestJob(unittest.TestCase):
