@@ -3,7 +3,6 @@ import os
 import sys
 import shutil
 import json
-import pathvalidate
 import inspect
 
 from unittest.mock import patch, MagicMock, PropertyMock
@@ -402,7 +401,7 @@ class TestExperiment(unittest.TestCase):
 
         # Test by passing training data as Node when the tags is None
         td_expected = None
-        tags = self.test_exp.set_tags(tags=None)
+        _ = self.test_exp.set_tags(tags=None)
         training_data = self.test_exp.set_training_data(training_data=td_expected)
         self.assertEqual(training_data, td_expected, 'Setter for training data is not set as expected: None')
 
@@ -583,7 +582,7 @@ class TestExperiment(unittest.TestCase):
             self.test_exp.set_experimentation_folder(12)
 
         # Test warning
-        with patch.object(fedbiomed.researcher.experiment, 'sanitize_filename') as m:
+        with patch.object(fedbiomed.researcher.experiment, 'sanitize_filename'):
             self.mock_logger_warning.reset_mock()
             self.test_exp.set_experimentation_folder('test')
             self.mock_logger_warning.assert_called_once()

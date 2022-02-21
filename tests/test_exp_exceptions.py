@@ -1,12 +1,13 @@
-import testsupport.mock_researcher_environ
-from fedbiomed.researcher.environ import environ
-
 import unittest
-import fedbiomed.researcher.experiment
-from unittest.mock import patch, MagicMock, PropertyMock
-from fedbiomed.researcher.experiment import exp_exceptions
+from unittest.mock import patch
+
+import testsupport.mock_researcher_environ
+
 from fedbiomed.common.exceptions import FedbiomedSilentTerminationError, FedbiomedError
 
+from fedbiomed.researcher.experiment import exp_exceptions
+from fedbiomed.researcher.environ import environ
+import fedbiomed.researcher.experiment
 
 class TestExpExceptions(unittest.TestCase):
     """ Test class for expriment.exp_exception """

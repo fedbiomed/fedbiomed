@@ -3,7 +3,7 @@ import os
 import shutil
 from typing import Dict, Any
 import unittest
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import patch, MagicMock
 
 import numpy as np
 import torch
@@ -115,7 +115,7 @@ class TestJob(unittest.TestCase):
         mock_logger_critical.return_value = None
 
         with self.assertRaises(NameError):
-            j = Job()
+            _ = Job()
             mock_logger_critical.assert_called_once()
 
     def test_job_02_init_keep_files_dir(self):
@@ -172,7 +172,7 @@ class TestJob(unittest.TestCase):
         tmp_dir_model = TestJob.create_fake_model('fake-model.py')
 
         with self.assertRaises(SystemExit):
-            j = Job(model_path=tmp_dir_model,
+            _ = Job(model_path=tmp_dir_model,
                     model='FakeModel')
             mock_logger_critical.assert_called_once()
 
@@ -185,7 +185,7 @@ class TestJob(unittest.TestCase):
 
         mock_isclass.side_effect = NameError
         with self.assertRaises(NameError):
-            j = Job(model='FakeModel',
+            _ = Job(model='FakeModel',
                     data=self.fds)
             mock_logger_critical.assert_called_once()
 
@@ -211,7 +211,7 @@ class TestJob(unittest.TestCase):
 
         # Test TRY/EXCEPT when save_code raises Exception
         self.model.save_code.side_effect = Exception
-        j = Job(model=self.model, data=self.fds)
+        _ = Job(model=self.model, data=self.fds)
         mock_logger_error.assert_called_once()
 
         # Reset mocks for next tests
@@ -220,7 +220,7 @@ class TestJob(unittest.TestCase):
 
         # Test TRY/EXCEPT when model.save() raises Exception
         self.model.save.side_effect = Exception
-        j = Job(model=self.model, data=self.fds)
+        _ = Job(model=self.model, data=self.fds)
         mock_logger_error.assert_called_once()
 
     def test_job_06_properties_setters(self):
@@ -406,7 +406,7 @@ class TestJob(unittest.TestCase):
 
         # Test - 1
         nodes = self.job.start_nodes_training_round(1)
-        calls = mock_requests_send_message.call_args_list
+        _ = mock_requests_send_message.call_args_list
         self.assertEqual(mock_requests_send_message.call_count, 2)
         self.assertListEqual(nodes, ['node-1', 'node-2'])
 
@@ -457,7 +457,7 @@ class TestJob(unittest.TestCase):
 
         # Test without passing parameters should raise ValueError
         with self.assertRaises(SystemExit):
-            result = self.job.update_parameters()
+            _ = self.job.update_parameters()
 
     @patch('fedbiomed.common.logger.logger.error')
     def test_job__14_check_dataset_quality(self, mock_logger_error):
@@ -656,7 +656,7 @@ class TestJob(unittest.TestCase):
                         "/path/to/file/param2.pt")
         self.assertTrue(isinstance(torch_training_replies[0], Responses))
 
-        ##### REPRODUCE TESTS BUT FOR SKLEARN MODELS AND 2 ROUNDS
+        # #### REPRODUCE TESTS BUT FOR SKLEARN MODELS AND 2 ROUNDS
         # create a `training_replies` variable
         loaded_training_replies_sklearn = [
             [
