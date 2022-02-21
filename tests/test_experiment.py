@@ -14,7 +14,7 @@ from tests.testsupport.fake_experiment import ExperimentMock
 from tests.testsupport.fake_training_plan import FakeModel
 
 from fedbiomed.common.torchnn import TorchTrainingPlan
-from fedbiomed.common.exceptions import  FedbiomedSilentTerminationError
+from fedbiomed.common.exceptions import FedbiomedSilentTerminationError
 
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
@@ -29,12 +29,22 @@ from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 
 class TestExperiment(unittest.TestCase):
+    """ Test for Experiment class """
+
     class ZMQInteractiveShell:
+        """ Fake ZMQInteractiveShell class to mock get_ipython function.
+            Function returns this class, so the exceptions can be raised
+            as they are running on IPython kernel
+        """
+
         def __call__(self):
             pass
 
     # For testing model_class setter of Experiment
     class FakeModelTorch(TorchTrainingPlan):
+        """ Should inherit TorchTrainingPlan to pass the condition
+            `issubclass` of `TorchTrainingPlan`
+        """
         pass
 
     @classmethod
@@ -1405,7 +1415,7 @@ class TestExperiment(unittest.TestCase):
 
         # Test if module does not exist
         args = {
-            'class' : 'Test',
+            'class': 'Test',
             'module': 'test.test'
         }
         with self.assertRaises(SystemExit):
