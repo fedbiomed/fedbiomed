@@ -95,6 +95,8 @@ class TestExperiment(unittest.TestCase):
                   FederatedDataSetMock),
             patch('fedbiomed.researcher.monitor.Monitor.__init__',
                   return_value=None),
+            patch('fedbiomed.researcher.monitor.Monitor.close_writer',
+                  return_value=None),
             patch('fedbiomed.researcher.monitor.Monitor.on_message_handler',
                   return_value=False),
             patch('fedbiomed.researcher.requests.Requests.add_monitor_callback',
@@ -1495,6 +1497,16 @@ class TestExperiment(unittest.TestCase):
 
         # clean after tests
         del test_class
+
+    @patch('fedbiomed.researcher.requests.Requests.remove_monitor_callback', return_value=None)
+    @patch('fedbiomed.researcher.monitor.Monitor.close_writer', return_value=None)
+    def test_experiment_26_deconstruct(self, mock_remove_monitor_callback, mock_close_writer):
+
+
+        # Test delete while the monitor exists
+        del self.test_exp
+        mock_remove_monitor_callback.assert_called_once()
+        mock_close_writer.assert_called_once()
 
 
 if __name__ == '__main__':  # pragma: no cover
