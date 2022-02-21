@@ -1,14 +1,15 @@
-import testsupport.mock_researcher_environ
-from fedbiomed.researcher.environ import environ
-
 import unittest
 from unittest.mock import patch, PropertyMock, Mock
 import time
+
+import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 
 from fedbiomed.common.constants      import ComponentType
 from fedbiomed.common.exceptions     import FedbiomedMessagingError
 from fedbiomed.common.message        import NodeMessages
 from fedbiomed.common.messaging      import Messaging
+
+from fedbiomed.researcher.environ import environ
 
 
 class TestMessaging(unittest.TestCase):
@@ -154,7 +155,7 @@ class TestMessaging(unittest.TestCase):
         try:
             self._m.start(block = True)
             self.assertTrue( True, "Connexion correctely started")
-        except Exception as e:
+        except Exception:
             self.assertFalse( True, "Connexion correctly started and detected as no")
 
         self._m.stop()

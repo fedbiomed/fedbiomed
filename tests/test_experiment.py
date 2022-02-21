@@ -7,7 +7,7 @@ import inspect
 
 from unittest.mock import patch, MagicMock, PropertyMock
 
-import testsupport.mock_researcher_environ
+import testsupport.mock_researcher_environ  ## noqa (remove flake8 false warning)
 from tests.testsupport.fake_dataset import FederatedDataSetMock
 from tests.testsupport.fake_experiment import ExperimentMock
 from tests.testsupport.fake_training_plan import FakeModel

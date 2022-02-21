@@ -1,13 +1,13 @@
 import unittest
 from unittest.mock import patch
 
-import testsupport.mock_researcher_environ
+import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 
 from fedbiomed.common.exceptions import FedbiomedSilentTerminationError, FedbiomedError
 
 from fedbiomed.researcher.experiment import exp_exceptions
-from fedbiomed.researcher.environ import environ
 import fedbiomed.researcher.experiment
+
 
 class TestExpExceptions(unittest.TestCase):
     """ Test class for expriment.exp_exception """
