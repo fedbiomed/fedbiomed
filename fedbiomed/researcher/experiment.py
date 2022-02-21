@@ -92,7 +92,6 @@ def exp_exceptions(function):
             print(
                 '\n--------------------',
                 f'Fed-BioMed researcher stopped due to unknown error:\n{str(e)}',
-                '\nThis is either an error not yet caught by Fed-BioMed or a bug',
                 'More details in the backtrace extract below',
                 '--------------------',
                 sep=os.linesep)
