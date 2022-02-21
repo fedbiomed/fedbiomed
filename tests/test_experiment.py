@@ -1,6 +1,3 @@
-import testsupport.mock_researcher_environ
-from fedbiomed.researcher.environ import environ
-
 import unittest
 import os
 import sys
@@ -8,22 +5,27 @@ import shutil
 import json
 import pathvalidate
 import inspect
-import fedbiomed.researcher.experiment
 
 from unittest.mock import patch, MagicMock, PropertyMock
-from fedbiomed.common.torchnn import TorchTrainingPlan
-from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.job import Job
-from fedbiomed.researcher.experiment import Experiment
-from fedbiomed.researcher.monitor import Monitor
-from fedbiomed.researcher.aggregators.fedavg import FedAverage
-from fedbiomed.researcher.aggregators.aggregator import Aggregator
-from fedbiomed.researcher.strategies.strategy import Strategy
-from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.common.exceptions import  FedbiomedSilentTerminationError
+
+import testsupport.mock_researcher_environ
 from tests.testsupport.fake_dataset import FederatedDataSetMock
 from tests.testsupport.fake_experiment import ExperimentMock
 from tests.testsupport.fake_training_plan import FakeModel
+
+from fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.common.exceptions import  FedbiomedSilentTerminationError
+
+from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.aggregators.aggregator import Aggregator
+from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.environ import environ
+import fedbiomed.researcher.experiment
+from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.job import Job
+from fedbiomed.researcher.monitor import Monitor
+from fedbiomed.researcher.strategies.strategy import Strategy
+from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 
 class TestExperiment(unittest.TestCase):
@@ -1390,7 +1392,7 @@ class TestExperiment(unittest.TestCase):
         self.assertDictEqual(result, expected, '_load_aggregated_params did not return as expected')
 
     def test_experiment_25_private_create_object(self):
-        """tests `_create_object_ method : 
+        """tests `_create_object_ method :
         Importing class, creating and initializing multiple objects from
         breakpoint state for object and file containing class code
         """
