@@ -1,12 +1,5 @@
 import unittest
 
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-
-# Detele environ. It is necessary to rebuild environ for required component
-delete_environ()
-import testsupport.mock_common_environ
-# Import environ for researcher, since tests will be running for researcher component
 from fedbiomed.researcher.datasets import FederatedDataSet
 
 

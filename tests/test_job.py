@@ -1,27 +1,21 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-
-# Delete environ. It is necessary to rebuild environ for required component
-delete_environ()
-# overload with fake environ for tests
-import testsupport.mock_common_environ
-# Import environ for researcher, since tests will be running for researcher component
-
 import os
 import inspect
 import shutil
 import unittest
 import torch
+from typing import Dict, Any
+from unittest.mock import patch, MagicMock, PropertyMock
+
 import numpy as np
 
-from fedbiomed.researcher.environ import environ
-from unittest.mock import patch, MagicMock, PropertyMock
-from typing import Dict, Any
-from fedbiomed.researcher.job import Job
-from fedbiomed.researcher.responses import Responses
+import testsupport.mock_researcher_environ
 from testsupport.fake_model import FakeModel
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_responses import FakeResponses
+
+from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.job import Job
+from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.common.constants import ErrorNumbers
 

@@ -1,10 +1,3 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-# Delete environ. It is necessary to rebuild environ for required component
-delete_environ()
-# overload with fake environ for tests
-import testsupport.mock_common_environ
-
 import unittest
 import os
 import sys
@@ -19,7 +12,7 @@ class TrainingPlan(TorchTrainingPlan):
     def __init__(self):
         super(TrainingPlan, self).__init__()
         self.lin1 = nn.Linear(4,2)
-        
+
     def test_method(self):
         return True
 
@@ -46,7 +39,7 @@ class TestTorchnn(unittest.TestCase):
         tp1 = self.TrainingPlan()
         self.assertIsNotNone(tp1.test_method)
         self.assertTrue(tp1.test_method())
-        
+
         modulename = 'tmp_model'
         codefile = self.tmpdir + os.path.sep + modulename + '.py'
         try:
@@ -70,7 +63,7 @@ class TestTorchnn(unittest.TestCase):
         self.assertTrue(tp2.test_method())
 
         os.remove(codefile)
-        
+
     def test_save_load_params(self):
         tp1 = TrainingPlan()
         paramfile = self.tmpdir + '/tmp_params.pt'
@@ -110,5 +103,3 @@ class TestTorchnn(unittest.TestCase):
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
-
-

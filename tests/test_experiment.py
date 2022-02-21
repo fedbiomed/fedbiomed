@@ -1,24 +1,18 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-# Delete environ. It is necessary to rebuild environ for required component
-delete_environ()
-# overload with fake environ for tests
-import testsupport.mock_common_environ
-# Import environ for researcher, since tests will be running for researcher component
-from fedbiomed.researcher.environ import environ
-
+import json
+import os
+import shutil
+import sys
 import unittest
 from unittest.mock import patch
-import os
-import sys
-import shutil
-import json
 
+import testsupport.mock_researcher_environ
+from tests.testsupport.fake_dataset import FederatedDataSetMock
+
+from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.experiment import Experiment
 
-from tests.testsupport.fake_dataset import FederatedDataSetMock
 
 class TestExperiment(unittest.TestCase):
 
@@ -29,12 +23,12 @@ class TestExperiment(unittest.TestCase):
             # clean up existing experiments
         except FileNotFoundError:
             pass
-        
+
         # folder name for experimentation in EXPERIMENT_DIR
         self.experimentation_folder = 'Experiment_101'
         self.experimentation_folder_path = \
             os.path.join(environ['EXPERIMENTS_DIR'], self.experimentation_folder)
-        os.makedirs(self.experimentation_folder_path) 
+        os.makedirs(self.experimentation_folder_path)
 
         # build minimal objects, needed to extract state by calling object method
 
@@ -57,7 +51,7 @@ class TestExperiment(unittest.TestCase):
             patch('fedbiomed.researcher.requests.Requests.add_monitor_callback',
                             return_value=None)
         ]
-        
+
         for patcher in self.patchers:
             patcher.start()
 
@@ -128,7 +122,7 @@ class TestExperiment(unittest.TestCase):
         # aggregated_params
         agg_params = {
             'entry1': { 'params_path': '/dummy/path/to/aggparams/params_path.pt' },
-            'entry2': { 'params_path': '/yet/another/path/other_params_path.pt' } 
+            'entry2': { 'params_path': '/yet/another/path/other_params_path.pt' }
         }
         self.test_exp._aggregated_params = agg_params
 
@@ -170,11 +164,11 @@ class TestExperiment(unittest.TestCase):
 
         # action
         self.test_exp._save_breakpoint(round_number)
-        
+
 
         # verification
         final_model_path = os.path.join(
-            self.experimentation_folder_path, 
+            self.experimentation_folder_path,
             'model_' + str("{:04d}".format(round_number)) + '.py')
         final_agg_params = {
             'entry1': {
@@ -182,7 +176,7 @@ class TestExperiment(unittest.TestCase):
                 },
             'entry2': {
                 'params_path': os.path.join(self.experimentation_folder_path, 'other_params_path.pt')
-                } 
+                }
         }
         # better : catch exception if cannot read file or not json
         with open(os.path.join(self.experimentation_folder_path, bkpt_file), "r") as f:
@@ -292,7 +286,7 @@ class TestExperiment(unittest.TestCase):
             self.job_state = job_state
         patch_job_load_state.side_effect = side_job_load_state
 
-        
+
         # action
         loaded_exp = Experiment.load_breakpoint(self.experimentation_folder_path)
 
@@ -316,11 +310,11 @@ class TestExperiment(unittest.TestCase):
 
 
     def test_private_create_object(self):
-        """tests `_create_object_ method : 
+        """tests `_create_object_ method :
         Importing class, creating and initializing multiple objects from
         breakpoint state for object and file containing class code
         """
-        
+
         # need EXPERIMENTS_DIR in PYTHONPATH to use it as directory for saving module
         sys.path.append(
             os.path.join(environ['EXPERIMENTS_DIR'],
