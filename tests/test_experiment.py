@@ -1501,7 +1501,7 @@ class TestExperiment(unittest.TestCase):
     @patch('fedbiomed.researcher.requests.Requests.remove_monitor_callback', return_value=None)
     @patch('fedbiomed.researcher.monitor.Monitor.close_writer', return_value=None)
     def test_experiment_26_deconstruct(self, mock_remove_monitor_callback, mock_close_writer):
-
+        """ Testing deconstruct method of experiment """
 
         # Test delete while the monitor exists
         del self.test_exp
