@@ -507,7 +507,6 @@ class Experiment(object):
         elif nodes is None:
             self._nodes = nodes
         else:
-            self._nodes = None
             msg = ErrorNumbers.FB410.value + f' `nodes` : {type(nodes)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
@@ -572,7 +571,6 @@ class Experiment(object):
             # TODO: FederatedDataSet constructor should verify typing and format
             self._fds = FederatedDataSet(training_data)
         elif training_data is not None:
-            self._fds = None
             msg = ErrorNumbers.FB410.value + f' `training_data` : {type(training_data)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
@@ -623,8 +621,7 @@ class Experiment(object):
             if issubclass(aggregator, Aggregator):
                 self._aggregator = aggregator()
             else:
-                # bad argument, need to provide an Aggregator class
-                self._aggregator = FedAverage()  # be robust if we continue execution
+                # bad argument
                 msg = ErrorNumbers.FB410.value + f' `aggregator` : {aggregator} class'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
@@ -633,7 +630,6 @@ class Experiment(object):
             self._aggregator = aggregator
         else:
             # other bad type or object
-            self._aggregator = FedAverage()  # be robust if we continue execution
             msg = ErrorNumbers.FB410.value + f' `aggregator` : {type(aggregator)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
@@ -670,8 +666,7 @@ class Experiment(object):
                 if issubclass(node_selection_strategy, Strategy):
                     self._node_selection_strategy = node_selection_strategy(self._fds)
                 else:
-                    # bad argument, need to provide a Strategy class
-                    self._node_selection_strategy = DefaultStrategy(self._fds)  # be robust
+                    # bad argument
                     msg = ErrorNumbers.FB410.value + \
                           f' `node_selection_strategy` : {node_selection_strategy} class'
                     logger.critical(msg)
@@ -681,7 +676,6 @@ class Experiment(object):
                 self._node_selection_strategy = node_selection_strategy
             else:
                 # other bad type or object
-                self._node_selection_strategy = DefaultStrategy(self._fds)  # be robust
                 msg = ErrorNumbers.FB410.value + \
                       f' `node_selection_strategy` : {type(node_selection_strategy)}'
                 logger.critical(msg)
@@ -869,8 +863,6 @@ class Experiment(object):
                     self._model_is_defined = False
             else:
                 # bad identifier
-                self._model_class = None  # be robust if we continue execution
-                self._model_is_defined = False
                 msg = ErrorNumbers.FB410.value + f' `model_class` : {model_class} bad identifier'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
@@ -889,15 +881,11 @@ class Experiment(object):
                     self._model_is_defined = False
             else:
                 # bad class
-                self._model_class = None  # be robust if we continue execution
-                self._model_is_defined = False
                 msg = ErrorNumbers.FB410.value + f' `model_class` : {model_class} class'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
         else:
             # bad type
-            self._model_class = None  # be robust if we continue execution
-            self._model_is_defined = False
             msg = ErrorNumbers.FB410.value + f' `model_class` : type(model_class)'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
@@ -953,16 +941,12 @@ class Experiment(object):
                 self._model_is_defined = isinstance(self._model_class, str)
             else:
                 # bad filepath
-                self._model_path = None  # be robust if we continue execution
-                self._model_is_defined = inspect.isclass(self._model_class)
                 msg = ErrorNumbers.FB410.value + \
                       f' `model_path` : {model_path} is not a same path to an existing file'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
         else:
             # bad type
-            self._model_path = None  # be robust if we continue execution
-            self._model_is_defined = inspect.isclass(self._model_class)
             msg = ErrorNumbers.FB410.value + f' `model_path` : type(model_path)'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
@@ -1003,7 +987,6 @@ class Experiment(object):
             self._model_args = model_args
         else:
             # bad type
-            self._model_args = {}
             msg = ErrorNumbers.FB410.value + f' `model_args` : {type(model_args)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
@@ -1040,7 +1023,6 @@ class Experiment(object):
             self._training_args = training_args
         else:
             # bad type
-            self._training_args = {}
             msg = ErrorNumbers.FB410.value + f' `training_args` : {type(training_args)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
@@ -1180,7 +1162,6 @@ class Experiment(object):
                     self._reqs.remove_monitor_callback()
         else:
             # bad type
-            self._reqs.remove_monitor_callback()
             msg = ErrorNumbers.FB410.value + f' `tensorboard` : {type(tensorboard)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
