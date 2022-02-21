@@ -34,7 +34,7 @@ class Job:
     def __init__(self,
                  reqs: Requests = None,
                  nodes: dict = None,
-                 model: Union[Type[Callable], Callable] = None,
+                 model: Union[Type[Callable], str] = None,
                  model_path: str = None,
                  training_args: dict = None,
                  model_args: dict = None,
@@ -52,8 +52,8 @@ class Job:
             Defaults to None.
             nodes (dict, optional): a dict of node_id containing the
             nodes used for training
-            model (Union[Type[Callable], Callable], optional): name of the model class
-            or object (instance of the model class) to use for training.
+            model (Union[Type[Callable], str], optional): name of the model class
+            or model class to use for training.
             model_path (string, optional) : path to file containing model
             class code
             training_args (dict, optional): contains training parameters:
@@ -229,11 +229,6 @@ class Job:
         return self._model_file
 
 
-
-    # TODO: After refactoring experiment this method can be created
-    # directly in the Experiment class. Since it requires
-    # node ids and model_url to send model approve status it is created
-    # in job class
     def check_model_is_approved_by_nodes(self):
 
         """ Method for checking whether model is approved or not.  This method send
@@ -248,9 +243,9 @@ class Job:
             'command': 'model-status'
         }
 
-        responses = []
+        responses = Responses([])
         replied_nodes = []
-        node_ids = self._data.node_ids
+        node_ids = self._data.node_ids()
 
         # Send message to each node that has been found after dataset search reqeust
         for cli in node_ids:
