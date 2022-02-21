@@ -250,7 +250,7 @@ class TestJob(unittest.TestCase):
                                                      mock_requests_send_message):
         """ Testing the method that check model approval status of the nodes"""
 
-        type(self.fds).node_ids = PropertyMock(return_value=['node-1', 'node-2'])
+        self.fds.node_ids = MagicMock(return_value=['node-1', 'node-2'])
         mock_requests_send_message.return_value = None
 
         message = {'researcher_id': self.job._researcher_id,
