@@ -248,8 +248,7 @@ class Experiment:
 
     def model_file(self, display: bool = True ):
 
-        """
-        This method displays saved final model for the experiment
+        """This method displays saved final model for the experiment
             that will be send to the nodes for training.
         """
         model_file = self._job.model_file

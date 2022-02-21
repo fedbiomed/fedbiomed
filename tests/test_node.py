@@ -541,8 +541,6 @@ class TestNode(unittest.TestCase):
         self.n1.parser_task(incoming_msg)
 
         # checks
-        # FIXME: a bug can happen when asserting the test below (patch can 
-        # be called multiple time due to some side effect of nosetests)
         json_deserialize_patcher.assert_called_once_with(incoming_msg)
         round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
                                             dict_msg_1_dataset['training_args'],
