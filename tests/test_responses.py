@@ -1,6 +1,6 @@
 import unittest
 
-import testsupport.mock_researcher_environ
+import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.common.exceptions import FedbiomedResponsesError

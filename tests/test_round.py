@@ -1,12 +1,11 @@
 import builtins
 import logging
 import os
-import sys
-from typing import Any, Dict, List
+from typing import Any, Dict
 import unittest
 from unittest.mock import MagicMock, patch
 
-import testsupport.mock_node_environ
+import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
 from tests.testsupport.fake_training_plan import FakeModel
 from tests.testsupport.fake_message import FakeMessages
@@ -14,7 +13,8 @@ from tests.testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
-from fedbiomed.common.logger import logger, DEFAULT_LOG_LEVEL
+from fedbiomed.common.logger import logger
+
 
 class TestRound(unittest.TestCase):
 
@@ -50,7 +50,7 @@ class TestRound(unittest.TestCase):
 
         self.r1.training_kwargs = {}
         params = {'path': 'my/dataset/path',
-                           'dataset_id': 'id_1234'}
+                  'dataset_id': 'id_1234'}
         self.r1.dataset = params
         self.r1.job_id = '1234'
         self.r1.researcher_id = '1234'
@@ -120,7 +120,7 @@ class TestRound(unittest.TestCase):
             msg_test1.get('timing', {'rtime_training': 0}).get('rtime_training'),
             FakeModel.SLEEPING_TIME,
             places=1
-                    )
+        )
 
         # test 2: redo test 1 but with the case where `model_kwargs` != None
         FakeModel.SLEEPING_TIME = 0
@@ -191,13 +191,13 @@ class TestRound(unittest.TestCase):
         # and we will check if there are called when running
         # `run_model_training`
         with (
-            patch.object(FakeModel, 'load') as mock_load,
-            patch.object(FakeModel, 'set_dataset') as mock_set_dataset,
-            patch.object(FakeModel, 'training_routine') as mock_training_routine,
-            patch.object(FakeModel, 'after_training_params', return_value=MODEL_PARAMS) as mock_after_training_params,
-            patch.object(FakeModel, 'save') as mock_save
-              ):
-            msg = self.r1.run_model_training()
+                patch.object(FakeModel, 'load') as mock_load,
+                patch.object(FakeModel, 'set_dataset') as mock_set_dataset,
+                patch.object(FakeModel, 'training_routine') as mock_training_routine,
+                patch.object(FakeModel, 'after_training_params', return_value=MODEL_PARAMS) as mock_after_training_params,  # noqa
+                patch.object(FakeModel, 'save') as mock_save
+        ):
+            _ = self.r1.run_model_training()
 
             # test if all methods have been called once with the good arguments
             mock_load.assert_called_once_with(MODEL_NAME,
@@ -257,7 +257,7 @@ class TestRound(unittest.TestCase):
         # action
         msg_test = self.r1.run_model_training()
 
-         ## checks
+        # checks
         self.assertTrue(msg_test.get('success', False))
         self.assertEqual(TestRound.URL_MSG, msg_test.get('params_url', False))
         self.assertEqual('train', msg_test.get('command', False))
@@ -362,7 +362,8 @@ class TestRound(unittest.TestCase):
         # action
         with self.assertLogs('fedbiomed', logging.ERROR) as captured:
             msg_test_3 = self.r1.run_model_training()
-        ## checks
+
+        # checks
         self.assertEqual(
             captured.records[-1].getMessage(),
             msg_test_3.get('msg'))
@@ -384,7 +385,7 @@ class TestRound(unittest.TestCase):
         # action
         with self.assertLogs('fedbiomed', logging.ERROR) as captured:
             msg_test = self.r1.run_model_training()
-        # checks
+            # checks
         self.assertEqual(
             captured.records[-1].getMessage(),
             msg_test.get('msg'))
@@ -534,11 +535,10 @@ class TestRound(unittest.TestCase):
         with (self.assertLogs('fedbiomed', logging.ERROR) as captured,
               patch.object(builtins, 'exec', return_value=None),
               patch.object(builtins, 'eval', return_value=FakeModel)
-                ):
+              ):
             msg_test = self.r1.run_model_training()
 
-         ## checks
-         # checks if message logged is the message returned as a reply
+        # checks if message logged is the message returned as a reply
         self.assertEqual(
             captured.records[-1].getMessage(),
             msg_test.get('msg'))
@@ -578,7 +578,7 @@ class TestRound(unittest.TestCase):
                                    'monitor': MagicMock(),
                                    'node_args': [1, 2, 3, 4]}
         # action!
-        msg = self.r1.run_model_training()
+        _ = self.r1.run_model_training()
 
         # check if 'monitor' and 'node_args' entries have been removed
         #  in `training_kwargs` (for security reasons, see Round for further details)
@@ -587,5 +587,5 @@ class TestRound(unittest.TestCase):
         self.assertFalse(self.r1.training_kwargs.get('node_args', False))
 
 
-if __name__ == '__main__': # pragma: no cover
+if __name__ == '__main__':  # pragma: no cover
     unittest.main()

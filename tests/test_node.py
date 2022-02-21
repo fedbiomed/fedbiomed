@@ -5,7 +5,7 @@ from typing import Any, Dict
 import unittest
 from unittest.mock import MagicMock, patch
 
-import testsupport.mock_node_environ
+import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
 # import dummy classes
 from testsupport.fake_message import FakeMessages
@@ -690,8 +690,7 @@ class TestNode(unittest.TestCase):
         """
         # defining patchers
         tasks_queue_get_patch.return_value = None
-        node_parser_task_patch.side_effect = SystemExit("mimicking an exception"
-                                                        + " coming from parser_task")
+        node_parser_task_patch.side_effect = SystemExit("mimicking an exception" + " coming from parser_task")  # noqa
 
         # action
         with self.assertRaises(SystemExit):
@@ -712,8 +711,7 @@ class TestNode(unittest.TestCase):
         # defining patchers
         tasks_queue_get_patch.return_value = None
         node_parser_task_patch.return_value = None
-        mssging_send_msg_patch.side_effect = SystemExit("Mimicking an exception happening in"
-                                                        + "`send_message` method")
+        mssging_send_msg_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`send_message` method")  # noqa
         # defining arguments and attributes
         Round = MagicMock()
         Round.run_model_training = MagicMock(run_model_training=None)
@@ -741,8 +739,7 @@ class TestNode(unittest.TestCase):
         node_parser_task_patch.return_value = None
         mssging_send_msg_patch.return_value = None
 
-        tasks_queue_task_done_patch.side_effect = SystemExit("Mimicking an exception happening in"
-                                                             + "`TasksQueue.task_done` method")
+        tasks_queue_task_done_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`TasksQueue.task_done` method")  # noqa
         # defining arguments
         Round = MagicMock()
         Round.run_model_training = MagicMock(run_model_training=None)

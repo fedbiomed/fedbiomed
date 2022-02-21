@@ -3,7 +3,7 @@ import os
 import inspect
 import unittest
 
-import testsupport.mock_researcher_environ
+import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 from fedbiomed.researcher.environ import environ
 from unittest.mock import patch, MagicMock, PropertyMock
 from fedbiomed.researcher.job import localJob

@@ -3,7 +3,7 @@ from unittest.mock import patch
 import os
 import shutil
 
-import testsupport.mock_researcher_environ
+import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher import filetools
 
@@ -301,9 +301,9 @@ class TestFiletools(unittest.TestCase):
     @patch('os.path.isdir')
     @patch('os.listdir')
     def test_filetools_07_private_find_breakpoint_path_1(self,
-                                            patch_os_listdir,
-                                            patch_os_path_isdir
-                                            ):
+                                                         patch_os_listdir,
+                                                         patch_os_path_isdir
+                                                         ):
         # test 1 : test if results are corrects  if path
         # to breakpoint has been given by user
         bkpt_folder = "/path/to/breakpoint"
@@ -319,10 +319,10 @@ class TestFiletools(unittest.TestCase):
     @patch('os.path.isdir')
     @patch('os.listdir')
     def test_filetools_08_private_find_breakpoint_path_2(self,
-                                            patch_os_listdir,
-                                            patch_os_path_isdir,
-                                            patch_get_latest_file
-                                            ):
+                                                         patch_os_listdir,
+                                                         patch_os_path_isdir,
+                                                         patch_get_latest_file
+                                                         ):
         # test 2 : test if path to breakpoint has not been given by user
         # ie set to None
         patch_os_listdir.return_value = ['breakpoint_1234.json',
@@ -340,8 +340,8 @@ class TestFiletools(unittest.TestCase):
     @patch('os.path.isdir')
     @patch('os.listdir')
     def test_filetools_09_private_find_breakpoint_path_raise_err1(self,
-                                                     patch_os_listdir,
-                                                     patch_os_path_isdir):
+                                                                  patch_os_listdir,
+                                                                  patch_os_path_isdir):
         # test 3 : triggers error FileNotFoundError, given breakpoint folder
         # is not a directory
         bkpt_folder = "/path/to/breakpoint"
@@ -356,9 +356,9 @@ class TestFiletools(unittest.TestCase):
     @patch('os.path.isdir')
     @patch('os.listdir')
     def test_filetools_10_private_find_breakpoint_path_raise_err2(self,
-                                                     patch_os_listdir,
-                                                     patch_os_path_isdir,
-                                                     patch_os_path_isfile):
+                                                                  patch_os_listdir,
+                                                                  patch_os_path_isdir,
+                                                                  patch_os_path_isfile):
         # test 4 : triggers error FileNotFoundError, no given breakpoint
         # folder, cannot guess one from existing folders
         patch_os_listdir.return_value = ['breakpoint_1234.json',
@@ -378,8 +378,8 @@ class TestFiletools(unittest.TestCase):
     @patch('os.path.isdir')
     @patch('os.listdir')
     def test_filetools_12_private_find_breakpoint_path_raise_err4(self,
-                                                     patch_os_listdir,
-                                                     patch_os_path_isdir):
+                                                                  patch_os_listdir,
+                                                                  patch_os_path_isdir):
         # test 6 : triggers error FileNotFoundError, no file
         # present in breakpoint folder
         bkpt_folder = "/path/to/breakpoint"
@@ -392,8 +392,8 @@ class TestFiletools(unittest.TestCase):
     @patch('os.path.isdir')
     @patch('os.listdir')
     def test_filetools_13_private_find_breakpoint_raise_err_5(self,
-                                                 patch_os_listdir,
-                                                 patch_os_path_isdir):
+                                                              patch_os_listdir,
+                                                              patch_os_path_isdir):
         # test 7: test if error is raised when json file
         # not found in a breakpoint folder specified by user
         bkpt_folder = "/path/to/breakpoint"

@@ -6,7 +6,7 @@ import torch
 from torch.nn import Linear
 import numpy as np
 
-import testsupport.mock_researcher_environ
+import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 
