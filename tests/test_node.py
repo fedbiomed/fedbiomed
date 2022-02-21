@@ -1,5 +1,6 @@
 import copy
 from json import decoder
+import json
 from typing import Any, Dict
 import unittest
 from unittest.mock import MagicMock, patch
@@ -504,11 +505,11 @@ class TestNode(unittest.TestCase):
 
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
-    @patch('fedbiomed.common.json.deserialize_msg')
+    #@patch('fedbiomed.common.message.NodeMessages.request_create')
+    #@patch('fedbiomed.node.node.json.deserialize_msg')
     def test_node_13_parser_task_create_round_deserializer_str_msg(self,
-                                                                   json_deserialize_patcher,
-                                                                   node_msg_request_patch,
+                                                                   #json_deserialize_patcher,
+                                                                   #node_msg_request_patch,
                                                                    history_monitor_patch,
                                                                    round_patch
                                                                    ):
@@ -516,23 +517,24 @@ class TestNode(unittest.TestCase):
 
         # defining arguments
         dict_msg_1_dataset = {
-            'model_args': {'lr': 0.1},
-            'training_args': {'some_value': 1234},
-            'model_url': 'https://link.to.somewhere.where.my.model',
-            'model_class': 'my_test_training_plan',
-            'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
-            'job_id': 'job_id_1234',
-            'researcher_id': 'researcher_id_1234',
-            'training_data': {environ['NODE_ID']: ['dataset_id_1234']}
+            "model_args": {"lr": 0.1},
+            "training_args": {"some_value": 1234},
+            "model_url": "https://link.to.somewhere.where.my.model",
+            "model_class": "my_test_training_plan",
+            "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
+            "job_id": "job_id_1234",
+            "researcher_id": "researcher_id_1234",
+            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]},
+            "command": "train"
         }
         # we convert this dataset into a string
-        incoming_msg = str(dict_msg_1_dataset)
+        incoming_msg = json.dumps(dict_msg_1_dataset)
 
         # defining patchers
-        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
+        #node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
         # we are not testing deserialization here, we are assuming here
         # that deserialization is working fine
-        json_deserialize_patcher.return_value = dict_msg_1_dataset
+        #json_deserialize_patcher.return_value = dict_msg_1_dataset
         round_patch.return_value = None
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
@@ -541,7 +543,7 @@ class TestNode(unittest.TestCase):
         self.n1.parser_task(incoming_msg)
 
         # checks
-        json_deserialize_patcher.assert_called_once_with(incoming_msg)
+        #json_deserialize_patcher.assert_called_once_with(incoming_msg)
         round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
                                             dict_msg_1_dataset['training_args'],
                                             self.database_id[0],
@@ -557,7 +559,7 @@ class TestNode(unittest.TestCase):
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     @patch('fedbiomed.common.message.NodeMessages.request_create')
-    @patch('fedbiomed.common.json.deserialize_msg')
+    @patch('fedbiomed.node.node.json.deserialize_msg')
     def test_node_14_parser_task_create_round_deserializer_bytes_msg(self,
                                                                      json_deserialize_patcher,
                                                                      node_msg_request_patch,
@@ -587,7 +589,8 @@ class TestNode(unittest.TestCase):
             "params_url": "https://link.to_somewhere.where.my.model.parameters.is",\
             "job_id": "job_id_1234",\
             "researcher_id": "researcher_id_1234",\
-            "training_data": {%b: ["dataset_id_1234"]}\
+            "training_data": {%b: ["dataset_id_1234"\
+            ]}\
         }' % (bytes(environ["NODE_ID"], 'utf-8'))
 
         # defining patchers

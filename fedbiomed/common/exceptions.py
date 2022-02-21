@@ -70,3 +70,11 @@ class FedbiomedResponsesError(FedbiomedError):
     Exception specific to Responses class
     """
     pass
+
+
+class FedbiomedModelManagerError(FedbiomedError):
+    """
+    Exception specific to the ModelManager
+    (from fedbiomed.common.data_manager)
+    """
+    pass

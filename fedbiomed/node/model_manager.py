@@ -2,6 +2,7 @@ import os
 import hashlib
 from typing import Any, Dict, Tuple
 import uuid
+from fedbiomed.common.exceptions import FedbiomedModelManagerError
 
 from tinydb import TinyDB, Query
 from datetime import datetime
@@ -67,7 +68,7 @@ class ModelManager:
             if hash_algo in HashingAlgorithms.list():
                 hashing = HASH_FUNCTIONS[hash_algo]()
             else:
-                raise Exception(f'Unkown hashing algorithm in the `environ` {environ["HASHING_ALGORITHM"]}')
+                raise FedbiomedModelManagerError(f'Unkown hashing algorithm in the `environ` {environ["HASHING_ALGORITHM"]}')
 
         # Create hash from model minified model content and encoded as `utf-8`
         hashing.update(mini_content.encode('utf-8'))
@@ -81,7 +82,7 @@ class ModelManager:
                         path: str,
                         model_type: str = 'registered',
                         model_id: str = None
-                        ):
+                        ) -> True:
 
         """ This method approves/registers model file thourgh CLI.
 
@@ -100,7 +101,7 @@ class ModelManager:
 
         # Check model type is valid
         if model_type not in ModelTypes.list():
-            raise Exception(f'Unkown model type: {model_type}')
+            raise FedbiomedModelManagerError(f'Unkown model type: {model_type}')
 
         if not model_id:
             model_id = 'model_' + str(uuid.uuid4())
@@ -110,9 +111,9 @@ class ModelManager:
         models_path_search = self._db.search(self._database.model_path == path)
         models_name_search = self._db.search(self._database.name == name)
         if models_path_search:
-            raise Exception(f'This model has been added already: {path}')
+            raise FedbiomedModelManagerError(f'This model has been added already: {path}')
         elif models_name_search:
-            raise Exception(f'There is already a model added with same name: {name}. Please use different name')
+            raise FedbiomedModelManagerError(f'There is already a model added with same name: {name}. Please use different name')
         else:
 
             # Create hash and save it into db
@@ -351,7 +352,7 @@ class ModelManager:
                             'model_path' :  path },
                             self._database.model_id == model_id)
         else:
-            raise Exception(f'You cannot update default models. Please update them through their files saved in `default_models` directory and restart your node')
+            raise FedbiomedModelManagerError(f'You cannot update default models. Please update them through their files saved in `default_models` directory and restart your node')
 
         return True
 
