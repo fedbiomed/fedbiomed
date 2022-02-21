@@ -14,7 +14,7 @@ from tests.testsupport.fake_experiment import ExperimentMock
 from tests.testsupport.fake_training_plan import FakeModel
 
 from fedbiomed.common.torchnn import TorchTrainingPlan
-from fedbiomed.common.exceptions import  FedbiomedSilentTerminationError
+from fedbiomed.common.exceptions import FedbiomedSilentTerminationError
 
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
@@ -29,12 +29,22 @@ from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 
 class TestExperiment(unittest.TestCase):
+    """ Test for Experiment class """
+
     class ZMQInteractiveShell:
+        """ Fake ZMQInteractiveShell class to mock get_ipython function.
+            Function returns this class, so the exceptions can be raised
+            as they are running on IPython kernel
+        """
+
         def __call__(self):
             pass
 
     # For testing model_class setter of Experiment
     class FakeModelTorch(TorchTrainingPlan):
+        """ Should inherit TorchTrainingPlan to pass the condition
+            `issubclass` of `TorchTrainingPlan`
+        """
         pass
 
     @classmethod
@@ -94,6 +104,8 @@ class TestExperiment(unittest.TestCase):
             patch('fedbiomed.researcher.datasets.FederatedDataSet',
                   FederatedDataSetMock),
             patch('fedbiomed.researcher.monitor.Monitor.__init__',
+                  return_value=None),
+            patch('fedbiomed.researcher.monitor.Monitor.close_writer',
                   return_value=None),
             patch('fedbiomed.researcher.monitor.Monitor.on_message_handler',
                   return_value=False),
@@ -1403,7 +1415,7 @@ class TestExperiment(unittest.TestCase):
 
         # Test if module does not exist
         args = {
-            'class' : 'Test',
+            'class': 'Test',
             'module': 'test.test'
         }
         with self.assertRaises(SystemExit):
@@ -1495,6 +1507,16 @@ class TestExperiment(unittest.TestCase):
 
         # clean after tests
         del test_class
+
+    @patch('fedbiomed.researcher.requests.Requests.remove_monitor_callback', return_value=None)
+    @patch('fedbiomed.researcher.monitor.Monitor.close_writer', return_value=None)
+    def test_experiment_26_deconstruct(self, mock_remove_monitor_callback, mock_close_writer):
+        """ Testing deconstruct method of experiment """
+
+        # Test delete while the monitor exists
+        del self.test_exp
+        mock_remove_monitor_callback.assert_called_once()
+        mock_close_writer.assert_called_once()
 
 
 if __name__ == '__main__':  # pragma: no cover

@@ -7,14 +7,26 @@ from unittest.mock import patch, MagicMock, PropertyMock
 from fedbiomed.researcher.experiment import exp_exceptions
 from fedbiomed.common.exceptions import FedbiomedSilentTerminationError, FedbiomedError
 
+
 class TestExpExceptions(unittest.TestCase):
     """ Test class for expriment.exp_exception """
 
     class ZMQInteractiveShell:
+        """ Fake ZMQInteractiveShell class to mock get_ipython function.
+            Function returns this class, so the exceptions can be raised
+            as they are running on IPython kernel
+        """
+
         def __call__(self):
             pass
 
     class ZMQInteractiveShellNone:
+        """ Fake ZMQInteractiveShellNone class to mock get_ipython function.
+            It return class name as `ZMQInteractiveShellNone` so tests
+            can get into condition where the functions get runs on IPython kernel
+            but not in ZMQInteractiveShell
+        """
+
         def __call__(self):
             pass
 
@@ -47,6 +59,7 @@ class TestExpExceptions(unittest.TestCase):
 
     def test_exp_exceptions_3_key_int(self):
         """ Test raisin  KeyboardInterrupt error """
+
         @exp_exceptions
         def decFunction():
             raise KeyboardInterrupt
@@ -56,6 +69,7 @@ class TestExpExceptions(unittest.TestCase):
 
     def test_exp_exception_4_fedbiomed_error(self):
         """ Test raising exp FedbiomedError on notebook and python shell"""
+
         @exp_exceptions
         def decFunction():
             raise FedbiomedError
