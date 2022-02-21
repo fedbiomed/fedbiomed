@@ -225,7 +225,7 @@ class Experiment(object):
         self._reqs = Requests()
 
         # set self._fds: type Union[FederatedDataSet, None]
-        self.set_training_data(training_data)
+        self.set_training_data(training_data, True)
 
         # set self._aggregator : type Aggregator
         self.set_aggregator(aggregator)
@@ -524,8 +524,10 @@ class Experiment(object):
         return self._nodes
 
     @exp_exceptions
-    def set_training_data(self, training_data: Union[FederatedDataSet, dict, None]) -> \
-            Union[FederatedDataSet, None]:
+    def set_training_data(self,
+            training_data: Union[FederatedDataSet, dict, None],
+            from_tags: bool = False) -> \
+                Union[FederatedDataSet, None]:
         """ Setter for training data for federated training + verification on arguments type
 
         Args:
@@ -535,10 +537,14 @@ class Experiment(object):
                   and use this value as training_data. The dict should use node ids as keys,
                   values being list of dicts (each dict representing a dataset on a node).
                 * else if it is None (no training data provided)
-                  - if `tags` is not None, set training_data by
+                  - if `from_tags` is True and `tags` is not None, set training_data by
                     searching for datasets with a query to the nodes using `tags` and `nodes`
-                  - if `tags` is None, set training_data to None (no training_data set yet,
+                  - if `from_tags` is False or `tags` is None, set training_data to None (no training_data set yet,
                     experiment is not fully initialized and cannot be launched)
+            - from_tags (bool, optional):
+                If True, query nodes for datasets when no `training_data` is provided.
+                Not used when `training_data` is provided.
+                Defaults to False
 
         Raises:
             - FedbiomedExperimentError : bad training_data type
@@ -548,8 +554,13 @@ class Experiment(object):
         """
         # we can trust _reqs _tags _nodes are existing and properly typed/formatted
 
+        if not isinstance(from_tags, bool):
+            msg = ErrorNumbers.FB410.value + f' `from_tags` : {type(from_tags)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
         # case where no training data are passed
-        if training_data is None:
+        if training_data is None and from_tags is True:
             # cannot search for training_data if tags not initialized;
             # nodes can be None (no filtering on nodes by default) 
             if self._tags is not None:
