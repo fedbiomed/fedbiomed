@@ -46,8 +46,8 @@ class TestExperiment(unittest.TestCase):
         """
         pass
 
-    @classmethod
-    def create_fake_model_file(cls, name: str):
+    @staticmethod
+    def create_fake_model_file(name: str):
         """ Class method saving codes of FakeModel
 
         Args:
