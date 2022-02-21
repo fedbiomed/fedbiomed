@@ -4,29 +4,12 @@ import requests
 import builtins
 from json import JSONDecodeError
 import unittest
-from unittest import mock
-
 from unittest.mock import MagicMock, patch
 
+from testsupport.fake_http_requests import FakeRequest
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.exceptions import FedbiomedRepositoryError
-
-
-class FakeRequest:
-    file_name = None
-    content = "some content"
-    def __init__(self,   *args, **kwargs  ):
-
-        self.file_name = kwargs.get('files')
-        self.status_code = 200
-        self.request = MagicMock(return_value="some http requests")
-        
-    def raise_for_status(self):
-        return None
-
-    def json(self):
-        return self.file_name
-        
+       
         
 class TestRepository(unittest.TestCase):
     """
@@ -112,7 +95,7 @@ class TestRepository(unittest.TestCase):
         
         # action
         res = self.r1.upload_file(fake_filename)
-        print(res)
+
         # checks
         # check correct calls
         builtins_open_patch.assert_called_once_with(fake_filename, 'rb')
@@ -427,3 +410,6 @@ class TestRepository(unittest.TestCase):
                                         url,
                                         filename, 
                                         req_method)
+
+if __name__ == '__main__':  # pragma: no cover
+    unittest.main()
