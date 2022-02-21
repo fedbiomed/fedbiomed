@@ -245,7 +245,7 @@ class Job:
 
         responses = Responses([])
         replied_nodes = []
-        node_ids = self._data.node_ids
+        node_ids = self._data.node_ids()
 
         # Send message to each node that has been found after dataset search reqeust
         for cli in node_ids:
