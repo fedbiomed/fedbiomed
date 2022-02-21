@@ -47,3 +47,4 @@ dependencies:
       - tensorboard
       # for nbconvert
       - jupyter_contrib_nbextensions
+      - pathvalidate
