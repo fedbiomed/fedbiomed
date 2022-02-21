@@ -8,8 +8,8 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 
 class MyTrainingPlan(TorchTrainingPlan):       
-    def __init__(self, kwargs):
-        super(MyTrainingPlan, self).__init__()
+    def __init__(self, model_args: dict = {}):
+        super(MyTrainingPlan, self).__init__(model_args)
         # kwargs should match the model arguments to be passed below to the experiment class
         self.in_features = kwargs['in_features']
         self.out_features = kwargs['out_features']
