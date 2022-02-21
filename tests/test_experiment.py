@@ -396,13 +396,17 @@ class TestExperiment(unittest.TestCase):
         # Test by passing training data as None when there are tags already set
         td_expected = None
         training_data = self.test_exp.set_training_data(training_data=td_expected)
-        self.assertIsInstance(training_data, FederatedDataSet, 'Setter for training_data did not set '
-                                                               'proper FederatedDataset object')
+        self.assertIsNone(training_data, 'Setter for training_data did not set training data to None')
+
+        # Test by passing training data as None and from_tags `True`
+        td_expected = None
+        training_data = self.test_exp.set_training_data(training_data=td_expected, from_tags=True)
+        self.assertIsInstance(training_data, FederatedDataSet, 'Setter for training_data is not set properly')
 
         # Test by passing training data as Node when the tags is None
         td_expected = None
         _ = self.test_exp.set_tags(tags=None)
-        training_data = self.test_exp.set_training_data(training_data=td_expected)
+        training_data = self.test_exp.set_training_data(training_data=td_expected, from_tags=True)
         self.assertEqual(training_data, td_expected, 'Setter for training data is not set as expected: None')
 
         # Test by passing FederatedDataset object
@@ -421,7 +425,11 @@ class TestExperiment(unittest.TestCase):
         # Test by passing invalid type of training_data
         td_expected = 12
         with self.assertRaises(SystemExit):
-            training_data = self.test_exp.set_training_data(training_data=td_expected)
+            self.test_exp.set_training_data(training_data=td_expected)
+
+        # Test if the argument `from_tags` is not type of bool
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_training_data(training_data=None, from_tags=td_expected)
 
         # Test when job is not None
         self.mock_logger_debug.reset_mock()
@@ -475,7 +483,7 @@ class TestExperiment(unittest.TestCase):
 
         # Back to normal
         self.test_exp.set_tags(['tag-1', 'tag-2'])
-        self.test_exp.set_training_data(None)
+        self.test_exp.set_training_data(None, from_tags=True)
 
         # Test by passing Strategy instance
         strategy_expected = DefaultStrategy
@@ -1038,7 +1046,7 @@ class TestExperiment(unittest.TestCase):
             self.test_exp.breakpoint()
 
         # Back to normal fds
-        self.test_exp.set_training_data(None)
+        self.test_exp.set_training_data(None, from_tags=True)
 
         # Test if strategy is None
         self.test_exp._node_selection_strategy = None
