@@ -51,8 +51,8 @@ class Repository:
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
         except PermissionError:
-            _msg = ErrorNumbers.FB604.value + f': Unable to read {filename} due to unsatisfactory privileges'
-            ", cannot upload it"
+            _msg = ErrorNumbers.FB604.value + f': Unable to read {filename} due to unsatisfactory privileges' + \
+                ", cannot upload it"
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
         except OSError:
@@ -63,7 +63,7 @@ class Repository:
         # second, we are issuing an HTTP 'POST' request to the HTTP server
 
         _res = self._connection_handler(requests.post, self.uploads_url,
-                                        filename, 'POST', files=files)
+                                        filename, files=files)
         # checking status of HTTP request
 
         self._raise_for_status_handler(_res, filename)
@@ -93,7 +93,7 @@ class Repository:
             which the temporary file is saved
         """
 
-        res = self._connection_handler(requests.get, url, filename, 'GET')
+        res = self._connection_handler(requests.get, url, filename)
         self._raise_for_status_handler(res, filename)
         filepath = os.path.join(self.tmp_dir, filename)
 
@@ -176,10 +176,9 @@ class Repository:
         return method_msg
 
     def _connection_handler(self,
-                            callable_method: Callable,
+                            http_request: Callable,
                             url: str,
                             filename: str,
-                            req_method: str,
                             *args,
                             **kwargs) -> requests:
         """
@@ -190,7 +189,6 @@ class Repository:
             callable_method (Callable): the requests HTTP method (callable)
             url (str): the url method to which to connect to
             filename (str): the name of the file to upload / download
-            req_method (str): the name of the HTTP request (eg 'POST', 'GET', ...)
             *args, **kwargs: argument to be passed to the callable method.
 
         Raises:
@@ -205,10 +203,13 @@ class Repository:
         Returns:
             requests: the result of the request if request is successful
         """
+        req_method = getattr(http_request, '__name__')
+        req_method = req_method.upper()
         _method_msg = self._get_method_request_msg(req_method)
+        
         try:
             # issuing the HTTP request
-            res = callable_method(url, *args, **kwargs)
+            res = http_request(url, *args, **kwargs)
         except requests.Timeout:
             # request exceeded timeout set 
             _msg = ErrorNumbers.FB201.value + f' : {req_method} HTTP request time exceeds Timeout'

@@ -70,7 +70,6 @@ class TestRepository(unittest.TestCase):
         def connection_handler_side_effect(callable_method: Callable,
                                            url: str,
                                            filename: str,
-                                           req_method: str,
                                            *args,
                                            **kwargs) -> FakeRequest:
             """Mimicks `_connection_handler` private method of `Repository` class.
@@ -86,7 +85,7 @@ class TestRepository(unittest.TestCase):
                 a Request
             """
             fake_req = FakeRequest(files = kwargs.get('files'))
-            setattr(fake_req, 'request', req_method)
+            setattr(fake_req, 'request', 'POST')
             return fake_req
 
         # patches & Mocking
@@ -103,7 +102,6 @@ class TestRepository(unittest.TestCase):
         connection_handler_patch.assert_called_once_with(requests_post_patch,
                                                          self.uploads_url,
                                                          fake_filename,
-                                                         'POST',
                                                          files={'file': self.builtin_open_fake})
 
         # check result of request
@@ -189,8 +187,7 @@ class TestRepository(unittest.TestCase):
         # checks
         connection_handler_patch.assert_called_once_with(requests_get_patch, 
                                                          url,
-                                                         path_file,
-                                                         'GET')
+                                                         path_file)
         raise_for_status_handler_patch.assert_called_once()
         open_patch.assert_called_once_with(expected_path_file,
                                            'wb')
@@ -334,13 +331,12 @@ class TestRepository(unittest.TestCase):
 
         # patches and mocks
         get_method_req_patch.return_value = "do some operation on file"
-        request_callable = MagicMock(side_effect = a_callable)
+        request_callable = MagicMock(side_effect = a_callable, __name__='GET')
 
         # action
         res = self.r1._connection_handler(request_callable, 
                                           'http://a.fake.url',
-                                          'a/file/path',
-                                          req_method="unknown_method")
+                                          'a/file/path')
 
         # checks
         request_callable.assert_called_once()
