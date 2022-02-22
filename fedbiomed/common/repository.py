@@ -62,8 +62,8 @@ class Repository:
 
         # second, we are issuing an HTTP 'POST' request to the HTTP server
 
-        _res = self._connection_handler(requests.post, self.uploads_url,
-                                        filename, files=files)
+        _res = self._request_handler(requests.post, self.uploads_url,
+                                     filename, files=files)
         # checking status of HTTP request
 
         self._raise_for_status_handler(_res, filename)
@@ -93,7 +93,7 @@ class Repository:
             which the temporary file is saved
         """
 
-        res = self._connection_handler(requests.get, url, filename)
+        res = self._request_handler(requests.get, url, filename)
         self._raise_for_status_handler(res, filename)
         filepath = os.path.join(self.tmp_dir, filename)
 
@@ -134,7 +134,7 @@ class Repository:
             FedbiomedRepositoryError: if request has failed, raises an FedBiomedError
             with the appropriate code error/ message
         """
-        _method_msg = self._get_method_request_msg(rq_result.request.method)
+        _method_msg = Repository._get_method_request_msg(rq_result.request.method)
         try:
             # `raise_for_status` method raises an HTTPError if the status code 
             # is 4xx or 500
@@ -155,7 +155,8 @@ class Repository:
             logger.debug(f'upload (HTTP {rq_result.request.method} request) of file {filename} successful,' 
                          f' with status code {rq_result.status_code}')
 
-    def _get_method_request_msg(self, req_type: str) -> str:
+    @staticmethod
+    def _get_method_request_msg(req_type: str) -> str:
         """
         Returns the appropraite message whether the HTTP request is GET (downloading)
         or POST (uploading)
@@ -167,6 +168,9 @@ class Repository:
             str: the appropriate message (that will be used for the error message
             description if any error has been found)
         """
+        # FIXME: this method only provide messages for the HTTP request 'POST' and 
+        # 'GET'. It should be completed as long other methods based on other requests
+        # are added in the class (eg 'PUT' or 'DELETE' HTTP requests)
         if req_type.upper() == "POST":
             method_msg = "uploading file"
         elif req_type.upper() == "GET":
@@ -175,12 +179,12 @@ class Repository:
             method_msg = 'issuing unknown HTTP request'
         return method_msg
 
-    def _connection_handler(self,
-                            http_request: Callable,
-                            url: str,
-                            filename: str,
-                            *args,
-                            **kwargs) -> requests:
+    def _request_handler(self,
+                         http_request: Callable,
+                         url: str,
+                         filename: str,
+                         *args,
+                         **kwargs) -> requests:
         """
         Handles error that can trigger if the HTTP request fails (eg
         if request exceeded timeout, ...)
@@ -205,7 +209,7 @@ class Repository:
         """
         req_method = getattr(http_request, '__name__')
         req_method = req_method.upper()
-        _method_msg = self._get_method_request_msg(req_method)
+        _method_msg = Repository._get_method_request_msg(req_method)
         
         try:
             # issuing the HTTP request

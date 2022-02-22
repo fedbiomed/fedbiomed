@@ -50,13 +50,13 @@ class TestRepository(unittest.TestCase):
         pass
 
     @patch('fedbiomed.common.repository.Repository._raise_for_status_handler')
-    @patch('fedbiomed.common.repository.Repository._connection_handler')
+    @patch('fedbiomed.common.repository.Repository._request_handler')
     @patch('requests.post')
     @patch('builtins.open')
     def test_reporistory_01_upload_file_normal_case(self, 
                                                     builtins_open_patch, 
                                                     requests_post_patch,
-                                                    connection_handler_patch,
+                                                    request_handler_patch,
                                                     raise_for_status_handler_patch):
         """
         Tests `upload_file` method in the normal case scenario
@@ -67,12 +67,12 @@ class TestRepository(unittest.TestCase):
 
         # side effect funtions    
 
-        def connection_handler_side_effect(callable_method: Callable,
+        def request_handler_side_effect(callable_method: Callable,
                                            url: str,
                                            filename: str,
                                            *args,
                                            **kwargs) -> FakeRequest:
-            """Mimicks `_connection_handler` private method of `Repository` class.
+            """Mimicks `_request_handler` private method of `Repository` class.
 
             Args:
                 callable_method (Callable): a callable method (unused in this test)
@@ -90,7 +90,7 @@ class TestRepository(unittest.TestCase):
 
         # patches & Mocking
         builtins_open_patch.side_effect = self.open_side_effect
-        connection_handler_patch.side_effect = connection_handler_side_effect
+        request_handler_patch.side_effect = request_handler_side_effect
         raise_for_status_handler_patch.return_value = None
 
         # action
@@ -99,10 +99,10 @@ class TestRepository(unittest.TestCase):
         # checks
         # check correct calls
         builtins_open_patch.assert_called_once_with(fake_filename, 'rb')
-        connection_handler_patch.assert_called_once_with(requests_post_patch,
-                                                         self.uploads_url,
-                                                         fake_filename,
-                                                         files={'file': self.builtin_open_fake})
+        request_handler_patch.assert_called_once_with(requests_post_patch,
+                                                      self.uploads_url,
+                                                      fake_filename,
+                                                      files={'file': self.builtin_open_fake})
 
         # check result of request
         self.assertEqual(res, {'file': self.builtin_open_fake})
@@ -133,11 +133,11 @@ class TestRepository(unittest.TestCase):
                 self.r1.upload_file('another/file/to/upload')
 
     @patch('fedbiomed.common.repository.Repository._raise_for_status_handler')
-    @patch('fedbiomed.common.repository.Repository._connection_handler')
+    @patch('fedbiomed.common.repository.Repository._request_handler')
     @patch('builtins.open')       
     def test_repository_03_upload_file_json_deserialize_exception(self,
                                                                   builtins_open_patch, 
-                                                                  connection_handler_patch,
+                                                                  request_handler_patch,
                                                                   raise_for_status_handler_patch):
         """
         Checks if in `upload_file` JSON DecodeError is handled correclty when it is triggered 
@@ -150,7 +150,7 @@ class TestRepository(unittest.TestCase):
 
         requests_post.json = MagicMock(side_effect=JSONDecodeError("mimicking a eception occuring when a JSON message"
                                                                    "is not deserializable", doc='a_doc', pos=22))
-        connection_handler_patch.return_value = requests_post
+        request_handler_patch.return_value = requests_post
         raise_for_status_handler_patch.return_value = None
 
         # action & checks
@@ -159,11 +159,11 @@ class TestRepository(unittest.TestCase):
 
     @patch('builtins.open')
     @patch('fedbiomed.common.repository.Repository._raise_for_status_handler')
-    @patch('fedbiomed.common.repository.Repository._connection_handler')
+    @patch('fedbiomed.common.repository.Repository._request_handler')
     @patch('requests.get')
     def test_reporistory_04_download_file_normal_case(self,
                                                       requests_get_patch,
-                                                      connection_handler_patch,
+                                                      request_handler_patch,
                                                       raise_for_status_handler_patch,
                                                       open_patch):
         """
@@ -176,7 +176,7 @@ class TestRepository(unittest.TestCase):
         expected_path_file = os.path.join(self.r1.tmp_dir, path_file)
 
         # Patches & Mocks
-        connection_handler_patch.side_effect = FakeRequest
+        request_handler_patch.side_effect = FakeRequest
         raise_for_status_handler_patch.return_value = None
         open_patch.side_effect = self.open_side_effect
 
@@ -185,9 +185,9 @@ class TestRepository(unittest.TestCase):
                                                       path_file)
 
         # checks
-        connection_handler_patch.assert_called_once_with(requests_get_patch, 
-                                                         url,
-                                                         path_file)
+        request_handler_patch.assert_called_once_with(requests_get_patch, 
+                                                      url,
+                                                      path_file)
         raise_for_status_handler_patch.assert_called_once()
         open_patch.assert_called_once_with(expected_path_file,
                                            'wb')
@@ -197,9 +197,9 @@ class TestRepository(unittest.TestCase):
 
     @patch('builtins.open')
     @patch('fedbiomed.common.repository.Repository._raise_for_status_handler')
-    @patch('fedbiomed.common.repository.Repository._connection_handler')
+    @patch('fedbiomed.common.repository.Repository._request_handler')
     def test_repository_05_download_file_open_exceptions(self, 
-                                                         connection_handler_patch, 
+                                                         request_handler_patch, 
                                                          raise_for_status_patch,
                                                          open_patch):
         """
@@ -217,7 +217,7 @@ class TestRepository(unittest.TestCase):
         path_file = '/a/path/to/a/file/on/which/downloaded/content/will/be/saved'
 
         # patches and mocks
-        connection_handler_patch.return_value = None
+        request_handler_patch.return_value = None
         raise_for_status_patch.return_value = None
 
         # check FileNotFoundError
@@ -237,7 +237,7 @@ class TestRepository(unittest.TestCase):
         open_mock = MagicMock(return_value = None)
         open_mock.write = MagicMock(side_effect=MemoryError("mimicking case where there is no available"
                                                             " space on system disk"))
-        connection_handler_patch.return_value = FakeRequest()
+        request_handler_patch.return_value = FakeRequest()
         open_patch.side_effect = None
         open_patch.return_value = open_mock
         with self.assertRaises(FedbiomedRepositoryError):
@@ -305,12 +305,12 @@ class TestRepository(unittest.TestCase):
         """
         # test 1 with a HTTP POST request
 
-        msg_test_1 = self.r1._get_method_request_msg("post")  
+        msg_test_1 = Repository._get_method_request_msg("post")  
         self.assertEqual(msg_test_1, "uploading file")  
 
         # test 2 with a HTTP GET request
 
-        msg_test_2 = self.r1._get_method_request_msg("get")
+        msg_test_2 = Repository._get_method_request_msg("get")
         self.assertEqual(msg_test_2, 'downloading file')
 
         # test 3 with an unknown HTTP request
@@ -319,10 +319,10 @@ class TestRepository(unittest.TestCase):
         self.assertEqual('issuing unknown HTTP request', msg_test_3)
 
     @patch('fedbiomed.common.repository.Repository._get_method_request_msg')
-    def test_repository_09_private_connection_handler_normal_case(self, 
+    def test_repository_09_private_request_handler_normal_case(self, 
                                                                   get_method_req_patch):
         """
-        Tests normal case scenario when using `_connection_handler` 
+        Tests normal case scenario when using `_request_handler` 
         private method
         """
         # side effect function definition
@@ -334,17 +334,17 @@ class TestRepository(unittest.TestCase):
         request_callable = MagicMock(side_effect = a_callable, __name__='GET')
 
         # action
-        res = self.r1._connection_handler(request_callable, 
-                                          'http://a.fake.url',
-                                          'a/file/path')
+        res = self.r1._request_handler(request_callable, 
+                                       'http://a.fake.url',
+                                       'a/file/path')
 
         # checks
         request_callable.assert_called_once()
         self.assertIsInstance(res, FakeRequest)
 
     @patch('fedbiomed.common.repository.Repository._get_method_request_msg')           
-    def test_repository_10_private_connection_handler_exceptions(self,
-                                                                 get_method_req_msg_patch):
+    def test_repository_10_private_request_handler_exceptions(self,
+                                                              get_method_req_msg_patch):
         """
         Checks that errors tirggered through `requests.post` (ie when issuing a HTTP POST Request)
         have been handled accordingly in `upload_file` method
@@ -382,36 +382,36 @@ class TestRepository(unittest.TestCase):
 
         # performing tests
         with self.assertRaises(FedbiomedRepositoryError):
-            self.r1._connection_handler(callable_raising_timeout_exception,
-                                        url,
-                                        filename,
-                                        req_method)
+            self.r1._request_handler(callable_raising_timeout_exception,
+                                     url,
+                                     filename,
+                                     req_method)
 
         with self.assertRaises(FedbiomedRepositoryError):
-            self.r1._connection_handler(callable_raising_too_many_redirection_errors, 
-                                        url,
-                                        filename, 
-                                        req_method)
+            self.r1._request_handler(callable_raising_too_many_redirection_errors, 
+                                     url,
+                                     filename, 
+                                     req_method)
 
         with self.assertRaises(FedbiomedRepositoryError):
             # should return a requests.InvalidSchema error
-            self.r2._connection_handler(requests.post, 
-                                        'a/file/to/upload',
-                                        filename, 
-                                        req_method)
+            self.r2._request_handler(requests.post, 
+                                     'a/file/to/upload',
+                                     filename, 
+                                     req_method)
 
         with self.assertRaises(FedbiomedRepositoryError):
             # should return a connectionError due to unknown server
-            self.r1._connection_handler(requests.post, 
-                                        url,
-                                        filename, 
-                                        req_method)
+            self.r1._request_handler(requests.post, 
+                                     url,
+                                     filename, 
+                                     req_method)
 
         with self.assertRaises(FedbiomedRepositoryError):
-            self.r1._connection_handler(callable_raising_requests_error, 
-                                        url,
-                                        filename, 
-                                        req_method)
+            self.r1._request_handler(callable_raising_requests_error, 
+                                     url,
+                                     filename, 
+                                     req_method)
 
 
 if __name__ == '__main__':  # pragma: no cover
