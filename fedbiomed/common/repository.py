@@ -210,7 +210,7 @@ class Repository:
         req_method = getattr(http_request, '__name__')
         req_method = req_method.upper()
         _method_msg = Repository._get_method_request_msg(req_method)
-        
+
         try:
             # issuing the HTTP request
             res = http_request(url, *args, **kwargs)
