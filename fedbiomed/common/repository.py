@@ -119,13 +119,13 @@ class Repository:
 
         return res.status_code, filepath
 
-    def _raise_for_status_handler(self, rq_result: requests, filename: str = ''):
+    def _raise_for_status_handler(self, response: requests, filename: str = ''):
         """
         Handler that deals with exceptions and raises the appropriate 
         exception if the HTTP request has failed with a code error (e.g. 4xx or 500)
 
         Args:
-            rq_result (requests): the HTTP request (eg `requests.post` result).
+            response (requests): the HTTP request's response (eg `requests.post` result).
             filename (str, optional): the name of the file that is uploaded/downloaded, 
             (regarding the HTTP request issued).
             Defaults to ''.
@@ -134,26 +134,26 @@ class Repository:
             FedbiomedRepositoryError: if request has failed, raises an FedBioMedError
             with the appropriate code error/ message
         """
-        _method_msg = Repository._get_method_request_msg(rq_result.request.method)
+        _method_msg = Repository._get_method_request_msg(response.request.method)
         try:
             # `raise_for_status` method raises an HTTPError if the status code 
             # is 4xx or 500
-            rq_result.raise_for_status()
+            response.raise_for_status()
         except requests.HTTPError as err:
-            if rq_result.status_code == 404:
+            if response.status_code == 404:
                 # handling case where status code of HTTP request equals 404
                 _msg = ErrorNumbers.FB202.value + f' when {_method_msg} {filename}'
 
             else:
                 # handling case where status code of HTTP request is 4xx or 500
                 _msg = ErrorNumbers.FB203.value + f' when {_method_msg} {filename}' +\
-                    f'(status code: {rq_result.status_code})'
+                    f'(status code: {response.status_code})'
             logger.error(_msg)
             logger.debug('Details of exception: ' + str(err))
             raise FedbiomedRepositoryError(_msg)
         else:
-            logger.debug(f'upload (HTTP {rq_result.request.method} request) of file {filename} successful,' 
-                         f' with status code {rq_result.status_code}')
+            logger.debug(f'upload (HTTP {response.request.method} request) of file {filename} successful,' 
+                         f' with status code {response.status_code}')
 
     @staticmethod
     def _get_method_request_msg(req_type: str) -> str:

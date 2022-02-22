@@ -68,10 +68,10 @@ class TestRepository(unittest.TestCase):
         # side effect funtions    
 
         def request_handler_side_effect(callable_method: Callable,
-                                           url: str,
-                                           filename: str,
-                                           *args,
-                                           **kwargs) -> FakeRequest:
+                                        url: str,
+                                        filename: str,
+                                        *args,
+                                        **kwargs) -> FakeRequest:
             """Mimicks `_request_handler` private method of `Repository` class.
 
             Args:
@@ -320,7 +320,7 @@ class TestRepository(unittest.TestCase):
 
     @patch('fedbiomed.common.repository.Repository._get_method_request_msg')
     def test_repository_09_private_request_handler_normal_case(self, 
-                                                                  get_method_req_patch):
+                                                               get_method_req_patch):
         """
         Tests normal case scenario when using `_request_handler` 
         private method
