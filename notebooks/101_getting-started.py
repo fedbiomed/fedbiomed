@@ -108,36 +108,28 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 tags =  ['#MNIST', '#dataset']
 rounds = 2
 
-try:
-    exp = Experiment(tags=tags,
-                     #nodes=None,
-                     #
-                     # difference with a notebook : with a python script the `MyTrainingPlan``
-                     # contains the model code, so you don't need to use a file (`model_path`)
-                     # for passing the model to the experiment
-                     model_class=MyTrainingPlan,
-                     # model_class=AlterTrainingPlan,
-                     # model_path='/path/to/model_file.py',
-                     model_args=model_args,
-                     training_args=training_args,
-                     rounds=rounds,
-                     aggregator=FedAverage(),
-                     node_selection_strategy=None)
-except Exception as e:
-    logger.critical("Error during Experiment() initialisation: "+str(e))
-    sys.exit(-1)
+exp = Experiment(tags=tags,
+                #nodes=None,
+                # 
+                # difference with a notebook : with a python script the `MyTrainingPlan``
+                # contains the model code, so you don't need to use a file (`model_path`)
+                # for passing the model to the experiment
+                model_class=MyTrainingPlan,
+                # model_class=AlterTrainingPlan,
+                # model_path='/path/to/model_file.py',
+                model_args=model_args,
+                training_args=training_args,
+                round_limit=rounds,
+                aggregator=FedAverage(),
+                node_selection_strategy=None)
 
 
 # Let's start the experiment.
-# By default, this function doesn't stop until all the `rounds` are done for all the nodes
+# By default, this function doesn't stop until all the `round_limit` rounds are done for all the nodes
 
-try:
-    exp.run()
-except Exception as e:
-    logger.critical("Error during experiment.run(): "+str(e))
-    sys.exit(-1)
+exp.run()
 
-# Local training results for each round and each node are available in `exp.training_replies` (index 0 to (`rounds` - 1) ).
+# Local training results for each round and each node are available via `exp.training_replies()` (index 0 to (`rounds` - 1) ).
 # For example you can view the training results for the last round below.
 #
 # Different timings (in seconds) are reported for each dataset of a node participating in a round :
@@ -145,10 +137,10 @@ except Exception as e:
 # - 'ptime_training` process time (user and system CPU) spent in the training function on the node
 # - `rtime_total` real time (clock time) spent in the researcher between sending the request and handling the response, at the `Job()` layer
 
-print("\nList the training rounds : ", exp.training_replies.keys())
+print("\nList the training rounds : ", exp.training_replies().keys())
 
 print("\nList the nodes for the last training round and their timings : ")
-round_data = exp.training_replies[rounds - 1].data()
+round_data = exp.training_replies()[rounds - 1].data()
 for c in range(len(round_data)):
     print("\t- {id} :\
         \n\t\trtime_training={rtraining:.2f} seconds\
@@ -159,16 +151,17 @@ for c in range(len(round_data)):
                 rtotal = round_data[c]['timing']['rtime_total']))
 print('\n')
 
-print(exp.training_replies[rounds - 1].dataframe())
+print(exp.training_replies()[rounds - 1].dataframe())
 
 
-# Federated parameters for each round are available in `exp.aggregated_params` (index 0 to (`rounds` - 1) ).
+# Federated parameters for each round are available via `exp.aggregated_params()` (index 0 to (`rounds` - 1) ).
 # For example you can view the federated parameters for the last round of the experiment :
 
-print("\nList the training rounds : ", exp.aggregated_params.keys())
+print("\nList the training rounds : ", exp.aggregated_params().keys())
 
 print("\nAccess the federated params for the last training round : ")
-print("\t- params_path: ", exp.aggregated_params[rounds - 1]['params_path'])
-print("\t- parameter data: ", exp.aggregated_params[rounds - 1]['params'].keys())
+print("\t- params_path: ", exp.aggregated_params()[rounds - 1]['params_path'])
+print("\t- parameter data: ", exp.aggregated_params()[rounds - 1]['params'].keys())
 
 # Feel free to run other sample notebooks or try your own models :D
+

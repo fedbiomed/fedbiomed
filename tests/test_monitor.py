@@ -3,7 +3,7 @@ import shutil
 import unittest
 from unittest.mock import patch, MagicMock
 
-import testsupport.mock_researcher_environ
+import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.monitor import Monitor
@@ -69,7 +69,7 @@ class TestMonitor(unittest.TestCase):
         create_file(test_file)
 
         # 2nd call to monitor
-        monitor = Monitor()
+        _ = Monitor()
         patch_remove_logs.assert_called_once()
 
     def test_monitor_02_remove_logs_as_file(self):

@@ -65,6 +65,22 @@ class FedbiomedTrainingError(FedbiomedError):
     pass
 
 
+class FedbiomedExperimentError(FedbiomedError):
+    """
+    Exception specific to the Experiment class
+    """
+    pass
+
+
+# specific exception
+class FedbiomedSilentTerminationError(FedbiomedError):
+    """
+    Exception for silently terminating the researcher from a notebook
+    """
+    def _render_traceback_(self):
+        pass
+
+
 class FedbiomedResponsesError(FedbiomedError):
     """
     Exception specific to Responses class
@@ -76,5 +92,10 @@ class FedbiomedModelManagerError(FedbiomedError):
     """
     Exception specific to the ModelManager
     (from fedbiomed.common.data_manager)
+    """
+
+class FedbiomedRepositoryError(FedbiomedError):
+    """
+    Exception of the `Repository` class
     """
     pass

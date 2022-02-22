@@ -1,8 +1,8 @@
-from typing import Any, Dict, Union
+from typing import Any, Dict
 import unittest
 from unittest.mock import patch, MagicMock
 
-import testsupport.mock_researcher_environ
+import testsupport.mock_researcher_environ # noqa (remove flake8 false warning)
 
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_responses import FakeResponses

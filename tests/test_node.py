@@ -1,11 +1,12 @@
 import copy
+import json
 from json import decoder
 import json
 from typing import Any, Dict
 import unittest
 from unittest.mock import MagicMock, patch
 
-import testsupport.mock_node_environ
+import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
 # import dummy classes
 from testsupport.fake_message import FakeMessages
@@ -505,11 +506,7 @@ class TestNode(unittest.TestCase):
 
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
-    #@patch('fedbiomed.common.message.NodeMessages.request_create')
-    #@patch('fedbiomed.node.node.json.deserialize_msg')
     def test_node_13_parser_task_create_round_deserializer_str_msg(self,
-                                                                   #json_deserialize_patcher,
-                                                                   #node_msg_request_patch,
                                                                    history_monitor_patch,
                                                                    round_patch
                                                                    ):
@@ -517,24 +514,20 @@ class TestNode(unittest.TestCase):
 
         # defining arguments
         dict_msg_1_dataset = {
-            "model_args": {"lr": 0.1},
-            "training_args": {"some_value": 1234},
-            "model_url": "https://link.to.somewhere.where.my.model",
-            "model_class": "my_test_training_plan",
-            "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
-            "job_id": "job_id_1234",
-            "researcher_id": "researcher_id_1234",
-            "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]},
-            "command": "train"
+            'model_args': {'lr': 0.1},
+            'training_args': {'some_value': 1234},
+            'model_url': 'https://link.to.somewhere.where.my.model',
+            'model_class': 'my_test_training_plan',
+            'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
+            'job_id': 'job_id_1234',
+            'researcher_id': 'researcher_id_1234',
+            'command': 'train',
+            'training_data': {environ['NODE_ID']: ['dataset_id_1234']}
         }
         # we convert this dataset into a string
         incoming_msg = json.dumps(dict_msg_1_dataset)
 
         # defining patchers
-        #node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
-        # we are not testing deserialization here, we are assuming here
-        # that deserialization is working fine
-        #json_deserialize_patcher.return_value = dict_msg_1_dataset
         round_patch.return_value = None
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
@@ -543,7 +536,6 @@ class TestNode(unittest.TestCase):
         self.n1.parser_task(incoming_msg)
 
         # checks
-        #json_deserialize_patcher.assert_called_once_with(incoming_msg)
         round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
                                             dict_msg_1_dataset['training_args'],
                                             self.database_id[0],
@@ -558,11 +550,7 @@ class TestNode(unittest.TestCase):
 
     @patch('fedbiomed.node.round.Round.__init__')
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
-    @patch('fedbiomed.common.message.NodeMessages.request_create')
-    @patch('fedbiomed.node.node.json.deserialize_msg')
     def test_node_14_parser_task_create_round_deserializer_bytes_msg(self,
-                                                                     json_deserialize_patcher,
-                                                                     node_msg_request_patch,
                                                                      history_monitor_patch,
                                                                      round_patch
                                                                      ):
@@ -577,25 +565,14 @@ class TestNode(unittest.TestCase):
             "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
             "job_id": "job_id_1234",
             "researcher_id": "researcher_id_1234",
+            "command": "train",
             "training_data": {environ["NODE_ID"]: ["dataset_id_1234"]}
         }
 
-        # defining same message as `dict_msg_1_dataset` but in bytes
-        incoming_msg = b'{ \
-            "model_args": {"lr": 0.1},\
-            "training_args": {"some_value": 1234},\
-            "model_url": "https://link.to.somewhere.where.my.model",\
-            "model_class": "my_test_training_plan",\
-            "params_url": "https://link.to_somewhere.where.my.model.parameters.is",\
-            "job_id": "job_id_1234",\
-            "researcher_id": "researcher_id_1234",\
-            "training_data": {%b: ["dataset_id_1234"\
-            ]}\
-        }' % (bytes(environ["NODE_ID"], 'utf-8'))
+        #
+        incoming_msg = bytes( json.dumps(dict_msg_1_dataset) , 'utf-8')
 
         # defining patchers
-        node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
-        json_deserialize_patcher.return_value = dict_msg_1_dataset
         round_patch.return_value = None
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
@@ -604,7 +581,6 @@ class TestNode(unittest.TestCase):
         self.n1.parser_task(incoming_msg)
 
         # checks
-        json_deserialize_patcher.assert_called_once_with(incoming_msg)
         round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
                                             dict_msg_1_dataset['training_args'],
                                             self.database_id[0],
@@ -715,8 +691,7 @@ class TestNode(unittest.TestCase):
         """
         # defining patchers
         tasks_queue_get_patch.return_value = None
-        node_parser_task_patch.side_effect = SystemExit("mimicking an exception"
-                                                        + " coming from parser_task")
+        node_parser_task_patch.side_effect = SystemExit("mimicking an exception" + " coming from parser_task")  # noqa
 
         # action
         with self.assertRaises(SystemExit):
@@ -737,8 +712,7 @@ class TestNode(unittest.TestCase):
         # defining patchers
         tasks_queue_get_patch.return_value = None
         node_parser_task_patch.return_value = None
-        mssging_send_msg_patch.side_effect = SystemExit("Mimicking an exception happening in"
-                                                        + "`send_message` method")
+        mssging_send_msg_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`send_message` method")  # noqa
         # defining arguments and attributes
         Round = MagicMock()
         Round.run_model_training = MagicMock(run_model_training=None)
@@ -766,8 +740,7 @@ class TestNode(unittest.TestCase):
         node_parser_task_patch.return_value = None
         mssging_send_msg_patch.return_value = None
 
-        tasks_queue_task_done_patch.side_effect = SystemExit("Mimicking an exception happening in"
-                                                             + "`TasksQueue.task_done` method")
+        tasks_queue_task_done_patch.side_effect = SystemExit("Mimicking an exception happening in" + "`TasksQueue.task_done` method")  # noqa
         # defining arguments
         Round = MagicMock()
         Round.run_model_training = MagicMock(run_model_training=None)
@@ -817,16 +790,16 @@ class TestNode(unittest.TestCase):
             # checks if `task_manager` triggers SystemExit exception
             self.n1.task_manager()
 
-            # checks if `Messaging.send_message` is called with
-            # good arguments (second time it is called)
-            mssging_send_msg_patch.assert_called_with(
-                {
-                    'comand': 'error',
-                    'extra_msg': str(Exception('mimicking exceptions')),
-                    'node_id': environ['NODE_ID'],
-                    'researcher_id': 'NOT_SET',
-                    'errnum': ErrorNumbers.FB300
-                })
+        # checks if `Messaging.send_message` is called with
+        # good arguments (second time it is called)
+        mssging_send_msg_patch.assert_called_with(
+            {
+                'comand': 'error',
+                'extra_msg': str(Exception('mimicking exceptions')),
+                'node_id': environ['NODE_ID'],
+                'researcher_id': 'NOT_SET',
+                'errnum': ErrorNumbers.FB300
+            })
 
     @patch('fedbiomed.common.messaging.Messaging.start')
     def test_node_22_start_messaging_normal_case_scenario(self,

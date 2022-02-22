@@ -5,13 +5,13 @@ import inspect
 from unittest.mock import patch, MagicMock
 from fedbiomed.common.exceptions import FedbiomedModelManagerError
 
-import testsupport.mock_node_environ
-from datetime import datetime
+import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
+
 from fedbiomed.node.environ import environ
 from fedbiomed.node.model_manager import ModelManager, HASH_FUNCTIONS
 from fedbiomed.common.constants import HashingAlgorithms
 from fedbiomed.common.logger import logger
-
+from datetime import datetime
 
 class TestModelManager(unittest.TestCase):
     """
@@ -29,6 +29,7 @@ class TestModelManager(unittest.TestCase):
         # fedbiomed.node.model_manager.environ you should use another mock for
         # the environ object used in test functions
         self.values = environ
+
         def side_effect(arg):
             return self.values[arg]
 
@@ -55,15 +56,14 @@ class TestModelManager(unittest.TestCase):
         self.testdir = os.path.join(
             os.path.dirname(
                 os.path.abspath(inspect.getfile(inspect.currentframe()))
-                ),
+            ),
             "test-model"
-            )
+        )
 
     # after the tests
     def tearDown(self):
         # DB should be removed after each test to
         # have clear database for tests
-#        self.environ_patch.stop()
         self.environ_model_manager_patch.stop()
 
         self.model_manager._tinydb.drop_table('Models')
@@ -76,15 +76,14 @@ class TestModelManager(unittest.TestCase):
         or not. It also tests every default with each provided hashing algorithim
         """
         # We should import environ to get fake values
-        #fromfedbiomed.node.environ import environ
-
+        # fromfedbiomed.node.environ import environ
 
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
         logger.info('Controlling Models Dir')
         logger.info(environ['DEFAULT_MODELS_DIR'])
         for model in default_models:
 
-            #set default hashing algorithm
+            # set default hashing algorithm
             environ['HASHING_ALGORITHM'] = 'SHA256'
             full_path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
 
@@ -124,8 +123,7 @@ class TestModelManager(unittest.TestCase):
             self.model_manager.register_update_default_models()
             doc = self.model_manager._db.get(self.model_manager._database.model_type == "default")
             logger.info(doc)
-            self.assertEqual(doc["algorithm"], algo,
-                             'Hashes are not properly updated after hashing algorithm is changed')
+            self.assertEqual(doc["algorithm"], algo, 'Hashes are not properly updated after hashing algorithm is changed')  # noqa
 
     def test_model_manager_03_update_modified_model_files(self):
 
@@ -175,45 +173,47 @@ class TestModelManager(unittest.TestCase):
             name = 'test-model',
             path = model_file_1,
             model_type = 'registered',
-            description=  'desc'
+            description = 'desc'
         )
 
         # When same model file wants to be added it should raise and exception
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.register_model(
-                                        name = 'test-model-2',
-                                        path = model_file_1,
-                                        model_type = 'registered',
-                                        description=  'desc')
+                name = 'test-model-2',
+                path = model_file_1,
+                model_type = 'registered',
+                description = 'desc')
 
         # When same model wants to be added with same name  and different file
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.register_model(
-                                        name = 'test-model',
-                                        path = model_file_2,
-                                        model_type = 'registered',
-                                        description=  'desc')
+                name = 'test-model',
+                path = model_file_2,
+                model_type = 'registered',
+                description = 'desc')
 
         # Wrong types -------------------------------------
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.register_model(
-                                        name = 'test-model-2',
-                                        path = model_file_2,
-                                        model_type = False,
-                                        description=  'desc')
-        with self.assertRaises(FedbiomedModelManagerError):
+                name = 'test-model-2',
+                path = model_file_2,
+                model_type = False,
+                description = 'desc')
+
+        with self.assertRaises(Exception):
             self.model_manager.register_model(
-                                        name = 'tesasdsad',
-                                        path = model_file_2,
-                                        model_type = False,
-                                        description=  False)
-        # Worng model type
-        with self.assertRaises(FedbiomedModelManagerError):
+                name = 'tesasdsad',
+                path = model_file_2,
+                model_type = False,
+                description = False)
+
+        # Wrong model type
+        with self.assertRaises(Exception):
             self.model_manager.register_model(
-                                        name = 'tesasdsad',
-                                        path = model_file_2,
-                                        model_type = '123123',
-                                        description=  'desc')
+                name = 'tesasdsad',
+                path = model_file_2,
+                model_type = '123123',
+                description = 'desc')
 
     @patch('fedbiomed.node.model_manager.ModelManager._create_hash')
     def test_model_manager_05_check_hashes_for_registerd_models(self,
@@ -293,7 +293,7 @@ class TestModelManager(unittest.TestCase):
             name = 'test-model',
             path = model_file_1,
             model_type = 'registered',
-            description=  'desc',
+            description = 'desc'
         )
 
         # Load default datasets
@@ -369,7 +369,7 @@ class TestModelManager(unittest.TestCase):
             name = 'test-model-1',
             path = model_file_1,
             model_type = 'registered',
-            description=  'desc'
+            description = 'desc'
         )
 
         # Get registered model

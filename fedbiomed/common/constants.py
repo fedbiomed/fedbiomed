@@ -75,8 +75,8 @@ class ErrorNumbers(_BaseEnum):
 
     FB200 = "FB200: undetermined repository server error"
     FB201 = "FB201: server not reachable"
-    FB202 = "FB202: server return 404 error"
-    FB203 = "FB203: server return other 4xx or 500 error"
+    FB202 = "FB202: server returns 404 error"
+    FB203 = "FB203: server returns other 4xx or 500 error"
 
     # application error on node
 
@@ -99,15 +99,19 @@ class ErrorNumbers(_BaseEnum):
 
     FB400 = "FB400: undetermined application error"
     FB401 = "FB401: fedaverage method crashes or returns an error"
-    FB402 = "FB402: strategy method creashes or sending an error"
+    FB402 = "FB402: strategy method crashes or sends an error"
     FB403 = "FB403: bad URL (.pt) for model param"
     FB404 = "FB404: bad model param (.pt) format for TrainingPlan"
     FB405 = "FB405: received delayed answer for previous computation round"
     FB406 = "FB406: list of nodes is empty at data lookup phase"
-    FB407 = "FB407: list of nodes became empty then training"
+    FB407 = "FB407: list of nodes became empty when training"
     FB408 = "FB408: node did not answer during training"
     FB409 = "FB409: node sent Status=Error during training"
-
+    FB410 = "FB410: bad type or value for experiment argument"
+    FB411 = "FB411: cannot train an experiment that is not fully defined"
+    FB412 = "FB412: cannot do model checking for experiment"
+    FB413 = "FB413: cannot save or load breakpoint for experiment"
+    
     # node problem detected by researcher
 
     FB500 = "FB500: undetermined node error, detected by server"
@@ -119,6 +123,7 @@ class ErrorNumbers(_BaseEnum):
     FB601 = "FB601: message error"
     FB602 = "FB602: logger error"
     FB603 = "FB603: task queue error"
+    FB604 = "FB604: repository error"
     FB606 = "FB606: model_manager error"
 
     # oops

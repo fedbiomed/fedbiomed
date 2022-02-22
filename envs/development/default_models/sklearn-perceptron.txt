@@ -5,7 +5,7 @@ import pandas as pd
 from sklearn.linear_model import Perceptron
 
 class SkLearnTrainingPlan(SGDSkLearnModel):
-    def __init__(self, model_args):
+    def __init__(self, model_args: dict = {}):
         super(SkLearnTrainingPlan,self).__init__(model_args)
         self.add_dependency(["from sklearn.linear_model import Perceptron"])
     
