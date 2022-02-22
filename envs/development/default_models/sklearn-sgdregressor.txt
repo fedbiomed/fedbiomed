@@ -5,8 +5,8 @@ import pandas as pd
 from sklearn.linear_model import SGDRegressor
 
 class SGDRegressorTrainingPlan(SGDSkLearnModel):
-    def __init__(self, kwargs):
-        super(SGDRegressorTrainingPlan, self).__init__(kwargs)
+    def __init__(self, model_args: dict = {}):
+        super(SGDRegressorTrainingPlan, self).__init__(model_args)
         self.add_dependency(["from sklearn.linear_model import SGDRegressor"])
     
     def training_data(self):

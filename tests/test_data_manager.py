@@ -11,12 +11,12 @@ import torch
 from torch.utils.data import Dataset
 
 
-import testsupport.mock_node_environ
+
+import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 from tests.testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.node.environ    import environ
 from fedbiomed.node.data_manager import DataManager
-
 
 
 class TestDataManager(unittest.TestCase):
@@ -42,7 +42,6 @@ class TestDataManager(unittest.TestCase):
             return self._data[idx], self._labels[idx]
 
 
-    # Setup data manager
     def setUp(self):
         """
         run this at the begining of each test
@@ -564,8 +563,6 @@ class TestDataManager(unittest.TestCase):
         search_result = [doc1]
 
 
-        # side effect functions
-
         def db_remove_side_effect(doc_ids: List[int]):
             """
             Removes from `fake_database` global variable (that
@@ -602,7 +599,6 @@ class TestDataManager(unittest.TestCase):
         fake_database = copy.deepcopy(self.fake_database)
 
 
-        # side effect function
         def tinydb_update_side_effect(new_dataset: dict, existing_dataset: List[int]):
             """
             side effect function that mimics the update of the database

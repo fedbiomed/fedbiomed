@@ -14,10 +14,15 @@ class FakeModel:
     TrainingPlan models
 
     """
-    SLEEPING_TIME = 1 # time that simulate training (in seconds)
-    def __init__(self, *args, **kwargs):
+    SLEEPING_TIME = 1  # time that simulate training (in seconds)
+
+    def __init__(self, model_args: Dict = None, *args, **kwargs):
+
+        # For testing Job model_args
+        self.model_args = model_args
+
         pass
-    
+
     def load(self, path: str, to_params: bool):
         """Fakes `load` method of TrainingPlan classes,
         used for loading model parameters. API mimickes
@@ -31,8 +36,8 @@ class FakeModel:
             the model or into a dictionary. Unused in this dummy class.
         """
         pass
-    
-    def save(self, filename: str, results: Dict[str, Any]):
+
+    def save(self, filename: str, results: Dict[str, Any] = None):
         """
         Fakes `save` method of TrainingPlan classes, originally used for
         saving node's local model. Passed argument are unused.
@@ -45,7 +50,17 @@ class FakeModel:
             results of the training. Unused in this method.
         """
         pass
-    
+
+    def save_code(self, path: str):
+        """
+        Fakes `save_code` method of TrainingPlan classes, originally used for
+        saving codes of model calss. Passed argument are unused.
+
+        Args:
+            path (str): saving path
+        """
+        pass
+
     def set_dataset(self, path: str):
         """Fakes `set_dataset` method of TrainingPlan classes. Originally 
         used for setting dataset path. Passed arguments are unused.        
@@ -55,7 +70,7 @@ class FakeModel:
             Unused in this method.
         """
         pass
-    
+
     def training_routine(self, **kwargs):
         """Fakes `training_routine` method of TrainingPlan classes. Originally
         used for training the model. Passed arguments are unused.
@@ -63,7 +78,7 @@ class FakeModel:
         so it mimicks a training and able timing tests.
         """
         time.sleep(FakeModel.SLEEPING_TIME)
-        
+
     def after_training_params(self) -> List[int]:
         """Fakes `after_training_params` method of TrainingPlan classes.
         Originally used to get the parameters after training is performed.
