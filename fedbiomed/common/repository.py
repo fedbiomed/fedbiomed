@@ -11,7 +11,7 @@ from json import JSONDecodeError
 
 class Repository:
     """HTTP file repository from which to upload and download files.
-    Files are uploaded from/dowloaded to a temporary file (`temp_fir`)
+    Files are uploaded from/downloaded to a temporary file (`temp_fir`)
     Data uploaded should be:
     - python code (*.py file) that describes model +
     data handling/preprocessing
@@ -28,7 +28,7 @@ class Repository:
 
     def upload_file(self, filename: str) -> Dict[str, Any]:
         """
-        uploads a file to a HTTP file repository (through an
+        uploads a file to an HTTP file repository (through an
         HTTP POST request).
         Args:
             filename (str): name/path of the file to upload.
@@ -122,7 +122,7 @@ class Repository:
     def _raise_for_status_handler(self, rq_result: requests, filename: str = ''):
         """
         Handler that deals with exceptions and raises the appropriate 
-        exception if the HTTP request has failed with a code error (eg 4xx or 500)
+        exception if the HTTP request has failed with a code error (e.g. 4xx or 500)
 
         Args:
             rq_result (requests): the HTTP request (eg `requests.post` result).
@@ -131,7 +131,7 @@ class Repository:
             Defaults to ''.
 
         Raises:
-            FedbiomedRepositoryError: if request has failed, raises an FedBiomedError
+            FedbiomedRepositoryError: if request has failed, raises an FedBioMedError
             with the appropriate code error/ message
         """
         _method_msg = Repository._get_method_request_msg(rq_result.request.method)
@@ -158,7 +158,7 @@ class Repository:
     @staticmethod
     def _get_method_request_msg(req_type: str) -> str:
         """
-        Returns the appropraite message whether the HTTP request is GET (downloading)
+        Returns the appropriate message whether the HTTP request is GET (downloading)
         or POST (uploading)
 
         Args:
@@ -186,7 +186,7 @@ class Repository:
                          *args,
                          **kwargs) -> requests:
         """
-        Handles error that can trigger if the HTTP request fails (eg
+        Handles error that can trigger if the HTTP request fails (e.g.
         if request exceeded timeout, ...)
 
         Args:
@@ -220,7 +220,7 @@ class Repository:
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
         except requests.TooManyRedirects:
-            # request had too any redirections
+            # request had too many redirections
             _msg = ErrorNumbers.FB201.value + f' : {req_method} HTTP request exceeds max number of redirection'
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
@@ -231,7 +231,7 @@ class Repository:
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
         except requests.ConnectionError:
-            # an error during connection has occured
+            # an error during connection has occurred
             _msg = ErrorNumbers.FB201.value + f' when {_method_msg} {filename}' + \
                 f' to {self.uploads_url}: name or service not known'
             logger.error(_msg)
