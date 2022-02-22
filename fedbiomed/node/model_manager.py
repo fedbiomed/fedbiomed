@@ -323,7 +323,7 @@ class ModelManager:
                                 'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f") },
                                 self._database.model_path == path)
 
-    def update_model(self, model_id: str, path: str):
+    def update_model(self, model_id: str, path: str) -> True:
 
         """ Method for updating model files. Updates models hash value with provided
             model file. It also update `data_modified`, `date_created` and
@@ -333,6 +333,9 @@ class ModelManager:
 
                 model_id (str): Id of the model
                 path     (str): The path where model file is stored
+
+            Returns:
+                True when method has been run
         """
 
         self._db.clear_cache()
