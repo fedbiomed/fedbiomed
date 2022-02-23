@@ -77,6 +77,7 @@ class FedbiomedSilentTerminationError(FedbiomedError):
     """
     Exception for silently terminating the researcher from a notebook
     """
+
     def _render_traceback_(self):
         pass
 
@@ -91,5 +92,12 @@ class FedbiomedResponsesError(FedbiomedError):
 class FedbiomedRepositoryError(FedbiomedError):
     """
     Exception of the `Repository` class
+    """
+    pass
+
+
+class FedbiomedTrainingPlanError(FedbiomedError):
+    """
+    Exception specific to errors while getting source of the model class
     """
     pass

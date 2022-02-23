@@ -10,6 +10,9 @@ import torch
 import torch.nn as nn
 
 from fedbiomed.common.logger import logger
+from fedbiomed.common.utils import get_class_source
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
+from fedbiomed.common.constants import ErrorNumbers
 
 
 class TorchTrainingPlan(nn.Module):
@@ -40,7 +43,7 @@ class TorchTrainingPlan(nn.Module):
         super(TorchTrainingPlan, self).__init__()
 
         # cannot use it here !!!! FIXED in training_routine
-        #self.optimizer = torch.optim.Adam(self.parameters(), lr = 1e-3)
+        # self.optimizer = torch.optim.Adam(self.parameters(), lr = 1e-3)
         self.optimizer = None
 
         # data loading // should be moved to another class
@@ -72,7 +75,6 @@ class TorchTrainingPlan(nn.Module):
         # to be configured by setters
         self.dataset_path = None
 
-
     # provided by fedbiomed
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """
@@ -97,7 +99,7 @@ class TorchTrainingPlan(nn.Module):
         cuda_available = torch.cuda.is_available()
         if use_gpu is None:
             use_gpu = self.use_gpu
-        use_cuda = cuda_available and (( use_gpu and node_args['gpu'] ) or node_args['gpu_only'])
+        use_cuda = cuda_available and ((use_gpu and node_args['gpu']) or node_args['gpu_only'])
 
         if node_args['gpu_only'] and not cuda_available:
             logger.error('Node wants to force model training on GPU, but no GPU is available')
@@ -118,11 +120,9 @@ class TorchTrainingPlan(nn.Module):
             else:
                 self.device = "cuda"
         logger.debug(f"Using device {self.device} for training "
-            f"(cuda_available={cuda_available}, gpu={node_args['gpu']}, "
-            f"gpu_only={node_args['gpu_only']}, "
-            f"use_gpu={use_gpu}, gpu_num={node_args['gpu_num']})")
-
-
+                     f"(cuda_available={cuda_available}, gpu={node_args['gpu']}, "
+                     f"gpu_only={node_args['gpu_only']}, "
+                     f"use_gpu={use_gpu}, gpu_num={node_args['gpu_num']})")
 
     # provided by fedbiomed
     # FIXME: add betas parameters for ADAM solver + momentum for SGD
@@ -200,7 +200,7 @@ class TorchTrainingPlan(nn.Module):
                 # do not take into account more than batch_maxnum
                 # batches from the dataset
                 if (batch_maxnum > 0) and (batch_idx >= batch_maxnum):
-                    #print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
                     logger.debug('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
                     break
 
@@ -238,32 +238,55 @@ class TorchTrainingPlan(nn.Module):
         pass
 
     # provided by fedbiomed
-    def save_code(self, filename: str):
+    def save_code(self, filepath: str):
         """Save the class code for this training plan to a file
 
         Args:
-            filename (string): path to the destination file
+            filepath (string): path to the destination file
 
         Returns:
             None
 
         Exceptions:
-            none
+            FedBioMedTrainingPlanError:
         """
 
+        try:
+            class_source = get_class_source(self.__class__)
+        except TypeError:
+            raise FedbiomedTrainingPlanError(ErrorNumbers.FB605.value + f"Error while getting source of the "
+                                                                        f"model class due to wrong object type")
+
+        # Preparing content of the module
         content = ""
         for s in self.dependencies:
             content += s + "\n"
 
         content += "\n"
-        content += inspect.getsource(self.__class__)
-        logger.debug("torchnn saved model filename: " + filename)
-        # TODO: try/except
-        file = open(filename, "w")
-        # (above) should we write it in binary (for the sake of space
-        # optimization)?
-        file.write(content)
-        file.close()
+        content += class_source
+
+        try:
+            # should we write it in binary (for the sake of space optimization)?
+            file = open(filepath, "w")
+            file.write(content)
+            file.close()
+            logger.debug("Model saved model filename: " + filepath)
+        except PermissionError:
+            _msg = ErrorNumbers.FB605.value + f': Unable to read {filepath} due to unsatisfactory privileges'
+            ", cannot write the model content into it"
+            logger.error(_msg)
+            raise FedbiomedTrainingPlanError(_msg)
+        except MemoryError:
+            _msg = ErrorNumbers.FB605.value + f" : cannot write model file on {filepath}: out of memory!"
+            logger.error(_msg)
+            raise FedbiomedTrainingPlanError(_msg)
+        except OSError:
+            _msg = ErrorNumbers.FB605.value + f': Cannot open file {filepath} to write model content'
+            logger.error(_msg)
+            raise FedbiomedTrainingPlanError(_msg)
+
+        # Return filepath and content this allows
+        return filepath, content
 
     # provided by fedbiomed
     def save(self, filename, params: dict = None) -> None:
@@ -282,7 +305,7 @@ class TorchTrainingPlan(nn.Module):
             none
         """
         if params is not None:
-            return(torch.save(params, filename))
+            return (torch.save(params, filename))
         else:
             return torch.save(self.state_dict(), filename)
 
