@@ -2,11 +2,23 @@
 
 ## 2022-XX-YY version 3.4
 
+- new tutorial notebook on Experiment() usage
+- add .coveragerc to tune test coverage
+- fix mqtt logger loop then mqqt not reachable
+- replace @property getters/setters by proper getters() setters(), still in progress
+- a lot of new unit tests and increase test coverage
+- refactor of Message() class, simplication of Messages description (purely declarative now)
+- add more ErrorNumbers + associated messages
+- check user input (mainly in Experiment() for now)
+- rename Exceptions as Errors, add FedbiomedError as top class of our errors
+- use try/except block at low level layers
+- Environ() class refactoring, environment tests rewriting
+- Experiment() class refactoring, new API, more setters/getters, interactive use, rename rounds -> round_limit,...
 - add single GPU training support for PyTorch
 - add a gui to manage data on nodes
 - update of sklearn sgdregressor notebook
 - update of monai notebook
-- Tensorboard fixes
+- Tensorboard fixes for multi class classification with scikit learn
 
 ## 2022-01-07 version 3.3
 
