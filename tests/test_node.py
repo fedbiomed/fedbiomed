@@ -783,7 +783,7 @@ class TestNode(unittest.TestCase):
         node_parser_task_patch.return_value = None
         tasks_queue_task_done_patch.return_value = None
         node_msg_reply_create_patch.side_effect = TestNode.node_msg_side_effect
-        mssging_send_msg_patch.side_effect = [Exception, SystemExit]
+        mssging_send_msg_patch.side_effect = [Exception('mimicking exceptions'), SystemExit]
 
         # action
         with self.assertRaises(SystemExit):
@@ -794,7 +794,7 @@ class TestNode(unittest.TestCase):
         # good arguments (second time it is called)
         mssging_send_msg_patch.assert_called_with(
             {
-                'comand': 'error',
+                'command': 'error',
                 'extra_msg': str(Exception('mimicking exceptions')),
                 'node_id': environ['NODE_ID'],
                 'researcher_id': 'NOT_SET',

@@ -103,8 +103,14 @@ class TestModelManager(unittest.TestCase):
                 #     hash, algortihm = self.model_manager._create_hash(full_path, 'sss')
 
     def test_model_manager_02_create_hash_exception(self):
-        """Tests create_hash_exception is raising exception if hashing algorithm is not existing"""
-        default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
+        """Tests `create_hash_exception` method is raising exception if hashing
+        algorithm does not exist"""
+        model_path = os.path.join(self.testdir, 'test-model-1.txt')
+        self.values['HASHING_ALGORITHM'] = "AN_UNKNOWN_HASH_ALGORITHM"
+        
+        # action:
+        with self.assertRaises(Exception):
+            self.model_manager._create_hash(model_path)
 
     def test_model_manager_02_update_default_hashes_when_algo_is_changed(self):
 
@@ -406,11 +412,11 @@ class TestModelManager(unittest.TestCase):
         """ Testing delete opration for model manager """
 
 
-        model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
+        model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
 
         self.model_manager.register_model(
             name = 'test-model-1',
-            path = model_file_1,
+            path = model_file_path,
             model_type = 'registered',
             description = 'desc'
         )
@@ -556,7 +562,8 @@ class TestModelManager(unittest.TestCase):
         Tests `reply_model_status_request` method when exceptions are occuring:
         - 1: by `Repository.download_file` (FedbiomedRepositoryError)
         - 2: by `ModelManager.check_is_model_approved` (Exception)
-        Checks that message is creating accordingly to exception triggered
+        Checks that message (that should be sent to researcher) is created accordingly
+        to the triggered exception 
         
         """
         # test 1: tests that error triggered through `Repository.download)file` is
