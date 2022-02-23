@@ -56,19 +56,19 @@ class ModelManager:
 
             # Minify model file using python_minifier module
             content = model.read()
-            mini_content = minify( content,
-                                   remove_annotations=False,
-                                   combine_imports=False,
-                                   remove_pass=False,
-                                   hoist_literals=False,
-                                   remove_object_base=True,
-                                   rename_locals=False )
+        mini_content = minify( content,
+                                remove_annotations=False,
+                                combine_imports=False,
+                                remove_pass=False,
+                                hoist_literals=False,
+                                remove_object_base=True,
+                                rename_locals=False )
 
-            # Hash model content based on active hashing algorithm
-            if hash_algo in HashingAlgorithms.list():
-                hashing = HASH_FUNCTIONS[hash_algo]()
-            else:
-                raise FedbiomedModelManagerError(f'Unkown hashing algorithm in the `environ` {environ["HASHING_ALGORITHM"]}')
+        # Hash model content based on active hashing algorithm
+        if hash_algo in HashingAlgorithms.list():
+            hashing = HASH_FUNCTIONS[hash_algo]()
+        else:
+            raise FedbiomedModelManagerError(f'Unkown hashing algorithm in the `environ` {environ["HASHING_ALGORITHM"]}')
 
         # Create hash from model minified model content and encoded as `utf-8`
         hashing.update(mini_content.encode('utf-8'))
@@ -222,6 +222,8 @@ class ModelManager:
             model_name = 'my_model_' + str(uuid.uuid4().hex)
             status, _ = self._repo.download_file(msg['model_url'], model_name + '.py')
             if (status != 200):
+                # FIXME: should 'approval_obligation' be always false when model cannot be downloaded,
+                # regardless of environment variable "MODEL_APPROVAL"?
                 reply = { **header,
                             'success': False,
                             'approval_obligation' : False,
@@ -247,7 +249,7 @@ class ModelManager:
                             'success' : True,
                             'approval_obligation' : False,
                             'is_approved' : False ,
-                            'msg' : 'This node does not require model approval (maybe for debuging purposes). '}
+                            'msg' : 'This node does not require model approval (maybe for debuging purposes).'}
 
         except Exception as e:
                 reply = { **header,

@@ -1,14 +1,15 @@
+import copy
 import os
 import shutil
 import unittest
 import inspect
 from unittest.mock import patch, MagicMock
-from fedbiomed.common.exceptions import FedbiomedModelManagerError
+from fedbiomed.common.exceptions import FedbiomedMessageError, FedbiomedModelManagerError, FedbiomedRepositoryError
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.model_manager import ModelManager, HASH_FUNCTIONS
+from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.common.constants import HashingAlgorithms
 from fedbiomed.common.logger import logger
 from datetime import datetime
@@ -28,7 +29,7 @@ class TestModelManager(unittest.TestCase):
         # you should also mock environ objects that is called from modolues e.g
         # fedbiomed.node.model_manager.environ you should use another mock for
         # the environ object used in test functions
-        self.values = environ
+        self.values = copy.deepcopy(environ)
 
         def side_effect(arg):
             return self.values[arg]
@@ -41,9 +42,6 @@ class TestModelManager(unittest.TestCase):
 
         # self.environ = self.environ_patch.start()
         self.environ_model = self.environ_model_manager_patch.start()
-
-        # self.environ.__getitem__.side_effect = side_effect
-        # self.environ.__setitem__.side_effect = side_effect_set_item
 
         self.environ_model.__getitem__.side_effect = side_effect
         self.environ_model.__setitem__.side_effect = side_effect_set_item
@@ -73,7 +71,7 @@ class TestModelManager(unittest.TestCase):
     def test_model_manager_01_create_default_model_hashes(self):
 
         """ Testing whether created hash for model files are okay
-        or not. It also tests every default with each provided hashing algorithim
+        or not. It also tests every default with each provided hashing algorithm
         """
         # We should import environ to get fake values
         # fromfedbiomed.node.environ import environ
@@ -84,7 +82,7 @@ class TestModelManager(unittest.TestCase):
         for model in default_models:
 
             # set default hashing algorithm
-            environ['HASHING_ALGORITHM'] = 'SHA256'
+            self.values['HASHING_ALGORITHM'] = 'SHA256'
             full_path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
 
 
@@ -103,6 +101,10 @@ class TestModelManager(unittest.TestCase):
                 # Test unkown hashing algorithm
                 # with self.assertRaises(FedbiomedModelManagerError):
                 #     hash, algortihm = self.model_manager._create_hash(full_path, 'sss')
+
+    def test_model_manager_02_create_hash_exception(self):
+        """Tests create_hash_exception is raising exception if hashing algorithm is not existing"""
+        default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
 
     def test_model_manager_02_update_default_hashes_when_algo_is_changed(self):
 
@@ -125,8 +127,33 @@ class TestModelManager(unittest.TestCase):
             logger.info(doc)
             self.assertEqual(doc["algorithm"], algo, 'Hashes are not properly updated after hashing algorithm is changed')  # noqa
 
+    def test_model_manager_03_update_default_model_deleted(self):
+        file_path = os.path.join(self.testdir, 'test-model-1.txt')
+        new_default_model_path = os.path.join(self.testdir, 'test-model-1-2.txt')
+        shutil.copy(file_path, new_default_model_path)
+        
+        # update database
+        self.model_manager.register_model(
+            name = 'test-model',
+            path = new_default_model_path,
+            model_type = 'default',
+            description = 'desc'
+        )
+        # now, remove copied model from system
+        os.remove(new_default_model_path)
+        
+        # check that model is in database
+        model = self.model_manager._db.get(self.model_manager._database.model_path == new_default_model_path)
+        self.assertIsNotNone(model)
+        
+        # action
+        self.model_manager.register_update_default_models()
+        
+        # check that copied model entry has been removed
+        removed_model = self.model_manager._db.get(self.model_manager._database.model_path == new_default_model_path)
+        self.assertIsNone(removed_model)
+        
     def test_model_manager_03_update_modified_model_files(self):
-
         """ Testing update of modified default models """
 
         # We should import environ to get fake values
@@ -156,10 +183,7 @@ class TestModelManager(unittest.TestCase):
 
             self.assertNotEqual(doc['hash'] , docAfter['hash'] , "Hash couldn't updated after file has modified")
 
-
-
     def test_model_manager_04_register_model(self):
-
         """ Testing registering method for new models """
 
         # We should import environ to get fake values
@@ -274,7 +298,8 @@ class TestModelManager(unittest.TestCase):
         # Test 3: here we are testing that a file that has been removed on
         # the system is also removed from the database
         
-        # remove a model on the system
+        # remove the model file stored on the system
+        # FIXME: should we skip the remaining tests if a PermissionError is triggered
         os.remove(model_file_copied_path)
        
         # action
@@ -311,7 +336,7 @@ class TestModelManager(unittest.TestCase):
 
 
         # Test when default models is not allowed / not approved
-        environ['ALLOW_DEFAULT_MODELS'] = False
+        self.values['ALLOW_DEFAULT_MODELS'] = False
 
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
         for model in default_models:
@@ -320,10 +345,7 @@ class TestModelManager(unittest.TestCase):
             self.assertFalse(approve , "Model has been approved but it shouldn't have been")
             self.assertIsNone(model , "Model has been approved but it shouldn't have been")
 
-    #@patch('fedbiomed.node.model_manager.ModelManager._create_hash')
     def test_model_manager_07_update_model_normal_case(self,):
-                                                       #create_hash_patch
-                                                       #):
         """Tests method `update_model` in the normal case scenario"""
         
         # database initialisation
@@ -335,31 +357,52 @@ class TestModelManager(unittest.TestCase):
             description=  'desc',
             model_id = 'test-model-id'
         )
-        file_modification_date = 987654321.1234567
-        file_creation_date = '1234567890.1234567'
+        # value to update the database
+        file_modification_date_timestamp = 987654321.1234567
+        file_modification_date_literal = datetime.fromtimestamp(file_modification_date_timestamp).\
+            strftime("%d-%m-%Y %H:%M:%S.%f")
+        file_creation_date_timestamp = 1234567890.1234567
+        file_creation_date_literal = datetime.fromtimestamp(file_creation_date_timestamp).\
+            strftime("%d-%m-%Y %H:%M:%S.%f")
         model_hash = 'a hash'
         model_hashing_algorithm = 'a_hashing_algorithm'
 
-        # patches
-        #create_hash_patch.return_value = model_hash, model_hashing_algorithm
         
         # action
-        with (patch.object(ModelManager, '_create_hash', return_value=(model_hash, model_hashing_algorithm)),
-              patch.object(os.path, 'getmtime', return_value=file_modification_date) as getmtime_mock):
+        with (patch.object(ModelManager, '_create_hash',
+                           return_value=(model_hash, model_hashing_algorithm)),
+              patch.object(os.path, 'getmtime', return_value = file_modification_date_timestamp),
+              patch.object(os.path, 'getctime', return_value = file_creation_date_timestamp)):
 
             self.model_manager.update_model('test-model-id', default_model_file_1)
 
         # checks
+        # first, we are accessing to the updated model
         updated_model = self.model_manager._db.get(self.model_manager._database.name == 'test-model')
         
+        # we are then checking that each entry in the database is correct
         self.assertEqual(updated_model['hash'], model_hash)
-        self.assertEqual(updated_model['date_modified'], datetime.fromtimestamp(file_modification_date).strftime("%d-%m-%Y %H:%M:%S.%f"))
+        self.assertEqual(updated_model['algorithm'], model_hashing_algorithm)
+        self.assertEqual(updated_model['date_modified'], file_modification_date_literal)
+        self.assertEqual(updated_model['date_created'], file_creation_date_literal)
+        self.assertEqual(updated_model['model_path'], default_model_file_1)
         
     def test_model_manager_08_update_model_exception(self):
-        pass
+        """Tests metod `update_model` """
+        # database preparation
+        default_model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
+        self.model_manager.register_model(
+            name = 'test-model',
+            path = default_model_file_path,
+            model_type = 'default',
+            description=  'desc',
+            model_id = 'test-model-id'
+        )
+        with self.assertRaises(Exception):
+            self.model_manager.update_model(model_id='test-model-id',
+                                            path=default_model_file_path)
 
     def test_model_manager_08_delete_registered_models(self):
-
         """ Testing delete opration for model manager """
 
 
@@ -410,7 +453,7 @@ class TestModelManager(unittest.TestCase):
     def test_model_manager_10_reply_model_status_request(self,
                                                          mock_checking,
                                                          mock_download):
-
+        """Tests model manager `reply_model_status_request` method (normal case scenarii)"""
 
         messaging = MagicMock()
         messaging.send_message.return_value = None
@@ -424,16 +467,160 @@ class TestModelManager(unittest.TestCase):
             'model_url' : 'file:/' + environ['DEFAULT_MODELS_DIR'] + '/' + default_models[0],
             'command' : 'model-status'
         }
+        # test 1: case where status code of HTTP request equals 200 AND model
+        # has been approved
         self.model_manager.reply_model_status_request( msg, messaging)
 
-        with self.assertRaises(Exception):
+        # check:
+        messaging.send_message.assert_called_once_with({'researcher_id': 'ssss',
+                                                        'node_id': environ['NODE_ID'],
+                                                        'job_id': 'xxx',
+                                                        'success': True,
+                                                        'approval_obligation': True,
+                                                        'is_approved': True,
+                                                        'msg': 'Model is approved by the node',
+                                                        'model_url': msg['model_url'],
+                                                        'command': 'model-status'
+                                                        })
+        with self.assertRaises(FedbiomedMessageError):
+            # should trigger a FedBiomedMessageError because 'researcher_id' should be a string
+            # (and not a boolean)
             msg['researcher_id'] = True
             self.model_manager.reply_model_status_request( msg, messaging)
 
+        # test 2: case where status code of HTTP request equals 200 AND model has
+        # not been approved
+        msg['researcher_id'] = 'dddd'
+        mock_checking.return_value = False, {}
+        messaging.reset_mock()
+        # action
+        self.model_manager.reply_model_status_request( msg, messaging)
+        
+        # check
+        messaging.send_message.assert_called_once_with({'researcher_id': 'dddd',
+                                                        'node_id': environ['NODE_ID'],
+                                                        'job_id': 'xxx',
+                                                        'success': True,
+                                                        'approval_obligation': True,
+                                                        'is_approved': False,
+                                                        'msg': 'Model is not approved by the node',
+                                                        'model_url': msg['model_url'],
+                                                        'command': 'model-status'
+                                                        })
+        # test 3: case where "MODEL_APPROVAL" has not been set 
+        messaging.reset_mock()
+        
+        self.values["MODEL_APPROVAL"] = False
+        test3_msg = 'This node does not require model approval (maybe for debuging purposes).'
+        # action
+        self.model_manager.reply_model_status_request( msg, messaging)
+        
+        # checks
+        messaging.send_message.assert_called_once_with({'researcher_id': 'dddd',
+                                                        'node_id': environ['NODE_ID'],
+                                                        'job_id': 'xxx',
+                                                        'success': True,
+                                                        'approval_obligation': False,
+                                                        'is_approved': False,
+                                                        'msg': test3_msg,
+                                                        'model_url': msg['model_url'],
+                                                        'command': 'model-status'
+                                                        })
+        
+        # test 4: case where status code of HTTP request equals 404 (request failed)
         mock_download.return_value = 404, None
         mock_checking.return_value = True, {}
         msg['researcher_id'] = '12345'
+        
+        messaging.reset_mock()
         self.model_manager.reply_model_status_request( msg, messaging)
+        # check:
+        messaging.send_message.assert_called_once_with({'researcher_id': msg['researcher_id'],
+                                                        'node_id': environ['NODE_ID'],
+                                                        'job_id': 'xxx',
+                                                        'success': False,
+                                                        'approval_obligation': False,
+                                                        'is_approved': False,
+                                                        'msg': f'Can not download model file. {msg["model_url"]}',
+                                                        'model_url': msg['model_url'],
+                                                        'command': 'model-status'
+                                                        })
+
+
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    def test_model_manager_11_reply_model_status_request_exception(self, 
+                                                                   mock_checking,
+                                                                   mock_download):
+        """
+        Tests `reply_model_status_request` method when exceptions are occuring:
+        - 1: by `Repository.download_file` (FedbiomedRepositoryError)
+        - 2: by `ModelManager.check_is_model_approved` (Exception)
+        Checks that message is creating accordingly to exception triggered
+        
+        """
+        # test 1: tests that error triggered through `Repository.download)file` is
+        # correctly handled
+        # patches 
+        messaging = MagicMock()
+        messaging.send_message.return_value = None
+        default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
+        download_exception = FedbiomedRepositoryError("mimicking an exception triggered from" 
+                                                      "fedbiomed.common.repository")
+        mock_download.side_effect = download_exception
+        mock_checking.return_value = True, {}
+        
+        msg = {
+            'researcher_id' : 'ssss',
+            'job_id' : 'xxx',
+            'model_url' : 'file:/' + environ['DEFAULT_MODELS_DIR'] + '/' + default_models[0],
+            'command' : 'model-status'
+        }
+        
+        download_err_msg = f'An error occured when downloading model file. {msg["model_url"]} ,' + \
+            f' {str(download_exception)}'
+        
+        # action
+        self.model_manager.reply_model_status_request(msg, messaging)
+        
+        # check
+        messaging.send_message.assert_called_once_with({'researcher_id': msg['researcher_id'],
+                                                        'node_id': environ['NODE_ID'],
+                                                        'job_id': 'xxx',
+                                                        'success': False,
+                                                        'approval_obligation': False,
+                                                        'is_approved': False,
+                                                        'msg': download_err_msg,
+                                                        'model_url': msg['model_url'],
+                                                        'command': 'model-status'
+                                                        })
+        # test 2: test that error triggered through `check_is_model_approved` method
+        # of `ModelManager` is correctly handled
+        
+        # resetting `mock_download`
+        mock_download.side_effect = None
+        mock_download.return_value = 200, None
+        messaging.reset_mock()
+        # creating a new exception for `check_is_model_approved` method
+        checking_model_exception = Exception("mimicking an exception happening when calling 'check_is_model_approved'")
+        mock_checking.side_effect = checking_model_exception
+        
+        checking_model_err_msg = f'An error occured when downloading model file. {msg["model_url"]} ,' + \
+            f' {str(checking_model_exception)}'
+        # action
+        self.model_manager.reply_model_status_request(msg, messaging)
+        
+        # check
+        messaging.send_message.assert_called_once_with({'researcher_id': msg['researcher_id'],
+                                                        'node_id': environ['NODE_ID'],
+                                                        'job_id': 'xxx',
+                                                        'success': False,
+                                                        'approval_obligation': False,
+                                                        'is_approved': False,
+                                                        'msg': checking_model_err_msg,
+                                                        'model_url': msg['model_url'],
+                                                        'command': 'model-status'
+                                                        })
 
 
 if __name__ == '__main__':  # pragma: no cover
