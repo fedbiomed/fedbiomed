@@ -14,11 +14,10 @@ from fedbiomed.common.constants import HashingAlgorithms
 from fedbiomed.common.logger import logger
 from datetime import datetime
 
+
 class TestModelManager(unittest.TestCase):
     """
-    Test `ModelManager`
-    Args:
-        unittest ([type]): [description]
+    Unit tests for class `ModelManager` (from fedbiomed.node.model_manager)
     """
 
     # before the tests
@@ -107,12 +106,12 @@ class TestModelManager(unittest.TestCase):
         algorithm does not exist"""
         model_path = os.path.join(self.testdir, 'test-model-1.txt')
         self.values['HASHING_ALGORITHM'] = "AN_UNKNOWN_HASH_ALGORITHM"
-        
+
         # action:
         with self.assertRaises(Exception):
             self.model_manager._create_hash(model_path)
 
-    def test_model_manager_02_update_default_hashes_when_algo_is_changed(self):
+    def test_model_manager_03_update_default_hashes_when_algo_is_changed(self):
 
         """  Testing method for update/register default models when hashing
              algorithm has changed
@@ -133,11 +132,11 @@ class TestModelManager(unittest.TestCase):
             logger.info(doc)
             self.assertEqual(doc["algorithm"], algo, 'Hashes are not properly updated after hashing algorithm is changed')  # noqa
 
-    def test_model_manager_03_update_default_model_deleted(self):
+    def test_model_manager_04_update_default_model_deleted(self):
         file_path = os.path.join(self.testdir, 'test-model-1.txt')
         new_default_model_path = os.path.join(self.testdir, 'test-model-1-2.txt')
         shutil.copy(file_path, new_default_model_path)
-        
+
         # update database
         self.model_manager.register_model(
             name = 'test-model',
@@ -147,19 +146,19 @@ class TestModelManager(unittest.TestCase):
         )
         # now, remove copied model from system
         os.remove(new_default_model_path)
-        
+
         # check that model is in database
         model = self.model_manager._db.get(self.model_manager._database.model_path == new_default_model_path)
         self.assertIsNotNone(model)
-        
+
         # action
         self.model_manager.register_update_default_models()
-        
+
         # check that copied model entry has been removed
         removed_model = self.model_manager._db.get(self.model_manager._database.model_path == new_default_model_path)
         self.assertIsNone(removed_model)
-        
-    def test_model_manager_03_update_modified_model_files(self):
+
+    def test_model_manager_04_update_modified_model_files(self):
         """ Testing update of modified default models """
 
         # We should import environ to get fake values
@@ -189,7 +188,7 @@ class TestModelManager(unittest.TestCase):
 
             self.assertNotEqual(doc['hash'] , docAfter['hash'] , "Hash couldn't updated after file has modified")
 
-    def test_model_manager_04_register_model(self):
+    def test_model_manager_05_register_model(self):
         """ Testing registering method for new models """
 
         # We should import environ to get fake values
@@ -246,7 +245,7 @@ class TestModelManager(unittest.TestCase):
                 description = 'desc')
 
     @patch('fedbiomed.node.model_manager.ModelManager._create_hash')
-    def test_model_manager_05_check_hashes_for_registerd_models(self,
+    def test_model_manager_06_check_hashes_for_registerd_models(self,
                                                                 create_hash_patch):
         """
         Tests `hashes_for_registered_models` method, with 3 settings
@@ -258,21 +257,21 @@ class TestModelManager(unittest.TestCase):
         correct_hash = 'a correct hash'
         correct_hashing_algo = 'a correct hashing algorithm'
         create_hash_patch.return_value = correct_hash, correct_hashing_algo
-         
+
         # test 1: case where there is no model registered
         self.model_manager.check_hashes_for_registered_models()
-        
+
         # check that no models are not registered
         self.assertListEqual(self.model_manager._db.search(self.model_manager._database.model_type.all('registered')),
                              [])
-        
+
         # test 2: case where default models have been registered
         # we will check that models have correct hashes and hashing algorithm
         # in the database
         self.model_manager.register_update_default_models()
 
         model_file_1_path = os.path.join(self.testdir, 'test-model-1.txt')
-        
+
         # copying model (we will delete it afterward)
         model_file_copied_path = os.path.join(self.testdir, 'copied-test-model-1.txt')
         shutil.copy(model_file_1_path, model_file_copied_path)
@@ -280,41 +279,41 @@ class TestModelManager(unittest.TestCase):
             name = 'test-model',
             path = model_file_copied_path,
             model_type = 'registered',
-            description=  'desc',
+            description = 'desc',
             model_id = 'test-model-id'
         )
-        
+
         # update database with non-existing hash and hashing algorithms
         models = self.model_manager._db.search(self.model_manager._database.model_type.all('registered'))
         for model in models:
             self.model_manager._db.update( {'hash' : "an incorrect hash",
                                             'algorithm' : "incorrect_hashing_algorithm" },
-                                        self.model_manager._database.model_id.all(model["model_id"]))
-            
+                                           self.model_manager._database.model_id.all(model["model_id"]))
+
         self.model_manager.check_hashes_for_registered_models()
-        
+
         # checks
         models = self.model_manager._db.search(self.model_manager._database.model_type.all('registered'))
-        
+
         for model in models:
 
             self.assertEqual(model['hash'], correct_hash)
             self.assertEqual(model['algorithm'], correct_hashing_algo)
-        
+
         # Test 3: here we are testing that a file that has been removed on
         # the system is also removed from the database
-        
+
         # remove the model file stored on the system
         # FIXME: should we skip the remaining tests if a PermissionError is triggered
         os.remove(model_file_copied_path)
-       
+
         # action
         self.model_manager.check_hashes_for_registered_models()
         removed_model = self.model_manager._db.get(self.model_manager._database.name == 'test-model')
         # check that the model has been removed
         self.assertIsNone(removed_model)
 
-    def test_model_manager_06_checking_model_approve(self):
+    def test_model_manager_07_checking_model_approve(self):
         """ Testing check model is approved or not """
 
         model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
@@ -332,7 +331,7 @@ class TestModelManager(unittest.TestCase):
 
         # Test when model is not approved
         approve, model = self.model_manager.check_is_model_approved(model_file_2)
-        self.assertFalse(approve,  "Model has been approved but it it shouldn't have been")
+        self.assertFalse(approve, "Model has been approved but it it shouldn't have been")
         self.assertIsNone(model, "Model has been approved but it it shouldn't have been")
 
         # Test when model is approved model
@@ -351,16 +350,16 @@ class TestModelManager(unittest.TestCase):
             self.assertFalse(approve , "Model has been approved but it shouldn't have been")
             self.assertIsNone(model , "Model has been approved but it shouldn't have been")
 
-    def test_model_manager_07_update_model_normal_case(self,):
+    def test_model_manager_08_update_model_normal_case(self,):
         """Tests method `update_model` in the normal case scenario"""
-        
+
         # database initialisation
         default_model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
         self.model_manager.register_model(
             name = 'test-model',
             path = default_model_file_1,
             model_type = 'registered',
-            description=  'desc',
+            description = 'desc',
             model_id = 'test-model-id'
         )
         # value to update the database
@@ -373,7 +372,6 @@ class TestModelManager(unittest.TestCase):
         model_hash = 'a hash'
         model_hashing_algorithm = 'a_hashing_algorithm'
 
-        
         # action
         with (patch.object(ModelManager, '_create_hash',
                            return_value=(model_hash, model_hashing_algorithm)),
@@ -385,15 +383,15 @@ class TestModelManager(unittest.TestCase):
         # checks
         # first, we are accessing to the updated model
         updated_model = self.model_manager._db.get(self.model_manager._database.name == 'test-model')
-        
+
         # we are then checking that each entry in the database is correct
         self.assertEqual(updated_model['hash'], model_hash)
         self.assertEqual(updated_model['algorithm'], model_hashing_algorithm)
         self.assertEqual(updated_model['date_modified'], file_modification_date_literal)
         self.assertEqual(updated_model['date_created'], file_creation_date_literal)
         self.assertEqual(updated_model['model_path'], default_model_file_1)
-        
-    def test_model_manager_08_update_model_exception(self):
+
+    def test_model_manager_09_update_model_exception(self):
         """Tests metod `update_model` """
         # database preparation
         default_model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
@@ -401,16 +399,15 @@ class TestModelManager(unittest.TestCase):
             name = 'test-model',
             path = default_model_file_path,
             model_type = 'default',
-            description=  'desc',
+            description = 'desc',
             model_id = 'test-model-id'
         )
         with self.assertRaises(Exception):
             self.model_manager.update_model(model_id='test-model-id',
                                             path=default_model_file_path)
 
-    def test_model_manager_08_delete_registered_models(self):
+    def test_model_manager_10_delete_registered_models(self):
         """ Testing delete opration for model manager """
-
 
         model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
 
@@ -423,7 +420,7 @@ class TestModelManager(unittest.TestCase):
 
         # Get registered model
         model_1 = self.model_manager._db.get(self.model_manager._database.name == 'test-model-1')
-        
+
         # Delete model
         self.model_manager.delete_model(model_1['model_id'])
 
@@ -443,7 +440,7 @@ class TestModelManager(unittest.TestCase):
             with self.assertRaises(Exception):
                 self.model_manager.delete_model(model['model_id'])
 
-    def test_model_manager_09_list_appoved_models(self):
+    def test_model_manager_11_list_appoved_models(self):
         """ Testing list method of model manager """
 
         self.model_manager.register_update_default_models()
@@ -456,7 +453,7 @@ class TestModelManager(unittest.TestCase):
 
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
-    def test_model_manager_10_reply_model_status_request(self,
+    def test_model_manager_12_reply_model_status_request(self,
                                                          mock_checking,
                                                          mock_download):
         """Tests model manager `reply_model_status_request` method (normal case scenarii)"""
@@ -501,7 +498,7 @@ class TestModelManager(unittest.TestCase):
         messaging.reset_mock()
         # action
         self.model_manager.reply_model_status_request( msg, messaging)
-        
+
         # check
         messaging.send_message.assert_called_once_with({'researcher_id': 'dddd',
                                                         'node_id': environ['NODE_ID'],
@@ -515,12 +512,12 @@ class TestModelManager(unittest.TestCase):
                                                         })
         # test 3: case where "MODEL_APPROVAL" has not been set 
         messaging.reset_mock()
-        
+
         self.values["MODEL_APPROVAL"] = False
         test3_msg = 'This node does not require model approval (maybe for debuging purposes).'
         # action
         self.model_manager.reply_model_status_request( msg, messaging)
-        
+
         # checks
         messaging.send_message.assert_called_once_with({'researcher_id': 'dddd',
                                                         'node_id': environ['NODE_ID'],
@@ -532,12 +529,12 @@ class TestModelManager(unittest.TestCase):
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
                                                         })
-        
+
         # test 4: case where status code of HTTP request equals 404 (request failed)
         mock_download.return_value = 404, None
         mock_checking.return_value = True, {}
         msg['researcher_id'] = '12345'
-        
+
         messaging.reset_mock()
         self.model_manager.reply_model_status_request( msg, messaging)
         # check:
@@ -555,7 +552,7 @@ class TestModelManager(unittest.TestCase):
 
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
-    def test_model_manager_11_reply_model_status_request_exception(self, 
+    def test_model_manager_13_reply_model_status_request_exception(self, 
                                                                    mock_checking,
                                                                    mock_download):
         """
@@ -564,7 +561,7 @@ class TestModelManager(unittest.TestCase):
         - 2: by `ModelManager.check_is_model_approved` (Exception)
         Checks that message (that should be sent to researcher) is created accordingly
         to the triggered exception 
-        
+
         """
         # test 1: tests that error triggered through `Repository.download)file` is
         # correctly handled
@@ -576,20 +573,20 @@ class TestModelManager(unittest.TestCase):
                                                       "fedbiomed.common.repository")
         mock_download.side_effect = download_exception
         mock_checking.return_value = True, {}
-        
+
         msg = {
             'researcher_id' : 'ssss',
             'job_id' : 'xxx',
             'model_url' : 'file:/' + environ['DEFAULT_MODELS_DIR'] + '/' + default_models[0],
             'command' : 'model-status'
         }
-        
+
         download_err_msg = f'An error occured when downloading model file. {msg["model_url"]} ,' + \
             f' {str(download_exception)}'
-        
+
         # action
         self.model_manager.reply_model_status_request(msg, messaging)
-        
+
         # check
         messaging.send_message.assert_called_once_with({'researcher_id': msg['researcher_id'],
                                                         'node_id': environ['NODE_ID'],
@@ -603,7 +600,7 @@ class TestModelManager(unittest.TestCase):
                                                         })
         # test 2: test that error triggered through `check_is_model_approved` method
         # of `ModelManager` is correctly handled
-        
+
         # resetting `mock_download`
         mock_download.side_effect = None
         mock_download.return_value = 200, None
@@ -611,12 +608,12 @@ class TestModelManager(unittest.TestCase):
         # creating a new exception for `check_is_model_approved` method
         checking_model_exception = Exception("mimicking an exception happening when calling 'check_is_model_approved'")
         mock_checking.side_effect = checking_model_exception
-        
+
         checking_model_err_msg = f'An error occured when downloading model file. {msg["model_url"]} ,' + \
             f' {str(checking_model_exception)}'
         # action
         self.model_manager.reply_model_status_request(msg, messaging)
-        
+
         # check
         messaging.send_message.assert_called_once_with({'researcher_id': msg['researcher_id'],
                                                         'node_id': environ['NODE_ID'],
