@@ -275,9 +275,13 @@ class SGDSkLearnModel():
 
         try:
             class_source = get_class_source(self.__class__)
-        except TypeError:
+        except TypeError as e:
             raise FedbiomedTrainingPlanError(ErrorNumbers.FB606.value + f"Error while getting source of the "
-                                                                        f"model class due to wrong object type")
+                                                                        f"model class due to wrong object "
+                                                                        f"type" + str(e))
+        except AttributeError as e:
+            raise FedbiomedTrainingPlanError(ErrorNumbers.FB606.value + f"Error while getting source of the model "
+                                                                        f"class" + str(e))
 
         # Preparing content of the module
         content = ""

@@ -82,4 +82,4 @@ def _get_ipython_class_file(cls):
             if inspect.isfunction(member) and cls.__qualname__ + '.' + member.__name__ == member.__qualname__:
                 return inspect.getfile(member)
     else:
-        raise TypeError(f'Source for {cls} is not found')
+        raise AttributeError(f'{cls} has no attribute `__module__`, source is not found.')
