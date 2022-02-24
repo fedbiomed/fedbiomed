@@ -1,8 +1,9 @@
 import os
 import hashlib
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 import uuid
-from fedbiomed.common.exceptions import FedbiomedModelManagerError
+from fedbiomed.common.exceptions import FedbiomedModelManagerError, FedbiomedRepositoryError
+from fedbiomed.common.messaging import Messaging
 
 from tinydb import TinyDB, Query
 from datetime import datetime
@@ -10,7 +11,7 @@ from python_minifier import minify
 from tabulate import tabulate
 
 from fedbiomed.node.environ import environ
-from fedbiomed.common.constants import HashingAlgorithms, ModelTypes
+from fedbiomed.common.constants import HashingAlgorithms, ModelTypes, ErrorNumbers
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.logger import logger
@@ -48,26 +49,42 @@ class ModelManager:
             Args:
                 path (str): Model file path
 
+            Raises:
+                FedBiomedModelManagerError: triggered if file cannot be open
+                FedBiomedModelManagerError: triggered if file cannot be minified
+                FedBiomedModelManagerError: triggered if Hashing agorithm does not exist
+                in HASH_FUNCTION table
         """
         hash_algo = environ['HASHING_ALGORITHM']
 
-        with open(path, "r") as model:
+        try:
+            with open(path, "r") as model:            
+                content = model.read()
+        except FileNotFoundError:
+            pass
+        except PermissionError:
+            pass
+        except OSError:
+            pass
 
-            # Minify model file using python_minifier module
-            content = model.read()
-        mini_content = minify(content,
-                              remove_annotations=False,
-                              combine_imports=False,
-                              remove_pass=False,
-                              hoist_literals=False,
-                              remove_object_base=True,
-                              rename_locals=False)
-
+        # Minify model file using python_minifier module
+        try:
+            mini_content = minify(content,
+                                  remove_annotations=False,
+                                  combine_imports=False,
+                                  remove_pass=False,
+                                  hoist_literals=False,
+                                  remove_object_base=True,
+                                  rename_locals=False)
+        except Exception as err:
+            # minify doesnot provide any specific exception
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f"cannot minify file {path}"
+                                             f"details: {err}")
         # Hash model content based on active hashing algorithm
         if hash_algo in HashingAlgorithms.list():
             hashing = HASH_FUNCTIONS[hash_algo]()
         else:
-            raise FedbiomedModelManagerError('Unknown hashing algorithm in the `environ`' +
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 'Unknown hashing algorithm in the `environ`' +
                                              f' {environ["HASHING_ALGORITHM"]}')
 
         # Create hash from model minified model content and encoded as `utf-8`
@@ -193,7 +210,7 @@ class ModelManager:
 
         return approved, approved_model
 
-    def reply_model_status_request(self, msg, messaging):
+    def reply_model_status_request(self, msg: dict, messaging: Messaging):
 
         """ This method is called directly from Node.py when
         it receives ModelStatusRequest. It checks requested model file
@@ -250,13 +267,28 @@ class ModelManager:
                              'approval_obligation': False,
                              'is_approved': False,
                              'msg': 'This node does not require model approval (maybe for debuging purposes).'}
+        except FedbiomedModelManagerError as fed_err:
+            reply = {**header,
+                     'success': False,
+                     'approval_obligation': False,
+                     'is_approved': False,
+                     'msg': ErrorNumbers.FB606.value +
+                     f': Cannot check if model has been registered. Details {fed_err}'}
 
+        except FedbiomedRepositoryError as fed_err:
+            reply = {**header,
+                     'success': False,
+                     'approval_obligation': False,
+                     'is_approved': False,
+                     'msg': ErrorNumbers.FB604.value + ': An error occured when downloading model file.'
+                     f' {msg["model_url"]} , {fed_err}'}
         except Exception as e:
             reply = {**header,
                      'success': False,
                      'approval_obligation': False,
                      'is_approved': False,
-                     'msg': f'An error occured when downloading model file. {msg["model_url"]} , {e}'}
+                     'msg': ErrorNumbers.FB606.value + ': An unknown error occured when downloading model file.'
+                     f' {msg["model_url"]} , {e}'}
 
         # Send check model status answer to researcher
         messaging.send_message(NodeMessages.reply_create(reply).get_dict())
@@ -358,12 +390,13 @@ class ModelManager:
                              'model_path': path},
                             self._database.model_id == model_id)
         else:
-            raise FedbiomedModelManagerError('You cannot update default models. Please update them through'
-                                             ' their files saved in `default_models` directory and restart your node')
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 'You cannot update default models. Please '
+                                             'update them through their files saved in `default_models` directory ' 
+                                             'and restart your node')
 
         return True
 
-    def delete_model(self, model_id: str):
+    def delete_model(self, model_id: str) -> True:
 
         """ Remove model file from database. This model does not delete
         any registered model file, and it only removes `registered` type of models.
@@ -372,7 +405,10 @@ class ModelManager:
         Args:
 
             model_id  (str): The id of the registered model
-
+        Returns:
+            True: if method has been run without encountering error
+        Raises:
+            FedBiomedModelManagerError: triggered if the model is a model registered as 'default`
         """
 
         self._db.clear_cache()
@@ -382,11 +418,12 @@ class ModelManager:
 
             self._db.remove(doc_ids=[model.doc_id])
         else:
-            raise Exception('For default models, please remove model file from `default_models` and restart your node')
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 'For default models, please remove model file'
+                                             'from `default_models` and restart your node')
 
         return True
 
-    def list_approved_models(self, verbose: bool = True):
+    def list_approved_models(self, verbose: bool = True) -> List:
 
         """ Method for listing approved model files
 

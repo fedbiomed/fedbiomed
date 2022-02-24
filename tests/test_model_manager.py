@@ -1,18 +1,19 @@
 import copy
+from datetime import datetime
 import os
 import shutil
 import unittest
 import inspect
 from unittest.mock import patch, MagicMock
-from fedbiomed.common.exceptions import FedbiomedMessageError, FedbiomedModelManagerError, FedbiomedRepositoryError
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
+from fedbiomed.common.constants import ErrorNumbers, HashingAlgorithms
+from fedbiomed.common.exceptions import FedbiomedMessageError, FedbiomedModelManagerError, FedbiomedRepositoryError
+from fedbiomed.common.logger import logger
+
 from fedbiomed.node.environ import environ
 from fedbiomed.node.model_manager import ModelManager
-from fedbiomed.common.constants import HashingAlgorithms
-from fedbiomed.common.logger import logger
-from datetime import datetime
 
 
 class TestModelManager(unittest.TestCase):
@@ -108,7 +109,7 @@ class TestModelManager(unittest.TestCase):
         self.values['HASHING_ALGORITHM'] = "AN_UNKNOWN_HASH_ALGORITHM"
 
         # action:
-        with self.assertRaises(Exception):
+        with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager._create_hash(model_path)
 
     def test_model_manager_03_update_default_hashes_when_algo_is_changed(self):
@@ -117,8 +118,6 @@ class TestModelManager(unittest.TestCase):
              algorithm has changed
         """
         # We should import environ to get fake values
-
-
 
         # Single test with default hash algorithm
         self.model_manager.register_update_default_models()
@@ -229,7 +228,7 @@ class TestModelManager(unittest.TestCase):
                 model_type = False,
                 description = 'desc')
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.register_model(
                 name = 'tesasdsad',
                 path = model_file_2,
@@ -237,7 +236,7 @@ class TestModelManager(unittest.TestCase):
                 description = False)
 
         # Wrong model type
-        with self.assertRaises(Exception):
+        with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.register_model(
                 name = 'tesasdsad',
                 path = model_file_2,
@@ -402,7 +401,7 @@ class TestModelManager(unittest.TestCase):
             description = 'desc',
             model_id = 'test-model-id'
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.update_model(model_id='test-model-id',
                                             path=default_model_file_path)
 
@@ -450,6 +449,7 @@ class TestModelManager(unittest.TestCase):
         # Check with verbose
         models = self.model_manager.list_approved_models(verbose=True)
         self.assertIsInstance(models, list , 'Could not get list of models properly in verbose mode')
+        # TODO add some other tests
 
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
@@ -581,8 +581,8 @@ class TestModelManager(unittest.TestCase):
             'command' : 'model-status'
         }
 
-        download_err_msg = f'An error occured when downloading model file. {msg["model_url"]} ,' + \
-            f' {str(download_exception)}'
+        download_err_msg = ErrorNumbers.FB604.value + ': An error occured when downloading model file.' + \
+            f' {msg["model_url"]} , {str(download_exception)}'
 
         # action
         self.model_manager.reply_model_status_request(msg, messaging)
@@ -606,11 +606,12 @@ class TestModelManager(unittest.TestCase):
         mock_download.return_value = 200, None
         messaging.reset_mock()
         # creating a new exception for `check_is_model_approved` method
-        checking_model_exception = Exception("mimicking an exception happening when calling 'check_is_model_approved'")
+        checking_model_exception = FedbiomedModelManagerError("mimicking an exception happening when calling "
+                                                              "'check_is_model_approved'")
         mock_checking.side_effect = checking_model_exception
 
-        checking_model_err_msg = f'An error occured when downloading model file. {msg["model_url"]} ,' + \
-            f' {str(checking_model_exception)}'
+        checking_model_err_msg = ErrorNumbers.FB606.value + ': Cannot check if model has been registered.' +\
+            f' Details {checking_model_exception}'
         # action
         self.model_manager.reply_model_status_request(msg, messaging)
 
