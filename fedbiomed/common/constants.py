@@ -75,8 +75,8 @@ class ErrorNumbers(_BaseEnum):
 
     FB200 = "FB200: undetermined repository server error"
     FB201 = "FB201: server not reachable"
-    FB202 = "FB202: server return 404 error"
-    FB203 = "FB203: server return other 4xx or 500 error"
+    FB202 = "FB202: server returns 404 error"
+    FB203 = "FB203: server returns other 4xx or 500 error"
 
     # application error on node
 
@@ -123,6 +123,7 @@ class ErrorNumbers(_BaseEnum):
     FB601 = "FB601: message error"
     FB602 = "FB602: logger error"
     FB603 = "FB603: task queue error"
+    FB604 = "FB604: repository error"
 
     # oops
 
