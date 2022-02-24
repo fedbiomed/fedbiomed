@@ -26,7 +26,7 @@ class TestModelManager(unittest.TestCase):
 
         # This part important for setting fake values for environ -----------------
         # and properly mocking values in environ Since environ is singleton,
-        # you should also mock environ objects that is called from modolues e.g
+        # you should also mock environ objects that are called from modules e.g.
         # fedbiomed.node.model_manager.environ you should use another mock for
         # the environ object used in test functions
         self.values = copy.deepcopy(environ)
@@ -50,7 +50,7 @@ class TestModelManager(unittest.TestCase):
         # Build ModelManger
         self.model_manager = ModelManager()
 
-        # get test directory to acces test-model files
+        # get test directory to access test-model files
         self.testdir = os.path.join(
             os.path.dirname(
                 os.path.abspath(inspect.getfile(inspect.currentframe()))
@@ -73,8 +73,6 @@ class TestModelManager(unittest.TestCase):
         """ Testing whether created hash for model files are okay
         or not. It also tests every default with each provided hashing algorithm
         """
-        # We should import environ to get fake values
-        # fromfedbiomed.node.environ import environ
 
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
         logger.info('Controlling Models Dir')
@@ -85,22 +83,17 @@ class TestModelManager(unittest.TestCase):
             self.values['HASHING_ALGORITHM'] = 'SHA256'
             full_path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
 
-
             # Control return vlaues with default hashing algorithm
             hash, algortihm = self.model_manager._create_hash(full_path)
-            self.assertIsInstance(hash, str , 'Hash creation is not successful')
-            self.assertEqual(algortihm, 'SHA256' , 'Wrong hashing algorithm')
+            self.assertIsInstance(hash, str, 'Hash creation is not successful')
+            self.assertEqual(algortihm, 'SHA256', 'Wrong hashing algorithm')
 
-            algortihms = HashingAlgorithms.list()
-            for algo in algortihms:
+            algorithms = HashingAlgorithms.list()
+            for algo in algorithms:
                 self.values['HASHING_ALGORITHM'] = algo
                 hash, algortihm = self.model_manager._create_hash(full_path)
-                self.assertIsInstance(hash, str , 'Hash creation is not successful')
-                self.assertEqual(algortihm, algo , 'Wrong hashing algorithm')
-
-                # Test unkown hashing algorithm
-                # with self.assertRaises(FedbiomedModelManagerError):
-                #     hash, algortihm = self.model_manager._create_hash(full_path, 'sss')
+                self.assertIsInstance(hash, str, 'Hash creation is not successful')
+                self.assertEqual(algortihm, algo, 'Wrong hashing algorithm')
 
     def test_model_manager_02_create_hash_exception(self):
         """Tests `create_hash_exception` method is raising exception if hashing
@@ -117,19 +110,19 @@ class TestModelManager(unittest.TestCase):
         """  Testing method for update/register default models when hashing
              algorithm has changed
         """
-        # We should import environ to get fake values
 
         # Single test with default hash algorithm
         self.model_manager.register_update_default_models()
 
         # # Multiple test with different hashing algorithms
-        algortihms = HashingAlgorithms.list()
-        for algo in algortihms:
+        algorithms = HashingAlgorithms.list()
+        for algo in algorithms:
             self.values['HASHING_ALGORITHM'] = algo
             self.model_manager.register_update_default_models()
             doc = self.model_manager._db.get(self.model_manager._database.model_type == "default")
             logger.info(doc)
-            self.assertEqual(doc["algorithm"], algo, 'Hashes are not properly updated after hashing algorithm is changed')  # noqa
+            self.assertEqual(doc["algorithm"], algo,
+                             'Hashes are not properly updated after hashing algorithm is changed')  # noqa
 
     def test_model_manager_04_update_default_model_deleted(self):
         file_path = os.path.join(self.testdir, 'test-model-1.txt')
@@ -138,10 +131,10 @@ class TestModelManager(unittest.TestCase):
 
         # update database
         self.model_manager.register_model(
-            name = 'test-model',
-            path = new_default_model_path,
-            model_type = 'default',
-            description = 'desc'
+            name='test-model',
+            path=new_default_model_path,
+            model_type='default',
+            description='desc'
         )
         # now, remove copied model from system
         os.remove(new_default_model_path)
@@ -160,32 +153,26 @@ class TestModelManager(unittest.TestCase):
     def test_model_manager_04_update_modified_model_files(self):
         """ Testing update of modified default models """
 
-        # We should import environ to get fake values
-
-        logger.info('Print Infoooo')
-        logger.info(environ['DB_PATH'])
-
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
 
         # Test with only first file
 
         for model in default_models:
-
             file_path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
             self.model_manager.register_update_default_models()
             doc = self.model_manager._db.get(self.model_manager._database.model_path == file_path)
 
             # Open the file in append & read mode ('a+')
             with open(file_path, "a+") as file:
-                lines = file.readlines()     # lines is list of line, each element '...\n'
+                lines = file.readlines()  # lines is list of line, each element '...\n'
                 lines.insert(0, "\nprint('Hello world') \t \n")  # you can use any index if you know the line index
-                file.seek(0)                 # file pointer locates at the beginning to write the whole file again
+                file.seek(0)  # file pointer locates at the beginning to write the whole file again
                 file.writelines(lines)
 
             self.model_manager.register_update_default_models()
             docAfter = self.model_manager._db.get(self.model_manager._database.model_path == file_path)
 
-            self.assertNotEqual(doc['hash'] , docAfter['hash'] , "Hash couldn't updated after file has modified")
+            self.assertNotEqual(doc['hash'], docAfter['hash'], "Hash couldn't updated after file has modified")
 
     def test_model_manager_05_register_model(self):
         """ Testing registering method for new models """
@@ -198,50 +185,50 @@ class TestModelManager(unittest.TestCase):
         model_file_2 = os.path.join(self.testdir, 'test-model-2.txt')
 
         self.model_manager.register_model(
-            name = 'test-model',
-            path = model_file_1,
-            model_type = 'registered',
-            description = 'desc'
+            name='test-model',
+            path=model_file_1,
+            model_type='registered',
+            description='desc'
         )
 
         # When same model file wants to be added it should raise and exception
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.register_model(
-                name = 'test-model-2',
-                path = model_file_1,
-                model_type = 'registered',
-                description = 'desc')
+                name='test-model-2',
+                path=model_file_1,
+                model_type='registered',
+                description='desc')
 
         # When same model wants to be added with same name  and different file
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.register_model(
-                name = 'test-model',
-                path = model_file_2,
-                model_type = 'registered',
-                description = 'desc')
+                name='test-model',
+                path=model_file_2,
+                model_type='registered',
+                description='desc')
 
         # Wrong types -------------------------------------
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.register_model(
-                name = 'test-model-2',
-                path = model_file_2,
-                model_type = False,
-                description = 'desc')
+                name='test-model-2',
+                path=model_file_2,
+                model_type=False,
+                description='desc')
 
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.register_model(
-                name = 'tesasdsad',
-                path = model_file_2,
-                model_type = False,
-                description = False)
+                name='tesasdsad',
+                path=model_file_2,
+                model_type=False,
+                description=False)
 
         # Wrong model type
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.register_model(
-                name = 'tesasdsad',
-                path = model_file_2,
-                model_type = '123123',
-                description = 'desc')
+                name='tesasdsad',
+                path=model_file_2,
+                model_type='123123',
+                description='desc')
 
     @patch('fedbiomed.node.model_manager.ModelManager._create_hash')
     def test_model_manager_06_check_hashes_for_registerd_models(self,
@@ -275,19 +262,19 @@ class TestModelManager(unittest.TestCase):
         model_file_copied_path = os.path.join(self.testdir, 'copied-test-model-1.txt')
         shutil.copy(model_file_1_path, model_file_copied_path)
         self.model_manager.register_model(
-            name = 'test-model',
-            path = model_file_copied_path,
-            model_type = 'registered',
-            description = 'desc',
-            model_id = 'test-model-id'
+            name='test-model',
+            path=model_file_copied_path,
+            model_type='registered',
+            description='desc',
+            model_id='test-model-id'
         )
 
         # update database with non-existing hash and hashing algorithms
         models = self.model_manager._db.search(self.model_manager._database.model_type.all('registered'))
         for model in models:
-            self.model_manager._db.update( {'hash' : "an incorrect hash",
-                                            'algorithm' : "incorrect_hashing_algorithm" },
-                                           self.model_manager._database.model_id.all(model["model_id"]))
+            self.model_manager._db.update({'hash': "an incorrect hash",
+                                           'algorithm': "incorrect_hashing_algorithm"},
+                                          self.model_manager._database.model_id.all(model["model_id"]))
 
         self.model_manager.check_hashes_for_registered_models()
 
@@ -295,7 +282,6 @@ class TestModelManager(unittest.TestCase):
         models = self.model_manager._db.search(self.model_manager._database.model_type.all('registered'))
 
         for model in models:
-
             self.assertEqual(model['hash'], correct_hash)
             self.assertEqual(model['algorithm'], correct_hashing_algo)
 
@@ -319,10 +305,10 @@ class TestModelManager(unittest.TestCase):
         model_file_2 = os.path.join(self.testdir, 'test-model-2.txt')
 
         self.model_manager.register_model(
-            name = 'test-model',
-            path = model_file_1,
-            model_type = 'registered',
-            description = 'desc'
+            name='test-model',
+            path=model_file_1,
+            model_type='registered',
+            description='desc'
         )
 
         # Load default datasets
@@ -335,9 +321,8 @@ class TestModelManager(unittest.TestCase):
 
         # Test when model is approved model
         approve, model = self.model_manager.check_is_model_approved(model_file_1)
-        self.assertTrue(approve , "Model hasn't been approved but it should have been")
-        self.assertIsNotNone(model , "Model hasn't been approved but it should have been")
-
+        self.assertTrue(approve, "Model hasn't been approved but it should have been")
+        self.assertIsNotNone(model, "Model hasn't been approved but it should have been")
 
         # Test when default models is not allowed / not approved
         self.values['ALLOW_DEFAULT_MODELS'] = False
@@ -346,27 +331,27 @@ class TestModelManager(unittest.TestCase):
         for model in default_models:
             model_path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
             approve, model = self.model_manager.check_is_model_approved(model_path)
-            self.assertFalse(approve , "Model has been approved but it shouldn't have been")
-            self.assertIsNone(model , "Model has been approved but it shouldn't have been")
+            self.assertFalse(approve, "Model has been approved but it shouldn't have been")
+            self.assertIsNone(model, "Model has been approved but it shouldn't have been")
 
-    def test_model_manager_08_update_model_normal_case(self,):
+    def test_model_manager_08_update_model_normal_case(self, ):
         """Tests method `update_model` in the normal case scenario"""
 
         # database initialisation
         default_model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
         self.model_manager.register_model(
-            name = 'test-model',
-            path = default_model_file_1,
-            model_type = 'registered',
-            description = 'desc',
-            model_id = 'test-model-id'
+            name='test-model',
+            path=default_model_file_1,
+            model_type='registered',
+            description='desc',
+            model_id='test-model-id'
         )
         # value to update the database
         file_modification_date_timestamp = 987654321.1234567
-        file_modification_date_literal = datetime.fromtimestamp(file_modification_date_timestamp).\
+        file_modification_date_literal = datetime.fromtimestamp(file_modification_date_timestamp). \
             strftime("%d-%m-%Y %H:%M:%S.%f")
         file_creation_date_timestamp = 1234567890.1234567
-        file_creation_date_literal = datetime.fromtimestamp(file_creation_date_timestamp).\
+        file_creation_date_literal = datetime.fromtimestamp(file_creation_date_timestamp). \
             strftime("%d-%m-%Y %H:%M:%S.%f")
         model_hash = 'a hash'
         model_hashing_algorithm = 'a_hashing_algorithm'
@@ -374,9 +359,8 @@ class TestModelManager(unittest.TestCase):
         # action
         with (patch.object(ModelManager, '_create_hash',
                            return_value=(model_hash, model_hashing_algorithm)),
-              patch.object(os.path, 'getmtime', return_value = file_modification_date_timestamp),
-              patch.object(os.path, 'getctime', return_value = file_creation_date_timestamp)):
-
+              patch.object(os.path, 'getmtime', return_value=file_modification_date_timestamp),
+              patch.object(os.path, 'getctime', return_value=file_creation_date_timestamp)):
             self.model_manager.update_model('test-model-id', default_model_file_1)
 
         # checks
@@ -391,30 +375,30 @@ class TestModelManager(unittest.TestCase):
         self.assertEqual(updated_model['model_path'], default_model_file_1)
 
     def test_model_manager_09_update_model_exception(self):
-        """Tests metod `update_model` """
+        """Tests method `update_model` """
         # database preparation
         default_model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
         self.model_manager.register_model(
-            name = 'test-model',
-            path = default_model_file_path,
-            model_type = 'default',
-            description = 'desc',
-            model_id = 'test-model-id'
+            name='test-model',
+            path=default_model_file_path,
+            model_type='default',
+            description='desc',
+            model_id='test-model-id'
         )
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.update_model(model_id='test-model-id',
                                             path=default_model_file_path)
 
     def test_model_manager_10_delete_registered_models(self):
-        """ Testing delete opration for model manager """
+        """ Testing delete operation for model manager """
 
         model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
 
         self.model_manager.register_model(
-            name = 'test-model-1',
-            path = model_file_path,
-            model_type = 'registered',
-            description = 'desc'
+            name='test-model-1',
+            path=model_file_path,
+            model_type='registered',
+            description='desc'
         )
 
         # Get registered model
@@ -425,7 +409,7 @@ class TestModelManager(unittest.TestCase):
 
         # Check model is removed
         model_1_r = self.model_manager._db.get(self.model_manager._database.name == 'test-model-1')
-        self.assertIsNone(model_1_r , "Registered model is not removed")
+        self.assertIsNone(model_1_r, "Registered model is not removed")
 
         # Load default models
         self.model_manager.register_update_default_models()
@@ -439,16 +423,16 @@ class TestModelManager(unittest.TestCase):
             with self.assertRaises(Exception):
                 self.model_manager.delete_model(model['model_id'])
 
-    def test_model_manager_11_list_appoved_models(self):
+    def test_model_manager_11_list_approved_models(self):
         """ Testing list method of model manager """
 
         self.model_manager.register_update_default_models()
         models = self.model_manager.list_approved_models(verbose=False)
-        self.assertIsInstance(models, list , 'Could not get list of models properly')
+        self.assertIsInstance(models, list, 'Could not get list of models properly')
 
         # Check with verbose
         models = self.model_manager.list_approved_models(verbose=True)
-        self.assertIsInstance(models, list , 'Could not get list of models properly in verbose mode')
+        self.assertIsInstance(models, list, 'Could not get list of models properly in verbose mode')
         # TODO add some other tests
 
     @patch('fedbiomed.common.repository.Repository.download_file')
@@ -465,14 +449,14 @@ class TestModelManager(unittest.TestCase):
         mock_checking.return_value = True, {}
 
         msg = {
-            'researcher_id' : 'ssss',
-            'job_id' : 'xxx',
-            'model_url' : 'file:/' + environ['DEFAULT_MODELS_DIR'] + '/' + default_models[0],
-            'command' : 'model-status'
+            'researcher_id': 'ssss',
+            'job_id': 'xxx',
+            'model_url': 'file:/' + environ['DEFAULT_MODELS_DIR'] + '/' + default_models[0],
+            'command': 'model-status'
         }
         # test 1: case where status code of HTTP request equals 200 AND model
         # has been approved
-        self.model_manager.reply_model_status_request( msg, messaging)
+        self.model_manager.reply_model_status_request(msg, messaging)
 
         # check:
         messaging.send_message.assert_called_once_with({'researcher_id': 'ssss',
@@ -489,7 +473,7 @@ class TestModelManager(unittest.TestCase):
             # should trigger a FedBiomedMessageError because 'researcher_id' should be a string
             # (and not a boolean)
             msg['researcher_id'] = True
-            self.model_manager.reply_model_status_request( msg, messaging)
+            self.model_manager.reply_model_status_request(msg, messaging)
 
         # test 2: case where status code of HTTP request equals 200 AND model has
         # not been approved
@@ -497,7 +481,7 @@ class TestModelManager(unittest.TestCase):
         mock_checking.return_value = False, {}
         messaging.reset_mock()
         # action
-        self.model_manager.reply_model_status_request( msg, messaging)
+        self.model_manager.reply_model_status_request(msg, messaging)
 
         # check
         messaging.send_message.assert_called_once_with({'researcher_id': 'dddd',
@@ -516,7 +500,7 @@ class TestModelManager(unittest.TestCase):
         self.values["MODEL_APPROVAL"] = False
         test3_msg = 'This node does not require model approval (maybe for debuging purposes).'
         # action
-        self.model_manager.reply_model_status_request( msg, messaging)
+        self.model_manager.reply_model_status_request(msg, messaging)
 
         # checks
         messaging.send_message.assert_called_once_with({'researcher_id': 'dddd',
@@ -536,7 +520,7 @@ class TestModelManager(unittest.TestCase):
         msg['researcher_id'] = '12345'
 
         messaging.reset_mock()
-        self.model_manager.reply_model_status_request( msg, messaging)
+        self.model_manager.reply_model_status_request(msg, messaging)
         # check:
         messaging.send_message.assert_called_once_with({'researcher_id': msg['researcher_id'],
                                                         'node_id': environ['NODE_ID'],
@@ -549,10 +533,9 @@ class TestModelManager(unittest.TestCase):
                                                         'command': 'model-status'
                                                         })
 
-
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
-    def test_model_manager_13_reply_model_status_request_exception(self, 
+    def test_model_manager_13_reply_model_status_request_exception(self,
                                                                    mock_checking,
                                                                    mock_download):
         """
@@ -569,20 +552,20 @@ class TestModelManager(unittest.TestCase):
         messaging = MagicMock()
         messaging.send_message.return_value = None
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
-        download_exception = FedbiomedRepositoryError("mimicking an exception triggered from" 
+        download_exception = FedbiomedRepositoryError("mimicking an exception triggered from"
                                                       "fedbiomed.common.repository")
         mock_download.side_effect = download_exception
         mock_checking.return_value = True, {}
 
         msg = {
-            'researcher_id' : 'ssss',
-            'job_id' : 'xxx',
-            'model_url' : 'file:/' + environ['DEFAULT_MODELS_DIR'] + '/' + default_models[0],
-            'command' : 'model-status'
+            'researcher_id': 'ssss',
+            'job_id': 'xxx',
+            'model_url': 'file:/' + environ['DEFAULT_MODELS_DIR'] + '/' + default_models[0],
+            'command': 'model-status'
         }
 
         download_err_msg = ErrorNumbers.FB604.value + ': An error occured when downloading model file.' + \
-            f' {msg["model_url"]} , {str(download_exception)}'
+                           f' {msg["model_url"]} , {str(download_exception)}'
 
         # action
         self.model_manager.reply_model_status_request(msg, messaging)
@@ -610,8 +593,8 @@ class TestModelManager(unittest.TestCase):
                                                               "'check_is_model_approved'")
         mock_checking.side_effect = checking_model_exception
 
-        checking_model_err_msg = ErrorNumbers.FB606.value + ': Cannot check if model has been registered.' +\
-            f' Details {checking_model_exception}'
+        checking_model_err_msg = ErrorNumbers.FB606.value + ': Cannot check if model has been registered.' + \
+                                 f' Details {checking_model_exception}'
         # action
         self.model_manager.reply_model_status_request(msg, messaging)
 
