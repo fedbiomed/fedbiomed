@@ -33,10 +33,12 @@ DEFAULT_LOG_LEVEL  = logging.WARNING
 DEFAULT_LOG_TOPIC  = 'general/logger'
 
 
-class MqttFormatter(logging.Formatter):
+class _MqttFormatter(logging.Formatter):
     '''
 
-    mqtt  formatter
+    (internal) mqtt  formatter
+
+    should not be imported from this module
 
     '''
 
@@ -86,9 +88,11 @@ class MqttFormatter(logging.Formatter):
 #
 # mqtt handler
 #
-class MqttHandler(logging.Handler):
+class _MqttHandler(logging.Handler):
     """
-    A handler class to deal with MQTT
+    (internal) handler class to deal with MQTT
+
+    should be imported
     """
 
     def __init__(self,
@@ -158,16 +162,16 @@ class MqttHandler(logging.Handler):
             raise FedbiomedLoggerError(_msg)
 
 
-class _LoggerBase():
+class _FedLogger(metaclass=SingletonMeta):
     """
     base class for the logger. it uses python logging module by
-    composition
-
-    debug/../critical methods are overrided
+    composition (only log() method is overrided)
 
     all methods from the logging module can be accessed through
     the _logger member of the class if necessary (instead of overloading all the methods)
     (ex:  logger._logger.getEffectiveLevel() )
+
+    should not be imported
     """
 
 
@@ -351,7 +355,7 @@ class _LoggerBase():
                       research get all ERROR/CRITICAL messages
         """
 
-        handler = MqttHandler(
+        handler = _MqttHandler(
             mqtt        = mqtt,
             node_id     = node_id ,
             topic       = topic
@@ -359,7 +363,7 @@ class _LoggerBase():
 
         # may be not necessary ?
         handler.setLevel( self._internalLevelTranslator(level) )
-        formatter = MqttFormatter(node_id)
+        formatter = _MqttFormatter(node_id)
 
         handler.setFormatter(formatter)
         self._internalAddHandler("MQTT", handler)
@@ -435,10 +439,7 @@ class _LoggerBase():
             return _x  # pragma: no cover
 
 
-#
-# this is the proper Logger to use
-class _FedLogger(_LoggerBase, metaclass=SingletonMeta):
-    pass
-
-
+'''
+Instanciation of the logger singleton
+'''
 logger = _FedLogger()
