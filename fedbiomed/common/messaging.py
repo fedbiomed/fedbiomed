@@ -1,7 +1,14 @@
+'''
+wrapper around the mqtt broket
+
+This allows to replace mqqt library without changing the API of Messaging
+'''
+
+
+import socket
 from typing import Any, Callable, Union
 
 import paho.mqtt.client as mqtt
-import socket
 
 from fedbiomed.common import json
 from fedbiomed.common.constants  import ComponentType, ErrorNumbers
@@ -111,7 +118,8 @@ class Messaging:
         """
 
         if rc == 0:
-            logger.info("Messaging " + str(self._messaging_id) + " successfully connected to the message broker, object = " + str(self))
+            logger.info("Messaging " + str(self._messaging_id) +
+                        " successfully connected to the message broker, object = " + str(self))
         else:
             msg = ErrorNumbers.FB101.value + ": " + str(self._messaging_id) + " could not connect to the message broker"
             logger.delMqttHandler()  # just in case !
