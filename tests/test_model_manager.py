@@ -162,6 +162,9 @@ class TestModelManager(unittest.TestCase):
                              'Hashes are not properly updated after hashing algorithm is changed')  # noqa
 
     def test_model_manager_04_update_default_model_deleted(self):
+        """Tests `update_default_model` when a model file that had been registered 
+        has been deleted
+        """
         file_path = os.path.join(self.testdir, 'test-model-1.txt')
         new_default_model_path = os.path.join(self.testdir, 'test-model-1-2.txt')
         shutil.copy(file_path, new_default_model_path)
