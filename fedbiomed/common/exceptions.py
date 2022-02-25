@@ -21,6 +21,13 @@ class FedbiomedEnvironError(FedbiomedError):
     pass
 
 
+class FedbiomedExperimentError(FedbiomedError):
+    """
+    Exception specific to the Experiment class
+    """
+    pass
+
+
 class FedbiomedLoggerError(FedbiomedError):
     """
     Exception specific to the Logger class
@@ -44,41 +51,11 @@ class FedbiomedMessagingError(FedbiomedError):
     pass
 
 
-class FedbiomedTaskQueueError(FedbiomedError):
+class FedbiomedRepositoryError(FedbiomedError):
     """
-    Exception specific to the internal queuing system
-    """
-    pass
-
-
-class FedbiomedStrategyError(FedbiomedError):
-    """
-    Exception specific to the Strategy class and subclasses
+    Exception of the `Repository` class
     """
     pass
-
-
-class FedbiomedTrainingError(FedbiomedError):
-    """
-    Exception raised then training fails
-    """
-    pass
-
-
-class FedbiomedExperimentError(FedbiomedError):
-    """
-    Exception specific to the Experiment class
-    """
-    pass
-
-
-# specific exception
-class FedbiomedSilentTerminationError(FedbiomedError):
-    """
-    Exception for silently terminating the researcher from a notebook
-    """
-    def _render_traceback_(self):
-        pass
 
 
 class FedbiomedResponsesError(FedbiomedError):
@@ -88,8 +65,29 @@ class FedbiomedResponsesError(FedbiomedError):
     pass
 
 
-class FedbiomedRepositoryError(FedbiomedError):
+class FedbiomedSilentTerminationError(FedbiomedError):
     """
-    Exception of the `Repository` class
+    Exception for silently terminating the researcher from a notebook
+    """
+    def _render_traceback_(self):
+        pass
+
+class FedbiomedStrategyError(FedbiomedError):
+    """
+    Exception specific to the Strategy class and subclasses
+    """
+    pass
+
+
+class FedbiomedTaskQueueError(FedbiomedError):
+    """
+    Exception specific to the internal queuing system
+    """
+    pass
+
+
+class FedbiomedTrainingError(FedbiomedError):
+    """
+    Exception raised then training fails
     """
     pass
