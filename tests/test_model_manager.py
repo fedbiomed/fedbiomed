@@ -1,3 +1,4 @@
+import builtins
 import copy
 from datetime import datetime
 import os
@@ -95,8 +96,8 @@ class TestModelManager(unittest.TestCase):
                 self.assertIsInstance(hash, str, 'Hash creation is not successful')
                 self.assertEqual(algortihm, algo, 'Wrong hashing algorithm')
 
-    def test_model_manager_02_create_hash_exception(self):
-        """Tests `create_hash_exception` method is raising exception if hashing
+    def test_model_manager_02_create_hash_hashing_exception(self):
+        """Tests `create_hash` method is raising exception if hashing
         algorithm does not exist"""
         model_path = os.path.join(self.testdir, 'test-model-1.txt')
         self.values['HASHING_ALGORITHM'] = "AN_UNKNOWN_HASH_ALGORITHM"
@@ -105,8 +106,44 @@ class TestModelManager(unittest.TestCase):
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager._create_hash(model_path)
 
-    def test_model_manager_03_update_default_hashes_when_algo_is_changed(self):
+    def test_model_manager_03_create_hash_open_exceptions(self):
+        """Tests `create_hash` method is raising appropriate exception if
+        cannot open and read model file (test try/catch blocks when opening
+        a file)
+        """
+        model_path = os.path.join(self.testdir, 'test-model-1.txt')
+        # test 1 : test case where model file has not been found
+        
+        # action 
+        with self.assertRaises(FedbiomedModelManagerError):
+            self.model_manager._create_hash("a/path/that/should/not/exist/on/your/computer")
+        
+        # test 2: test case where model file cannot be read (due to a lack of privilege)
+        with patch.object(builtins, 'open') as builtin_open_mock:
+            builtin_open_mock.side_effect = PermissionError("mimicking a PermissionError")
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager._create_hash(model_path)
+                
+        # test 3: test where model file cannot be open and read
+        with patch.object(builtins, 'open') as builtin_open_mock:
+            builtin_open_mock.side_effect = OSError("mimicking a OSError")
+            
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager._create_hash(model_path)
 
+    @patch('fedbiomed.node.model_manager.minify')
+    def test_model_manager_03_create_hash_minify_exception(self, minify_patch):
+        """Tests that `_create_hash` method is catching exception coming
+        from `minify` package"""
+        model_path = os.path.join(self.testdir, 'test-model-1.txt')
+        
+        minify_patch.side_effect = Exception('Mimicking an Exception triggered by `minify` package')
+        
+        # action
+        with self.assertRaises(FedbiomedModelManagerError):
+            self.model_manager._create_hash(model_path)
+
+    def test_model_manager_03_update_default_hashes_when_algo_is_changed(self):
         """  Testing method for update/register default models when hashing
              algorithm has changed
         """
@@ -420,7 +457,7 @@ class TestModelManager(unittest.TestCase):
             model = self.model_manager._db.get(self.model_manager._database.model_path == model_path)
 
             # Check delete method removed default models (it shouldnt)
-            with self.assertRaises(Exception):
+            with self.assertRaises(FedbiomedModelManagerError):
                 self.model_manager.delete_model(model['model_id'])
 
     def test_model_manager_11_list_approved_models(self):
@@ -433,7 +470,12 @@ class TestModelManager(unittest.TestCase):
         # Check with verbose
         models = self.model_manager.list_approved_models(verbose=True)
         self.assertIsInstance(models, list, 'Could not get list of models properly in verbose mode')
-        # TODO add some other tests
+        
+        # do some tests on the first model of models contained in database
+        self.assertNotIn('model_path', models[0])
+        self.assertNotIn('hash', models[0])
+        self.assertNotIn('date_modified', models[0])
+        self.assertNotIn('date_created', models[0])
 
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
@@ -594,7 +636,7 @@ class TestModelManager(unittest.TestCase):
         mock_checking.side_effect = checking_model_exception
 
         checking_model_err_msg = ErrorNumbers.FB606.value + ': Cannot check if model has been registered.' + \
-                                 f' Details {checking_model_exception}'
+            f' Details {checking_model_exception}'
         # action
         self.model_manager.reply_model_status_request(msg, messaging)
 
@@ -610,8 +652,31 @@ class TestModelManager(unittest.TestCase):
                                                         'command': 'model-status'
                                                         })
 
-        # test 3: test that any other errors are caught
-        
+        # test 3: test that any other errors (inhereting from Exception) are caught
+        messaging.reset_mock()
+        # creating a new exception for `check_is_model_approved` method
+        checking_model_exception_t3 = Exception("mimicking an exception happening when calling "
+                                                "'check_is_model_approved'")
+
+        checking_model_err_msg_t3 = ErrorNumbers.FB606.value + ': An unknown error occured when downloading model file.' +\
+            f' {msg["model_url"]} , {str(checking_model_exception_t3)}'
+
+        mock_checking.side_effect = checking_model_exception_t3
+        # action
+        self.model_manager.reply_model_status_request(msg, messaging)
+
+        # check
+        messaging.send_message.assert_called_once_with({'researcher_id': msg['researcher_id'],
+                                                        'node_id': environ['NODE_ID'],
+                                                        'job_id': 'xxx',
+                                                        'success': False,
+                                                        'approval_obligation': False,
+                                                        'is_approved': False,
+                                                        'msg': checking_model_err_msg_t3,
+                                                        'model_url': msg['model_url'],
+                                                        'command': 'model-status'
+                                                        })
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
