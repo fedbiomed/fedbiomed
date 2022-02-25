@@ -7,7 +7,6 @@ from fedbiomed.common.exceptions     import FedbiomedEnvironError
 from fedbiomed.common.logger         import logger
 from fedbiomed.common.singleton      import SingletonMeta
 from fedbiomed.common.constants      import ComponentType, HashingAlgorithms
-from enum import Enum
 
 
 """
@@ -121,7 +120,7 @@ class Environ(metaclass = SingletonMeta):
                 )
             )
         else:
-            ROOT_DIR=rootdir
+            ROOT_DIR = rootdir
 
         # intialize all environment values
         self._values['ROOT_DIR'] = ROOT_DIR
@@ -165,7 +164,8 @@ class Environ(metaclass = SingletonMeta):
         try:
             _cfg_value = cfg.get('default', 'researcher_id')
         except configparser.Error:
-            _msg = ErrorNumbers.FB600.value + ": no default/researcher_id in config file, please recreate a new config file"
+            _msg = ErrorNumbers.FB600.value + \
+                ": no default/researcher_id in config file, please recreate a new config file"
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
@@ -224,17 +224,18 @@ class Environ(metaclass = SingletonMeta):
         ROOT_DIR = self._values['ROOT_DIR']
 
         self._values['MESSAGES_QUEUE_DIR']  = os.path.join(VAR_DIR,
-                                                            f'queue_manager_{NODE_ID}')
+                                                           f'queue_manager_{NODE_ID}')
         self._values['DB_PATH']             = os.path.join(VAR_DIR,
-                                                            f'db_{NODE_ID}.json')
+                                                           f'db_{NODE_ID}.json')
 
         self._values['DEFAULT_MODELS_DIR']  = os.path.join(ROOT_DIR,
-                                                            'envs' , 'development', 'default_models')
+                                                           'envs' , 'development', 'default_models')
 
         try:
             _cfg_value = cfg.get('security', 'allow_default_models')
         except configparser.Error:
-            _msg = ErrorNumbers.FB600.value + ": no security/allow_default_models in config file, please recreate a new config file"
+            _msg = ErrorNumbers.FB600.value + \
+                ": no security/allow_default_models in config file, please recreate a new config file"
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
@@ -245,7 +246,8 @@ class Environ(metaclass = SingletonMeta):
         try:
             _cfg_value = cfg.get('security', 'model_approval')
         except configparser.Error:
-            _msg = ErrorNumbers.FB600.value + ": no security/model_approval in config file, please recreate a new config file"
+            _msg = ErrorNumbers.FB600.value + \
+                ": no security/model_approval in config file, please recreate a new config file"
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
@@ -256,7 +258,8 @@ class Environ(metaclass = SingletonMeta):
         try:
             _cfg_value = cfg.get('security', 'hashing_algorithm')
         except configparser.Error:
-            _msg = ErrorNumbers.FB600.value + ": no security/hashing_algorithm in config file, please recreate a new config file"
+            _msg = ErrorNumbers.FB600.value + \
+                ": no security/hashing_algorithm in config file, please recreate a new config file"
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
@@ -297,7 +300,7 @@ class Environ(metaclass = SingletonMeta):
         """
 
         # Get config file, it create new config if there is not any
-                        # get config file location from environment
+        # get config file location from environment
         # or use a predefined value
         if os.getenv('CONFIG_FILE') :
             CONFIG_FILE = os.getenv('CONFIG_FILE')
@@ -464,7 +467,8 @@ class Environ(metaclass = SingletonMeta):
         try:
             _cfg_value = cfg.get('default', 'uploads_url')
         except configparser.Error:
-            _msg = ErrorNumbers.FB600.value + ": no default/uploads_url in config file, please recreate a new config file"
+            _msg = ErrorNumbers.FB600.value + \
+                ": no default/uploads_url in config file, please recreate a new config file"
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
