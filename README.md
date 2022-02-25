@@ -19,7 +19,7 @@ According to our coding rules, the develop branch is usable, tests and tutorials
 Fed-BioMed is developped under Linux Fedora, should be easily ported to other Linux distributions.
 It runs also smoothly on macOSX (mostly tested on macOSX 12: Monterey).
 
-This README.md file provide a quick start installation guide for Linux.
+This README.md file provide a quick start/installation guide for Linux.
 
 Full installation instruction are also available at: https://fedbiomed.gitlabpages.inria.fr/v3.3/tutorials/installation/0-basic-software-installation/
 An installation guide is also provided for Windows10, which relies on WSL2: https://fedbiomed.gitlabpages.inria.fr/v3.3/user-guide/installation/windows-installation/
