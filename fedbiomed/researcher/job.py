@@ -352,13 +352,13 @@ class Job:
                         logger.info("Error message received during training: " +
                                     str(m['errnum'].value))
 
-                        # remove the faulty node from the list
-                        faulty_node = m['node_id']
+                    # remove the faulty node from the list
+                    faulty_node = m['node_id']
 
-                        if faulty_node not in list(self._nodes):
-                            logger.warning("Error message from " +
-                                           faulty_node +
-                                           " ignored, since this node is not part ot the training anymode")
+                    if faulty_node not in list(self._nodes):
+                        logger.warning("Error message from " +
+                                       faulty_node +
+                                       " ignored, since this node is not part ot the training anymode")
                         continue
 
                     self._nodes.remove(faulty_node)
