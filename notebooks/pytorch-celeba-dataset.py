@@ -45,15 +45,9 @@
 
 # Declare a TorchTrainingPlan MyTrainingPlan class to send for training on the node
 
-import torch
-import torch.nn as nn
-from fedbiomed.common.torchnn import TorchTrainingPlan
-from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader
-import pandas as pd
-import numpy as np
-from PIL import Image
-import os
+from fedbiomed.common.training_plans.torchnn import TorchTrainingPlan
+from torch.utils.data import Dataset
+
 
 # you can use any class name eg:
 # class AlterTrainingPlan(TorchTrainingPlan):
@@ -213,7 +207,6 @@ import torch
 import torch.nn as nn
 
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd

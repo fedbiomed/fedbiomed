@@ -11,7 +11,7 @@ import torch.nn as nn
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_class_source
-from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanError, FedbiomedError
 from fedbiomed.common.constants import ErrorNumbers
 
 
@@ -64,7 +64,7 @@ class TorchTrainingPlan(nn.Module):
             self.use_gpu = model_args.get('use_gpu', False)
 
         # list dependencies of the model
-        self.dependencies = ["from fedbiomed.common.torchnn import TorchTrainingPlan",
+        self.dependencies = ["from fedbiomed.common.training_plans.torchnn import TorchTrainingPlan",
                              "import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
@@ -261,13 +261,10 @@ class TorchTrainingPlan(nn.Module):
 
         try:
             class_source = get_class_source(self.__class__)
-        except TypeError as e:
+        except FedbiomedError as e:
             raise FedbiomedTrainingPlanError(ErrorNumbers.FB605.value + f"Error while getting source of the "
-                                                                        f"model class due to wrong object "
-                                                                        f"type" + str(e))
-        except AttributeError as e:
-            raise FedbiomedTrainingPlanError(ErrorNumbers.FB605.value + f"Error while getting source of the model "
-                                                                        f"class" + str(e))
+                                                                        f"model class - {e}")
+
         # Preparing content of the module
         content = ""
         for s in self.dependencies:
@@ -281,18 +278,18 @@ class TorchTrainingPlan(nn.Module):
             file = open(filepath, "w")
             file.write(content)
             file.close()
-            logger.debug("Model saved model filename: " + filepath)
+            logger.debug("Model file has been saved: " + filepath)
         except PermissionError:
-            _msg = ErrorNumbers.FB605.value + f': Unable to read {filepath} due to unsatisfactory privileges'
-            ", cannot write the model content into it"
+            _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges"
+            ", can't write the model content into it"
             logger.error(_msg)
             raise FedbiomedTrainingPlanError(_msg)
         except MemoryError:
-            _msg = ErrorNumbers.FB605.value + f" : cannot write model file on {filepath}: out of memory!"
+            _msg = ErrorNumbers.FB605.value + f" : Can't write model file on {filepath}: out of memory!"
             logger.error(_msg)
             raise FedbiomedTrainingPlanError(_msg)
         except OSError:
-            _msg = ErrorNumbers.FB605.value + f': Cannot open file {filepath} to write model content'
+            _msg = ErrorNumbers.FB605.value + f" : Can't open file {filepath} to write model content"
             logger.error(_msg)
             raise FedbiomedTrainingPlanError(_msg)
 

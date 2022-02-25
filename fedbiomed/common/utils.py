@@ -2,7 +2,7 @@ import sys
 import inspect
 
 from IPython.core.magics.code import extract_symbols
-
+from fedbiomed.common.exceptions import FedbiomedError
 
 def get_class_source(cls) -> str:
     """
@@ -67,7 +67,7 @@ def _get_ipython_class_file(cls):
     """
 
     if not inspect.isclass(cls):
-        raise TypeError(f'The argument `cls` should be a python class ')
+        raise FedbiomedError(f'The argument `cls` should be a python class ')
 
     # Lookup by parent module
     if hasattr(cls, '__module__'):
@@ -82,4 +82,4 @@ def _get_ipython_class_file(cls):
             if inspect.isfunction(member) and cls.__qualname__ + '.' + member.__name__ == member.__qualname__:
                 return inspect.getfile(member)
     else:
-        raise AttributeError(f'{cls} has no attribute `__module__`, source is not found.')
+        raise FedbiomedError(f'{cls} has no attribute `__module__`, source is not found.')

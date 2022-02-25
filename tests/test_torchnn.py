@@ -1,11 +1,10 @@
 import unittest
 import os
-import sys
 
 import torch
 import torch.nn as nn
 
-from fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.common.training_plans.torchnn import TorchTrainingPlan
 
 # define TP outside of test class to avoid indentation problems when exporting class to file
 class TrainingPlan(TorchTrainingPlan):

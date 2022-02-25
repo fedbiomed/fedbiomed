@@ -5,8 +5,7 @@ import unittest
 import numpy as np
 from sklearn.linear_model import SGDRegressor
 
-from fedbiomed.researcher.aggregators.fedavg import FedAverage
-from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
+from fedbiomed.common.training_plans.fedbiosklearn import SGDSkLearnModel
 
 
 class TestModel(SGDSkLearnModel):

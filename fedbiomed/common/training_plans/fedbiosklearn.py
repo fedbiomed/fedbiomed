@@ -8,13 +8,13 @@ import numpy as np
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
 from fedbiomed.common.logger import logger
-from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanError, FedbiomedError
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.utils import get_class_source
 
 
 class _Capturer(list):
-    """ Capturing class for output of the scikitlearn models during training
+    """ Capturing class for output of the scikit-learn models during training
     when the verbose is set to true.
     """
 
@@ -30,7 +30,7 @@ class _Capturer(list):
         sys.stdout = self._stdout
 
 
-class SGDSkLearnModel():
+class SGDSkLearnModel:
 
     def set_init_params(self, model_args):
         """
@@ -49,7 +49,7 @@ class SGDSkLearnModel():
                 'intercept_': np.array([0.]) if (model_args['n_classes'] == 2) else np.array(
                     [0.] * model_args['n_classes']),
                 'coef_': np.array([0.] * model_args['n_features']).reshape(1, model_args['n_features']) if (
-                            model_args['n_classes'] == 2) else np.array(
+                        model_args['n_classes'] == 2) else np.array(
                     [0.] * model_args['n_classes'] * model_args['n_features']).reshape(model_args['n_classes'],
                                                                                        model_args['n_features'])
             }
@@ -208,7 +208,7 @@ class SGDSkLearnModel():
                           'SGDRegressor', 'PassiveAggressiveRegressor', 'MiniBatchKMeans',
                           'MiniBatchDictionaryLearning'}
 
-        self.dependencies = ["from fedbiomed.common.fedbiosklearn import SGDSkLearnModel",
+        self.dependencies = ["from fedbiomed.common.training_plans.fedbiosklearn import SGDSkLearnModel",
                              "import inspect",
                              "import numpy as np",
                              "import pandas as pd",
@@ -258,8 +258,6 @@ class SGDSkLearnModel():
         self.dependencies.extend(dep)
         pass
 
-    '''Save the code to send to nodes '''
-
     def save_code(self, filepath: str):
         """Save the class code for this training plan to a file
 
@@ -275,13 +273,9 @@ class SGDSkLearnModel():
 
         try:
             class_source = get_class_source(self.__class__)
-        except TypeError as e:
+        except FedbiomedError as e:
             raise FedbiomedTrainingPlanError(ErrorNumbers.FB606.value + f"Error while getting source of the "
-                                                                        f"model class due to wrong object "
-                                                                        f"type" + str(e))
-        except AttributeError as e:
-            raise FedbiomedTrainingPlanError(ErrorNumbers.FB606.value + f"Error while getting source of the model "
-                                                                        f"class" + str(e))
+                                                                        f"model class - {e}")
 
         # Preparing content of the module
         content = ""
@@ -296,18 +290,18 @@ class SGDSkLearnModel():
             file = open(filepath, "w")
             file.write(content)
             file.close()
-            logger.debug("Model saved model filename: " + filepath)
+            logger.debug("Model file has been saved: " + filepath)
         except PermissionError:
-            _msg = ErrorNumbers.FB606.value + f': Unable to read {filepath} due to unsatisfactory privileges'
-            ", cannot write the model content into it"
+            _msg = ErrorNumbers.FB606.value + f" : Unable to read {filepath} due to unsatisfactory privileges"
+            ", can't write the model content into it"
             logger.error(_msg)
             raise FedbiomedTrainingPlanError(_msg)
         except MemoryError:
-            _msg = ErrorNumbers.FB606.value + f" : cannot write model file on {filepath}: out of memory!"
+            _msg = ErrorNumbers.FB606.value + f" : Can't write model file on {filepath}: out of memory!"
             logger.error(_msg)
             raise FedbiomedTrainingPlanError(_msg)
         except OSError:
-            _msg = ErrorNumbers.FB606.value + f': Cannot open file {filepath} to write model content'
+            _msg = ErrorNumbers.FB606.value + f" : Can't open file {filepath} to write model content"
             logger.error(_msg)
             raise FedbiomedTrainingPlanError(_msg)
 

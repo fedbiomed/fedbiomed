@@ -14,8 +14,8 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, \
     FedbiomedSilentTerminationError
 from fedbiomed.researcher.environ import environ
-from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
-from fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.common.training_plans.fedbiosklearn import SGDSkLearnModel
+from fedbiomed.common.training_plans.torchnn import TorchTrainingPlan
 from fedbiomed.researcher.filetools import create_exp_folder, choose_bkpt_file, \
     create_unique_link, create_unique_file_link, find_breakpoint_path
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
