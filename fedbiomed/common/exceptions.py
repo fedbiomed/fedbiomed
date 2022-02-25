@@ -51,6 +51,13 @@ class FedbiomedMessagingError(FedbiomedError):
     pass
 
 
+class FedbiomedModelManagerError(FedbiomedError):
+    """
+    Exception specific to the ModelManager
+    (from fedbiomed.common.data_manager)
+    """
+
+
 class FedbiomedRepositoryError(FedbiomedError):
     """
     Exception of the `Repository` class
@@ -71,6 +78,7 @@ class FedbiomedSilentTerminationError(FedbiomedError):
     """
     def _render_traceback_(self):
         pass
+
 
 class FedbiomedStrategyError(FedbiomedError):
     """
