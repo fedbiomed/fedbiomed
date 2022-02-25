@@ -11,8 +11,8 @@ from typing import Union
 
 import numpy as np
 
-# from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
-# from sklearn.naive_bayes import BernoulliNB, GaussianNB
+from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron   # noqa
+from sklearn.naive_bayes import BernoulliNB, GaussianNB                    # noqa
 
 from fedbiomed.common.logger import logger
 
