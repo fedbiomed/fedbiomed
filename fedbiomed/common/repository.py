@@ -1,16 +1,17 @@
 import os
-
 import requests  # Python built-in library
+
+from json import JSONDecodeError
 from typing import Callable, Dict, Any, Tuple, Text, Union
-from fedbiomed.common.logger import logger
 
 from fedbiomed.common.exceptions import FedbiomedRepositoryError
 from fedbiomed.common.constants import ErrorNumbers
-from json import JSONDecodeError
+from fedbiomed.common.logger import logger
 
 
 class Repository:
-    """HTTP file repository from which to upload and download files.
+    """
+    HTTP file repository from which to upload and download files.
     Files are uploaded from/downloaded to a temporary file (`temp_fir`)
     Data uploaded should be:
     - python code (*.py file) that describes model +
@@ -35,7 +36,7 @@ class Repository:
         Returns:
             res (Dict[str, Any]): the result of the request under JSON
             format.
-        Raises: 
+        Raises:
             FedbiomedRepositoryError: when unable to read the file 'filename'
             FedbiomedRepositoryError: when POST HTTP request fails or returns
             a HTTP status 4xx (bad request) or 500 (internal server error)
@@ -121,12 +122,12 @@ class Repository:
 
     def _raise_for_status_handler(self, response: requests, filename: str = ''):
         """
-        Handler that deals with exceptions and raises the appropriate 
+        Handler that deals with exceptions and raises the appropriate
         exception if the HTTP request has failed with a code error (e.g. 4xx or 500)
 
         Args:
             response (requests): the HTTP request's response (eg `requests.post` result).
-            filename (str, optional): the name of the file that is uploaded/downloaded, 
+            filename (str, optional): the name of the file that is uploaded/downloaded,
             (regarding the HTTP request issued).
             Defaults to ''.
 
@@ -136,7 +137,7 @@ class Repository:
         """
         _method_msg = Repository._get_method_request_msg(response.request.method)
         try:
-            # `raise_for_status` method raises an HTTPError if the status code 
+            # `raise_for_status` method raises an HTTPError if the status code
             # is 4xx or 500
             response.raise_for_status()
         except requests.HTTPError as err:
@@ -152,7 +153,7 @@ class Repository:
             logger.debug('Details of exception: ' + str(err))
             raise FedbiomedRepositoryError(_msg)
         else:
-            logger.debug(f'upload (HTTP {response.request.method} request) of file {filename} successful,' 
+            logger.debug(f'upload (HTTP {response.request.method} request) of file {filename} successful,'
                          f' with status code {response.status_code}')
 
     @staticmethod
@@ -168,7 +169,7 @@ class Repository:
             str: the appropriate message (that will be used for the error message
             description if any error has been found)
         """
-        # FIXME: this method only provide messages for the HTTP request 'POST' and 
+        # FIXME: this method only provide messages for the HTTP request 'POST' and
         # 'GET'. It should be completed as long other methods based on other requests
         # are added in the class (eg 'PUT' or 'DELETE' HTTP requests)
         if req_type.upper() == "POST":
@@ -200,8 +201,8 @@ class Repository:
             FedbiomedRepositoryError: Triggers if the request has faced too many redirect.
             FedbiomedRepositoryError: Triggers if URL is badly written, or missing some
             parts (eg: missing scheme).
-            FedbiomedRepositoryError: Triggers if the connection was unsuccessful, when the service 
-            to connect is unknown.         
+            FedbiomedRepositoryError: Triggers if the connection was unsuccessful, when the service
+            to connect is unknown.
             FedbiomedRepositoryError: Catches other exceptions coming from requests package
 
         Returns:
@@ -215,7 +216,7 @@ class Repository:
             # issuing the HTTP request
             res = http_request(url, *args, **kwargs)
         except requests.Timeout:
-            # request exceeded timeout set 
+            # request exceeded timeout set
             _msg = ErrorNumbers.FB201.value + f' : {req_method} HTTP request time exceeds Timeout'
             logger.error(_msg)
             raise FedbiomedRepositoryError(_msg)
