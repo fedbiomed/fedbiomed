@@ -49,16 +49,15 @@ class ModelManager:
             Args:
                 path (str): Model file path
 
-            Raises:
-                FedBiomedModelManagerError: triggered if file cannot be open
-                FedBiomedModelManagerError: triggered if file cannot be minified
-                FedBiomedModelManagerError: triggered if Hashing agorithm does not exist
-                in HASH_FUNCTION table
+            Raises FedBiomedModelManagerError:
+                - if file cannot be open
+                - if file cannot be minified
+                - if Hashing agorithm does not exist in HASH_FUNCTION table
         """
         hash_algo = environ['HASHING_ALGORITHM']
 
         try:
-            with open(path, "r") as model:            
+            with open(path, "r") as model:
                 content = model.read()
         except FileNotFoundError:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f" model file {path} not found on system")
@@ -393,7 +392,7 @@ class ModelManager:
                             self._database.model_id == model_id)
         else:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 'You cannot update default models. Please '
-                                             'update them through their files saved in `default_models` directory ' 
+                                             'update them through their files saved in `default_models` directory '
                                              'and restart your node')
 
         return True
