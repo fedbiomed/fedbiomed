@@ -9,8 +9,8 @@ from enum import Enum
 
 
 class _BaseEnum(Enum):
-    """ Parent class to pass default methods to
-        enumeration classes
+    """
+    Parent class to pass default methods to enumeration classes
     """
 
     @classmethod
@@ -29,8 +29,8 @@ class ComponentType(_BaseEnum):
 
 
 class HashingAlgorithms(_BaseEnum):
-
-    """ Enumeration class, used to characterize the hashing
+    """
+    Enumeration class, used to characterize the hashing
     algorithms
     """
 
@@ -45,7 +45,6 @@ class HashingAlgorithms(_BaseEnum):
 
 
 class ModelTypes(_BaseEnum):
-
     """ Constant values for model type that will be saved into db.
     - `registered` means model saved by a user/hospital/node.
     - `default`    means model is default model provided by Fed-BioMed.
@@ -56,7 +55,6 @@ class ModelTypes(_BaseEnum):
 
 
 class ErrorNumbers(_BaseEnum):
-
     """
     list of all error messages types
 
