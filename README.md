@@ -210,13 +210,24 @@ source ./scripts/fedbiomed_environment clean
 
 ## Misc developper tools to help debugging
 
-### lqueue
+### scripts/lqueue
 
 list the content of a message queue (as used in fedbiomed.node and fedbiomed.researcher)
 
 usage:  lqueue directory
    or
         lqueue dir1 dir2 dir3 ...
+
+### scripts/run\_integration\_test
+
+Run a full (integration) test by launching:
+
+- a researcher (running a python script or a notebook script)
+- several nodes, providing data
+- the network component.
+
+Usefull for continous integration tests and notebook debugging.
+Full documentation in tests/README.md file.
 
 
 ## Using Tensorboard

@@ -1,7 +1,8 @@
 # Fed-BioMed changelog
 
-## 2022-XX-YY version 3.4
+## 2022-02-25 version 3.4
 
+- rewriting of Opacus notebook
 - new tutorial notebook on Experiment() usage
 - add .coveragerc to tune test coverage
 - fix mqtt logger loop then mqqt not reachable
