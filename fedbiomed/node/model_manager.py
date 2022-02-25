@@ -104,7 +104,7 @@ class ModelManager:
 
            Args:
                 name        (str): Model file name. The name should be unique. Otherwise methods
-                                   throws an Exception
+                                   throws an Exception FedbiomedModelManagerError
                 description  (str): Description fro model file.
                 path        (str): Exact path for the model that will be registered
                 model_type  (str): Default is `registered`. It means that model has been registered
@@ -113,6 +113,10 @@ class ModelManager:
                 model_id    (str): Pre-defined id for model. Default is None. When it is Nonde method
                                     creates unique id for the model.
 
+            Raises:
+                FedbiomedModelManagerError: raised if `model_type` is not `registered` or `default`
+                FedbiomedModelManagerError: raised if model has been already registered into database
+                FedbiomedModelManagerError: raised if model name has been already used for saving another model
         """
 
         # Check model type is valid
@@ -372,6 +376,9 @@ class ModelManager:
 
             Returns:
                 True when method has been run
+
+            Raises:
+                FedbiomedModelManagerError: triggered if a default model is being registered
         """
 
         self._db.clear_cache()

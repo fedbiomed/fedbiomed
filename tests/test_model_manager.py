@@ -132,7 +132,7 @@ class TestModelManager(unittest.TestCase):
                 self.model_manager._create_hash(model_path)
 
     @patch('fedbiomed.node.model_manager.minify')
-    def test_model_manager_03_create_hash_minify_exception(self, minify_patch):
+    def test_model_manager_04_create_hash_minify_exception(self, minify_patch):
         """Tests that `_create_hash` method is catching exception coming
         from `minify` package"""
         model_path = os.path.join(self.testdir, 'test-model-1.txt')
@@ -143,7 +143,7 @@ class TestModelManager(unittest.TestCase):
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager._create_hash(model_path)
 
-    def test_model_manager_03_update_default_hashes_when_algo_is_changed(self):
+    def test_model_manager_05_update_default_hashes_when_algo_is_changed(self):
         """  Testing method for update/register default models when hashing
              algorithm has changed
         """
@@ -161,7 +161,7 @@ class TestModelManager(unittest.TestCase):
             self.assertEqual(doc["algorithm"], algo,
                              'Hashes are not properly updated after hashing algorithm is changed')  # noqa
 
-    def test_model_manager_04_update_default_model_deleted(self):
+    def test_model_manager_06_update_default_model_deleted(self):
         """Tests `update_default_model` when a model file that had been registered 
         has been deleted
         """
@@ -190,7 +190,7 @@ class TestModelManager(unittest.TestCase):
         removed_model = self.model_manager._db.get(self.model_manager._database.model_path == new_default_model_path)
         self.assertIsNone(removed_model)
 
-    def test_model_manager_04_update_modified_model_files(self):
+    def test_model_manager_07_update_modified_model_files(self):
         """ Testing update of modified default models """
 
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
@@ -214,7 +214,7 @@ class TestModelManager(unittest.TestCase):
 
             self.assertNotEqual(doc['hash'], docAfter['hash'], "Hash couldn't updated after file has modified")
 
-    def test_model_manager_05_register_model(self):
+    def test_model_manager_08_register_model(self):
         """ Testing registering method for new models """
 
         # We should import environ to get fake values
@@ -271,7 +271,7 @@ class TestModelManager(unittest.TestCase):
                 description='desc')
 
     @patch('fedbiomed.node.model_manager.ModelManager._create_hash')
-    def test_model_manager_06_check_hashes_for_registerd_models(self,
+    def test_model_manager_09_check_hashes_for_registerd_models(self,
                                                                 create_hash_patch):
         """
         Tests `hashes_for_registered_models` method, with 3 settings
@@ -338,7 +338,7 @@ class TestModelManager(unittest.TestCase):
         # check that the model has been removed
         self.assertIsNone(removed_model)
 
-    def test_model_manager_07_checking_model_approve(self):
+    def test_model_manager_10_checking_model_approve(self):
         """ Testing check model is approved or not """
 
         model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
@@ -374,7 +374,7 @@ class TestModelManager(unittest.TestCase):
             self.assertFalse(approve, "Model has been approved but it shouldn't have been")
             self.assertIsNone(model, "Model has been approved but it shouldn't have been")
 
-    def test_model_manager_08_update_model_normal_case(self, ):
+    def test_model_manager_11_update_model_normal_case(self, ):
         """Tests method `update_model` in the normal case scenario"""
 
         # database initialisation
@@ -414,7 +414,7 @@ class TestModelManager(unittest.TestCase):
         self.assertEqual(updated_model['date_created'], file_creation_date_literal)
         self.assertEqual(updated_model['model_path'], default_model_file_1)
 
-    def test_model_manager_09_update_model_exception(self):
+    def test_model_manager_12_update_model_exception(self):
         """Tests method `update_model` """
         # database preparation
         default_model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
@@ -429,7 +429,7 @@ class TestModelManager(unittest.TestCase):
             self.model_manager.update_model(model_id='test-model-id',
                                             path=default_model_file_path)
 
-    def test_model_manager_10_delete_registered_models(self):
+    def test_model_manager_13_delete_registered_models(self):
         """ Testing delete operation for model manager """
 
         model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
@@ -463,7 +463,7 @@ class TestModelManager(unittest.TestCase):
             with self.assertRaises(FedbiomedModelManagerError):
                 self.model_manager.delete_model(model['model_id'])
 
-    def test_model_manager_11_list_approved_models(self):
+    def test_model_manager_14_list_approved_models(self):
         """ Testing list method of model manager """
 
         self.model_manager.register_update_default_models()
@@ -482,7 +482,7 @@ class TestModelManager(unittest.TestCase):
 
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
-    def test_model_manager_12_reply_model_status_request(self,
+    def test_model_manager_15_reply_model_status_request(self,
                                                          mock_checking,
                                                          mock_download):
         """Tests model manager `reply_model_status_request` method (normal case scenarii)"""
@@ -580,7 +580,7 @@ class TestModelManager(unittest.TestCase):
 
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
-    def test_model_manager_13_reply_model_status_request_exception(self,
+    def test_model_manager_16_reply_model_status_request_exception(self,
                                                                    mock_checking,
                                                                    mock_download):
         """
