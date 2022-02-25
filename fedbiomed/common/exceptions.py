@@ -72,6 +72,7 @@ class FedbiomedSilentTerminationError(FedbiomedError):
     def _render_traceback_(self):
         pass
 
+
 class FedbiomedStrategyError(FedbiomedError):
     """
     Exception specific to the Strategy class and subclasses
