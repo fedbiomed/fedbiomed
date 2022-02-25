@@ -1,8 +1,9 @@
 import configparser
 import os
-import sys
 import uuid
 
+from fedbiomed.common.constants      import ErrorNumbers
+from fedbiomed.common.exceptions     import FedbiomedEnvironError
 from fedbiomed.common.logger         import logger
 from fedbiomed.common.singleton      import SingletonMeta
 from fedbiomed.common.constants      import ComponentType, HashingAlgorithms
@@ -43,11 +44,14 @@ class Environ(metaclass = SingletonMeta):
     this (singleton) class contains all variables for researcher or node
     """
 
-    def __init__(self, component = None):
+    def __init__(self, component: ComponentType = None, rootdir: str = None):
         """
         class constructor
 
-        input: type of the component either ComponentType.NODE or ComponentType.RESEARCHER
+        input:
+        - type of the component either ComponentType.NODE or ComponentType.RESEARCHER
+        - root directory: if not provided the rootdirectory is deduced from the package location
+          (mainly used by the test files)
         """
         # dict with contains all configuration values
         self._values = {}
@@ -55,11 +59,12 @@ class Environ(metaclass = SingletonMeta):
         if component == ComponentType.NODE or component == ComponentType.RESEARCHER :
             self._values['COMPONENT_TYPE'] = component
         else:
-            logger.critical("Environ() parameter should be of ComponentType")
-            sys.exit(-1)
+            _msg = ErrorNumbers.FB600.value + ": parameter should be of ComponentType"
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
 
         # common values for all components
-        self._init_common()
+        self._init_common( rootdir = rootdir)
 
         # specific configuration values
         if component == ComponentType.RESEARCHER:
@@ -74,19 +79,51 @@ class Environ(metaclass = SingletonMeta):
         self.info()
 
 
-    def _init_common(self):
+    def __getitem__(self, key: str):
+        """
+        override the [] get operator to control the Exception type
+        """
+        if key not in self._values:
+            _msg = ErrorNumbers.FB600.value + ": config file doe not contain the key: " + str(key)
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
+        return self._values[key]
+
+
+    def __setitem__(self, key: str, value):
+        """
+        override the [] set operator to control the Exception type
+        """
+
+        if value is None:
+            _msg = ErrorNumbers.FB600.value + ": cannot set value to None for key: " + str(key)
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
+
+        self._values[key] = value
+        return value
+
+
+    def _init_common(self, rootdir):
         """
         commun configuration values for researcher and node
         """
 
-        # locate the top dir from the file location
-        ROOT_DIR = os.path.abspath(
-            os.path.join(
-                os.path.dirname(
-                    os.path.abspath(__file__)),
-                '../..'
+        # guess the fedbiomed package topir if no rootdir is given
+        if rootdir is None:
+            # locate the top dir from the file location (got up twice)
+            ROOT_DIR = os.path.abspath(
+                os.path.join(
+                    os.path.dirname(
+                        os.path.abspath(__file__)),
+                    '..',
+                    '..'
+                )
             )
-        )
+        else:
+            ROOT_DIR=rootdir
+
+        # intialize all environment values
         self._values['ROOT_DIR'] = ROOT_DIR
 
         # main directories
@@ -102,7 +139,13 @@ class Environ(metaclass = SingletonMeta):
                 try:
                     os.makedirs(dir)
                 except FileExistsError:
-                    logger.error("path exists but is not a directory " + dir)
+                    _msg = ErrorNumbers.FB600.value + ": path already exists but is not a directory: " + dir
+                    logger.critical(_msg)
+                    raise FedbiomedEnvironError(_msg)
+                except OSError:
+                    _msg = ErrorNumbers.FB600.value + ": cannot create environment subtree in: " + dir
+                    logger.critical(_msg)
+                    raise FedbiomedEnvironError(_msg)
 
         pass
 
@@ -119,9 +162,15 @@ class Environ(metaclass = SingletonMeta):
 
         # we may remove RESEARCHER_ID in the future (to simplify the code)
         # and use ID instead
+        try:
+            _cfg_value = cfg.get('default', 'researcher_id')
+        except configparser.Error:
+            _msg = ErrorNumbers.FB600.value + ": no default/researcher_id in config file, please recreate a new config file"
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
+
         self._values['RESEARCHER_ID'] = os.getenv('RESEARCHER_ID',
-                                                    cfg.get('default',
-                                                            'researcher_id'))
+                                                  _cfg_value)
         self._values['ID'] = self._values['RESEARCHER_ID']
 
 
@@ -138,7 +187,13 @@ class Environ(metaclass = SingletonMeta):
                 try:
                     os.makedirs(dir)
                 except FileExistsError:
-                    logger.error("path exists but is not a directory " + dir)
+                    _msg = ErrorNumbers.FB600.value + ": path already exists but is not a directory " + dir
+                    logger.critical(_msg)
+                    raise FedbiomedEnvironError(_msg)
+                except OSError:
+                    _msg = ErrorNumbers.FB600.value + ": cannot create environment subtree in: " + dir
+                    logger.critical(_msg)
+                    raise FedbiomedEnvironError(_msg)
 
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join( VAR_DIR, 'queue_messages')
 
@@ -153,8 +208,14 @@ class Environ(metaclass = SingletonMeta):
         cfg = self._parse_config_file()
         self._init_network_configurations(cfg)
 
+        try:
+            _cfg_value = cfg.get('default', 'node_id')
+        except configparser.Error:
+            _msg = ErrorNumbers.FB600.value + ": no default/node_id in config file, please recreate a new config file"
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
 
-        self._values['NODE_ID']   = os.getenv('NODE_ID', cfg.get('default', 'node_id'))
+        self._values['NODE_ID']   = os.getenv('NODE_ID', _cfg_value)
         self._values['ID']        = self._values['NODE_ID']
 
 
@@ -170,21 +231,43 @@ class Environ(metaclass = SingletonMeta):
         self._values['DEFAULT_MODELS_DIR']  = os.path.join(ROOT_DIR,
                                                             'envs' , 'development', 'default_models')
 
+        try:
+            _cfg_value = cfg.get('security', 'allow_default_models')
+        except configparser.Error:
+            _msg = ErrorNumbers.FB600.value + ": no security/allow_default_models in config file, please recreate a new config file"
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
+
         self._values['ALLOW_DEFAULT_MODELS'] = os.getenv('ALLOW_DEFAULT_MODELS',
-                                                                cfg.get('security', 'allow_default_models')) \
-                                                                    .lower() in ('true', '1', 't', True)
+                                                         _cfg_value) \
+                                                 .lower() in ('true', '1', 't', True)
+
+        try:
+            _cfg_value = cfg.get('security', 'model_approval')
+        except configparser.Error:
+            _msg = ErrorNumbers.FB600.value + ": no security/model_approval in config file, please recreate a new config file"
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
 
         self._values['MODEL_APPROVAL'] = os.getenv('ENABLE_MODEL_APPROVAL',
-                                                                cfg.get('security', 'model_approval')) \
-                                                                    .lower() in ('true', '1', 't', True)
+                                                   _cfg_value) \
+                                           .lower() in ('true', '1', 't', True)
 
+        try:
+            _cfg_value = cfg.get('security', 'hashing_algorithm')
+        except configparser.Error:
+            _msg = ErrorNumbers.FB600.value + ": no security/hashing_algorithm in config file, please recreate a new config file"
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
 
-        hashing_algorithm = cfg.get( 'security', 'hashing_algorithm')
+        hashing_algorithm = _cfg_value
 
         if hashing_algorithm in HashingAlgorithms.list():
-            self._values['HASHING_ALGORITHM'] = cfg.get( 'security', 'hashing_algorithm')
+            self._values['HASHING_ALGORITHM'] = hashing_algorithm
         else:
-            raise Exception(f'Hashing algorithm must on of: {HashingAlgorithms.list()}')
+            _msg = ErrorNumbers.FB600.value + ": unknown hashing algorithm: " + str(hashing_algorithm)
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
 
 
         # ========= PATCH MNIST Bug torchvision 0.9.0 ===================
@@ -231,11 +314,22 @@ class Environ(metaclass = SingletonMeta):
 
 
         # Parser for the .ini file
-        cfg = configparser.ConfigParser()
+        try:
+            cfg = configparser.ConfigParser()
+        except configparser.Error:
+            _msg = ErrorNumbers.FB600.value + ": cannot parse configuration file"
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
 
         if os.path.isfile(CONFIG_FILE):
             # get values from .ini file
-            cfg.read(CONFIG_FILE)
+            try:
+                cfg.read(CONFIG_FILE)
+            except configparser.Error:
+                _msg = ErrorNumbers.FB600.value + ": cannot read config file, check file permissions"
+                logger.critical(_msg)
+                raise FedbiomedEnvironError(_msg)
+
         else:
             if self._values['COMPONENT_TYPE'] == ComponentType.RESEARCHER:
                 self._create_researcher_config_file(cfg, CONFIG_FILE)
@@ -298,8 +392,10 @@ class Environ(metaclass = SingletonMeta):
         try:
             with open(config_file, 'w') as f:
                 cfg.write(f)
-        except:
-            logger.error("Cannot save config file: " + config_file)
+        except configparser.Error:
+            _msg = ErrorNumbers.FB600.value + ": cannot save config file: " + config_file
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
 
         pass
 
@@ -333,8 +429,10 @@ class Environ(metaclass = SingletonMeta):
         try:
             with open(config_file, 'w') as f:
                 cfg.write(f)
-        except:
-            logger.error("cannot save config file: " + config_file)
+        except configparser.Error:
+            _msg = ErrorNumbers.FB600.value + ": cannot save config file: " + config_file
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
 
 
     def _init_network_configurations(self, cfg):
@@ -342,16 +440,35 @@ class Environ(metaclass = SingletonMeta):
         """ Initialize network configurations """
 
         # broker location
+        try:
+            _cfg_value = cfg.get('mqtt', 'broker_ip')
+        except configparser.Error:
+            _msg = ErrorNumbers.FB600.value + ": no mqtt/broker_ip in config file, please recreate a new config file"
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
+
         self._values['MQTT_BROKER'] = os.getenv('MQTT_BROKER',
-                                                cfg.get('mqtt',
-                                                        'broker_ip'))
+                                                _cfg_value)
+
+        try:
+            _cfg_value = cfg.get('mqtt', 'port')
+        except configparser.Error:
+            _msg = ErrorNumbers.FB600.value + ": no mqtt/port in config file, please recreate a new config file"
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
+
         self._values['MQTT_BROKER_PORT']  = int(os.getenv('MQTT_BROKER_PORT',
-                                                          cfg.get(
-                                                              'mqtt',
-                                                              'port')))
+                                                          _cfg_value))
 
         # repository location
-        UPLOADS_URL = cfg.get('default', 'uploads_url')
+        try:
+            _cfg_value = cfg.get('default', 'uploads_url')
+        except configparser.Error:
+            _msg = ErrorNumbers.FB600.value + ": no default/uploads_url in config file, please recreate a new config file"
+            logger.critical(_msg)
+            raise FedbiomedEnvironError(_msg)
+
+        UPLOADS_URL = _cfg_value
         uploads_ip = os.getenv('UPLOADS_IP')
         if uploads_ip:
             UPLOADS_URL = "http://" + uploads_ip + ":8844/upload/"
@@ -379,13 +496,6 @@ class Environ(metaclass = SingletonMeta):
 
         return uploads_url
 
-
-    def values(self):
-
-        """ Return values dictionary """
-
-        return self._values
-
     def print_component_type(self):
 
         """ Salutation function (for debug purpose mainly) """
@@ -397,9 +507,9 @@ class Environ(metaclass = SingletonMeta):
 
         logger.info("Component environment:")
         if self._values['COMPONENT_TYPE'] == ComponentType.RESEARCHER:
-            logger.info("- type = " + str(self._values['COMPONENT_TYPE']))
+            logger.info("type = " + str(self._values['COMPONENT_TYPE']))
 
         if self._values['COMPONENT_TYPE'] == ComponentType.NODE:
-            logger.info("- type                = " + str(self._values['COMPONENT_TYPE']))
-            logger.info("- model_approval      = " + str(self._values['MODEL_APPROVAL']))
-            logger.info("- allow_default_model = " + str(self._values['ALLOW_DEFAULT_MODELS']))
+            logger.info("type                = " + str(self._values['COMPONENT_TYPE']))
+            logger.info("model_approval      = " + str(self._values['MODEL_APPROVAL']))
+            logger.info("allow_default_model = " + str(self._values['ALLOW_DEFAULT_MODELS']))

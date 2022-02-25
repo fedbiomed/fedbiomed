@@ -1,15 +1,12 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-# Delete environ. It is necessary to rebuild environ for required component
-delete_environ()
-# overload with fake environ for tests
-import testsupport.mock_common_environ
-
 import tempfile
 import shutil
 import unittest
 
-from fedbiomed.common.tasks_queue import TasksQueue, exceptionsEmpty
+import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
+
+from fedbiomed.common.exceptions  import FedbiomedTaskQueueError
+from fedbiomed.common.tasks_queue import TasksQueue
+
 
 class TestTasksQueue(unittest.TestCase):
     '''
@@ -47,9 +44,9 @@ class TestTasksQueue(unittest.TestCase):
         # get data from an empty queue
         try:
             t1 = q1.get( block = False)
-            # the follonwing lines cannot be reached
+            # the following lines cannot be reached
             self.fail( "reading from empty queue must raise an exception" )
-        except exceptionsEmpty:
+        except FedbiomedTaskQueueError:
             self.assertEqual( q1.qsize() , 0 )
         except:
             # this must not happen

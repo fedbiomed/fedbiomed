@@ -1,10 +1,3 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-# Delete environ. It is necessary to rebuild environ for required component
-delete_environ()
-# overload with fake environ for tests
-import testsupport.mock_common_environ
-
 import unittest
 
 import logging
@@ -22,19 +15,23 @@ class TestLogger(unittest.TestCase):
     '''
     Test the Logger class
     '''
-    # before all tests: put the loglevel to a known state
     def setUp(self):
+        '''
+        before all tests: put the loglevel to a known state
+        '''
         logger.setLevel(DEFAULT_LOG_LEVEL)
         pass
 
-    # after all tests
     def tearDown(self):
+        '''
+        after all test... empty for now
+        '''
         pass
 
 
     def test_logger_00_internal_translator(self):
         '''
-
+        as test name says.... string -> logging.* translation
         '''
 
         # string -> logging.* translator
@@ -55,9 +52,12 @@ class TestLogger(unittest.TestCase):
 
     def test_logger_01_internal_addhandler(self):
         '''
-        should not use logger._handlers (this is internal data),
-        but no getter for this internal data is provided yet....
+        ulgy usage of logger._handlers (this is internal data),
+        but no getter for this internal data is/should_be provided
+
+        subject to change if internal design of logger.py is changed
         '''
+
         # handler manager test1
         handler = logging.NullHandler()
 
@@ -103,7 +103,7 @@ class TestLogger(unittest.TestCase):
         try:
             logger.this_method_does_not_exists()
             self.fail("calling this_method_does_not_exists()")
-        except:
+        except AttributeError:
             self.assertTrue( True,
                              "calling this_method_does_not_exists() detected")
 
@@ -124,9 +124,29 @@ class TestLogger(unittest.TestCase):
         pass
 
     def test_logger_04_setlevel(self):
+        '''
+        as test name says.... test the setLevel() method
+        '''
 
         # initial DEFAULT_LOG_LEVEL
         self.assertEqual( logger.getEffectiveLevel() , DEFAULT_LOG_LEVEL)
+
+        # chech setLevel
+        for lvl in [ logging.DEBUG,
+                     logging.INFO,
+                     logging.WARNING,
+                     logging.ERROR,
+                     logging.CRITICAL ] :
+            logger.setLevel(lvl)
+            self.assertEqual( logger.getEffectiveLevel() , lvl)
+
+        # bounds
+        logger.setLevel( 10000 )
+        self.assertEqual( logger.getEffectiveLevel() , DEFAULT_LOG_LEVEL)
+
+        logger.setLevel( -1 )
+        self.assertEqual( logger.getEffectiveLevel() , DEFAULT_LOG_LEVEL)
+
 
         # modify the default level of existing handlers
         logger.setLevel( "CRITICAL" )
@@ -165,6 +185,9 @@ class TestLogger(unittest.TestCase):
 
 
     def test_logger_05_logging(self):
+        '''
+        as test name says.... test that logging.* levels
+        '''
 
         # test debug() - string
         with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
@@ -217,18 +240,32 @@ class TestLogger(unittest.TestCase):
     # minimal on_* handlers for mqtt
     # the self._mqtt_is_connected will conditionnate the tests later
     def on_message(self, client, userdata, msg):
+        '''
+        empty on_message handler
+        '''
         pass
+
     def on_connect(self, client, userdata, flags, rc):
+        '''
+        empty on_connect handler
+        '''
         self._mqtt_is_connected = True
+
     def on_disconnect(self, client, userdata, flags, rc):
+        '''
+        empty on_disconnect handler
+        '''
         self._mqtt_is_connected = False
 
 
     def test_logger_06_mqtt(self):
+        '''
+        test mqtt handler
+        '''
 
         # try to connect to MQTT
         self._mqtt_is_connected  = False
-        self._node_id            = str(uuid.uuid4())
+        self._node_id            = "test_logger_node_" + str(uuid.uuid4())
         self._mqtt               = mqtt.Client(client_id = self._node_id)
         self._mqtt.on_message    = self.on_message
         self._mqtt.on_connect    = self.on_connect
@@ -245,9 +282,7 @@ class TestLogger(unittest.TestCase):
 
         # only test this if a mqtt server is available
         if not self._mqtt_is_connected:
-            #self.skipTest("no MQTT server")
-            print("no MQTT server - skipping test")
-            return
+            self.skipTest("no MQTT server - skipping test")
 
         #
         logger.addMqttHandler(
@@ -257,11 +292,20 @@ class TestLogger(unittest.TestCase):
 
         logger.debug("mqtt+console DEBUG message")
         logger.error("mqtt+console ERROR message")
+
+        #
+        logger.setLevel("DEBUG")
+        logger.delMqttHandler()
+        logger.critical("verify that logger still works properly")
+
         self._mqtt.loop_stop()
         pass
 
 
     def test_logger_07_filehandler(self):
+        '''
+        test file handler
+        '''
 
         randomfile = tempfile.NamedTemporaryFile()
 

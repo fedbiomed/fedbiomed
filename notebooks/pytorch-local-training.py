@@ -33,7 +33,6 @@ from torchvision import datasets, transforms
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.torchnn import TorchTrainingPlan
-from fedbiomed.researcher.exceptions import TrainingException
 
 # you can use any class name eg:
 # class AlterTrainingPlan(TorchTrainingPlan):
@@ -103,7 +102,7 @@ training_args = {
 # Define an experiment
 # - search nodes serving data for these `tags`, optionally filter on a list of node ID with `nodes`
 # - run a round of local training on nodes with model defined in `model_path` + federation with `aggregator`
-# - run for `rounds` rounds, applying the `node_selection_strategy` between the rounds
+# - run for `round_limit` rounds, applying the `node_selection_strategy` between the rounds
 
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -114,22 +113,22 @@ rounds = 2
 exp = Experiment(tags=tags,
                  model_class=MyTrainingPlan,
                  training_args=training_args,
-                 rounds=rounds,
+                 round_limit=rounds,
                  aggregator=FedAverage(),
                  node_selection_strategy=None)
 
 
 # Let's start the experiment.
 # 
-# By default, this function doesn't stop until all the `rounds` are done for all the nodes
+# By default, this function doesn't stop until all the `round_limit` rounds are done for all the nodes
 
 exp.run()
 
 
 # Retrieve the federated model parameters
 
-fed_model = exp.model_instance
-fed_model.load_state_dict(exp.aggregated_params[rounds - 1]['params'])
+fed_model = exp.model_instance()
+fed_model.load_state_dict(exp.aggregated_params()[rounds - 1]['params'])
 
 print(fed_model)
 

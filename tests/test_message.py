@@ -1,15 +1,14 @@
-# Managing NODE, RESEARCHER environ mock before running tests
-from testsupport.delete_environ import delete_environ
-# Delete environ. It is necessary to rebuild environ for required component
-delete_environ()
-# overload with fake environ for tests
-import testsupport.mock_common_environ
-
-import unittest
 from dataclasses import dataclass
+import sys
+import unittest
 
-import fedbiomed.common.message as message
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedMessageError
+import fedbiomed.common.message    as message
+
+# we also want to test the decorator
+from fedbiomed.common.message import catch_dataclass_exception
+
 
 class TestMessage(unittest.TestCase):
     '''
@@ -62,7 +61,8 @@ class TestMessage(unittest.TestCase):
             if not valid_class:
                 self.fail("check_class_args: bad class name")
 
-        except:
+        except Exception as e:
+            print("===== " + str(e.__class__.__name__) + " trapped: " + str(e))
             result = False
 
         # for DEBUG purpose
@@ -86,8 +86,14 @@ class TestMessage(unittest.TestCase):
 
         pass
 
+
+    #
+    # create a Message class and the decorator to test the raised exception
+    # test also the @catch_dataclass_exception dcorator
+    #
+    @catch_dataclass_exception
     @dataclass
-    class dummyMessage(message.Message):
+    class DummyMessage(message.Message):
         """
         dummy class to fully test the Message class
         """
@@ -95,36 +101,61 @@ class TestMessage(unittest.TestCase):
         b: str
 
 
-    def test_message(self):
+    def test_message_01_dummy(self):
 
-        m1 = message.Message()
+        m0 = self.DummyMessage( 1, "test")
 
-        # initial dictionnary is empty
-        self.assertEqual( m1.get_dict(), {} )
+        # getter test
+        self.assertEqual( m0.get_param( "a") , 1)
+        self.assertEqual( m0.get_param( "b") , "test")
 
-        # get/set tester
-        m1.set_param( "a", 1);
-        self.assertEqual( m1.get_dict(), { "a" : 1} )
-        self.assertEqual( m1.get_param( "a") , 1)
-
+        # test the validate fonction which sends an exception
         #
-        m1.set_param( "a", 2);
-        m1.set_param( "b", "this_is_a_string");
-        self.assertEqual( m1.get_param( "a") , 2)
-        self.assertEqual( m1.get_param( "b") , "this_is_a_string")
+        # bad parameter type for a
+        bad_result = False
+        try:
+            m1 = self.DummyMessage( a = False , b = "oh my god !")
 
-        # this constructor is not validated until validate() is
-        # effectively called
-        m2 = self.dummyMessage( a = 1 , b = "oh my god !")
-        self.assertEqual( m2.get_param( "a") , 1)
-        self.assertEqual( m2.get_param( "b") , "oh my god !")
+        except FedbiomedMessageError as e:
+            #
+            # we must arrive here, because message is malformed
+            bad_result = True
 
-        # too difficult to test validate directly
-        # it is indirectly tested by the other test_*() calls
+        except Exception as e:
+            # we should not arrive here also
+            self.assertTrue(False, "bad exception caught: " + e.__class__.__name__ + " instead of FedbiomedMessageError")
+
+        self.assertTrue( bad_result,
+                         "dummyMessage: bad params not detected")
+
+
+        # bad params number
+        bad_result = False
+        try:
+            m2 = self.DummyMessage(1, "foobar", False)
+
+        except FedbiomedMessageError as e:
+            #
+            # we must arrive here, because message is malformed
+            bad_result = True
+
+        except Exception as e:
+            #
+            # @dataclass raises TypeError which is renamed
+            # by @catch_dataclass_exception
+            #
+            # !! we should not reach this part of the code !!
+            #
+            self.assertTrue(False, "bad exception caught: " + e.__class__.__name__)
+
+
+        self.assertTrue( bad_result,
+                         "dummyMessage: bad param number not detected")
+
 
         pass
 
-    def test_searchreply(self):
+    def test_message_02_searchreply(self):
 
         # verify necessary arguments of all message creation
 
@@ -261,7 +292,7 @@ class TestMessage(unittest.TestCase):
 
         pass
 
-    def test_pingreply(self):
+    def test_message_03_pingreply(self):
 
         # verify necessary arguments of all message creation
 
@@ -372,7 +403,7 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_trainreply(self):
+    def test_message_04_trainreply(self):
 
         # well formatted message
         self.check_class_args(
@@ -596,7 +627,7 @@ class TestMessage(unittest.TestCase):
 
         pass
 
-    def test_listreply(self):
+    def test_message_05_listreply(self):
 
         # well formatted message
         self.check_class_args(
@@ -731,7 +762,7 @@ class TestMessage(unittest.TestCase):
 
 
 
-    def test_addscalarreply(self):
+    def test_message_06_addscalarreply(self):
         # well formatted message
 
         self.check_class_args(
@@ -875,7 +906,7 @@ class TestMessage(unittest.TestCase):
 
         pass
 
-    def test_modelstatusreply(self):
+    def test_message_07_modelstatusreply(self):
 
         self.check_class_args(
             message.ModelStatusReply,
@@ -984,7 +1015,7 @@ class TestMessage(unittest.TestCase):
 
 
 
-    def test_logmessage(self):
+    def test_message_08_log(self):
 
         # well formatted message
         self.check_class_args(
@@ -1099,7 +1130,7 @@ class TestMessage(unittest.TestCase):
 
         pass
 
-    def test_errormessage(self):
+    def test_message_09_error(self):
 
         # well formatted message
         self.check_class_args(
@@ -1215,7 +1246,7 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_searchrequest(self):
+    def test_message_10_searchrequest(self):
         # well formatted message
         self.check_class_args(
             message.SearchRequest,
@@ -1276,7 +1307,7 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_pingrequest(self):
+    def test_message_11_pingrequest(self):
         # well formatted message
         self.check_class_args(
             message.PingRequest,
@@ -1346,7 +1377,7 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_trainrequest(self):
+    def test_message_12_trainrequest(self):
         # well formatted message
         self.check_class_args(
             message.TrainRequest,
@@ -1564,7 +1595,8 @@ class TestMessage(unittest.TestCase):
 
 
         pass
-    def test_listrequest(self):
+
+    def test_message_13_listrequest(self):
 
         # well formatted message
         self.check_class_args(
@@ -1611,7 +1643,7 @@ class TestMessage(unittest.TestCase):
         pass
 
 
-    def test_modelstatusrequest(self):
+    def test_message_14_modelstatusrequest(self):
 
         self.check_class_args(
             message.ModelStatusRequest,
@@ -1661,7 +1693,7 @@ class TestMessage(unittest.TestCase):
 
     # test ResearcherMessage and NodeMessagess classes
     # (next 9 tests)
-    def test_trainmessages(self):
+    def test_message_15_trainmessages(self):
 
         params = {
             "researcher_id" : 'toto',
@@ -1697,7 +1729,7 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.request_create( params )
         self.assertIsInstance( r, message.TrainRequest )
 
-    def test_listmessages(self):
+    def test_message_16_listmessages(self):
 
         """  Test list datasets messages for node and researcher """
         params = {
@@ -1725,7 +1757,7 @@ class TestMessage(unittest.TestCase):
         self.assertIsInstance( r, message.ListRequest )
 
 
-    def test_searchmessages(self):
+    def test_message_17_searchmessages(self):
 
         params = {
             "researcher_id" : 'toto',
@@ -1753,7 +1785,7 @@ class TestMessage(unittest.TestCase):
         self.assertIsInstance( r, message.SearchRequest )
 
 
-    def test_pingmessages(self):
+    def test_message_18_pingmessages(self):
 
         # ping
         params = {
@@ -1780,8 +1812,7 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.request_create( params )
         self.assertIsInstance( r, message.PingRequest )
 
-
-    def test_logmessages(self):
+    def test_message_19_logmessages(self):
 
         # error
         params = {
@@ -1797,7 +1828,7 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.reply_create( params )
         self.assertIsInstance( r, message.LogMessage )
 
-    def test_errormessages(self):
+    def test_message_10_errormessages(self):
 
         # error
         params = {
@@ -1813,7 +1844,7 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.reply_create( params )
         self.assertIsInstance( r, message.ErrorMessage )
 
-    def test_addscalarmessages(self):
+    def test_message_21_addscalarmessages(self):
 
         # addScalar
         params = {
@@ -1832,7 +1863,7 @@ class TestMessage(unittest.TestCase):
         r = message.NodeMessages.reply_create( params )
         self.assertIsInstance( r, message.AddScalarReply )
 
-    def test_unknowmessages(self):
+    def test_message_22_unknowmessages(self):
         # we only test one error (to get 100% coverage)
         # all test have been made above
 
@@ -1843,7 +1874,7 @@ class TestMessage(unittest.TestCase):
             # should not reach this line
             self.fail("unknown reply message type for researcher not detected")
 
-        except:
+        except Exception as e:
             # should be reached
             self.assertTrue( True, "unknown reply message type for researcher detected")
 
@@ -1876,7 +1907,52 @@ class TestMessage(unittest.TestCase):
             self.assertTrue( True, "unknown request message type for node detected")
         pass
 
-    def test_model_status_messages(self):
+    def test_message_23_badly_formed(self):
+        # we only test one error (to get 100% coverage)
+        # all test have been made above
+
+        params = { 'nocommandprovided' : 'fichtre!'}
+
+        msg = "unknown reply message type for researcher not detected"
+        try:
+            r = message.ResearcherMessages.reply_create( params )
+            # should not reach this line
+            self.fail(msg)
+
+        except Exception as e:
+            # should be reached
+            self.assertTrue(True, msg)
+
+        try:
+            r = message.ResearcherMessages.request_create( params )
+            # should not reach this line
+            self.fail(msg)
+
+        except:
+            # should be reached
+            self.assertTrue(True, msg)
+        pass
+
+        try:
+            r = message.NodeMessages.reply_create( params )
+            # should not reach this line
+            self.fail(msg)
+
+        except:
+            # should be reached
+            self.assertTrue(True, msg)
+
+        try:
+            r = message.NodeMessages.request_create( params )
+            # should not reach this line
+            self.fail(msg)
+
+        except:
+            # should be reached
+            self.assertTrue(True, msg)
+        pass
+
+    def test_message_24_model_status_messages(self):
 
         params_reply =  {
             'researcher_id'           : 'toto',

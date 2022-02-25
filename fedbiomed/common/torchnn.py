@@ -150,7 +150,8 @@ class TorchTrainingPlan(nn.Module):
         Args:
             - epochs (int, optional): number of epochs (complete pass on data).
                 Defaults to 2.
-            - log_interval (int, optional): frequency of logging. Defaults to 10.
+            - log_interval (int, optional): frequency of logging and displaying
+                losses for each batch of data of a given epoch. Defaults to 10.
                 lr (Union[int, float], optional): learning rate. Defaults to 1e-3.
             - batch_size (int, optional): size of batch. Defaults to 48.
             - batch_maxnum (int, optional): equals number of data devided

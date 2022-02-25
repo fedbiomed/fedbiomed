@@ -13,13 +13,13 @@ import copy
 import validators
 
 from fedbiomed.common.constants import ErrorNumbers
+#from fedbiomed.common.exceptions import FedbiomedTrainingError
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.logger import logger
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
 from fedbiomed.researcher.filetools import  create_unique_link, \
             create_unique_file_link
-from fedbiomed.researcher.exceptions import TrainingException
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
@@ -34,7 +34,7 @@ class Job:
     def __init__(self,
                  reqs: Requests = None,
                  nodes: dict = None,
-                 model: Union[Type[Callable], Callable] = None,
+                 model: Union[Type[Callable], str] = None,
                  model_path: str = None,
                  training_args: dict = None,
                  model_args: dict = None,
@@ -52,8 +52,8 @@ class Job:
             Defaults to None.
             nodes (dict, optional): a dict of node_id containing the
             nodes used for training
-            model (Union[Type[Callable], Callable], optional): name of the model class
-            or object (instance of the model class) to use for training.
+            model (Union[Type[Callable], str], optional): name of the model class
+            or model class to use for training.
             model_path (string, optional) : path to file containing model
             class code
             training_args (dict, optional): contains training parameters:
@@ -229,11 +229,6 @@ class Job:
         return self._model_file
 
 
-
-    # TODO: After refactoring experiment this method can be created
-    # directly in the Experiment class. Since it requires
-    # node ids and model_url to send model approve status it is created
-    # in job class
     def check_model_is_approved_by_nodes(self):
 
         """ Method for checking whether model is approved or not.  This method send
@@ -248,9 +243,9 @@ class Job:
             'command': 'model-status'
         }
 
-        responses = []
+        responses = Responses([])
         replied_nodes = []
-        node_ids = self._data.node_ids
+        node_ids = self._data.node_ids()
 
         # Send message to each node that has been found after dataset search reqeust
         for cli in node_ids:
@@ -300,7 +295,7 @@ class Job:
             True if waiting for at least one node.
         """
         try:
-            nodes_done = set(responses.dataframe['node_id'])
+            nodes_done = set(responses.dataframe()['node_id'])
         except KeyError:
             nodes_done = set()
 
@@ -344,7 +339,7 @@ class Job:
             #print("=== DEBUG START start_nodes_training_round")
             #print(models_done)
             #print("=== DEBUG STOP  start_nodes_training_round")
-            for m in models_done.get_data():  # retrieve all models
+            for m in models_done.data():  # retrieve all models
                 # (there should have as many models done as nodes)
 
                 # manage error messages during training
@@ -496,7 +491,7 @@ class Job:
         converted_training_replies = []
 
         for round in training_replies.keys():
-            training_reply = copy.deepcopy(training_replies[round].data)
+            training_reply = copy.deepcopy(training_replies[round].data())
             # we want to strip some fields for the breakpoint
             for node in training_reply:
                 del node['params']

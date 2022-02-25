@@ -1,4 +1,3 @@
-import logging
 import os
 import re
 from typing import Tuple, List
@@ -11,7 +10,7 @@ Functions for managing Job/Experiment files.
 """
 
 
-def create_exp_folder(experimentation_folder: str =None) -> str:
+def create_exp_folder(experimentation_folder: str = None) -> str:
     """Creates a folder for the current experiment (ie the current run of the model).
     Experiment files to keep are stored here: model file, all versions of node parameters,
     all versions of aggregated parameters, breakpoints.
@@ -63,7 +62,7 @@ def choose_bkpt_file(
             round: int = 0) -> Tuple[str, str]:
     """It creates a breakpoint folder and chooses a breakpoint file name for each round.
     Args:
-        - round (int, optional): the current number of rounds minus one.
+        - round (int, optional): the current number of already run rounds minus one.
             Starts from 0. Defaults to 0.
         - experimentation_folder (str): indicates the experimentation folder name.
             This should just contain the name of the folder not a full path.
@@ -225,7 +224,7 @@ def _get_latest_file(
     if latest_folder is None: 
         if len(list_name_file) != 0:
             raise FileNotFoundError(
-                "None of those are breakpoints{}".format(", ".join(list_name_file)))
+                "None of those are breakpoints {}".format(", ".join(list_name_file)))
         else:
             raise FileNotFoundError("No files to search for breakpoint")
 
@@ -303,14 +302,14 @@ def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
                                   breakpoint_material)
         # there should be at most one - TODO: verify
         if json_match is not None:
-            logging.debug(f"found json file containing states at\
+            logger.debug(f"found json file containing states at\
                 {breakpoint_material}")
             state_file = breakpoint_material
     
     if state_file is None:
         message = f"Cannot find JSON file containing " + \
             f"model state at {breakpoint_folder_path}. Aborting"
-        logging.error(message)
+        logger.error(message)
         raise FileNotFoundError(message)
     
     return breakpoint_folder_path, state_file

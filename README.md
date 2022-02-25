@@ -211,7 +211,7 @@ exp = Experiment(tags=tags,
                  model_args=model_args,
                  model_class='MyTrainingPlan',
                  training_args=training_args,
-                 rounds=rounds,
+                 round_limit=round_limit,
                  aggregator=FedAverage(),
                  node_selection_strategy=None,
                  tensorboard=True

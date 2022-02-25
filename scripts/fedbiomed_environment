@@ -37,14 +37,16 @@ environment_printvar() {
 }
 
 environment_info() {
-    environment_printvar "Conda   env" "${CONDA_DEFAULT_ENV}"
-    environment_printvar "Python  env" "${PYTHONPATH}"
-    environment_printvar "MQTT   host" "${MQTT_BROKER}"
-    environment_printvar "MQTT   port" "${MQTT_BROKER_PORT}"
-    environment_printvar "UPLOADS url" "${UPLOADS_URL}"
+    environment_printvar "Conda   env   " "${CONDA_DEFAULT_ENV}"
+    environment_printvar "Python  env   " "${PYTHONPATH}"
+    environment_printvar "FEDBIOMED_DIR " "${FEDBIOMED_DIR}"
+    environment_printvar "MQTT   host   " "${MQTT_BROKER}"
+    environment_printvar "MQTT   port   " "${MQTT_BROKER_PORT}"
+    environment_printvar "UPLOADS url   " "${UPLOADS_URL}"
 }
 
 development_env() {
+    export FEDBIOMED_DIR=$basedir
     export MQTT_BROKER=${1:-localhost}
     export MQTT_BROKER_PORT=1883
     export IP_ADDRESS=${1:-localhost}
