@@ -3,7 +3,7 @@ Definition of messages exchanged by the researcher and the nodes
 '''
 
 from dataclasses import dataclass
-from typing import Dict, Any, List, Union
+from typing import Dict, Any, Union
 
 from fedbiomed.common.constants  import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError
@@ -20,17 +20,17 @@ def catch_dataclass_exception(initial_class):
         """
         Class container to wrap the old class into a decorated class
         """
-        def __init__(self,*args,**kwargs):
+        def __init__(self, *args, **kwargs):
             #
             try:
-                self.initial_instance = initial_class(*args,**kwargs)
+                self.initial_instance = initial_class(*args, **kwargs)
             except TypeError as e:
                 # this is the error raised by dataclass if number of parameter is wrong
                 _msg = ErrorNumbers.FB601.value + ": bad number of parameters: " + str(e)
                 logger.error(_msg)
                 raise FedbiomedMessageError(_msg)
 
-        def __getattribute__(self,s):
+        def __getattribute__(self, s):
             """
             this is called whenever any attribute of a NewCls object is accessed.
             This function first tries to get the attribute of NewCls and run it
@@ -99,6 +99,7 @@ class Message(object):
                 logger.critical(f"{field_name}: '{actual_type}' instead of '{field_def.type}'")
                 ret = False
         return ret
+
 
 @catch_dataclass_exception
 @dataclass
@@ -397,11 +398,11 @@ class ResearcherMessages():
         try:
             message_type = params['command']
         except KeyError:
-            _msg =  ErrorNumbers.FB601.value + ": message type not specified"
+            _msg = ErrorNumbers.FB601.value + ": message type not specified"
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
 
-        MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
+        MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
                                      'search': SearchReply,
                                      'pong': PingReply,
                                      'log': LogMessage,
@@ -409,10 +410,10 @@ class ResearcherMessages():
                                      'list': ListReply,
                                      'add_scalar': AddScalarReply,
                                      'model-status': ModelStatusReply
-        }
+                                     }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            _msg =  ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
+            _msg = ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
@@ -446,11 +447,11 @@ class ResearcherMessages():
         try:
             message_type = params['command']
         except KeyError:
-            _msg =  ErrorNumbers.FB601.value + ": message type not specified"
+            _msg = ErrorNumbers.FB601.value + ": message type not specified"
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
 
-        MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainRequest,
+        MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
                                      'search': SearchRequest,
                                      'ping': PingRequest,
                                      'list': ListRequest,
@@ -458,7 +459,7 @@ class ResearcherMessages():
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            _msg =  ErrorNumbers.FB601.value + ": bad message type for request_create: {}".format(message_type)
+            _msg = ErrorNumbers.FB601.value + ": bad message type for request_create: {}".format(message_type)
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
@@ -495,12 +496,12 @@ class NodeMessages():
         try:
             message_type = params['command']
         except KeyError:
-            _msg =  ErrorNumbers.FB601.value + ": message type not specified"
+            _msg = ErrorNumbers.FB601.value + ": message type not specified"
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
 
         # mapping message type to an object
-        MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainRequest,
+        MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
                                      'search': SearchRequest,
                                      'ping': PingRequest,
                                      'list': ListRequest,
@@ -508,7 +509,7 @@ class NodeMessages():
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            _msg =  ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
+            _msg = ErrorNumbers.FB601.value + ": bad message type for reply_create: {}".format(message_type)
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
@@ -543,11 +544,11 @@ class NodeMessages():
         try:
             message_type = params['command']
         except KeyError:
-            _msg =  ErrorNumbers.FB601.value + ": message type not specified"
+            _msg = ErrorNumbers.FB601.value + ": message type not specified"
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
 
-        MESSAGE_TYPE_TO_CLASS_MAP = {'train':  TrainReply,
+        MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
                                      'search': SearchReply,
                                      'pong': PingReply,
                                      'log': LogMessage,
@@ -558,7 +559,7 @@ class NodeMessages():
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
-            _msg =  ErrorNumbers.FB601.value + ": bad message type for request_create: {}".format(message_type)
+            _msg = ErrorNumbers.FB601.value + ": bad message type for request_create: {}".format(message_type)
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
