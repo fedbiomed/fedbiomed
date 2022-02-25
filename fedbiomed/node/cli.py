@@ -81,18 +81,18 @@ def pick_with_tkinter(mode='file'):
         # root.attributes("-topmost", True)
         if mode == 'file':
             return tkinter.filedialog.askopenfilename(
-                        filetypes=[
-                                  ("CSV files",
-                                   "*.csv")
-                                  ]
-                        )
+                filetypes=[
+                    ("CSV files",
+                     "*.csv")
+                ]
+            )
         elif mode == 'txt':
             return tkinter.filedialog.askopenfilename(
-                        filetypes=[
-                                  ("Text files",
-                                   "*.txt")
-                                  ]
-                        )
+                filetypes=[
+                    ("Text files",
+                     "*.txt")
+                ]
+            )
         else:
             return tkinter.filedialog.askdirectory()
 
@@ -117,7 +117,7 @@ def validated_path_input(type):
                     exit(1)
                 assert os.path.isfile(path)
 
-            elif type == 'txt': # For registering python model
+            elif type == 'txt':  # for registering python model
                 path = pick_with_tkinter(mode='txt')
                 logger.debug(path)
                 if not path:
@@ -195,10 +195,10 @@ def add_database(interactive=True,
         # transform a string with coma(s) as a string list
         tags = str(tags).split(',')
 
-        name=str(name)
-        description=str(description)
+        name = str(name)
+        description = str(description)
 
-        data_type=str(data_type).lower()
+        data_type = str(data_type).lower()
         if data_type not in [ 'csv', 'default', 'images' ]:
             data_type = 'default'
 
@@ -243,6 +243,7 @@ def node_signal_handler(signum, frame):
     time.sleep(1)
     sys.exit(signum)
 
+
 def manage_node(node_args: Union[dict, None] = None):
     """
     Instantiates a node and data manager objects. Then, node starts
@@ -268,8 +269,8 @@ def manage_node(node_args: Union[dict, None] = None):
                 logger.info('Loading default models')
                 model_manager.register_update_default_models()
         else:
-            logger.warning('Model approval for train request is not activated. ' + \
-                            'This might cause security problems. Please, consider to enable model approval.')
+            logger.warning('Model approval for train request is not activated. ' +
+                           'This might cause security problems. Please, consider to enable model approval.')
 
         data_manager = DataManager()
         logger.info('Starting communication channel with network')
@@ -281,7 +282,7 @@ def manage_node(node_args: Union[dict, None] = None):
         logger.info('Starting task manager')
         node.task_manager()  # handling training tasks in queue
 
-    except FedbiomedError as e:
+    except FedbiomedError:
         logger.critical("Node stopped.")
         # we may add extra information for the user depending on the error
 
@@ -314,12 +315,11 @@ def launch_node(node_args: Union[dict, None] = None):
             Detail of dict described in Round()
     """
 
-    #p = Process(target=manage_node, name='node-' + environ['NODE_ID'], args=(data_manager,))
     p = Process(target=manage_node, name='node-' + environ['NODE_ID'], args=(node_args,))
     p.daemon = True
     p.start()
 
-    logger.info("Node started as process with pid = "+ str(p.pid))
+    logger.info("Node started as process with pid = " + str(p.pid))
     try:
         print('To stop press Ctrl + C.')
         p.join()
@@ -403,9 +403,9 @@ def register_model(interactive: bool = True):
 
     # Regsiter model
     try:
-        model_manager.register_model(name=name,
-                                    description=description,
-                                    path=path)
+        model_manager.register_model(name = name,
+                                     description = description,
+                                     path = path)
 
     except AssertionError as e:
         if interactive is True:
@@ -419,6 +419,7 @@ def register_model(interactive: bool = True):
 
     print('\nGreat! Take a look at your data:')
     model_manager.list_approved_models(verbose=True)
+
 
 def update_model():
 
@@ -556,8 +557,8 @@ def launch_cli():
                         type=int,
                         action='store')
     parser.add_argument('-go', '--gpu-only',
-                        help='Force use of a GPU device, if any available, even if researcher doesnt '
-                        + 'request it (default: dont use GPU)',
+                        help='Force use of a GPU device, if any available, even if researcher doesnt ' +
+                        'request it (default: dont use GPU)',
                         action='store_true')
     args = parser.parse_args()
 
@@ -582,7 +583,7 @@ def launch_cli():
 
         # verify that json file is complete
         for k in [ "path", "data_type", "description", "tags", "name"]:
-            if not k in data:
+            if k not in data:
                 logger.critical("dataset json file corrupted: " + args.add_dataset_from_file )
 
         # dataset path can be defined:
@@ -650,8 +651,6 @@ def main():
     try:
         launch_cli()
     except KeyboardInterrupt:
-        #print('Operation cancelled by user.')
-
         # send error message to researche via logger.error()
         logger.critical('Operation cancelled by user.')
 
