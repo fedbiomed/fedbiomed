@@ -1,3 +1,10 @@
+'''
+al environment/configuration variables are provided by the
+**Environ** dictionnary. **Environ** is a singleton class,
+meaning that only an instance of Environ is available.
+'''
+
+
 import configparser
 import os
 import uuid
@@ -51,6 +58,8 @@ class Environ(metaclass = SingletonMeta):
         - type of the component either ComponentType.NODE or ComponentType.RESEARCHER
         - root directory: if not provided the rootdirectory is deduced from the package location
           (mainly used by the test files)
+
+        raises FedbiomedEnvironError is component type is wrong
         """
         # dict with contains all configuration values
         self._values = {}
@@ -81,6 +90,8 @@ class Environ(metaclass = SingletonMeta):
     def __getitem__(self, key: str):
         """
         override the [] get operator to control the Exception type
+
+        raises FedbiomedEnvironError if key does not exists
         """
         if key not in self._values:
             _msg = ErrorNumbers.FB600.value + ": config file doe not contain the key: " + str(key)
@@ -92,6 +103,8 @@ class Environ(metaclass = SingletonMeta):
     def __setitem__(self, key: str, value):
         """
         override the [] set operator to control the Exception type
+
+        raises FedbiomedEnvironError is key does not exists
         """
 
         if value is None:
@@ -105,7 +118,9 @@ class Environ(metaclass = SingletonMeta):
 
     def _init_common(self, rootdir):
         """
-        commun configuration values for researcher and node
+        common configuration values for researcher and node
+
+        raises FedbiomedEnvironError in case of error (OS errors usually)
         """
 
         # guess the fedbiomed package topir if no rootdir is given
@@ -150,7 +165,12 @@ class Environ(metaclass = SingletonMeta):
 
 
     def _init_researcher(self):
-        """ specific configuration values for researcher
+        """
+        specific configuration values for researcher
+
+        raises FedbiomedEnvironError:
+        - if file parser cannot be instanciated
+        - in case of file system errors (cannot create experiment directories)
         """
         # Parse config file
         cfg = self._parse_config_file()
@@ -202,6 +222,10 @@ class Environ(metaclass = SingletonMeta):
     def _init_node(self):
         """
         specific configuration values for node
+
+        raises FedbiomedEnvironError:
+        - if file parser cannot be instanciated
+        - in case of missing keys in the config file
         """
 
         # Parse config file
@@ -292,7 +316,6 @@ class Environ(metaclass = SingletonMeta):
         pass
 
     def _parse_config_file(self):
-
         """ Read the .ini file corresponding to the component
         create the file with default values if it does not exists.
         Complete/modify the environment with values coming from the
@@ -346,8 +369,8 @@ class Environ(metaclass = SingletonMeta):
         return cfg
 
     def _create_node_config_file(self, cfg, config_file):
-
-        """ Creates new config file for node
+        """
+        Creates new config file for node
 
         Args:
             config_file (str): The path indicated where config file
@@ -403,8 +426,11 @@ class Environ(metaclass = SingletonMeta):
         pass
 
     def _create_researcher_config_file(self, cfg, config_file):
+        """
+        Create config file for researcher
 
-        """ Create config file for researcher """
+        raises FedbiomedEnvironError is config file cannot be created
+        """
 
         # get uploads url
         uploads_url = self._get_uploads_url()
@@ -439,8 +465,11 @@ class Environ(metaclass = SingletonMeta):
 
 
     def _init_network_configurations(self, cfg):
+        """
+        Initialize network configurations
 
-        """ Initialize network configurations """
+        raises FedbiomedEnvironError in case of missing keys/values
+        """
 
         # broker location
         try:
@@ -487,8 +516,9 @@ class Environ(metaclass = SingletonMeta):
 
     @staticmethod
     def _get_uploads_url():
-
-        """ Gets uploads url from env """
+        """
+        Gets uploads url from env
+        """
 
         # use default values from current OS environment variables
         # repository location
@@ -500,14 +530,10 @@ class Environ(metaclass = SingletonMeta):
 
         return uploads_url
 
-    def print_component_type(self):
-
-        """ Salutation function (for debug purpose mainly) """
-
-        print("I am a:", self._values['COMPONENT_TYPE'])
-
     def info(self):
-        """Print useful information at environment creation"""
+        """
+        Print useful information at environment creation
+        """
 
         logger.info("Component environment:")
         if self._values['COMPONENT_TYPE'] == ComponentType.RESEARCHER:

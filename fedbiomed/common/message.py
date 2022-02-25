@@ -1,3 +1,7 @@
+'''
+Definition of messages exchanged by the researcher and the nodes
+'''
+
 from dataclasses import dataclass
 from typing import Dict, Any, List, Union
 
