@@ -111,7 +111,7 @@ class ErrorNumbers(_BaseEnum):
     FB411 = "FB411: cannot train an experiment that is not fully defined"
     FB412 = "FB412: cannot do model checking for experiment"
     FB413 = "FB413: cannot save or load breakpoint for experiment"
-    
+
     # node problem detected by researcher
 
     FB500 = "FB500: undetermined node error, detected by server"
