@@ -61,11 +61,13 @@ class ModelManager:
             with open(path, "r") as model:            
                 content = model.read()
         except FileNotFoundError:
-            pass
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f" model file {path} not found on system")
         except PermissionError:
-            pass
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f" cannot open model file {path} due" +
+                                                                        " to unsatisfactory privelge")
         except OSError:
-            pass
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f" cannot open model file {path} " +
+                                             "(file might have been corrupted)")
 
         # Minify model file using python_minifier module
         try:

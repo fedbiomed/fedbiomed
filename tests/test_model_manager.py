@@ -627,6 +627,8 @@ class TestModelManager(unittest.TestCase):
                                                         'command': 'model-status'
                                                         })
 
+        # test 3: test that any other errors are caught
+        
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
