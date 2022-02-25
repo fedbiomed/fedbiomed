@@ -2,15 +2,31 @@
 
 version 3 implementation of the Fed-BioMed project
 
+## Introduction
+
+Fed-BioMed is an open source project focused on empowering biomedical research using non-centralized approaches for statistical analysis and machine learning.
+
+The project is currently based on Python, PyTorch and Scikit-learn, and enables developing and deploying federated learning analysis in real-world machine learning applications.
+
+The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.gitlabpages.inria.fr
+
+Curious users can also be interested byt the current developments, occuring in the **develop** branch (https://gitlab.inria.fr/fedbiomed/fedbiomed/-/tree/develop)
+According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v3.3) aka the master branch.
+
+
 ## Install and run in development environment
 
 Fed-BioMed is developped under Linux Fedora, should be easily ported to other Linux distributions.
+It runs also smoothly on macOSX (mostly tested on macOSX 12: Monterey)
+
+Installation instruction are also available at: https://fedbiomed.gitlabpages.inria.fr/v3.3/tutorials/installation/0-basic-software-installation/
+
 
 ### Prerequisites :
 
 To ensure fedbiomed will work fine, you need to install before :
 
-* docker.
+* docker
 * docker-compose
 * conda
 
@@ -36,19 +52,19 @@ git clone git@gitlab.inria.fr:fedbiomed/fedbiomed.git
 $ ./scripts/configure_conda
 ```
 
-* this script will create the environments, or update them if the conda.yaml files have been modified
+* this script will create/upadte the conda environments
 
 * there is one specific environment for each component:
 
   * fedbiomed-network.yaml    : environment for HTTP upload/download server and MQQT daemon (network component)
   * fedbiomed-node.yaml       : environment for the node part
   * fedbiomed-researcher.yaml : environment for the researcher part
+  * fedbiomed-gui.yaml        : environment for the data management gui on the node
 
 **Remark**:
 
 * this script can also be used to update only some of the environments
 * for some components, we provide different versions of yaml files depending of the operating system of your host
-* be carefull about it, specially if you update the conda environment by using the conda command directly
 * in case of (conda or python) errors, we advice to remove all environments and restart from fresh (use the **-c** flag of configure_conda)
 * general usage for this script is:
 
@@ -59,7 +75,7 @@ Install/update conda environments for fedbiomed. If several ENV
 are provided, only these components will be updated. If no ENV is
 provided, all components will be updated.
 
-ENV can be network, node, researcher (or a combination of them)
+ENV can be network, node, researcher, gui (or a combination of them)
 
  -h, --help            this help
  -n, --dry-run         do nothing, just print what the script would do
@@ -73,7 +89,7 @@ ENV can be network, node, researcher (or a combination of them)
 
 In a terminal, you can configure environments to work interactively inside a specific repository, with the right conda environment and the right PYTHONPATH environment.
 
-**WARNING**: this script only work for **bash** and **zsh**. It is not compliant with ksh/csh/tcsh/etcsh/...
+**WARNING**: this script only work for **bash**, **ksh** and **zsh**. It is not compliant with c variant of shell (csh/tcsh/etcsh/...)
 
 ```
 source ./scripts/fedbiomed_environment ENV
@@ -346,10 +362,10 @@ can provide same model file to update its content.
 
 ## Fed-BioMed Node GUI
 
-Node GUI provides an interface for Node to manage datasets and deploy new ones. GUI is consist of two components 
-as Server and UI. Server has been developed on Flask framework and UI is developed using ReactJS. Flask provide API 
+Node GUI provides an interface for Node to manage datasets and deploy new ones. GUI is consist of two components
+as Server and UI. Server has been developed on Flask framework and UI is developed using ReactJS. Flask provide API
 services that use Fed-BioMed's DataManager for deploying and managing dataset. All the source files for GUI has been
-located on the `${FEDBIOMED_DIR}/gui` directory. 
+located on the `${FEDBIOMED_DIR}/gui` directory.
 
 ### Starting GUI
 
@@ -359,29 +375,29 @@ Node GUI can be started suing Fed-BioMEd CLI.
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder '<path-for-data-folder>' config '<name-of-the-config-file>' start
 ```
 
-Arguments: 
+Arguments:
 
 - ``data-folder``: Data folder represent the folder path where datasets have been stored. It can be absolute or relative path.
 If it is relative path, Fed-BioMed base directory is going to be used as reference. **If `datafolder` is not provided. Script will look for
-`data` folder in the Fed-BioMed root directory and if it doesn't exist it will raise an error.** 
-- ``config``: Config file represents the name of the configuration file which is going to be used for GUI. If it is not 
+`data` folder in the Fed-BioMed root directory and if it doesn't exist it will raise an error.**
+- ``config``: Config file represents the name of the configuration file which is going to be used for GUI. If it is not
 provided, default will be``config_node.ini``.
-              
-It is also possible to start GUI on specific host and port, By default it is started `localhost` as host and `8484` as port.  To change
-it you can modify following command. 
 
-**IMPORTANT:** Please always consider providing `data-folder` argument while starting the GUI. 
+It is also possible to start GUI on specific host and port, By default it is started `localhost` as host and `8484` as port.  To change
+it you can modify following command.
+
+**IMPORTANT:** Please always consider providing `data-folder` argument while starting the GUI.
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder ../data config config-n1.ini --port 80 --host 0.0.0.0 start
 
 ```
 
-### Details of Start Process 
+### Details of Start Process
 
 While the Node GUI is started, it install `npm` modules and builds ReactJS application in ``${FEDBIOMED_DIR}/var/gui-build``. If the GUI
 is already built (means that `gui/ui/node_modules` and `var/gui-build` folders exist), it does not reinstall and rebuild ReactJS. If you want to
-reinstall and rebuild, please add `--recreate` flag in the command same as below,  
+reinstall and rebuild, please add `--recreate` flag in the command same as below,
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
@@ -390,8 +406,8 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
 
 ### Launching Multiple Node GUI
 
-It is possible to start multiple Node GUIs for different nodes as long as the http ports are different. The 
-commands below starts three Node GUI for the nodes; config-n1.ini, config-n2.ini and config-n3.ini on the ports respectively, `8181`, `8282` and `8383`. 
+It is possible to start multiple Node GUIs for different nodes as long as the http ports are different. The
+commands below starts three Node GUI for the nodes; config-n1.ini, config-n2.ini and config-n3.ini on the ports respectively, `8181`, `8282` and `8383`.
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui config config-n1.ini port 8181 start
@@ -402,14 +418,14 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui config config-n3.
 ### Development/Debugging for GUI
 If you want to customize or work on user interface for debugging purposes, it is always better to use ReactJS in development mode, otherwise building GUI
 after every update will take a lot of time. To launch user interface in development mode first you need to start Flask server. This can be
-easily done with the previous start command. Currently, Flask server always get started on development mode.  To enable debug mode you should add `--debug` 
-flag to the start command. 
+easily done with the previous start command. Currently, Flask server always get started on development mode.  To enable debug mode you should add `--debug`
+flag to the start command.
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder ../data config config-n1.ini --debug start
 ```
 **Important:** Please do not change Flask port and host while starting it for development purposes. Because React (UI) will be calling
-``localhost:8484/api`` endpoint in development mode. 
+``localhost:8484/api`` endpoint in development mode.
 
 The command above will serve ``var/gui-build`` directory as well as API services. It means that on the URL `localhost:8484` you will be able to
 see the user interface. This user interface won't be updated automatically because it is already built. To have dynamic update for user interface you can start React with ``npm start``.
@@ -421,26 +437,15 @@ npm start
 ```
 
 After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
-in ``${FEDBIOMED_DIR}/gui/ui/src`` it will get dynamically updated on ``loncahost:3000``. 
+in ``${FEDBIOMED_DIR}/gui/ui/src`` it will get dynamically updated on ``loncahost:3000``.
 
-Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in 
+Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in
 `${FEDBIOMED_DIR}/gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why
-first you should start Flask server first. 
+first you should start Flask server first.
 
 After development/debugging is done. To update changes in built GUI, you need to start GUI with ``--recreate`` command. Afterward,
-you will be able to see changes on the ``localhost:8484`` URL which serve built UI files. 
+you will be able to see changes on the ``localhost:8484`` URL which serve built UI files.
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
 ```
-
-
-
-
-
-
-
-
-
-
-
