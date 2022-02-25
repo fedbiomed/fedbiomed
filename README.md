@@ -10,7 +10,7 @@ The project is currently based on Python, PyTorch and Scikit-learn, and enables 
 
 The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.gitlabpages.inria.fr
 
-Curious users can also be interested byt the current developments, occuring in the **develop** branch (https://gitlab.inria.fr/fedbiomed/fedbiomed/-/tree/develop)
+Curious users may also be interested by the current developments, occuring in the **develop** branch (https://gitlab.inria.fr/fedbiomed/fedbiomed/-/tree/develop)
 According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronized with the code. We only provide support for the last release (currently v3.3) aka the master branch.
 
 
