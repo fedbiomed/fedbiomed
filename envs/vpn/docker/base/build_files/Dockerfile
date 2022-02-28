@@ -1,12 +1,15 @@
 # temporary builder image for wireguard tools
 # - need coherent system version with base image
 # - may need update for properly compiling boringtun (eg: cargo build of `clap` package failing on `buster-slim`)
-FROM debian:bookworm-slim as builder
+FROM debian:bullseye-slim as builder
 
 RUN apt-get update && apt-get install -y git build-essential cargo
 
 # install boringtun userspace implementation of wireguard
-RUN cargo install --bin boringtun --version ~0.4.0 boringtun
+# 
+# match versions of debian & boringtun
+# bullseye KO with boringtun 0.4.0 from cargo
+RUN cargo install --bin boringtun --version ~0.3.0 boringtun
 
 # install needed wireguard-tools
 ENV WITH_WGQUICK=yes
