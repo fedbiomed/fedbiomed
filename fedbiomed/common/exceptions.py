@@ -14,6 +14,13 @@ class FedbiomedError(Exception):
     pass
 
 
+class FedbiomedAggregatorError(FedbiomedError):
+    """
+    Exception specific to the Aggregator classes/subclasses
+    """
+    pass
+
+
 class FedbiomedEnvironError(FedbiomedError):
     """
     Exception specific to the Environ class

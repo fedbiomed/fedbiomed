@@ -41,6 +41,8 @@ per_file_ignores =
     fedbiomed/node/cli.py: , W605, C901,
 
     # regexp
-    fedbiomed/researcher/job.py: W605
+    fedbiomed/researcher/job.py: W605,
+    fedbiomed/researcher/filetools.py: W605
+
 
 exclude = .git, __pycache__
