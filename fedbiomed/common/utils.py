@@ -72,7 +72,6 @@ def _get_ipython_class_file(cls):
     # Lookup by parent module
     if hasattr(cls, '__module__'):
         object_ = sys.modules.get(cls.__module__)
-
         # If module has `__file__` attribute
         if hasattr(object_, '__file__'):
             return object_.__file__
