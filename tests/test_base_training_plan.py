@@ -5,17 +5,7 @@ import fedbiomed.common.training_plans._base_training_plan
 
 from unittest.mock import patch, MagicMock
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
-
 from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
-
-
-# Dummy Class for testing its source --------------------
-class TestClass:
-    def __init__(self):
-        pass
-
-
-# -------------------------------------------------------
 
 
 class TestBaseTrainingPlan(unittest.TestCase):
@@ -54,7 +44,7 @@ class TestBaseTrainingPlan(unittest.TestCase):
             path, _ = self.tp.save_code(expected_filepath)
             self.assertEqual(path, expected_filepath, 'Can not save model file properly')
 
-        # Test with adding dependndicies
+        # Test with adding dependencies
         with patch.object(fedbiomed.common.training_plans._base_training_plan, 'open', MagicMock()) as mock_open:
             mock_open.write.return_value = None
             mock_open.close.return_value = None
