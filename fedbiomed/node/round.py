@@ -162,7 +162,7 @@ class Round:
         if not is_failed:
             try:
                 results = {}
-                model.set_dataset(self.dataset['path'])
+                model.set_dataset_path(self.dataset['path'])
                 rtime_before = time.perf_counter()
                 ptime_before = time.process_time()
                 model.training_routine(**training_kwargs_with_history)

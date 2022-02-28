@@ -31,7 +31,7 @@ class BaseTrainingPlan(object):
 
         self.dependencies.extend(dep)
 
-    def set_dataset(self, dataset_path):
+    def set_dataset_path(self, dataset_path):
         """ Dataset path setter for TrainingPlan
 
         Args:

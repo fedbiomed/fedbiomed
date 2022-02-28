@@ -299,7 +299,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
         file.close()
         return di_ret
 
-    def set_dataset(self, dataset_path):
+    def set_dataset_path(self, dataset_path):
         """
           :param dataset_path (string)
         """
