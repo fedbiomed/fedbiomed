@@ -1,20 +1,19 @@
-import unittest
-from unittest.mock import patch
 import os
-import shutil
 import sys
-import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
+import unittest
 import fedbiomed.common.utils as fed_utils
 import fedbiomed.common.utils
+
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.researcher.environ import environ
+from unittest.mock import patch
 
 
-# Sources for test functions ----------------------------
+# Dummy Class for testing its source --------------------
 class TestClass:
     def __init__(self):
         pass
 # -------------------------------------------------------
+
 
 class TestUtils(unittest.TestCase):
     class ZMQInteractiveShell:
@@ -117,6 +116,11 @@ class TestUtils(unittest.TestCase):
             mock_hasattr.return_value = False
             with self.assertRaises(FedbiomedError):
                 fed_utils._get_ipython_class_file(TestClass)
+
+        with patch.object(sys, 'modules') as mock_sys_modules:
+            mock_sys_modules.return_value = {}
+            result = fed_utils._get_ipython_class_file(TestClass)
+            self.assertTrue(os.path.isfile(result), 'The result of class_file is not a file')
 
 
 if __name__ == '__main__':  # pragma: no cover
