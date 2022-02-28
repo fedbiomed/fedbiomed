@@ -1,10 +1,17 @@
-from fedbiomed.common.logger import logger
+"""
+Implementation of thedefault strategy
+
+This strategy is used then user does not provide its own
+"""
+
 
 import uuid
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
+from fedbiomed.common.logger import logger
+
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.strategies.strategy import Strategy
 
@@ -20,6 +27,9 @@ class DefaultStrategy(Strategy):
     - raise an error is one node returns an error
     """
     def __init__(self, data: FederatedDataSet):
+        """
+        very simple constructor (call super() constructor))
+        """
         super().__init__(data)
 
     def sample_nodes(self, round_i: int) -> List[uuid.UUID]:
@@ -39,6 +49,9 @@ class DefaultStrategy(Strategy):
         return self._fds.node_ids()
 
     def refine(self, training_replies, round_i) -> Tuple[List, List]:
+        """
+        Where the real work is done after each round
+        """
         models_params = []
         weights = []
 
@@ -60,16 +73,19 @@ class DefaultStrategy(Strategy):
         if len(self.sample_nodes(round_i)) != answers_count :
             if answers_count == 0 :
                 # none of the nodes answered
-                logger.error(ErrorNumbers.FB407.value)
-                error = ErrorNumbers.FB407
+                msg = ErrorNumbers.FB407.value
 
-            raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
+            else:
+                msg = ErrorNumbers.FB408.value
+
+            logger.critical(msg)
+            raise FedbiomedStrategyError(msg)
 
         # check that all nodes that answer could successfully train
         self._success_node_history[round_i] = []
         all_success = True
         for tr in training_replies:
-            if tr['success'] == True:
+            if tr['success'] is True:
                 model_params = tr['params']
                 models_params.append(model_params)
                 self._success_node_history[round_i].append(tr['node_id'])
@@ -87,7 +103,9 @@ class DefaultStrategy(Strategy):
 
 
         # so far, everything is OK
-        totalrows = sum([val[0]["shape"][0] for (key,val) in self._fds.data().items()])
-        weights = [val[0]["shape"][0] / totalrows for (key,val) in self._fds.data().items()]
-        logger.info('Nodes that successfully reply in round ' + str(round_i) + ' ' + str(self._success_node_history[round_i] ))
+        totalrows = sum([val[0]["shape"][0] for (key, val) in self._fds.data().items()])
+        weights = [val[0]["shape"][0] / totalrows for (key, val) in self._fds.data().items()]
+        logger.info('Nodes that successfully reply in round ' +
+                    str(round_i) + ' ' +
+                    str(self._success_node_history[round_i] ))
         return models_params, weights
