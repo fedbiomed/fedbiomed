@@ -30,15 +30,6 @@ from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 class TestExperiment(unittest.TestCase):
     """ Test for Experiment class """
 
-    class ZMQInteractiveShell:
-        """ Fake ZMQInteractiveShell class to mock get_ipython function.
-            Function returns this class, so the exceptions can be raised
-            as they are running on IPython kernel
-        """
-
-        def __call__(self):
-            pass
-
     # For testing model_class setter of Experiment
     class FakeModelTorch(TorchTrainingPlan):
         """ Should inherit TorchTrainingPlan to pass the condition
@@ -375,9 +366,9 @@ class TestExperiment(unittest.TestCase):
             nodes = self.test_exp.set_nodes(nodes_expected)
 
         # Test raising SilentTerminationError
-        with patch.object(fedbiomed.researcher.experiment, 'get_ipython',
+        with patch.object(fedbiomed.researcher.experiment, 'is_ipython',
                           create=True) as m:
-            m.side_effect = TestExperiment.ZMQInteractiveShell
+            m.return_value = True
 
             with self.assertRaises(FedbiomedSilentTerminationError):
                 self.test_exp.set_nodes(nodes_expected)
