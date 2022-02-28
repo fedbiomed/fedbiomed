@@ -433,7 +433,7 @@ class ModelManager:
                                  'model_path': path},
                                 self._database.model_id == model_id)
             except ValueError as err:
-                raise FedbiomedModelManagerError(ErrorNumbers.value + ": update databaise failed. Details :"
+                raise FedbiomedModelManagerError(ErrorNumbers.value + ": update database failed. Details :"
                                                  f"{str(err)}")
         else:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 'You cannot update default models. Please '
@@ -458,15 +458,18 @@ class ModelManager:
         """
 
         self._db.clear_cache()
-        model = self._db.get(self._database.model_id == model_id)
+        try:
+            model = self._db.get(self._database.model_id == model_id)
+        
+            if model['model_type'] == ModelTypes.REGISTERED.value:
 
-        if model['model_type'] == ModelTypes.REGISTERED.value:
-
-            self._db.remove(doc_ids=[model.doc_id])
-        else:
-            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 'For default models, please remove model file'
-                                             'from `default_models` and restart your node')
-
+                self._db.remove(doc_ids=[model.doc_id])
+            else:
+                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 'For default models, please remove'
+                                                 ' model file from `default_models` and restart your node')
+        except RuntimeError as err:
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": cannot get model from database."
+                                             f"Details: {str(err)}")
         return True
 
     def list_approved_models(self, verbose: bool = True) -> List:
