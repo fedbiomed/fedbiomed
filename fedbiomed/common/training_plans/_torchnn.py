@@ -2,9 +2,7 @@
 TrainingPlan definition for torchnn ML framework
 '''
 
-
-import inspect
-from typing import Union, List
+from typing import Union
 
 import torch
 import torch.nn as nn

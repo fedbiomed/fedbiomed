@@ -3,11 +3,10 @@ TrainingPlan definition for sklearn ML framework
 '''
 
 import sys
-import inspect
 import numpy as np
 from io import StringIO
 
-from typing import Iterator, Union
+from typing import Union
 from joblib import dump, load
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
