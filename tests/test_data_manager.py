@@ -13,9 +13,9 @@ from torch.utils.data import Dataset
 
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
-from tests.testsupport.fake_uuid import FakeUuid
+from testsupport.fake_uuid import FakeUuid
 
-from fedbiomed.node.environ    import environ
+from fedbiomed.node.environ import environ
 from fedbiomed.node.data_manager import DataManager
 
 

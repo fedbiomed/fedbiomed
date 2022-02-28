@@ -10,10 +10,7 @@ import torch
 import torch.nn as nn
 
 from fedbiomed.common.logger import logger
-from fedbiomed.common.utils import get_class_source
-from fedbiomed.common.exceptions import FedbiomedTrainingPlanError, FedbiomedError
-from fedbiomed.common.constants import ErrorNumbers
-from .base_training_plan import BaseTrainingPlan
+from ._base_training_plan import BaseTrainingPlan
 
 
 class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
@@ -64,7 +61,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         # list dependencies of the model
 
-        self.add_dependency(["from fedbiomed.common.training_plans.torchnn import TorchTrainingPlan",
+        self.add_dependency(["from fedbiomed.common.training_plans import TorchTrainingPlan",
                              "import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",

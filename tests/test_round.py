@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
-from tests.testsupport.fake_training_plan import FakeModel
-from tests.testsupport.fake_message import FakeMessages
-from tests.testsupport.fake_uuid import FakeUuid
+from testsupport.fake_training_plan import FakeModel
+from testsupport.fake_message import FakeMessages
+from testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round

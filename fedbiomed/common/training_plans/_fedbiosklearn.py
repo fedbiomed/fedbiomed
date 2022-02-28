@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
 from fedbiomed.common.logger import logger
-from .base_training_plan import BaseTrainingPlan
+from ._base_training_plan import BaseTrainingPlan
 
 
 class _Capturer(list):

@@ -8,11 +8,11 @@ import inspect
 from unittest.mock import patch, MagicMock, PropertyMock
 
 import testsupport.mock_researcher_environ  ## noqa (remove flake8 false warning)
-from tests.testsupport.fake_dataset import FederatedDataSetMock
-from tests.testsupport.fake_experiment import ExperimentMock
-from tests.testsupport.fake_training_plan import FakeModel
+from testsupport.fake_dataset import FederatedDataSetMock
+from testsupport.fake_experiment import ExperimentMock
+from testsupport.fake_training_plan import FakeModel
 
-from fedbiomed.common.training_plans.torchnn import TorchTrainingPlan
+from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.exceptions import FedbiomedSilentTerminationError
 
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
