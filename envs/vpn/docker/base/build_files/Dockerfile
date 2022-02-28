@@ -6,7 +6,7 @@ FROM debian:bookworm-slim as builder
 RUN apt-get update && apt-get install -y git build-essential cargo
 
 # install boringtun userspace implementation of wireguard
-RUN cargo install --bin boringtun boringtun
+RUN cargo install --bin boringtun --version ~0.4.0 boringtun
 
 # install needed wireguard-tools
 ENV WITH_WGQUICK=yes
