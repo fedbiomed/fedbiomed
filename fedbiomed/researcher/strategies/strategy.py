@@ -1,7 +1,12 @@
-from fedbiomed.researcher.datasets import FederatedDataSet
+"""
+Top class for strategy implementation
+"""
+
 from typing import Dict, Any
 
-# TODO: do we consider it as an abstract class ?
+from fedbiomed.researcher.datasets import FederatedDataSet
+
+
 class Strategy:
     """
     Default Strategy parent class
@@ -32,21 +37,29 @@ class Strategy:
                      'params_path': params_path,
                      'params': params } )
 
-        @return weights : proportions list, each element of this list represent the proportion of lines the node has with respect to the whole.
-        @return model_params : list containing dictionnaries with list of weight matrices of every node : [{"n1":{"layer1":m1,"layer2":m2},{"layer3":"m3"}},{"n2": ...}]
+        @return weights : proportions list, each element of this list represent the proportion of
+        lines the node has with respect to the whole.
+        @return model_params : list containing dictionnaries with list of weight matrices of
+        every node : [{"n1":{"layer1":m1,"layer2":m2},{"layer3":"m3"}},{"n2": ...}]
         """
         return
 
     def save_state(self) -> Dict[str, Any]:
+        """
+        used in breakpoint saving
+        """
         state = {
-                "class": type(self).__name__,
-                "module": self.__module__,
-                "parameters": self._parameters,
-                "fds": self._fds.data()
+            "class": type(self).__name__,
+            "module": self.__module__,
+            "parameters": self._parameters,
+            "fds": self._fds.data()
         }
         return state
 
-    def load_state(self,  state: Dict[str, Any]=None):
+    def load_state(self, state: Dict[str, Any] = None):
+        """
+        used in breakpoint loading
+        """
         # fds may be modified and diverge from Experiment
         self._fds = FederatedDataSet(state.get('fds'))
         self._parameters = state['parameters']
