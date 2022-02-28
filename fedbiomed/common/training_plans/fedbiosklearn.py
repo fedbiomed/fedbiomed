@@ -8,9 +8,7 @@ import numpy as np
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
 from fedbiomed.common.logger import logger
-from fedbiomed.common.exceptions import FedbiomedTrainingPlanError, FedbiomedError
-from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.utils import get_class_source
+from .base_training_plan import BaseTrainingPlan
 
 
 class _Capturer(list):
@@ -30,7 +28,63 @@ class _Capturer(list):
         sys.stdout = self._stdout
 
 
-class SGDSkLearnModel:
+class SGDSkLearnModel(BaseTrainingPlan):
+
+    def __init__(self, model_args: dict = {}):
+        """
+        Class initializer.
+
+        Args:
+        - model_args (dict, optional): model arguments.
+        """
+        super(SGDSkLearnModel, self).__init__()
+
+        # sklearn.utils.parallel_backend("locky", n_jobs=1, inner_max_num_threads=1)
+        self.batch_size = 100  # unused
+        self.model_map = {'MultinomialNB', 'BernoulliNB', 'Perceptron', 'SGDClassifier', 'PassiveAggressiveClassifier',
+                          'SGDRegressor', 'PassiveAggressiveRegressor', 'MiniBatchKMeans',
+                          'MiniBatchDictionaryLearning'}
+
+        self.add_dependency(["from fedbiomed.common.training_plans.fedbiosklearn import SGDSkLearnModel",
+                             "import inspect",
+                             "import numpy as np",
+                             "import pandas as pd",
+                             ])
+
+        # default value if passed argument with incorrect type
+        if not isinstance(model_args, dict):
+            model_args = {}
+
+        if 'model' not in model_args or model_args['model'] not in self.model_map:
+            logger.error('model must be one of, ' + str(self.model_map))
+        else:
+            self.model_type = model_args['model']
+
+            # Sklearn mothods that returns loss value when the verbose flag is provided
+            self._verbose_capture = ['Perceptron', 'SGDClassifier',
+                                     'PassiveAggressiveClassifier',
+                                     'SGDRegressor',
+                                     'PassiveAggressiveRegressor']
+
+            # Add verbosity in model_args if not and model is in verbose capturer
+            # TODO: check this - verbose doesn't seem to be used ?
+            if 'verbose' not in model_args and model_args['model'] in self._verbose_capture:
+                model_args['verbose'] = 1
+
+            elif model_args['model'] not in self._verbose_capture:
+                logger.info("[TENSORBOARD ERROR]: cannot compute loss for " + \
+                            model_args['model'] + ": it needs to be implemeted")
+
+            self.m = eval(self.model_type)()
+            self.params_sgd = self.m.get_params()
+            from_args_sgd_proper_pars = {key: model_args[key] for key in model_args if key in self.params_sgd}
+            self.params_sgd.update(from_args_sgd_proper_pars)
+            self.param_list = []
+            self.set_init_params(model_args)
+            self.dataset_path = None
+            self._is_classif = False  # whether the model selected is a classifier or not
+            self._is_binary_classif = False  # whether the classification is binary or multi classes
+            # (for classification only)
 
     def set_init_params(self, model_args):
         """
@@ -194,119 +248,6 @@ class SGDSkLearnModel:
                 elif self.model_type in ['MultinomialNB', 'BernoulliNB']:
                     # TODO: Need to find a way for Bayesian approaches 
                     pass
-
-    def __init__(self, model_args: dict = {}):
-        """
-        Class initializer.
-
-        Args:
-        - model_args (dict, optional): model arguments.
-        """
-        # sklearn.utils.parallel_backend("locky", n_jobs=1, inner_max_num_threads=1)
-        self.batch_size = 100  # unused
-        self.model_map = {'MultinomialNB', 'BernoulliNB', 'Perceptron', 'SGDClassifier', 'PassiveAggressiveClassifier',
-                          'SGDRegressor', 'PassiveAggressiveRegressor', 'MiniBatchKMeans',
-                          'MiniBatchDictionaryLearning'}
-
-        self.dependencies = ["from fedbiomed.common.training_plans.fedbiosklearn import SGDSkLearnModel",
-                             "import inspect",
-                             "import numpy as np",
-                             "import pandas as pd",
-                             ]
-
-        # default value if passed argument with incorrect type
-        if not isinstance(model_args, dict):
-            model_args = {}
-
-        if 'model' not in model_args or model_args['model'] not in self.model_map:
-            logger.error('model must be one of, ' + str(self.model_map))
-        else:
-            self.model_type = model_args['model']
-
-            # Sklearn mothods that returns loss value when the verbose flag is provided
-            self._verbose_capture = ['Perceptron', 'SGDClassifier',
-                                     'PassiveAggressiveClassifier',
-                                     'SGDRegressor',
-                                     'PassiveAggressiveRegressor']
-
-            # Add verbosity in model_args if not and model is in verbose capturer
-            # TODO: check this - verbose doesn't seem to be used ?
-            if 'verbose' not in model_args and model_args['model'] in self._verbose_capture:
-                model_args['verbose'] = 1
-
-            elif model_args['model'] not in self._verbose_capture:
-                logger.info("[TENSORBOARD ERROR]: cannot compute loss for " + \
-                            model_args['model'] + ": it needs to be implemeted")
-
-            self.m = eval(self.model_type)()
-            self.params_sgd = self.m.get_params()
-            from_args_sgd_proper_pars = {key: model_args[key] for key in model_args if key in self.params_sgd}
-            self.params_sgd.update(from_args_sgd_proper_pars)
-            self.param_list = []
-            self.set_init_params(model_args)
-            self.dataset_path = None
-            self._is_classif = False  # whether the model selected is a classifier or not
-            self._is_binary_classif = False  # whether the classification is binary or multi classes 
-            # (for classification only)
-
-    # provided by fedbiomed // necessary to save the model code into a file
-    def add_dependency(self, dep):
-        """
-           Add new dependency to this class.
-           :param dep (string) dependency to add.
-        """
-        self.dependencies.extend(dep)
-        pass
-
-    def save_code(self, filepath: str):
-        """Save the class code for this training plan to a file
-
-        Args:
-            filepath (string): path to the destination file
-
-        Returns:
-            None
-
-        Exceptions:
-            FedBioMedTrainingPlanError:
-        """
-
-        try:
-            class_source = get_class_source(self.__class__)
-        except FedbiomedError as e:
-            raise FedbiomedTrainingPlanError(ErrorNumbers.FB606.value + f"Error while getting source of the "
-                                                                        f"model class - {e}")
-
-        # Preparing content of the module
-        content = ""
-        for s in self.dependencies:
-            content += s + "\n"
-
-        content += "\n"
-        content += class_source
-
-        try:
-            # should we write it in binary (for the sake of space optimization)?
-            file = open(filepath, "w")
-            file.write(content)
-            file.close()
-            logger.debug("Model file has been saved: " + filepath)
-        except PermissionError:
-            _msg = ErrorNumbers.FB606.value + f" : Unable to read {filepath} due to unsatisfactory privileges"
-            ", can't write the model content into it"
-            logger.error(_msg)
-            raise FedbiomedTrainingPlanError(_msg)
-        except MemoryError:
-            _msg = ErrorNumbers.FB606.value + f" : Can't write model file on {filepath}: out of memory!"
-            logger.error(_msg)
-            raise FedbiomedTrainingPlanError(_msg)
-        except OSError:
-            _msg = ErrorNumbers.FB606.value + f" : Can't open file {filepath} to write model content"
-            logger.error(_msg)
-            raise FedbiomedTrainingPlanError(_msg)
-
-        # Return filepath and content this allows
-        return filepath, content
 
     def save(self, filename, params: dict = None):
         """

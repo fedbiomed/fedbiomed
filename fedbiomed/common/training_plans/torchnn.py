@@ -13,9 +13,10 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_class_source
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError, FedbiomedError
 from fedbiomed.common.constants import ErrorNumbers
+from .base_training_plan import BaseTrainingPlan
 
 
-class TorchTrainingPlan(nn.Module):
+class TorchTrainingPlan(nn.Module, BaseTrainingPlan):
     def __init__(self, model_args: dict = {}):
         """
         An abstraction over pytorch module to run
@@ -39,7 +40,6 @@ class TorchTrainingPlan(nn.Module):
             - use_gpu (bool, optional) : researcher requests to use GPU (or not) for training
                 if available on node and proposed by node. Defaults to False.
         """
-
         super(TorchTrainingPlan, self).__init__()
 
         # cannot use it here !!!! FIXED in training_routine
@@ -64,16 +64,14 @@ class TorchTrainingPlan(nn.Module):
             self.use_gpu = model_args.get('use_gpu', False)
 
         # list dependencies of the model
-        self.dependencies = ["from fedbiomed.common.training_plans.torchnn import TorchTrainingPlan",
+
+        self.add_dependency(["from fedbiomed.common.training_plans.torchnn import TorchTrainingPlan",
                              "import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
                              "from torch.utils.data import DataLoader",
                              "from torchvision import datasets, transforms"
-                             ]
-
-        # to be configured by setters
-        self.dataset_path = None
+                             ])
 
     # provided by fedbiomed
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
@@ -235,67 +233,6 @@ class TorchTrainingPlan(nn.Module):
         self.to(self.device_init)
         torch.cuda.empty_cache()
 
-    # provided by fedbiomed // necessary to save the model code into a file
-    def add_dependency(self, dep: List[str]):
-        """adds extra python import(s)
-
-        Args:
-            dep (List[str]): package name import, eg: 'import torch as th'
-        """
-        self.dependencies.extend(dep)
-        pass
-
-    # provided by fedbiomed
-    def save_code(self, filepath: str):
-        """Save the class code for this training plan to a file
-
-        Args:
-            filepath (string): path to the destination file
-
-        Returns:
-            None
-
-        Exceptions:
-            FedBioMedTrainingPlanError:
-        """
-
-        try:
-            class_source = get_class_source(self.__class__)
-        except FedbiomedError as e:
-            raise FedbiomedTrainingPlanError(ErrorNumbers.FB605.value + f"Error while getting source of the "
-                                                                        f"model class - {e}")
-
-        # Preparing content of the module
-        content = ""
-        for s in self.dependencies:
-            content += s + "\n"
-
-        content += "\n"
-        content += class_source
-
-        try:
-            # should we write it in binary (for the sake of space optimization)?
-            file = open(filepath, "w")
-            file.write(content)
-            file.close()
-            logger.debug("Model file has been saved: " + filepath)
-        except PermissionError:
-            _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges"
-            ", can't write the model content into it"
-            logger.error(_msg)
-            raise FedbiomedTrainingPlanError(_msg)
-        except MemoryError:
-            _msg = ErrorNumbers.FB605.value + f" : Can't write model file on {filepath}: out of memory!"
-            logger.error(_msg)
-            raise FedbiomedTrainingPlanError(_msg)
-        except OSError:
-            _msg = ErrorNumbers.FB605.value + f" : Can't open file {filepath} to write model content"
-            logger.error(_msg)
-            raise FedbiomedTrainingPlanError(_msg)
-
-        # Return filepath and content this allows
-        return filepath, content
-
     # provided by fedbiomed
     def save(self, filename, params: dict = None) -> None:
         """Save the torch training parameters from this training plan or
@@ -343,12 +280,6 @@ class TorchTrainingPlan(nn.Module):
     # provided by the fedbiomed / can be overloaded // need WORK
     def logger(self, msg, batch_index, log_interval=10):
         pass
-
-    # provided by the fedbiomed // should be moved in a DATA
-    # manipulation module
-    def set_dataset(self, dataset_path):
-        self.dataset_path = dataset_path
-        logger.debug('Dataset_path' + self.dataset_path)
 
     # provided by the fedbiomed // should be moved in a DATA
     # manipulation module
