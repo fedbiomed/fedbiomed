@@ -42,8 +42,7 @@ class ModelManager:
         self._database = Query()
         self._repo = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
 
-    def _create_hash(self, path):
-
+    def _create_hash(self, path: str):
         """ Method for creating hash with given model file
 
             Args:
@@ -128,8 +127,10 @@ class ModelManager:
 
         # Check model path whether is registered before
         self._db.clear_cache()
+        
         models_path_search = self._db.search(self._database.model_path == path)
         models_name_search = self._db.search(self._database.name == name)
+
         if models_path_search:
             raise FedbiomedModelManagerError(f'This model has been added already: {path}')
         elif models_name_search:
@@ -151,9 +152,11 @@ class ModelManager:
                                 model_id=model_id, model_type=model_type,
                                 algorithm=algorithm, date_created=ctime,
                                 date_modified=mtime, date_registered=rtime)
-
-            self._db.insert(model_object)
-
+            try:
+                self._db.insert(model_object)
+            except ValueError as err:
+                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : database insertion failed with"
+                                                 f" following error: {str(err)}")
             return True
 
     def check_hashes_for_registered_models(self):
@@ -175,12 +178,22 @@ class ModelManager:
                     if model['algorithm'] != environ['HASHING_ALGORITHM']:
                         logger.info(f'Recreating hashing for : {model["name"]} \t {model["model_id"]}')
                         hashing, algorithm = self._create_hash(model['model_path'])
-                        self._db.update({'hash': hashing, 'algorithm': algorithm},
-                                        self._database.model_id.all(model["model_id"]))
+                        try:
+                            self._db.update({'hash': hashing, 'algorithm': algorithm},
+                                            self._database.model_id.all(model["model_id"]))
+                        except ValueError as err:
+                            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value +
+                                                             ": database update failed, with error "
+                                                             f" {str(err)}")
                 else:
                     # Remove doc because model file is not exist anymore
                     logger.info(f'Model : {model["name"]} could not found in : {model["model_path"]}, will be removed')
-                    self._db.remove(doc_ids=[model.doc_id])
+                    try:
+                        self._db.remove(doc_ids=[model.doc_id])
+                    except RuntimeError as err:
+                        raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 
+                                                         "database remove operation failed, with following error: ",
+                                                         f"{str(err)}")
 
     def check_is_model_approved(self, path) -> Tuple[bool, Dict[str, Any]]:
 
@@ -191,6 +204,12 @@ class ModelManager:
             Args:
                 path (str): The path of requested model file by researcher after downloading
                             model file from file repository.
+                            
+            Returns:
+                approved (bool): Whether model has been approved or not
+                approved_model (Dict[str, Any]): dictionary containing fields
+                related to the model. If database search request failed, 
+                returns None instead.
         """
 
         # Create hash for requested model
@@ -320,7 +339,7 @@ class ModelManager:
         models = self._db.search(self._database.model_type == 'default')
 
         # Get model names from list of models
-        models_name_db = [model['name'] for model in models]
+        models_name_db = [model.get('name') for model in models if isinstance(model, dict)]
 
         # Default models not in database
         models_not_saved = list(set(models_file) - set(models_name_db))
@@ -338,30 +357,42 @@ class ModelManager:
 
         # Remove models that have been removed from file system
         for model_name in models_deleted:
-            model_doc = self._db.get(self._database.name == model_name)
-            logger.info('Removed default model file has been detected,'
-                        f' it will be removed from DB as well: {model_name}')
-            self._db.remove(doc_ids=[model_doc.doc_id])
+            try:
+                model_doc = self._db.get(self._database.name == model_name)
+                logger.info('Removed default model file has been detected,'
+                            f' it will be removed from DB as well: {model_name}')
 
+                self._db.remove(doc_ids=[model_doc.doc_id])
+            except RuntimeError as err:
+                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": failed to update database, "
+                                                 f" with error {str(err)}")
         # Update models
         for model in models_exists:
             path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
             mtime = datetime.fromtimestamp(os.path.getmtime(path))
-            model_info = self._db.get(self._database.name == model)
-
+            try:
+                model_info = self._db.get(self._database.name == model)
+            except RuntimeError as err:
+                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f": failed to get model _info for model {model}"
+                                                 f"Details : {str(err)}")
             # Check if hashing algorithm has changed
-            if model_info['algorithm'] != environ['HASHING_ALGORITHM']:
-                logger.info(f'Recreating hashing for : {model_info["name"]} \t {model_info["model_id"]}')
-                hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_MODELS_DIR'], model))
-                self._db.update({'hash': hash, 'algorithm': algorithm},
-                                self._database.model_path == path)
-            # If default model file is modified update hashing
-            elif mtime > datetime.strptime(model_info['date_modified'], "%d-%m-%Y %H:%M:%S.%f"):
-                logger.info(f"Modified default model file has been detected. Hashing will be updated for: {model}")
-                hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_MODELS_DIR'], model))
-                self._db.update({'hash': hash, 'algorithm': algorithm,
-                                 'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f")},
-                                self._database.model_path == path)
+            try:
+                if model_info['algorithm'] != environ['HASHING_ALGORITHM']:
+                    logger.info(f'Recreating hashing for : {model_info["name"]} \t {model_info["model_id"]}')
+                    hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_MODELS_DIR'], model))
+                    self._db.update({'hash': hash, 'algorithm': algorithm},
+                                    self._database.model_path == path)
+                # If default model file is modified update hashing
+                elif mtime > datetime.strptime(model_info['date_modified'], "%d-%m-%Y %H:%M:%S.%f"):
+                    logger.info(f"Modified default model file has been detected. Hashing will be updated for: {model}")
+                    hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_MODELS_DIR'], model))
+                    self._db.update({'hash': hash, 'algorithm': algorithm,
+                                    'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f")},
+                                    self._database.model_path == path)
+            except ValueError as err:
+                # triggered if database update failed (see `update` method in tinydb code)
+                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": Failed to update database, with error: "
+                                                 f"{str(err)}")
 
     def update_model(self, model_id: str, path: str) -> True:
 
@@ -382,8 +413,11 @@ class ModelManager:
         """
 
         self._db.clear_cache()
-        model = self._db.get(self._database.model_id == model_id)
-
+        try:
+            model = self._db.get(self._database.model_id == model_id)
+        except RuntimeError as err:
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": get request on database failed."
+                                             f" Details: {str(err)}")
         if model['model_type'] == ModelTypes.REGISTERED.value:
 
             # Get modification date
@@ -392,11 +426,15 @@ class ModelManager:
             ctime = datetime.fromtimestamp(os.path.getctime(path))
 
             hash, algorithm = self._create_hash(path)
-            self._db.update({'hash': hash, 'algorithm': algorithm,
-                             'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
-                             'date_created': ctime.strftime("%d-%m-%Y %H:%M:%S.%f"),
-                             'model_path': path},
-                            self._database.model_id == model_id)
+            try:
+                self._db.update({'hash': hash, 'algorithm': algorithm,
+                                 'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
+                                 'date_created': ctime.strftime("%d-%m-%Y %H:%M:%S.%f"),
+                                 'model_path': path},
+                                self._database.model_id == model_id)
+            except ValueError as err:
+                raise FedbiomedModelManagerError(ErrorNumbers.value + ": update databaise failed. Details :"
+                                                 f"{str(err)}")
         else:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 'You cannot update default models. Please '
                                              'update them through their files saved in `default_models` directory '
@@ -438,18 +476,27 @@ class ModelManager:
             Args:
                 verbose (bool): Default is True. When it is True, print
                                 list of model in tabular format.
+            Returns: 
+                models (List[Dict[str, Any]]): a list of models that have
+                been found has "registered". Each model is in fact a dictionary
+                containing fields (note that following fields are removed :'model_path',
+                'hash', dates due to privacy reasons).
         """
 
         self._db.clear_cache()
         models = self._db.all()
 
         # Drop some keys for security reasons
+        _tags_to_remove = ['model_path',
+                           'hash',
+                           'date_modified',
+                           'date_created']
         for doc in models:
-            doc.pop('model_path')
-            doc.pop('hash')
-            doc.pop('date_modified')
-            doc.pop('date_created')
-
+            for tag_to_remove in _tags_to_remove:
+                try:
+                    doc.pop(tag_to_remove)
+                except KeyError:
+                    logger.warning(f"missing entry in databse: {tag_to_remove} for model {doc}")
         if verbose:
             print(tabulate(models, headers='keys'))
 
