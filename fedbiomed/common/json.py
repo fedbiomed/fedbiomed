@@ -1,9 +1,3 @@
-import json
-
-from typing import Union
-
-from fedbiomed.common.constants import ErrorNumbers
-
 """
 This module defines message serializer and deserializer
 for sending / receiving / parsing messages through Messager.
@@ -11,6 +5,13 @@ for sending / receiving / parsing messages through Messager.
 compared to the usual json module, it deals with some fedbiomed
 data types which are not serialized by default (eg: enumerations)
 """
+
+
+import json
+
+from typing import Union
+
+from fedbiomed.common.constants import ErrorNumbers
 
 
 def deserialize_msg(msg: Union[str, bytes]) -> dict:

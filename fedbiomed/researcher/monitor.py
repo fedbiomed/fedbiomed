@@ -1,20 +1,28 @@
+'''
+monitor class to trap information sent during training and
+sned it to tensordboard
+'''
+
+
 import os
 import shutil
-from fedbiomed.researcher.environ import environ
-from fedbiomed.common.logger import logger
-from torch.utils.tensorboard import SummaryWriter
 from typing import Dict, Any
+
+from torch.utils.tensorboard import SummaryWriter
+
+from fedbiomed.common.logger import logger
+from fedbiomed.researcher.environ import environ
 
 
 class Monitor():
-
-    """ This is the class that subscribes monitor channel and logs scalar values
+    """
+    This is the class that subscribes monitor channel and logs scalar values
     using `logger`. It also writes scalar values to tensorboard log files.
     """
 
     def __init__(self):
-
-        """ Constructor of the class. Intialize empty event writers object and
+        """
+        Constructor of the class. Intialize empty event writers object and
         logs directory. Removes tensorboard logs from previous experiments.
         """
 
@@ -28,8 +36,8 @@ class Monitor():
             self._remove_logs()
 
     def on_message_handler(self, msg: Dict[str, Any]):
-
-        """Handler for messages received through general/monitoring channel.
+        """
+        Handler for messages received through general/monitoring channel.
         This method is used as callback function in Requests class
 
         Args:
@@ -41,15 +49,15 @@ class Monitor():
         # For now monitor can only handle add_scalar messages
         if msg['command'] == 'add_scalar':
             self._summary_writer(msg['node_id'],
-                                    msg['key'],
-                                    msg['iteration'],
-                                    msg['value'],
-                                    msg['epoch'] )
+                                 msg['key'],
+                                 msg['iteration'],
+                                 msg['value'],
+                                 msg['epoch'] )
 
 
     def _summary_writer(self, node: str, key: str, global_step: int, scalar: float, epoch: int ):
-
-        """ This method is for writing scalar values using torch SummaryWriter
+        """
+        This method is for writing scalar values using torch SummaryWriter
         It creates new summary file for each node.
 
         Args:
@@ -64,13 +72,13 @@ class Monitor():
         # Initialize event SummaryWriters
         if node not in self._event_writers:
             self._event_writers[node] = {
-                                    'writer' : SummaryWriter(
-                                        log_dir = os.path.join(self._log_dir, node)
-                                    ),
-                                    'stepper': 1,
-                                    'step_state': 0,
-                                    'step': 0
-                                    }
+                'writer' : SummaryWriter(
+                    log_dir = os.path.join(self._log_dir, node)
+                ),
+                'stepper': 1,
+                'step_state': 0,
+                'step': 0
+            }
 
         if global_step == -1:
             # Means that batch is equal to all samples, use epoch as global step
@@ -80,46 +88,46 @@ class Monitor():
         #
         # stepper    : interval for each batch of points between 2 rounds or epochs
         #            : (should be equals to 1 when passing from one epoch to another
-        #               or a round to another, otherwise 0 for batch of points 
+        #               or a round to another, otherwise 0 for batch of points
         #               within the same epoch)
         # global step: index of the batch size/batch_size (for the current round)
         # step_state : number of previous steps that compose the previous rounds
-        #            : Ex: 
+        #            : Ex:
         # step       : index for loss / metric values that will be used when displaying on
         #              tensorboard. It represents number of batches processed for
         #              training model
         if global_step != 0 and self._event_writers[node]['stepper'] < 2:
             self._event_writers[node]['stepper'] = 0
-        
+
         elif global_step == 0:
             self._event_writers[node]['stepper'] = 1
-        
+
         # In every epoch first iteration (global step) will be zero so
         # we need to update step_state so we do not overwrite steps of
         # the previous  epochs
         if global_step == 0:
             self._event_writers[node]['step_state'] = self._event_writers[node]['step'] + \
-                                                        self._event_writers[node]['stepper']
+                self._event_writers[node]['stepper']
 
         # Increase step by adding global_step to step_state
         self._event_writers[node]['step'] = self._event_writers[node]['step_state'] + global_step
 
-        self._event_writers[node]['writer'].add_scalar('Metric[{}]'.format(
-                                                            key ),
-                                                            scalar,
-                                                            self._event_writers[node]['step'])
+        self._event_writers[node]['writer'].add_scalar('Metric[{}]'.format(key),
+                                                       scalar,
+                                                       self._event_writers[node]['step'])
 
     def close_writer(self):
-
-        """Closes `SummaryWriter` for each node """
+        """
+        Closes `SummaryWriter` for each node
+        """
 
         # Close each open SummaryWriter
         for node in self._event_writers:
             self._event_writers[node]['writer'].close()
 
     def _remove_logs(self):
-
-        """ This is private method for removing logs files from
+        """
+        This is private method for removing logs files from
         tensorboard logs dir.
         """
 

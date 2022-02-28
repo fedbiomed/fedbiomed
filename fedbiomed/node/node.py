@@ -1,25 +1,31 @@
+'''
+core code of the node component
+'''
+
+
 from json import decoder
-import uuid
 
 from typing import Optional, Union, Dict, Any
 
 from fedbiomed.common import json
-from fedbiomed.common.logger import logger
-from fedbiomed.common.tasks_queue import TasksQueue
-from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
+from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.messaging import Messaging
+from fedbiomed.common.tasks_queue import TasksQueue
+
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.round import Round
 from fedbiomed.node.data_manager import DataManager
 from fedbiomed.node.model_manager import ModelManager
+from fedbiomed.node.round import Round
 
 import validators
 
 
 class Node:
-    """ Defines the behaviour of the node, while communicating
+    """
+    Defines the behaviour of the node, while communicating
     with researcher through Messager, and executing / parsing task
     requested by researcher stored in a queue.
     """
@@ -81,7 +87,7 @@ class Node:
                             'success': True,
                             'sequence': msg['sequence'],
                             'command': 'pong'
-                         }).get_dict())
+                        }).get_dict())
             elif command == 'search':
                 # Look for databases matching the tags
                 databases = self.data_manager.search_by_tags(msg['tags'])
@@ -98,20 +104,20 @@ class Node:
                          'databases': databases,
                          'count': len(databases)}).get_dict())
             elif command == 'list':
-                 # Get list of all datasets
-                 databases = self.data_manager.list_my_data(verbose=False)
-                 remove_key = ['path', 'dataset_id']
-                 for d in databases:
-                     for key in remove_key:
+                # Get list of all datasets
+                databases = self.data_manager.list_my_data(verbose=False)
+                remove_key = ['path', 'dataset_id']
+                for d in databases:
+                    for key in remove_key:
                         d.pop(key, None)
 
-                 self.messaging.send_message(NodeMessages.reply_create(
-                     {'success': True,
-                      'command': 'list',
-                      'node_id': environ['NODE_ID'],
-                      'researcher_id': msg['researcher_id'],
-                      'databases': databases,
-                      'count' : len(databases),
+                self.messaging.send_message(NodeMessages.reply_create(
+                    {'success': True,
+                     'command': 'list',
+                     'node_id': environ['NODE_ID'],
+                     'researcher_id': msg['researcher_id'],
+                     'databases': databases,
+                     'count' : len(databases),
                      }).get_dict())
             elif command == 'model-status':
                 # Check is model approved
@@ -132,7 +138,7 @@ class Node:
                             extra_msg = f"Command `{command}` is not implemented",
                             researcher_id= resid)
         except KeyError:
-            # FIXME: this error could be raised for other missing keys (eg 
+            # FIXME: this error could be raised for other missing keys (eg
             # researcher_id, ....)
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
@@ -158,9 +164,9 @@ class Node:
             msg = json.deserialize_msg(msg)
         msg = NodeMessages.request_create(msg)
         # msg becomes a TrainRequest object
-        hist_monitor = HistoryMonitor(job_id=msg.get_param(
-            'job_id'), researcher_id=msg.get_param('researcher_id'),
-                               client=self.messaging)
+        hist_monitor = HistoryMonitor(job_id=msg.get_param('job_id'),
+                                      researcher_id=msg.get_param('researcher_id'),
+                                      client=self.messaging)
         # Get arguments for the model and training
         model_kwargs = msg.get_param('model_args') or {}
         training_kwargs = msg.get_param('training_args') or {}
@@ -176,7 +182,7 @@ class Node:
         assert model_class is not None, 'classname for the model and training routine was not found in message.'
 
         assert isinstance(
-            model_class, str), '`model_class` must be a string corresponding to the classname for the model and training routine in the repository'
+            model_class, str), '`model_class` must be a string corresponding to the classname for the model and training routine in the repository'  # noqa
 
         self.rounds = []  # store here rounds associated to each dataset_id
         # (so it is possible to train model on several dataset per round)
@@ -184,33 +190,33 @@ class Node:
         if environ['NODE_ID'] in msg.get_param('training_data'):
             for dataset_id in msg.get_param('training_data')[environ['NODE_ID']]:
                 alldata = self.data_manager.search_by_id(dataset_id)
-                if len(alldata) != 1 or not 'path' in alldata[0].keys():
+                if len(alldata) != 1 or 'path' not in alldata[0].keys():
                     # TODO: create a data structure for messaging
                     # (ie an object creating a dict with field accordingly)
                     # FIXME: 'the condition above depends on database model
                     # if database model changes (ie `path` field removed/
                     # modified);
                     # condition above is likely to be false
-                    logger.error('Did not found proper data in local datasets '
-                        + f'on node={environ["NODE_ID"]}')
+                    logger.error('Did not found proper data in local datasets ' +
+                                 f'on node={environ["NODE_ID"]}')
                     self.messaging.send_message(NodeMessages.reply_create(
                         {'command': "error",
                          'node_id': environ['NODE_ID'],
                          'researcher_id': researcher_id,
                          'errnum': ErrorNumbers.FB313,
                          'extra_msg': "Did not found proper data in local datasets"}
-                        ).get_dict())
+                    ).get_dict())
                 else:
                     self.rounds.append(Round(model_kwargs,
-                        training_kwargs,
-                        alldata[0],
-                        model_url,
-                        model_class,
-                        params_url,
-                        job_id,
-                        researcher_id,
-                        hist_monitor,
-                        self.node_args))
+                                             training_kwargs,
+                                             alldata[0],
+                                             model_url,
+                                             model_class,
+                                             params_url,
+                                             job_id,
+                                             researcher_id,
+                                             hist_monitor,
+                                             self.node_args))
 
     def task_manager(self):
         """ This method manages training tasks in the queue
