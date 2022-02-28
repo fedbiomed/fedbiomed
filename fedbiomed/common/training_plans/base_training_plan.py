@@ -6,22 +6,37 @@ from fedbiomed.common.utils import get_class_source
 
 
 class BaseTrainingPlan(object):
-
     def __init__(self):
+        """ A Base class that includes common method that are used for
+        all training plans
+
+        Attrs:
+            dependencies (List): All the dependencies that are need to be import
+                                TrainingPlan as module
+            dataset_path (string): The path that indicates where dataset has been stored
+        """
+
         super(BaseTrainingPlan, self).__init__()
         self.dependencies = []
         self.dataset_path = None
 
     def add_dependency(self, dep: List[str]):
+        """ Add snew dependency to the TrainingPlan class. These dependencies are used
+        while creating a python module.
+
+        Args:
+           dep (List[string]): Dependency to add. Dependencies should be indicated as import string
+                                e.g. `from torch import nn`
         """
-           Add new dependency to this class.
-           :param dep (string) dependency to add.
-        """
+
         self.dependencies.extend(dep)
-        pass
 
     def set_dataset(self, dataset_path):
-        """
+        """ Dataset path setter for TrainingPlan
+
+        Args:
+            dataset_path (str): The path where data is saved on the node. This method is called by
+                                the node who will execute the training.
 
         """
         self.dataset_path = dataset_path

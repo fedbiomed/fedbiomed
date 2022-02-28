@@ -16,7 +16,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from .base_training_plan import BaseTrainingPlan
 
 
-class TorchTrainingPlan(nn.Module, BaseTrainingPlan):
+class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
     def __init__(self, model_args: dict = {}):
         """
         An abstraction over pytorch module to run
@@ -41,7 +41,6 @@ class TorchTrainingPlan(nn.Module, BaseTrainingPlan):
                 if available on node and proposed by node. Defaults to False.
         """
         super(TorchTrainingPlan, self).__init__()
-
         # cannot use it here !!!! FIXED in training_routine
         # self.optimizer = torch.optim.Adam(self.parameters(), lr = 1e-3)
         self.optimizer = None
