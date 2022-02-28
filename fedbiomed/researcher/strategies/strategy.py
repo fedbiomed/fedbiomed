@@ -2,7 +2,12 @@
 Top class for strategy implementation
 """
 
+
 from typing import Dict, Any
+
+from fedbiomed.common.constants  import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedStrategyError
+from fedbiomed.common.logger     import logger
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 
@@ -42,7 +47,11 @@ class Strategy:
         @return model_params : list containing dictionnaries with list of weight matrices of
         every node : [{"n1":{"layer1":m1,"layer2":m2},{"layer3":"m3"}},{"n2": ...}]
         """
-        return
+        msg = ErrorNumbers.FB402.value + \
+            ": refine method should be overloaded by the provided strategy"
+        logger.critical(msg)
+        raise FedbiomedStrategyError(msg)
+
 
     def save_state(self) -> Dict[str, Any]:
         """
