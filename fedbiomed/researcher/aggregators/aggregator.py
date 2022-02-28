@@ -2,7 +2,9 @@
 top class for all aggregators
 """
 
+
 from typing import Dict, Any
+
 
 class Aggregator:
     """
@@ -31,7 +33,13 @@ class Aggregator:
         return norm
 
     def aggregate(self,  model_params: list, weights: list) -> Dict: # pragma: no cover
-        """Strategy to aggregate models"""
+        """
+        Strategy to aggregate models
+        """
+        msg = ErrorNumbers.FB401.value + \
+            ": aggreate method should be overloaded by the choosen strategy"
+        logger.critical(msg)
+        raise FedbiomedAggregatorError(msg)
 
     def save_state(self) -> Dict[str, Any]:
         """
