@@ -1,20 +1,26 @@
-import sys
+'''
+implementation of Round class of the node component
+'''
+
+
 import os
-import uuid
+import sys
 import time
 from typing import Union
+import uuid
 
-from fedbiomed.common.repository import Repository
+from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, TrainReply
+from fedbiomed.common.repository import Repository
+
+from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.model_manager import ModelManager
-from fedbiomed.node.environ import environ
-from fedbiomed.common.logger import logger
 
-import traceback
 
 class Round:
-    """ This class repesents the training part execute by a node in a given round
+    """
+    This class repesents the training part execute by a node in a given round
     """
     def __init__(self,
                  model_kwargs: dict = None,
@@ -66,6 +72,7 @@ class Round:
         self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
 
+
     def run_model_training(self) -> TrainReply:
         """This method downloads model file; then runs the training of a model
         and finally uploads model params
@@ -87,15 +94,16 @@ class Round:
             if (status != 200):
                 is_failed = True
                 error_message = "Cannot download model file: " + self.model_url
-            else:             
+            else:
                 if environ["MODEL_APPROVAL"]:
-                    approved, model = self.model_manager.check_is_model_approved(os.path.join(environ["TMP_DIR"], import_module + '.py')) 
+                    approved, model = self.model_manager.check_is_model_approved(os.path.join(environ["TMP_DIR"],
+                                                                                              import_module + '.py'))
                     if not approved:
                         is_failed = True
                         error_message = f'Requested model is not approved by the node: {environ["NODE_ID"]}'
                     else:
                         logger.info(f'Model has been approved by the node {model["name"]}')
-            
+
             if not is_failed:
                 status, params_path = self.repository.download_file(
                     self.params_url,
@@ -114,10 +122,12 @@ class Round:
         if not is_failed:
             try:
                 sys.path.insert(0, environ['TMP_DIR'])
-                # (below) import TrainingPlan created by Researcher on node
-                exec('import ' + import_module,  globals())
+
+                # import TrainingPlan created by Researcher on node
+                exec('import ' + import_module, globals())
                 sys.path.pop(0)
-                # (below) instantiate model as `train_class`
+
+                # instantiate model as `train_class`
                 train_class = eval(import_module + '.' + self.model_class)
                 if self.model_kwargs is None or len(self.model_kwargs) == 0:
                     # case where no args have been found (default)
@@ -151,7 +161,7 @@ class Round:
                 if arg in self.training_kwargs:
                     del self.training_kwargs[arg]
                     logger.warning(f'Researcher trying to set node-side training parameter {arg}. '
-                        f' Maybe a malicious researcher attack.')
+                                   f' Maybe a malicious researcher attack.')
 
         if not is_failed:
             training_kwargs_with_history = dict(monitor=self.monitor,
@@ -199,25 +209,25 @@ class Round:
 
         if not is_failed:
             return NodeMessages.reply_create({'node_id': environ['NODE_ID'],
-                        'job_id': self.job_id,
-                        'researcher_id': self.researcher_id,
-                        'command': 'train',
-                        'success': True,
-                        'dataset_id': self.dataset['dataset_id'],
-                        'params_url': res['file'],
-                        'msg': '',
-                        'timing': {
-                            'rtime_training': rtime_after - rtime_before,
-                            'ptime_training': ptime_after - ptime_before }
-                                  }).get_dict()
+                                              'job_id': self.job_id,
+                                              'researcher_id': self.researcher_id,
+                                              'command': 'train',
+                                              'success': True,
+                                              'dataset_id': self.dataset['dataset_id'],
+                                              'params_url': res['file'],
+                                              'msg': '',
+                                              'timing': {
+                                                  'rtime_training': rtime_after - rtime_before,
+                                                  'ptime_training': ptime_after - ptime_before }
+                                              }).get_dict()
         else:
             logger.error(error_message)
             return NodeMessages.reply_create({'node_id': environ['NODE_ID'],
-                        'job_id': self.job_id,
-                        'researcher_id': self.researcher_id,
-                        'command': 'train',
-                        'success': False,
-                        'dataset_id': '',
-                        'params_url': '',
-                        'msg': error_message,
-                        'timing': {} }).get_dict()
+                                              'job_id': self.job_id,
+                                              'researcher_id': self.researcher_id,
+                                              'command': 'train',
+                                              'success': False,
+                                              'dataset_id': '',
+                                              'params_url': '',
+                                              'msg': error_message,
+                                              'timing': {} }).get_dict()

@@ -1,6 +1,6 @@
-#
-# linear inheritance of torch nn.Module
-#
+'''
+TrainingPlan definition for torchnn ML framework
+'''
 
 
 import inspect
@@ -37,14 +37,16 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             - use_gpu (bool, optional) : researcher requests to use GPU (or not) for training
                 if available on node and proposed by node. Defaults to False.
         """
+
         super(TorchTrainingPlan, self).__init__()
+
         # cannot use it here !!!! FIXED in training_routine
-        # self.optimizer = torch.optim.Adam(self.parameters(), lr = 1e-3)
         self.optimizer = None
 
         # data loading // should be moved to another class
         self.batch_size = 100
         self.shuffle = True
+
         # TODO : add random seed init
         # self.random_seed_params = None
         # self.random_seed_shuffling_data = None
@@ -69,7 +71,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                              "from torchvision import datasets, transforms"
                              ])
 
-    # provided by fedbiomed
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """
         Set device (CPU, GPU) that will be used for training, based on `node_args`
@@ -118,8 +119,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                      f"gpu_only={node_args['gpu_only']}, "
                      f"use_gpu={use_gpu}, gpu_num={node_args['gpu_num']})")
 
-    # provided by fedbiomed
-    # FIXME: add betas parameters for ADAM solver + momentum for SGD
     def training_routine(self,
                          epochs: int = 2,
                          log_interval: int = 10,
@@ -130,6 +129,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          use_gpu: Union[bool, None] = None,
                          monitor=None,
                          node_args: Union[dict, None] = None):
+        # FIXME: add betas parameters for ADAM solver + momentum for SGD
         """
         Training routine procedure.
 

@@ -1,6 +1,13 @@
-from typing import Optional
+"""
+wrapper to the persistqueue python library
+
+This will allow to change replace the persistqueue (if needed)
+without changing the tasks_queue API
+"""
+
 
 import persistqueue
+from typing import Optional
 
 from fedbiomed.common.constants  import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError

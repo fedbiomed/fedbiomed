@@ -1,10 +1,14 @@
-import sys
-from io import StringIO
-import inspect
-from typing import Iterator, Union
+'''
+TrainingPlan definition for sklearn ML framework
+'''
 
-from joblib import dump, load
+import sys
+import inspect
 import numpy as np
+from io import StringIO
+
+from typing import Iterator, Union
+from joblib import dump, load
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
 from fedbiomed.common.logger import logger
@@ -142,22 +146,22 @@ class SGDSkLearnModel(BaseTrainingPlan):
     def _compute_support(self, targets: np.ndarray) -> np.ndarray:
         """
         Computes support, i.e. the number of items per
-        classes. It is designed from the way scikit learn linear model 
+        classes. It is designed from the way scikit learn linear model
         `fit_binary` and `_prepare_fit_binary` have been implemented.
-        
+
         Args:
-            targets (np.ndarray): targets that contains labels 
+            targets (np.ndarray): targets that contains labels
             used for training models
 
         Returns:
-            np.ndarray: support 
+            np.ndarray: support
         """
         support = np.zeros((len(self.m.classes_),))
         # please visit https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324
         # and https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L738 
         # to see how multi classfication is done in sklearn
         for i, aclass in enumerate(self.m.classes_):
-            # in sklearn code, in `fit_binary1`, `i`` seems to be 
+            # in sklearn code, in `fit_binary1`, `i`` seems to be
             # iterated over model.classes_
             # (https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L774)
             # We cannot directly know for each loss that has been logged from scikit learn
@@ -171,23 +175,23 @@ class SGDSkLearnModel(BaseTrainingPlan):
                          monitor=None,
                          node_args: Union[dict, None] = None):
         """
-            Method training_routine called in Round, to change only if you know what you are doing.
+        Method training_routine called in Round, to change only if you know what you are doing.
 
-            Args:
-            - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
-            - monitor ([type], optional): [description]. Defaults to None.
-            - node_args (Union[dict, None]): command line arguments for node. Can include:
-                - gpu (bool): propose use a GPU device if any is available. Default False.
-                - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
-                    GPU device if this GPU device is available. Default None.
-                - gpu_only (bool): force use of a GPU device if any available, even if researcher
-                    doesnt request for using a GPU. Default False.
+        Args:
+        - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
+        - monitor ([type], optional): [description]. Defaults to None.
+        - node_args (Union[dict, None]): command line arguments for node. Can include:
+            - gpu (bool): propose use a GPU device if any is available. Default False.
+            - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
+              GPU device if this GPU device is available. Default None.
+            - gpu_only (bool): force use of a GPU device if any available, even if researcher
+              doesnt request for using a GPU. Default False.
         """
         # issue warning if GPU usage is forced by node : no GPU support for sklearn training
         # plan currently
         if node_args is not None and node_args.get('gpu_only', False):
-            logger.warning('Node would like to force GPU usage, but sklearn training plan '
-                           + 'does not support it. Training on CPU.')
+            logger.warning('Node would like to force GPU usage, but sklearn training plan ' +
+                           'does not support it. Training on CPU.')
 
         #
         # perform sklearn training
@@ -196,12 +200,20 @@ class SGDSkLearnModel(BaseTrainingPlan):
         classes = np.unique(target)
         for epoch in range(epochs):
             with _Capturer() as output:
-                if self.model_type == 'MultinomialNB' or self.model_type == 'BernoulliNB' or self.model_type == 'Perceptron' or self.model_type == 'SGDClassifier' or self.model_type == 'PassiveAggressiveClassifier':
-                    self.m.partial_fit(data, target, classes=classes)
+                if self.model_type == 'MultinomialNB' or \
+                   self.model_type == 'BernoulliNB' or \
+                   self.model_type == 'Perceptron' or \
+                   self.model_type == 'SGDClassifier' or \
+                   self.model_type == 'PassiveAggressiveClassifier' :
+                    self.m.partial_fit(data, target, classes = classes)
                     self._is_classif = True
-                elif self.model_type == 'SGDRegressor' or self.model_type == 'PassiveAggressiveRegressor':
+
+                elif self.model_type == 'SGDRegressor' or \
+                     self.model_type == 'PassiveAggressiveRegressor':  # noqa
                     self.m.partial_fit(data, target)
-                elif self.model_type == 'MiniBatchKMeans' or self.model_type == 'MiniBatchDictionaryLearning':
+
+                elif self.model_type == 'MiniBatchKMeans' or \
+                     self.model_type == 'MiniBatchDictionaryLearning':  # noqa
                     self.m.partial_fit(data)
 
             if monitor is not None:
@@ -214,20 +226,20 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 if self.model_type in self._verbose_capture:
                     for line in output:
                         # line is of type 'str'
-                        if (len(line.split("loss: ")) == 1):
+                        if len(line.split("loss: ")) == 1:
                             continue
                         try:
                             loss = line.split("loss: ")[-1]
                             _loss_collector.append(float(loss))
-                            # Logging loss values with global logger 
+                            # Logging loss values with global logger
                             logger.info('Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}'.format(
                                 epoch,
                                 float(loss)))
 
                         except ValueError as e:
-                            logger.error("Value error during monitoring:" + e)
+                            logger.error("Value error during monitoring:" + str(e))
                         except Exception as e:
-                            logger.error("Error during monitoring:" + e)
+                            logger.error("Error during monitoring:" + str(e))
 
                     if self._is_classif and not self._is_binary_classif:
                         # WARNING: only for plain SGD models in scikit learn
@@ -237,16 +249,17 @@ class SGDSkLearnModel(BaseTrainingPlan):
 
                         logger.warning("Loss plot displayed on Tensorboard may be inaccurate (due to some plain" +
                                        " SGD scikit learn limitations)")
+
                     # Batch -1 means Batch Gradient Descent, use all samples
                     # TODO: This part should be changed after mini-batch implementation is completed
                     monitor.add_scalar('Loss', float(loss), -1, epoch)
 
                 elif self.model_type == "MiniBatchKMeans":
-                    # Passes inertia value as scalar. It should be emplemented when KMeans implementation is ready 
+                    # Passes inertia value as scalar. It should be emplemented when KMeans implementation is ready
                     # monitor.add_scalar('Inertia', self.m.inertia_, -1 , epoch)
                     pass
                 elif self.model_type in ['MultinomialNB', 'BernoulliNB']:
-                    # TODO: Need to find a way for Bayesian approaches 
+                    # TODO: Need to find a way for Bayesian approaches
                     pass
 
     def save(self, filename, params: dict = None):
