@@ -1,7 +1,7 @@
 # temporary builder image for wireguard tools
 # - need coherent system version with base image
 # - may need update for properly compiling boringtun (eg: cargo build of `clap` package failing on `buster-slim`)
-FROM debian:bullseye-slim as builder
+FROM debian:bookworm-slim as builder
 
 RUN apt-get update && apt-get install -y git build-essential cargo
 
