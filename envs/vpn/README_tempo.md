@@ -361,13 +361,14 @@ You can connect to a container only if the corresponding container is already ru
 ```
 * connect on the node as user to handle experiments
 ```bash
-[user@node $] docker-compose exec -ti -u $(id -u) node bash
-[user@researcher $] docker-compose exec -ti -u $(id -u) researcher bash
+[user@node $] docker-compose exec -u $(id -u) node bash
+[user@researcher $] docker-compose exec -u $(id -u) researcher bash
 ```
 
-Note : can also use commands in the form
+Note : can also use commands in the form, so you don't have to be in the docker-compose file directory
 ```bash
 [user@node $] docker container exec -ti -u $(id -u) fedbiomed-vpn-node bash
+[user@researcher $] docker container exec -ti -u $(id -u) fedbiomed-vpn-researcher bash
 ```
 
 ## cleaning
@@ -387,6 +388,7 @@ Note : can also use commands in the form
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-vpnserver
+[user@network $] docker image prune -f
 ```
 
 ### mqtt
@@ -403,6 +405,7 @@ Note : can also use commands in the form
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-mqtt
+[user@network $] docker image prune -f
 ```
 
 ### restful
@@ -422,6 +425,7 @@ Note : can also use commands in the form
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-restful
+[user@network $] docker image prune -f
 ```
 
 ### node 
@@ -439,6 +443,7 @@ Note : can also use commands in the form
 
 # level 3 : image
 [user@node $] docker image rm fedbiomed/vpn-node
+[user@network $] docker image prune -f
 ```
 
 ### researcher
@@ -458,6 +463,7 @@ Same as node
 
 # level 3 : image
 [user@researcher $] docker image rm fedbiomed/vpn-researcher
+[user@network $] docker image prune -f
 ```
 
 ## background / wireguard
