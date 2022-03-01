@@ -122,6 +122,7 @@ class ErrorNumbers(_BaseEnum):
     FB602 = "FB602: logger error"
     FB603 = "FB603: task queue error"
     FB604 = "FB604: repository error"
+    FB606 = "FB606: model manager error"
 
     # oops
 
