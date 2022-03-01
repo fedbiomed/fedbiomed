@@ -1,6 +1,7 @@
 import copy
 import json
 from json import decoder
+import json
 from typing import Any, Dict
 import unittest
 from unittest.mock import MagicMock, patch
@@ -782,23 +783,23 @@ class TestNode(unittest.TestCase):
         node_parser_task_patch.return_value = None
         tasks_queue_task_done_patch.return_value = None
         node_msg_reply_create_patch.side_effect = TestNode.node_msg_side_effect
-        mssging_send_msg_patch.side_effect = [Exception, SystemExit]
+        mssging_send_msg_patch.side_effect = [Exception('mimicking exceptions'), SystemExit]
 
         # action
         with self.assertRaises(SystemExit):
             # checks if `task_manager` triggers SystemExit exception
             self.n1.task_manager()
 
-            # checks if `Messaging.send_message` is called with
-            # good arguments (second time it is called)
-            mssging_send_msg_patch.assert_called_with(
-                {
-                    'comand': 'error',
-                    'extra_msg': str(Exception('mimicking exceptions')),
-                    'node_id': environ['NODE_ID'],
-                    'researcher_id': 'NOT_SET',
-                    'errnum': ErrorNumbers.FB300
-                })
+        # checks if `Messaging.send_message` is called with
+        # good arguments (second time it is called)
+        mssging_send_msg_patch.assert_called_with(
+            {
+                'command': 'error',
+                'extra_msg': str(Exception('mimicking exceptions')),
+                'node_id': environ['NODE_ID'],
+                'researcher_id': 'NOT_SET',
+                'errnum': ErrorNumbers.FB300
+            })
 
     @patch('fedbiomed.common.messaging.Messaging.start')
     def test_node_22_start_messaging_normal_case_scenario(self,
