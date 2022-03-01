@@ -5,6 +5,7 @@ TrainingPlan definition for torchnn ML framework
 
 import inspect
 from typing import Union, List
+from copy import deepcopy
 
 import torch
 import torch.nn as nn
@@ -72,6 +73,15 @@ class TorchTrainingPlan(nn.Module):
         # to be configured by setters
         self.dataset_path = None
 
+        # Aggregated model parameters
+        self.init_params = None
+
+        # Check if FedProx parameter mu has been passed 
+        # (otherwise standard optimization will be performed)
+        if 'FedProx_mu' in model_args:
+            self.mu = model_args['FedProx_mu']
+        else:
+            self.mu = None
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """
@@ -182,6 +192,9 @@ class TorchTrainingPlan(nn.Module):
 
         self.data = self.training_data(batch_size=batch_size)
 
+        # Aggregated model parameters
+        self.init_params = deepcopy(self.state_dict())
+
         for epoch in range(1, epochs + 1):
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
@@ -199,6 +212,10 @@ class TorchTrainingPlan(nn.Module):
                     # TODO: raise an exception ? new error number ?
                     logger.critical("training_step method not provided by the model")
                     break
+
+                # If FedProx is enabled: use regularized loss function
+                if self.mu is not None:
+                    res += self.mu / 2 * self.norm_l2
 
                 res.backward()
                 self.optimizer.step()
@@ -357,3 +374,10 @@ class TorchTrainingPlan(nn.Module):
             pass
 
         return self.state_dict()
+
+    @property
+    def norm_l2(self):
+        norm = 0
+        for key, val in self.state_dict().items():
+            norm += ((val - self.init_params[key]) ** 2).sum()
+        return norm
