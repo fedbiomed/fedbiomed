@@ -250,7 +250,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
     # provided by fedbiomed
     def load(self, filename: str, to_params: bool = False) -> dict:
-        """Load the torch training parameters to this training plan or
+        """
+        Load the torch training parameters to this training plan or
         to a data structure from a file
 
         Args:
@@ -281,7 +282,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         """
         A method that describes how to parse/select/shuffle data
         when training model. Should be defined by researcher in its
-        trainig plan.
+        training plan.
 
         Args:
             batch_size (int, optional): size of the batch. Defaults to 48.

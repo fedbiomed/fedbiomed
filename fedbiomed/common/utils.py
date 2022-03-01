@@ -7,8 +7,8 @@ from fedbiomed.common.exceptions import FedbiomedError
 
 def get_class_source(cls) -> str:
     """
-        Function for getting source of the class. It uses different method for getting source based on
-        shel type. IPython,Notebook shells or Python shell
+    Function for getting source of the class. It uses different methods for getting the class source based on
+    shell type; IPython,Notebook shells or Python shell
 
     Args:
         cls: Class whose source code will be extracted
@@ -32,7 +32,7 @@ def get_class_source(cls) -> str:
 
 def is_ipython() -> bool:
     """
-    Function that check whether it is executed in ipython kernel or not
+    Function that checks whether the codes (function itself) is executed in ipython kernel or not
 
     Args:
         (None)
@@ -57,7 +57,7 @@ def is_ipython() -> bool:
 
 def _get_ipython_class_file(cls) -> str:
     """
-    Function that gets source of the class which is defined in ZMQInteractiveShell or
+    Function that gets source file/cell-id of the class which is defined in ZMQInteractiveShell or
     TerminalInteractiveShell
 
     Args:

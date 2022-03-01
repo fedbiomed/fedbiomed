@@ -7,12 +7,13 @@ from fedbiomed.common.utils import get_class_source
 
 class BaseTrainingPlan(object):
     def __init__(self):
-        """ A Base class that includes common method that are used for
+        """
+        A Base class that includes common methods that are used for
         all training plans
 
         Attrs:
-            dependencies (list): All the dependencies that are need to be import
-                                TrainingPlan as module
+            dependencies (list): All the dependencies that are need to be imported to create TrainingPlan as module.
+                                 Dependencies are `import` statements as string. e.g. `"import numpy as np"`
             dataset_path (string): The path that indicates where dataset has been stored
         """
 
@@ -21,7 +22,8 @@ class BaseTrainingPlan(object):
         self.dataset_path = None
 
     def add_dependency(self, dep: List[str]):
-        """ Adds new dependency to the TrainingPlan class. These dependencies are used
+        """
+        Adds new dependency to the TrainingPlan class. These dependencies are used
         while creating a python module.
 
         Args:
@@ -32,7 +34,8 @@ class BaseTrainingPlan(object):
         self.dependencies.extend(dep)
 
     def set_dataset_path(self, dataset_path):
-        """ Dataset path setter for TrainingPlan
+        """
+        Dataset path setter for TrainingPlan
 
         Args:
             dataset_path (str): The path where data is saved on the node. This method is called by
@@ -43,7 +46,9 @@ class BaseTrainingPlan(object):
         logger.debug('Dataset path has been set as' + self.dataset_path)
 
     def save_code(self, filepath: str):
-        """Save the class code for this training plan to a file
+        """
+        Saves the class source/codes of the training plan class that is created by
+        user.
 
         Args:
             filepath (string): path to the destination file
