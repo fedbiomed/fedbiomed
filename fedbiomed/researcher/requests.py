@@ -1,10 +1,10 @@
-from datetime import datetime
+"""
+Implements the message exchanges from researcher to nodes
+"""
+
+
 import json
-import os
-import signal
-import sys
 import tabulate
-import threading
 from time import sleep
 from typing import Any, Dict, Callable
 import uuid
@@ -20,8 +20,10 @@ from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
 
+
 class Requests(metaclass=SingletonMeta):
-    """This class represents the requests addressed from Researcher to nodes.
+    """
+    This class represents the requests addressed from Researcher to nodes.
     It creates a task queue storing reply to each incoming message.
     """
     def __init__(self, mess: Any = None):
@@ -54,7 +56,8 @@ class Requests(metaclass=SingletonMeta):
 
 
     def get_messaging(self) -> Messaging:
-        """returns the messaging object
+        """
+        returns the messaging object
         """
         return(self.messaging)
 
@@ -90,7 +93,7 @@ class Requests(metaclass=SingletonMeta):
                 # Pass message to Monitor's on message handler
                 self._monitor_message_callback(ResearcherMessages.reply_create(msg).get_dict())
         else:
-            logger.error("message received on wrong topic ("+ topic +") - IGNORING")
+            logger.error("message received on wrong topic (" + topic + ") - IGNORING")
 
 
     def print_node_log_message(self, log: Dict[str, Any]):
@@ -129,7 +132,8 @@ class Requests(metaclass=SingletonMeta):
         self.messaging.send_message(msg, client=client)
 
     def get_messages(self, commands: list = [], time: float = .0) -> Responses:
-        """ This method goes through the queue and gets messages with the
+        """
+        This method goes through the queue and gets messages with the
         specific command
 
         Args:
@@ -158,7 +162,7 @@ class Requests(metaclass=SingletonMeta):
                 else:
                     # currently trash all other messages
                     pass
-                    #self.queue.add(item)
+
             except FedbiomedTaskQueueError:
                 # may happend on self.queue.get()
                 # if queue is empty -> we ignore it
@@ -217,7 +221,7 @@ class Requests(metaclass=SingletonMeta):
         self.messaging.send_message(ResearcherMessages.request_create(
             {'researcher_id': environ['RESEARCHER_ID'],
              'sequence': self._sequence,
-             'command':'ping'}).get_dict())
+             'command': 'ping'}).get_dict())
         self._sequence += 1
 
         # TODO: (below, above) handle exceptions
@@ -239,17 +243,19 @@ class Requests(metaclass=SingletonMeta):
         if nodes:
             logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {nodes}')
             for node in nodes:
-                self.messaging.send_message(ResearcherMessages.request_create({'tags':tags,
-                                                                               'researcher_id':environ['RESEARCHER_ID'],
-                                                                               "command": "search"}
-                                                                               ).get_dict(),
-                                                                               client=node)
+                self.messaging.send_message(
+                    ResearcherMessages.request_create({'tags': tags,
+                                                       'researcher_id': environ['RESEARCHER_ID'],
+                                                       "command": "search"}
+                                                      ).get_dict(),
+                    client=node)
         else:
             logger.info(f'Searching dataset with data tags: {tags} for all nodes')
-            self.messaging.send_message(ResearcherMessages.request_create({'tags':tags,
-                                                                           'researcher_id':environ['RESEARCHER_ID'],
-                                                                           "command": "search"}
-                                                                           ).get_dict())
+            self.messaging.send_message(
+                ResearcherMessages.request_create({'tags': tags,
+                                                   'researcher_id': environ['RESEARCHER_ID'],
+                                                   "command": "search"}
+                                                  ).get_dict())
 
         data_found = {}
         for resp in self.get_responses(look_for_commands=['search']):
@@ -266,7 +272,8 @@ class Requests(metaclass=SingletonMeta):
         return data_found
 
     def list(self, nodes: list = None, verbose: bool = False) -> dict:
-        """ Lists available data in each node
+        """
+        Lists available data in each node
 
         Args:
             nodes (str): Listings datasets by given node ids
@@ -277,15 +284,17 @@ class Requests(metaclass=SingletonMeta):
         # If nodes list is provided
         if nodes:
             for node in nodes:
-                self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':environ['RESEARCHER_ID'],
-                                                                                "command": "list"}
-                                                                                ).get_dict() ,
-                                                                                client=node)
+                self.messaging.send_message(
+                    ResearcherMessages.request_create({'researcher_id': environ['RESEARCHER_ID'],
+                                                       "command": "list"}
+                                                      ).get_dict() ,
+                    client=node)
             logger.info(f'Listing datasets of given list of nodes : {nodes}')
         else:
-            self.messaging.send_message(ResearcherMessages.request_create({'researcher_id':environ['RESEARCHER_ID'],
-                                                                           "command": "list"}).get_dict())
-            logger.info(f'Listing available datasets in all nodes... ')
+            self.messaging.send_message(
+                ResearcherMessages.request_create({'researcher_id': environ['RESEARCHER_ID'],
+                                                   "command": "list"}).get_dict())
+            logger.info('Listing available datasets in all nodes... ')
 
         # Get datasets from node responses
         data_found = {}
@@ -304,14 +313,14 @@ class Requests(metaclass=SingletonMeta):
                     info = '\n Node: {} | Number of Datasets: {} \n'.format( node, len(data_found[node]))
                     logger.info(info + tabulate.tabulate(rows, headers, tablefmt="grid") + '\n')
                 else:
-                    logger.info('\n Node: {} | Number of Datasets: {}'.format( node, len(data_found[node])) + \
-                                 " No data has been set up for this node.")
+                    logger.info('\n Node: {} | Number of Datasets: {}'.format( node, len(data_found[node])) +
+                                " No data has been set up for this node.")
 
         return data_found
 
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
-
-        """ Add callback function for monitor messages
+        """
+        Add callback function for monitor messages
 
         Args:
             callback (Callable): Callback function for handling monitor messages
@@ -321,8 +330,8 @@ class Requests(metaclass=SingletonMeta):
         self._monitor_message_callback = callback
 
     def remove_monitor_callback(self):
-
-        """ Remove callback function for Monitor class. This method is called
+        """
+        Remove callback function for Monitor class. This method is called
         for canceling monitoring.  Currently it is used in Experiment when the
         tensorboard state is `False`. Since the reqeust class is singleton there
         might be callback function already registered before (while running

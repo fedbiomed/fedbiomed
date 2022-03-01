@@ -14,6 +14,13 @@ class FedbiomedError(Exception):
     pass
 
 
+class FedbiomedAggregatorError(FedbiomedError):
+    """
+    Exception specific to the Aggregator classes/subclasses
+    """
+    pass
+
+
 class FedbiomedEnvironError(FedbiomedError):
     """
     Exception specific to the Environ class
@@ -47,6 +54,14 @@ class FedbiomedMessagingError(FedbiomedError):
     """
     Exception specific to the Messaging (communication) class
     usually a problem with the communication framework
+    """
+    pass
+
+
+class FedbiomedModelManagerError(FedbiomedError):
+    """
+    Exception specific to the ModelManager
+    (from fedbiomed.common.data_manager)
     """
     pass
 

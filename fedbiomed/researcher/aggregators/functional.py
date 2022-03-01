@@ -1,17 +1,33 @@
+"""
+???
+
+should be defined in fedagv.py
+
+???
+"""
+
 import copy
 from typing import Dict, List
+
 import torch
 import numpy as np
 
+
 def initialize(val):
+    """
+    ???
+    """
+
     if isinstance(val, torch.Tensor):
         return ('tensor' , torch.zeros_like(val).float())
     elif isinstance(val, np.ndarray) or isinstance(val, list):
         return ('array' , np.zeros(len(val), dtype = float))
 
+
 def federated_averaging(model_params: List[Dict[str, torch.Tensor]],
                         weights: List[float]) -> Dict[str, torch.Tensor]:
-    """Defines Federated Averaging (FedAvg) strategy for model
+    """
+    Defines Federated Averaging (FedAvg) strategy for model
     aggregation.
 
     Args:
@@ -23,7 +39,7 @@ def federated_averaging(model_params: List[Dict[str, torch.Tensor]],
         Items in the list must always sum up to 1
 
     Returns:
-        Dict[str, torch.Tensor]: final model with aggregated layers, 
+        Dict[str, torch.Tensor]: final model with aggregated layers,
         as an OrderedDict object.
     """
     assert len(model_params) > 0, 'An empty list of models was passed.'
@@ -35,7 +51,7 @@ def federated_averaging(model_params: List[Dict[str, torch.Tensor]],
 
     # Empty model parameter dictionary
     avg_params = copy.deepcopy(model_params[0])
-    #print('before for ',model_params)
+
     for key, val in avg_params.items():
         (t, avg_params[key] ) = initialize(val)
     if t == 'tensor':
@@ -46,7 +62,6 @@ def federated_averaging(model_params: List[Dict[str, torch.Tensor]],
     if t == 'array':
         for key in avg_params.keys():
             matr = np.array([ d[key] for d in model_params ])
-            avg_params[key] = np.average(matr,weights=np.array(weights),axis=0)
+            avg_params[key] = np.average(matr, weights=np.array(weights), axis=0)
 
-    #print('after for',avg_params)
     return avg_params

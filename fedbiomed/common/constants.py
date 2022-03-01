@@ -96,7 +96,7 @@ class ErrorNumbers(_BaseEnum):
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"
-    FB401 = "FB401: fedaverage method crashes or returns an error"
+    FB401 = "FB401: aggregation crashes or returns an error"
     FB402 = "FB402: strategy method crashes or sends an error"
     FB403 = "FB403: bad URL (.pt) for model param"
     FB404 = "FB404: bad model param (.pt) format for TrainingPlan"
@@ -122,6 +122,7 @@ class ErrorNumbers(_BaseEnum):
     FB602 = "FB602: logger error"
     FB603 = "FB603: task queue error"
     FB604 = "FB604: repository error"
+    FB606 = "FB606: model manager error"
 
     # oops
 

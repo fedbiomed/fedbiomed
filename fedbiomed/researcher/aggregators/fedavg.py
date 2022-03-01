@@ -1,18 +1,27 @@
-from typing import Dict, Any
+"""
+"""
+
+from typing import Dict
 
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.functional import federated_averaging
 
 
 class FedAverage(Aggregator):
-    """ Defines the Federated averaging strategy """
+    """
+    Defines the Federated averaging strategy
+    """
 
     def __init__(self):
+        """
+        constructor
+        """
         super(FedAverage, self).__init__()
         self.aggregator_name = "FedAverage"
 
     def aggregate(self, model_params: list, weights: list) -> Dict:
-        """aggregates  local models sent by participating nodes into
+        """
+        aggregates  local models sent by participating nodes into
         a global model, following Federated Averaging strategy.
 
         Args:
@@ -25,4 +34,3 @@ class FedAverage(Aggregator):
         """
         weights = self.normalize_weights(weights)
         return federated_averaging(model_params, weights)
-

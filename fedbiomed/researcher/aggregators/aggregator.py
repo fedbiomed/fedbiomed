@@ -2,7 +2,13 @@
 top class for all aggregators
 """
 
+
 from typing import Dict, Any
+
+from fedbiomed.common.constants  import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedAggregatorError
+from fedbiomed.common.logger     import logger
+
 
 class Aggregator:
     """
@@ -27,11 +33,17 @@ class Aggregator:
         if _s == 0:
             norm = [ 1.0 / _l ] * _l
         else:
-            norm = [_w/_s for _w in weights]
+            norm = [_w / _s for _w in weights]
         return norm
 
-    def aggregate(self,  model_params: list, weights: list) -> Dict: # pragma: no cover
-        """Strategy to aggregate models"""
+    def aggregate(self, model_params: list, weights: list) -> Dict:
+        """
+        Strategy to aggregate models
+        """
+        msg = ErrorNumbers.FB401.value + \
+            ": aggreate method should be overloaded by the choosen strategy"
+        logger.critical(msg)
+        raise FedbiomedAggregatorError(msg)
 
     def save_state(self) -> Dict[str, Any]:
         """
@@ -44,7 +56,7 @@ class Aggregator:
         }
         return state
 
-    def load_state(self, state: Dict[str, Any]=None):
+    def load_state(self, state: Dict[str, Any] = None):
         """
         use for breakpoints. load the aggregator state
         """
