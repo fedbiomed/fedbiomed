@@ -96,7 +96,7 @@ class ErrorNumbers(_BaseEnum):
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"
-    FB401 = "FB401: fedaverage method crashes or returns an error"
+    FB401 = "FB401: aggregation crashes or returns an error"
     FB402 = "FB402: strategy method crashes or sends an error"
     FB403 = "FB403: bad URL (.pt) for model param"
     FB404 = "FB404: bad model param (.pt) format for TrainingPlan"
