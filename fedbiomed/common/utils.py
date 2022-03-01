@@ -4,6 +4,7 @@ import inspect
 from IPython.core.magics.code import extract_symbols
 from fedbiomed.common.exceptions import FedbiomedError
 
+
 def get_class_source(cls) -> str:
     """
         Function for getting source of the class. It uses different method for getting source based on
@@ -29,7 +30,7 @@ def get_class_source(cls) -> str:
         return inspect.getsource(cls)
 
 
-def is_ipython():
+def is_ipython() -> bool:
     """
     Function that check whether it is executed in ipython kernel or not
 
@@ -54,7 +55,7 @@ def is_ipython():
         return False
 
 
-def _get_ipython_class_file(cls):
+def _get_ipython_class_file(cls) -> str:
     """
     Function that gets source of the class which is defined in ZMQInteractiveShell or
     TerminalInteractiveShell
@@ -63,7 +64,7 @@ def _get_ipython_class_file(cls):
         cls (python class): Python class object defined on the IPython kernel
 
     Returns:
-        str: Returns file path on Jupyter Notebook. On IPython interactive shell, it runs ID as string
+        str: Returns file path of Jupyter cell. On IPython's interactive shell, it returns cell ID
     """
 
     if not inspect.isclass(cls):

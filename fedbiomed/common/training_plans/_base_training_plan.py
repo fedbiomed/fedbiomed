@@ -11,7 +11,7 @@ class BaseTrainingPlan(object):
         all training plans
 
         Attrs:
-            dependencies (List): All the dependencies that are need to be import
+            dependencies (list): All the dependencies that are need to be import
                                 TrainingPlan as module
             dataset_path (string): The path that indicates where dataset has been stored
         """
@@ -21,7 +21,7 @@ class BaseTrainingPlan(object):
         self.dataset_path = None
 
     def add_dependency(self, dep: List[str]):
-        """ Add snew dependency to the TrainingPlan class. These dependencies are used
+        """ Adds new dependency to the TrainingPlan class. These dependencies are used
         while creating a python module.
 
         Args:
@@ -89,5 +89,5 @@ class BaseTrainingPlan(object):
             logger.error(_msg)
             raise FedbiomedTrainingPlanError(_msg)
 
-        # Return filepath and content this allows
+        # Return filepath and content
         return filepath, content
