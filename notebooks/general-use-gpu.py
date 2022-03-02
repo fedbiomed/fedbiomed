@@ -30,15 +30,12 @@
 
 # Declare a torch.nn MyTrainingPlan class to send for training on the node
 
-import sys
-
 import torch
 import torch.nn as nn
+
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-
-from fedbiomed.common.logger import logger
-from fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.common.training_plans import TorchTrainingPlan
 
 # you can use any class name eg:
 # class AlterTrainingPlan(TorchTrainingPlan):

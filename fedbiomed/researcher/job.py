@@ -11,17 +11,15 @@ import sys
 import shutil
 import tempfile
 import time
-from typing import Union, Callable, List, Dict, Type
 import uuid
-
 import validators
 
-from fedbiomed.common.fedbiosklearn import SGDSkLearnModel  # noqa
+from typing import Union, Callable, List, Dict, Type
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.repository import Repository
-from fedbiomed.common.torchnn import TorchTrainingPlan      # noqa
-
+from fedbiomed.common.training_plans import TorchTrainingPlan # noqa
+from fedbiomed.common.training_plans import SGDSkLearnModel # noqa
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
@@ -227,8 +225,6 @@ class Job:
     @training_args.setter
     def training_args(self, training_args: dict):
         self._training_args = training_args
-
-
 
     def check_model_is_approved_by_nodes(self):
 
@@ -677,7 +673,7 @@ class localJob:
         if not is_failed:
             results = {}
             try:
-                self.model_instance.set_dataset(self.dataset_path)
+                self.model_instance.set_dataset_path(self.dataset_path)
                 self.model_instance.training_routine(**self._localjob_training_args)
             except Exception as e:
                 is_failed = True

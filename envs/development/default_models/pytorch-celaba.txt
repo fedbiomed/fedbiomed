@@ -1,4 +1,4 @@
-from fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.common.training_plans import TorchTrainingPlan
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

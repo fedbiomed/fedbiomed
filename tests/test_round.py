@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
-from tests.testsupport.fake_training_plan import FakeModel
-from tests.testsupport.fake_message import FakeMessages
-from tests.testsupport.fake_uuid import FakeUuid
+from testsupport.fake_training_plan import FakeModel
+from testsupport.fake_message import FakeMessages
+from testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
@@ -157,7 +157,7 @@ class TestRound(unittest.TestCase):
         #  - model.save
         #  - model.training_routine
         #  - model.after_training_params
-        #  - model.set_dataset
+        #  - model.set_dataset_path
 
         FakeModel.SLEEPING_TIME = 0
 
@@ -192,7 +192,7 @@ class TestRound(unittest.TestCase):
         # `run_model_training`
         with (
                 patch.object(FakeModel, 'load') as mock_load,
-                patch.object(FakeModel, 'set_dataset') as mock_set_dataset,
+                patch.object(FakeModel, 'set_dataset_path') as mock_set_dataset,
                 patch.object(FakeModel, 'training_routine') as mock_training_routine,
                 patch.object(FakeModel, 'after_training_params', return_value=MODEL_PARAMS) as mock_after_training_params,  # noqa
                 patch.object(FakeModel, 'save') as mock_save
@@ -242,7 +242,7 @@ class TestRound(unittest.TestCase):
             "       pass\n" + \
             "   def training_routine(self, *args, **kwargs):\n" + \
             "       pass\n" + \
-            "   def set_dataset(self, *args, **kwargs):\n" + \
+            "   def set_dataset_path(self, *args, **kwargs):\n" + \
             "       pass\n" + \
             "   def after_training_params(self):\n" + \
             "       return [1,2,3,4]\n"
