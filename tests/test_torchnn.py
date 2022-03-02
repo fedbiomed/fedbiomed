@@ -1,29 +1,31 @@
 import unittest
 import os
-import sys
 
 import torch
 import torch.nn as nn
 
-from fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.common.training_plans import TorchTrainingPlan
+
 
 # define TP outside of test class to avoid indentation problems when exporting class to file
 class TrainingPlan(TorchTrainingPlan):
     def __init__(self):
         super(TrainingPlan, self).__init__()
-        self.lin1 = nn.Linear(4,2)
+        self.lin1 = nn.Linear(4, 2)
 
     def test_method(self):
         return True
+
 
 class TestTorchnn(unittest.TestCase):
     """
     Test the Torchnn class
     """
+
     # before the tests
     def setUp(self):
         self.TrainingPlan = TrainingPlan
-        self.params = { 'one': 1, '2': 'two' }
+        self.params = {'one': 1, '2': 'two'}
         self.tmpdir = '.'
 
     # after the tests
@@ -52,10 +54,10 @@ class TestTorchnn(unittest.TestCase):
 
         # would expect commented lines to be necessary
         #
-        #sys.path.insert(0, self.tmpdir)
-        #exec('import ' + modulename, globals())
+        # sys.path.insert(0, self.tmpdir)
+        # exec('import ' + modulename, globals())
         exec('import ' + modulename)
-        #sys.path.pop(0)
+        # sys.path.pop(0)
         TrainingPlan2 = eval(modulename + '.' + self.TrainingPlan.__name__)
         tp2 = TrainingPlan2()
 
@@ -100,6 +102,7 @@ class TestTorchnn(unittest.TestCase):
             self.assertTrue(torch.all(torch.isclose(value, sd2[key])))
 
         os.remove(paramfile)
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

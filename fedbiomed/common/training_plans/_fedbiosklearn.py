@@ -4,24 +4,28 @@ TrainingPlan definition for sklearn ML framework
 
 
 from io import StringIO
-import inspect
 from joblib import dump, load
 import sys
 from typing import Union
 
 import numpy as np
 
-from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron   # noqa
-from sklearn.naive_bayes import BernoulliNB, GaussianNB                    # noqa
+from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
+from sklearn.naive_bayes  import BernoulliNB, GaussianNB
 
-from fedbiomed.common.logger import logger
+from ._base_training_plan import BaseTrainingPlan
+
+from fedbiomed.common.constants  import ErrorNumbers
+from fedbiomed.common.logger     import logger
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 
 
 class _Capturer(list):
-
-    """ Capturing class for output of the scikitlearn models during training
+    """
+    Capturing class for output of the scikit-learn models during training
     when the verbose is set to true.
     """
+
     def __enter__(self):
         sys.stdout.flush()
         self._stdout = sys.stdout
@@ -30,18 +34,102 @@ class _Capturer(list):
 
     def __exit__(self, *args):
         self.extend(self._stringio.getvalue().splitlines())
-        del self._stringio    # Remove it from memory
+        del self._stringio  # Remove it from memory
         sys.stdout = self._stdout
 
 
-class SGDSkLearnModel():
+class SGDSkLearnModel(BaseTrainingPlan):
+
+    #
+    # mapping between model name and model class
+    model_map = {
+        "SGDRegressor": SGDRegressor,
+        "SGDClassifier": SGDClassifier,
+        "Perceptron": Perceptron,
+        "BernoulliNB":  BernoulliNB,
+        "GaussianNB":  GaussianNB,
+
+        #'MultinomialNB': MultinomialNB,
+        #'PassiveAggressiveClassifier': PassiveAggressiveClassifier,
+        #'PassiveAggressiveRegressor': PassiveAggressiveRegressor,
+        #'MiniBatchKMeans': MiniBatchKMeans,
+        #'MiniBatchDictionaryLearning': MiniBatchDictionaryLearning,
+    }
+
+    #
+    # SKLEARN method that can return loss value
+    #
+    _verbose_capture = ['Perceptron',
+                        'SGDClassifier',
+                        'PassiveAggressiveClassifier',
+                        'SGDRegressor',
+                        'PassiveAggressiveRegressor',
+                        ]
+
+    def __init__(self, model_args: dict = {}):
+        """
+        Class initializer.
+
+        Args:
+        - model_args (dict, optional): model arguments.
+        """
+        super(SGDSkLearnModel, self).__init__()
+
+        # sklearn.utils.parallel_backend("locky", n_jobs=1, inner_max_num_threads=1)
+        self.batch_size = 100  # unused
+
+        self.add_dependency(["from fedbiomed.common.training_plans import SGDSkLearnModel",
+                             "from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron ",
+                             "from sklearn.naive_bayes  import BernoulliNB, GaussianNB",
+                             "import inspect",
+                             "import numpy as np",
+                             "import pandas as pd",
+                             ])
+
+        # default value if passed argument with incorrect type
+        if not isinstance(model_args, dict):
+            model_args = {}
+
+        if 'model' not in model_args:
+            msg = ErrorNumbers.FB303.value + ": SKLEARN model not provided"
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
+
+        if model_args['model'] not in self.model_map:
+            msg = ErrorNumbers.FB303.value + ": SKLEARN model must be one of: " + str(self.model_map)
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
+
+        self.model_type = model_args['model']
+
+        # Add verbosity in model_args if not and model is in verbose capturer
+        # TODO: check this - verbose doesn't seem to be used ?
+        if 'verbose' not in model_args and model_args['model'] in self._verbose_capture:
+            model_args['verbose'] = 1
+
+        elif model_args['model'] not in self._verbose_capture:
+            logger.info("[TENSORBOARD ERROR]: cannot compute loss for " +
+                        model_args['model'] + ": it needs to be implemeted")
+
+        # instanciate the model
+        self.m = self.model_map[self.model_type]()
+
+        self.params_sgd = self.m.get_params()
+        from_args_sgd_proper_pars = {key: model_args[key] for key in model_args if key in self.params_sgd}
+        self.params_sgd.update(from_args_sgd_proper_pars)
+        self.param_list = []
+        self.set_init_params(model_args)
+        self.dataset_path = None
+        self._is_classif = False  # whether the model selected is a classifier or not
+        self._is_binary_classif = False  # whether the classification is binary or multi classes
+        # (for classification only)
 
     def set_init_params(self, model_args):
         """
-            Initialize model parameters
+        Initialize model parameters
 
-            Args:
-            - model_args (dict) : model parameters
+        Args:
+        - model_args (dict) : model parameters
         """
         if self.model_type in ['SGDRegressor']:
             self.param_list = ['intercept_', 'coef_']
@@ -50,11 +138,12 @@ class SGDSkLearnModel():
         elif self.model_type in ['Perceptron', 'SGDClassifier']:
             self.param_list = ['intercept_', 'coef_']
             init_params = {
-                'intercept_': np.array([0.]) if (model_args['n_classes'] == 2)
-                                             else np.array([0.] * model_args['n_classes']),  # noqa
-                'coef_': np.array([0.] * model_args['n_features']).reshape(1, model_args['n_features']) \
-                         if (model_args['n_classes'] == 2) \
-                         else np.array([0.]*model_args['n_classes'] * model_args['n_features']).reshape(model_args['n_classes'], model_args['n_features'])  # noqa
+                'intercept_': np.array([0.]) if (model_args['n_classes'] == 2) else np.array(
+                    [0.] * model_args['n_classes']),
+                'coef_': np.array([0.] * model_args['n_features']).reshape(1, model_args['n_features']) if (
+                    model_args['n_classes'] == 2) else np.array(
+                        [0.] * model_args['n_classes'] * model_args['n_features']).reshape(model_args['n_classes'],
+                                                                                           model_args['n_features'])
             }
 
         for p in self.param_list:
@@ -65,26 +154,21 @@ class SGDSkLearnModel():
 
     def partial_fit(self, X, y):  # seems unused
         """
-            Provide partial fit method of scikit learning model here.
-            :param X (ndarray)
-            :param y (vector)
-            :raise NotImplementedError if developer do not implement this method.
-        """
-        raise NotImplementedError('Partial fit must be implemented')
+        Provide partial fit method of scikit learning model here.
 
-    def training_data(self):
+        :param X (ndarray)
+        :param y (vector)
+        :raise FedbiomedTrainingPlanError if not overloaded
         """
-            Perform in this method all data reading and data transformations you need.
-            At the end you should provide a couple (X,y) as indicated in the partial_fit
-            method of the scikit learn class.
-            :raise NotImplementedError if developer do not implement this method.
-        """
-        raise NotImplementedError('Training data must be implemented')
+        msg = ErrorNumbers.FB303.value + ": partial_fit must be implemented"
+        logger.critical(msg)
+        raise FedbiomedTrainingPlanError(msg)
 
     def after_training_params(self):
-        """Provide a dictionary with the federated parameters you need to aggregate, refer to
-            scikit documentation for a detail of parameters
-            :return the federated parameters (dictionary)
+        """
+        Provide a dictionary with the federated parameters you need to aggregate, refer to
+        scikit documentation for a detail of parameters
+        :return the federated parameters (dictionary)
         """
         return {key: getattr(self.m, key) for key in self.param_list}
 
@@ -101,11 +185,12 @@ class SGDSkLearnModel():
         Returns:
             np.ndarray: support
         """
-        support = np.zeros((len(self.m.classes_), ))
-        # please visit
-        # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324  # noqa
-        # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L738  # noqa
-        # to see how multi classification is done in sklearn
+        support = np.zeros((len(self.m.classes_),))
+
+        # to see how multi classification is done in sklearn, please visit:
+        # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324   # noqa
+        # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L738   # noqa
+
         for i, aclass in enumerate(self.m.classes_):
             # in sklearn code, in `fit_binary1`, `i`` seems to be
             # iterated over model.classes_
@@ -114,7 +199,8 @@ class SGDSkLearnModel():
             #  which labels it corresponds to. This is our best guest
             idx = targets == aclass
             support[i] = np.sum(targets[targets[idx]])
-        return support
+
+            return support
 
     def training_routine(self,
                          epochs=1,
@@ -172,7 +258,7 @@ class SGDSkLearnModel():
                 if self.model_type in self._verbose_capture:
                     for line in output:
                         # line is of type 'str'
-                        if(len(line.split("loss: ")) == 1):
+                        if len(line.split("loss: ")) == 1:
                             continue
                         try:
                             loss = line.split("loss: ")[-1]
@@ -198,7 +284,7 @@ class SGDSkLearnModel():
 
                     # Batch -1 means Batch Gradient Descent, use all samples
                     # TODO: This part should be changed after mini-batch implementation is completed
-                    monitor.add_scalar('Loss', float(loss), -1 , epoch)
+                    monitor.add_scalar('Loss', float(loss), -1, epoch)
 
                 elif self.model_type == "MiniBatchKMeans":
                     # Passes inertia value as scalar. It should be emplemented when KMeans implementation is ready
@@ -207,87 +293,6 @@ class SGDSkLearnModel():
                 elif self.model_type in ['MultinomialNB', 'BernoulliNB']:
                     # TODO: Need to find a way for Bayesian approaches
                     pass
-
-
-    def __init__(self, model_args: dict = {}):
-        """
-        Class initializer.
-
-        Args:
-        - model_args (dict, optional): model arguments.
-        """
-        self.batch_size = 100  # unused
-        self.model_map = {'MultinomialNB', 'BernoulliNB', 'Perceptron', 'SGDClassifier', 'PassiveAggressiveClassifier',
-                          'SGDRegressor', 'PassiveAggressiveRegressor', 'MiniBatchKMeans',
-                          'MiniBatchDictionaryLearning'}
-
-        self.dependencies = ["from fedbiomed.common.fedbiosklearn import SGDSkLearnModel",
-                             "import inspect",
-                             "import numpy as np",
-                             "import pandas as pd",
-                             ]
-
-
-        # default value if passed argument with incorrect type
-        if not isinstance(model_args, dict):
-            model_args = {}
-
-        if 'model' not in model_args or model_args['model'] not in self.model_map:
-            logger.error('model must be one of, ' + str(self.model_map))
-        else:
-            self.model_type = model_args['model']
-
-            # Sklearn mothods that returns loss value when the verbose flag is provided
-            self._verbose_capture = ['Perceptron', 'SGDClassifier',
-                                     'PassiveAggressiveClassifier',
-                                     'SGDRegressor',
-                                     'PassiveAggressiveRegressor']
-
-            # Add verbosity in model_args if not and model is in verbose capturer
-            # TODO: check this - verbose doesn't seem to be used ?
-            if 'verbose' not in model_args and model_args['model'] in self._verbose_capture:
-                model_args['verbose'] = 1
-
-            elif model_args['model'] not in self._verbose_capture:
-                logger.info("[TENSORBOARD ERROR]: cannot compute loss for " +
-                            model_args['model'] + ": it needs to be implemeted")
-
-            self.m = eval(self.model_type)()
-            self.params_sgd = self.m.get_params()
-            from_args_sgd_proper_pars = {key: model_args[key] for key in model_args if key in self.params_sgd}
-            self.params_sgd.update(from_args_sgd_proper_pars)
-            self.param_list = []
-            self.set_init_params(model_args)
-            self.dataset_path = None
-            self._is_classif = False  # whether the model selected is a classifier or not
-            self._is_binary_classif = False  # whether the classification is binary or multi classes
-            # (for classification only)
-
-    # provided by fedbiomed // necessary to save the model code into a file
-    def add_dependency(self, dep):
-        """
-           Add new dependency to this class.
-           :param dep (string) dependency to add.
-        """
-        self.dependencies.extend(dep)
-        pass
-
-    '''Save the code to send to nodes '''
-    def save_code(self, filename):
-        """Save the class code for this training plan to a file
-           :param filename (string): path to the destination file
-        """
-        content = ""
-        for s in self.dependencies:
-            content += s + "\n"
-
-        content += "\n"
-        content += inspect.getsource(self.__class__)
-
-        # try/except todo
-        file = open(filename, "w")
-        file.write(content)
-        file.close()
 
     def save(self, filename, params: dict = None):
         """
@@ -329,7 +334,7 @@ class SGDSkLearnModel():
         :return dictionary with the loaded parameters.
         """
         di_ret = {}
-        file = open( filename , "rb")
+        file = open(filename, "rb")
         if not to_params:
             self.m = load(file)
             di_ret = self.m
@@ -339,7 +344,7 @@ class SGDSkLearnModel():
         file.close()
         return di_ret
 
-    def set_dataset(self, dataset_path):
+    def set_dataset_path(self, dataset_path):
         """
           :param dataset_path (string)
         """

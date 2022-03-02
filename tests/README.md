@@ -349,3 +349,15 @@ This will run the monai-2d-image-classification.ipynb notebook, with thres nodes
 them using a part of mednist dataset (which has been splitted in three parts).
 
 You may launch this tutorial in a jupyter notebook for more informations.
+
+#### sklear perceptron tutorial with 3 nodes
+
+First, create the c1.csv. c2.csv, c3.csv files as described in the notebook, then:
+
+```
+../scripts/run_integration_test \
+  -s ../notebooks/sklearn-perceptron.ipynb \
+  -d ./datasets/sklearn_perceptron_1.json \
+  -d datasets/sklearn_perceptron_2.json \
+  -d datasets/sklearn_perceptron_3.json
+```

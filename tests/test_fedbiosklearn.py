@@ -5,8 +5,8 @@ import unittest
 import numpy as np
 from sklearn.linear_model import SGDRegressor
 
-from fedbiomed.researcher.aggregators.fedavg import FedAverage
-from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
+from fedbiomed.common.training_plans import SGDSkLearnModel
+from fedbiomed.common.exceptions     import FedbiomedTrainingPlanError
 
 
 class TestModel(SGDSkLearnModel):
@@ -40,7 +40,7 @@ class TestFedbiosklearn(unittest.TestCase):
     def test_not_implemented_method(self):
         kw = {'toto': 'le', 'lelo': 'la', 'max_iter': 7000, 'tol': 0.3456, 'n_features': 10, 'model': 'SGDRegressor'}
         t = TestModel(kw)
-        self.assertRaises(NotImplementedError,lambda: t.training_data())
+        self.assertRaises(FedbiomedTrainingPlanError,lambda: t.training_data())
 
 
     def test_save_and_load(self):

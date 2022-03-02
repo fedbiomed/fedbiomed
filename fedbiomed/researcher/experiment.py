@@ -2,24 +2,24 @@
 code code of the researcher. implements the experiment orchestration
 '''
 
+import os
+import sys
 import json
 import inspect
-import os
-from pathvalidate import sanitize_filename, sanitize_filepath
-from re import findall
-import sys
-from tabulate import tabulate
 import traceback
-from typing import Callable, Union, Dict, Any, TypeVar, Type, List
 
+from re import findall
+from tabulate import tabulate
+from typing import Callable, Union, Dict, Any, TypeVar, Type, List
+from pathvalidate import sanitize_filename, sanitize_filepath
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.utils import is_ipython
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, \
     FedbiomedSilentTerminationError
-from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
-from fedbiomed.common.torchnn import TorchTrainingPlan
-
+from fedbiomed.common.training_plans import SGDSkLearnModel
+from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -49,20 +49,6 @@ def exp_exceptions(function):
     """Decorator for handling all exceptions in the Experiment class() :
     pretty print a message for the user, quit Experiment.
     """
-
-    # try to guess if running in a notebook
-    def in_notebook():
-        try:
-            # not imported, just for checking
-            pyshell = get_ipython().__class__.__name__
-            if pyshell == 'ZMQInteractiveShell':
-                # in a notebook
-                return True
-            else:
-                return False
-        except NameError:
-            # not defined : we are not running in ipython, thus not in notebook
-            return False
 
     # wrap the original function catching the exceptions
     def payload(*args, **kwargs):
@@ -106,7 +92,7 @@ def exp_exceptions(function):
             logger.critical(f'Fed-BioMed stopped due to unknown error:\n{str(e)}')
 
         if code != 0:
-            if in_notebook():
+            if is_ipython():
                 # raise a silent specific exception, don't exit the interactive kernel
                 raise FedbiomedSilentTerminationError
             else:
