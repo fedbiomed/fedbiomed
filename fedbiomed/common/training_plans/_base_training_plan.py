@@ -1,15 +1,21 @@
+"""
+A Base class that includes common methods that are used for
+all training plans
+"""
+
+
 from typing import List
-from fedbiomed.common.logger import logger
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
+
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_class_source
 
 
 class BaseTrainingPlan(object):
     def __init__(self):
         """
-        A Base class that includes common methods that are used for
-        all training plans
+        Base constructor
 
         Attrs:
             dependencies (list): All the dependencies that are need to be imported to create TrainingPlan as module.
@@ -63,8 +69,9 @@ class BaseTrainingPlan(object):
         try:
             class_source = get_class_source(self.__class__)
         except FedbiomedError as e:
-            raise FedbiomedTrainingPlanError(ErrorNumbers.FB605.value + f"Error while getting source of the "
-                                                                        f"model class - {e}")
+            raise FedbiomedTrainingPlanError(ErrorNumbers.FB605.value +
+                                             ": Error while getting source of the " +
+                                             f"model class - {e}")
 
         # Preparing content of the module
         content = ""
@@ -81,8 +88,8 @@ class BaseTrainingPlan(object):
             file.close()
             logger.debug("Model file has been saved: " + filepath)
         except PermissionError:
-            _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges"
-            ", can't write the model content into it"
+            _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges"  + \
+                ", can't write the model content into it"
             logger.error(_msg)
             raise FedbiomedTrainingPlanError(_msg)
         except MemoryError:

@@ -2,16 +2,20 @@
 TrainingPlan definition for sklearn ML framework
 '''
 
-import sys
-import numpy as np
-from io import StringIO
 
-from typing import Union
+from io import StringIO
 from joblib import dump, load
-from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
-from sklearn.naive_bayes import BernoulliNB, GaussianNB
-from fedbiomed.common.logger import logger
+import sys
+from typing import Union
+
+import numpy as np
+
+from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron   # noqa
+from sklearn.naive_bayes  import BernoulliNB, GaussianNB                   # noqa
+
 from ._base_training_plan import BaseTrainingPlan
+
+from fedbiomed.common.logger import logger
 
 
 class _Capturer(list):
@@ -75,7 +79,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 model_args['verbose'] = 1
 
             elif model_args['model'] not in self._verbose_capture:
-                logger.info("[TENSORBOARD ERROR]: cannot compute loss for " + \
+                logger.info("[TENSORBOARD ERROR]: cannot compute loss for " +
                             model_args['model'] + ": it needs to be implemeted")
 
             self.m = eval(self.model_type)()
@@ -106,9 +110,9 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 'intercept_': np.array([0.]) if (model_args['n_classes'] == 2) else np.array(
                     [0.] * model_args['n_classes']),
                 'coef_': np.array([0.] * model_args['n_features']).reshape(1, model_args['n_features']) if (
-                        model_args['n_classes'] == 2) else np.array(
-                    [0.] * model_args['n_classes'] * model_args['n_features']).reshape(model_args['n_classes'],
-                                                                                       model_args['n_features'])
+                    model_args['n_classes'] == 2) else np.array(
+                        [0.] * model_args['n_classes'] * model_args['n_features']).reshape(model_args['n_classes'],
+                                                                                           model_args['n_features'])
             }
 
         for p in self.param_list:
@@ -156,9 +160,9 @@ class SGDSkLearnModel(BaseTrainingPlan):
             np.ndarray: support
         """
         support = np.zeros((len(self.m.classes_),))
-        # please visit https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324
-        # and https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L738 
-        # to see how multi classfication is done in sklearn
+        # to see how multi classification is done in sklearn, please visit:
+        # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324   # noqa
+        # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L738   # noqa
         for i, aclass in enumerate(self.m.classes_):
             # in sklearn code, in `fit_binary1`, `i`` seems to be
             # iterated over model.classes_
