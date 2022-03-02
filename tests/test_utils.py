@@ -80,6 +80,11 @@ class TestUtils(unittest.TestCase):
         codes = fed_utils.get_class_source(TestClass)
         self.assertEqual(codes, expected_cls_source)
 
+        # Test if `cls` is not a class
+        obj = TestClass()
+        with self.assertRaises(FedbiomedError):
+            fed_utils.get_class_source(obj)
+
     def test_utils_02_is_ipython(self):
         """ Test the function is_ipython """
 
@@ -102,11 +107,6 @@ class TestUtils(unittest.TestCase):
 
     def test_utils_03_get_ipython_class_file(self):
         """ Testing function that gets class source from ipython kernel"""
-
-        # Test if `cls` is not a class
-        obj = TestClass()
-        with self.assertRaises(FedbiomedError):
-            fed_utils._get_ipython_class_file(obj)
 
         # Test normal case
         result = fed_utils._get_ipython_class_file(TestClass)

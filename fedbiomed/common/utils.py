@@ -14,10 +14,14 @@ def get_class_source(cls) -> str:
         cls: Class whose source code will be extracted
 
     Raises:
-        none
+        FedbiomedError if arguemnt is not a class
     Return:
         str: Source code of the given class
     """
+
+    if not inspect.isclass(cls):
+        raise FedbiomedError(f'The argument `cls` must be a python class')
+
     # Check ipython status
     status = is_ipython()
 
@@ -66,9 +70,6 @@ def _get_ipython_class_file(cls) -> str:
     Returns:
         str: Returns file path of Jupyter cell. On IPython's interactive shell, it returns cell ID
     """
-
-    if not inspect.isclass(cls):
-        raise FedbiomedError(f'The argument `cls` should be a python class ')
 
     # Lookup by parent module
     if hasattr(cls, '__module__'):

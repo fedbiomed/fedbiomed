@@ -10,8 +10,8 @@ from typing import Union
 
 import numpy as np
 
-from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron   # noqa
-from sklearn.naive_bayes  import BernoulliNB, GaussianNB                   # noqa
+from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
+from sklearn.naive_bayes  import BernoulliNB, GaussianNB
 
 from ._base_training_plan import BaseTrainingPlan
 
@@ -40,6 +40,32 @@ class _Capturer(list):
 
 class SGDSkLearnModel(BaseTrainingPlan):
 
+    #
+    # mapping between model name and model class
+    model_map = {
+        "SGDRegressor": SGDRegressor,
+        "SGDClassifier": SGDClassifier,
+        "Perceptron": Perceptron,
+        "BernoulliNB":  BernoulliNB,
+        "GaussianNB":  GaussianNB,
+
+        #'MultinomialNB': MultinomialNB,
+        #'PassiveAggressiveClassifier': PassiveAggressiveClassifier,
+        #'PassiveAggressiveRegressor': PassiveAggressiveRegressor,
+        #'MiniBatchKMeans': MiniBatchKMeans,
+        #'MiniBatchDictionaryLearning': MiniBatchDictionaryLearning,
+    }
+
+    #
+    # SKLEARN method that can return loss value
+    #
+    _verbose_capture = ['Perceptron',
+                        'SGDClassifier',
+                        'PassiveAggressiveClassifier',
+                        'SGDRegressor',
+                        'PassiveAggressiveRegressor',
+                        ]
+
     def __init__(self, model_args: dict = {}):
         """
         Class initializer.
@@ -51,11 +77,10 @@ class SGDSkLearnModel(BaseTrainingPlan):
 
         # sklearn.utils.parallel_backend("locky", n_jobs=1, inner_max_num_threads=1)
         self.batch_size = 100  # unused
-        self.model_map = {'MultinomialNB', 'BernoulliNB', 'Perceptron', 'SGDClassifier', 'PassiveAggressiveClassifier',
-                          'SGDRegressor', 'PassiveAggressiveRegressor', 'MiniBatchKMeans',
-                          'MiniBatchDictionaryLearning'}
 
         self.add_dependency(["from fedbiomed.common.training_plans import SGDSkLearnModel",
+                             "from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron ",
+                             "from sklearn.naive_bayes  import BernoulliNB, GaussianNB",
                              "import inspect",
                              "import numpy as np",
                              "import pandas as pd",
@@ -65,36 +90,39 @@ class SGDSkLearnModel(BaseTrainingPlan):
         if not isinstance(model_args, dict):
             model_args = {}
 
-        if 'model' not in model_args or model_args['model'] not in self.model_map:
-            logger.error('model must be one of, ' + str(self.model_map))
-        else:
-            self.model_type = model_args['model']
+        if 'model' not in model_args:
+            msg = ErrorNumbers.FB303.value + ": SKLEARN model not provided"
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
-            # Sklearn mothods that returns loss value when the verbose flag is provided
-            self._verbose_capture = ['Perceptron', 'SGDClassifier',
-                                     'PassiveAggressiveClassifier',
-                                     'SGDRegressor',
-                                     'PassiveAggressiveRegressor']
+        if model_args['model'] not in self.model_map:
+            msg = ErrorNumbers.FB303.value + ": SKLEARN model must be one of: " + str(self.model_map)
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
-            # Add verbosity in model_args if not and model is in verbose capturer
-            # TODO: check this - verbose doesn't seem to be used ?
-            if 'verbose' not in model_args and model_args['model'] in self._verbose_capture:
-                model_args['verbose'] = 1
+        self.model_type = model_args['model']
 
-            elif model_args['model'] not in self._verbose_capture:
-                logger.info("[TENSORBOARD ERROR]: cannot compute loss for " +
-                            model_args['model'] + ": it needs to be implemeted")
+        # Add verbosity in model_args if not and model is in verbose capturer
+        # TODO: check this - verbose doesn't seem to be used ?
+        if 'verbose' not in model_args and model_args['model'] in self._verbose_capture:
+            model_args['verbose'] = 1
 
-            self.m = eval(self.model_type)()
-            self.params_sgd = self.m.get_params()
-            from_args_sgd_proper_pars = {key: model_args[key] for key in model_args if key in self.params_sgd}
-            self.params_sgd.update(from_args_sgd_proper_pars)
-            self.param_list = []
-            self.set_init_params(model_args)
-            self.dataset_path = None
-            self._is_classif = False  # whether the model selected is a classifier or not
-            self._is_binary_classif = False  # whether the classification is binary or multi classes
-            # (for classification only)
+        elif model_args['model'] not in self._verbose_capture:
+            logger.info("[TENSORBOARD ERROR]: cannot compute loss for " +
+                        model_args['model'] + ": it needs to be implemeted")
+
+        # instanciate the model
+        self.m = self.model_map[self.model_type]()
+
+        self.params_sgd = self.m.get_params()
+        from_args_sgd_proper_pars = {key: model_args[key] for key in model_args if key in self.params_sgd}
+        self.params_sgd.update(from_args_sgd_proper_pars)
+        self.param_list = []
+        self.set_init_params(model_args)
+        self.dataset_path = None
+        self._is_classif = False  # whether the model selected is a classifier or not
+        self._is_binary_classif = False  # whether the classification is binary or multi classes
+        # (for classification only)
 
     def set_init_params(self, model_args):
         """
