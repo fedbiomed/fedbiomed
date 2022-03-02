@@ -226,7 +226,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 # If FedProx is enabled: use regularized loss function
                 if self.mu is not None:
-                    res += self.mu / 2 * self.norm_l2
+                    res += self.mu / 2 * self.norm_l2()
 
                 res.backward()
 
@@ -332,8 +332,11 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         return self.state_dict()
 
-    @property
+
     def norm_l2(self):
+        """
+        ???
+        """
         norm = 0
         for key, val in self.state_dict().items():
             norm += ((val - self.init_params[key]) ** 2).sum()
