@@ -10,10 +10,18 @@ from copy import deepcopy
 import torch
 import torch.nn as nn
 
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 
+from ._base_training_plan import BaseTrainingPlan
 
-class TorchTrainingPlan(nn.Module):
+
+class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
+    """
+    Implementation of TraingPlan for torch NN framework
+    """
+
     def __init__(self, model_args: dict = {}):
         """
         An abstraction over pytorch module to run
@@ -62,26 +70,25 @@ class TorchTrainingPlan(nn.Module):
             self.use_gpu = model_args.get('use_gpu', False)
 
         # list dependencies of the model
-        self.dependencies = ["from fedbiomed.common.torchnn import TorchTrainingPlan",
+
+        self.add_dependency(["from fedbiomed.common.training_plans import TorchTrainingPlan",
                              "import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
                              "from torch.utils.data import DataLoader",
                              "from torchvision import datasets, transforms"
-                             ]
-
-        # to be configured by setters
-        self.dataset_path = None
+                             ])
 
         # Aggregated model parameters
         self.init_params = None
 
-        # Check if FedProx parameter mu has been passed 
+        # Check if FedProx parameter mu has been passed
         # (otherwise standard optimization will be performed)
         if 'FedProx_mu' in model_args:
             self.mu = model_args['FedProx_mu']
         else:
             self.mu = None
+
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """
@@ -106,7 +113,7 @@ class TorchTrainingPlan(nn.Module):
         cuda_available = torch.cuda.is_available()
         if use_gpu is None:
             use_gpu = self.use_gpu
-        use_cuda = cuda_available and (( use_gpu and node_args['gpu'] ) or node_args['gpu_only'])
+        use_cuda = cuda_available and ((use_gpu and node_args['gpu']) or node_args['gpu_only'])
 
         if node_args['gpu_only'] and not cuda_available:
             logger.error('Node wants to force model training on GPU, but no GPU is available')
@@ -131,6 +138,17 @@ class TorchTrainingPlan(nn.Module):
                      f"gpu_only={node_args['gpu_only']}, "
                      f"use_gpu={use_gpu}, gpu_num={node_args['gpu_num']})")
 
+
+    def training_step(self):
+        """
+        all subclasses must provide a training_steproutine
+        the purpose of this actual code is to detect that it has been provided
+
+        :raise FedbiomedTrainingPlanError if called
+        """
+        msg = ErrorNumbers.FB303.value + ": training_step must be implemented"
+        logger.critical(msg)
+        raise FedbiomedTrainingPlanError(msg)
 
 
     def training_routine(self,
@@ -203,26 +221,21 @@ class TorchTrainingPlan(nn.Module):
                 self.train()  # model training
                 data, target = data.to(self.device), target.to(self.device)
                 self.optimizer.zero_grad()
-                # (below) calling method `training_step` defined on
-                # researcher's notebook
-                try:
-                    res = self.training_step(data, target)
-                except AttributeError:
-                    # Method does not exist -> quit
-                    # TODO: raise an exception ? new error number ?
-                    logger.critical("training_step method not provided by the model")
-                    break
+
+                res = self.training_step(data, target)  # raises an exception if not provided
 
                 # If FedProx is enabled: use regularized loss function
                 if self.mu is not None:
                     res += self.mu / 2 * self.norm_l2
 
                 res.backward()
+
                 self.optimizer.step()
 
                 # do not take into account more than batch_maxnum
                 # batches from the dataset
                 if (batch_maxnum > 0) and (batch_idx >= batch_maxnum):
+                    # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
                     logger.debug('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
                     break
 
@@ -249,44 +262,6 @@ class TorchTrainingPlan(nn.Module):
         self.to(self.device_init)
         torch.cuda.empty_cache()
 
-    # provided by fedbiomed // necessary to save the model code into a file
-    def add_dependency(self, dep: List[str]):
-        """adds extra python import(s)
-
-        Args:
-            dep (List[str]): package name import, eg: 'import torch as th'
-        """
-        self.dependencies.extend(dep)
-        pass
-
-    # provided by fedbiomed
-    def save_code(self, filename: str):
-        """Save the class code for this training plan to a file
-
-        Args:
-            filename (string): path to the destination file
-
-        Returns:
-            None
-
-        Exceptions:
-            none
-        """
-
-        content = ""
-        for s in self.dependencies:
-            content += s + "\n"
-
-        content += "\n"
-        content += inspect.getsource(self.__class__)
-        logger.debug("torchnn saved model filename: " + filename)
-        # TODO: try/except
-        file = open(filename, "w")
-        # (above) should we write it in binary (for the sake of space
-        # optimization)?
-        file.write(content)
-        file.close()
-
     # provided by fedbiomed
     def save(self, filename, params: dict = None) -> None:
         """Save the torch training parameters from this training plan or
@@ -304,13 +279,14 @@ class TorchTrainingPlan(nn.Module):
             none
         """
         if params is not None:
-            return(torch.save(params, filename))
+            return (torch.save(params, filename))
         else:
             return torch.save(self.state_dict(), filename)
 
     # provided by fedbiomed
     def load(self, filename: str, to_params: bool = False) -> dict:
-        """Load the torch training parameters to this training plan or
+        """
+        Load the torch training parameters to this training plan or
         to a data structure from a file
 
         Args:
@@ -335,25 +311,6 @@ class TorchTrainingPlan(nn.Module):
     def logger(self, msg, batch_index, log_interval=10):
         pass
 
-    # provided by the fedbiomed // should be moved in a DATA
-    # manipulation module
-    def set_dataset(self, dataset_path):
-        self.dataset_path = dataset_path
-        logger.debug('Dataset_path' + self.dataset_path)
-
-    # provided by the fedbiomed // should be moved in a DATA
-    # manipulation module
-    def training_data(self, batch_size=48):
-        """
-        A method that describes how to parse/select/shuffle data
-        when training model. Should be defined by researcher in its
-        trainig plan.
-
-        Args:
-            batch_size (int, optional): size of the batch. Defaults to 48.
-        """
-
-        pass
 
     def after_training_params(self):
         '''

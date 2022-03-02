@@ -61,7 +61,7 @@ class FakeModel:
         """
         pass
 
-    def set_dataset(self, path: str):
+    def set_dataset_path(self, path: str):
         """Fakes `set_dataset` method of TrainingPlan classes. Originally 
         used for setting dataset path. Passed arguments are unused.        
 

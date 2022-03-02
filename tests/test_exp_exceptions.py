@@ -12,25 +12,6 @@ import fedbiomed.researcher.experiment
 class TestExpExceptions(unittest.TestCase):
     """ Test class for expriment.exp_exception """
 
-    class ZMQInteractiveShell:
-        """ Fake ZMQInteractiveShell class to mock get_ipython function.
-            Function returns this class, so the exceptions can be raised
-            as they are running on IPython kernel
-        """
-
-        def __call__(self):
-            pass
-
-    class ZMQInteractiveShellNone:
-        """ Fake ZMQInteractiveShellNone class to mock get_ipython function.
-            It return class name as `ZMQInteractiveShellNone` so tests
-            can get into condition where the functions get runs on IPython kernel
-            but not in ZMQInteractiveShell
-        """
-
-        def __call__(self):
-            pass
-
     def setUp(self) -> None:
         pass
 
@@ -76,8 +57,8 @@ class TestExpExceptions(unittest.TestCase):
             raise FedbiomedError
 
         # on notebook
-        with patch.object(fedbiomed.researcher.experiment, 'get_ipython', create=True) as m:
-            m.side_effect = TestExpExceptions.ZMQInteractiveShell
+        with patch.object(fedbiomed.researcher.experiment, 'is_ipython', create=True) as m:
+            m.return_value = True
             with self.assertRaises(FedbiomedSilentTerminationError):
                 decFunction()
         # on python shell
@@ -95,7 +76,7 @@ class TestExpExceptions(unittest.TestCase):
         with self.assertRaises(FedbiomedSilentTerminationError):
             decFunction()
 
-    def test_exp_exception_5_interactive_shell_fase(self):
+    def test_exp_exception_5_interactive_shell_false(self):
         """ Test if get_ipython does not return ZMQInteractiveShell"""
 
         @exp_exceptions
@@ -103,8 +84,8 @@ class TestExpExceptions(unittest.TestCase):
             raise FedbiomedError
 
         # SystemExit on python shell
-        with patch.object(fedbiomed.researcher.experiment, 'get_ipython', create=True) as m:
-            m.side_effect = TestExpExceptions.ZMQInteractiveShellNone
+        with patch.object(fedbiomed.researcher.experiment, 'is_ipython', create=True) as m:
+            m.return_value = False
             with self.assertRaises(SystemExit):
                 decFunction()
 
