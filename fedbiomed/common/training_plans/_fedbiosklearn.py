@@ -15,11 +15,14 @@ from sklearn.naive_bayes  import BernoulliNB, GaussianNB                   # noq
 
 from ._base_training_plan import BaseTrainingPlan
 
-from fedbiomed.common.logger import logger
+from fedbiomed.common.constants  import ErrorNumbers
+from fedbiomed.common.logger     import logger
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 
 
 class _Capturer(list):
-    """ Capturing class for output of the scikit-learn models during training
+    """
+    Capturing class for output of the scikit-learn models during training
     when the verbose is set to true.
     """
 
@@ -52,7 +55,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
                           'SGDRegressor', 'PassiveAggressiveRegressor', 'MiniBatchKMeans',
                           'MiniBatchDictionaryLearning'}
 
-        self.add_dependency(["from fedbiomed.common.training_plans.fedbiosklearn import SGDSkLearnModel",
+        self.add_dependency(["from fedbiomed.common.training_plans import SGDSkLearnModel",
                              "import inspect",
                              "import numpy as np",
                              "import pandas as pd",
@@ -95,10 +98,10 @@ class SGDSkLearnModel(BaseTrainingPlan):
 
     def set_init_params(self, model_args):
         """
-            Initialize model parameters
+        Initialize model parameters
 
-            Args:
-            - model_args (dict) : model parameters
+        Args:
+        - model_args (dict) : model parameters
         """
         if self.model_type in ['SGDRegressor']:
             self.param_list = ['intercept_', 'coef_']
@@ -123,26 +126,21 @@ class SGDSkLearnModel(BaseTrainingPlan):
 
     def partial_fit(self, X, y):  # seems unused
         """
-            Provide partial fit method of scikit learning model here.
-            :param X (ndarray)
-            :param y (vector)
-            :raise NotImplementedError if developer do not implement this method.
-        """
-        raise NotImplementedError('Partial fit must be implemented')
+        Provide partial fit method of scikit learning model here.
 
-    def training_data(self):
+        :param X (ndarray)
+        :param y (vector)
+        :raise FedbiomedTrainingPlanError if not overloaded
         """
-            Perform in this method all data reading and data transformations you need.
-            At the end you should provide a couple (X,y) as indicated in the partial_fit
-            method of the scikit learn class.
-            :raise NotImplementedError if developer do not implement this method.
-        """
-        raise NotImplementedError('Training data must be implemented')
+        msg = ErrorNumbers.FB303.value + ": partial_fit must be implemented"
+        logger.critical(msg)
+        raise FedbiomedTrainingPlanError(msg)
 
     def after_training_params(self):
-        """Provide a dictionary with the federated parameters you need to aggregate, refer to
-            scikit documentation for a detail of parameters
-            :return the federated parameters (dictionary)
+        """
+        Provide a dictionary with the federated parameters you need to aggregate, refer to
+        scikit documentation for a detail of parameters
+        :return the federated parameters (dictionary)
         """
         return {key: getattr(self.m, key) for key in self.param_list}
 
@@ -160,9 +158,11 @@ class SGDSkLearnModel(BaseTrainingPlan):
             np.ndarray: support
         """
         support = np.zeros((len(self.m.classes_),))
+
         # to see how multi classification is done in sklearn, please visit:
         # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324   # noqa
         # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L738   # noqa
+
         for i, aclass in enumerate(self.m.classes_):
             # in sklearn code, in `fit_binary1`, `i`` seems to be
             # iterated over model.classes_
@@ -171,7 +171,8 @@ class SGDSkLearnModel(BaseTrainingPlan):
             #  which labels it corresponds to. This is our best guest
             idx = targets == aclass
             support[i] = np.sum(targets[targets[idx]])
-        return support
+
+            return support
 
     def training_routine(self,
                          epochs=1,

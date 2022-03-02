@@ -103,3 +103,14 @@ class BaseTrainingPlan(object):
 
         # Return filepath and content
         return filepath, content
+
+    def training_data(self):
+        """
+        all subclasses must provide a training_data routine
+        the purpose of this actual code is to detect that it has been provided
+
+        :raise FedbiomedTrainingPlanError if called
+        """
+        msg = ErrorNumbers.FB303.value + ": training_data must be implemented"
+        logger.critical(msg)
+        raise FedbiomedTrainingPlanError(msg)

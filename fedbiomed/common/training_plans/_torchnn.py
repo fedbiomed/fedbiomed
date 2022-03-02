@@ -8,11 +8,18 @@ from typing import Union
 import torch
 import torch.nn as nn
 
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
+
 from ._base_training_plan import BaseTrainingPlan
 
 
 class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
+    """
+    Implementation of TraingPlan for torch NN framework
+    """
+
     def __init__(self, model_args: dict = {}):
         """
         An abstraction over pytorch module to run
@@ -118,6 +125,19 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                      f"gpu_only={node_args['gpu_only']}, "
                      f"use_gpu={use_gpu}, gpu_num={node_args['gpu_num']})")
 
+
+    def training_step(self):
+        """
+        all subclasses must provide a training_steproutine
+        the purpose of this actual code is to detect that it has been provided
+
+        :raise FedbiomedTrainingPlanError if called
+        """
+        msg = ErrorNumbers.FB303.value + ": training_step must be implemented"
+        logger.critical(msg)
+        raise FedbiomedTrainingPlanError(msg)
+
+
     def training_routine(self,
                          epochs: int = 2,
                          log_interval: int = 10,
@@ -185,17 +205,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 self.train()  # model training
                 data, target = data.to(self.device), target.to(self.device)
                 self.optimizer.zero_grad()
-                # (below) calling method `training_step` defined on
-                # researcher's notebook
-                try:
-                    res = self.training_step(data, target)
-                except AttributeError:
-                    # Method does not exist -> quit
-                    # TODO: raise an exception ? new error number ?
-                    logger.critical("training_step method not provided by the model")
-                    break
 
+                res = self.training_step(data, target)  # raises an exception if not provided
                 res.backward()
+
                 self.optimizer.step()
 
                 # do not take into account more than batch_maxnum
@@ -277,19 +290,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
     def logger(self, msg, batch_index, log_interval=10):
         pass
 
-    # provided by the fedbiomed // should be moved in a DATA
-    # manipulation module
-    def training_data(self, batch_size=48):
-        """
-        A method that describes how to parse/select/shuffle data
-        when training model. Should be defined by researcher in its
-        training plan.
-
-        Args:
-            batch_size (int, optional): size of the batch. Defaults to 48.
-        """
-
-        pass
 
     def after_training_params(self):
         '''
