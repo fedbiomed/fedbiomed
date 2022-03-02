@@ -1,9 +1,15 @@
+"""
+main user insterface then runing researcher
+
+probably completely obsolete and must be removed
+"""
+
+
 from multiprocessing import Process
+import os
 import socket
 import sys
-import os
 
-from fedbiomed.common.logger import logger
 from fedbiomed.researcher.environ import environ
 
 

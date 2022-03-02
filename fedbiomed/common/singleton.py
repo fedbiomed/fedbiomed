@@ -1,13 +1,19 @@
-import sys
+'''
+singleton metaclass. used to easily create thread safe singleton classes
+
+
+=======================================================================
+WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+
+ do not import *ANY* fedbiomed module here, to avoid dependancy loops!
+
+WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+=======================================================================
+'''
+
+
 import threading
 
-#
-# WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
-#
-# do not import *ANY* fedbiomed module here, to avoid dependancy loops!
-#
-# WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
-#
 
 class SingletonMeta(type):
     """

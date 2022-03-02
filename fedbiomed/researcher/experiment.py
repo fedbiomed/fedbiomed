@@ -1,32 +1,37 @@
-import os
-import sys
+'''
+code code of the researcher. implements the experiment orchestration
+'''
+
 import json
 import inspect
-from typing import Callable, Union, Dict, Any, TypeVar, Type, List
-
-from tabulate import tabulate
+import os
 from pathvalidate import sanitize_filename, sanitize_filepath
 from re import findall
+import sys
+from tabulate import tabulate
 import traceback
+from typing import Callable, Union, Dict, Any, TypeVar, Type, List
+
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, \
     FedbiomedSilentTerminationError
-from fedbiomed.researcher.environ import environ
 from fedbiomed.common.fedbiosklearn import SGDSkLearnModel
 from fedbiomed.common.torchnn import TorchTrainingPlan
-from fedbiomed.researcher.filetools import create_exp_folder, choose_bkpt_file, \
-    create_unique_link, create_unique_file_link, find_breakpoint_path
+
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
-from fedbiomed.researcher.strategies.strategy import Strategy
-from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
+from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.filetools import create_exp_folder, choose_bkpt_file, \
+    create_unique_link, create_unique_file_link, find_breakpoint_path
+from fedbiomed.researcher.job import Job
+from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
-from fedbiomed.researcher.job import Job
-from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.monitor import Monitor
+from fedbiomed.researcher.strategies.strategy import Strategy
+from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 _E = TypeVar("Experiment")  # only for typing
 
@@ -85,7 +90,7 @@ def exp_exceptions(function):
                 f'Fed-BioMed researcher stopped due to exception:\n{str(e)}',
                 '--------------------',
                 sep=os.linesep)
-            # redundant, should be already logged when raising exception 
+            # redundant, should be already logged when raising exception
             logger.critical(f'Fed-BioMed researcher stopped due to exception:\n{str(e)}')
         except BaseException as e:
             code = 3
@@ -95,7 +100,7 @@ def exp_exceptions(function):
                 'More details in the backtrace extract below',
                 '--------------------',
                 sep=os.linesep)
-            # at most 5 backtrace entries to avoid too long output 
+            # at most 5 backtrace entries to avoid too long output
             traceback.print_exc(limit=5, file=sys.stdout)
             print('--------------------')
             logger.critical(f'Fed-BioMed stopped due to unknown error:\n{str(e)}')
@@ -184,12 +189,12 @@ class Experiment(object):
             - model_path (Union[str, None], optional) : path to a file containing
                 model code (`str`) or None (no file containing model code, `model_class`
                 needs to be a class matching `Type_TrainingPlan`)
-                Defaults to None. 
+                Defaults to None.
             - model_args (dict, optional): contains model arguments passed to the constructor
                 of the training plan when instantiating it : output and input feature
                 dimension, etc.
                 Defaults to {}.
-            - training_args (dict, optional): contains training arguments passed to the 
+            - training_args (dict, optional): contains training arguments passed to the
                 `training_routine` of the training plan when launching it:
                 lr, epochs, batch_size...
                 Defaults to {}.
@@ -197,7 +202,7 @@ class Experiment(object):
                 not after each training round. Breakpoints can be used for resuming
                 a crashed experiment.
                 Defaults to False.
-            - tensorboard (bool, optional): whether to save scalar values 
+            - tensorboard (bool, optional): whether to save scalar values
                 for displaying in Tensorboard during training for each node.
                 Currently it is only used for loss values.
                 * If it is true, monitor instantiates a `Monitor` object that write
@@ -561,7 +566,7 @@ class Experiment(object):
         # case where no training data are passed
         if training_data is None and from_tags is True:
             # cannot search for training_data if tags not initialized;
-            # nodes can be None (no filtering on nodes by default) 
+            # nodes can be None (no filtering on nodes by default)
             if self._tags is not None:
                 training_data = self._reqs.search(self._tags, self._nodes)
 
@@ -792,7 +797,7 @@ class Experiment(object):
         """Setter for `experimentation_folder` + verification on arguments type
 
         Args:
-            - experimentation_folder (Union[str, None]): 
+            - experimentation_folder (Union[str, None]):
 
         Raise:
             - FedbiomedExperimentError : bad experimentation_folder type
@@ -918,7 +923,7 @@ class Experiment(object):
         Args:
             - model_path (Union[str, None]) : path to a file containing
                 model code (`str`) or None (no file containing model code, `model_class`
-                needs to be a class matching `Type_TrainingPlan`) 
+                needs to be a class matching `Type_TrainingPlan`)
 
         Raise:
             - FedbiomedExperimentError : bad model_path type
@@ -1009,7 +1014,7 @@ class Experiment(object):
         """Setter for `training_args` + verification on arguments type
 
         Args:
-            - training_args (dict): contains training arguments passed to the 
+            - training_args (dict): contains training arguments passed to the
                 `training_routine` of the training plan when launching it:
                 lr, epochs, batch_size...
 
@@ -1122,7 +1127,7 @@ class Experiment(object):
         """ Setter for monitoring in tensorboard + verification on arguments type
 
         Args:
-            - tensorboard (bool): whether to save scalar values 
+            - tensorboard (bool): whether to save scalar values
                 for displaying in Tensorboard during training for each node.
                 Currently it is only used for loss values.
                 * If it is true, monitor instantiates a `Monitor` object that write
@@ -1181,7 +1186,7 @@ class Experiment(object):
         * if `increase` is True, increment total number of round `round_limit` and run one round
 
         Args:
-            - increase (bool, optional) : automatically increase the `round_limit` of the 
+            - increase (bool, optional) : automatically increase the `round_limit` of the
               experiment if needed. Does nothing if `round_limit` is `None`
               Defaults to False
 
@@ -1384,7 +1389,7 @@ class Experiment(object):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        # at this point, self._job exists (initialized in constructor)         
+        # at this point, self._job exists (initialized in constructor)
         if self._job is None:
             # cannot check model file if job not defined
             msg = ErrorNumbers.FB412.value + \
@@ -1423,7 +1428,7 @@ class Experiment(object):
         Returns:
             - responses (str) : model status for answering nodes
         """
-        # at this point, self._job exists (initialized in constructor)         
+        # at this point, self._job exists (initialized in constructor)
         if self._job is None:
             # cannot check model status if job not defined
             msg = ErrorNumbers.FB412.value + \
@@ -1457,7 +1462,7 @@ class Experiment(object):
           - aggregated_params
           - job (attributes returned by the Job, aka job state)
 
-        Raises: 
+        Raises:
           - FedbiomedExperimentError: experiment not fully defined ; experiment did not run any
             round yet ; error when saving breakpoint
         """
@@ -1551,8 +1556,8 @@ class Experiment(object):
             If None, loads latest breakpoint of the latest experiment.
             Defaults to None.
 
-        Raises: 
-          - FedbiomedExperimentError: bad argument type ; error when reading breakpoint ; 
+        Raises:
+          - FedbiomedExperimentError: bad argument type ; error when reading breakpoint ;
             bad loaded breakpoint content (corrupted)
 
         Returns:

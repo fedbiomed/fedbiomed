@@ -14,6 +14,13 @@ class FedbiomedError(Exception):
     pass
 
 
+class FedbiomedAggregatorError(FedbiomedError):
+    """
+    Exception specific to the Aggregator classes/subclasses
+    """
+    pass
+
+
 class FedbiomedEnvironError(FedbiomedError):
     """
     Exception specific to the Environ class
@@ -71,6 +78,7 @@ class FedbiomedSilentTerminationError(FedbiomedError):
     """
     def _render_traceback_(self):
         pass
+
 
 class FedbiomedStrategyError(FedbiomedError):
     """

@@ -1,3 +1,7 @@
+'''
+'''
+
+
 import csv
 import os.path
 from typing import Union, List
@@ -6,6 +10,7 @@ import uuid
 from tinydb import TinyDB, Query
 import pandas as pd
 from tabulate import tabulate  # only used for printing
+
 import torch
 from torchvision import datasets
 from torchvision import transforms
@@ -14,18 +19,21 @@ from fedbiomed.node.environ import environ
 
 
 class DataManager:
-    """Interface over TinyDB database.
+    """
+    Interface over TinyDB database.
     Facility fot storing, retrieving data and get data info
     on the data stored into TinyDB database.
     """
     def __init__(self):
-        """ The constrcutor of the class
+        """
+        The constrcutor of the class
         """
         self.db = TinyDB(environ['DB_PATH'])
         self.database = Query()
 
     def search_by_id(self, dataset_id: str) -> List[dict]:
-        """this method searches for data with given dataset_id
+        """
+        This method searches for data with given dataset_id
 
         Args:
             dataset_id (str):  dataset id
@@ -39,7 +47,8 @@ class DataManager:
         return self.db.search(self.database.dataset_id.all(dataset_id))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
-        """this method searches for data with given tags
+        """
+        This method searches for data with given tags
 
         Args:
             tags (Union[tuple, list]):  list of tags
@@ -51,7 +60,8 @@ class DataManager:
         return self.db.search(self.database.tags.all(tags))
 
     def read_csv(self, csv_file: str, index_col: Union[int, None] = None ) -> pd.DataFrame:
-        """Reads a *.csv file and ouptuts its data into a pandas DataFrame.
+        """
+        Reads a *.csv file and ouptuts its data into a pandas DataFrame.
         Finds automatically the csv delimiter by parsing the first line.
 
         Args:
@@ -74,7 +84,8 @@ class DataManager:
 
     def get_torch_dataset_shape(self,
                                 dataset: torch.utils.data.Dataset) -> List[int]:
-        """Gets info about dataset shape.
+        """
+        Gets info about dataset shape.
 
         Args:
             dataset (torch.utils.data.Dataset): a Pytorch dataset
@@ -88,8 +99,8 @@ class DataManager:
         return [len(dataset)] + list(dataset[0][0].shape)
 
     def get_csv_data_types(self, dataset: pd.DataFrame) -> List[str]:
-
-        """Gets data types of each variable in dataset.
+        """
+        Gets data types of each variable in dataset.
 
         Args:
             dataset (pd.DataFrame): a Pandas dataset
@@ -106,7 +117,8 @@ class DataManager:
                               path: str,
                               as_dataset: bool = False) -> Union[List[int],
                                                                  torch.utils.data.Dataset]:
-        """Loads a default dataset. Currently, only MNIST dataset
+        """
+        Loads a default dataset. Currently, only MNIST dataset
         is used as the default dataset.
 
         Args:
@@ -143,7 +155,8 @@ class DataManager:
                             folder_path: str,
                             as_dataset: bool = False) -> Union[List[int],
                                                                torch.utils.data.Dataset]:
-        """[summary]
+        """
+        load an image dataset
 
         Args:
             folder_path ([type]): [description]
@@ -161,7 +174,8 @@ class DataManager:
             return self.get_torch_dataset_shape(dataset)
 
     def load_csv_dataset(self, path) -> pd.DataFrame:
-        """[summary]
+        """
+        load a cvs dataset
 
         Args:
             path (str): CSV path
@@ -230,16 +244,23 @@ class DataManager:
         return dataset_id
 
     def remove_database(self, tags: Union[tuple, list]):
+        """
+        ???
+        """
         doc_ids = [doc.doc_id for doc in self.search_by_tags(tags)]
         self.db.remove(doc_ids=doc_ids)
 
     def modify_database_info(self,
                              tags: Union[tuple, list],
                              modified_dataset: dict):
+        """
+        ???
+        """
         self.db.update(modified_dataset, self.database.tags.all(tags))
 
     def list_my_data(self, verbose: bool = True):
-        """[summary]
+        """
+        list all datasets of the node
 
         Args:
             verbose (bool, optional): [description]. Defaults to True.
@@ -260,7 +281,8 @@ class DataManager:
         return my_data
 
     def load_as_dataloader(self, dataset):
-        """[summary]
+        """
+        ???
 
         Args:
             dataset ([type]): [description]
@@ -277,9 +299,9 @@ class DataManager:
             return self.load_images_dataset(folder_path=dataset['path'],
                                             as_dataset=True)
 
-    #  `load_data` seems unused
-    def load_data(self, tags: Union[tuple, list], mode: str):
-        """[summary]
+    def load_data(self, tags: Union[tuple, list], mode: str):    # `load_data` seems unused
+        """
+        ???
 
         Args:
             tags (Union[tuple, list]): [description]

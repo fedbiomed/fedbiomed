@@ -1,19 +1,28 @@
-import uuid
+'''
+class which allows researcher to interact with remote datasets (federated datasets)
+'''
+
 from typing import List, Dict
+import uuid
 
 
 class FederatedDataSet:
-    """A class that allows researcher to interact with
+    """
+    A class that allows researcher to interact with
     remote datasets (federated datasets).
     It contains details about remote datasets,
     such as client ids, data size that can be useful for
     aggregating or sampling strategies on researcher's side
     """
     def __init__(self, data: Dict):
+        """
+        simple constructor
+        """
         self._data = data
 
     def data(self) -> Dict:
-        """ Getter for FederatedDataset
+        """
+        Getter for FederatedDataset
 
         Returns:
             Dict: Dict of federated datasets, keys as node ids
@@ -22,7 +31,8 @@ class FederatedDataSet:
         return self._data
 
     def node_ids(self) -> List[uuid.UUID]:
-        """Getter for Node ids
+        """
+        Getter for Node ids
 
         Returns:
             List[str]: list of node ids
@@ -30,7 +40,8 @@ class FederatedDataSet:
         return list(self._data.keys())
 
     def sample_sizes(self) -> List[int]:
-        """Returns a list with data sample sizes
+        """
+        Returns a list with data sample sizes
 
         Returns:
             List[int]: List of sample sizes in federated datasets
@@ -44,7 +55,8 @@ class FederatedDataSet:
         return sample_sizes
 
     def shapes(self) -> Dict[uuid.UUID, int]:
-        """ Getter for shapes of FederatedDatasets by node ids
+        """
+        Getter for shapes of FederatedDatasets by node ids
 
         Returns:
             Dict[str, int]: Dict that includes sample_sizes by node_ids

@@ -1,3 +1,8 @@
+'''
+send information from node to researcher during the training
+'''
+
+
 from typing import Union
 
 from fedbiomed.common.message import NodeMessages
@@ -10,14 +15,17 @@ class HistoryMonitor:
                  job_id: str,
                  researcher_id: str,
                  client: Messaging):
-                 
+        """
+        simple constructor
+        """
         self.history = {}
         self.job_id = job_id
         self.researcher_id = researcher_id
         self.messaging = client
 
     def add_scalar(self, key: str, value: Union[int, float], iteration: int, epoch: int ):
-        """Adds a scalar value to the monitor, and sends an 'AddScalarReply'
+        """
+        Adds a scalar value to the monitor, and sends an 'AddScalarReply'
         response to researcher
 
         Args:
@@ -34,14 +42,12 @@ class HistoryMonitor:
             self.history[key] = {iteration: value}
 
         self.messaging.send_message(NodeMessages.reply_create({
-                                                               'node_id': environ['NODE_ID'],
-                                                               'job_id': self.job_id,
-                                                               'researcher_id': self.researcher_id,
-                                                               'key' : key,
-                                                               'value': value,
-                                                               'iteration': iteration,
-                                                               'epoch' : epoch,
-                                                               'command': 'add_scalar'
-                                                               }).get_dict(),
-                                                               client='monitoring'
-                                                               )
+            'node_id': environ['NODE_ID'],
+            'job_id': self.job_id,
+            'researcher_id': self.researcher_id,
+            'key' : key,
+            'value': value,
+            'iteration': iteration,
+            'epoch' : epoch,
+            'command': 'add_scalar'
+        }).get_dict(), client='monitoring')

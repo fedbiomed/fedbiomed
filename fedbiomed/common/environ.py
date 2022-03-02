@@ -1,3 +1,10 @@
+'''
+al environment/configuration variables are provided by the
+**Environ** dictionnary. **Environ** is a singleton class,
+meaning that only an instance of Environ is available.
+'''
+
+
 import configparser
 import os
 import uuid
@@ -7,7 +14,6 @@ from fedbiomed.common.exceptions     import FedbiomedEnvironError
 from fedbiomed.common.logger         import logger
 from fedbiomed.common.singleton      import SingletonMeta
 from fedbiomed.common.constants      import ComponentType, HashingAlgorithms
-from enum import Enum
 
 
 """
@@ -52,6 +58,8 @@ class Environ(metaclass = SingletonMeta):
         - type of the component either ComponentType.NODE or ComponentType.RESEARCHER
         - root directory: if not provided the rootdirectory is deduced from the package location
           (mainly used by the test files)
+
+        raises FedbiomedEnvironError is component type is wrong
         """
         # dict with contains all configuration values
         self._values = {}
@@ -82,6 +90,8 @@ class Environ(metaclass = SingletonMeta):
     def __getitem__(self, key: str):
         """
         override the [] get operator to control the Exception type
+
+        raises FedbiomedEnvironError if key does not exists
         """
         if key not in self._values:
             _msg = ErrorNumbers.FB600.value + ": config file doe not contain the key: " + str(key)
@@ -93,6 +103,8 @@ class Environ(metaclass = SingletonMeta):
     def __setitem__(self, key: str, value):
         """
         override the [] set operator to control the Exception type
+
+        raises FedbiomedEnvironError is key does not exists
         """
 
         if value is None:
@@ -106,7 +118,9 @@ class Environ(metaclass = SingletonMeta):
 
     def _init_common(self, rootdir):
         """
-        commun configuration values for researcher and node
+        common configuration values for researcher and node
+
+        raises FedbiomedEnvironError in case of error (OS errors usually)
         """
 
         # guess the fedbiomed package topir if no rootdir is given
@@ -121,7 +135,7 @@ class Environ(metaclass = SingletonMeta):
                 )
             )
         else:
-            ROOT_DIR=rootdir
+            ROOT_DIR = rootdir
 
         # intialize all environment values
         self._values['ROOT_DIR'] = ROOT_DIR
@@ -151,7 +165,12 @@ class Environ(metaclass = SingletonMeta):
 
 
     def _init_researcher(self):
-        """ specific configuration values for researcher
+        """
+        specific configuration values for researcher
+
+        raises FedbiomedEnvironError:
+        - if file parser cannot be instanciated
+        - in case of file system errors (cannot create experiment directories)
         """
         # Parse config file
         cfg = self._parse_config_file()
@@ -165,7 +184,8 @@ class Environ(metaclass = SingletonMeta):
         try:
             _cfg_value = cfg.get('default', 'researcher_id')
         except configparser.Error:
-            _msg = ErrorNumbers.FB600.value + ": no default/researcher_id in config file, please recreate a new config file"
+            _msg = ErrorNumbers.FB600.value + \
+                ": no default/researcher_id in config file, please recreate a new config file"
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
@@ -202,6 +222,10 @@ class Environ(metaclass = SingletonMeta):
     def _init_node(self):
         """
         specific configuration values for node
+
+        raises FedbiomedEnvironError:
+        - if file parser cannot be instanciated
+        - in case of missing keys in the config file
         """
 
         # Parse config file
@@ -224,17 +248,18 @@ class Environ(metaclass = SingletonMeta):
         ROOT_DIR = self._values['ROOT_DIR']
 
         self._values['MESSAGES_QUEUE_DIR']  = os.path.join(VAR_DIR,
-                                                            f'queue_manager_{NODE_ID}')
+                                                           f'queue_manager_{NODE_ID}')
         self._values['DB_PATH']             = os.path.join(VAR_DIR,
-                                                            f'db_{NODE_ID}.json')
+                                                           f'db_{NODE_ID}.json')
 
         self._values['DEFAULT_MODELS_DIR']  = os.path.join(ROOT_DIR,
-                                                            'envs' , 'development', 'default_models')
+                                                           'envs' , 'development', 'default_models')
 
         try:
             _cfg_value = cfg.get('security', 'allow_default_models')
         except configparser.Error:
-            _msg = ErrorNumbers.FB600.value + ": no security/allow_default_models in config file, please recreate a new config file"
+            _msg = ErrorNumbers.FB600.value + \
+                ": no security/allow_default_models in config file, please recreate a new config file"
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
@@ -245,7 +270,8 @@ class Environ(metaclass = SingletonMeta):
         try:
             _cfg_value = cfg.get('security', 'model_approval')
         except configparser.Error:
-            _msg = ErrorNumbers.FB600.value + ": no security/model_approval in config file, please recreate a new config file"
+            _msg = ErrorNumbers.FB600.value + \
+                ": no security/model_approval in config file, please recreate a new config file"
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
@@ -256,7 +282,8 @@ class Environ(metaclass = SingletonMeta):
         try:
             _cfg_value = cfg.get('security', 'hashing_algorithm')
         except configparser.Error:
-            _msg = ErrorNumbers.FB600.value + ": no security/hashing_algorithm in config file, please recreate a new config file"
+            _msg = ErrorNumbers.FB600.value + \
+                ": no security/hashing_algorithm in config file, please recreate a new config file"
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
@@ -289,7 +316,6 @@ class Environ(metaclass = SingletonMeta):
         pass
 
     def _parse_config_file(self):
-
         """ Read the .ini file corresponding to the component
         create the file with default values if it does not exists.
         Complete/modify the environment with values coming from the
@@ -297,7 +323,7 @@ class Environ(metaclass = SingletonMeta):
         """
 
         # Get config file, it create new config if there is not any
-                        # get config file location from environment
+        # get config file location from environment
         # or use a predefined value
         if os.getenv('CONFIG_FILE') :
             CONFIG_FILE = os.getenv('CONFIG_FILE')
@@ -343,8 +369,8 @@ class Environ(metaclass = SingletonMeta):
         return cfg
 
     def _create_node_config_file(self, cfg, config_file):
-
-        """ Creates new config file for node
+        """
+        Creates new config file for node
 
         Args:
             config_file (str): The path indicated where config file
@@ -400,8 +426,11 @@ class Environ(metaclass = SingletonMeta):
         pass
 
     def _create_researcher_config_file(self, cfg, config_file):
+        """
+        Create config file for researcher
 
-        """ Create config file for researcher """
+        raises FedbiomedEnvironError is config file cannot be created
+        """
 
         # get uploads url
         uploads_url = self._get_uploads_url()
@@ -436,8 +465,11 @@ class Environ(metaclass = SingletonMeta):
 
 
     def _init_network_configurations(self, cfg):
+        """
+        Initialize network configurations
 
-        """ Initialize network configurations """
+        raises FedbiomedEnvironError in case of missing keys/values
+        """
 
         # broker location
         try:
@@ -464,7 +496,8 @@ class Environ(metaclass = SingletonMeta):
         try:
             _cfg_value = cfg.get('default', 'uploads_url')
         except configparser.Error:
-            _msg = ErrorNumbers.FB600.value + ": no default/uploads_url in config file, please recreate a new config file"
+            _msg = ErrorNumbers.FB600.value + \
+                ": no default/uploads_url in config file, please recreate a new config file"
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
@@ -483,8 +516,9 @@ class Environ(metaclass = SingletonMeta):
 
     @staticmethod
     def _get_uploads_url():
-
-        """ Gets uploads url from env """
+        """
+        Gets uploads url from env
+        """
 
         # use default values from current OS environment variables
         # repository location
@@ -496,14 +530,10 @@ class Environ(metaclass = SingletonMeta):
 
         return uploads_url
 
-    def print_component_type(self):
-
-        """ Salutation function (for debug purpose mainly) """
-
-        print("I am a:", self._values['COMPONENT_TYPE'])
-
     def info(self):
-        """Print useful information at environment creation"""
+        """
+        Print useful information at environment creation
+        """
 
         logger.info("Component environment:")
         if self._values['COMPONENT_TYPE'] == ComponentType.RESEARCHER:
