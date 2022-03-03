@@ -4,7 +4,6 @@ all the fedbiomed constants/enums
 do not import other fedbiomed packages here to avoid dependancy loop
 '''
 
-
 from enum import Enum
 
 
@@ -25,7 +24,7 @@ class ComponentType(_BaseEnum):
     """
 
     RESEARCHER = 1
-    NODE       = 2
+    NODE = 2
 
 
 class HashingAlgorithms(_BaseEnum):
@@ -34,14 +33,14 @@ class HashingAlgorithms(_BaseEnum):
     algorithms
     """
 
-    SHA256      = 'SHA256'
-    SHA384      = 'SHA384'
-    SHA512      = 'SHA512'
-    SHA3_256    = 'SHA3_256'
-    SHA3_384    = 'SHA3_384'
-    SHA3_512    = 'SHA3_512'
-    BLAKE2B     = 'BLAKE2B'
-    BLAKE2S     = 'BLAKE2S'
+    SHA256 = 'SHA256'
+    SHA384 = 'SHA384'
+    SHA512 = 'SHA512'
+    SHA3_256 = 'SHA3_256'
+    SHA3_384 = 'SHA3_384'
+    SHA3_512 = 'SHA3_512'
+    BLAKE2B = 'BLAKE2B'
+    BLAKE2S = 'BLAKE2S'
 
 
 class ModelTypes(_BaseEnum):
@@ -51,7 +50,14 @@ class ModelTypes(_BaseEnum):
     """
 
     REGISTERED = 'registered'
-    DEFAULT    = 'default'
+    DEFAULT = 'default'
+
+
+class TrainingPlans(_BaseEnum):
+    """ Enumeration class for Training plans """
+
+    TorchTrainingPlan = 0
+    SkLearnTrainingPlan = 1
 
 
 class ErrorNumbers(_BaseEnum):

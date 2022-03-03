@@ -32,7 +32,7 @@ Nodes Global Variables:
     MESSAGES_QUEUE_DIR      : Path for queues
     DB_PATH                 : TinyDB database path where datasets are saved
     MODEL_DB_PATH           : Database where registered model are saved
-
+    
 Common Global Variables:
     COMPONENT_TYPE          : Node or Researcher
     CONFIG_DIR              : Configuration file path
@@ -42,6 +42,7 @@ Common Global Variables:
     MQTT_BROKER             : MQTT broker IP address
     MQTT_BROKER_PORT        : MQTT broker port
     UPLOADS_URL             : Upload URL for file repository
+    TRAINING_PLAN           : Type of Training Plan
 """
 
 
@@ -137,7 +138,10 @@ class Environ(metaclass = SingletonMeta):
         else:
             ROOT_DIR = rootdir
 
-        # intialize all environment values
+        # Initialize TRAINING_PLAN STATUS
+        self._values['TRAINING_PLAN'] = None
+
+        # Initialize all environment values
         self._values['ROOT_DIR'] = ROOT_DIR
 
         # main directories
