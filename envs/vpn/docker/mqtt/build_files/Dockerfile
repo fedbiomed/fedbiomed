@@ -6,7 +6,10 @@ FROM alpine:3.14 as builder
 RUN apk update && apk add git alpine-sdk linux-headers cargo
 
 # install boringtun userspace implementation of wireguard
-RUN cargo install --bin boringtun boringtun
+# 
+# match versions of debian & boringtun
+# alpine:3.14 KO with boringtun 0.4.0 from cargo
+RUN cargo install --bin boringtun --version ~0.3.0 boringtun
 
 # install needed wireguard-tools
 ENV WITH_WGQUICK=yes

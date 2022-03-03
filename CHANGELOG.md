@@ -2,7 +2,12 @@
 
 ## 2022-XX-YY version 3.5 or 4.0
 
--
+- update vpn configuration files
+- refactor training\_plans/\_fedbiosklearn.py to get rid off eval()
+- change training\_plans file organisation
+- create a top class for training\_plans
+- removed the magic %writefile use in notebooks to save the user's defined model
+- mode unittests and flake8 parsing
 
 ## 2022-02-25 version 3.4
 
