@@ -45,7 +45,7 @@ class TestLocalJob(unittest.TestCase):
         self.model.save = MagicMock(return_value=None)
         self.model.save_code = MagicMock(return_value=None)
         self.model.load = MagicMock(return_value={'model_params': True})
-        self.model.set_dataset = MagicMock(return_value=None)
+        self.model.set_dataset_path = MagicMock(return_value=None)
         self.model.training_routine = MagicMock(return_value=None)
         type(self.model).dependencies = PropertyMock(return_value=['from os import mkdir'])
         # Global Local Job Object

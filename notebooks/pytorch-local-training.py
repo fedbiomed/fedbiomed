@@ -23,16 +23,12 @@
 
 # Declare a torch.nn MyTrainingPlan class to send for training on the node
 
-from fedbiomed.researcher.environ import environ
 import os
 
-import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
 
-from fedbiomed.common.logger import logger
-from fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.common.training_plans.torchnn import TorchTrainingPlan
 
 # you can use any class name eg:
 # class AlterTrainingPlan(TorchTrainingPlan):
@@ -155,7 +151,6 @@ datasets.MNIST(root = local_mnist, download = True, train = True, transform = tr
 
 # The class local job mimics the class job used in the experiment
 from fedbiomed.researcher.job import localJob
-from fedbiomed.researcher.environ import environ
 import torch.nn.functional as F
 
 # local train on same amount of data as federated with 1 node

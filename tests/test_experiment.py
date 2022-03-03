@@ -8,11 +8,11 @@ import inspect
 from unittest.mock import patch, MagicMock, PropertyMock
 
 import testsupport.mock_researcher_environ  ## noqa (remove flake8 false warning)
-from tests.testsupport.fake_dataset import FederatedDataSetMock
-from tests.testsupport.fake_experiment import ExperimentMock
-from tests.testsupport.fake_training_plan import FakeModel
+from testsupport.fake_dataset import FederatedDataSetMock
+from testsupport.fake_experiment import ExperimentMock
+from testsupport.fake_training_plan import FakeModel
 
-from fedbiomed.common.torchnn import TorchTrainingPlan
+from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.exceptions import FedbiomedSilentTerminationError
 
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -29,15 +29,6 @@ from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 class TestExperiment(unittest.TestCase):
     """ Test for Experiment class """
-
-    class ZMQInteractiveShell:
-        """ Fake ZMQInteractiveShell class to mock get_ipython function.
-            Function returns this class, so the exceptions can be raised
-            as they are running on IPython kernel
-        """
-
-        def __call__(self):
-            pass
 
     # For testing model_class setter of Experiment
     class FakeModelTorch(TorchTrainingPlan):
@@ -375,9 +366,9 @@ class TestExperiment(unittest.TestCase):
             nodes = self.test_exp.set_nodes(nodes_expected)
 
         # Test raising SilentTerminationError
-        with patch.object(fedbiomed.researcher.experiment, 'get_ipython',
+        with patch.object(fedbiomed.researcher.experiment, 'is_ipython',
                           create=True) as m:
-            m.side_effect = TestExperiment.ZMQInteractiveShell
+            m.return_value = True
 
             with self.assertRaises(FedbiomedSilentTerminationError):
                 self.test_exp.set_nodes(nodes_expected)
