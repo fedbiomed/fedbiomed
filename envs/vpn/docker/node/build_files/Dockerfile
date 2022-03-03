@@ -1,4 +1,4 @@
-FROM fedbiomed/vpn-base
+FROM fedbiomed/vpn-basegpu
 
 ARG CONTAINER_GID
 ARG CONTAINER_UID

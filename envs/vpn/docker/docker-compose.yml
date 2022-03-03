@@ -16,13 +16,33 @@ services:
     # profiles:
     #  - debug # not started by `docker-compose up` except if `--profile debug`
   #
-  # intermediate step : base image for building vpn, node and researcher containers
+  # intermediate step : base image for building vpn and researcher containers
   # we usually dont want to launch this service (used for building other services)
   base:
     container_name: fedbiomed-vpn-base
     build:
       context: ./base/build_files
     image: fedbiomed/vpn-base
+    entrypoint: /bin/true
+    # profiles:
+    #  - debug
+  #
+  # intermediate step : base image for building node container 
+  # 2 options : without or without nvidia gpu support
+  # we usually dont want to launch this service (used for building other services)
+  basenode:
+    container_name: fedbiomed-vpn-base-node
+    build:
+      context: ./base/build_files
+    image: fedbiomed/vpn-basenode
+    entrypoint: /bin/true
+    # profiles:
+    #  - debug 
+  basenodegpu:
+    container_name: fedbiomed-vpn-base-nodegpu
+    build:
+      context: ./basegpu/build_files
+    image: fedbiomed/vpn-basenode
     entrypoint: /bin/true
     # profiles:
     #  - debug
@@ -68,6 +88,7 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-node
+    runtime: nvidia
     env_file:
       - ./node/run_mounts/config/config.env
     cap_add:
