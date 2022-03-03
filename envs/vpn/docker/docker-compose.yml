@@ -38,7 +38,7 @@ services:
     entrypoint: /bin/true
     # profiles:
     #  - debug 
-  basenodegpu:
+  basenode-gpu:
     container_name: fedbiomed-vpn-base-nodegpu
     build:
       context: ./basegpu/build_files
@@ -77,7 +77,8 @@ services:
       - 51820:51820/udp
   #
   # node component
-  node:
+  x-node:
+    &standard-node
     container_name: fedbiomed-vpn-node
     build:
       context: ../../..
@@ -88,7 +89,7 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-node
-    runtime: nvidia
+    #runtime: nvidia
     env_file:
       - ./node/run_mounts/config/config.env
     cap_add:
@@ -99,6 +100,11 @@ services:
     volumes:
       - ./node/run_mounts/config:/config # contains VPN configurations
       - ./node/run_mounts/data:/data # datasets can be added here
+  node:
+    << : *standard-node
+  node-gpu-other:
+    << : *standard-node
+    runtime: nvidia
   #
   # researcher component
   researcher:
@@ -179,4 +185,3 @@ services:
     volumes:
       - ./restful/run_mounts/app:/app # django application
       - ./restful/run_mounts/config:/config # contains VPN configurations
-
