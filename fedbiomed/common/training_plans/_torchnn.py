@@ -82,13 +82,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # Aggregated model parameters
         self.init_params = None
 
-        # Check if FedProx parameter mu has been passed
-        # (otherwise standard optimization will be performed)
-        if 'FedProx_mu' in model_args:
-            self.mu = model_args['FedProx_mu']
-        else:
-            self.mu = None
-
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """
@@ -159,6 +152,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          batch_maxnum: int = 0,
                          dry_run: bool = False,
                          use_gpu: Union[bool, None] = None,
+                         fedprox_mu = None,
                          monitor=None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
@@ -189,6 +183,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 for training during this round (ie overload the object default use_gpu value)
                 if available on node and proposed by node
                 Defaults to None (dont overload the object default value)
+            - fedprox_mu (float or None): mu parameter in case of FredProx computing. Fedault is None, which means that FredProx is not triggered
             - monitor ([type], optional): [description]. Defaults to None.
             - node_args (Union[dict, None]): command line arguments for node. Can include:
                 - gpu (bool): propose use a GPU device if any is available. Default False.
@@ -210,7 +205,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         self.data = self.training_data(batch_size=batch_size)
 
-        # Aggregated model parameters
+        # initial aggregated model parameters
         self.init_params = deepcopy(self.state_dict())
 
         for epoch in range(1, epochs + 1):
@@ -225,8 +220,15 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 res = self.training_step(data, target)  # raises an exception if not provided
 
                 # If FedProx is enabled: use regularized loss function
-                if self.mu is not None:
-                    res += self.mu / 2 * self.norm_l2()
+                if fedprox_mu is not None:
+                    try:
+                        _mu =  float(fedprox_mu)
+                    except ValueError:
+                        msg = ErrorNumbers.FB605.value + ": fedprox_mu parameter reuqested nut is not a float"
+                        logger.critical(msg)
+                        raise FedbiomedTrainingPlanError(msg)
+
+                    res += _mu / 2 * self.__norm_l2()
 
                 res.backward()
 
@@ -333,9 +335,9 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         return self.state_dict()
 
 
-    def norm_l2(self):
+    def __norm_l2(self):
         """
-        ???
+        used by FedProx optimization
         """
         norm = 0
         for key, val in self.state_dict().items():
