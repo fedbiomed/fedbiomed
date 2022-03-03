@@ -66,18 +66,18 @@ class TestNode(unittest.TestCase):
         self.messaging_patcher = self.messaging_patch.start()
 
         # mocks
-        mock_data_manager = MagicMock()
-        mock_data_manager.search_by_tags = MagicMock(return_value=self.database_val)
-        mock_data_manager.list_my_data = MagicMock(return_value=self.database_list)
+        mock_dataset_manager = MagicMock()
+        mock_dataset_manager.search_by_tags = MagicMock(return_value=self.database_val)
+        mock_dataset_manager.list_my_data = MagicMock(return_value=self.database_list)
         mock_model_manager = MagicMock()
-        mock_data_manager.reply_model_status_request = MagicMock(return_value=None)
-        mock_data_manager.search_by_id = MagicMock(return_value=self.database_id)
+        mock_dataset_manager.reply_model_status_request = MagicMock(return_value=None)
+        mock_dataset_manager.search_by_id = MagicMock(return_value=self.database_id)
 
         self.model_manager_mock = mock_model_manager
 
         # creating Node objects
-        self.n1 = Node(mock_data_manager, mock_model_manager)
-        self.n2 = Node(mock_data_manager, mock_model_manager)
+        self.n1 = Node(mock_dataset_manager, mock_model_manager)
+        self.n2 = Node(mock_dataset_manager, mock_model_manager)
 
     def tearDown(self) -> None:
         # stopping patches
@@ -485,11 +485,11 @@ class TestNode(unittest.TestCase):
         }
         # create tested object
 
-        mock_data_manager = MagicMock()
+        mock_dataset_manager = MagicMock()
         # return emtpy list to mimic dataset that havenot been found
-        mock_data_manager.search_by_id = MagicMock(return_value=[])
+        mock_dataset_manager.search_by_id = MagicMock(return_value=[])
 
-        self.n1.data_manager = mock_data_manager
+        self.n1.dataset_manager = mock_dataset_manager
 
         # action
 
