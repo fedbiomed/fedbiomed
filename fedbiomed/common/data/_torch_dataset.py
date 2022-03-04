@@ -33,8 +33,8 @@ class TorchDataset(object):
 
         self._dataset = dataset
         self._loader_arguments = kwargs
-        self._subset_test = None
-        self._subset_train = None
+        self._subset_test: Union[Subset, None] = None
+        self._subset_train: Union[Subset, None] = None
 
     def __getattribute__(self, item):
         return object.__getattribute__(self, item)

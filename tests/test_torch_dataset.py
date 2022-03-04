@@ -1,7 +1,4 @@
 import unittest
-
-import numpy as np
-from unittest.mock import patch, MagicMock
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
 from torch.utils.data import Dataset, Subset
