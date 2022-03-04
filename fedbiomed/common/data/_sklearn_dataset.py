@@ -58,11 +58,12 @@ class SkLearnDataset(object):
     def dataset(self) -> Tuple[Union[ndarray, DataFrame, Series],
                                Union[ndarray, DataFrame, Series]]:
         """
-        Getter for dataset.
+        Getter for dataset. This returns whole dataset as it is without any split.
 
         Returns:
-            torch.utils.data.Dataset
+             Tuple[Union[ndarray, DataFrame, Series], Union[ndarray, DataFrame, Series]]
         """
+
         return self._inputs, self._target
 
     def subset_test(self) -> Tuple[np.ndarray, np.ndarray]:
