@@ -16,12 +16,12 @@ import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 from testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.data_manager import DataManager
+from fedbiomed.node.dataset_manager import DatasetManager
 
 
-class TestDataManager(unittest.TestCase):
+class TestDatasetManager(unittest.TestCase):
     """
-    Unit Tests for DataManager class.
+    Unit Tests for DatasetManager class.
     """
     class FakePytorchDataset(Dataset):
         """
@@ -56,8 +56,8 @@ class TestDataManager(unittest.TestCase):
             "test-data"
         )
 
-        # create an instance of DataManager
-        self.data_manager = DataManager()
+        # create an instance of DatasetManager
+        self.dataset_manager = DatasetManager()
 
         # fake arguments
         # fake_database attribute fakes the resut of query over
@@ -84,7 +84,7 @@ class TestDataManager(unittest.TestCase):
         self.fake_dataset_shape = (12_345, 10, 20, 30)
         fake_data = torch.rand(self.fake_dataset_shape)
         fake_labels = torch.randint(0, 2, (self.fake_dataset_shape[0],))
-        self.fake_dataset = TestDataManager.FakePytorchDataset(fake_data, fake_labels)
+        self.fake_dataset = TestDatasetManager.FakePytorchDataset(fake_data, fake_labels)
 
 
         # dummy_data for pandas dataframe stuff
@@ -99,26 +99,26 @@ class TestDataManager(unittest.TestCase):
         """
         after each test function
         """
-        self.data_manager.db.close()
+        self.dataset_manager.db.close()
         os.remove(environ['DB_PATH'])
 
 
     @patch('tinydb.table.Table.clear_cache')
-    def test_data_manager_01_search_by_id_non_existing_dataset_id(self,
+    def test_dataset_manager_01_search_by_id_non_existing_dataset_id(self,
                                                                   tinydb_cache_patch,):
         """
         Test `search_by_id` method with a non existing id
         """
         tinydb_cache_patch.return_value = None
         # action (should retrun an empty array)
-        res = self.data_manager.search_by_id('dataset_id_1234')
+        res = self.dataset_manager.search_by_id('dataset_id_1234')
         self.assertEqual(res, [])
 
 
     @patch('tinydb.queries.Query.all')
     @patch('tinydb.table.Table.search')
     @patch('tinydb.table.Table.clear_cache')
-    def test_data_manager_02_search_by_id(self,
+    def test_dataset_manager_02_search_by_id(self,
                                           tinydb_cache_patch,
                                           tinydb_search_patch,
                                           queries_all_patch):
@@ -134,7 +134,7 @@ class TestDataManager(unittest.TestCase):
         tinydb_search_patch.return_value = search_results
 
         # action
-        res = self.data_manager.search_by_id(dataset_id)
+        res = self.dataset_manager.search_by_id(dataset_id)
 
         # checks
         self.assertEqual(search_results, res)
@@ -142,11 +142,11 @@ class TestDataManager(unittest.TestCase):
         tinydb_search_patch.assert_called_once()
 
 
-    def test_data_manager_03_search_by_tags(self):
+    def test_dataset_manager_03_search_by_tags(self):
         """
         tests `search_by_tags` method with non existing tags
         """
-        res = self.data_manager.search_by_tags('dataset_id_1234')
+        res = self.dataset_manager.search_by_tags('dataset_id_1234')
         # method `search_by_tags` should return an empty list
         self.assertEqual(res, [])
 
@@ -154,7 +154,7 @@ class TestDataManager(unittest.TestCase):
     @patch('tinydb.queries.Query.all')
     @patch('tinydb.table.Table.search')
     @patch('tinydb.table.Table.clear_cache')
-    def test_data_manager_04_search_by_tags(self,
+    def test_dataset_manager_04_search_by_tags(self,
                                             tinydb_cache_patch,
                                             tinydb_search_patch,
                                             queries_all_patch
@@ -172,7 +172,7 @@ class TestDataManager(unittest.TestCase):
         tinydb_search_patch.return_value = search_results
 
         # action
-        res = self.data_manager.search_by_tags(dataset_tags)
+        res = self.dataset_manager.search_by_tags(dataset_tags)
 
         # checks
         self.assertEqual(search_results, res)
@@ -180,13 +180,13 @@ class TestDataManager(unittest.TestCase):
         tinydb_search_patch.assert_called_once()
 
 
-    def test_data_manager_05_read_csv_with_header(self):
+    def test_dataset_manager_05_read_csv_with_header(self):
         """
         Tests if `read_csv` method is able to identify and parse
         the csv file 'tata-header.csv' (containing a header)
         """
         # action
-        res = self.data_manager.read_csv(
+        res = self.dataset_manager.read_csv(
             os.path.join(self.testdir,
                          "csv",
                          "tata-header.csv"
@@ -197,13 +197,13 @@ class TestDataManager(unittest.TestCase):
         self.assertListEqual(list(res.columns), ['Titi', 'Tata', 'Toto'])
 
 
-    def test_data_manager_06_red_csv_without_header(self):
+    def test_dataset_manager_06_red_csv_without_header(self):
         """
         Tests if `read_csv` method is able to identify and parse
         the csv file 'titi-normal.csv' (which does not contain a headers)
         """
         # action
-        res = self.data_manager.read_csv(os.path.join(self.testdir,
+        res = self.dataset_manager.read_csv(os.path.join(self.testdir,
                                                       "csv",
                                                       "titi-normal.csv"
                                                       )
@@ -217,20 +217,20 @@ class TestDataManager(unittest.TestCase):
         self.assertListEqual(list(res.columns), [0, 1, 2, 3])
 
 
-    def test_data_manager_07_get_torch_dataset_shape(self):
+    def test_dataset_manager_07_get_torch_dataset_shape(self):
         """
         Tests if method `get_torch_dataset_shape` works
         on a custom dataset
         """
 
         # action
-        res = self.data_manager.get_torch_dataset_shape(self.fake_dataset)
+        res = self.dataset_manager.get_torch_dataset_shape(self.fake_dataset)
 
         # checks
         self.assertListEqual(res, list(self.fake_dataset_shape))
 
 
-    def test_data_manager_08_get_csv_data_types(self):
+    def test_dataset_manager_08_get_csv_data_types(self):
         """
         Tests `get_csv_data_type` (normal case scenario)
         """
@@ -238,7 +238,7 @@ class TestDataManager(unittest.TestCase):
         fake_csv_dataframe = pd.DataFrame(self.dummy_data)
 
         # action
-        data_types = self.data_manager.get_csv_data_types(fake_csv_dataframe)
+        data_types = self.dataset_manager.get_csv_data_types(fake_csv_dataframe)
 
         # checks
         self.assertListEqual(data_types, ['int64', 'float64', 'object', 'bool'])
@@ -246,7 +246,7 @@ class TestDataManager(unittest.TestCase):
 
     @patch('torchvision.transforms.ToTensor', spec=True)
     @patch('torchvision.datasets.MNIST')
-    def test_data_manager_09_load_default_database_as_dataset(self,
+    def test_dataset_manager_09_load_default_database_as_dataset(self,
                                                               dataset_mnist_patch,
                                                               torchvision_tensor_patch):
         """
@@ -263,7 +263,7 @@ class TestDataManager(unittest.TestCase):
         # action
         # currently, only MNIST dataset is considered as the default dataset
 
-        res_dataset = self.data_manager.load_default_database(database_name,
+        res_dataset = self.dataset_manager.load_default_database(database_name,
                                                               database_path,
                                                               as_dataset=True)
         # checks
@@ -275,9 +275,9 @@ class TestDataManager(unittest.TestCase):
                                                     transform=torchvision_tensor_patch)
 
 
-    @patch('fedbiomed.node.data_manager.DataManager.get_torch_dataset_shape')
+    @patch('fedbiomed.node.dataset_manager.DatasetManager.get_torch_dataset_shape')
     @patch('torchvision.datasets.MNIST')
-    def test_data_manager_10_load_default_database_as_dataset_false(self,
+    def test_dataset_manager_10_load_default_database_as_dataset_false(self,
                                                                     dataset_mnist_patch,
                                                                     get_torch_dataset_shape_patch,
                                                                     ):
@@ -293,7 +293,7 @@ class TestDataManager(unittest.TestCase):
         database_path = '/path/to/MNIST/dataset'
 
         # action
-        res_dataset = self.data_manager.load_default_database(database_name,
+        res_dataset = self.dataset_manager.load_default_database(database_name,
                                                               database_path,
                                                               as_dataset=False)
         # checks
@@ -308,7 +308,7 @@ class TestDataManager(unittest.TestCase):
         self.assertEqual(res_dataset, self.fake_dataset_shape)
 
 
-    def test_data_manager_11_load_default_database_exception(self):
+    def test_dataset_manager_11_load_default_database_exception(self):
         """
         Tests if exception `NotImplemntedError` is triggered
         when passing an unknown dataset
@@ -316,12 +316,12 @@ class TestDataManager(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             # action: we are here passing an unknown dataset
             # we are checking method is raising NotImplementedError
-            self.data_manager.load_default_database('my_default_dataset',
+            self.dataset_manager.load_default_database('my_default_dataset',
                                                     '/path/to/my/default/dataset')
 
 
     @patch('torchvision.datasets.ImageFolder')
-    def test_data_manager_12_load_images_dataset_as_dataset_true(self, imgfolder_patch):
+    def test_dataset_manager_12_load_images_dataset_as_dataset_true(self, imgfolder_patch):
         """
         Tests case where one is loading image dataset with argument
         `as_dataset` is set to True
@@ -334,7 +334,7 @@ class TestDataManager(unittest.TestCase):
         database_path = '/path/to/MNIST/dataset'
 
         # action
-        dataset = self.data_manager.load_images_dataset(database_path, as_dataset=True)
+        dataset = self.dataset_manager.load_images_dataset(database_path, as_dataset=True)
 
         # checks
         self.assertEqual(dataset, self.fake_dataset)
@@ -342,7 +342,7 @@ class TestDataManager(unittest.TestCase):
                                                 transform=mock.ANY)
 
 
-    def test_data_manager_13_load_images_dataset_as_dataset_false(self):
+    def test_dataset_manager_13_load_images_dataset_as_dataset_false(self):
         """
         Tests case where one is loading image dataset with argument
         `as_dataset` is set to False
@@ -352,15 +352,15 @@ class TestDataManager(unittest.TestCase):
                                     "images")
 
         # action
-        res_dataset_shape = self.data_manager.load_images_dataset(dataset_path,
+        res_dataset_shape = self.dataset_manager.load_images_dataset(dataset_path,
                                                                   as_dataset=False)
 
         # checks
         self.assertListEqual(res_dataset_shape, [5, 3, 30, 60])
 
 
-    @patch('fedbiomed.node.data_manager.DataManager.read_csv')
-    def test_data_manager_14_load_csv_dataset(self, read_csv_patch):
+    @patch('fedbiomed.node.dataset_manager.DatasetManager.read_csv')
+    def test_dataset_manager_14_load_csv_dataset(self, read_csv_patch):
         """
         Tests `load_csv_method` (normal case scenario)
         """
@@ -373,7 +373,7 @@ class TestDataManager(unittest.TestCase):
         database_path = '/path/to/MNIST/dataset'
 
         # action
-        data = self.data_manager.load_csv_dataset(database_path)
+        data = self.dataset_manager.load_csv_dataset(database_path)
 
         # checks
         read_csv_patch.assert_called_once_with(database_path)
@@ -384,11 +384,11 @@ class TestDataManager(unittest.TestCase):
 
 
     @patch('tinydb.table.Table.insert')
-    @patch('fedbiomed.node.data_manager.DataManager.load_default_database')
+    @patch('fedbiomed.node.dataset_manager.DatasetManager.load_default_database')
     @patch('os.path.isdir')
-    def test_data_manager_15_add_database_default_dataset(self,
+    def test_dataset_manager_15_add_database_default_dataset(self,
                                                           os_listdir_patch,
-                                                          datamanager_load_default_dataset_patch,
+                                                          datasetmanager_load_default_dataset_patch,
                                                           insert_table_patch):
         """
         Tests `add_database` method,  where one is submitting a default dataset
@@ -402,11 +402,11 @@ class TestDataManager(unittest.TestCase):
 
         # patchers
         os_listdir_patch.return_value = True
-        datamanager_load_default_dataset_patch.return_value = fake_dataset_shape
+        datasetmanager_load_default_dataset_patch.return_value = fake_dataset_shape
         insert_table_patch.return_value = None
 
         # action
-        dataset_id = self.data_manager.add_database(name=fake_dataset_name,
+        dataset_id = self.dataset_manager.add_database(name=fake_dataset_name,
                                                     data_type='default',
                                                     tags=['unit', 'test'],
                                                     description='some description',
@@ -415,18 +415,18 @@ class TestDataManager(unittest.TestCase):
                                                     )
         # checks
         self.assertEqual(dataset_id, fake_dataset_id)
-        datamanager_load_default_dataset_patch.assert_called_once_with(fake_dataset_name,
+        datasetmanager_load_default_dataset_patch.assert_called_once_with(fake_dataset_name,
                                                                        fake_dataset_path)
 
 
-    def test_data_manager_16_add_database_real_csv_examples_based(self):
+    def test_dataset_manager_16_add_database_real_csv_examples_based(self):
         """
         Test add_database method for loading real csv datasets
         """
 
         fake_dataset_id = 'dataset_id_1232345'
         # Load data with header example
-        dataset_id = self.data_manager.add_database(name='test',
+        dataset_id = self.dataset_manager.add_database(name='test',
                                                     tags=['titi'],
                                                     data_type='csv',
                                                     description='description',
@@ -440,7 +440,7 @@ class TestDataManager(unittest.TestCase):
         self.assertEqual(dataset_id, fake_dataset_id)
         # Should raise error due to same tag
         with self.assertRaises(Exception):
-            self.data_manager.add_database(name='test',
+            self.dataset_manager.add_database(name='test',
                                            tags=['titi'],
                                            data_type='csv',
                                            description='description',
@@ -451,7 +451,7 @@ class TestDataManager(unittest.TestCase):
                                            )
 
         # Load data with normal different types
-        self.data_manager.add_database(name='test',
+        self.dataset_manager.add_database(name='test',
                                        tags=['tata'],
                                        data_type='csv',
                                        description='description',
@@ -463,7 +463,7 @@ class TestDataManager(unittest.TestCase):
 
         # Should raise error due to broken csv
         with self.assertRaises(Exception):
-            self.data_manager.add_database(name='test',
+            self.dataset_manager.add_database(name='test',
                                            tags=['tutu'],
                                            data_type='csv',
                                            description='description',
@@ -476,7 +476,7 @@ class TestDataManager(unittest.TestCase):
         # should raise n error because it is not a csv file (but data_format has been
         # passed as a 'csv' file)
         with self.assertRaises(AssertionError):
-            dataset_id = self.data_manager.add_database(name='test',
+            dataset_id = self.dataset_manager.add_database(name='test',
                                                         tags=['titi'],
                                                         data_type='csv',
                                                         description='description',
@@ -486,13 +486,13 @@ class TestDataManager(unittest.TestCase):
                                                         )
 
 
-    def test_data_manager_17_add_database_wrong_datatype(self):
+    def test_dataset_manager_17_add_database_wrong_datatype(self):
         """
         Tests if NotImplementedError is raised when specifying
         an unknown data type in add_database method
         """
         with self.assertRaises(NotImplementedError):
-            self.data_manager.add_database(name='test',
+            self.dataset_manager.add_database(name='test',
                                            data_type='unknwon format',
                                            tags=['test'],
                                            description='this is a test',
@@ -500,16 +500,16 @@ class TestDataManager(unittest.TestCase):
 
 
     @patch('uuid.uuid4')
-    def test_data_manager_18_add_database_real_images_example_based(self, uuid_patch):
+    def test_dataset_manager_18_add_database_real_images_example_based(self, uuid_patch):
 
         """
-        Test data_manager method for loading real images datasets
+        Test dataset_manager method for loading real images datasets
         """
         # patchers:
         uuid_patch.return_value = FakeUuid()
 
         # Load data with header example
-        dataset_id = self.data_manager.add_database(name='test',
+        dataset_id = self.dataset_manager.add_database(name='test',
                                                     tags=['titi'],
                                                     data_type='images',
                                                     description='description',
@@ -522,7 +522,7 @@ class TestDataManager(unittest.TestCase):
 
         # Should raise error due to same tag
         with self.assertRaises(Exception):
-            self.data_manager.add_database(name='test',
+            self.dataset_manager.add_database(name='test',
                                            tags=['titi'],
                                            data_type='images',
                                            description='description',
@@ -534,7 +534,7 @@ class TestDataManager(unittest.TestCase):
         # should raise error because a csv dataset is loaded as image
 
         with self.assertRaises(AssertionError):
-            self.data_manager.add_database(name='test',
+            self.dataset_manager.add_database(name='test',
                                            tags=['titi'],
                                            data_type='images',
                                            description='description',
@@ -546,8 +546,8 @@ class TestDataManager(unittest.TestCase):
 
 
     @patch('tinydb.table.Table.remove')
-    @patch('fedbiomed.node.data_manager.DataManager.search_by_tags')
-    def test_data_manager_19_remove_database(self,
+    @patch('fedbiomed.node.dataset_manager.DatasetManager.search_by_tags')
+    def test_dataset_manager_19_remove_database(self,
                                              search_by_tags_patch,
                                              db_remove_patch):
         """
@@ -578,7 +578,7 @@ class TestDataManager(unittest.TestCase):
         db_remove_patch.side_effect = db_remove_side_effect
 
         # action
-        self.data_manager.remove_database(dataset_tags)
+        self.dataset_manager.remove_database(dataset_tags)
 
         # checks
         search_by_tags_patch.assert_called_once_with(dataset_tags)
@@ -588,7 +588,7 @@ class TestDataManager(unittest.TestCase):
 
     @patch('tinydb.table.Table.update')
     @patch('tinydb.queries.Query.all')
-    def test_data_manager_20_modify_database_info(self,
+    def test_dataset_manager_20_modify_database_info(self,
                                                   query_all_patch,
                                                   tinydb_update_patch):
         """
@@ -626,7 +626,7 @@ class TestDataManager(unittest.TestCase):
         tinydb_update_patch.side_effect = tinydb_update_side_effect
 
         # action
-        self.data_manager.modify_database_info(tags, new_dataset)
+        self.dataset_manager.modify_database_info(tags, new_dataset)
 
         # checks
         # check that correct calls are made
@@ -643,7 +643,7 @@ class TestDataManager(unittest.TestCase):
 
     @patch('tinydb.table.Table.all')
     @patch('tinydb.table.Table.clear_cache')
-    def test_data_manager_21_list_my_data(self,
+    def test_dataset_manager_21_list_my_data(self,
                                           clear_cache_patch,
                                           query_all_patch):
         """
@@ -675,7 +675,7 @@ class TestDataManager(unittest.TestCase):
         query_all_patch.return_value = table_all_query
 
         # action
-        all_data = self.data_manager.list_my_data(True)
+        all_data = self.dataset_manager.list_my_data(True)
 
         # checks
         query_all_patch.assert_called_once()
@@ -686,8 +686,8 @@ class TestDataManager(unittest.TestCase):
         self.assertNotIn('dtypes', all_data[1].keys())
 
 
-    @patch('fedbiomed.node.data_manager.DataManager.load_default_database')
-    def test_data_manager_22_load_as_dataloader_default(self,
+    @patch('fedbiomed.node.dataset_manager.DatasetManager.load_default_database')
+    def test_dataset_manager_22_load_as_dataloader_default(self,
                                                         load_default_database_patch):
         """
         Tests `load_as_dataloader` method where  the input
@@ -702,7 +702,7 @@ class TestDataManager(unittest.TestCase):
         load_default_database_patch.return_value = fake_default_dataset
 
         # action
-        res = self.data_manager.load_as_dataloader(fake_default_dataset)
+        res = self.dataset_manager.load_as_dataloader(fake_default_dataset)
 
         # checks
         load_default_database_patch.assert_called_once_with(
@@ -716,8 +716,8 @@ class TestDataManager(unittest.TestCase):
         self.assertEqual(res['path'], fake_default_dataset['path'])
 
 
-    @patch('fedbiomed.node.data_manager.DataManager.load_images_dataset')
-    def test_data_manager_23_load_as_dataloader_images(self, load_images_dataset_patch):
+    @patch('fedbiomed.node.dataset_manager.DatasetManager.load_images_dataset')
+    def test_dataset_manager_23_load_as_dataloader_images(self, load_images_dataset_patch):
         """
         Tests `load_as_dataloader` method where  the input
         dataset is a images dataset
@@ -736,7 +736,7 @@ class TestDataManager(unittest.TestCase):
         load_images_dataset_patch.return_value = self.fake_dataset
 
         # action
-        res = self.data_manager.load_as_dataloader(fake_dataset)
+        res = self.dataset_manager.load_as_dataloader(fake_dataset)
 
         # checks
         load_images_dataset_patch.assert_called_once_with(folder_path=fake_dataset['path'],
@@ -745,10 +745,10 @@ class TestDataManager(unittest.TestCase):
         self.assertIsInstance(res, Dataset)
 
 
-    @patch('fedbiomed.node.data_manager.DataManager.read_csv')
+    @patch('fedbiomed.node.dataset_manager.DatasetManager.read_csv')
     @patch('os.path.isfile')
-    @patch('fedbiomed.node.data_manager.DataManager.search_by_tags')
-    def test_data_manager_24_load_data_file(self,
+    @patch('fedbiomed.node.dataset_manager.DatasetManager.search_by_tags')
+    def test_dataset_manager_24_load_data_file(self,
                                             search_by_tags_patch,
                                             os_isfile_patch,
                                             read_csv_patch
@@ -772,7 +772,7 @@ class TestDataManager(unittest.TestCase):
         read_csv_patch.return_value = pandas_dataset
 
         # action: first test with mode = 'pandas'
-        pandas_df = self.data_manager.load_data(tags, mode = 'pandas')
+        pandas_df = self.dataset_manager.load_data(tags, mode = 'pandas')
 
         # first test checks
         search_by_tags_patch.assert_called_once_with(tags)
@@ -787,7 +787,7 @@ class TestDataManager(unittest.TestCase):
         search_by_tags_patch.return_value = [search_by_tags_query]
         read_csv_patch.return_value = pandas_dataset.drop(columns='chars')
         # action: second test with mode = 'numpy'
-        np_array = self.data_manager.load_data(tags, mode = 'numpy')
+        np_array = self.dataset_manager.load_data(tags, mode = 'numpy')
 
         # second test checks
         search_by_tags_patch.assert_called_once_with(tags)
@@ -801,7 +801,7 @@ class TestDataManager(unittest.TestCase):
         search_by_tags_patch.return_value = [search_by_tags_query]
         read_csv_patch.return_value = pd.DataFrame(pandas_dataset_test_3)
         # action: third test with mode = 'torch_tensor'
-        torch_tensor = self.data_manager.load_data(tags, mode = 'torch_tensor')
+        torch_tensor = self.dataset_manager.load_data(tags, mode = 'torch_tensor')
 
         # third test checks
         search_by_tags_patch.assert_called_once_with(tags)
@@ -811,11 +811,11 @@ class TestDataManager(unittest.TestCase):
         )
 
 
-    @patch('fedbiomed.node.data_manager.DataManager.load_as_dataloader')
+    @patch('fedbiomed.node.dataset_manager.DatasetManager.load_as_dataloader')
     @patch('os.path.isdir')
     @patch('os.path.isfile')
-    @patch('fedbiomed.node.data_manager.DataManager.search_by_tags')
-    def test_data_manager_25_load_data_folder(self,
+    @patch('fedbiomed.node.dataset_manager.DatasetManager.search_by_tags')
+    def test_dataset_manager_25_load_data_folder(self,
                                               search_by_tags_patch,
                                               os_isfile_patch,
                                               os_isdir_patch,
@@ -837,7 +837,7 @@ class TestDataManager(unittest.TestCase):
         load_as_dataloader_patch.return_value = self.fake_dataset
 
         # action: Test 1, loading with argument 'mode' = 'torch_dataset'
-        torch_dataset = self.data_manager.load_data(tags, mode= 'torcH_dataset')
+        torch_dataset = self.dataset_manager.load_data(tags, mode= 'torcH_dataset')
 
         # checks
         search_by_tags_patch.assert_called_once_with(tags)
@@ -848,14 +848,14 @@ class TestDataManager(unittest.TestCase):
         # In this last part of the test, we are going to check if exceptions
         # (for the other modes) are raised
         with self.assertRaises(NotImplementedError):
-            self.data_manager.load_data(tags, mode='torch_tensor')
+            self.dataset_manager.load_data(tags, mode='torch_tensor')
         with self.assertRaises(NotImplementedError):
-            self.data_manager.load_data(tags, mode='numpy')
+            self.dataset_manager.load_data(tags, mode='numpy')
         with self.assertRaises(NotImplementedError):
-            self.data_manager.load_data(tags, mode='pandas')
+            self.dataset_manager.load_data(tags, mode='pandas')
 
 
-    def test_data_manager_26_load_data_exception(self):
+    def test_dataset_manager_26_load_data_exception(self):
         """
         Tests if an exception is raised when passing an
         unknown mode to `load_data` method
@@ -865,7 +865,7 @@ class TestDataManager(unittest.TestCase):
 
         # action and check
         with self.assertRaises(NotImplementedError):
-            self.data_manager.load_data(tags, mode='unknown_mode')
+            self.dataset_manager.load_data(tags, mode='unknown_mode')
 
 
 if __name__ == '__main__':  # pragma: no cover

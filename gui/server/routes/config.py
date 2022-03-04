@@ -11,7 +11,7 @@ from utils import success, error, response
 
 from fedbiomed.node.environ import environ
 import fedbiomed.common.environ
-import fedbiomed.node.data_manager
+import fedbiomed.node.dataset_manager
 
 
 @api.route('/config/node-id', methods=['GET'])
@@ -68,7 +68,7 @@ def fedbiomed_environ():
 
 # TODO: Should be used when it is required to manage multiple nodes
 # from single GUI. Currently when the config is changed some of the 
-# Fedbiomed APIs still use previous node config e.g. DataManager.
+# Fedbiomed APIs still use previous node config e.g. DatasetManager.
 # @api.route('/config/change-node-config', methods=['POST'])
 # def change_node_config():
 #     """ Change config file that is going to be used
@@ -88,7 +88,7 @@ def fedbiomed_environ():
 #             os.environ['CONFIG_FILE'] = fullpath
 #             reload(fedbiomed.common.environ)
 #             reload(fedbiomed.node.environ)
-#             reload(fedbiomed.node.data_manager)
+#             reload(fedbiomed.node.dataset_manager)
 #
 #             app.config.update(
 #                 NODE_CONFIG_FILE=req['config-file'],

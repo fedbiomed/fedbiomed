@@ -16,7 +16,7 @@ from fedbiomed.common.tasks_queue import TasksQueue
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.data_manager import DataManager
+from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.round import Round
 
@@ -30,14 +30,14 @@ class Node:
     requested by researcher stored in a queue.
     """
     def __init__( self,
-                  data_manager: DataManager,
+                  dataset_manager: DatasetManager,
                   model_manager: ModelManager,
                   node_args: Union[dict, None] = None):
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
         self.messaging = Messaging(self.on_message, ComponentType.NODE,
                                    environ['NODE_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
-        self.data_manager = data_manager
+        self.dataset_manager = dataset_manager
         self.model_manager = model_manager
         self.rounds = []
 
@@ -90,7 +90,7 @@ class Node:
                         }).get_dict())
             elif command == 'search':
                 # Look for databases matching the tags
-                databases = self.data_manager.search_by_tags(msg['tags'])
+                databases = self.dataset_manager.search_by_tags(msg['tags'])
                 if len(databases) != 0:
                     # remove path from search to avoid privacy issues
                     for d in databases:
@@ -105,7 +105,7 @@ class Node:
                          'count': len(databases)}).get_dict())
             elif command == 'list':
                 # Get list of all datasets
-                databases = self.data_manager.list_my_data(verbose=False)
+                databases = self.dataset_manager.list_my_data(verbose=False)
                 remove_key = ['path', 'dataset_id']
                 for d in databases:
                     for key in remove_key:
@@ -189,7 +189,7 @@ class Node:
 
         if environ['NODE_ID'] in msg.get_param('training_data'):
             for dataset_id in msg.get_param('training_data')[environ['NODE_ID']]:
-                alldata = self.data_manager.search_by_id(dataset_id)
+                alldata = self.dataset_manager.search_by_id(dataset_id)
                 if len(alldata) != 1 or 'path' not in alldata[0].keys():
                     # TODO: create a data structure for messaging
                     # (ie an object creating a dict with field accordingly)

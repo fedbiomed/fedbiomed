@@ -18,7 +18,7 @@ from torchvision import transforms
 from fedbiomed.node.environ import environ
 
 
-class DataManager:
+class DatasetManager:
     """
     Interface over TinyDB database.
     Facility fot storing, retrieving data and get data info
@@ -26,7 +26,7 @@ class DataManager:
     """
     def __init__(self):
         """
-        The constrcutor of the class
+        The constructor of the class
         """
         self.db = TinyDB(environ['DB_PATH'])
         self.database = Query()
