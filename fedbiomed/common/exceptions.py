@@ -61,7 +61,7 @@ class FedbiomedMessagingError(FedbiomedError):
 class FedbiomedModelManagerError(FedbiomedError):
     """
     Exception specific to the ModelManager
-    (from fedbiomed.common.data_manager)
+    (from fedbiomed.common.model_manager)
     """
     pass
 

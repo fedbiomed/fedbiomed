@@ -17,7 +17,7 @@ from tkinter import _tkinter
 from fedbiomed.common.constants  import ModelTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 
-from fedbiomed.node.data_manager import DataManager
+from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.environ import environ
 from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.node import Node
@@ -43,7 +43,7 @@ __intro__ = """
 # this may be changed on command line or in the config_node.ini
 logger.setLevel("DEBUG")
 
-data_manager = DataManager()
+dataset_manager = DatasetManager()
 model_manager = ModelManager()
 
 readline.parse_and_bind("tab: complete")
@@ -207,7 +207,7 @@ def add_database(interactive=True,
 
     # Add database
     try:
-        data_manager.add_database(name=name,
+        dataset_manager.add_database(name=name,
                                   tags=tags,
                                   data_type=data_type,
                                   description=description,
@@ -223,7 +223,7 @@ def add_database(interactive=True,
         exit(1)
 
     print('\nGreat! Take a look at your data:')
-    data_manager.list_my_data(verbose=True)
+    dataset_manager.list_my_data(verbose=True)
 
 
 def node_signal_handler(signum, frame):
@@ -272,9 +272,9 @@ def manage_node(node_args: Union[dict, None] = None):
             logger.warning('Model approval for train request is not activated. ' +
                            'This might cause security problems. Please, consider to enable model approval.')
 
-        data_manager = DataManager()
+        dataset_manager = DatasetManager()
         logger.info('Starting communication channel with network')
-        node = Node(data_manager = data_manager,
+        node = Node(dataset_manager = dataset_manager,
                     model_manager = model_manager,
                     node_args=node_args)
         node.start_messaging(block=False)
@@ -339,7 +339,7 @@ def launch_node(node_args: Union[dict, None] = None):
 
 
 def delete_database(interactive: bool = True):
-    my_data = data_manager.list_my_data(verbose=False)
+    my_data = dataset_manager.list_my_data(verbose=False)
     if not my_data:
         logger.warning('No dataset to delete')
         return
@@ -367,16 +367,16 @@ def delete_database(interactive: bool = True):
             if not tags:
                 logger.warning('No matching dataset to delete')
                 return
-            data_manager.remove_database(tags)
+            dataset_manager.remove_database(tags)
             logger.info('Dataset removed. Here your available datasets')
-            data_manager.list_my_data()
+            dataset_manager.list_my_data()
             return
         except (ValueError, IndexError, AssertionError):
             logger.error('Invalid option. Please, try again.')
 
 
 def delete_all_database():
-    my_data = data_manager.list_my_data(verbose=False)
+    my_data = dataset_manager.list_my_data(verbose=False)
 
     if not my_data:
         logger.warning('No dataset to delete')
@@ -384,7 +384,7 @@ def delete_all_database():
 
     for ds in my_data:
         tags = ds['tags']
-        data_manager.remove_database(tags)
+        dataset_manager.remove_database(tags)
         logger.info('Dataset removed for tags:' + str(tags))
 
     return
@@ -620,7 +620,7 @@ def launch_cli():
 
     elif args.list:
         print('Listing your data available')
-        data = data_manager.list_my_data(verbose=True)
+        data = dataset_manager.list_my_data(verbose=True)
         if len(data) == 0:
             print('No data has been set up.')
     elif args.delete:

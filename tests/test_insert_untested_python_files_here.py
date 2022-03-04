@@ -30,7 +30,7 @@ import fedbiomed.common.training_plans._torchnn
 import fedbiomed.common.utils
 import fedbiomed.node.__init__
 import fedbiomed.node.cli
-import fedbiomed.node.data_manager
+import fedbiomed.node.dataset_manager
 #import fedbiomed.node.environ
 import fedbiomed.node.history_monitor
 import fedbiomed.node.model_manager
