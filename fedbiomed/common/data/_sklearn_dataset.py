@@ -106,7 +106,7 @@ class SkLearnDataset(object):
             FedbiomedError: If Dataset is not split into test and train in advance
         """
         if self._subset_test is None:
-            raise FedbiomedSkLearnDatasetError(f"{ErrorNumbers.FB607.value}: Can not find subset for test partition. "
+            raise FedbiomedSkLearnDatasetError(f"{ErrorNumbers.FB609.value}: Can not find subset for test partition. "
                                                f"Please make sure that the method `.split(ratio=ration)` DataManager "
                                                f"object has been called before. ")
 
@@ -122,7 +122,7 @@ class SkLearnDataset(object):
             FedbiomedError: If Dataset is not split into test and train in advance
         """
         if self._subset_train is None:
-            raise FedbiomedSkLearnDatasetError(f"{ErrorNumbers.FB607.value}: Can not find subset for train partition. "
+            raise FedbiomedSkLearnDatasetError(f"{ErrorNumbers.FB609.value}: Can not find subset for train partition. "
                                                f"Please make sure that the method `.split(ratio=ration)` DataManager "
                                                f"object has been called before. ")
 
@@ -152,7 +152,7 @@ class SkLearnDataset(object):
 
         # Check ratio is valid for splitting
         if ratio < 0 or ratio > 1:
-            raise FedbiomedSkLearnDatasetError(f'{ErrorNumbers.FB607.value}: The argument `ratio` should be '
+            raise FedbiomedSkLearnDatasetError(f'{ErrorNumbers.FB609.value}: The argument `ratio` should be '
                                                f'equal or between 0 and 1, not {ratio}')
 
         x_train, x_test, y_train, y_test = train_test_split(self._inputs, self._target, test_size=ratio)
