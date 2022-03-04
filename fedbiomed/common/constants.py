@@ -130,6 +130,7 @@ class ErrorNumbers(_BaseEnum):
     FB604 = "FB604: repository error"
     FB605 = "FB605: training plan error"
     FB606 = "FB606: model manager error"
+    FB607 = "FB607: data manager error"
 
     # oops
     FB999 = "FB999: unknown error code sent by the node"

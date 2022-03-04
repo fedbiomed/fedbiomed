@@ -1,9 +1,11 @@
 import math
+import inspect
 
 from typing import Union
 from torch.utils.data import Dataset, Subset, DataLoader
 from torch.utils.data import random_split
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedDataManagerError
+from fedbiomed.common.constants import ErrorNumbers
 
 
 class TorchDataset(object):
@@ -23,10 +25,14 @@ class TorchDataset(object):
         Raises:
             none
         """
+
         self._dataset = dataset
         self._loader_arguments = kwargs
         self._subset_test = None
         self._subset_train = None
+
+    def __getattribute__(self, item):
+        return object.__getattribute__(self, item)
 
     def dataset(self) -> Dataset:
         """
@@ -74,12 +80,15 @@ class TorchDataset(object):
         """
 
         if self._subset_test is None:
-            raise FedbiomedError()
+            raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Can not find subset for test partition. "
+                                            f"Please make sure that the method `.split(ratio=ration)` DataManager "
+                                            f"object has been called before. ")
 
         try:
             loader = DataLoader(self._subset_test, **self._loader_arguments)
         except TypeError as err:
-            raise FedbiomedError(f"Error while creating a DataLoader for test partition: {str(err)}")
+            raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Error while creating a PyTorch DataLoader "
+                                            f"for test partition due to loader arguments: {str(err)}")
 
         return loader
 
@@ -91,13 +100,16 @@ class TorchDataset(object):
         Raises:
             FedbiomedError: If Dataset is not split into test and train in advance
         """
-        if self._subset_test is None:
-            raise FedbiomedError()
+        if self._subset_train is None:
+            raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Can not find subset for train partition. "
+                                            f"Please make sure that the method `.split(ratio=ration)` DataManager "
+                                            f"object has been called before. ")
 
         try:
             loader = DataLoader(self._subset_train, **self._loader_arguments)
         except TypeError as err:
-            raise FedbiomedError(f"Error while creating a DataLoader for test partition: {str(err)}")
+            raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Error while creating a PyTorch DataLoader "
+                                            f"for train partition due to loader arguments: {str(err)}")
 
         return loader
 
@@ -106,7 +118,13 @@ class TorchDataset(object):
         Method for loading all samples as PyTorch DataLoader without splitting
         """
 
-        return DataLoader(self._dataset, **self._loader_arguments)
+        try:
+            loader = DataLoader(self._dataset, **self._loader_arguments)
+        except TypeError as err:
+            raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Error while creating a PyTorch DataLoader "
+                                            f"for all samples due to loader arguments: {str(err)}")
+
+        return loader
 
     def split(self, ratio: float) -> None:
         """
@@ -116,14 +134,15 @@ class TorchDataset(object):
              ratio (float): Split ratio for testing set ratio. Rest of the samples
                             will be used for training
         Raises:
-            FedbiomedError
+            FedbiomedDataManagerError: If the ratio is not in good format
 
         Returns:
              none
         """
         # Check ratio is valid for splitting
         if ratio < 0 or ratio > 1:
-            raise FedbiomedError('The argument `ratio` should be between 0 and 1, not {ratio}')
+            raise FedbiomedDataManagerError(f'{ErrorNumbers.FB607.value}: The argument `ratio` should be '
+                                            f'equal or between 0 and 1, not {ratio}')
 
         # Get number of samples of dataset
         samples = self._dataset.data.shape[0]

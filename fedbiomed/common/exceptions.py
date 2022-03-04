@@ -115,3 +115,10 @@ class FedbiomedTrainingPlanError(FedbiomedError):
     Exception specific to errors while getting source of the model class
     """
     pass
+
+
+class FedbiomedDataManagerError(FedbiomedError):
+    """
+    Exception for DataManager errors. This error includes also exception
+    raised by TorchDataset and SkLearnDataset
+    """

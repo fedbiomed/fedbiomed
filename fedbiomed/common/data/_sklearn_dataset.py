@@ -5,7 +5,8 @@ from typing import Union, Tuple
 from numpy import ndarray
 from pandas import DataFrame, Series
 from sklearn.model_selection import train_test_split
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedDataManagerError
+from fedbiomed.common.constants import ErrorNumbers
 
 
 class SkLearnDataset(object):
@@ -14,6 +15,26 @@ class SkLearnDataset(object):
                  inputs: Union[np.ndarray, pd.DataFrame, pd.Series],
                  target: Union[np.ndarray, pd.DataFrame, pd.Series],
                  **kwargs):
+
+        """
+        Wrapper for `pd.DataFrame`, `pd.Series` and `np.ndarray` datasets that is going to  be
+        used for scikit-learn based model training. This class is responsible for managing inputs, and
+        target variables that have been provided in `training_data` of scikit-learn based training
+        plans.
+
+        Args:
+            inputs (np.ndarray, pd.DataFrame, pd.Series): Independent variables (inputs, features) for model training
+            target (np.ndarray, pd.DataFrame, pd.Series): Dependent variable/s (target) for model training and
+                                                            evaluation
+
+        Attr:
+            _loader_arguments: The arguments that are going to be passed to torch.utils.data.DataLoader
+            _subset_test: Test subset of dataset
+            _subset_train: Train subset of dataset
+
+        Raises:
+            none
+        """
 
         # Convert pd.DataFrame or pd.Series to np.ndarray for `inputs`
         if isinstance(inputs, (pd.DataFrame, pd.Series)):
@@ -80,7 +101,10 @@ class SkLearnDataset(object):
             FedbiomedError: If Dataset is not split into test and train in advance
         """
         if self._subset_test is None:
-            raise FedbiomedError()
+            raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Can not find subset for test partition. "
+                                            f"Please make sure that the method `.split(ratio=ration)` DataManager "
+                                            f"object has been called before. ")
+
         # TODO: Create DataLoader for SkLearnDataset to apply batch training
         return self._subset_test
 
@@ -93,16 +117,38 @@ class SkLearnDataset(object):
             FedbiomedError: If Dataset is not split into test and train in advance
         """
         if self._subset_train is None:
-            raise FedbiomedError()
+            raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Can not find subset for train partition. "
+                                            f"Please make sure that the method `.split(ratio=ration)` DataManager "
+                                            f"object has been called before. ")
 
         # TODO: Create DataLoader for SkLearnDataset to apply batch training
         return self._subset_train
 
+    def load_all_samples(self) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Method for loading all samples as Numpy ndarray without splitting
+        """
+
+        return self._inputs, self._target
+
     def split(self, ratio: float) -> None:
+        """
+        Method for splitting np.ndarray dataset into train and test.
+
+        Args:
+             ratio (float): Split ratio for testing set ratio. Rest of the samples
+                            will be used for training
+        Raises:
+            FedbiomedDataManagerError: If the ratio is not in good format
+
+        Returns:
+             none
+        """
 
         # Check ratio is valid for splitting
         if ratio < 0 or ratio > 1:
-            raise FedbiomedError('The argument `ratio` should be between 0 and 1, not {ratio}')
+            raise FedbiomedDataManagerError(f'{ErrorNumbers.FB607.value}: The argument `ratio` should be '
+                                            f'equal or between 0 and 1, not {ratio}')
 
         x_train, x_test, y_train, y_test = train_test_split(self._inputs, self._target, test_size=ratio)
 
