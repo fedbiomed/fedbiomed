@@ -30,16 +30,16 @@ services:
   # intermediate step : base image for building node container 
   # 2 options : without or without nvidia gpu support
   # we usually dont want to launch this service (used for building other services)
-  basenode:
-    container_name: fedbiomed-vpn-base-node
+  basenode-no-gpu:
+    container_name: fedbiomed-vpn-base-node-no-gpu
     build:
       context: ./base/build_files
     image: fedbiomed/vpn-basenode
     entrypoint: /bin/true
     # profiles:
     #  - debug 
-  basenode-gpu:
-    container_name: fedbiomed-vpn-base-nodegpu
+  basenode:
+    container_name: fedbiomed-vpn-base-node
     build:
       context: ./basegpu/build_files
     image: fedbiomed/vpn-basenode
@@ -89,7 +89,6 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-node
-    #runtime: nvidia
     env_file:
       - ./node/run_mounts/config/config.env
     cap_add:
@@ -100,9 +99,11 @@ services:
     volumes:
       - ./node/run_mounts/config:/config # contains VPN configurations
       - ./node/run_mounts/data:/data # datasets can be added here
+  # not using gpu
   node:
     << : *standard-node
-  node-gpu-other:
+  # using gpu (need image with gpu support)
+  node-gpu:
     << : *standard-node
     runtime: nvidia
   #
