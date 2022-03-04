@@ -14,10 +14,10 @@ from schemas import AddDataSetRequest, \
     AddDefaultDatasetRequest, \
     ListDatasetRequest
 
-from fedbiomed.node.dataset_manager import DataSetManager
+from fedbiomed.node.dataset_manager import DatasetManager
 
-# Initialize Fed-BioMed DataSetManager
-dataset_manager = DataSetManager()
+# Initialize Fed-BioMed DatasetManager
+dataset_manager = DatasetManager()
 
 
 @api.route('/datasets/list', methods=['POST'])
@@ -292,7 +292,7 @@ def add_default_dataset():
             error   : Boolean error status
             result  : null
             message : Message about error. For this API it comes from
-                     `DataSetManager` class of Fed-BioMed.
+                     `DatasetManager` class of Fed-BioMed.
 
         200:
             success : Boolean value indicates that the request is success

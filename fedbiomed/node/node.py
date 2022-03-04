@@ -16,7 +16,7 @@ from fedbiomed.common.tasks_queue import TasksQueue
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.dataset_manager import DataSetManager
+from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.round import Round
 
@@ -30,7 +30,7 @@ class Node:
     requested by researcher stored in a queue.
     """
     def __init__( self,
-                  dataset_manager: DataSetManager,
+                  dataset_manager: DatasetManager,
                   model_manager: ModelManager,
                   node_args: Union[dict, None] = None):
 

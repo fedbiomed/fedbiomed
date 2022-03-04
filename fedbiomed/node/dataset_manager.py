@@ -18,7 +18,7 @@ from torchvision import transforms
 from fedbiomed.node.environ import environ
 
 
-class DataSetManager:
+class DatasetManager:
     """
     Interface over TinyDB database.
     Facility fot storing, retrieving data and get data info

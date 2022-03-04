@@ -68,7 +68,7 @@ def fedbiomed_environ():
 
 # TODO: Should be used when it is required to manage multiple nodes
 # from single GUI. Currently when the config is changed some of the 
-# Fedbiomed APIs still use previous node config e.g. DataSetManager.
+# Fedbiomed APIs still use previous node config e.g. DatasetManager.
 # @api.route('/config/change-node-config', methods=['POST'])
 # def change_node_config():
 #     """ Change config file that is going to be used
