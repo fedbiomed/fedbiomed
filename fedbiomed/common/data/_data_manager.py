@@ -12,7 +12,7 @@ from ._sklearn_dataset import SkLearnDataset
 class DataManager(object):
 
     def __init__(self,
-                 dataset: Union[np.ndarray, pd.DataFrame, pd.Series, Dataset] = None,
+                 dataset: Union[np.ndarray, pd.DataFrame, pd.Series, Dataset],
                  target: Union[np.ndarray, pd.DataFrame, pd.Series] = None,
                  **kwargs) -> None:
 

@@ -64,6 +64,10 @@ class SkLearnDataset(object):
              Tuple[Union[ndarray, DataFrame, Series], Union[ndarray, DataFrame, Series]]
         """
 
+        # TODO: When a proper DataLoader is develop for SkLearn framework, this method should
+        # return pure data not data loader.  The method load_all_samples() should return dataloader
+        # please see the method load_all_samples()
+
         return self._inputs, self._target
 
     def subset_test(self) -> Tuple[np.ndarray, np.ndarray]:
