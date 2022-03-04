@@ -131,6 +131,6 @@ class ErrorNumbers(_BaseEnum):
     FB605 = "FB605: training plan error"
     FB606 = "FB606: model manager error"
     FB607 = "FB607: data manager error"
-
+    FB608 = "FB608: torch dataset error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"

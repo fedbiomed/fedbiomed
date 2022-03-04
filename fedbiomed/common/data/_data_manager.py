@@ -37,6 +37,8 @@ class DataManager(object):
                                             of `pd.DataFrame`, `pd.Series` or `np.ndarray`.
         """
 
+        # TODO: Improve datamanager for auto loading by given dataset_path
+
         # TorchDataset object shouldbe instantiated if target variable is not defined
         # and `dataset` is an instance of `torch.utils.data.Dataset`
         if target is None and isinstance(dataset, Dataset):

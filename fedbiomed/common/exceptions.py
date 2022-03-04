@@ -119,6 +119,20 @@ class FedbiomedTrainingPlanError(FedbiomedError):
 
 class FedbiomedDataManagerError(FedbiomedError):
     """
-    Exception for DataManager errors. This error includes also exception
-    raised by TorchDataset and SkLearnDataset
+    Exception for DataManager errors.
     """
+    pass
+
+
+class FedbiomedTorchDatasetError(FedbiomedError):
+    """
+    Exceptions specific for the class TorchDataset.
+    """
+    pass
+
+
+class FedbiomedSkLearnDatasetError(FedbiomedError):
+    """
+    Exceptions specific for the class SkLearnDataset.
+    """
+    pass
