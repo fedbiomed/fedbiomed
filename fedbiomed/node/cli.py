@@ -17,7 +17,7 @@ from tkinter import _tkinter
 from fedbiomed.common.constants  import ModelTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 
-from fedbiomed.node.dataset_manager import DataSetManager
+from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.environ import environ
 from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.node import Node
@@ -43,7 +43,7 @@ __intro__ = """
 # this may be changed on command line or in the config_node.ini
 logger.setLevel("DEBUG")
 
-dataset_manager = DataSetManager()
+dataset_manager = DatasetManager()
 model_manager = ModelManager()
 
 readline.parse_and_bind("tab: complete")
@@ -272,7 +272,7 @@ def manage_node(node_args: Union[dict, None] = None):
             logger.warning('Model approval for train request is not activated. ' +
                            'This might cause security problems. Please, consider to enable model approval.')
 
-        dataset_manager = DataSetManager()
+        dataset_manager = DatasetManager()
         logger.info('Starting communication channel with network')
         node = Node(dataset_manager = dataset_manager,
                     model_manager = model_manager,
