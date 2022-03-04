@@ -106,6 +106,18 @@ services:
   node-gpu:
     << : *standard-node
     runtime: nvidia
+    #
+    ## alternate syntax from the `Compose` specification, needs both
+    ## Docker Compose v1.28.0+ and a supported config (eg seems not to
+    ## be working with CentOS)
+    ##
+    #deploy:
+    #  resources:
+    #    reservations:
+    #      devices:
+    #        - driver: nvidia
+    #          #count: 1
+    #          capabilities: [gpu]
   #
   # researcher component
   researcher:
