@@ -160,7 +160,7 @@ Run this only at first launch of container or after cleaning :
 
 * build container
 ```bash
-[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode
 [user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
 ```
 
@@ -185,7 +185,7 @@ On the build machine
 * for building use the `CONTAINER_UID` and `CONTAINER_GID` that will be used on the node machine for running the node (they may differ from the ids on the build machine)
 * build container
 ```bash
-[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode
 [user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
 ```
 * save images for container
@@ -242,6 +242,10 @@ Run this only at first launch of container or after cleaning :
 * launch container
 ```bash
 [user@node $] docker-compose up -d node
+```
+  - alternative: launch container with Nvidia GPU support activated. It requires all the pre-requisites for GPU support to be installed.
+  ```bash
+[user@node $] docker-compose up -d node-gpu
 ```
 * retrieve the *publickey*
 ```bash
