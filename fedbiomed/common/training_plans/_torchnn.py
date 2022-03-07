@@ -224,7 +224,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     try:
                         _mu =  float(fedprox_mu)
                     except ValueError:
-                        msg = ErrorNumbers.FB605.value + ": fedprox_mu parameter reuqested nut is not a float"
+                        msg = ErrorNumbers.FB605.value + ": fedprox_mu parameter requested nut is not a float"
                         logger.critical(msg)
                         raise FedbiomedTrainingPlanError(msg)
 
