@@ -153,7 +153,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          dry_run: bool = False,
                          use_gpu: Union[bool, None] = None,
                          fedprox_mu = None,
-                         monitor=None,
+                         history_monitor=None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
         """
@@ -184,7 +184,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 if available on node and proposed by node
                 Defaults to None (dont overload the object default value)
             - fedprox_mu (float or None): mu parameter in case of FredProx computing. Fedault is None, which means that FredProx is not triggered
-            - monitor ([type], optional): [description]. Defaults to None.
+            - history_monitor ([type], optional): [description]. Defaults to None.
             - node_args (Union[dict, None]): command line arguments for node. Can include:
                 - gpu (bool): propose use a GPU device if any is available. Default False.
                 - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
@@ -250,8 +250,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         res.item()))
 
                     # Send scalar values via general/feedback topic
-                    if monitor is not None:
-                        monitor.add_scalar('Loss', res.item(), batch_idx, epoch)
+                    if history_monitor is not None:
+                        history_monitor.add_scalar('Loss', res.item(), batch_idx, epoch)
 
                     if dry_run:
                         self.to(self.device_init)
