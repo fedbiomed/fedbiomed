@@ -256,6 +256,7 @@ Alternative: launch container with Nvidia GPU support activated. Before launchin
 ```bash
 [user@node $] docker-compose up -d node-gpu
 ```
+Known limitation: from our tests, GPU in container doesn't seem to work when using an imported docker image (`docker image load`).
 * retrieve the *publickey*
 ```bash
 [user@node $] docker-compose exec node wg show wg0 public-key
