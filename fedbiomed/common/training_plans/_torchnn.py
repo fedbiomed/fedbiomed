@@ -2,18 +2,18 @@
 TrainingPlan definition for torchnn ML framework
 '''
 
-
 import inspect
 from typing import Union, List
 from copy import deepcopy
 
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
+from fedbiomed.common.constants import TrainingPlans
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
-
 from ._base_training_plan import BaseTrainingPlan
 
 
@@ -48,6 +48,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         super(TorchTrainingPlan, self).__init__()
 
+        self.__type = TrainingPlans.TorchTrainingPlan
+
         # cannot use it here !!!! FIXED in training_routine
         self.optimizer = None
 
@@ -72,6 +74,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # list dependencies of the model
 
         self.add_dependency(["from fedbiomed.common.training_plans import TorchTrainingPlan",
+                             "from fedbiomed.common.data import DataManager",
                              "import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
@@ -82,6 +85,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # Aggregated model parameters
         self.init_params = None
 
+    def type(self):
+        """ Getter for training plan type """
+
+        return self.__type
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """
@@ -131,7 +138,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                      f"gpu_only={node_args['gpu_only']}, "
                      f"use_gpu={use_gpu}, gpu_num={node_args['gpu_num']})")
 
-
     def training_step(self):
         """
         all subclasses must provide a training_steproutine
@@ -143,8 +149,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
-
     def training_routine(self,
+                         training_data: DataLoader,
                          epochs: int = 2,
                          log_interval: int = 10,
                          lr: Union[int, float] = 1e-3,
@@ -152,7 +158,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          batch_maxnum: int = 0,
                          dry_run: bool = False,
                          use_gpu: Union[bool, None] = None,
-                         fedprox_mu = None,
+                         fedprox_mu=None,
                          monitor=None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
@@ -203,7 +209,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
-        self.data = self.training_data(batch_size=batch_size)
+        # Initialize training data that comes from Round class
+        self.data = training_data
 
         # initial aggregated model parameters
         self.init_params = deepcopy(self.state_dict())
@@ -222,7 +229,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 # If FedProx is enabled: use regularized loss function
                 if fedprox_mu is not None:
                     try:
-                        _mu =  float(fedprox_mu)
+                        _mu = float(fedprox_mu)
                     except ValueError:
                         msg = ErrorNumbers.FB605.value + ": fedprox_mu parameter reuqested nut is not a float"
                         logger.critical(msg)
@@ -313,7 +320,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
     def logger(self, msg, batch_index, log_interval=10):
         pass
 
-
     def after_training_params(self):
         '''
         effectively call the user defined postprocess function (if provided)
@@ -333,7 +339,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             pass
 
         return self.state_dict()
-
 
     def __norm_l2(self):
         """

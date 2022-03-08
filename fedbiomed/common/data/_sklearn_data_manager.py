@@ -5,11 +5,11 @@ from typing import Union, Tuple
 from numpy import ndarray
 from pandas import DataFrame, Series
 from sklearn.model_selection import train_test_split
-from fedbiomed.common.exceptions import FedbiomedSkLearnDatasetError
+from fedbiomed.common.exceptions import FedbiomedSkLearnDataManagerError
 from fedbiomed.common.constants import ErrorNumbers
 
 
-class SkLearnDataset(object):
+class SkLearnDataManager(object):
 
     def __init__(self,
                  inputs: Union[np.ndarray, pd.DataFrame, pd.Series],
@@ -106,9 +106,10 @@ class SkLearnDataset(object):
             FedbiomedError: If Dataset is not split into test and train in advance
         """
         if self._subset_test is None:
-            raise FedbiomedSkLearnDatasetError(f"{ErrorNumbers.FB609.value}: Can not find subset for test partition. "
-                                               f"Please make sure that the method `.split(ratio=ration)` DataManager "
-                                               f"object has been called before. ")
+            raise FedbiomedSkLearnDataManagerError(
+                f"{ErrorNumbers.FB609.value}: Can not find subset for test partition. "
+                f"Please make sure that the method `.split(ratio=ration)` DataManager "
+                f"object has been called before. ")
 
         # TODO: Create DataLoader for SkLearnDataset to apply batch training
         return self._subset_test
@@ -122,9 +123,10 @@ class SkLearnDataset(object):
             FedbiomedError: If Dataset is not split into test and train in advance
         """
         if self._subset_train is None:
-            raise FedbiomedSkLearnDatasetError(f"{ErrorNumbers.FB609.value}: Can not find subset for train partition. "
-                                               f"Please make sure that the method `.split(ratio=ration)` DataManager "
-                                               f"object has been called before. ")
+            raise FedbiomedSkLearnDataManagerError(
+                f"{ErrorNumbers.FB609.value}: Can not find subset for train partition. "
+                f"Please make sure that the method `.split(ratio=ration)` DataManager "
+                f"object has been called before. ")
 
         # TODO: Create DataLoader for SkLearnDataset to apply batch training
         return self._subset_train
@@ -144,16 +146,21 @@ class SkLearnDataset(object):
              ratio (float): Split ratio for testing set ratio. Rest of the samples
                             will be used for training
         Raises:
-            FedbiomedSkLearnDatasetError: If the ratio is not in good format
+            FedbiomedSkLearnDataManagerError: If the ratio is not in good format
 
         Returns:
              none
         """
 
+        # Check the argument `ratio` is of type `float`
+        if not isinstance(ratio, (float, int)):
+            raise FedbiomedSkLearnDataManagerError(f'{ErrorNumbers.FB608.value}: The argument `ratio` should be '
+                                                   f'type `float` or `int` not {type(ratio)}')
+
         # Check ratio is valid for splitting
         if ratio < 0 or ratio > 1:
-            raise FedbiomedSkLearnDatasetError(f'{ErrorNumbers.FB609.value}: The argument `ratio` should be '
-                                               f'equal or between 0 and 1, not {ratio}')
+            raise FedbiomedSkLearnDataManagerError(f'{ErrorNumbers.FB609.value}: The argument `ratio` should be '
+                                                   f'equal or between 0 and 1, not {ratio}')
 
         x_train, x_test, y_train, y_test = train_test_split(self._inputs, self._target, test_size=ratio)
 

@@ -1,9 +1,9 @@
 from ._data_manager import DataManager
-from ._torch_dataset import TorchDataset
-from ._sklearn_dataset import SkLearnDataset
+from ._torch_data_manager import TorchDataManager
+from ._sklearn_data_manager import SkLearnDataManager
 
 __all__ = [
     "DataManager",
-    "TorchDataset",
-    "SkLearnDataset"
+    "TorchDataManager",
+    "SkLearnDataManager"
 ]

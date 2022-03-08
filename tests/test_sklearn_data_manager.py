@@ -3,11 +3,11 @@ import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 import numpy as np
 import pandas as pd
 
-from fedbiomed.common.data import SkLearnDataset
-from fedbiomed.common.exceptions import FedbiomedSkLearnDatasetError
+from fedbiomed.common.data._sklearn_data_manager import SkLearnDataManager
+from fedbiomed.common.exceptions import FedbiomedSkLearnDataManagerError
 
 
-class TestSkLearnDataset(unittest.TestCase):
+class TestSkLearnDataManager(unittest.TestCase):
 
     def setUp(self):
         # Setup global TorchDataset class
@@ -17,8 +17,8 @@ class TestSkLearnDataset(unittest.TestCase):
                                 [1, 2, 3, 4]
                                 ])
         self.target = np.array([1, 2, 3, 4])
-        self.sklearn_dataset = SkLearnDataset(inputs=self.inputs,
-                                              target=self.target)
+        self.sklearn_dataset = SkLearnDataManager(inputs=self.inputs,
+                                                  target=self.target)
 
     def tearDown(self):
         pass
@@ -30,8 +30,8 @@ class TestSkLearnDataset(unittest.TestCase):
         # np.ndarray
         inputs = pd.DataFrame(self.inputs)
         target = pd.DataFrame(self.target)
-        self.sklearn_dataset = SkLearnDataset(inputs=inputs,
-                                              target=target)
+        self.sklearn_dataset = SkLearnDataManager(inputs=inputs,
+                                                  target=target)
         self.assertIsInstance(self.sklearn_dataset._inputs, np.ndarray)
         self.assertIsInstance(self.sklearn_dataset._target, np.ndarray)
 

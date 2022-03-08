@@ -4,11 +4,11 @@ import inspect
 from typing import Union
 from torch.utils.data import Dataset, Subset, DataLoader
 from torch.utils.data import random_split
-from fedbiomed.common.exceptions import FedbiomedTorchDatasetError
+from fedbiomed.common.exceptions import FedbiomedTorchDataManagerError
 from fedbiomed.common.constants import ErrorNumbers
 
 
-class TorchDataset(object):
+class TorchDataManager(object):
 
     def __init__(self, dataset: Union[Dataset], **kwargs):
         """
@@ -23,13 +23,14 @@ class TorchDataset(object):
             _subset_train: Train subset of dataset
 
         Raises:
-            FedbiomedTorchDatasetError: If the argument `dataset` is not an instance of `torch.utils.data.Dataset`
+            FedbiomedTorchDataManagerError: If the argument `dataset` is not an instance of `torch.utils.data.Dataset`
         """
 
         if not isinstance(dataset, Dataset):
-            raise FedbiomedTorchDatasetError(f"{ErrorNumbers.FB608.value}: The attribute `dataset` should an instance "
-                                             f"of `torch.utils.data.Dataset`, please use `Dataset` as parent class for"
-                                             f"your custom torch dataset object")
+            raise FedbiomedTorchDataManagerError(
+                f"{ErrorNumbers.FB608.value}: The attribute `dataset` should an instance "
+                f"of `torch.utils.data.Dataset`, please use `Dataset` as parent class for"
+                f"your custom torch dataset object")
 
         self._dataset = dataset
         self._loader_arguments = kwargs
@@ -85,15 +86,19 @@ class TorchDataset(object):
         """
 
         if self._subset_test is None:
-            raise FedbiomedTorchDatasetError(f"{ErrorNumbers.FB608.value}: Can not find subset for test partition. "
-                                             f"Please make sure that the method `.split(ratio=ration)` DataManager "
-                                             f"object has been called before. ")
+            raise FedbiomedTorchDataManagerError(f"{ErrorNumbers.FB608.value}: Can not find subset for test partition. "
+                                                 f"Please make sure that the method `.split(ratio=ration)` DataManager "
+                                                 f"object has been called before. ")
+        # No test loader
+        if len(self._subset_test) <= 0:
+            return None
 
         try:
             loader = DataLoader(self._subset_test, **self._loader_arguments)
         except TypeError as err:
-            raise FedbiomedTorchDatasetError(f"{ErrorNumbers.FB608.value}: Error while creating a PyTorch DataLoader "
-                                             f"for test partition due to loader arguments: {str(err)}")
+            raise FedbiomedTorchDataManagerError(
+                f"{ErrorNumbers.FB608.value}: Error while creating a PyTorch DataLoader "
+                f"for test partition due to loader arguments: {str(err)}")
 
         return loader
 
@@ -105,16 +110,22 @@ class TorchDataset(object):
         Raises:
             FedbiomedError: If Dataset is not split into test and train in advance
         """
+
         if self._subset_train is None:
-            raise FedbiomedTorchDatasetError(f"{ErrorNumbers.FB608.value}: Can not find subset for train partition. "
-                                             f"Please make sure that the method `.split(ratio=ration)` DataManager "
-                                             f"object has been called before. ")
+            raise FedbiomedTorchDataManagerError(
+                f"{ErrorNumbers.FB608.value}: Can not find subset for train partition. "
+                f"Please make sure that the method `.split(ratio=ration)` DataManager "
+                f"object has been called before. ")
+        # No train subset
+        if len(self._subset_train) <= 0:
+            return None
 
         try:
             loader = DataLoader(self._subset_train, **self._loader_arguments)
         except TypeError as err:
-            raise FedbiomedTorchDatasetError(f"{ErrorNumbers.FB608.value}: Error while creating a PyTorch DataLoader "
-                                             f"for train partition due to loader arguments: {str(err)}")
+            raise FedbiomedTorchDataManagerError(
+                f"{ErrorNumbers.FB608.value}: Error while creating a PyTorch DataLoader "
+                f"for train partition due to loader arguments: {str(err)}")
 
         return loader
 
@@ -126,8 +137,9 @@ class TorchDataset(object):
         try:
             loader = DataLoader(self._dataset, **self._loader_arguments)
         except TypeError as err:
-            raise FedbiomedTorchDatasetError(f"{ErrorNumbers.FB608.value}: Error while creating a PyTorch DataLoader "
-                                             f"for all samples due to loader arguments: {str(err)}")
+            raise FedbiomedTorchDataManagerError(
+                f"{ErrorNumbers.FB608.value}: Error while creating a PyTorch DataLoader "
+                f"for all samples due to loader arguments: {str(err)}")
 
         return loader
 
@@ -139,7 +151,7 @@ class TorchDataset(object):
              ratio (float): Split ratio for testing set ratio. Rest of the samples
                             will be used for training
         Raises:
-            FedbiomedTorchDatasetError: If the ratio is not in good format
+            FedbiomedTorchDataManagerError: If the ratio is not in good format
 
         Returns:
              none
@@ -147,30 +159,30 @@ class TorchDataset(object):
 
         # Check the argument `ratio` is of type `float`
         if not isinstance(ratio, (float, int)):
-            raise FedbiomedTorchDatasetError(f'{ErrorNumbers.FB608.value}: The argument `ratio` should be '
-                                             f'type `float` or `int` not {type(ratio)}')
+            raise FedbiomedTorchDataManagerError(f'{ErrorNumbers.FB608.value}: The argument `ratio` should be '
+                                                 f'type `float` or `int` not {type(ratio)}')
 
         # Check ratio is valid for splitting
         if ratio < 0 or ratio > 1:
-            raise FedbiomedTorchDatasetError(f'{ErrorNumbers.FB608.value}: The argument `ratio` should be '
-                                             f'equal or between 0 and 1, not {ratio}')
+            raise FedbiomedTorchDataManagerError(f'{ErrorNumbers.FB608.value}: The argument `ratio` should be '
+                                                 f'equal or between 0 and 1, not {ratio}')
 
         # If `Dataset` has proper data attribute
         # try to get shape from self.data
         if not hasattr(self._dataset, '__len__'):
-            raise FedbiomedTorchDatasetError(f"{ErrorNumbers.FB608.value}: Can not get number of samples from "
-                                             f"{str(self._dataset)} without `__len__`.  Please make sure that `__len__`"
-                                             f"method has been added to custom dataset. This method should return total"
-                                             f"number of samples.")
+            raise FedbiomedTorchDataManagerError(f"{ErrorNumbers.FB608.value}: Can not get number of samples from "
+                                                 f"{str(self._dataset)} without `__len__`.  Please make sure "
+                                                 f"that `__len__` method has been added to custom dataset. "
+                                                 f"This method should return total number of samples.")
 
         try:
             samples = len(self._dataset)
         except AttributeError as e:
-            raise FedbiomedTorchDatasetError(f"{ErrorNumbers.FB608.value}: Can not get number of samples from "
-                                             f"{str(self._dataset)}, {str(e)}")
+            raise FedbiomedTorchDataManagerError(f"{ErrorNumbers.FB608.value}: Can not get number of samples from "
+                                                 f"{str(self._dataset)}, {str(e)}")
         except TypeError as e:
-            raise FedbiomedTorchDatasetError(f"{ErrorNumbers.FB608.value}: Can not get number of samples from "
-                                             f"{str(self._dataset)}, {str(e)}")
+            raise FedbiomedTorchDataManagerError(f"{ErrorNumbers.FB608.value}: Can not get number of samples from "
+                                                 f"{str(self._dataset)}, {str(e)}")
 
         # Calculate number of samples for train and test subsets
         test_samples = math.floor(samples * ratio)

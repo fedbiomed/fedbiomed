@@ -2,26 +2,30 @@
 implementation of Round class of the node component
 '''
 
-
 import os
 import sys
 import time
+import inspect
 from typing import Union
 import uuid
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, TrainReply
 from fedbiomed.common.repository import Repository
+from fedbiomed.common.constants import ErrorNumbers
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.model_manager import ModelManager
+from fedbiomed.common.data import DataManager
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError
 
 
 class Round:
     """
     This class repesents the training part execute by a node in a given round
     """
+
     def __init__(self,
                  model_kwargs: dict = None,
                  training_kwargs: dict = None,
@@ -71,7 +75,9 @@ class Round:
         self.model_manager = ModelManager()
         self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
-
+        self.model = None
+        self.training_data = None
+        self.testing_data = None
 
     def run_model_training(self) -> TrainReply:
         """This method downloads model file; then runs the training of a model
@@ -110,8 +116,8 @@ class Round:
                     'my_model_' + str(uuid.uuid4()) + '.pt')
                 if (status != 200) or params_path is None:
                     is_failed = True
-                    error_message = "Cannot download param file: "\
-                        + self.params_url
+                    error_message = "Cannot download param file: " \
+                                    + self.params_url
 
         except Exception as e:
             is_failed = True
@@ -131,10 +137,10 @@ class Round:
                 train_class = eval(import_module + '.' + self.model_class)
                 if self.model_kwargs is None or len(self.model_kwargs) == 0:
                     # case where no args have been found (default)
-                    model = train_class()
+                    self.model = train_class()
                 else:
                     # case where args have been found  (and passed)
-                    model = train_class(self.model_kwargs)
+                    self.model = train_class(self.model_kwargs)
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot instantiate model object: " + str(e)
@@ -142,7 +148,7 @@ class Round:
         # import model params into the model instance
         if not is_failed:
             try:
-                model.load(params_path, to_params=False)
+                self.model.load(params_path, to_params=False)
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot initialize model parameters:" + str(e)
@@ -156,26 +162,35 @@ class Round:
             # We want to have explicit message in case of overloading attempt
             # (and continue training) though by default it fails with
             # "dict() got multiple values for keyword argument"
-            node_side_args = [ 'monitor', 'node_args' ]
+            node_side_args = ['monitor', 'node_args']
             for arg in node_side_args:
                 if arg in self.training_kwargs:
                     del self.training_kwargs[arg]
                     logger.warning(f'Researcher trying to set node-side training parameter {arg}. '
                                    f' Maybe a malicious researcher attack.')
 
+        # Split training and testing data
+        if not is_failed:
+            try:
+                self._set_train_and_test_data()
+            except FedbiomedError as e:
+                is_failed = True
+                # Just return error message as it is since it is already raise by Fed-BioMed
+                error_message = str(e)
+
         if not is_failed:
             training_kwargs_with_history = dict(monitor=self.monitor,
                                                 node_args=self.node_args,
+                                                training_data=self.training_data,
                                                 **self.training_kwargs)
             logger.info(f'training with arguments {training_kwargs_with_history}')
 
         if not is_failed:
             try:
                 results = {}
-                model.set_dataset_path(self.dataset['path'])
                 rtime_before = time.perf_counter()
                 ptime_before = time.process_time()
-                model.training_routine(**training_kwargs_with_history)
+                self.model.training_routine(**training_kwargs_with_history)
                 rtime_after = time.perf_counter()
                 ptime_after = time.process_time()
             except Exception as e:
@@ -186,14 +201,14 @@ class Round:
             # Upload results
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
-            results['model_params'] = model.after_training_params()
+            results['model_params'] = self.model.after_training_params()
             results['history'] = self.monitor.history
             results['node_id'] = environ['NODE_ID']
             try:
                 # TODO : should test status code but not yet returned
                 # by upload_file
                 filename = environ['TMP_DIR'] + '/node_params_' + str(uuid.uuid4()) + '.pt'
-                model.save(filename, results)
+                self.model.save(filename, results)
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
             except Exception as e:
@@ -202,7 +217,7 @@ class Round:
 
         # end : clean the namespace
         try:
-            del model
+            del self.model
             del import_module
         except Exception:
             pass
@@ -218,7 +233,7 @@ class Round:
                                               'msg': '',
                                               'timing': {
                                                   'rtime_training': rtime_after - rtime_before,
-                                                  'ptime_training': ptime_after - ptime_before }
+                                                  'ptime_training': ptime_after - ptime_before}
                                               }).get_dict()
         else:
             logger.error(error_message)
@@ -230,4 +245,79 @@ class Round:
                                               'dataset_id': '',
                                               'params_url': '',
                                               'msg': error_message,
-                                              'timing': {} }).get_dict()
+                                              'timing': {}}).get_dict()
+
+    def _set_train_and_test_data(self, ratio: float = 0):
+        """
+        Method for splitting training and testing data based on training plan type. It sets
+        `dataset_path` for model and calls `training_data` method of training plan.
+
+        Args:
+            ratio (float) : The ratio that represent test partition. Default is 0, means that
+                            all the samples will be used for training.
+
+        Raises:
+
+            FedbiomedRoundError: - When the method `training_data` of training plan
+                                    has unsupported arguments.
+                                 - Error while calling `training_data` method
+                                 - If the return value of `training_data` is not an instance of
+                                   `fedbiomed.common.data.DataManager`.
+                                 - If `load` method of DataManager returns an error
+        """
+
+        # Set requested data path for model training and testing
+        self.model.set_dataset_path(self.dataset['path'])
+
+        # Get batch size from training argument if it is not exist use 48
+        batch_size = self.training_kwargs.get('batch_size', 48)
+
+        training_plan_type = self.model.type()
+
+        # Inspect the arguments of the method `training_data`, because this
+        # part is defined by user might include invalid arguments
+        parameters = inspect.signature(self.model.training_data).parameters
+        args = list(parameters.keys())
+
+        # Currently, training_data only accepts batch_size
+        if len(args) > 1 and 'batch_size' not in args:
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `the arguments of `training_data` of training "
+                                      f"plan contains unsupported argument. ")
+
+        # Check batch_size is one of the argument of training_data method
+        # `batch_size` is in used for only TorchTrainingPlan. If it is based to
+        # sklearn, it will raise argument error
+        try:
+            if 'batch_size' in args:
+                data_manager = self.model.training_data(batch_size=batch_size)
+            else:
+                data_manager = self.model.training_data()
+        except Exception as e:
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
+                                      f"{str(training_plan_type.value)} has failed: {str(e)}")
+
+        # Check whether training_data returns proper instance
+        # it should be always Fed-BioMed DataManager
+        if not isinstance(data_manager, DataManager):
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: The method `training_data` should return an "
+                                      f"object instance of `fedbiomed.common.data.DataManager`, "
+                                      f"not {type(data_manager)}")
+
+        # Specific datamanager based on training plan
+        try:
+            # This data manager can be data manager for PyTorch or Sk-Learn
+            sp_data_manager = data_manager.load(tp_type=training_plan_type)
+        except FedbiomedError as e:
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Error while loading data manager; {str(e)}")
+
+        # All Framework based data managers have the same methods
+        # If testing ratio is 0,
+        # self.testing_data will be equal to None
+        # self.testing_data will be equal to all samples
+        # If testing ratio is 1,
+        # self.testing_data will be equal to all samples
+        # self.testing_data will be equal to None
+        
+        sp_data_manager.split(ratio=ratio)
+        self.training_data = sp_data_manager.load_train_partition()
+        self.testing_data = sp_data_manager.load_test_partition()

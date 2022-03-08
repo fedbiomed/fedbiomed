@@ -124,15 +124,29 @@ class FedbiomedDataManagerError(FedbiomedError):
     pass
 
 
-class FedbiomedTorchDatasetError(FedbiomedError):
+class FedbiomedTorchDataManagerError(FedbiomedError):
     """
     Exceptions specific for the class TorchDataset.
     """
     pass
 
 
-class FedbiomedSkLearnDatasetError(FedbiomedError):
+class FedbiomedSkLearnDataManagerError(FedbiomedError):
     """
     Exceptions specific for the class SkLearnDataset.
+    """
+    pass
+
+
+class FedbiomedTorchTabularDatasetError(FedbiomedError):
+    """
+    Exceptions specific for the class fedbiomed.common.data.TorchTabularDataset.
+    """
+    pass
+
+
+class FedbiomedRoundError(FedbiomedError):
+    """
+    Exceptions specific for the class node round class.
     """
     pass

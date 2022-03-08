@@ -11,14 +11,13 @@ from typing import Union
 import numpy as np
 
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
-from sklearn.naive_bayes  import BernoulliNB, GaussianNB
+from sklearn.naive_bayes import BernoulliNB, GaussianNB
 
 from ._base_training_plan import BaseTrainingPlan
 
-from fedbiomed.common.constants  import ErrorNumbers
-from fedbiomed.common.logger     import logger
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
+from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
-
 
 class _Capturer(list):
     """
@@ -75,6 +74,9 @@ class SGDSkLearnModel(BaseTrainingPlan):
         """
         super(SGDSkLearnModel, self).__init__()
 
+        # TODO: Generalize training plan name if there are different training plans for sklearn
+        self.__type = TrainingPlans.SkLearnTrainingPlan
+
         # sklearn.utils.parallel_backend("locky", n_jobs=1, inner_max_num_threads=1)
         self.batch_size = 100  # unused
 
@@ -123,6 +125,10 @@ class SGDSkLearnModel(BaseTrainingPlan):
         self._is_classif = False  # whether the model selected is a classifier or not
         self._is_binary_classif = False  # whether the classification is binary or multi classes
         # (for classification only)
+
+    def type(self):
+        """Getter for training plan type """
+        return self.__type
 
     def set_init_params(self, model_args):
         """

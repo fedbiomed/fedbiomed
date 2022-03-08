@@ -56,8 +56,8 @@ class ModelTypes(_BaseEnum):
 class TrainingPlans(_BaseEnum):
     """ Enumeration class for Training plans """
 
-    TorchTrainingPlan = 0
-    SkLearnTrainingPlan = 1
+    TorchTrainingPlan = 'TorchTrainingPlan'
+    SkLearnTrainingPlan = 'SkLearnTrainingPlan'
 
 
 class ErrorNumbers(_BaseEnum):
@@ -98,7 +98,7 @@ class ErrorNumbers(_BaseEnum):
     FB311 = "FB311: receiving a new computation request during a running computation"
     FB312 = "FB312: Node stopped in SIGTERM signal handler"
     FB313 = "FB313: no dataset matching request"
-
+    FB314 = "FB314: training round error"
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"
@@ -131,7 +131,9 @@ class ErrorNumbers(_BaseEnum):
     FB605 = "FB605: training plan error"
     FB606 = "FB606: model manager error"
     FB607 = "FB607: data manager error"
-    FB608 = "FB608: torch dataset error"
-    FB609 = "FB608: scikit-learn dataset error"
+    FB608 = "FB608: torch data manager error"
+    FB609 = "FB608: scikit-learn data manager error"
+    FB610 = "FB609: Torch based tabular dataset creation error"
+
     # oops
     FB999 = "FB999: unknown error code sent by the node"

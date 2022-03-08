@@ -1,12 +1,14 @@
-import inspect
 import numpy as np
 import pandas as pd
+
 from typing import Union, Tuple, Callable
 from torch.utils.data import Dataset
 from fedbiomed.common.exceptions import FedbiomedDataManagerError
-from fedbiomed.common.constants import ErrorNumbers
-from ._torch_dataset import TorchDataset
-from ._sklearn_dataset import SkLearnDataset
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
+
+from ._torch_data_manager import TorchDataManager
+from ._sklearn_data_manager import SkLearnDataManager
+from ._torch_tabular_dataset import TorchTabularDataset
 
 
 class DataManager(object):
@@ -37,14 +39,35 @@ class DataManager(object):
                                             of `pd.DataFrame`, `pd.Series` or `np.ndarray`.
         """
 
-        # TODO: Improve datamanager for auto loading by given dataset_path
+        # TODO: Improve datamanager for auto loading by given dataset_path and other information
+        # such as inputs variable indexes and target variables indexes
+
+        self.dataset = dataset
+        self.target = target
+        self.loader_arguments = kwargs
+
+    def load(self, tp_type: TrainingPlans):
 
         # TorchDataset object shouldbe instantiated if target variable is not defined
         # and `dataset` is an instance of `torch.utils.data.Dataset`
-        if target is None and isinstance(dataset, Dataset):
-            # Create Dataset for pytorch
-            self._dataset_instance = TorchDataset(dataset=dataset, **kwargs)
-        else:
+
+        if tp_type == TrainingPlans.TorchTrainingPlan:
+
+            if self.target is None and isinstance(self.dataset, Dataset):
+                # Create Dataset for pytorch
+                return TorchDataManager(dataset=self.dataset, **self.loader_arguments)
+            elif isinstance(self.dataset, (pd.DataFrame, pd.Series, np.ndarray)) and \
+                    isinstance(self.target, (pd.DataFrame, pd.Series, np.ndarray)):
+                torch_dataset = TorchTabularDataset(inputs=self.dataset, target=self.target)
+                return TorchDataManager(dataset=torch_dataset, **self.loader_arguments)
+            else:
+                raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Invalid arguments for torch based "
+                                                f"training plan, either provide the argument  `dataset` as PyTorch "
+                                                f"Dataset instance, or provide `dataset` and `target` arguments as "
+                                                f"an instance one of pd.DataFrame, pd.Series or np.ndarray ")
+
+        elif tp_type == TrainingPlans.SkLearnTrainingPlan:
+
             # Fed-BioMed framework uses PyTorch Dataset object to train PyTorch based models and researcher
             # is responsible for providing Dataset object in training plan. Since `torch.utils.data.Dataset`
             # is always instantiated with target variables, passing the argument `target` is as not None does
@@ -53,7 +76,7 @@ class DataManager(object):
             # It means that the arguments `dataset` (independent variables) and `target` (dependent variable)
             # will be used for SkLearn models.
 
-            if isinstance(dataset, Dataset):
+            if isinstance(self.dataset, Dataset):
                 raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: The `target` argument has been "
                                                 f"passed while the argument `dataset` is an instance of "
                                                 f"PyTorch Dataset. Either instantiate your `target` variable in"
@@ -63,28 +86,30 @@ class DataManager(object):
 
             # For scikit-learn based training plans, the arguments `dataset` and `target` should be an instance
             # one of `pd.DataFrame`, `pd.Series`, `np.ndarray`
-            elif isinstance(dataset, (pd.DataFrame, pd.Series, np.ndarray)) and \
-                    isinstance(target, (pd.DataFrame, pd.Series, np.ndarray)):
+            elif isinstance(self.dataset, (pd.DataFrame, pd.Series, np.ndarray)) and \
+                    isinstance(self.target, (pd.DataFrame, pd.Series, np.ndarray)):
                 # Create Dataset for SkLearn training plans
-                self._dataset_instance = SkLearnDataset(inputs=dataset, target=target, **kwargs)
+                return SkLearnDataManager(inputs=self.dataset, target=self.target, **self.loader_arguments)
             else:
                 raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: The argument `dataset` and `target` "
                                                 f"should be instance of pd.DataFrame, pd.Series or np.ndarray ")
+        else:
+            raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Undefined training plan")
 
-    def __getattr__(self, item):
-
-        """
-        Wrap all functions/attributes of factory class members.
-
-        Args:
-             item: Requested item from class
-
-        Raises:
-            FedbiomedDataManagerError: If the attribute is not implemented
-
-        """
-        try:
-            return self._dataset_instance.__getattribute__(item)
-        except AttributeError:
-            raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: method {str(item)} not"
-                                            f"implemented for class: {str(self._dataset_instance)}")
+    # def __getattr__(self, item):
+    #
+    #     """
+    #     Wrap all functions/attributes of factory class members.
+    #
+    #     Args:
+    #          item: Requested item from class
+    #
+    #     Raises:
+    #         FedbiomedDataManagerError: If the attribute is not implemented
+    #
+    #     """
+    #     try:
+    #         return self._dataset_instance.__getattribute__(item)
+    #     except AttributeError:
+    #         raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: method {str(item)} not"
+    #                                         f"implemented for class: {str(self._dataset_instance)}")

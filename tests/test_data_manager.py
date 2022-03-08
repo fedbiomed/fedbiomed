@@ -2,14 +2,19 @@ import unittest
 
 import numpy as np
 from unittest.mock import patch, MagicMock
+
+import pandas as pd
+
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
 from torch.utils.data import Dataset
 from fedbiomed.common.data import DataManager
+from fedbiomed.common.data._torch_data_manager import TorchDataManager
+from fedbiomed.common.data._sklearn_data_manager import SkLearnDataManager
 from fedbiomed.common.exceptions import FedbiomedDataManagerError
+from fedbiomed.common.constants import TrainingPlans
 
-
-class TestModelManager(unittest.TestCase):
+class TestDataManager(unittest.TestCase):
 
     class CustomDataset(Dataset):
         """ Create PyTorch Dataset for test purposes """
@@ -32,61 +37,41 @@ class TestModelManager(unittest.TestCase):
     def test_data_manager_01_initialization(self):
         """ Testing different initializations of DataManger """
 
-        # Test passing invalid argument
-        with self.assertRaises(FedbiomedDataManagerError):
-            DataManager(dataset='invalid-argument')
+        pass
 
-        # Test passing another invalid argument
-        with self.assertRaises(FedbiomedDataManagerError):
-            DataManager(dataset=12)
-
-        # Test passing dataset as list
-        with self.assertRaises(FedbiomedDataManagerError):
-            DataManager(dataset=[12, 12, 12, 12])
-
-        # Test passing dataset as Numpy Array
-        dataset = np.array([[1, 2], [1, 2], [1, 2]])
-        with self.assertRaises(FedbiomedDataManagerError):
-            # Should raise an Error because when dataset in an array
-            # target variable should be provided
-            DataManager(dataset=dataset)
-
-        # Test if dataset is Dataset and target is not none
-        with self.assertRaises(FedbiomedDataManagerError):
-            DataManager(dataset=TestModelManager.CustomDataset(), target=np.array([1, 2, 3]))
-
-        # Test proper way of providing dataset for scikit-learn
-        dataset = np.array([[1, 2], [1, 2], [1, 2]])
-        target = np.array([1, 2, 3])
-        try:
-            DataManager(dataset=dataset, target=target)
-        except:
-            self.assertTrue(False, 'Can not build DataManager object')
-
-        # Test init with PyTorch Dataset
-        try:
-            DataManager(dataset=TestModelManager.CustomDataset())
-        except:
-            self.assertTrue(False, 'Can not build DataManager object')
-
-    @patch('fedbiomed.common.data._data_manager.TorchDataset')
-    def test_data_manager_02___getattr__(self,
-                                         mock_torch_dataset):
+    def test_data_manager_02_load(self):
 
         """ Testing __getattr__ method of DataManager """
 
-        torch_mock = MagicMock()
-        torch_mock.split = MagicMock(return_value='test')
-        mock_torch_dataset.return_value = torch_mock
-
-        # Test implemented attribute split
-        data_manager = DataManager(TestModelManager.CustomDataset())
-        result = data_manager.split()
-        self.assertEqual(result, 'test')
-
-        # Should raise not implemented error
+        # Test passing invalid argument
         with self.assertRaises(FedbiomedDataManagerError):
-            result = data_manager.spliter()
+            data_manager = DataManager(dataset='invalid-argument')
+            data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+
+        # Test passing another invalid argument
+        with self.assertRaises(FedbiomedDataManagerError):
+            data_manager = DataManager(dataset=12)
+            data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+
+        # Test passing dataset as list
+        with self.assertRaises(FedbiomedDataManagerError):
+            data_manager = DataManager(dataset=[12, 12, 12, 12])
+            data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+
+        # Test passing PyTorch Dataset while training plan is SkLearn
+        with self.assertRaises(FedbiomedDataManagerError):
+            data_manager = DataManager(dataset=TestDataManager.CustomDataset())
+            data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
+
+        # Test Torch Dataset Scenario
+        data_manager = DataManager(dataset=TestDataManager.CustomDataset())
+        data_manager = data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+        self.assertIsInstance(data_manager, TorchDataManager)
+
+        # Test SkLearn Scenario
+        data_manager = DataManager(dataset=pd.DataFrame([[1, 2, 3], [1, 2, 3]]), target=pd.Series([1, 2, 3]))
+        data_manager = data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
+        self.assertIsInstance(data_manager, SkLearnDataManager)
 
 
 if __name__ == '__main__':  # pragma: no cover

@@ -2,11 +2,11 @@ import unittest
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
 from torch.utils.data import Dataset, Subset
-from fedbiomed.common.data import TorchDataset
-from fedbiomed.common.exceptions import FedbiomedTorchDatasetError
+from fedbiomed.common.data import TorchDataManager
+from fedbiomed.common.exceptions import FedbiomedTorchDataManagerError
 
 
-class TestTorchDataset(unittest.TestCase):
+class TestTorchDataManager(unittest.TestCase):
 
     class CustomDataset(Dataset):
         """ Create PyTorch Dataset for test purposes """
@@ -65,9 +65,9 @@ class TestTorchDataset(unittest.TestCase):
             return self.data
 
     def setUp(self):
-        # Setup global TorchDataset class
-        self.dataset = TestTorchDataset.CustomDataset()
-        self.torch_dataset = TorchDataset(dataset=self.dataset,
+        # Setup global TorchDataManager class
+        self.dataset = TestTorchDataManager.CustomDataset()
+        self.torch_dataset = TorchDataManager(dataset=self.dataset,
                                           batch_size=48,
                                           shuffle=True)
 
@@ -81,40 +81,40 @@ class TestTorchDataset(unittest.TestCase):
         self.assertEqual(result, self.dataset, 'dataset() returns un expected torch Dataset object')
 
     def test_torch_dataset_02_split(self):
-        """Testing split method of TorchDataset class """
+        """Testing split method of TorchDataManager class """
 
         # Test invalid ratio argument
-        with self.assertRaises(FedbiomedTorchDatasetError):
+        with self.assertRaises(FedbiomedTorchDataManagerError):
             self.torch_dataset.split(ratio=12)
 
         # Test invalid ratio argument
-        with self.assertRaises(FedbiomedTorchDatasetError):
+        with self.assertRaises(FedbiomedTorchDataManagerError):
             self.torch_dataset.split(ratio='12')
 
         # Test invalid ratio argument
-        with self.assertRaises(FedbiomedTorchDatasetError):
+        with self.assertRaises(FedbiomedTorchDataManagerError):
             self.torch_dataset.split(ratio=-12)
 
         # Test proper split
         try:
             self.torch_dataset.split(0.3)
         except:
-            self.assertTrue(False, 'Error while splitting TorchDataset')
+            self.assertTrue(False, 'Error while splitting TorchDataManager')
 
         # Test exceptions
-        invalid = TestTorchDataset.CustomDatasetInvalid()
+        invalid = TestTorchDataManager.CustomDatasetInvalid()
         self.torch_dataset._dataset = invalid
-        with self.assertRaises(FedbiomedTorchDatasetError):
+        with self.assertRaises(FedbiomedTorchDataManagerError):
             self.torch_dataset.split(0.3)
 
-        invalid = TestTorchDataset.CustomDatasetTypeError()
+        invalid = TestTorchDataManager.CustomDatasetTypeError()
         self.torch_dataset._dataset = invalid
-        with self.assertRaises(FedbiomedTorchDatasetError):
+        with self.assertRaises(FedbiomedTorchDataManagerError):
             self.torch_dataset.split(0.3)
 
-        invalid = TestTorchDataset.CustomDatasetAttrError()
+        invalid = TestTorchDataManager.CustomDatasetAttrError()
         self.torch_dataset._dataset = invalid
-        with self.assertRaises(FedbiomedTorchDatasetError):
+        with self.assertRaises(FedbiomedTorchDataManagerError):
             self.torch_dataset.split(0.3)
 
     def test_torch_dataset_03_load_train_partition(self):
@@ -122,7 +122,7 @@ class TestTorchDataset(unittest.TestCase):
 
         # Test raising error in case of requesting train partition
         # before splitting
-        with self.assertRaises(FedbiomedTorchDatasetError):
+        with self.assertRaises(FedbiomedTorchDataManagerError):
             self.torch_dataset.load_train_partition()
 
         # Test with split
@@ -130,18 +130,28 @@ class TestTorchDataset(unittest.TestCase):
         loader = self.torch_dataset.load_train_partition()
         self.assertEqual(len(loader.dataset), len(self.dataset)/2, 'Did not properly get loader of train partition')
 
+        # If test partition is 1 and train is zero
+        self.torch_dataset.split(1)
+        loader = self.torch_dataset.load_train_partition()
+        self.assertIsNone(loader, 'Loader is not None where it should be')
+
     def test_torch_dataset_04_load_test_partition(self):
         """ Testing the method load test partition """
 
         # Test raising error in case of requesting train partition
         # before splitting
-        with self.assertRaises(FedbiomedTorchDatasetError):
+        with self.assertRaises(FedbiomedTorchDataManagerError):
             self.torch_dataset.load_test_partition()
 
         # Test with split
         self.torch_dataset.split(0.5)
         loader = self.torch_dataset.load_test_partition()
         self.assertEqual(len(loader.dataset), len(self.dataset)/2, 'Did not properly get loader of train partition')
+
+        # If test partition is zero
+        self.torch_dataset.split(0)
+        loader = self.torch_dataset.load_test_partition()
+        self.assertIsNone(loader, 'Loader is not None where it should be')
 
     def test_torch_dataset_05_subset_train(self):
         """ Testing the method load train partition """
