@@ -6,13 +6,14 @@ from torch.utils.data import Dataset, Subset, DataLoader
 from torch.utils.data import random_split
 from fedbiomed.common.exceptions import FedbiomedTorchDataManagerError
 from fedbiomed.common.constants import ErrorNumbers
-
+from ._sklearn_data_manager import SkLearnDataManager
 
 class TorchDataManager(object):
 
     def __init__(self, dataset: Union[Dataset], **kwargs):
         """
-        Wrapper for torch.utils.data.Dataset
+        Wrapper for torch.utils.data.Dataset to manager loading operations for
+        test and train, it is a manager for Torch based Dataset object.
 
         Args:
             dataset (Dataset, MonaiDataset): Dataset object for torch.utils.data.DataLoader
@@ -26,6 +27,7 @@ class TorchDataManager(object):
             FedbiomedTorchDataManagerError: If the argument `dataset` is not an instance of `torch.utils.data.Dataset`
         """
 
+        # TorchDataManager should get `dataset` argument as an instance of torch.utils.data.Dataset
         if not isinstance(dataset, Dataset):
             raise FedbiomedTorchDataManagerError(
                 f"{ErrorNumbers.FB608.value}: The attribute `dataset` should an instance "
@@ -189,3 +191,19 @@ class TorchDataManager(object):
         train_samples = samples - test_samples
 
         self._subset_train, self._subset_test = random_split(self._dataset, [train_samples, test_samples])
+
+    def to_sklearn(self):
+        """
+         Method to convert `torch.utils.data.Dataset` dataset to numpy based object
+         and create a SkLearnDataManager to use in SkLearnTraining base training plans
+        """
+
+        # Create a loader from self._dataset to extract inputs and target values
+        # by iterating over samples
+        loader = DataLoader(self._dataset, batch_size=len(self._dataset))
+
+        # Iterate over samples and get input variable and target variable
+        inputs = next(iter(loader))[0].numpy()
+        target = next(iter(loader))[1].numpy()
+
+        return SkLearnDataManager(inputs=inputs, target=target)

@@ -76,8 +76,8 @@ class Round:
         self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
         self.model = None
-        self.training_data = None
-        self.testing_data = None
+        self.train_data = None
+        self.test_data = None
 
     def run_model_training(self) -> TrainReply:
         """This method downloads model file; then runs the training of a model
@@ -181,7 +181,6 @@ class Round:
         if not is_failed:
             training_kwargs_with_history = dict(monitor=self.monitor,
                                                 node_args=self.node_args,
-                                                training_data=self.training_data,
                                                 **self.training_kwargs)
             logger.info(f'training with arguments {training_kwargs_with_history}')
 
@@ -190,7 +189,8 @@ class Round:
                 results = {}
                 rtime_before = time.perf_counter()
                 ptime_before = time.process_time()
-                self.model.training_routine(**training_kwargs_with_history)
+                self.model.training_routine(training_data=self.train_data,
+                                            **training_kwargs_with_history)
                 rtime_after = time.perf_counter()
                 ptime_after = time.process_time()
             except Exception as e:
@@ -266,6 +266,8 @@ class Round:
                                  - If `load` method of DataManager returns an error
         """
 
+        # TODO: Discuss this part should this part be in the BaseTrainingPLan
+
         # Set requested data path for model training and testing
         self.model.set_dataset_path(self.dataset['path'])
 
@@ -319,5 +321,5 @@ class Round:
         # self.testing_data will be equal to None
         
         sp_data_manager.split(ratio=ratio)
-        self.training_data = sp_data_manager.load_train_partition()
-        self.testing_data = sp_data_manager.load_test_partition()
+        self.train_data = sp_data_manager.load_train_partition()
+        self.test_data = sp_data_manager.load_test_partition()

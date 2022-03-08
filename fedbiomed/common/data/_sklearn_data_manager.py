@@ -111,6 +111,10 @@ class SkLearnDataManager(object):
                 f"Please make sure that the method `.split(ratio=ration)` DataManager "
                 f"object has been called before. ")
 
+        # Empty test set
+        if len(self._subset_test) <= 0:
+            return None
+
         # TODO: Create DataLoader for SkLearnDataset to apply batch training
         return self._subset_test
 
@@ -127,6 +131,10 @@ class SkLearnDataManager(object):
                 f"{ErrorNumbers.FB609.value}: Can not find subset for train partition. "
                 f"Please make sure that the method `.split(ratio=ration)` DataManager "
                 f"object has been called before. ")
+
+        # Empty train set
+        if len(self._subset_train) <= 0:
+            return None
 
         # TODO: Create DataLoader for SkLearnDataset to apply batch training
         return self._subset_train
@@ -161,10 +169,15 @@ class SkLearnDataManager(object):
         if ratio < 0 or ratio > 1:
             raise FedbiomedSkLearnDataManagerError(f'{ErrorNumbers.FB609.value}: The argument `ratio` should be '
                                                    f'equal or between 0 and 1, not {ratio}')
-
-        x_train, x_test, y_train, y_test = train_test_split(self._inputs, self._target, test_size=ratio)
-
-        self._subset_test = (x_test, y_test)
-        self._subset_train = (x_train, y_train)
+        if ratio == 0:
+            self._subset_train = (self._inputs, self._target)
+            self._subset_test = []
+        elif ratio == 1:
+            self._subset_train = []
+            self._subset_test = (self._inputs, self._target)
+        else:
+            x_train, x_test, y_train, y_test = train_test_split(self._inputs, self._target, test_size=ratio)
+            self._subset_test = (x_test, y_test)
+            self._subset_train = (x_train, y_train)
 
         return None

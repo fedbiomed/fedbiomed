@@ -83,6 +83,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
         self.add_dependency(["from fedbiomed.common.training_plans import SGDSkLearnModel",
                              "from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron ",
                              "from sklearn.naive_bayes  import BernoulliNB, GaussianNB",
+                             "from fedbiomed.common.data import DataManager",
                              "import inspect",
                              "import numpy as np",
                              "import pandas as pd",
@@ -209,6 +210,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
             return support
 
     def training_routine(self,
+                         training_data,
                          epochs=1,
                          monitor=None,
                          node_args: Union[dict, None] = None):
@@ -234,7 +236,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
         #
         # perform sklearn training
         #
-        (data, target) = self.training_data()
+        (data, target) = training_data
         classes = np.unique(target)
         for epoch in range(epochs):
             with _Capturer() as output:

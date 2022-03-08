@@ -29,14 +29,7 @@ class DataManager(object):
 
             - **kwargs: Additional parameters that are going to be used for data loader
 
-        Raises:
 
-            - FedbiomedDataManagerError: - If `target` is not None and `dataset` is an instance of
-                                          `torch.utils.data.Dataset`. This scenario does not make sense, since
-                                          `Dataset` object has already target variable in it.
-
-                                         - If `target` is not None and `dataset` or `target` is not an instance one
-                                            of `pd.DataFrame`, `pd.Series` or `np.ndarray`.
         """
 
         # TODO: Improve datamanager for auto loading by given dataset_path and other information
@@ -47,17 +40,30 @@ class DataManager(object):
         self.loader_arguments = kwargs
 
     def load(self, tp_type: TrainingPlans):
+        """
+        Method for loading proper DataManager based on given TrainingPlan and
+        `dataset`, `target` attributes.
 
-        # TorchDataset object shouldbe instantiated if target variable is not defined
-        # and `dataset` is an instance of `torch.utils.data.Dataset`
+        Args:
+            tp_type (TrainingPlans): Enumeration instance of TrainingPlans that stands for
+                                     type of training plan.
 
+        Raises:
+
+        - FedbiomedDataManagerError: - If requested DataManager does not match with given
+                                        arguments.
+
+        """
+
+        # Training plan is type of TorcTrainingPlan
         if tp_type == TrainingPlans.TorchTrainingPlan:
-
             if self.target is None and isinstance(self.dataset, Dataset):
                 # Create Dataset for pytorch
                 return TorchDataManager(dataset=self.dataset, **self.loader_arguments)
             elif isinstance(self.dataset, (pd.DataFrame, pd.Series, np.ndarray)) and \
                     isinstance(self.target, (pd.DataFrame, pd.Series, np.ndarray)):
+                # If `dataset` and `target` attributes are array-like object
+                # create TorchTabularDataset object to instantiate a TorchDataManager
                 torch_dataset = TorchTabularDataset(inputs=self.dataset, target=self.target)
                 return TorchDataManager(dataset=torch_dataset, **self.loader_arguments)
             else:
@@ -67,22 +73,17 @@ class DataManager(object):
                                                 f"an instance one of pd.DataFrame, pd.Series or np.ndarray ")
 
         elif tp_type == TrainingPlans.SkLearnTrainingPlan:
-
-            # Fed-BioMed framework uses PyTorch Dataset object to train PyTorch based models and researcher
-            # is responsible for providing Dataset object in training plan. Since `torch.utils.data.Dataset`
-            # is always instantiated with target variables, passing the argument `target` is as not None does
-            # not make sense. The argument `target` only used for scikit-learn training. Therefore, if target is not
-            # None `inputs` should be an instance of np.ndarray pd.DataFrame or pd.Series.
-            # It means that the arguments `dataset` (independent variables) and `target` (dependent variable)
-            # will be used for SkLearn models.
-
-            if isinstance(self.dataset, Dataset):
-                raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: The `target` argument has been "
-                                                f"passed while the argument `dataset` is an instance of "
-                                                f"PyTorch Dataset. Either instantiate your `target` variable in"
-                                                f"your `Dataset` object to used in `TorchTrainingPlan` or pass "
-                                                f"dataset as an instance of `pd.Dataframe` , `pd.Series` or "
-                                                f"`np.ndarray` to use scikit-learn based training plan. ")
+            # Try to convert `torch.utils.Data.Dataset` to SkLearnBased dataset/datamanager
+            if self.target is None and isinstance(self.dataset, Dataset):
+                torch_data_manager = TorchDataManager(dataset=self.dataset)
+                try:
+                    sklearn_data_manager = torch_data_manager.to_sklearn()
+                except Exception as e:
+                    raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: PyTorch based `Dataset` object "
+                                                    f"has been instantiated with DataManager. An error occurred while"
+                                                    f"trying to convert torch.utils.data.Dataset to numpy based "
+                                                    f"dataset: {str(e)}")
+                return sklearn_data_manager
 
             # For scikit-learn based training plans, the arguments `dataset` and `target` should be an instance
             # one of `pd.DataFrame`, `pd.Series`, `np.ndarray`
@@ -96,6 +97,16 @@ class DataManager(object):
         else:
             raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Undefined training plan")
 
+        # elif self.target is not None and isinstance(self.dataset, Dataset):
+        # raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: PyTorch based `Dataset` object "
+        #                                 f"has been instantiated with DataManager while the target is not None. "
+        #                                 f"This does not make sense for SkLearn based training plans. Either "
+        #                                 f"provide `dataset` and `target` as an instance one of `pd.DataFrame` "
+        #                                 f"`pd.Series` or `np.ndarray`, or just `dataset` as and instance of "
+        #                                 f"`torch.utils.data.Dataset`.")
+
+
+    # DISCUSS
     # def __getattr__(self, item):
     #
     #     """
