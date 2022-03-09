@@ -187,7 +187,6 @@ class Round:
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
             results['model_params'] = model.after_training_params()
-            results['history'] = self.history_monitor.history
             results['node_id'] = environ['NODE_ID']
             try:
                 # TODO : should test status code but not yet returned

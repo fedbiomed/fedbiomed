@@ -18,7 +18,6 @@ class HistoryMonitor:
         """
         simple constructor
         """
-        self.history = {}
         self.job_id = job_id
         self.researcher_id = researcher_id
         self.messaging = client
@@ -34,12 +33,6 @@ class HistoryMonitor:
             iteration (int): current epoch iteration.
             epoch (int): current epoch
         """
-
-        # Keeps history of the scalar values. Please see Round.py where it is called
-        try:
-            self.history[key][iteration] = value
-        except (KeyError, AttributeError):
-            self.history[key] = {iteration: value}
 
         self.messaging.send_message(NodeMessages.reply_create({
             'node_id': environ['NODE_ID'],
