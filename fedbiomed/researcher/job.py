@@ -545,6 +545,7 @@ class Job:
 
             # Extract features into arrays for comparison
             for data_list in data.items():
+                print('data_list', data_list[1])
                 for feature in data_list[1]:
                     data_types.append(feature["data_type"])
                     dtypes.append(feature["dtypes"])

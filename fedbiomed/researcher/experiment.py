@@ -10,7 +10,7 @@ import traceback
 
 from re import findall
 from tabulate import tabulate
-from typing import Callable, Union, Dict, Any, TypeVar, Type, List
+from typing import Callable, Optional, Union, Dict, Any, TypeVar, Type, List
 from pathvalidate import sanitize_filename, sanitize_filepath
 
 from fedbiomed.common.logger import logger
@@ -255,6 +255,9 @@ class Experiment(object):
         self.set_save_breakpoints(save_breakpoints)
         self.set_monitor(tensorboard)
 
+        # attributes
+        self._do_training = True  # whether to perform a training or not
+
     # destructor
     @exp_exceptions
     def __del__(self):
@@ -325,6 +328,14 @@ class Experiment(object):
     @exp_exceptions
     def training_args(self) -> dict:
         return self._training_args
+
+    @exp_exceptions
+    def test_ratio(self) -> Union[Dict[str, float], float]:
+        return self._training_args.get('test_ratio')
+
+    @exp_exceptions
+    def test_metric(self) -> str:
+        return self._training_args.get('test_metric')
 
     @exp_exceptions
     def job(self) -> Union[Job, None]:
@@ -569,6 +580,13 @@ class Experiment(object):
             self._fds = None
             logger.debug('Experiment not fully configured yet: no training data')
         # at this point, self._fds is either None or a FederatedDataSet object
+
+        # update testing parameters on the FederatedDataset  (that may have been saved already on `_training_args`)
+        if self._fds is not None:
+            self._fds.set_test_ratio(self._training_args.get('test_ratio', .0))
+            self._fds.set_test_metric(self._training_args.get('test_metric'))
+            self._fds.test_on_global_updates = self._training_args.get('test_on_global_updates')
+            self._fds.test_on_local_updates = self._training_args.get('test_on_local_updates')
 
         # self._strategy and self._job don't always exist at this point
         try:
@@ -877,7 +895,7 @@ class Experiment(object):
                 raise FedbiomedExperimentError(msg)
         else:
             # bad type
-            msg = ErrorNumbers.FB410.value + ' `model_class` : type(model_class)'
+            msg = ErrorNumbers.FB410.value + f' `model_class` of type: {type(model_class)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -996,7 +1014,7 @@ class Experiment(object):
     # TODO: training_args need checking of dict items, to be done by Job and node
     # (using a training plan method ? changing `training_routine` prototype ?)
     @exp_exceptions
-    def set_training_args(self, training_args: dict):
+    def set_training_args(self, training_args: dict, reset: bool = False):
         """Setter for `training_args` + verification on arguments type
 
         Args:
@@ -1011,7 +1029,14 @@ class Experiment(object):
             - training_args (dict)
         """
         if isinstance(training_args, dict):
-            self._training_args = training_args
+            if not hasattr(self, '_training_args') :
+                self._training_args = training_args
+            elif self._training_args is None:
+                self._training_args = training_args
+            elif reset:
+                self._training_args = training_args
+            else:
+                self._training_args.update(training_args)
         else:
             # bad type
             msg = ErrorNumbers.FB410.value + f' `training_args` : {type(training_args)}'
@@ -1030,6 +1055,69 @@ class Experiment(object):
             pass
 
         return self._training_args
+    
+    @exp_exceptions
+    def set_test_ratio(self, ratios: Union[Dict[str, float], float]) -> Union[Dict[str, float], float]:
+        
+        # data type checks
+        if not isinstance(ratios, (int, float, dict)):
+            msg = ErrorNumbers.FB410.value + ": incorrect argument ratios type:" + \
+                f"{type(ratios)}. Are only accepted integers, floats or dictionary" + \
+                "mapping <node_id>: <testing ratio>"
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+        
+        if isinstance(ratios, dict):
+            pass
+        elif 0 > ratios or ratios > 1:
+            msg = ErrorNumbers.FB410.value + ": incorrect argument ratios, ratios should" + \
+                f"be between 0 and 1, but got {ratios}"
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        self._training_args['test_ratio'] = ratios
+        if self._fds is not None:
+            self._fds.set_test_ratio(ratios)
+        return ratios
+
+    @exp_exceptions
+    def set_test_metric(self, metric: Union[Callable, str]) -> Optional[Union[Callable, str]]:
+        if not (isinstance(metric, str) or callable(metric)):
+            raise FedbiomedExperimentError(ErrorNumbers.FB410.value + ": incorrect argument metric, got type "
+                                           f"{type(metric)}, but expected Callable, str")
+        elif callable(metric) and hasattr(metric, '__name__'):
+            # get string of a known function passed as callable (eg sklearn accuracy)
+            metric = metric.__name__
+        else:
+            msg = ErrorNumbers.FB410.value + f": unparsable metric {str(metric)}, only"
+            " callable methods or strings are accepeted"
+            logger.critical(msg)
+            FedbiomedExperimentError(msg)
+        
+        self._training_args['test_metric'] = metric
+        if self._fds is not None:
+            self._fds.set_test_metric(metric)
+        return metric
+
+    @exp_exceptions
+    def set_flag_test_on_global_update(self, flag: bool) -> bool:
+        if not isinstance(flag, bool):
+            raise FedbiomedExperimentError('incorrect type')
+        self._training_args['test_on_global_upate'] = flag
+        
+        if self._fds is not None:
+            self._fds.test_on_global_updates = flag
+        return flag
+        
+    @exp_exceptions
+    def set_flag_test_on_local_update(self, flag: bool) -> bool:
+        if not isinstance(flag, bool):
+            raise FedbiomedExperimentError('incorrect type')
+        self._training_args['test_on_local_update'] = flag
+        
+        if self._fds is not None:
+            self._fds.test_on_local_updates = flag
+        return flag
 
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?
