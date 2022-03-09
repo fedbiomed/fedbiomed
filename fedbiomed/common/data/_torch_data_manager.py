@@ -1,12 +1,12 @@
 import math
-import inspect
 
-from typing import Union
+from typing import Union, Tuple
 from torch.utils.data import Dataset, Subset, DataLoader
 from torch.utils.data import random_split
 from fedbiomed.common.exceptions import FedbiomedTorchDataManagerError
 from fedbiomed.common.constants import ErrorNumbers
 from ._sklearn_data_manager import SkLearnDataManager
+
 
 class TorchDataManager(object):
 
@@ -38,9 +38,6 @@ class TorchDataManager(object):
         self._loader_arguments = kwargs
         self._subset_test: Union[Subset, None] = None
         self._subset_train: Union[Subset, None] = None
-
-    def __getattribute__(self, item):
-        return object.__getattribute__(self, item)
 
     def dataset(self) -> Dataset:
         """
@@ -78,62 +75,10 @@ class TorchDataManager(object):
 
         return self._subset_train
 
-    def load_test_partition(self) -> DataLoader:
-        """
-        Method for loading testing partition of Dataset as pytorch DataLoader. Before calling
-        this method Dataset should be split into test and train subset in advance
-
-        Raises:
-            FedbiomedError: If Dataset is not split into test and train in advance
-        """
-
-        if self._subset_test is None:
-            raise FedbiomedTorchDataManagerError(f"{ErrorNumbers.FB608.value}: Can not find subset for test partition. "
-                                                 f"Please make sure that the method `.split(ratio=ration)` DataManager "
-                                                 f"object has been called before. ")
-        # No test loader
-        if len(self._subset_test) <= 0:
-            return None
-
-        try:
-            loader = DataLoader(self._subset_test, **self._loader_arguments)
-        except TypeError as err:
-            raise FedbiomedTorchDataManagerError(
-                f"{ErrorNumbers.FB608.value}: Error while creating a PyTorch DataLoader "
-                f"for test partition due to loader arguments: {str(err)}")
-
-        return loader
-
-    def load_train_partition(self) -> DataLoader:
-        """
-        Method for loading training partition of Dataset as pytorch DataLoader. Before calling
-        this method Dataset should be split into test and train subset in advance
-
-        Raises:
-            FedbiomedError: If Dataset is not split into test and train in advance
-        """
-
-        if self._subset_train is None:
-            raise FedbiomedTorchDataManagerError(
-                f"{ErrorNumbers.FB608.value}: Can not find subset for train partition. "
-                f"Please make sure that the method `.split(ratio=ration)` DataManager "
-                f"object has been called before. ")
-        # No train subset
-        if len(self._subset_train) <= 0:
-            return None
-
-        try:
-            loader = DataLoader(self._subset_train, **self._loader_arguments)
-        except TypeError as err:
-            raise FedbiomedTorchDataManagerError(
-                f"{ErrorNumbers.FB608.value}: Error while creating a PyTorch DataLoader "
-                f"for train partition due to loader arguments: {str(err)}")
-
-        return loader
-
     def load_all_samples(self) -> DataLoader:
         """
-        Method for loading all samples as PyTorch DataLoader without splitting
+        Method for loading all samples as PyTorch DataLoader without splitting. If researcher
+        requests training without testing this method can be used
         """
 
         try:
@@ -145,7 +90,7 @@ class TorchDataManager(object):
 
         return loader
 
-    def split(self, ratio: float) -> None:
+    def split(self, test_ratio: float) -> Tuple[Union[DataLoader, None], Union[DataLoader, None]]:
         """
         Method for splitting PyTorch Dataset into train and test.
 
@@ -160,14 +105,14 @@ class TorchDataManager(object):
         """
 
         # Check the argument `ratio` is of type `float`
-        if not isinstance(ratio, (float, int)):
+        if not isinstance(test_ratio, (float, int)):
             raise FedbiomedTorchDataManagerError(f'{ErrorNumbers.FB608.value}: The argument `ratio` should be '
-                                                 f'type `float` or `int` not {type(ratio)}')
+                                                 f'type `float` or `int` not {type(test_ratio)}')
 
         # Check ratio is valid for splitting
-        if ratio < 0 or ratio > 1:
+        if test_ratio < 0 or test_ratio > 1:
             raise FedbiomedTorchDataManagerError(f'{ErrorNumbers.FB608.value}: The argument `ratio` should be '
-                                                 f'equal or between 0 and 1, not {ratio}')
+                                                 f'equal or between 0 and 1, not {test_ratio}')
 
         # If `Dataset` has proper data attribute
         # try to get shape from self.data
@@ -187,10 +132,12 @@ class TorchDataManager(object):
                                                  f"{str(self._dataset)}, {str(e)}")
 
         # Calculate number of samples for train and test subsets
-        test_samples = math.floor(samples * ratio)
+        test_samples = math.floor(samples * test_ratio)
         train_samples = samples - test_samples
 
         self._subset_train, self._subset_test = random_split(self._dataset, [train_samples, test_samples])
+
+        return self._subset_loader(self._subset_train), self._subset_loader(self._subset_test)
 
     def to_sklearn(self):
         """
@@ -207,3 +154,26 @@ class TorchDataManager(object):
         target = next(iter(loader))[1].numpy()
 
         return SkLearnDataManager(inputs=inputs, target=target)
+
+    def _subset_loader(self, subset: Subset) -> DataLoader:
+        """
+        Method for loading subset (train/test) partition of as pytorch DataLoader.
+
+        Args:
+            subset (Subset): Subset as an instance of PyTorch's `Subset`
+        Raises:
+            FedbiomedError: If Dataset is not split into test and train in advance
+        """
+
+        # Return None if subset has no data
+        if len(subset) <= 0:
+            return None
+
+        try:
+            loader = DataLoader(subset, **self._loader_arguments)
+        except TypeError as err:
+            raise FedbiomedTorchDataManagerError(
+                f"{ErrorNumbers.FB608.value}: Error while creating a PyTorch DataLoader "
+                f"due to loader arguments: {str(err)}")
+
+        return loader

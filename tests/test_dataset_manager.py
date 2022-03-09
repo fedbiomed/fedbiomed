@@ -104,43 +104,39 @@ class TestDatasetManager(unittest.TestCase):
 
 
     @patch('tinydb.table.Table.clear_cache')
-    def test_dataset_manager_01_search_by_id_non_existing_dataset_id(self,
+    def test_dataset_manager_01_get_by_id_non_existing_dataset_id(self,
                                                                   tinydb_cache_patch,):
         """
         Test `search_by_id` method with a non existing id
         """
         tinydb_cache_patch.return_value = None
-        # action (should retrun an empty array)
-        res = self.dataset_manager.search_by_id('dataset_id_1234')
-        self.assertEqual(res, [])
+        # action (should return an empty array)
+        res = self.dataset_manager.get_by_id('dataset_id_1234')
+        self.assertEqual(res, None)
 
 
-    @patch('tinydb.queries.Query.all')
-    @patch('tinydb.table.Table.search')
+    @patch('tinydb.table.Table.get')
     @patch('tinydb.table.Table.clear_cache')
-    def test_dataset_manager_02_search_by_id(self,
+    def test_dataset_manager_02_get_by_id(self,
                                           tinydb_cache_patch,
-                                          tinydb_search_patch,
-                                          queries_all_patch):
+                                          tinydb_get_patch):
         """
         Simulates a query with a correct dataset id by patching Query and
         Table.search object/methods
         """
         # arguments
-        search_results = [{'dataset_id': 'datset_id_1234'}]
+        search_results = {'dataset_id': 'datset_id_1234'}
         dataset_id = 'dataset_id_1234'
         # patches
         tinydb_cache_patch.return_value = None
-        tinydb_search_patch.return_value = search_results
+        tinydb_get_patch.return_value = search_results
 
         # action
-        res = self.dataset_manager.search_by_id(dataset_id)
+        res = self.dataset_manager.get_by_id(dataset_id)
 
         # checks
         self.assertEqual(search_results, res)
-        queries_all_patch.assert_called_once_with(dataset_id)
-        tinydb_search_patch.assert_called_once()
-
+        tinydb_get_patch.assert_called_once()
 
     def test_dataset_manager_03_search_by_tags(self):
         """

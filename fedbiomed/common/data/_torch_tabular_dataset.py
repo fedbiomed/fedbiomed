@@ -55,8 +55,8 @@ class TorchTabularDataset(Dataset):
                                                     f"an instance one of np.ndarray, pd.DataFrame or pd.Series")
 
         # Convert `inputs` adn `target` to Torch floats
-        self.inputs = from_numpy(inputs).float()
-        self.target = from_numpy(target).float()
+        self.inputs = from_numpy(self.inputs).float()
+        self.target = from_numpy(self.target).float()
 
     def __len__(self):
         """

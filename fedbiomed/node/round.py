@@ -189,7 +189,8 @@ class Round:
                 results = {}
                 rtime_before = time.perf_counter()
                 ptime_before = time.process_time()
-                self.model.training_routine(training_data=self.train_data,
+                # rename training_data as data_loader
+                self.model.training_routine(training_data=self.train_data,  # rename self.train_data_loader
                                             **training_kwargs_with_history)
                 rtime_after = time.perf_counter()
                 ptime_after = time.process_time()
@@ -247,7 +248,7 @@ class Round:
                                               'msg': error_message,
                                               'timing': {}}).get_dict()
 
-    def _set_train_and_test_data(self, ratio: float = 0):
+    def _set_train_and_test_data(self, test_ratio: float = 0):
         """
         Method for splitting training and testing data based on training plan type. It sets
         `dataset_path` for model and calls `training_data` method of training plan.
@@ -308,7 +309,7 @@ class Round:
         # Specific datamanager based on training plan
         try:
             # This data manager can be data manager for PyTorch or Sk-Learn
-            sp_data_manager = data_manager.load(tp_type=training_plan_type)
+            data_manager.load(tp_type=training_plan_type)
         except FedbiomedError as e:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Error while loading data manager; {str(e)}")
 
@@ -319,7 +320,10 @@ class Round:
         # If testing ratio is 1,
         # self.testing_data will be equal to all samples
         # self.testing_data will be equal to None
-        
-        sp_data_manager.split(ratio=ratio)
-        self.train_data = sp_data_manager.load_train_partition()
-        self.test_data = sp_data_manager.load_test_partition()
+
+        # Split dataset as train and test
+        self.train_data, self.test_data = data_manager.split(test_ratio=test_ratio)
+
+        # If testing is inactive following method can be called to load all samples as train
+        # self.train_data = sp.da_data_manager.load_all_samples()
+

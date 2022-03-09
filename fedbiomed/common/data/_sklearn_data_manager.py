@@ -97,48 +97,6 @@ class SkLearnDataManager(object):
 
         return self._subset_train
 
-    def load_test_partition(self) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Method for loading testing partition of Dataset as pytorch DataLoader. Before calling
-        this method Dataset should be split into test and train subset in advance
-
-        Raises:
-            FedbiomedError: If Dataset is not split into test and train in advance
-        """
-        if self._subset_test is None:
-            raise FedbiomedSkLearnDataManagerError(
-                f"{ErrorNumbers.FB609.value}: Can not find subset for test partition. "
-                f"Please make sure that the method `.split(ratio=ration)` DataManager "
-                f"object has been called before. ")
-
-        # Empty test set
-        if len(self._subset_test) <= 0:
-            return None
-
-        # TODO: Create DataLoader for SkLearnDataset to apply batch training
-        return self._subset_test
-
-    def load_train_partition(self) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Method for loading training partition of Dataset as SkLearnDataset. Before calling
-        this method Dataset should be split into test and train subset in advance
-
-        Raises:
-            FedbiomedError: If Dataset is not split into test and train in advance
-        """
-        if self._subset_train is None:
-            raise FedbiomedSkLearnDataManagerError(
-                f"{ErrorNumbers.FB609.value}: Can not find subset for train partition. "
-                f"Please make sure that the method `.split(ratio=ration)` DataManager "
-                f"object has been called before. ")
-
-        # Empty train set
-        if len(self._subset_train) <= 0:
-            return None
-
-        # TODO: Create DataLoader for SkLearnDataset to apply batch training
-        return self._subset_train
-
     def load_all_samples(self) -> Tuple[np.ndarray, np.ndarray]:
         """
         Method for loading all samples as Numpy ndarray without splitting
@@ -146,7 +104,7 @@ class SkLearnDataManager(object):
 
         return self._inputs, self._target
 
-    def split(self, ratio: float) -> None:
+    def split(self, test_ratio: float) -> None:
         """
         Method for splitting np.ndarray dataset into train and test.
 
@@ -161,23 +119,41 @@ class SkLearnDataManager(object):
         """
 
         # Check the argument `ratio` is of type `float`
-        if not isinstance(ratio, (float, int)):
+        if not isinstance(test_ratio, (float, int)):
             raise FedbiomedSkLearnDataManagerError(f'{ErrorNumbers.FB608.value}: The argument `ratio` should be '
-                                                   f'type `float` or `int` not {type(ratio)}')
+                                                   f'type `float` or `int` not {type(test_ratio)}')
 
         # Check ratio is valid for splitting
-        if ratio < 0 or ratio > 1:
+        if test_ratio < 0 or test_ratio > 1:
             raise FedbiomedSkLearnDataManagerError(f'{ErrorNumbers.FB609.value}: The argument `ratio` should be '
-                                                   f'equal or between 0 and 1, not {ratio}')
-        if ratio == 0:
+                                                   f'equal or between 0 and 1, not {test_ratio}')
+        if test_ratio == 0:
             self._subset_train = (self._inputs, self._target)
             self._subset_test = []
-        elif ratio == 1:
+        elif test_ratio == 1:
             self._subset_train = []
             self._subset_test = (self._inputs, self._target)
         else:
-            x_train, x_test, y_train, y_test = train_test_split(self._inputs, self._target, test_size=ratio)
+            x_train, x_test, y_train, y_test = train_test_split(self._inputs, self._target, test_size=test_ratio)
             self._subset_test = (x_test, y_test)
             self._subset_train = (x_train, y_train)
 
-        return None
+        return self._subset_loader(self._subset_train), self._subset_loader(self._subset_test)
+
+    def _subset_loader(self, subset: Tuple[np.ndarray, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Method for loading subset partition for SkLearn based training plans.
+
+        TODO: Currently this method just returns subset. In future, when SkLearn based batch
+        iterator class is created, it should return BatchIterator for SKLearnTrainingPlan
+        """
+
+        # Empty test set
+        if len(subset) <= 0:
+            return None
+
+        # TODO: Return DataLoader/BatchIterator for SkLearnDataset to apply batch training
+        # Example:
+        # return BatchIterator(subset, **self.loader_arguments)
+
+        return subset
