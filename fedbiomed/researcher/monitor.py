@@ -53,11 +53,6 @@ class Monitor():
                                  msg['iteration'],
                                  msg['value'],
                                  msg['epoch'] )
-            self._summary_writer(msg['node_id'],
-                                 'my_key',
-                                 msg['iteration'],
-                                 msg['value'],
-                                 msg['epoch'] )
 
 
     def _summary_writer(self, node: str, key: str, global_step: int, scalar: float, epoch: int ):
