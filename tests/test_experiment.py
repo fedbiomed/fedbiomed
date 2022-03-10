@@ -89,14 +89,12 @@ class TestExperiment(unittest.TestCase):
             os.path.join(environ['EXPERIMENTS_DIR'], self.experimentation_folder)
         os.makedirs(self.experimentation_folder_path)
 
-        # Define patchers ---------------------------------------------------------------------------------------
+        # Define patchers
         # Patchers that are not required be modified during the tests
         self.patchers = [
             patch('fedbiomed.researcher.datasets.FederatedDataSet',
                   FederatedDataSetMock),
             patch('fedbiomed.researcher.requests.Requests.add_monitor_callback',
-                  return_value=None),
-            patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.__init__',
                   return_value=None),
             patch('fedbiomed.researcher.aggregators.aggregator.Aggregator.__init__',
                   return_value=None)
@@ -127,7 +125,7 @@ class TestExperiment(unittest.TestCase):
         for patcher in self.patchers:
             patcher.start()
 
-        # Define mocks from patchers ---------------------------------------------------------------------------
+        # Define mocks from patchers
 
         self.mock_monitor_init = self.patcher_monitor_init.start()
         self.mock_monitor_on_message = self.patcher_monitor_on_message_handler.start()
@@ -270,7 +268,7 @@ class TestExperiment(unittest.TestCase):
         agg_params = self.test_exp.aggregated_params()
         self.assertDictEqual(agg_params, {}, 'Getter for aggregated_params did not return expected value: {}')
 
-        # Test getter training_replies -----------------------------------------------------------------------------
+        # Test getter training_replies
 
         # Test when ._job is None
         training_replies = self.test_exp.training_replies()
@@ -284,7 +282,7 @@ class TestExperiment(unittest.TestCase):
         training_replies = self.test_exp.training_replies()
         self.assertDictEqual(training_replies, tr_reply, 'Getter for training_replies did not return expected values')
 
-        # Test getter for model instance---------------------------------------------------------------------------
+        # Test getter for model instance
 
         # Test when ._job is None
         self.test_exp._job = None
@@ -300,20 +298,16 @@ class TestExperiment(unittest.TestCase):
         model_instance = self.test_exp.model_instance()
         self.assertEqual(model_instance, fake_model_instance, 'Getter for model_instance did not return expected Model')
 
-    @patch('builtins.print')
-    def test_experiment_02_info(self, mock_print):
+    def test_experiment_02_info(self):
         """Testing the method .info() of experiment class """
-        mock_print.return_value(None)
         self.test_exp.info()
-        self.assertEqual(mock_print.call_count, 2, 'Printing info called unexpected times')
 
         # Test info by completing missing parts for proper .run
-        mock_print.reset_mock()
         self.test_exp._fds = FederatedDataSetMock({'node-1': []})
         self.test_exp._job = self.mock_job
         self.test_exp._model_is_defined = True
         self.test_exp.info()
-        self.assertEqual(mock_print.call_count, 2, 'Printing info called unexpected times')
+
 
     @patch('builtins.eval')
     @patch('builtins.print')
@@ -532,14 +526,6 @@ class TestExperiment(unittest.TestCase):
         round_limit = self.test_exp.set_round_limit(round_limit=rl_expected)
         self.assertEqual(round_limit, rl_expected, 'Setter for round limit did not set round_limit to 1')
 
-        # Test when self._round_limit is not defined
-        del self.test_exp._round_limit
-        self.test_exp._round_current = 2
-        rl_expected = 1
-        round_limit = self.test_exp.set_round_limit(round_limit=rl_expected)
-        self.assertIsNone(round_limit, 'Setter for round limit did not set round_limit to None, this expected '
-                                       'behaviour when self._round_limit is not defined')
-
         # back to normal
         self.test_exp._round_current = 0
         self.test_exp.set_round_limit(round_limit=4)
@@ -615,11 +601,6 @@ class TestExperiment(unittest.TestCase):
         model_class = self.test_exp.set_model_class(mc_expected)
         self.assertEqual(model_class, mc_expected, 'Model class is not set properly while setting it in `str` type')
 
-        # Setting AttributeError when model path is not defined
-        del self.test_exp._model_path
-        self.test_exp.set_model_class(mc_expected)
-        self.assertEqual(self.test_exp._model_is_defined, False)
-
         # Back to normal
         self.test_exp._model_path = None
 
@@ -631,11 +612,6 @@ class TestExperiment(unittest.TestCase):
         # Test by passing class which has no subclass of one of the training plan
         with self.assertRaises(SystemExit):
             self.test_exp.set_model_class(FakeModel)
-
-        # Test by passing class when self._model_path is not defined
-        del self.test_exp._model_path
-        model_class = self.test_exp.set_model_class(TestExperiment.FakeModelTorch)
-        self.assertEqual(self.test_exp._model_is_defined, False)
 
         # Back to normal
         self.test_exp._model_path = None
@@ -1189,7 +1165,7 @@ class TestExperiment(unittest.TestCase):
             2. if experiment is correctly configured from breakpoint
         """
 
-        # Prepare breakpoint data ----------------------------------------------------------------
+        # Prepare breakpoint data
         bkpt_file = 'file_4_breakpoint'
 
         training_data = {'train_node1': 'my_first_dataset', 2: 243}
@@ -1272,7 +1248,7 @@ class TestExperiment(unittest.TestCase):
         for p in patches_experiment:
             p.start()
 
-        # Action - Tests ----------------------------------------------------------------------------------
+        # Action - Tests
 
         # Test if breakpoint argument is not type of `str`
         with self.assertRaises(SystemExit):

@@ -220,8 +220,8 @@ class Experiment(object):
         self._training_args = None
         self._node_selection_strategy = None
         self._model_path = None
-        self.tags = None
-
+        self._tags = None
+        self._model_path = None
 
 #        training_data: Union[FederatedDataSet, dict, None] = None,
 #        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
@@ -420,7 +420,7 @@ class Experiment(object):
                                               self._tags,
                                               self._nodes,
                                               self._fds,
-                                              self._aggregator.aggregator_name,
+                                              self._aggregator.aggregator_name if self._aggregator is not None else None,
                                               self._node_selection_strategy,
                                               self._job,
                                               self._model_path,
