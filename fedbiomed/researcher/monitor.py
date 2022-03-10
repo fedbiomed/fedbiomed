@@ -20,7 +20,7 @@ class Monitor():
     using `logger`. It also writes scalar values to tensorboard log files.
     """
 
-    def __init__(self):
+    def __init__(self, tensorboard: bool = False):
         """
         Constructor of the class. Intialize empty event writers object and
         logs directory. Removes tensorboard logs from previous experiments.
@@ -29,6 +29,7 @@ class Monitor():
         self._log_dir = environ['TENSORBOARD_RESULTS_DIR']
         self._event_writers = {}
         self._round_state = 0
+        self._tensorboard = tensorboard
 
         if os.listdir(self._log_dir):
             logger.info('Removing tensorboard logs from previous experiment')
@@ -48,11 +49,45 @@ class Monitor():
 
         # For now monitor can only handle add_scalar messages
         if msg['command'] == 'add_scalar':
-            self._summary_writer(msg['node_id'],
-                                 msg['key'],
-                                 msg['iteration'],
-                                 msg['value'],
-                                 msg['epoch'] )
+
+            if self._tensorboard:
+                # transfert data to tensorboard
+                self._summary_writer(msg['node_id'],
+                                     msg['key'],
+                                     msg['iteration'],
+                                     msg['value'],
+                                     msg['epoch'] )
+
+            else:
+                # log on console
+                msg = "Monitor: node_id=" + \
+                    msg['node_id'] + \
+                    " epoch=" + \
+                    str(msg['epoch']) + \
+                    " iteration=" + \
+                    str(msg['iteration']) + \
+                    " " + \
+                    msg['key'] + \
+                    ":" + \
+                    str(msg['value'])
+                logger.info(msg)
+
+
+    def set_tensorboard(self, tensorboard: bool):
+        """
+        setter for the tensorboard flag, which is used to decide the behavior
+        of the monitor callback
+
+        Args:
+            tensorboard: if True, data contained in AddScalarReply message
+                         will be passed to tensorboard
+                         if False, fata will only be logged on the console
+        """
+        if isinstance(tensorboard, bool):
+            self._tensorboard = tensorboard
+        else:
+            logger.error("tensorboard should be a boolean")
+            self._tensorboard = False
 
 
     def _summary_writer(self, node: str, key: str, global_step: int, scalar: float, epoch: int ):
@@ -120,7 +155,6 @@ class Monitor():
         """
         Closes `SummaryWriter` for each node
         """
-
         # Close each open SummaryWriter
         for node in self._event_writers:
             self._event_writers[node]['writer'].close()
