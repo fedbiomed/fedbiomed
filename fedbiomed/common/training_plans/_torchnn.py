@@ -3,9 +3,8 @@ TrainingPlan definition for torchnn ML framework
 '''
 
 
-import inspect
-from typing import Union, List
 from copy import deepcopy
+from typing import Union
 
 import torch
 import torch.nn as nn
@@ -183,7 +182,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 for training during this round (ie overload the object default use_gpu value)
                 if available on node and proposed by node
                 Defaults to None (dont overload the object default value)
-            - fedprox_mu (float or None): mu parameter in case of FredProx computing. Fedault is None, which means that FredProx is not triggered
+            - fedprox_mu (float or None): mu parameter in case of FredProx
+              computing. Fedault is None, which means that FredProx is not triggered
             - history_monitor ([type], optional): [description]. Defaults to None.
             - node_args (Union[dict, None]): command line arguments for node. Can include:
                 - gpu (bool): propose use a GPU device if any is available. Default False.
@@ -222,7 +222,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 # If FedProx is enabled: use regularized loss function
                 if fedprox_mu is not None:
                     try:
-                        _mu =  float(fedprox_mu)
+                        _mu = float(fedprox_mu)
                     except ValueError:
                         msg = ErrorNumbers.FB605.value + ": fedprox_mu parameter reuqested nut is not a float"
                         logger.critical(msg)

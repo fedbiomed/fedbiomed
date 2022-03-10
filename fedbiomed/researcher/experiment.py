@@ -43,8 +43,7 @@ TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SGDSkLearnModel)
 Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SGDSkLearnModel])
 
 
-# Exception handling at top lever for researcher ---------------------------------------------
-
+# Exception handling at top lever for researcher
 def exp_exceptions(function):
     """
     Decorator for handling all exceptions in the Experiment class() :
@@ -105,7 +104,7 @@ def exp_exceptions(function):
     return payload
 
 
-# Experiment ---------------------------------------------------------------------------------
+# Experiment
 
 class Experiment(object):
     """
@@ -291,8 +290,6 @@ class Experiment(object):
         self._monitor.close_writer()
 
 
-    # Getters ---------------------------------------------------------------------------------------------------------
-
     @exp_exceptions
     def tags(self) -> Union[List[str], None]:
         return self._tags
@@ -415,24 +412,24 @@ class Experiment(object):
                 'Breakpoint State'
             ],
             # max 60 characters per column for values - can we do that with tabulate() ?
-            'Values': [ '\n'.join(findall('.{1,60}',
-                                          str(e))) for e in [
-                                              self._tags,
-                                              self._nodes,
-                                              self._fds,
-                                              self._aggregator.aggregator_name if self._aggregator is not None else None,
-                                              self._node_selection_strategy,
-                                              self._job,
-                                              self._model_path,
-                                              self._model_class,
-                                              self._model_args,
-                                              self._training_args,
-                                              self._round_current,
-                                              self._round_limit,
-                                              self._experimentation_folder,
-                                              self.experimentation_path(),
-                                              self._save_breakpoints,
-                                          ]
+            'Values': ['\n'.join(findall('.{1,60}',
+                                         str(e))) for e in [
+                                             self._tags,
+                                             self._nodes,
+                                             self._fds,
+                                             self._aggregator.aggregator_name if self._aggregator is not None else None,
+                                             self._node_selection_strategy,
+                                             self._job,
+                                             self._model_path,
+                                             self._model_class,
+                                             self._model_args,
+                                             self._training_args,
+                                             self._round_current,
+                                             self._round_limit,
+                                             self._experimentation_folder,
+                                             self.experimentation_path(),
+                                             self._save_breakpoints
+                                         ]
                        ]
         }
         print(tabulate(info, headers='keys'))
@@ -464,7 +461,7 @@ class Experiment(object):
         else:
             print('\nExperiment can be run now (fully defined)')
 
-    # Setters ---------------------------------------------------------------------------------------------------------
+    # Setters
 
     @exp_exceptions
     def set_tags(self, tags: Union[List[str], str, None]) -> Union[List[str], None]:
@@ -1075,7 +1072,7 @@ class Experiment(object):
 
         return self._save_breakpoints
 
-    # Run experiment functions -------------------------------------------------------------------
+    # Run experiment functions
 
     @exp_exceptions
     def run_once(self, increase: bool = False) -> int:
@@ -1266,7 +1263,7 @@ class Experiment(object):
 
         return rounds
 
-    # Model checking functions -------------------------------------------------------------------
+    # Model checking functions
 
     @exp_exceptions
     def model_file(self, display: bool = True) -> str:
@@ -1342,7 +1339,7 @@ class Experiment(object):
 
         return responses
 
-    # Breakpoint functions ----------------------------------------------------------------
+    # Breakpoint functions
 
     @exp_exceptions
     def breakpoint(self) -> None:
@@ -1491,22 +1488,22 @@ class Experiment(object):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        # -----  retrieve breakpoint training data ---
+        # retrieve breakpoint training data
         bkpt_fds = saved_state.get('training_data')
         # keeping bkpt_fds a dict so that FederatedDataSet will be instantiated
         # in Experiment.__init__() applying some type checks.
         # More checks to verify the structure/content of saved_state.get('training_data')
         # should be added in FederatedDataSet.__init__() when refactoring it
 
-        # -----  retrieve breakpoint sampling strategy ----
+        # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=bkpt_fds)
 
-        # ----- retrieve federator -----
+        # retrieve federator
         bkpt_aggregator_args = saved_state.get("aggregator")
         bkpt_aggregator = cls._create_object(bkpt_aggregator_args)
 
-        # ------ initializing experiment -------
+        # initializing experiment
 
         loaded_exp = cls(tags=saved_state.get('tags'),
                          nodes=None,  # list of previous nodes is contained in training_data
@@ -1522,7 +1519,7 @@ class Experiment(object):
                          experimentation_folder=saved_state.get('experimentation_folder')
                          )
 
-        # ------- changing `Experiment` attributes -------
+        # changing `Experiment` attributes
         loaded_exp._set_round_current(saved_state.get('round_current'))
 
         # TODO: checks when loading parameters
@@ -1538,7 +1535,7 @@ class Experiment(object):
                 model_instance.load
             )
 
-        # ------- changing `Job` attributes -------
+        # changing `Job` attributes
         loaded_exp._job.load_state(saved_state.get('job'))
         # nota: exceptions should be handled in Job, when refactoring it
 

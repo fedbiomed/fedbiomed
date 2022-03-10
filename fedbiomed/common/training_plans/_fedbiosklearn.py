@@ -46,14 +46,14 @@ class SGDSkLearnModel(BaseTrainingPlan):
         "SGDRegressor": SGDRegressor,
         "SGDClassifier": SGDClassifier,
         "Perceptron": Perceptron,
-        "BernoulliNB":  BernoulliNB,
-        "GaussianNB":  GaussianNB,
+        "BernoulliNB": BernoulliNB,
+        "GaussianNB": GaussianNB,
 
-        #'MultinomialNB': MultinomialNB,
-        #'PassiveAggressiveClassifier': PassiveAggressiveClassifier,
-        #'PassiveAggressiveRegressor': PassiveAggressiveRegressor,
-        #'MiniBatchKMeans': MiniBatchKMeans,
-        #'MiniBatchDictionaryLearning': MiniBatchDictionaryLearning,
+        # 'MultinomialNB': MultinomialNB,
+        # 'PassiveAggressiveClassifier': PassiveAggressiveClassifier,
+        # 'PassiveAggressiveRegressor': PassiveAggressiveRegressor,
+        # 'MiniBatchKMeans': MiniBatchKMeans,
+        # 'MiniBatchDictionaryLearning': MiniBatchDictionaryLearning,
     }
 
     #
@@ -203,8 +203,8 @@ class SGDSkLearnModel(BaseTrainingPlan):
             return support
 
     def training_routine(self,
-                         epochs=1,
-                         history_monitor=None,
+                         epochs = 1,
+                         history_monitor = None,
                          node_args: Union[dict, None] = None):
         """
         Method training_routine called in Round, to change only if you know what you are doing.
