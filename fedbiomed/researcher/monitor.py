@@ -20,7 +20,7 @@ class Monitor():
     using `logger`. It also writes scalar values to tensorboard log files.
     """
 
-    def __init__(self, tensorboard: bool = False):
+    def __init__(self):
         """
         Constructor of the class. Intialize empty event writers object and
         logs directory. Removes tensorboard logs from previous experiments.
@@ -29,7 +29,7 @@ class Monitor():
         self._log_dir = environ['TENSORBOARD_RESULTS_DIR']
         self._event_writers = {}
         self._round_state = 0
-        self._tensorboard = tensorboard
+        self._tensorboard = False
 
         if os.listdir(self._log_dir):
             logger.info('Removing tensorboard logs from previous experiment')
