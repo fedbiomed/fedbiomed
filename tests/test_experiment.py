@@ -765,6 +765,20 @@ class TestExperiment(unittest.TestCase):
         sb = self.test_exp.set_save_breakpoints(True)
         self.assertTrue(sb, 'save_breakpoint has not been set correctly')
 
+    def test_experiment_16_set_tensorboard(self):
+        """ Test setter for tensorboard """
+
+        # Test invalid type of argument
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_tensorboard(None)
+
+        # test valid type of argument
+        sb = self.test_exp.set_tensorboard(True)
+        self.assertTrue(sb, 'tensorboard has not been set correctly')
+
+        # test valid type of argument
+        sb = self.test_exp.set_tensorboard(False)
+        self.assertFalse(sb, 'tensorboard has not been set correctly')
 
     @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')

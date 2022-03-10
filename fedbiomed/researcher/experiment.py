@@ -1074,6 +1074,22 @@ class Experiment(object):
 
     # Run experiment functions
 
+
+    @exp_exceptions
+    def set_tensorboard(self, tensorboard: bool) -> bool:
+        """
+        set the tensorboard flag
+        """
+        if isinstance(tensorboard, bool):
+            self._tensorboard = tensorboard
+            self._monitor.set_tensorboard(tensorboard)
+        else:
+            msg = ErrorNumbers.FB410.value + f' `tensorboard` : {type(tensorboard)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        return self._tensorboard
+
     @exp_exceptions
     def run_once(self, increase: bool = False) -> int:
         """Run at most one round of an experiment, continuing from the point the
