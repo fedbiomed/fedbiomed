@@ -3,13 +3,13 @@ A Base class that includes common methods that are used for
 all training plans
 """
 
-
-from typing import List
+from typing import List, Callable
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_class_source
+from fedbiomed.common.constants import ProcessTypes
 
 
 class BaseTrainingPlan(object):
@@ -26,6 +26,7 @@ class BaseTrainingPlan(object):
         super(BaseTrainingPlan, self).__init__()
         self.dependencies = []
         self.dataset_path = None
+        self.pre_processes = {}
 
     def add_dependency(self, dep: List[str]):
         """
@@ -88,8 +89,8 @@ class BaseTrainingPlan(object):
             file.close()
             logger.debug("Model file has been saved: " + filepath)
         except PermissionError:
-            _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges"  + \
-                ", can't write the model content into it"
+            _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges" + \
+                   ", can't write the model content into it"
             logger.error(_msg)
             raise FedbiomedTrainingPlanError(_msg)
         except MemoryError:
@@ -114,3 +115,21 @@ class BaseTrainingPlan(object):
         msg = ErrorNumbers.FB303.value + ": training_data must be implemented"
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
+
+    def add_preprocess(self, method: Callable, process_type: ProcessTypes):
+        """
+        Method adding preprocesses
+        """
+        if not isinstance(method, Callable):
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while adding preprocess, preprocess "
+                                             f"should be a callable method")
+
+        if not isinstance(process_type, ProcessTypes):
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while adding preprocess, process type "
+                                             f"should be an instance of `fedbiomed.common.constants.ProcessType`")
+
+        self.pre_processes[method.__name__] = {
+            'method': method,
+            'process_type': process_type
+        }
+

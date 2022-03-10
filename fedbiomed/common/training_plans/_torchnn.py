@@ -9,7 +9,7 @@ from copy import deepcopy
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from fedbiomed.common.constants import TrainingPlans, PreprocessTypes
+from fedbiomed.common.constants import TrainingPlans, ProcessTypes
 
 from fedbiomed.common.utils import get_method_spec
 from fedbiomed.common.constants import ErrorNumbers
@@ -76,7 +76,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         self.add_dependency(["from fedbiomed.common.training_plans import TorchTrainingPlan",
                              "from fedbiomed.common.data import DataManager",
-                             "from fedbiomed.common.constants import PreprocessTypes",
+                             "from fedbiomed.common.constants import ProcessTypes",
                              "import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
@@ -217,7 +217,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
-        # Run preprocess when everything is ready but the training
+        # Run preprocess when everything is ready before the training
         self.__preprocess()
 
 
@@ -345,11 +345,13 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         try:
             # Check whether postprocess method exists, and use it
             logger.debug("running model.postprocess() method")
-            return self.postprocess(self.state_dict())
+            return self.postprocess(self.state_dict()) # Post process
         except AttributeError:
             # Method does not exist; skip
             logger.debug("model.postprocess() method not provided")
             pass
+
+        # self.__process(is_preprocess=False)  # Post process
 
         return self.state_dict()
 
@@ -370,45 +372,74 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         Raises:
             FedbiomedTrainingPlanError
         """
+        for (name, process) in self.pre_processes.items():
+            method = process['method']
+            process_type = process['process_type']
 
-        # Preprocess option for differential privacy
-        if hasattr(self, 'preprocess') and isinstance(self.preprocess, Callable):
-            argspec = get_method_spec(self.preprocess)
-            if 'type' not in argspec or not isinstance(argspec['type']['default'], PreprocessTypes):
-                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB314.value}: The method preprocess should have an "
-                                                 f"argument called `type` with default value as one of "
-                                                 f"`fedbiomed.common.constants.PreprocessTypes`.")
+            if process_type == ProcessTypes.DATA_LOADER:
+                self.__process_data_loader(method=method)
+            elif process_type == ProcessTypes.PARAMS:
+                self.__process_params(method=method)
 
-            if argspec['type']['default'] == PreprocessTypes.OPACUS:
-                # DataLoader based preprocessing operation ------------------------------------------------
-                # Number of arguments should be equal to 2, `type` and `data_loader`
-                if len(argspec) == 2 and 'data_loader' in argspec:
-                    try:
-                        data_loader = self.preprocess(data_loader=self.__training_data_loader)
-                    except Exception as e:
-                        raise FedbiomedTrainingPlanError(
-                            f"{ErrorNumbers.FB314.value}: Error while running `preprocess method "
-                            f"{str(e)}`")
+    def __process_data_loader(self, method):
 
-                    # Debug after running preprocess
-                    logger.debug('The method `preprocess` has been successfully executed.')
+        argspec = get_method_spec(method)
+        if len(argspec) != 1:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB314.value}: Process for type "
+                                             f"`PreprocessType.DATA_LOADER` should have only one "
+                                             f"argument/parameter")
 
-                    if isinstance(data_loader, type(self.__training_data_loader)):
-                        self.__training_data_loader = data_loader
-                        logger.debug('Data loader for training routine has been updated with the method `preprocess`')
-                    else:
-                        raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB314.value}: The input argument of the method "
-                                                         f"`preprocess` is `data_loader` and expected return value "
-                                                         f"should be an instance of  "
-                                                         f"{type(self.__training_data_loader)}, but got "
-                                                         f"{type(data_loader)}")
-                else:
-                    raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB314.value}: Preprocess for type "
-                                                     f"`PreprocessType.OPACUS` should have only one argument as "
-                                                     f"`data_loader`")
-            # Implement other preprocessing actions here -----------------------------------------------
-            # For example: if preprocess based on `data`
-            else:
-                raise FedbiomedTrainingPlanError(f"Unsupported preprocess type {argspec['type']['default']}")
+        try:
+            data_loader = self.preprocess(self.__training_data_loader)
+        except Exception as e:
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB314.value}: Error while running process method -> `{method.__name__}`: "
+                f"{str(e)}`")
+
+        # Debug after running preprocess
+        logger.debug(f'The preprocess method `{method.__name__}` has been successfully executed.')
+
+        if isinstance(data_loader, type(self.__training_data_loader)):
+            self.__training_data_loader = data_loader
+            logger.debug(f'Data loader for training routine has been updated by the process method `{method.__name__}` ')
         else:
-            logger.debug('No preprocess method is defined. Preprocess before training will be ignored!')
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB314.value}: The input argument of the method "
+                                             f"`preprocess` is `data_loader` and expected return value "
+                                             f"should be an instance of  "
+                                             f"{type(self.__training_data_loader)}, but got "
+                                             f"{type(data_loader)}")
+
+    def __process_params(self, method):
+        """
+
+        """
+        argspec = get_method_spec(method)
+        if len(argspec) != 1:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB314.value}: Process method for type "
+                                             f"`PreprocessType.PARAMS` should have only one "
+                                             f"argument/parameter")
+
+        try:
+            params = self.state_dict()
+            result = method(params)
+        except Exception as e:
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB314.value}: Error while running process method `{method.__name__}`"
+                f"{str(e)}`")
+
+        # Debug after running preprocess
+        logger.debug(f'The process method `{method.__name__}` has been successfully executed.')
+
+        if isinstance(result, type(params)):
+            try:
+                self.load_state_dict(result)
+                logger.debug(f'Params has been updated by the process method `{method.__name__}`')
+            except Exception as e:
+                raise FedbiomedTrainingPlanError(str(e))
+        else:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB314.value}: The input argument of the method "
+                                             f"`preprocess` is `data_loader` and expected return value "
+                                             f"should be an instance of  "
+                                             f"{type(self.__training_data_loader)}, but got "
+                                             f"{type(params)}")
+
