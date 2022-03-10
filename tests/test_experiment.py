@@ -1491,15 +1491,6 @@ class TestExperiment(unittest.TestCase):
         del test_class
 
 
-    def test_experiment_26_deconstruct(self):
-        """ Testing deconstruct method of experiment """
-
-        exp = Experiment()
-        del exp
-        time.sleep(1)
-        #self.mock_monitor_close_writer.assert_called_once()
-
-
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
