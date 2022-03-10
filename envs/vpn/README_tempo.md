@@ -256,7 +256,6 @@ Alternative: launch container with Nvidia GPU support activated. Before launchin
 ```bash
 [user@node $] docker-compose up -d node-gpu
 ```
-Known limitation: from our tests, GPU in container doesn't seem to work when using an imported docker image (`docker image load`).
 * retrieve the *publickey*
 ```bash
 [user@node $] docker-compose exec node wg show wg0 public-key
@@ -374,20 +373,20 @@ Before using a GPU for Fed-BioMed in a `node` docker container, you need to meet
   - not tested on Windows with WSL2, but should work with Windows 10 version 21H2 or higher, that [support GPU in WSL2](https://docs.microsoft.com/en/windows/wsl/tutorials/gpu-compute)
   - not supported on MacOS (few Nvidia cards, docker virtualized)
 * **Nvidia drivers and CUDA >= 11.5.0** (the version used by Fed-BioMed container with GPU support)
-* **`nvidia-container-runtime`**
+* **[Nvidia container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)**
 * **`docker-compose` version 1.27.0 or higher** (already installed for container support)
 
 
 Installation guidelines for requirements:
 
 * Nvidia drivers and CUDA: Type `nvidia-smi` to check driver version installed. You can use your usual package manager (`apt`, `dnf`) or [nvidia CUDA toolkit](https://developer.nvidia.com/cuda-downloads) download. In both cases, commands depend on your machine configuration.
-* `nvidia-container-runtime`: check list of supported systems and instructions for [enabling the package repository](https://nvidia.github.io/nvidia-container-runtime/). After enabling the repository, install the package with your usual package manager (eg: `sudo apt-get update && sudo apt-get install nvidia-container-runtime` for apt, `sudo dnf install nvidia-container-runtime` for dnf). Type `nvidia-container-runtime --version` to check installation.
-  - if your system version is not supported, you can try to use an approaching version. For example, for Fedora 35 we could install and run the CentOS 8 version with:
+* Nvidia container toolkit: check list of supported systems and [specific instructions](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html). First enable the repository, then install the package (eg: `sudo apt-get update && sudo apt-get install nvidia-docker2` on Ubuntu/Debian, `sudo dnf install nvidia-docker2` on CentOS).
+  - if your system version is not supported, you can try to use an approaching version. For example, for Fedora 35 we installed and ran the CentOS 8 version with:
 ```bash
 distribution=centos8
 curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.repo | \
   sudo tee /etc/yum.repos.d/nvidia-docker.repo
-sudo dnf install nvidia-container-runtime
+sudo dnf install nvidia-docker2
 ```
 
 
@@ -403,7 +402,7 @@ Unsupported config option for services.node-gpu-other: 'runtime'
 ERROR: for node-gpu  Cannot create container for service node-gpu:
 Unknown runtime specified nvidia
 ```
-  - you need to install `nvidia-container-runtime` and/or Nvidia drivers and CUDA
+  - you need to install Nvidia container toolkit and/or Nvidia drivers and CUDA
 * cuda version error when launching `node-gpu` container :
 ```bash
 docker: Error response from daemon: OCI runtime create failed: [...]
