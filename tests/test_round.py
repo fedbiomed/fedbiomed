@@ -182,7 +182,6 @@ class TestRound(unittest.TestCase):
             'researcher_id': self.r1.researcher_id,
             'job_id': self.r1.job_id,
             'model_params': MODEL_PARAMS,
-            'history': self.r1.history_monitor.history,
             'node_id': environ['NODE_ID']
         }
 
