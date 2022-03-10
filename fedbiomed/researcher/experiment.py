@@ -556,7 +556,7 @@ class Experiment(object):
         # we can trust _reqs _tags _nodes are existing and properly typed/formatted
 
         if not isinstance(from_tags, bool):
-            msg = ErrorNumbers.FB410.value + f' `from_tags` : {type(from_tags)}'
+            msg = ErrorNumbers.FB410.value + f' `from_tags` : got {type(from_tags)} but expected a boolean'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -583,8 +583,10 @@ class Experiment(object):
 
         # update testing parameters on the FederatedDataset  (that may have been saved already on `_training_args`)
         if self._fds is not None:
-            self._fds.set_test_ratio(self._training_args.get('test_ratio', .0))
-            self._fds.set_test_metric(self._training_args.get('test_metric'))
+            #_training_data_test_ratio = training_data.test_ratio()
+            self._fds.set_test_ratio(self._training_args.get('test_ratio'))
+            self._fds.set_test_metric(self._training_args.get('test_metric'),
+                                      self._training_args.get('test_metric_args'))
             self._fds.test_on_global_updates = self._training_args.get('test_on_global_updates')
             self._fds.test_on_local_updates = self._training_args.get('test_on_local_updates')
 
@@ -597,12 +599,15 @@ class Experiment(object):
             # nothing to do if not defined yet
             pass
         try:
+            
             if self._job is not None:
+                
                 logger.debug('Training data changed, you may need to update `job`')
+
         except AttributeError:
             # nothing to do if not defined yet
             pass
-
+                
         return self._fds
 
     @exp_exceptions
@@ -1081,7 +1086,7 @@ class Experiment(object):
         return ratios
 
     @exp_exceptions
-    def set_test_metric(self, metric: Union[Callable, str]) -> Optional[Union[Callable, str]]:
+    def set_test_metric(self, metric: Union[Callable, str], **metric_args) -> Optional[Union[Callable, str]]:
         if not (isinstance(metric, str) or callable(metric)):
             raise FedbiomedExperimentError(ErrorNumbers.FB410.value + ": incorrect argument metric, got type "
                                            f"{type(metric)}, but expected Callable, str")
@@ -1095,9 +1100,10 @@ class Experiment(object):
             FedbiomedExperimentError(msg)
         
         self._training_args['test_metric'] = metric
+        self._training_args['test_metric_args'] = metric_args
         if self._fds is not None:
-            self._fds.set_test_metric(metric)
-        return metric
+            self._fds.set_test_metric(metric, metric_args)
+        return metric, metric_args
 
     @exp_exceptions
     def set_flag_test_on_global_update(self, flag: bool) -> bool:
@@ -1251,7 +1257,7 @@ class Experiment(object):
     # Run experiment functions -------------------------------------------------------------------
 
     @exp_exceptions
-    def run_once(self, increase: bool = False) -> int:
+    def run_once(self, increase: bool = False, test_after: bool = False) -> int:
         """Run at most one round of an experiment, continuing from the point the
         experiment had reached.
         If `round_limit` is `None` for the experiment (no round limit defined), run one round.
@@ -1308,7 +1314,7 @@ class Experiment(object):
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
         # Trigger training round on sampled nodes
-        self._job.start_nodes_training_round(round=self._round_current)
+        self._job.start_nodes_training_round(round=self._round_current, do_training=True)
 
         # refining/normalizing model weights received from nodes
         model_params, weights = self._node_selection_strategy.refine(
@@ -1328,6 +1334,9 @@ class Experiment(object):
         self._round_current += 1
         if self._save_breakpoints:
             self.breakpoint()
+        if test_after:   
+            # FIXME: should we sample nodes here too?
+            self._job.start_nodes_training_round(round=self._round_current, do_training=False)
         return 1
 
     @exp_exceptions

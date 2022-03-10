@@ -299,7 +299,7 @@ class Job:
 
         return not nodes_done == set(self._nodes)
 
-    def start_nodes_training_round(self, round: int):
+    def start_nodes_training_round(self, round: int, do_training: bool = True):
         """
         this method sends training task to nodes and waits for the responses
         Args:
@@ -311,7 +311,8 @@ class Job:
         headers = {
             'researcher_id': self._researcher_id,
             'job_id': self._id,
-            'training_args': self._training_args,
+            'training_args': do_training,
+            'training': self._do_training,
             'model_args': self._model_args,
             'command': 'train'
         }

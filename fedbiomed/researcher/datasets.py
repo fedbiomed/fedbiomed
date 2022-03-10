@@ -1,8 +1,9 @@
 '''
 class which allows researcher to interact with remote datasets (federated datasets)
 '''
+import copy
 
-from typing import List, Dict, Optional, Union
+from typing import Any, List, Dict, Optional, Tuple, Union
 import uuid
 
 
@@ -18,15 +19,22 @@ class FederatedDataSet:
                  data: Dict,
                  test_ratio: Union[float, Dict[str, float]] = .0,
                  test_metric: Optional[str] = None,
+                 test_metric_args: Optional[Dict[str, Any]] = None,
                  test_on_global_updates: bool = False,
                  test_on_local_updates: bool = True):
         """
         simple constructor
         """
         self._data = data
+        
         # testing attributes
-        self._test_ratio = test_ratio
+        
+        if 'test_ratio' in data:
+            self._test_ratio = data['test_ratio']
+        else:
+            self._test_ratio = test_ratio
         self._test_metric = test_metric
+        self._test_metric_args = {} if test_metric_args is None else test_metric_args
         self.test_on_global_updates = test_on_global_updates
         self.test_on_local_updates = test_on_local_updates
 
@@ -37,8 +45,12 @@ class FederatedDataSet:
         Returns:
             Dict: Dict of federated datasets, keys as node ids
         """
-
-        return self._data
+        data = copy.deepcopy(self._data)
+        if isinstance(data, dict):
+            for node_id in data.keys(): 
+                if 'test_ratio' not in data[node_id]:
+                    data[node_id][0].update({'test_ratio': self._test_ratio})
+        return data
     
     def test_ratio(self) -> Union[float, Dict[str, float]]:
         return self._test_ratio
@@ -47,12 +59,16 @@ class FederatedDataSet:
         self._test_ratio = ratio
         return self._test_ratio
     
-    def test_metric(self) -> str:
-        return self._test_metric
+    def test_metric(self) -> Tuple[str, Dict[str, Any]]:
+        return self._test_metric, self._test_metric_args
     
-    def set_test_metric(self, metric: str) -> str:
+    def set_test_metric(self,
+                        metric: str,
+                        metric_args: Optional[Dict[str, Any]]) -> Tuple[str, Dict[str, Any]]:
         self._test_metric = metric
-        return self._test_metric
+        self._test_metric_args = metric_args
+        return self._test_metric, self._test_metric_args
+    
     
     def node_ids(self) -> List[uuid.UUID]:
         """
