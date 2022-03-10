@@ -218,9 +218,9 @@ class Experiment(object):
         self._model_path = None
         self._reqs = None
         self._training_args = None
-        self._aggregator = None
         self._node_selection_strategy = None
         self._model_path = None
+        self.tags = None
 
 
 #        training_data: Union[FederatedDataSet, dict, None] = None,
@@ -288,10 +288,6 @@ class Experiment(object):
     def __del__(self):
         # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
         self._reqs.remove_monitor_callback()
-
-        print("####### DEL:", self._monitor)
-        print("####### DEL:", self._monitor.__class__)
-        print("####### DEL:", self._monitor.__dict__)
         self._monitor.close_writer()
 
 

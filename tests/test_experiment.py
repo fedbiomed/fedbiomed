@@ -304,8 +304,8 @@ class TestExperiment(unittest.TestCase):
     def test_experiment_02_info(self, mock_print):
         """Testing the method .info() of experiment class """
         mock_print.return_value(None)
-        #self.test_exp.info()
-        #self.assertEqual(mock_print.call_count, 2, 'Printing info called unexpected times')
+        self.test_exp.info()
+        self.assertEqual(mock_print.call_count, 2, 'Printing info called unexpected times')
 
         # Test info by completing missing parts for proper .run
         mock_print.reset_mock()
