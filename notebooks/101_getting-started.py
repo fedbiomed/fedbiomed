@@ -24,9 +24,9 @@
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+import torch.nn.functional as F
+from fedbiomed.common.data import DataManager
 from torchvision import datasets, transforms
-
 from fedbiomed.common.training_plans import TorchTrainingPlan
 
 # you can use any class name eg:
@@ -68,8 +68,7 @@ class MyTrainingPlan(TorchTrainingPlan):
         transforms.Normalize((0.1307,), (0.3081,))])
         dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
-        data_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
-        return data_loader
+        return DataManager(dataset1, **train_kwargs)
 
     def training_step(self, data, target):
         output = self.forward(data)
@@ -107,13 +106,8 @@ rounds = 2
 
 exp = Experiment(tags=tags,
                 #nodes=None,
-                # 
-                # difference with a notebook : with a python script the `MyTrainingPlan``
-                # contains the model code, so you don't need to use a file (`model_path`)
-                # for passing the model to the experiment
                 model_class=MyTrainingPlan,
                 # model_class=AlterTrainingPlan,
-                # model_path='/path/to/model_file.py',
                 model_args=model_args,
                 training_args=training_args,
                 round_limit=rounds,

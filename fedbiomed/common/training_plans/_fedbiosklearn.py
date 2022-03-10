@@ -6,7 +6,7 @@ TrainingPlan definition for sklearn ML framework
 from io import StringIO
 from joblib import dump, load
 import sys
-from typing import Union
+from typing import Union, Tuple
 
 import numpy as np
 
@@ -210,7 +210,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
             return support
 
     def training_routine(self,
-                         training_data,
+                         data_loader: Tuple[np.ndarray, np.ndarray],
                          epochs=1,
                          monitor=None,
                          node_args: Union[dict, None] = None):
@@ -236,7 +236,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
         #
         # perform sklearn training
         #
-        (data, target) = training_data
+        (data, target) = data_loader
         classes = np.unique(target)
         for epoch in range(epochs):
             with _Capturer() as output:

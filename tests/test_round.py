@@ -217,7 +217,7 @@ class TestRound(unittest.TestCase):
             # Since set training data return None, training_routine should be called as None
             mock_training_routine.assert_called_once_with( monitor=self.r1.monitor,
                                                            node_args=None,
-                                                           training_data=None)
+                                                           data_loader=None)
 
             mock_after_training_params.assert_called_once()
             mock_save.assert_called_once_with(_model_filename, _model_results)

@@ -3,14 +3,15 @@ TrainingPlan definition for torchnn ML framework
 '''
 
 import inspect
-from typing import Union, List
+from typing import Union, List, Callable
 from copy import deepcopy
 
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from fedbiomed.common.constants import TrainingPlans
+from fedbiomed.common.constants import TrainingPlans, PreprocessTypes
 
+from fedbiomed.common.utils import get_method_spec
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
@@ -75,6 +76,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         self.add_dependency(["from fedbiomed.common.training_plans import TorchTrainingPlan",
                              "from fedbiomed.common.data import DataManager",
+                             "from fedbiomed.common.constants import PreprocessTypes",
                              "import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
@@ -84,6 +86,9 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         # Aggregated model parameters
         self.init_params = None
+
+        # DataLoader that will be used for Training Routine
+        self.__training_data_loader: torch.utils.data.DataLoader = None
 
     def type(self):
         """ Getter for training plan type """
@@ -150,7 +155,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         raise FedbiomedTrainingPlanError(msg)
 
     def training_routine(self,
-                         training_data: DataLoader,
+                         data_loader: DataLoader,
                          epochs: int = 2,
                          log_interval: int = 10,
                          lr: Union[int, float] = 1e-3,
@@ -198,6 +203,9 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 - gpu_only (bool): force use of a GPU device if any available, even if researcher
                     doesnt request for using a GPU. Default False.
         """
+
+        self.__training_data_loader = data_loader
+
         # set correct type for node args
         if not isinstance(node_args, dict):
             node_args = {}
@@ -209,8 +217,13 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
+        # Run preprocess when everything is ready but the training
+        self.__preprocess()
+
+
         # Initialize training data that comes from Round class
-        self.data = training_data
+        # TODO: Decide whether it should attached to `self`
+        # self.data = data_loader
 
         # initial aggregated model parameters
         self.init_params = deepcopy(self.state_dict())
@@ -219,7 +232,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
             # training_data = self.training_data(batch_size=batch_size)
-            for batch_idx, (data, target) in enumerate(self.data):
+            for batch_idx, (data, target) in enumerate(self.__training_data_loader):
                 self.train()  # model training
                 data, target = data.to(self.device), target.to(self.device)
                 self.optimizer.zero_grad()
@@ -252,8 +265,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     logger.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
                         batch_idx * len(data),
-                        len(self.data.dataset),
-                        100 * batch_idx / len(self.data),
+                        len(self.__training_data_loader.dataset),
+                        100 * batch_idx / len(self.__training_data_loader),
                         res.item()))
 
                     # Send scalar values via general/feedback topic
@@ -348,3 +361,54 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         for key, val in self.state_dict().items():
             norm += ((val - self.init_params[key]) ** 2).sum()
         return norm
+
+    def __preprocess(self):
+        """
+         This method is responsible for executing `preprocess` method of TrainingPlan which is defined by
+         user. Method checks preprocess type and pass the proper argument.
+
+        Raises:
+            FedbiomedTrainingPlanError
+        """
+
+        # Preprocess option for differential privacy
+        if hasattr(self, 'preprocess') and isinstance(self.preprocess, Callable):
+            argspec = get_method_spec(self.preprocess)
+            if 'type' not in argspec or not isinstance(argspec['type']['default'], PreprocessTypes):
+                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB314.value}: The method preprocess should have an "
+                                                 f"argument called `type` with default value as one of "
+                                                 f"`fedbiomed.common.constants.PreprocessTypes`.")
+
+            if argspec['type']['default'] == PreprocessTypes.OPACUS:
+                # DataLoader based preprocessing operation ------------------------------------------------
+                # Number of arguments should be equal to 2, `type` and `data_loader`
+                if len(argspec) == 2 and 'data_loader' in argspec:
+                    try:
+                        data_loader = self.preprocess(data_loader=self.__training_data_loader)
+                    except Exception as e:
+                        raise FedbiomedTrainingPlanError(
+                            f"{ErrorNumbers.FB314.value}: Error while running `preprocess method "
+                            f"{str(e)}`")
+
+                    # Debug after running preprocess
+                    logger.debug('The method `preprocess` has been successfully executed.')
+
+                    if isinstance(data_loader, type(self.__training_data_loader)):
+                        self.__training_data_loader = data_loader
+                        logger.debug('Data loader for training routine has been updated with the method `preprocess`')
+                    else:
+                        raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB314.value}: The input argument of the method "
+                                                         f"`preprocess` is `data_loader` and expected return value "
+                                                         f"should be an instance of  "
+                                                         f"{type(self.__training_data_loader)}, but got "
+                                                         f"{type(data_loader)}")
+                else:
+                    raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB314.value}: Preprocess for type "
+                                                     f"`PreprocessType.OPACUS` should have only one argument as "
+                                                     f"`data_loader`")
+            # Implement other preprocessing actions here -----------------------------------------------
+            # For example: if preprocess based on `data`
+            else:
+                raise FedbiomedTrainingPlanError(f"Unsupported preprocess type {argspec['type']['default']}")
+        else:
+            logger.debug('No preprocess method is defined. Preprocess before training will be ignored!')

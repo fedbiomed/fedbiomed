@@ -31,8 +31,8 @@
 import torch
 import torch.nn as nn
 from fedbiomed.common.training_plans import TorchTrainingPlan
-
-from torch.utils.data import Dataset, DataLoader
+from fedbiomed.common.data import DataManager
+from torch.utils.data import Dataset
 import pandas as pd
 
 # Here we define the model to be used.
@@ -86,8 +86,7 @@ class MyTrainingPlan(TorchTrainingPlan):
     # The training_data creates the Dataloader to be used for training in the general class TorchTrainingPlan of fedbiomed
         dataset = self.csv_Dataset(self.dataset_path, self.in_features)
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
-        data_loader = DataLoader(dataset, **train_kwargs)
-        return data_loader
+        return DataManager(dataset, **train_kwargs)
 
 
 # model parameters

@@ -6,7 +6,7 @@ import os
 import sys
 import time
 import inspect
-from typing import Union
+from typing import Union, Callable
 import uuid
 
 from fedbiomed.common.logger import logger
@@ -76,8 +76,8 @@ class Round:
         self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
         self.model = None
-        self.train_data = None
-        self.test_data = None
+        self.training_data_loader = None
+        self.testing_data_loader = None
 
     def run_model_training(self) -> TrainReply:
         """This method downloads model file; then runs the training of a model
@@ -190,7 +190,7 @@ class Round:
                 rtime_before = time.perf_counter()
                 ptime_before = time.process_time()
                 # rename training_data as data_loader
-                self.model.training_routine(training_data=self.train_data,  # rename self.train_data_loader
+                self.model.training_routine(data_loader=self.training_data_loader,  # rename self.train_data_loader
                                             **training_kwargs_with_history)
                 rtime_after = time.perf_counter()
                 ptime_after = time.process_time()
@@ -322,8 +322,10 @@ class Round:
         # self.testing_data will be equal to None
 
         # Split dataset as train and test
-        self.train_data, self.test_data = data_manager.split(test_ratio=test_ratio)
+        self.training_data_loader, self.testing_data_loader = data_manager.split(test_ratio=test_ratio)
 
         # If testing is inactive following method can be called to load all samples as train
         # self.train_data = sp.da_data_manager.load_all_samples()
+
+
 

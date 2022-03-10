@@ -60,6 +60,10 @@ class TrainingPlans(_BaseEnum):
     SkLearnTrainingPlan = 'SkLearnTrainingPlan'
 
 
+class PreprocessTypes(_BaseEnum):
+    """Enumeration class for Preprocess types """
+    OPACUS = 1
+
 class ErrorNumbers(_BaseEnum):
     """
     list of all error messages types

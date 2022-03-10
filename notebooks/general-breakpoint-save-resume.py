@@ -28,8 +28,9 @@
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from torch.utils.data import DataLoader
+from fedbiomed.common.data import DataManager
 from torchvision import datasets, transforms
 
 # you can use any class name eg:
@@ -72,8 +73,7 @@ class MyTrainingPlan(TorchTrainingPlan):
         print("[INFO] Training on dataset: " + str(self.dataset_path))
         dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
-        data_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
-        return data_loader
+        return DataManager(dataset1, **train_kwargs)
 
     def training_step(self, data, target):
         output = self.forward(data)

@@ -28,15 +28,20 @@ import os
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from fedbiomed.common.training_plans.torchnn import TorchTrainingPlan
+from fedbiomed.common.training_plans import TorchTrainingPlan
+from fedbiomed.common.data import DataManager
 
 # you can use any class name eg:
 # class AlterTrainingPlan(TorchTrainingPlan):
+
+
 class MyTrainingPlan(TorchTrainingPlan):
+
     def __init__(self, model_args: dict = {}):
         super(MyTrainingPlan, self).__init__(model_args)
         self.conv1 = nn.Conv2d(1, 32, 3, 1)
         self.conv2 = nn.Conv2d(32, 64, 3, 1)
+
         self.dropout1 = nn.Dropout(0.25)
         self.dropout2 = nn.Dropout(0.5)
         self.fc1 = nn.Linear(9216, 128)
@@ -45,8 +50,8 @@ class MyTrainingPlan(TorchTrainingPlan):
         # Here we define the custom dependencies that will be needed by our custom Dataloader
         # In this case, we need the torch DataLoader classes
         # Since we will train on MNIST, we need datasets and transform from torchvision
-        deps = ["from torchvision import datasets, transforms",
-               "from torch.utils.data import DataLoader"]
+        deps = ["from torchvision import datasets, transforms"]
+
         self.add_dependency(deps)
 
     def forward(self, x):
@@ -69,8 +74,8 @@ class MyTrainingPlan(TorchTrainingPlan):
         transforms.Normalize((0.1307,), (0.3081,))])
         dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
-        data_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
-        return data_loader
+
+        return DataManager(dataset1, **train_kwargs)
 
     def training_step(self, data, target):
         output = self.forward(data)

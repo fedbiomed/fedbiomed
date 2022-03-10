@@ -46,6 +46,7 @@
 # Declare a TorchTrainingPlan MyTrainingPlan class to send for training on the node
 
 from fedbiomed.common.training_plans import TorchTrainingPlan
+from fedbiomed.common.data import DataManager
 from torch.utils.data import Dataset
 
 
@@ -131,8 +132,7 @@ class Net(TorchTrainingPlan):
     # The training_data creates the Dataloader to be used for training in the general class Torchnn of fedbiomed
         dataset = self.CelebaDataset(self.dataset_path + "/target.csv", self.dataset_path + "/data/")
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
-        data_loader = DataLoader(dataset, **train_kwargs)
-        return data_loader
+        return DataManager(dataset, **train_kwargs)
     
     def training_step(self, data, target):
         #this function must return the loss to backward it 
