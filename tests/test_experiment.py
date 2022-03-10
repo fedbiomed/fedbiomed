@@ -778,33 +778,6 @@ class TestExperiment(unittest.TestCase):
         sb = self.test_exp.set_save_breakpoints(True)
         self.assertTrue(sb, 'save_breakpoint has not been set correctly')
 
-    def test_experiment_16_set_monitor(self):
-        """ Test setter for monitor attribute of experiment class"""
-
-        # Type invalid type for tensorboard argument
-        with self.assertRaises(SystemExit):
-            self.test_exp.set_monitor('FALSE')
-
-        # Test set_monitor to True
-        # At this point monitor is already defined, since in tensorboard is passed as
-        # True while build self.test_exp in setUp method. Then setting monitor again
-        # should log info about monitor is already defined, and result should instance of Monitor class
-        self.mock_logger_info.reset_mock()
-        monitor = self.test_exp.set_monitor(True)
-        self.mock_logger_info.assert_called_once()
-        self.assertIsInstance(monitor, Monitor)
-
-        # Test tensorboard False
-        monitor = self.test_exp.set_monitor(False)
-        self.assertIsNone(monitor, 'Monitor has not been deactivated')
-
-        # Test tensorboard False even monitor is in active
-        # monitor should be inactive because of previous call of set_monitor
-        self.mock_logger_info.reset_mock()
-        monitor = self.test_exp.set_monitor(False)
-        # Should be one call of logger.info that says Monitor is already inactive
-        self.mock_logger_info.assert_called_once()
-        self.assertIsNone(monitor, 'Monitor is not inactivate')
 
     @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')

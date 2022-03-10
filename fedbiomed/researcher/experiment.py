@@ -218,7 +218,6 @@ class Experiment(object):
         self._model_path = None
         self._reqs = None
         self._training_args = None
-        self._monitor = None
         self._aggregator = None
         self._node_selection_strategy = None
         self._model_path = None
@@ -279,7 +278,10 @@ class Experiment(object):
         self._aggregated_params = {}
 
         self.set_save_breakpoints(save_breakpoints)
-        self._set_monitor(tensorboard)   # this also sets self._monitor, which will always exists
+
+        # always create a monitoring process
+        self._monitor = Monitor()
+        self._monitor.set_tensorboard(tensorboard)
 
     # destructor
     @exp_exceptions
@@ -287,6 +289,9 @@ class Experiment(object):
         # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
         self._reqs.remove_monitor_callback()
 
+        print("####### DEL:", self._monitor)
+        print("####### DEL:", self._monitor.__class__)
+        print("####### DEL:", self._monitor.__dict__)
         self._monitor.close_writer()
 
 
@@ -1073,33 +1078,6 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         return self._save_breakpoints
-
-    # TODO: accept an optional Monitor param (`monitor: Monitor = None`)
-    @exp_exceptions
-    def _set_monitor(self, tensorboard: bool):
-        """ Setter for monitoring in tensorboard + verification on arguments type
-
-        Args:
-            - tensorboard (bool): whether to save scalar values
-                for displaying in Tensorboard during training for each node.
-                Currently it is only used for loss values.
-                * If it is true, monitor instantiates a `Monitor` object that write
-                  scalar logs into `./runs` directory.
-                * If it is False, it stops monitoring if it was active.
-
-        Raises:
-            - FedbiomedExperimentError : bad tensorboard type
-        """
-        if not isinstance(tensorboard, bool):
-            # bad type
-            msg = ErrorNumbers.FB410.value + f' `tensorboard` : {type(tensorboard)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        # create Monitor instance if not defined yet
-        self._monitor = Monitor(tensorboard)
-        self._reqs.add_monitor_callback(self._monitor.on_message_handler)
-
 
     # Run experiment functions -------------------------------------------------------------------
 
