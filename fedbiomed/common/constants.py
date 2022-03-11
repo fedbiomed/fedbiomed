@@ -53,6 +53,19 @@ class ModelTypes(_BaseEnum):
     REGISTERED = 'registered'
     DEFAULT    = 'default'
 
+class MetricTypes(_BaseEnum):
+    """
+    List of Performance metrics used to evaluate the model.
+    """
+    ACCURACY = 'ACCURACY'
+    F1_SCORE = 'F1_SCORE'
+    PRECISION = 'PRECISION'
+    RECALL = 'RECALL'
+    ROC_AUC = 'ROC_AUC'
+
+    MEAN_SQUARE_ERROR = 'MEAN_SQUARE_ERROR'
+    MEAN_ABSOLUTE_ERROR ='MEAN_ABSOLUTE_ERROR'
+    EXPLAINED_VARIANCE ='EXPLAINED_VARIANCE'
 
 class ErrorNumbers(_BaseEnum):
     """
@@ -124,6 +137,10 @@ class ErrorNumbers(_BaseEnum):
     FB604 = "FB604: repository error"
     FB605 = "FB605: Training plan error"
     FB606 = "FB606: model manager error"
+
+    # Metrics error
+
+    FB607 = "FB607: Error while trying to evaluate using the specified metric."
 
     # oops
     FB999 = "FB999: unknown error code sent by the node"

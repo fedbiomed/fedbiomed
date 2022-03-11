@@ -115,3 +115,9 @@ class FedbiomedTrainingPlanError(FedbiomedError):
     Exception specific to errors while getting source of the model class
     """
     pass
+
+class FedbiomedMetricError(FedbiomedError):
+    """
+    Exception raised when evualution fails because of inconsistence in using the metric.
+    """
+    pass
