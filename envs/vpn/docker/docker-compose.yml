@@ -99,6 +99,7 @@ services:
     volumes:
       - ./node/run_mounts/config:/config # contains VPN configurations
       - ./node/run_mounts/data:/data # datasets can be added here
+      - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
   # not using gpu
   node:
     << : *standard-node
@@ -118,6 +119,25 @@ services:
     #        - driver: nvidia
     #          #count: 1
     #          capabilities: [gpu]
+  #
+  # node gui component
+  gui:
+    container_name: fedbiomed-vpn-gui
+    build:
+      context: ../../..
+      dockerfile: envs/vpn/docker/gui/build_files/Dockerfile
+      args:
+        - CONTAINER_UID
+        - CONTAINER_GID
+        - CONTAINER_USER
+        - CONTAINER_GROUP
+    image: fedbiomed/vpn-gui
+    ports:
+      - "8484:8484"
+    volumes:
+      # caution: /data and /etc directory must be shared with node
+      - ./node/run_mounts/data:/data # datasets can be added here
+      - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
   #
   # researcher component
   researcher:
