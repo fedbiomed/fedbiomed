@@ -48,7 +48,7 @@ function start_gui() {
     # Configure data path
     if [ ! -n "$DATA_PATH" ]; then
       DATA_PATH="data"
-      echo -e "${YLW}INFO${NC}: Data path has not been provided. Trying to use FEDBIOMED_ROOT/data dir"
+      echo -e "${YLW}INFO${NC}: Data path has not been provided. Trying to use \${FEDBIOMED_ROOT}/data dir"
       if [ ! -d "$basedir/$DATA_PATH" ]; then
         echo "ERROR: 'data' folder does not exist in Fed-BioMed root"
         exit 1

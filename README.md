@@ -376,14 +376,13 @@ can provide same model file to update its content.
 
 ## Fed-BioMed Node GUI
 
-Node GUI provides an interface for Node to manage datasets and deploy new ones. GUI is consist of two components
-as Server and UI. Server has been developed on Flask framework and UI is developed using ReactJS. Flask provide API
+Node GUI provides an interface for Node to manage datasets and deploy new ones. GUI consists of two components, Server and UI. Server is developed on Flask framework and UI is developed using ReactJS. Flask provides API
 services that use Fed-BioMed's DataManager for deploying and managing dataset. All the source files for GUI has been
 located on the `${FEDBIOMED_DIR}/gui` directory.
 
 ### Starting GUI
 
-Node GUI can be started suing Fed-BioMEd CLI.
+Node GUI can be started using Fed-BioMed CLI.
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder '<path-for-data-folder>' config '<name-of-the-config-file>' start
@@ -391,7 +390,7 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder '<path-for-data-folder>' 
 
 Arguments:
 
-- ``data-folder``: Data folder represent the folder path where datasets have been stored. It can be absolute or relative path.
+- ``data-folder``: Data folder represents the folder path where datasets have been stored. It can be absolute or relative path.
 If it is relative path, Fed-BioMed base directory is going to be used as reference. **If `datafolder` is not provided. Script will look for
 `data` folder in the Fed-BioMed root directory and if it doesn't exist it will raise an error.**
 - ``config``: Config file represents the name of the configuration file which is going to be used for GUI. If it is not
@@ -409,12 +408,12 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder ../data config config-n1.
 
 ### Details of Start Process
 
-While the Node GUI is started, it install `npm` modules and builds ReactJS application in ``${FEDBIOMED_DIR}/var/gui-build``. If the GUI
+When the Node GUI is started, it installs `npm` modules and builds ReactJS application in ``${FEDBIOMED_DIR}/var/gui-build``. If the GUI
 is already built (means that `gui/ui/node_modules` and `var/gui-build` folders exist), it does not reinstall and rebuild ReactJS. If you want to
 reinstall and rebuild, please add `--recreate` flag in the command same as below,
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
+${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder ../data --recreate start
 ```
 
 
