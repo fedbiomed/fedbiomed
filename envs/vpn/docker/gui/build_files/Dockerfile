@@ -30,7 +30,7 @@ ENV PATH=${PATH}:/miniconda/bin
 
 COPY ./envs/vpn/docker/gui/build_files/entrypoint.sh /
 # Setup subset of fedbiomed code tree
-RUN mkdir -p /fedbiomed/envs
+RUN mkdir -p /fedbiomed/{envs,var}
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
 COPY envs/vpn /fedbiomed/envs/vpn
 COPY fedbiomed /fedbiomed/fedbiomed
