@@ -10,7 +10,7 @@ import traceback
 
 from re import findall
 from tabulate import tabulate
-from typing import Callable, Optional, Union, Dict, Any, TypeVar, Type, List
+from typing import Callable, Optional, Tuple, Union, Dict, Any, TypeVar, Type, List
 from pathvalidate import sanitize_filename, sanitize_filepath
 
 from fedbiomed.common.logger import logger
@@ -256,6 +256,11 @@ class Experiment(object):
         self.set_monitor(tensorboard)
 
         # attributes
+        # ---------------
+        # public attributes
+        self.flag_test_on_global_updates = True
+        self.flag_test_on_local_updates = False
+        # private attributes
         self._do_training = True  # whether to perform a training or not
 
     # destructor
@@ -580,17 +585,22 @@ class Experiment(object):
             self._fds = None
             logger.debug('Experiment not fully configured yet: no training data')
         # at this point, self._fds is either None or a FederatedDataSet object
-
-        # update testing parameters on the FederatedDataset  (that may have been saved already on `_training_args`)
-        if self._fds is not None:
-            #_training_data_test_ratio = training_data.test_ratio()
-            self._fds.set_test_ratio(self._training_args.get('test_ratio'))
-            self._fds.set_test_metric(self._training_args.get('test_metric'),
-                                      self._training_args.get('test_metric_args'))
-            self._fds.test_on_global_updates = self._training_args.get('test_on_global_updates')
-            self._fds.test_on_local_updates = self._training_args.get('test_on_local_updates')
-
-        # self._strategy and self._job don't always exist at this point
+        if hasattr(self, '_training_args'):
+            # update testing parameters on the FederatedDataset  (that may have been saved already on `_training_args`)
+            _exp_test_ratio = self._training_args.get('test_ratio', False)
+            if self._fds is not None and self._fds.test_ratio() > 0:
+                # if fds comes with a specific test_ratio, update experiment with its test ratio
+                #_training_data_test_ratio = training_data.test_ratio()
+                
+                if _exp_test_ratio:
+                    logger.warning(f"FederatedDataset has a different test ratio then Experiment:"
+                                   f" {self._fds.test_ratio()}, it will change the test_ratio of "
+                                   f"the experiment set {_exp_test_ratio}")
+                self.set_test_ratio(self._fds.test_ratio())
+            # self._strategy and self._job don't always exist at this point
+            elif _exp_test_ratio:
+                # update FederatedDataset with the correct test ratio
+                self._fds.set_test_ratio(_exp_test_ratio)
         try:
             if self._node_selection_strategy is not None:
                 logger.debug('Training data changed, '
@@ -1083,10 +1093,14 @@ class Experiment(object):
         self._training_args['test_ratio'] = ratios
         if self._fds is not None:
             self._fds.set_test_ratio(ratios)
+            
+        # add testing flags to `training_args`
+        self._training_args['test_on_global_updates'] = self.flag_test_on_global_updates
+        self._training_args['test_on_local_updates'] = self.flag_test_on_local_updates
         return ratios
 
     @exp_exceptions
-    def set_test_metric(self, metric: Union[Callable, str], **metric_args) -> Optional[Union[Callable, str]]:
+    def set_test_metric(self, metric: Union[Callable, str], **metric_args) -> Tuple[str, Dict[str, Any]]:
         if not (isinstance(metric, str) or callable(metric)):
             raise FedbiomedExperimentError(ErrorNumbers.FB410.value + ": incorrect argument metric, got type "
                                            f"{type(metric)}, but expected Callable, str")
@@ -1094,15 +1108,14 @@ class Experiment(object):
             # get string of a known function passed as callable (eg sklearn accuracy)
             metric = metric.__name__
         else:
-            msg = ErrorNumbers.FB410.value + f": unparsable metric {str(metric)}, only"
-            " callable methods or strings are accepeted"
+            msg = ErrorNumbers.FB410.value + f": unparsable metric {str(metric)}, only" + \
+                " callable methods or strings are accepeted"
             logger.critical(msg)
             FedbiomedExperimentError(msg)
         
         self._training_args['test_metric'] = metric
         self._training_args['test_metric_args'] = metric_args
-        if self._fds is not None:
-            self._fds.set_test_metric(metric, metric_args)
+
         return metric, metric_args
 
     @exp_exceptions
@@ -1111,8 +1124,6 @@ class Experiment(object):
             raise FedbiomedExperimentError('incorrect type')
         self._training_args['test_on_global_upate'] = flag
         
-        if self._fds is not None:
-            self._fds.test_on_global_updates = flag
         return flag
         
     @exp_exceptions
@@ -1120,9 +1131,7 @@ class Experiment(object):
         if not isinstance(flag, bool):
             raise FedbiomedExperimentError('incorrect type')
         self._training_args['test_on_local_update'] = flag
-        
-        if self._fds is not None:
-            self._fds.test_on_local_updates = flag
+
         return flag
 
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
@@ -1437,8 +1446,13 @@ class Experiment(object):
 
                             # run the rounds
         # At this point `rounds` is an int > 0 (not None)
-        for _ in range(rounds):
-            increment = self.run_once(increase=False)
+        for n_round in range(rounds):
+            if n_round < rounds - 1:
+                increment = self.run_once(increase=False, test_after=False)
+            else:
+                # at this point, we are reaching the last round: do a testing
+                # after the last round
+                increment = self.run_once(increase=False, test_after=True)
             if increment == 0:
                 # should not happen
                 msg = ErrorNumbers.FB400.value + \

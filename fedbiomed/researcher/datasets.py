@@ -17,11 +17,7 @@ class FederatedDataSet:
     """
     def __init__(self,
                  data: Dict,
-                 test_ratio: Union[float, Dict[str, float]] = .0,
-                 test_metric: Optional[str] = None,
-                 test_metric_args: Optional[Dict[str, Any]] = None,
-                 test_on_global_updates: bool = False,
-                 test_on_local_updates: bool = True):
+                 test_ratio: Union[float, Dict[str, float]] = .0):
         """
         simple constructor
         """
@@ -33,10 +29,10 @@ class FederatedDataSet:
             self._test_ratio = data['test_ratio']
         else:
             self._test_ratio = test_ratio
-        self._test_metric = test_metric
-        self._test_metric_args = {} if test_metric_args is None else test_metric_args
-        self.test_on_global_updates = test_on_global_updates
-        self.test_on_local_updates = test_on_local_updates
+        # self._test_metric = test_metric
+        # self._test_metric_args = {} if test_metric_args is None else test_metric_args
+        # self.test_on_global_updates = test_on_global_updates
+        # self.test_on_local_updates = test_on_local_updates
 
     def data(self) -> Dict:
         """
@@ -59,15 +55,15 @@ class FederatedDataSet:
         self._test_ratio = ratio
         return self._test_ratio
     
-    def test_metric(self) -> Tuple[str, Dict[str, Any]]:
-        return self._test_metric, self._test_metric_args
+    # def test_metric(self) -> Tuple[str, Dict[str, Any]]:
+    #     return self._test_metric, self._test_metric_args
     
-    def set_test_metric(self,
-                        metric: str,
-                        metric_args: Optional[Dict[str, Any]]) -> Tuple[str, Dict[str, Any]]:
-        self._test_metric = metric
-        self._test_metric_args = metric_args
-        return self._test_metric, self._test_metric_args
+    # def set_test_metric(self,
+    #                     metric: str,
+    #                     metric_args: Optional[Dict[str, Any]]) -> Tuple[str, Dict[str, Any]]:
+    #     self._test_metric = metric
+    #     self._test_metric_args = metric_args
+    #     return self._test_metric, self._test_metric_args
     
     
     def node_ids(self) -> List[uuid.UUID]:
