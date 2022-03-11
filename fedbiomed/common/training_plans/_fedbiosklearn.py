@@ -2,11 +2,10 @@
 TrainingPlan definition for sklearn ML framework
 '''
 
-
 from io import StringIO
 from joblib import dump, load
 import sys
-from typing import Union, Tuple
+from typing import Union, Tuple, Callable
 
 import numpy as np
 
@@ -18,6 +17,9 @@ from ._base_training_plan import BaseTrainingPlan
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
+from fedbiomed.common.constants import ProcessTypes
+from fedbiomed.common.utils import get_method_spec
+
 
 class _Capturer(list):
     """
@@ -38,21 +40,20 @@ class _Capturer(list):
 
 
 class SGDSkLearnModel(BaseTrainingPlan):
-
     #
     # mapping between model name and model class
     model_map = {
         "SGDRegressor": SGDRegressor,
         "SGDClassifier": SGDClassifier,
         "Perceptron": Perceptron,
-        "BernoulliNB":  BernoulliNB,
-        "GaussianNB":  GaussianNB,
+        "BernoulliNB": BernoulliNB,
+        "GaussianNB": GaussianNB,
 
-        #'MultinomialNB': MultinomialNB,
-        #'PassiveAggressiveClassifier': PassiveAggressiveClassifier,
-        #'PassiveAggressiveRegressor': PassiveAggressiveRegressor,
-        #'MiniBatchKMeans': MiniBatchKMeans,
-        #'MiniBatchDictionaryLearning': MiniBatchDictionaryLearning,
+        # 'MultinomialNB': MultinomialNB,
+        # 'PassiveAggressiveClassifier': PassiveAggressiveClassifier,
+        # 'PassiveAggressiveRegressor': PassiveAggressiveRegressor,
+        # 'MiniBatchKMeans': MiniBatchKMeans,
+        # 'MiniBatchDictionaryLearning': MiniBatchDictionaryLearning,
     }
 
     #
@@ -125,7 +126,8 @@ class SGDSkLearnModel(BaseTrainingPlan):
         self.dataset_path = None
         self._is_classif = False  # whether the model selected is a classifier or not
         self._is_binary_classif = False  # whether the classification is binary or multi classes
-        # (for classification only)
+        self.__train_data = None
+        self.__train_target = None
 
     def type(self):
         """Getter for training plan type """
@@ -148,9 +150,9 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 'intercept_': np.array([0.]) if (model_args['n_classes'] == 2) else np.array(
                     [0.] * model_args['n_classes']),
                 'coef_': np.array([0.] * model_args['n_features']).reshape(1, model_args['n_features']) if (
-                    model_args['n_classes'] == 2) else np.array(
-                        [0.] * model_args['n_classes'] * model_args['n_features']).reshape(model_args['n_classes'],
-                                                                                           model_args['n_features'])
+                        model_args['n_classes'] == 2) else np.array(
+                    [0.] * model_args['n_classes'] * model_args['n_features']).reshape(model_args['n_classes'],
+                                                                                       model_args['n_features'])
             }
 
         for p in self.param_list:
@@ -236,25 +238,29 @@ class SGDSkLearnModel(BaseTrainingPlan):
         #
         # perform sklearn training
         #
-        (data, target) = data_loader
-        classes = np.unique(target)
+        (self.__train_data, self.__train_target) = data_loader
+
+        # Run preprocesses
+        self.__preprocess()
+
+        classes = np.unique(self.__train_target)
         for epoch in range(epochs):
             with _Capturer() as output:
                 if self.model_type == 'MultinomialNB' or \
-                   self.model_type == 'BernoulliNB' or \
-                   self.model_type == 'Perceptron' or \
-                   self.model_type == 'SGDClassifier' or \
-                   self.model_type == 'PassiveAggressiveClassifier' :
-                    self.m.partial_fit(data, target, classes = classes)
+                        self.model_type == 'BernoulliNB' or \
+                        self.model_type == 'Perceptron' or \
+                        self.model_type == 'SGDClassifier' or \
+                        self.model_type == 'PassiveAggressiveClassifier':
+                    self.m.partial_fit(self.__train_data, self.__train_target, classes=classes)
                     self._is_classif = True
 
                 elif self.model_type == 'SGDRegressor' or \
-                     self.model_type == 'PassiveAggressiveRegressor':  # noqa
-                    self.m.partial_fit(data, target)
+                        self.model_type == 'PassiveAggressiveRegressor':  # noqa
+                    self.m.partial_fit(self.__train_data, self.__train_target)
 
                 elif self.model_type == 'MiniBatchKMeans' or \
-                     self.model_type == 'MiniBatchDictionaryLearning':  # noqa
-                    self.m.partial_fit(data)
+                        self.model_type == 'MiniBatchDictionaryLearning':  # noqa
+                    self.m.partial_fit(self.__train_data)
 
             if monitor is not None:
                 _loss_collector = []
@@ -284,7 +290,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
                     if self._is_classif and not self._is_binary_classif:
                         # WARNING: only for plain SGD models in scikit learn
                         # if other models are implemented, should be updated
-                        support = self._compute_support(target)
+                        support = self._compute_support(self.__train_target)
                         loss = np.average(_loss_collector, weights=support)  # perform a weighted average
 
                         logger.warning("Loss plot displayed on Tensorboard may be inaccurate (due to some plain" +
@@ -364,3 +370,64 @@ class SGDSkLearnModel(BaseTrainingPlan):
             :return the scikit model object (sklearn.base.BaseEstimator)
         """
         return self.m
+
+    def __preprocess(self):
+        """
+        Method for executing registered preprocess that are defined by user.
+        """
+
+        for (name, process) in self.pre_processes.items():
+            method = process['method']
+            process_type = process['process_type']
+
+            if process_type == ProcessTypes.DATA_LOADER:
+                self.__process_data_loader(method=method)
+            else:
+                logger.debug(f"Process `{process_type}` is not implemented for the training plan SGBSkLearnModel. "
+                             f"Preprocess will be ignored")
+
+    def __process_data_loader(self, method: Callable):
+
+        """
+       Process handler for data loader kind processes.
+
+       Args:
+           method (Callable) : Process method that is going to be executed
+
+       Raises:
+            FedbiomedTrainingPlanError:
+       """
+
+        argspec = get_method_spec(method)
+        if len(argspec) != 2:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Process for type "
+                                             f"`PreprocessType.DATA_LOADER` should have two argument/parameter as "
+                                             f"inputs/data and target sets that will be used for training. ")
+
+        try:
+            data_loader = self.preprocess(self.__train_data, self.__train_target)
+        except Exception as e:
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB605.value}: Error while running process method -> `{method.__name__}`: "
+                f"{str(e)}`")
+
+        # Debug after running preprocess
+        logger.debug(f'The process `{method.__name__}` has been successfully executed.')
+
+        if isinstance(data_loader, tuple) \
+                and len(data_loader) == 2 \
+                and isinstance(data_loader[0], np.ndarray) \
+                and isinstance(data_loader[1], np.ndarray):
+
+            if len(data_loader[0]) == len(data_loader[1]):
+                self.__train_data = data_loader[0]
+                self.__train_target = data_loader[1]
+                logger.debug(f"Inputs/data and target sets for training routine has been updated by the process "
+                             f"`{method.__name__}` ")
+            else:
+                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Process error `{method.__name__}`: "
+                                                 f"number of samples of inputs and target sets should be equal ")
+        else:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Process method `{method.__name__}` should "
+                                             f"return tuple length of two as dataset and target and both should be and "
+                                             f"instance of np.ndarray. ")

@@ -140,12 +140,13 @@ class SkLearnDataManager(object):
 
         return self._subset_loader(self._subset_train), self._subset_loader(self._subset_test)
 
-    def _subset_loader(self, subset: Tuple[np.ndarray, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+    @staticmethod
+    def _subset_loader(subset: Tuple[np.ndarray, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
         """
         Method for loading subset partition for SkLearn based training plans.
 
-        TODO: Currently this method just returns subset. In future, when SkLearn based batch
-        iterator class is created, it should return BatchIterator for SKLearnTrainingPlan
+        TODO: Currently this method just returns subset. When SkLearn based batch
+        iterator is created, it should return BatchIterator
         """
 
         # Empty test set

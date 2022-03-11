@@ -137,7 +137,10 @@ class TorchDataManager(object):
 
         self._subset_train, self._subset_test = random_split(self._dataset, [train_samples, test_samples])
 
-        return self._subset_loader(self._subset_train), self._subset_loader(self._subset_test)
+        loaders = (self._subset_loader(self._subset_train, **self._loader_arguments),
+                   self._subset_loader(self._subset_test, batch_size=len(self._subset_test)))
+
+        return loaders
 
     def to_sklearn(self):
         """
@@ -155,7 +158,8 @@ class TorchDataManager(object):
 
         return SkLearnDataManager(inputs=inputs, target=target)
 
-    def _subset_loader(self, subset: Subset) -> DataLoader:
+    @staticmethod
+    def _subset_loader(subset: Subset, **kwargs) -> DataLoader:
         """
         Method for loading subset (train/test) partition of as pytorch DataLoader.
 
@@ -170,7 +174,7 @@ class TorchDataManager(object):
             return None
 
         try:
-            loader = DataLoader(subset, **self._loader_arguments)
+            loader = DataLoader(subset, **kwargs)
         except TypeError as err:
             raise FedbiomedTorchDataManagerError(
                 f"{ErrorNumbers.FB608.value}: Error while creating a PyTorch DataLoader "

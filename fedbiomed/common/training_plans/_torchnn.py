@@ -334,14 +334,15 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         pass
 
     def after_training_params(self):
-        '''
+        """
         effectively call the user defined postprocess function (if provided)
 
-        - if provided, the function ispart of pytorch model defined by the researcher
+        - if provided, the function is part of pytorch model defined by the researcher
         - and expect the model parameters as argument
 
         and returns the (modified) state_dict of the model
-        '''
+        """
+
         try:
             # Check whether postprocess method exists, and use it
             logger.debug("running model.postprocess() method")
@@ -366,26 +367,32 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
     def __preprocess(self):
         """
-         This method is responsible for executing `preprocess` method of TrainingPlan which is defined by
-         user. Method checks preprocess type and pass the proper argument.
-
-        Raises:
-            FedbiomedTrainingPlanError
+        Method for executing registered preprocess that are defined by user.
         """
+
         for (name, process) in self.pre_processes.items():
             method = process['method']
             process_type = process['process_type']
 
             if process_type == ProcessTypes.DATA_LOADER:
                 self.__process_data_loader(method=method)
-            elif process_type == ProcessTypes.PARAMS:
-                self.__process_params(method=method)
+            else:
+                logger.debug(f"Process `{process_type}` is not implemented for `TorchTrainingPlan`. Preprocess will "
+                             f"be ignored")
 
-    def __process_data_loader(self, method):
+    def __process_data_loader(self, method: Callable):
+        """
+        Process handler for data loader kind processes.
 
+        Args:
+            method (Callable) : Process method that is going to be executed
+
+        Raises:
+             FedbiomedTrainingPlanError:
+        """
         argspec = get_method_spec(method)
         if len(argspec) != 1:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB314.value}: Process for type "
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Process for type "
                                              f"`PreprocessType.DATA_LOADER` should have only one "
                                              f"argument/parameter")
 
@@ -393,53 +400,20 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             data_loader = self.preprocess(self.__training_data_loader)
         except Exception as e:
             raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB314.value}: Error while running process method -> `{method.__name__}`: "
+                f"{ErrorNumbers.FB605.value}: Error while running process method -> `{method.__name__}`: "
                 f"{str(e)}`")
 
         # Debug after running preprocess
-        logger.debug(f'The preprocess method `{method.__name__}` has been successfully executed.')
+        logger.debug(f'The process `{method.__name__}` has been successfully executed.')
 
         if isinstance(data_loader, type(self.__training_data_loader)):
             self.__training_data_loader = data_loader
-            logger.debug(f'Data loader for training routine has been updated by the process method `{method.__name__}` ')
+            logger.debug(f'Data loader for training routine has been updated by the process `{method.__name__}` ')
         else:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB314.value}: The input argument of the method "
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: The input argument of the method "
                                              f"`preprocess` is `data_loader` and expected return value "
                                              f"should be an instance of  "
                                              f"{type(self.__training_data_loader)}, but got "
                                              f"{type(data_loader)}")
 
-    def __process_params(self, method):
-        """
-
-        """
-        argspec = get_method_spec(method)
-        if len(argspec) != 1:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB314.value}: Process method for type "
-                                             f"`PreprocessType.PARAMS` should have only one "
-                                             f"argument/parameter")
-
-        try:
-            params = self.state_dict()
-            result = method(params)
-        except Exception as e:
-            raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB314.value}: Error while running process method `{method.__name__}`"
-                f"{str(e)}`")
-
-        # Debug after running preprocess
-        logger.debug(f'The process method `{method.__name__}` has been successfully executed.')
-
-        if isinstance(result, type(params)):
-            try:
-                self.load_state_dict(result)
-                logger.debug(f'Params has been updated by the process method `{method.__name__}`')
-            except Exception as e:
-                raise FedbiomedTrainingPlanError(str(e))
-        else:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB314.value}: The input argument of the method "
-                                             f"`preprocess` is `data_loader` and expected return value "
-                                             f"should be an instance of  "
-                                             f"{type(self.__training_data_loader)}, but got "
-                                             f"{type(params)}")
 
