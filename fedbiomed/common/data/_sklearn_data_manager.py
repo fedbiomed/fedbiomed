@@ -102,17 +102,18 @@ class SkLearnDataManager(object):
         Method for loading all samples as Numpy ndarray without splitting
         """
 
+        # TODO: Return batch iterator
         return self._inputs, self._target
 
-    def split(self, test_ratio: float) -> None:
+    def split(self, test_ratio: float) -> Tuple[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]:
         """
         Method for splitting np.ndarray dataset into train and test.
 
         Args:
-             ratio (float): Split ratio for testing set ratio. Rest of the samples
+             test_ratio (float): Ratio for testing set partition. Rest of the samples
                             will be used for training
         Raises:
-            FedbiomedSkLearnDataManagerError: If the ratio is not in good format
+            FedbiomedSkLearnDataManagerError
 
         Returns:
              none
@@ -127,11 +128,14 @@ class SkLearnDataManager(object):
         if test_ratio < 0 or test_ratio > 1:
             raise FedbiomedSkLearnDataManagerError(f'{ErrorNumbers.FB609.value}: The argument `ratio` should be '
                                                    f'equal or between 0 and 1, not {test_ratio}')
+
+        empty_subset = (np.array([]), np.array([]))
+
         if test_ratio == 0:
             self._subset_train = (self._inputs, self._target)
-            self._subset_test = []
+            self._subset_test = empty_subset
         elif test_ratio == 1:
-            self._subset_train = []
+            self._subset_train = empty_subset
             self._subset_test = (self._inputs, self._target)
         else:
             x_train, x_test, y_train, y_test = train_test_split(self._inputs, self._target, test_size=test_ratio)
@@ -148,9 +152,16 @@ class SkLearnDataManager(object):
         TODO: Currently this method just returns subset. When SkLearn based batch
         iterator is created, it should return BatchIterator
         """
+        if not isinstance(subset, Tuple) \
+                or len(subset) != 2 \
+                or not isinstance(subset[0], np.ndarray) \
+                or not isinstance(subset[1], np.ndarray):
+
+            raise FedbiomedSkLearnDataManagerError(f'{ErrorNumbers.FB609.value}: The argument `subset` should a Tuple'
+                                                   f'of size 2 that contains inputs/data and target as np.ndarray.')
 
         # Empty test set
-        if len(subset) <= 0:
+        if len(subset[0]) == 0 or len(subset[0]) == 0:
             return None
 
         # TODO: Return DataLoader/BatchIterator for SkLearnDataset to apply batch training

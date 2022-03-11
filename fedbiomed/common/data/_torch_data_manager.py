@@ -81,21 +81,14 @@ class TorchDataManager(object):
         requests training without testing this method can be used
         """
 
-        try:
-            loader = DataLoader(self._dataset, **self._loader_arguments)
-        except TypeError as err:
-            raise FedbiomedTorchDataManagerError(
-                f"{ErrorNumbers.FB608.value}: Error while creating a PyTorch DataLoader "
-                f"for all samples due to loader arguments: {str(err)}")
-
-        return loader
+        return self._create_torch_data_loader(self._dataset, **self._loader_arguments)
 
     def split(self, test_ratio: float) -> Tuple[Union[DataLoader, None], Union[DataLoader, None]]:
         """
         Method for splitting PyTorch Dataset into train and test.
 
         Args:
-             ratio (float): Split ratio for testing set ratio. Rest of the samples
+             test_ratio (float): Split ratio for testing set ratio. Rest of the samples
                             will be used for training
         Raises:
             FedbiomedTorchDataManagerError: If the ratio is not in good format
@@ -126,7 +119,7 @@ class TorchDataManager(object):
             samples = len(self._dataset)
         except AttributeError as e:
             raise FedbiomedTorchDataManagerError(f"{ErrorNumbers.FB608.value}: Can not get number of samples from "
-                                                 f"{str(self._dataset)}, {str(e)}")
+                                                 f"{str(self._dataset)} due to undefined attribute, {str(e)}")
         except TypeError as e:
             raise FedbiomedTorchDataManagerError(f"{ErrorNumbers.FB608.value}: Can not get number of samples from "
                                                  f"{str(self._dataset)}, {str(e)}")
@@ -148,36 +141,45 @@ class TorchDataManager(object):
          and create a SkLearnDataManager to use in SkLearnTraining base training plans
         """
 
-        # Create a loader from self._dataset to extract inputs and target values
-        # by iterating over samples
-        loader = DataLoader(self._dataset, batch_size=len(self._dataset))
-
+        loader = self._create_torch_data_loader(self._dataset, batch_size=len(self._dataset))
         # Iterate over samples and get input variable and target variable
         inputs = next(iter(loader))[0].numpy()
         target = next(iter(loader))[1].numpy()
 
         return SkLearnDataManager(inputs=inputs, target=target)
 
-    @staticmethod
-    def _subset_loader(subset: Subset, **kwargs) -> DataLoader:
+    def _subset_loader(self, subset: Subset, **kwargs) -> DataLoader:
         """
         Method for loading subset (train/test) partition of as pytorch DataLoader.
 
         Args:
             subset (Subset): Subset as an instance of PyTorch's `Subset`
-        Raises:
-            FedbiomedError: If Dataset is not split into test and train in advance
         """
 
         # Return None if subset has no data
         if len(subset) <= 0:
             return None
 
+        return self._create_torch_data_loader(subset, **kwargs)
+
+    @staticmethod
+    def _create_torch_data_loader(dataset, **kwargs):
+        """
+        Create python data loader by given dataset object
+        """
+
         try:
-            loader = DataLoader(subset, **kwargs)
-        except TypeError as err:
+            # Create a loader from self._dataset to extract inputs and target values
+            # by iterating over samples
+            loader = DataLoader(dataset, **kwargs)
+        except AttributeError as e:
+            raise FedbiomedTorchDataManagerError(
+                f"{ErrorNumbers.FB608.value}:  Error while creating Torch DataLoader due to undefined attribute"
+                f"{str(e)}")
+
+        except TypeError as e:
             raise FedbiomedTorchDataManagerError(
                 f"{ErrorNumbers.FB608.value}: Error while creating a PyTorch DataLoader "
-                f"due to loader arguments: {str(err)}")
+                f"due to incorrect type: {str(e)}")
 
         return loader
