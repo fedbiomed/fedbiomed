@@ -311,8 +311,8 @@ class Job:
         headers = {
             'researcher_id': self._researcher_id,
             'job_id': self._id,
-            'training_args': do_training,
-            'training': self._do_training,
+            'training_args': self._training_args,
+            'training': do_training,
             'model_args': self._model_args,
             'command': 'train'
         }

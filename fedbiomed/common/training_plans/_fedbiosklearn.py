@@ -6,7 +6,7 @@ TrainingPlan definition for sklearn ML framework
 from io import StringIO
 from joblib import dump, load
 import sys
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
 
@@ -205,7 +205,14 @@ class SGDSkLearnModel(BaseTrainingPlan):
     def training_routine(self,
                          epochs=1,
                          history_monitor=None,
-                         node_args: Union[dict, None] = None):
+                         node_args: Union[dict, None] = None,
+                         test_ratio: float = 0,
+                         metric: Optional[str] = None, 
+                         metric_args: Optional[dict] = None,
+                         test_on_global_updates: bool = True,
+                         test_on_local_updates: bool = False,):
+        # FIXME: remove parameters specific for testing specified in the
+        # training routine
         """
         Method training_routine called in Round, to change only if you know what you are doing.
 

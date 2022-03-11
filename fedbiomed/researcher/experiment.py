@@ -578,7 +578,7 @@ class Experiment(object):
             # TODO: FederatedDataSet constructor should verify typing and format
             self._fds = FederatedDataSet(training_data)
         elif training_data is not None:
-            msg = ErrorNumbers.FB410.value + f' `training_data` : {type(training_data)}'
+            msg = ErrorNumbers.FB410.value + f' `training_data` has incorrect type: {type(training_data)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         else:
@@ -591,9 +591,9 @@ class Experiment(object):
             if self._fds is not None and self._fds.test_ratio() > 0:
                 # if fds comes with a specific test_ratio, update experiment with its test ratio
                 #_training_data_test_ratio = training_data.test_ratio()
-                
+
                 if _exp_test_ratio:
-                    logger.warning(f"FederatedDataset has a different test ratio then Experiment:"
+                    logger.warning(f"FederatedDataset has a different test ratio than the one of Experiment:"
                                    f" {self._fds.test_ratio()}, it will change the test_ratio of "
                                    f"the experiment set {_exp_test_ratio}")
                 self.set_test_ratio(self._fds.test_ratio())
@@ -1049,6 +1049,7 @@ class Experiment(object):
             elif self._training_args is None:
                 self._training_args = training_args
             elif reset:
+                self.clean_training_args()
                 self._training_args = training_args
             else:
                 self._training_args.update(training_args)
@@ -1070,7 +1071,11 @@ class Experiment(object):
             pass
 
         return self._training_args
-    
+
+    @exp_exceptions
+    def clean_training_args(self):
+        self._training_args = {}
+
     @exp_exceptions
     def set_test_ratio(self, ratios: Union[Dict[str, float], float]) -> Union[Dict[str, float], float]:
         
