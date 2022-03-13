@@ -20,8 +20,6 @@ class Metrics():
             Estimated target values or Predicted labels.
     y_score: array_like or torch.Tensor, default: None
             Target scores.
-    metric_name: str, default: None
-            The performance metric used for evaluation. If None mean_absolute_error is used for regression and accuracy_score for classification.
 
     Attributes:
     ----------
@@ -32,8 +30,9 @@ class Metrics():
         Y_score: array-like
             Target scores.
 
-        metric: sklearn.metric
-            The performance metric used for evaluation.
+        metric: dict { MetricTypes : skleran.metrics }
+            Dictionary of keys value in  MetricTypes values: { ACCURACY, F1_SCORE, PRECISION, AVG_PRECISION, RECALL, ROC_AUC, MEAN_SQUARE_ERROR, MEAN_ABSOLUTE_ERROR, EXPLAINED_VARIANCE}
+
     """
     def __init__(self,
                  y_true,
@@ -45,10 +44,11 @@ class Metrics():
         self.Y_score = self._check_array(y_score)
 
         self.metrics = {
-                MetricTypes.ACCURACY.value : self.accuray,
+                MetricTypes.ACCURACY.value : self.accuracy,
                 MetricTypes.PRECISION.value: self.precision,
+                MetricTypes.AVG_PRECISION.value: self.avg_precision,
                 MetricTypes.RECALL.value: self.recall,
-                MetricTypes.ROCAUC.value: self.roc_auc,
+                MetricTypes.ROC_AUC.value: self.roc_auc,
                 MetricTypes.F1_SCORE.value: self.f1_score,
                 MetricTypes.MEAN_SQUARE_ERROR.value: self.mse,
                 MetricTypes.MEAN_ABSOLUTE_ERROR.value: self.mae,
@@ -78,6 +78,33 @@ class Metrics():
 
     def precision(self,**kwargs):
         """
+        Evaluate the precision score
+        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html]
+        Args:
+             - labels (array-like, default=None, optional)
+            The set of labels to include when average != 'binary', and their order if average is None.
+            - pos_label (str or int, default=1, optional)
+            The class to report if average='binary' and the data is binary.
+            - average ({‘micro’, ‘macro’, ‘samples’,’weighted’, ‘binary’} or None, default=’binary’, optional)
+            This parameter is required for multiclass/multilabel targets. If None, the scores for each class are returned. Otherwise, this determines the type of averaging performed on the data.
+            - sample_weight (array-like of shape (n_samples,), default=None, optional)
+            Sample weights.
+            - zero_division (“warn”, 0 or 1, default=”warn”, optional)
+            Sets the value to return when there is a zero division.
+        Returns:
+            - sklearn.metrics.precision_score(y_true, y_pred, *, labels=None, pos_label=1, average='binary', sample_weight=None, zero_division='warn')
+            precision (float, or array of float of shape (n_unique_labels,))
+        """
+        try:
+            return metrics.precision_score(self.Y_true, self.Y_pred, **kwargs)
+        except Exception as e:
+            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            logger.critical(msg)
+            raise FedbiomedMetricError(msg)
+        return
+
+    def avg_precision(self,**kwargs):
+        """
         Evaluate the average precision score from prediction scores (Y_score).
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html#sklearn.metrics.average_precision_score]
         Args:
@@ -91,6 +118,11 @@ class Metrics():
             - sklearn.metrics.average_precision_score(Y_true, Y_score, normalize = True, sample_weight = None)
             average precision (float)
         """
+        if self.Y_score is None:
+            msg = ErrorNumbers.FB607.value + " For the computation of average precision score you should provide the target scores y_score "
+            logger.critical(msg)
+            raise FedbiomedMetricError(msg)
+            return
         try:
             return metrics.average_precision_score(self.Y_true, self.Y_score, **kwargs)
         except Exception as e:
@@ -113,7 +145,7 @@ class Metrics():
             - sample_weight (array-like of shape (n_samples,), default=None, optional)
             Sample weights.
             - zero_division (“warn”, 0 or 1, default=”warn”, optional)
-            Sets the value to return when there is a zero division,
+            Sets the value to return when there is a zero division.
         Returns:
             - sklearn.metrics.recall_score(y_true, y_pred, *, labels=None, pos_label=1, average='binary', sample_weight=None, zero_division='warn')
             recall (float (if average is not None) or array of float of shape (n_unique_labels,))
@@ -145,6 +177,11 @@ class Metrics():
             - sklearn.metrics.roc_auc_score(y_true, y_score, *, average='macro', sample_weight=None, max_fpr=None, multi_class='raise', labels=None)
             auc (float)
         """
+        if self.Y_score is None:
+            msg = ErrorNumbers.FB607.value + " For the computation of roc_auc you should provide the target scores y_score "
+            logger.critical(msg)
+            raise FedbiomedMetricError(msg)
+            return
         try:
             return metrics.roc_auc_score(self.Y_true, self.Y_score, **kwargs)
         except Exception as e:
@@ -246,19 +283,20 @@ class Metrics():
             raise FedbiomedMetricError(msg)
         return
 
-    def evaluate(self, metric, **kwargs):
+    def evaluate(self, metric=None, **kwargs):
         """
         evaluate performance.
         Args:
-            - metric (MetricTypes, {ACCURACY, F1_SCORE, PRECISION, RECALL, ROC_AUC, MEAN_SQUARE_ERROR, MEAN_ABSOLUTE_ERROR, EXPLAINED_VARIANCE})
-            The metric used to evaluate performance.
+            - metric (MetricTypes, or str in {ACCURACY, F1_SCORE, PRECISION, AVG_PRECISION, RECALL, ROC_AUC, MEAN_SQUARE_ERROR, MEAN_ABSOLUTE_ERROR, EXPLAINED_VARIANCE}), default = None.
+            The metric used to evaluate performance. If None default Metric is used: accuracy_score for classification and mean squared error for regression.
             - kwargs: The arguments specifics to each type of metrics.
         Returns:
             - score, auc, ... (float or array of floats) depending on the metric used.
         """
-        if metric in MetricTypes.list():
+        if metric is not None and type(metric)==MetricTypes and metric in MetricTypes:
             result = self.metrics[metric.value](**kwargs)
-
+        elif type(metric) == str and metric in MetricTypes.list():
+            result = self.metrics[metric](**kwargs)
         else:
             result = self._get_default_metric()
         return result
@@ -270,7 +308,7 @@ class Metrics():
         Args:
             X: torch tensor
         Returns:
-            None
+            numpy array
         """
         return X.numpy()
 
@@ -283,7 +321,7 @@ class Metrics():
         Returns:
             array: array-like
         """
-        if array:
+        if array is not None:
             dtype_orig = getattr(array, "dtype", None)
             if isinstance(dtype_orig, torch.dtype):
                 array = self._convert_to_array(array)
@@ -301,28 +339,28 @@ class Metrics():
         else:
             return metrics.mean_squared_error(self.Y_true,self.Y_pred)
 
-def evaluate_metric(y_true,y_pred,metric_name=None,*args,**kwargs):
-    """
-    [TO DO] This funcion will be moved to the test/evaluation logic.
-
-    Create an instance of Metrics and evaluate the performance based on the metric name and arguments passed as input.
-
-    Parameters:
-    ----------
-    y_true: array-like or torch.Tensor
-            Ground Truth (correct) target values or labels
-    y_pred: array-like or torch.Tensor
-            Estimated target values or Predicted labels.
-    metric_name: str, default: None
-            The performance metric used for evaluation. If None mean_absolute_error is used for regression and accuracy_score for classification.
-    Returns:
-    -------
-    Performance: The output of sklearn.metrics used for evaluation.
-    """
-    evaluation = Metrics(y_true,y_pred)
-
-    acc = evaluation.evaluate(MetricTypes.ACCURACY)
-    f1 = evaluation.evaluate(MetricTypes.F1)
+# def evaluate_metric(y_true,y_pred,metric_name=None,*args,**kwargs):
+#     """
+#     [TO DO] This funcion will be moved to the test/evaluation logic.
+#
+#     Create an instance of Metrics and evaluate the performance based on the metric name and arguments passed as input.
+#
+#     Parameters:
+#     ----------
+#     y_true: array-like or torch.Tensor
+#             Ground Truth (correct) target values or labels
+#     y_pred: array-like or torch.Tensor
+#             Estimated target values or Predicted labels.
+#     metric_name: str, default: None
+#             The performance metric used for evaluation. If None mean_absolute_error is used for regression and accuracy_score for classification.
+#     Returns:
+#     -------
+#     Performance: The output of sklearn.metrics used for evaluation.
+#     """
+#     evaluation = Metrics(y_true,y_pred)
+#
+#     acc = evaluation.evaluate(MetricTypes.ACCURACY)
+#     f1 = evaluation.evaluate(MetricTypes.F1)
 
 
 

@@ -60,6 +60,7 @@ class MetricTypes(_BaseEnum):
     ACCURACY = 'ACCURACY'
     F1_SCORE = 'F1_SCORE'
     PRECISION = 'PRECISION'
+    AVG_PRECISION = 'AVG_PRECISION'
     RECALL = 'RECALL'
     ROC_AUC = 'ROC_AUC'
 

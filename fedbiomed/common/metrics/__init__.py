@@ -3,6 +3,8 @@ The `fedbiomed.common.metrics` module includes performance metrics class used fo
 This module applies sklearn.metrics after transforming input array into acceptable input types.
 """
 
-from sklearn.metrics import *
-from sklearn import metrics as m
-__all__ = m.__all__
+from .metrics import Metrics
+
+__all__ = [
+    "Metrics"
+]
