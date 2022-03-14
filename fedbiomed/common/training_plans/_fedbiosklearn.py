@@ -73,7 +73,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
         Args:
         - model_args (dict, optional): model arguments.
         """
-        super(SGDSkLearnModel, self).__init__()
+        super().__init__()
 
         # TODO: Generalize training plan name if there are different training plans for sklearn
         self.__type = TrainingPlans.SkLearnTrainingPlan

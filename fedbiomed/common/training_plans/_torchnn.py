@@ -47,7 +47,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 if available on node and proposed by node. Defaults to False.
         """
 
-        super(TorchTrainingPlan, self).__init__()
+        super().__init__()
 
         self.__type = TrainingPlans.TorchTrainingPlan
 
