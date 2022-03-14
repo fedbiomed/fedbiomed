@@ -24,7 +24,6 @@ class BaseTrainingPlan(object):
             dataset_path (string): The path that indicates where dataset has been stored
         """
 
-        super(BaseTrainingPlan, self).__init__()
         self.dependencies = []
         self.dataset_path = None
         self.pre_processes = OrderedDict()
