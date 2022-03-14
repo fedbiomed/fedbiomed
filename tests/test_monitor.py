@@ -147,6 +147,7 @@ class TestMonitor(unittest.TestCase):
 
         """Test on_message_handler of Monitor class """
 
+        mock_summary_writer.reset_mock()
         self.monitor.set_tensorboard(True)
         self.monitor.on_message_handler({
             'researcher_id': '123123',
@@ -159,6 +160,36 @@ class TestMonitor(unittest.TestCase):
             'command': 'add_scalar'
         })
         mock_summary_writer.assert_called_once_with('asd123', 'loss', 2, 1.23, 1)
+
+        mock_summary_writer.reset_mock()
+        self.monitor.set_tensorboard(False)
+        self.monitor.on_message_handler({
+            'researcher_id': '123123',
+            'node_id': 'asd123',
+            'job_id': '1233',
+            'iteration': 2,
+            'key': 'loss',
+            'value': 1.23,
+            'epoch': 1,
+            'command': 'add_scalar'
+        })
+        mock_summary_writer.assert_not_called()
+
+        mock_summary_writer.reset_mock()
+        self.monitor.set_tensorboard(True)
+        self.monitor.set_tensorboard("not_a_bool")   # as a side effect, this will set tensorboard flag to false
+        self.monitor.on_message_handler({
+            'researcher_id': '123123',
+            'node_id': 'asd123',
+            'job_id': '1233',
+            'iteration': 2,
+            'key': 'loss',
+            'value': 1.23,
+            'epoch': 1,
+            'command': 'add_scalar'
+        })
+        mock_summary_writer.assert_not_called()
+
 
     @patch('fedbiomed.researcher.monitor.SummaryWriter.close')
     def test_monitor_07_close_writers(self, mock_close):

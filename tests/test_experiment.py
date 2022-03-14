@@ -94,8 +94,8 @@ class TestExperiment(unittest.TestCase):
         self.patchers = [
             patch('fedbiomed.researcher.datasets.FederatedDataSet',
                   FederatedDataSetMock),
-            patch('fedbiomed.researcher.requests.Requests.add_monitor_callback',
-                  return_value=None),
+#            patch('fedbiomed.researcher.requests.Requests.add_monitor_callback',   # seems unused !
+#                  return_value=None),
             patch('fedbiomed.researcher.aggregators.aggregator.Aggregator.__init__',
                   return_value=None)
         ]
