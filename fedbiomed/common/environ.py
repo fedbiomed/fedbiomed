@@ -42,7 +42,6 @@ Common Global Variables:
     MQTT_BROKER             : MQTT broker IP address
     MQTT_BROKER_PORT        : MQTT broker port
     UPLOADS_URL             : Upload URL for file repository
-    TRAINING_PLAN           : Type of Training Plan
 """
 
 
@@ -137,9 +136,6 @@ class Environ(metaclass = SingletonMeta):
             )
         else:
             ROOT_DIR = rootdir
-
-        # Initialize TRAINING_PLAN STATUS
-        self._values['TRAINING_PLAN'] = None
 
         # Initialize all environment values
         self._values['ROOT_DIR'] = ROOT_DIR
