@@ -11,7 +11,7 @@ class TorchTabularDataset(Dataset):
 
     def __init__(self,
                  inputs: Union[np.ndarray, pd.DataFrame, pd.Series],
-                 target: Union[np.ndarray, pd.DataFrame, pd.Series], ):
+                 target: Union[np.ndarray, pd.DataFrame, pd.Series]):
         """
         Torch based Dataset object to create torch Dataset from given numpy or dataframe
         type of input and target variables
@@ -25,13 +25,6 @@ class TorchTabularDataset(Dataset):
             FedbiomedTorchDatasetError: If input variables and target variable does not have
                                         equal length/size
         """
-
-        # The lengths should be equal
-        if len(inputs) != len(target):
-            raise FedbiomedTorchTabularDatasetError(f"{ErrorNumbers.FB610.value}: Length of input variables and target "
-                                                    f"variable does not match. Please make sure that they have "
-                                                    f"equal size while creating the method `training_data` of "
-                                                    f"TrainingPlan")
 
         # Inputs and target variable should be converted to the torch tensors
         # PyTorch provides `from_numpy` function to convert numpy arrays to
@@ -53,6 +46,13 @@ class TorchTabularDataset(Dataset):
         else:
             raise FedbiomedTorchTabularDatasetError(f"{ErrorNumbers.FB610.value}: The argument `target` should be "
                                                     f"an instance one of np.ndarray, pd.DataFrame or pd.Series")
+
+        # The lengths should be equal
+        if len(self.inputs) != len(self.target):
+            raise FedbiomedTorchTabularDatasetError(f"{ErrorNumbers.FB610.value}: Length of input variables and target "
+                                                    f"variable does not match. Please make sure that they have "
+                                                    f"equal size while creating the method `training_data` of "
+                                                    f"TrainingPlan")
 
         # Convert `inputs` adn `target` to Torch floats
         self.inputs = from_numpy(self.inputs).float()

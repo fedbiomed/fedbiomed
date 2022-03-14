@@ -6,5 +6,6 @@ from ._torch_tabular_dataset import TorchTabularDataset
 __all__ = [
     "DataManager",
     "TorchDataManager",
-    "SkLearnDataManager"
+    "SkLearnDataManager",
+    "TorchTabularDataset"
 ]
