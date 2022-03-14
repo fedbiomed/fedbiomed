@@ -9,7 +9,8 @@ services:
   # need to exist for *all* containers everytime we run a docker-compose command
   # thus we would have to copy file trees for vpnserver, researcher, etc. when only
   # running a node
-  node:
+  x-node:
+    &standard-node
     container_name: fedbiomed-vpn-node
     image: fedbiomed/vpn-node
     env_file:
@@ -22,3 +23,10 @@ services:
     volumes:
       - ./node/run_mounts/config:/config # contains VPN configurations
       - ./node/run_mounts/data:/data # datasets can be added here
+  # not using gpu
+  node:
+    << : *standard-node
+  # using gpu (need image with gpu support)
+  node-gpu:
+    << : *standard-node
+    runtime: nvidia
