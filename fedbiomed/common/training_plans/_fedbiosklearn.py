@@ -207,8 +207,8 @@ class SGDSkLearnModel(BaseTrainingPlan):
                          history_monitor=None,
                          node_args: Union[dict, None] = None,
                          test_ratio: float = 0,
-                         metric: Optional[str] = None, 
-                         metric_args: Optional[dict] = None,
+                         test_metric: Optional[str] = None, 
+                         test_metric_args: Optional[dict] = None,
                          test_on_global_updates: bool = True,
                          test_on_local_updates: bool = False,):
         # FIXME: remove parameters specific for testing specified in the

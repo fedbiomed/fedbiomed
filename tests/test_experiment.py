@@ -886,7 +886,7 @@ class TestExperiment(unittest.TestCase):
     def test_experiment_18_run(self, mock_exp_run_once):
         """ Testing run method of Experiment class """
 
-        def run_once_side_effect(increase):
+        def run_once_side_effect(increase, test_after=False):
             inc = self.test_exp.round_current() + 1
             self.test_exp._set_round_current(inc)
             return 1
