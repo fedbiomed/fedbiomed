@@ -218,9 +218,7 @@ class Experiment(object):
         self._reqs = None
         self._training_args = None
         self._node_selection_strategy = None
-        self._model_path = None
         self._tags = None
-        self._model_path = None
 
 #        training_data: Union[FederatedDataSet, dict, None] = None,
 #        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
