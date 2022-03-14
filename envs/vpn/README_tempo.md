@@ -308,6 +308,26 @@ Run this for all launches of the container :
 # [user@node-container $] nohup python -m fedbiomed.node.cli  -s >./fedbiomed_node.out &
 ```
 
+### initializing node gui (optional)
+
+Run this only at first launch of container or after cleaning :
+
+* build container
+```bash
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build gui
+```
+
+Run this for all launches of the container :
+
+* launch container
+```bash
+[user@node $] docker-compose up -d gui
+```
+
+* to use gui, from outside the node gui container connect to `http://localhost:8484` or `http://NODE_IP:8484`
+  * TODO : add protection for distant connection to node gui
+
+
 ### initializing researcher
 
 Run this only at first launch of container or after cleaning :
@@ -437,12 +457,14 @@ You can connect to a container only if the corresponding container is already ru
 * connect on the node as user to handle experiments
 ```bash
 [user@node $] docker-compose exec -u $(id -u) node bash
+[user@node $] docker-compose exec -u $(id -u) gui bash
 [user@researcher $] docker-compose exec -u $(id -u) researcher bash
 ```
 
 Note : can also use commands in the form, so you don't have to be in the docker-compose file directory
 ```bash
 [user@node $] docker container exec -ti -u $(id -u) fedbiomed-vpn-node bash
+[user@node $] docker container exec -ti -u $(id -u) fedbiomed-vpn-gui bash
 [user@researcher $] docker container exec -ti -u $(id -u) fedbiomed-vpn-researcher bash
 ```
 
@@ -462,7 +484,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 [root@network #] rm -rf vpnserver/run_mounts/config/{config_peers,ip_assign,wireguard}
 
 # level 3 : image
-[user@network $] docker image rm fedbiomed/vpn-vpnserver
+[user@network $] docker image rm fedbiomed/vpn-vpnserver fedbiomed/vpn-base
 [user@network $] docker image prune -f
 ```
 
@@ -514,10 +536,26 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 # level 2 : configuration
 [user@node $] rm -rf ./node/run_mounts/config/wireguard
 [user@node $] echo > ./node/run_mounts/config/config.env
-[user@node $] rm -rf ./node/run_mounts/data/*
+[user@node $] rm -rf ./node/run_mounts/{data,etc}/*
 
 # level 3 : image
-[user@node $] docker image rm fedbiomed/vpn-node
+[user@node $] docker image rm fedbiomed/vpn-node fedbiomed/vpn-basenode
+[user@network $] docker image prune -f
+```
+
+### node gui
+
+```bash
+[user@node $] cd ./envs/vpn/docker
+
+# level 1 : container instance
+[user@node $] docker-compose rm -sf gui
+
+# level 2 : configuration
+[user@node $] rm -rf ./node/run_mounts/{data,etc}/*
+
+# level 3 : image
+[user@node $] docker image rm fedbiomed/vpn-gui
 [user@network $] docker image prune -f
 ```
 
@@ -537,7 +575,7 @@ Same as node
 [user@researcher $] rm -rf ./researcher/run_mounts/data/*
 
 # level 3 : image
-[user@researcher $] docker image rm fedbiomed/vpn-researcher
+[user@researcher $] docker image rm fedbiomed/vpn-researcher fedbiomed/vpn-base
 [user@network $] docker image prune -f
 ```
 
