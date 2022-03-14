@@ -74,12 +74,12 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         # list dependencies of the model
 
-        self.add_dependency(["from fedbiomed.common.training_plans import TorchTrainingPlan",
-                             "from fedbiomed.common.data import DataManager",
-                             "from fedbiomed.common.constants import ProcessTypes",
-                             "import torch",
+        self.add_dependency(["import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
+                             "from fedbiomed.common.training_plans import TorchTrainingPlan",
+                             "from fedbiomed.common.data import DataManager",
+                             "from fedbiomed.common.constants import ProcessTypes",
                              "from torch.utils.data import DataLoader",
                              "from torchvision import datasets, transforms"
                              ])
@@ -163,7 +163,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          batch_maxnum: int = 0,
                          dry_run: bool = False,
                          use_gpu: Union[bool, None] = None,
-                         fedprox_mu = None,
+                         fedprox_mu=None,
                          history_monitor=None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
@@ -219,7 +219,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         # Run preprocess when everything is ready before the training
         self.__preprocess()
-
 
         # Initialize training data that comes from Round class
         # TODO: Decide whether it should attached to `self`
@@ -346,7 +345,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         try:
             # Check whether postprocess method exists, and use it
             logger.debug("running model.postprocess() method")
-            return self.postprocess(self.state_dict()) # Post process
+            return self.postprocess(self.state_dict())  # Post process
         except AttributeError:
             # Method does not exist; skip
             logger.debug("model.postprocess() method not provided")
@@ -415,5 +414,3 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                                              f"should be an instance of  "
                                              f"{type(self.__training_data_loader)}, but got "
                                              f"{type(data_loader)}")
-
-

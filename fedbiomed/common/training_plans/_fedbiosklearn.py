@@ -81,13 +81,13 @@ class SGDSkLearnModel(BaseTrainingPlan):
         # sklearn.utils.parallel_backend("locky", n_jobs=1, inner_max_num_threads=1)
         self.batch_size = 100  # unused
 
-        self.add_dependency(["from fedbiomed.common.training_plans import SGDSkLearnModel",
+        self.add_dependency(["import inspect",
+                             "import numpy as np",
+                             "import pandas as pd",
+                             "from fedbiomed.common.training_plans import SGDSkLearnModel",
                              "from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron ",
                              "from sklearn.naive_bayes  import BernoulliNB, GaussianNB",
                              "from fedbiomed.common.data import DataManager",
-                             "import inspect",
-                             "import numpy as np",
-                             "import pandas as pd",
                              ])
 
         # default value if passed argument with incorrect type

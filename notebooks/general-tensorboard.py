@@ -34,8 +34,8 @@ from fedbiomed.common.data import DataManager
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-# you can use any class name eg:
-# class AlterTrainingPlan(TorchTrainingPlan):
+# Here we define the model to be used. 
+# You can use any class name (here 'Net')
 class MyTrainingPlan(TorchTrainingPlan):
     def __init__(self, model_args: dict = {}):
         super(MyTrainingPlan, self).__init__(model_args)
@@ -45,12 +45,12 @@ class MyTrainingPlan(TorchTrainingPlan):
         self.dropout2 = nn.Dropout(0.5)
         self.fc1 = nn.Linear(9216, 128)
         self.fc2 = nn.Linear(128, 10)
-
+        
         # Here we define the custom dependencies that will be needed by our custom Dataloader
         # In this case, we need the torch DataLoader classes
         # Since we will train on MNIST, we need datasets and transform from torchvision
-        deps = ["from torchvision import datasets, transforms",
-               "from torch.utils.data import DataLoader"]
+        deps = ["from torchvision import datasets, transforms"]
+        
         self.add_dependency(deps)
 
     def forward(self, x):
@@ -65,21 +65,24 @@ class MyTrainingPlan(TorchTrainingPlan):
         x = F.relu(x)
         x = self.dropout2(x)
         x = self.fc2(x)
+        
+        
         output = F.log_softmax(x, dim=1)
         return output
 
     def training_data(self, batch_size = 48):
+        # Custom torch Dataloader for MNIST data
         transform = transforms.Compose([transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])
-        print("[INFO] Training on dataset: " + str(self.dataset_path))
         dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
-        return DataManager(dataset1, **train_kwargs)
-
+        return DataManager(dataset=dataset1, **train_kwargs)
+    
     def training_step(self, data, target):
         output = self.forward(data)
         loss   = torch.nn.functional.nll_loss(output, target)
         return loss
+
 
 
 # This group of arguments correspond respectively:

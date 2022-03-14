@@ -1,10 +1,12 @@
-from fedbiomed.common.training_plans import TorchTrainingPlan
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from fedbiomed.common.training_plans import TorchTrainingPlan
+from fedbiomed.common.data import DataManager
+from fedbiomed.common.constants import ProcessTypes
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from torchvision import transforms
 import pandas as pd
 from PIL import Image
@@ -24,9 +26,9 @@ class Net(TorchTrainingPlan):
         # classifier
         self.fc1 = nn.Linear(3168, 128)
         self.fc2 = nn.Linear(128, 2)
-        
+
         # Here we define the custom dependencies that will be needed by our custom Dataloader
-        deps = ["from torch.utils.data import Dataset, DataLoader",
+        deps = ["from torch.utils.data import Dataset",
                 "from torchvision import transforms",
                 "import pandas as pd",
                "from PIL import Image",
@@ -38,7 +40,7 @@ class Net(TorchTrainingPlan):
         x = self.conv1(x)
         x = F.max_pool2d(x, 2)
         x = F.relu(x)
-        
+
         x = self.conv2(x)
         x = F.max_pool2d(x, 2)
         x = F.relu(x)
@@ -50,12 +52,12 @@ class Net(TorchTrainingPlan):
         x = self.conv4(x)
         x = F.max_pool2d(x, 2)
         x = F.relu(x)
-        
+
         x = self.dropout1(x)
         x = torch.flatten(x, 1)
         x = self.fc1(x)
         x = F.relu(x)
-        
+
         x = self.dropout2(x)
         x = self.fc2(x)
         output = F.log_softmax(x, dim=1)
@@ -64,8 +66,8 @@ class Net(TorchTrainingPlan):
 
     class CelebaDataset(Dataset):
         """Custom Dataset for loading CelebA face images"""
-        
-        # we dont load the full data of the images, we retrieve the image with the get item. 
+
+        # we dont load the full data of the images, we retrieve the image with the get item.
         # in our case, each image is 218*178 * 3colors. there is 67533 images. this take at leas 7G of ram
         # loading images when needed takes more time during training but it wont impact the ram usage as much as loading everything
         def __init__(self, txt_path, img_dir, transform=None):
@@ -86,13 +88,12 @@ class Net(TorchTrainingPlan):
 
         def __len__(self):
             return self.y.shape[0]
-    
+
     def training_data(self,  batch_size = 48):
     # The training_data creates the Dataloader to be used for training in the general class Torchnn of fedbiomed
         dataset = self.CelebaDataset(self.dataset_path + "/target.csv", self.dataset_path + "/data/")
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
-        data_loader = DataLoader(dataset, **train_kwargs)
-        return data_loader
+        return DataManager(dataset, **train_kwargs)
     
     def training_step(self, data, target):
         #this function must return the loss to backward it 

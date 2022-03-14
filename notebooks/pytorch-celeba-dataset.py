@@ -52,6 +52,7 @@ from torch.utils.data import Dataset
 
 # you can use any class name eg:
 # class AlterTrainingPlan(TorchTrainingPlan):
+
 class Net(TorchTrainingPlan):
     def __init__(self, model_args: dict = {}):
         super(Net, self).__init__(model_args)
@@ -67,7 +68,7 @@ class Net(TorchTrainingPlan):
         self.fc2 = nn.Linear(128, 2)
         
         # Here we define the custom dependencies that will be needed by our custom Dataloader
-        deps = ["from torch.utils.data import Dataset, DataLoader",
+        deps = ["from torch.utils.data import Dataset",
                 "from torchvision import transforms",
                 "import pandas as pd",
                "from PIL import Image",
