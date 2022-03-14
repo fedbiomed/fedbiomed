@@ -1,3 +1,4 @@
+import time
 import unittest
 import os
 import sys
@@ -88,26 +89,25 @@ class TestExperiment(unittest.TestCase):
             os.path.join(environ['EXPERIMENTS_DIR'], self.experimentation_folder)
         os.makedirs(self.experimentation_folder_path)
 
-        # Define patchers ---------------------------------------------------------------------------------------
+        # Define patchers
         # Patchers that are not required be modified during the tests
         self.patchers = [
             patch('fedbiomed.researcher.datasets.FederatedDataSet',
                   FederatedDataSetMock),
-            patch('fedbiomed.researcher.monitor.Monitor.__init__',
-                  return_value=None),
-            patch('fedbiomed.researcher.monitor.Monitor.close_writer',
-                  return_value=None),
-            patch('fedbiomed.researcher.monitor.Monitor.on_message_handler',
-                  return_value=False),
-            patch('fedbiomed.researcher.requests.Requests.add_monitor_callback',
-                  return_value=None),
-            patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.__init__',
-                  return_value=None),
+#            patch('fedbiomed.researcher.requests.Requests.add_monitor_callback',   # seems unused !
+#                  return_value=None),
             patch('fedbiomed.researcher.aggregators.aggregator.Aggregator.__init__',
                   return_value=None)
         ]
 
+        self.monitor_mock = MagicMock(return_value=None)
+        self.monitor_mock.on_message_handler = MagicMock()
+        self.monitor_mock.close_writer = MagicMock()
+
         # Patchers that required be modified during the tests
+        self.patcher_monitor_init = patch('fedbiomed.researcher.monitor.Monitor', MagicMock(return_value=None))
+        self.patcher_monitor_on_message_handler = patch('fedbiomed.researcher.monitor.Monitor.on_message_handler', MagicMock(return_value=None))
+        self.patcher_monitor_close_writer = patch('fedbiomed.researcher.monitor.Monitor.close_writer', MagicMock(return_value=None))
         self.patcher_cr_folder = patch('fedbiomed.researcher.experiment.create_exp_folder',
                                        return_value=self.experimentation_folder)
         self.patcher_job = patch('fedbiomed.researcher.job.Job.__init__', MagicMock(return_value=None))
@@ -120,10 +120,16 @@ class TestExperiment(unittest.TestCase):
                                           MagicMock(return_value=None))
         self.patcher_request_search = patch('fedbiomed.researcher.requests.Requests.search', MagicMock(return_value={}))
 
+
+
         for patcher in self.patchers:
             patcher.start()
 
-        # Define mocks from patchers ---------------------------------------------------------------------------
+        # Define mocks from patchers
+
+        self.mock_monitor_init = self.patcher_monitor_init.start()
+        self.mock_monitor_on_message = self.patcher_monitor_on_message_handler.start()
+        self.mock_monitor_close_writer = self.patcher_monitor_close_writer.start()
         self.mock_create_folder = self.patcher_cr_folder.start()
         self.mock_logger_info = self.patcher_logger_info.start()
         self.mock_logger_error = self.patcher_logger_error.start()
@@ -162,6 +168,9 @@ class TestExperiment(unittest.TestCase):
         self.patcher_request_search.stop()
         self.patcher_logger_debug.stop()
         self.patcher_logger_warning.stop()
+        self.patcher_monitor_init.stop()
+        self.patcher_monitor_on_message_handler.stop()
+        self.patcher_monitor_close_writer.stop()
 
         if environ['EXPERIMENTS_DIR'] in sys.path:
             sys.path.remove(environ['EXPERIMENTS_DIR'])
@@ -259,7 +268,7 @@ class TestExperiment(unittest.TestCase):
         agg_params = self.test_exp.aggregated_params()
         self.assertDictEqual(agg_params, {}, 'Getter for aggregated_params did not return expected value: {}')
 
-        # Test getter training_replies -----------------------------------------------------------------------------
+        # Test getter training_replies
 
         # Test when ._job is None
         training_replies = self.test_exp.training_replies()
@@ -273,7 +282,7 @@ class TestExperiment(unittest.TestCase):
         training_replies = self.test_exp.training_replies()
         self.assertDictEqual(training_replies, tr_reply, 'Getter for training_replies did not return expected values')
 
-        # Test getter for model instance---------------------------------------------------------------------------
+        # Test getter for model instance
 
         # Test when ._job is None
         self.test_exp._job = None
@@ -289,20 +298,16 @@ class TestExperiment(unittest.TestCase):
         model_instance = self.test_exp.model_instance()
         self.assertEqual(model_instance, fake_model_instance, 'Getter for model_instance did not return expected Model')
 
-    @patch('builtins.print')
-    def test_experiment_02_info(self, mock_print):
+    def test_experiment_02_info(self):
         """Testing the method .info() of experiment class """
-        mock_print.return_value(None)
         self.test_exp.info()
-        self.assertEqual(mock_print.call_count, 2, 'Printing info called unexpected times')
 
         # Test info by completing missing parts for proper .run
-        mock_print.reset_mock()
         self.test_exp._fds = FederatedDataSetMock({'node-1': []})
         self.test_exp._job = self.mock_job
         self.test_exp._model_is_defined = True
         self.test_exp.info()
-        self.assertEqual(mock_print.call_count, 2, 'Printing info called unexpected times')
+
 
     @patch('builtins.eval')
     @patch('builtins.print')
@@ -521,14 +526,6 @@ class TestExperiment(unittest.TestCase):
         round_limit = self.test_exp.set_round_limit(round_limit=rl_expected)
         self.assertEqual(round_limit, rl_expected, 'Setter for round limit did not set round_limit to 1')
 
-        # Test when self._round_limit is not defined
-        del self.test_exp._round_limit
-        self.test_exp._round_current = 2
-        rl_expected = 1
-        round_limit = self.test_exp.set_round_limit(round_limit=rl_expected)
-        self.assertIsNone(round_limit, 'Setter for round limit did not set round_limit to None, this expected '
-                                       'behaviour when self._round_limit is not defined')
-
         # back to normal
         self.test_exp._round_current = 0
         self.test_exp.set_round_limit(round_limit=4)
@@ -604,11 +601,6 @@ class TestExperiment(unittest.TestCase):
         model_class = self.test_exp.set_model_class(mc_expected)
         self.assertEqual(model_class, mc_expected, 'Model class is not set properly while setting it in `str` type')
 
-        # Setting AttributeError when model path is not defined
-        del self.test_exp._model_path
-        self.test_exp.set_model_class(mc_expected)
-        self.assertEqual(self.test_exp._model_is_defined, False)
-
         # Back to normal
         self.test_exp._model_path = None
 
@@ -620,11 +612,6 @@ class TestExperiment(unittest.TestCase):
         # Test by passing class which has no subclass of one of the training plan
         with self.assertRaises(SystemExit):
             self.test_exp.set_model_class(FakeModel)
-
-        # Test by passing class when self._model_path is not defined
-        del self.test_exp._model_path
-        model_class = self.test_exp.set_model_class(TestExperiment.FakeModelTorch)
-        self.assertEqual(self.test_exp._model_is_defined, False)
 
         # Back to normal
         self.test_exp._model_path = None
@@ -778,33 +765,20 @@ class TestExperiment(unittest.TestCase):
         sb = self.test_exp.set_save_breakpoints(True)
         self.assertTrue(sb, 'save_breakpoint has not been set correctly')
 
-    def test_experiment_16_set_monitor(self):
-        """ Test setter for monitor attribute of experiment class"""
+    def test_experiment_16_set_tensorboard(self):
+        """ Test setter for tensorboard """
 
-        # Type invalid type for tensorboard argument
+        # Test invalid type of argument
         with self.assertRaises(SystemExit):
-            self.test_exp.set_monitor('FALSE')
+            self.test_exp.set_tensorboard(None)
 
-        # Test set_monitor to True
-        # At this point monitor is already defined, since in tensorboard is passed as
-        # True while build self.test_exp in setUp method. Then setting monitor again
-        # should log info about monitor is already defined, and result should instance of Monitor class
-        self.mock_logger_info.reset_mock()
-        monitor = self.test_exp.set_monitor(True)
-        self.mock_logger_info.assert_called_once()
-        self.assertIsInstance(monitor, Monitor)
+        # test valid type of argument
+        sb = self.test_exp.set_tensorboard(True)
+        self.assertTrue(sb, 'tensorboard has not been set correctly')
 
-        # Test tensorboard False
-        monitor = self.test_exp.set_monitor(False)
-        self.assertIsNone(monitor, 'Monitor has not been deactivated')
-
-        # Test tensorboard False even monitor is in active
-        # monitor should be inactive because of previous call of set_monitor
-        self.mock_logger_info.reset_mock()
-        monitor = self.test_exp.set_monitor(False)
-        # Should be one call of logger.info that says Monitor is already inactive
-        self.mock_logger_info.assert_called_once()
-        self.assertIsNone(monitor, 'Monitor is not inactivate')
+        # test valid type of argument
+        sb = self.test_exp.set_tensorboard(False)
+        self.assertFalse(sb, 'tensorboard has not been set correctly')
 
     @patch('fedbiomed.researcher.experiment.Experiment.breakpoint')
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
@@ -1205,7 +1179,7 @@ class TestExperiment(unittest.TestCase):
             2. if experiment is correctly configured from breakpoint
         """
 
-        # Prepare breakpoint data ----------------------------------------------------------------
+        # Prepare breakpoint data
         bkpt_file = 'file_4_breakpoint'
 
         training_data = {'train_node1': 'my_first_dataset', 2: 243}
@@ -1288,7 +1262,7 @@ class TestExperiment(unittest.TestCase):
         for p in patches_experiment:
             p.start()
 
-        # Action - Tests ----------------------------------------------------------------------------------
+        # Action - Tests
 
         # Test if breakpoint argument is not type of `str`
         with self.assertRaises(SystemExit):
@@ -1506,15 +1480,6 @@ class TestExperiment(unittest.TestCase):
         # clean after tests
         del test_class
 
-    @patch('fedbiomed.researcher.requests.Requests.remove_monitor_callback', return_value=None)
-    @patch('fedbiomed.researcher.monitor.Monitor.close_writer', return_value=None)
-    def test_experiment_26_deconstruct(self, mock_remove_monitor_callback, mock_close_writer):
-        """ Testing deconstruct method of experiment """
-
-        # Test delete while the monitor exists
-        del self.test_exp
-        mock_remove_monitor_callback.assert_called_once()
-        mock_close_writer.assert_called_once()
 
 
 if __name__ == '__main__':  # pragma: no cover
