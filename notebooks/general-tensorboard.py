@@ -158,7 +158,7 @@ for c in range(len(round_data)):
                 rtotal = round_data[c]['timing']['rtime_total']))
 print('\n')
 
-print(exp.training_replies[rounds - 1].dataframe())
+print(exp.training_replies()[rounds - 1].dataframe())
 
 
 # Federated parameters for each round are available via `exp.aggregated_params()` (index 0 to (`rounds` - 1) ).

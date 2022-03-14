@@ -333,7 +333,7 @@ class Requests(metaclass=SingletonMeta):
         """
         Remove callback function for Monitor class. This method is called
         for canceling monitoring.  Currently it is used in Experiment when the
-        tensorboard state is `False`. Since the reqeust class is singleton there
+        tensorboard state is `False`. Since the request class is singleton there
         might be callback function already registered before (while running
         experiment on Notebook).
         """

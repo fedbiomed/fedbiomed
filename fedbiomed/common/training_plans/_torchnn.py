@@ -194,7 +194,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 for training during this round (ie overload the object default use_gpu value)
                 if available on node and proposed by node
                 Defaults to None (dont overload the object default value)
-            - fedprox_mu (float or None): mu parameter in case of FredProx computing. Fedault is None, which means that FredProx is not triggered
+            - fedprox_mu (float or None): mu parameter in case of FredProx
+              computing. Default is None, which means that FredProx is not triggered
             - history_monitor ([type], optional): [description]. Defaults to None.
             - node_args (Union[dict, None]): command line arguments for node. Can include:
                 - gpu (bool): propose use a GPU device if any is available. Default False.
@@ -350,8 +351,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             # Method does not exist; skip
             logger.debug("model.postprocess() method not provided")
             pass
-
-        # self.__process(is_preprocess=False)  # Post process
 
         return self.state_dict()
 

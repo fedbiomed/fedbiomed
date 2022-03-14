@@ -20,7 +20,7 @@ def get_class_source(cls) -> str:
     """
 
     if not inspect.isclass(cls):
-        raise FedbiomedError(f'The argument `cls` must be a python class')
+        raise FedbiomedError('The argument `cls` must be a python class')
 
     # Check ipython status
     status = is_ipython()
