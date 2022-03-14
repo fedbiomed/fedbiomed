@@ -115,3 +115,38 @@ class FedbiomedTrainingPlanError(FedbiomedError):
     Exception specific to errors while getting source of the model class
     """
     pass
+
+
+class FedbiomedDataManagerError(FedbiomedError):
+    """
+    Exception for DataManager errors.
+    """
+    pass
+
+
+class FedbiomedTorchDataManagerError(FedbiomedError):
+    """
+    Exceptions specific for the class TorchDataset.
+    """
+    pass
+
+
+class FedbiomedSkLearnDataManagerError(FedbiomedError):
+    """
+    Exceptions specific for the class SkLearnDataset.
+    """
+    pass
+
+
+class FedbiomedTorchTabularDatasetError(FedbiomedError):
+    """
+    Exceptions specific for the class fedbiomed.common.data.TorchTabularDataset.
+    """
+    pass
+
+
+class FedbiomedRoundError(FedbiomedError):
+    """
+    Exceptions specific for the class node round class.
+    """
+    pass

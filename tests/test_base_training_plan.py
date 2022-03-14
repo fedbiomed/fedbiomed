@@ -5,6 +5,7 @@ import fedbiomed.common.training_plans._base_training_plan
 
 from unittest.mock import patch, MagicMock
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
+from fedbiomed.common.constants import ProcessTypes
 from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
 
 
@@ -78,6 +79,22 @@ class TestBaseTrainingPlan(unittest.TestCase):
             with self.assertRaises(FedbiomedTrainingPlanError):
                 path, _ = self.tp.save_code(expected_filepath)
 
+    def test_base_training_plan_04_add_preprocess(self):
+
+        def method(args):
+            pass
+
+        # Test raising error due to worn process type
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            self.tp.add_preprocess(method, 'WorngType')
+
+        # Test raising error due to wrong type of method argument
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            self.tp.add_preprocess('not-callable', ProcessTypes.DATA_LOADER)
+
+        # Test proper scenario
+        self.tp.add_preprocess(method, ProcessTypes.DATA_LOADER)
+        self.assertTrue('method' in self.tp.pre_processes, 'add_preprocess could not add process properly')
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
