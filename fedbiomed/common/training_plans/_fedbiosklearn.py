@@ -214,14 +214,14 @@ class SGDSkLearnModel(BaseTrainingPlan):
     def training_routine(self,
                          data_loader: Tuple[np.ndarray, np.ndarray],
                          epochs=1,
-                         monitor=None,
+                         history_monitor=None,
                          node_args: Union[dict, None] = None):
         """
         Method training_routine called in Round, to change only if you know what you are doing.
 
         Args:
         - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
-        - monitor ([type], optional): [description]. Defaults to None.
+        - history_monitor ([type], optional): [description]. Defaults to None.
         - node_args (Union[dict, None]): command line arguments for node. Can include:
             - gpu (bool): propose use a GPU device if any is available. Default False.
             - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
@@ -262,7 +262,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
                         self.model_type == 'MiniBatchDictionaryLearning':  # noqa
                     self.m.partial_fit(self.__train_data)
 
-            if monitor is not None:
+            if history_monitor is not None:
                 _loss_collector = []
                 if self._is_classif:
                     if classes.shape[0] < 3:
@@ -298,11 +298,11 @@ class SGDSkLearnModel(BaseTrainingPlan):
 
                     # Batch -1 means Batch Gradient Descent, use all samples
                     # TODO: This part should be changed after mini-batch implementation is completed
-                    monitor.add_scalar('Loss', float(loss), -1, epoch)
+                    history_monitor.add_scalar('Loss', float(loss), -1, epoch)
 
                 elif self.model_type == "MiniBatchKMeans":
                     # Passes inertia value as scalar. It should be emplemented when KMeans implementation is ready
-                    # monitor.add_scalar('Inertia', self.m.inertia_, -1 , epoch)
+                    # history_monitor.add_scalar('Inertia', self.m.inertia_, -1 , epoch)
                     pass
                 elif self.model_type in ['MultinomialNB', 'BernoulliNB']:
                     # TODO: Need to find a way for Bayesian approaches

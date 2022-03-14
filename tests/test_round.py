@@ -55,14 +55,14 @@ class TestRound(unittest.TestCase):
         self.r1.job_id = '1234'
         self.r1.researcher_id = '1234'
         dummy_monitor = MagicMock()
-        self.r1.monitor = dummy_monitor
+        self.r1.history_monitor = dummy_monitor
 
         self.r2 = Round(model_url='http://a/b/c/model',
                         model_class='another_training_plan',
                         params_url='https://to/my/model/params')
         self.r2.training_kwargs = {}
         self.r2.dataset = params
-        self.r2.monitor = dummy_monitor
+        self.r2.history_monitor = dummy_monitor
 
     def tearDown(self) -> None:
         pass
@@ -188,7 +188,6 @@ class TestRound(unittest.TestCase):
             'researcher_id': self.r1.researcher_id,
             'job_id': self.r1.job_id,
             'model_params': MODEL_PARAMS,
-            'history': self.r1.monitor.history,
             'node_id': environ['NODE_ID']
         }
 
@@ -209,13 +208,14 @@ class TestRound(unittest.TestCase):
             mock_load.assert_called_once_with(MODEL_NAME,
                                               to_params=False)
 
+
             # Check set train and test data split function is called
             # Set dataset is called in set_train_and_test_data
             # mock_set_dataset.assert_called_once_with(self.r1.dataset.get('path'))
             mock_set_train_and_test_data.assert_called_once()
 
             # Since set training data return None, training_routine should be called as None
-            mock_training_routine.assert_called_once_with( monitor=self.r1.monitor,
+            mock_training_routine.assert_called_once_with( history_monitor=self.r1.history_monitor,
                                                            node_args=None,
                                                            data_loader=None)
 
@@ -602,15 +602,15 @@ class TestRound(unittest.TestCase):
 
         # adding into `training_kwargs` node_side arguments
         self.r1.training_kwargs = {'param': 1234,
-                                   'monitor': MagicMock(),
+                                   'history_monitor': MagicMock(),
                                    'node_args': [1, 2, 3, 4]}
         # action!
         _ = self.r1.run_model_training()
 
-        # check if 'monitor' and 'node_args' entries have been removed
+        # check if 'history_monitor' and 'node_args' entries have been removed
         #  in `training_kwargs` (for security reasons, see Round for further details)
 
-        self.assertFalse(self.r1.training_kwargs.get('monitor', False))
+        self.assertFalse(self.r1.training_kwargs.get('history_monitor', False))
         self.assertFalse(self.r1.training_kwargs.get('node_args', False))
 
 

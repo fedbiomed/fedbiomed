@@ -35,7 +35,7 @@ class Round:
                  params_url: str = None,
                  job_id: str = None,
                  researcher_id: str = None,
-                 monitor: HistoryMonitor = None,
+                 history_monitor: HistoryMonitor = None,
                  node_args: Union[dict, None] = None):
 
         """Constructor of the class
@@ -55,7 +55,7 @@ class Round:
             - params_url (str): url from which to upload/dowload model params
             - job_id (str): job id
             - researcher_id (str): researcher id
-            - monitor (HistoryMonitor)
+            - history_monitor (HistoryMonitor)
             - node_args (Union[dict, None]): command line arguments for node. Can include:
                 - gpu (bool): propose use a GPU device if any is available.
                 - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
@@ -71,7 +71,7 @@ class Round:
         self.params_url = params_url
         self.job_id = job_id
         self.researcher_id = researcher_id
-        self.monitor = monitor
+        self.history_monitor = history_monitor
         self.model_manager = ModelManager()
         self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
@@ -156,13 +156,13 @@ class Round:
         # Run the training routine
         if not is_failed:
             # Caution: always provide values for node-side arguments
-            # (monitor, node_args) especially if they are security
+            # (history_monitor, node_args) especially if they are security
             # related, to avoid overloading by malicious researcher.
             #
             # We want to have explicit message in case of overloading attempt
             # (and continue training) though by default it fails with
             # "dict() got multiple values for keyword argument"
-            node_side_args = ['monitor', 'node_args']
+            node_side_args = [ 'history_monitor', 'node_args' ]
             for arg in node_side_args:
                 if arg in self.training_kwargs:
                     del self.training_kwargs[arg]
@@ -179,7 +179,7 @@ class Round:
                 error_message = str(e)
 
         if not is_failed:
-            training_kwargs_with_history = dict(monitor=self.monitor,
+            training_kwargs_with_history = dict(history_monitor=self.history_monitor,
                                                 node_args=self.node_args,
                                                 **self.training_kwargs)
             logger.info(f'training with arguments {training_kwargs_with_history}')
@@ -203,7 +203,6 @@ class Round:
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
             results['model_params'] = self.model.after_training_params()
-            results['history'] = self.monitor.history
             results['node_id'] = environ['NODE_ID']
             try:
                 # TODO : should test status code but not yet returned
