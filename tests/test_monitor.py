@@ -147,6 +147,7 @@ class TestMonitor(unittest.TestCase):
 
         """Test on_message_handler of Monitor class """
 
+        self.monitor.set_tensorboard(True)
         self.monitor.on_message_handler({
             'researcher_id': '123123',
             'node_id': 'asd123',
