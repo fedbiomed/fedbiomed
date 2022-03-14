@@ -91,21 +91,24 @@ function start_gui() {
           rm -Rf "$basedir/var/gui-build";
         fi
 
+        [ -e $basedir/var ] || mkdir $basedir/var # may not exist after cleaning
         mv "$basedir/gui/ui/build/" "$basedir/var/gui-build"
     fi
 
-    cd ../server
-    # Starting flask
-    echo -e "${YLW}INFO:${NC} Starting Flask Server and API services...."
-    FEDBIOMED_ROOT="$basedir" \
-      NODE_CONFIG_FILE="$CONFIG_FILE" \
-      BUILD_DIR="$basedir/var/gui-build" \
-      DATA_PATH="$DATA_PATH" \
-      HOST="$GUI_HOST" \
-      PORT="$GUI_PORT" \
-      DEBUG="$GUI_DEBUG" \
-      FLASK_ENV="development" \
-      python app.py
+    if [ -z "$INSTALL_ONLY" ] ; then
+        cd ../server
+        # Starting flask
+        echo -e "${YLW}INFO:${NC} Starting Flask Server and API services...."
+        FEDBIOMED_ROOT="$basedir" \
+          NODE_CONFIG_FILE="$CONFIG_FILE" \
+          BUILD_DIR="$basedir/var/gui-build" \
+          DATA_PATH="$DATA_PATH" \
+          HOST="$GUI_HOST" \
+          PORT="$GUI_PORT" \
+          DEBUG="$GUI_DEBUG" \
+          FLASK_ENV="development" \
+          python app.py
+    fi
 }
 
 case $1 in
@@ -159,6 +162,10 @@ case $1 in
                   ;;
               recreate | --recreate | -rc )
                   RECREATE=True
+                  shift
+                  ;;
+              install-only | --install-only | -io )
+                  INSTALL_ONLY=True
                   shift
                   ;;
               debug|--debug|-dbg)

@@ -30,7 +30,7 @@ ENV PATH=${PATH}:/miniconda/bin
 
 COPY ./envs/vpn/docker/gui/build_files/entrypoint.sh /
 # Setup subset of fedbiomed code tree
-RUN mkdir -p /fedbiomed/{envs,var}
+RUN mkdir -p /fedbiomed/{envs,var} /data
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
 COPY envs/vpn /fedbiomed/envs/vpn
 COPY fedbiomed /fedbiomed/fedbiomed
@@ -49,6 +49,9 @@ USER $CONTAINER_USER:$CONTAINER_GROUP
 # Configure conda env in context of alternate account
 RUN conda env update --file ./envs/vpn/conda/fedbiomed-gui.yaml
 # another option : add tag to configure script to call "./scripts/configure_conda fedbiomed-node"
+ 
+# `data-folder` and `config` are not used when doing `install-only`
+RUN ./scripts/fedbiomed_run gui data-folder /data config DUMMY install-only start
 
 # Launch GUI as user
 ENTRYPOINT ["/entrypoint.sh"]
