@@ -3,6 +3,7 @@ A Base class that includes common methods that are used for
 all training plans
 """
 
+from collections import OrderedDict
 from typing import List, Callable
 
 from fedbiomed.common.constants import ErrorNumbers
@@ -26,7 +27,7 @@ class BaseTrainingPlan(object):
         super(BaseTrainingPlan, self).__init__()
         self.dependencies = []
         self.dataset_path = None
-        self.pre_processes = {}
+        self.pre_processes = OrderedDict()
 
     def add_dependency(self, dep: List[str]):
         """
