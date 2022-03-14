@@ -65,6 +65,7 @@ class ProcessTypes(_BaseEnum):
     DATA_LOADER = 0
     PARAMS = 1
 
+
 class ErrorNumbers(_BaseEnum):
     """
     list of all error messages types

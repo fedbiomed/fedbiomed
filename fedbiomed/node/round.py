@@ -6,7 +6,7 @@ import os
 import sys
 import time
 import inspect
-from typing import Union, Callable
+from typing import Union
 import uuid
 
 from fedbiomed.common.logger import logger
@@ -325,6 +325,3 @@ class Round:
 
         # If testing is inactive following method can be called to load all samples as train
         # self.train_data = sp.da_data_manager.load_all_samples()
-
-
-

@@ -32,7 +32,7 @@ Nodes Global Variables:
     MESSAGES_QUEUE_DIR      : Path for queues
     DB_PATH                 : TinyDB database path where datasets are saved
     MODEL_DB_PATH           : Database where registered model are saved
-    
+
 Common Global Variables:
     COMPONENT_TYPE          : Node or Researcher
     CONFIG_DIR              : Configuration file path

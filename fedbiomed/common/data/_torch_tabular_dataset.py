@@ -1,8 +1,15 @@
+"""
+Torch tabulated data manager
+"""
+
+from typing import Union
+
 import numpy as np
 import pandas as pd
-from typing import Union
+
 from torch import from_numpy
 from torch.utils.data import Dataset
+
 from fedbiomed.common.exceptions import FedbiomedTorchTabularDatasetError
 from fedbiomed.common.constants import ErrorNumbers
 

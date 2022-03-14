@@ -150,9 +150,9 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 'intercept_': np.array([0.]) if (model_args['n_classes'] == 2) else np.array(
                     [0.] * model_args['n_classes']),
                 'coef_': np.array([0.] * model_args['n_features']).reshape(1, model_args['n_features']) if (
-                        model_args['n_classes'] == 2) else np.array(
-                    [0.] * model_args['n_classes'] * model_args['n_features']).reshape(model_args['n_classes'],
-                                                                                       model_args['n_features'])
+                    model_args['n_classes'] == 2) else np.array(
+                        [0.] * model_args['n_classes'] * model_args['n_features']).reshape(model_args['n_classes'],
+                                                                                           model_args['n_features'])
             }
 
         for p in self.param_list:

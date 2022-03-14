@@ -2,8 +2,8 @@
 TrainingPlan definition for torchnn ML framework
 '''
 
-import inspect
-from typing import Union, List, Callable
+
+from typing import Union, Callable
 from copy import deepcopy
 
 import torch

@@ -90,7 +90,7 @@ class BaseTrainingPlan(object):
             logger.debug("Model file has been saved: " + filepath)
         except PermissionError:
             _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges" + \
-                   ", can't write the model content into it"
+                ", can't write the model content into it"
             logger.error(_msg)
             raise FedbiomedTrainingPlanError(_msg)
         except MemoryError:
@@ -132,4 +132,3 @@ class BaseTrainingPlan(object):
             'method': method,
             'process_type': process_type
         }
-

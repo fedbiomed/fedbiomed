@@ -1,8 +1,15 @@
+"""
+Data Management classes
+"""
+
+
+from typing import Union
+
 import numpy as np
 import pandas as pd
 
-from typing import Union, Tuple, Callable
 from torch.utils.data import Dataset
+
 from fedbiomed.common.exceptions import FedbiomedDataManagerError
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 

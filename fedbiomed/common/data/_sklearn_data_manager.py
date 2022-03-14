@@ -1,9 +1,16 @@
+"""
+Sklearn data manager
+"""
+
+
+from typing import Union, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import Union, Tuple
 
 from numpy import ndarray
 from pandas import DataFrame, Series
+
 from sklearn.model_selection import train_test_split
 from fedbiomed.common.exceptions import FedbiomedSkLearnDataManagerError
 from fedbiomed.common.constants import ErrorNumbers
