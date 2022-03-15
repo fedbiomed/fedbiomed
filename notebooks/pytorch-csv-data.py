@@ -31,8 +31,8 @@
 import torch
 import torch.nn as nn
 from fedbiomed.common.training_plans import TorchTrainingPlan
-
-from torch.utils.data import Dataset, DataLoader
+from fedbiomed.common.data import DataManager
+from torch.utils.data import Dataset
 import pandas as pd
 
 # Here we define the model to be used.
@@ -45,11 +45,11 @@ class MyTrainingPlan(TorchTrainingPlan):
         self.out_features = model_args['out_features']
         self.fc1 = nn.Linear(self.in_features, 5)
         self.fc2 = nn.Linear(5, self.out_features)
-
+        
         # Here we define the custom dependencies that will be needed by our custom Dataloader
         # In this case, we need the torch Dataset and DataLoader classes
         # We need pandas to read the local .csv file at the node side
-        deps = ["from torch.utils.data import Dataset, DataLoader",
+        deps = ["from torch.utils.data import Dataset",
                 "import pandas as pd"]
         self.add_dependency(deps)
 
@@ -65,29 +65,17 @@ class MyTrainingPlan(TorchTrainingPlan):
         loss   = criterion(output, target.unsqueeze(1))
         return loss
 
-    class csv_Dataset(Dataset):
-    # Here we define a custom Dataset class inherited from the general torch Dataset class
-    # This class takes as argument a .csv file path and creates a torch Dataset
-        def __init__(self, dataset_path, x_dim):
-            self.input_file = pd.read_csv(dataset_path,sep=';',index_col=False)
-            x_train = self.input_file.iloc[:,:x_dim].values
-            y_train = self.input_file.iloc[:,-1].values
-            self.X_train = torch.from_numpy(x_train).float()
-            self.Y_train = torch.from_numpy(y_train).float()
-
-        def __len__(self):
-            return len(self.Y_train)
-
-        def __getitem__(self, idx):
-
-            return (self.X_train[idx], self.Y_train[idx])
-
     def training_data(self,  batch_size = 48):
-    # The training_data creates the Dataloader to be used for training in the general class TorchTrainingPlan of fedbiomed
-        dataset = self.csv_Dataset(self.dataset_path, self.in_features)
+        
+        df = pd.read_csv(self.dataset_path, sep=';', index_col=False)
+        x_dim = self.in_features
+        x_train = df.iloc[:,:x_dim].values
+        y_train = df.iloc[:,-1].values
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
-        data_loader = DataLoader(dataset, **train_kwargs)
-        return data_loader
+        
+        data_manager = DataManager(dataset=x_train , target=y_train, **train_kwargs)
+        
+        return data_manager
 
 
 # model parameters

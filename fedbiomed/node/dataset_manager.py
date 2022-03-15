@@ -31,7 +31,7 @@ class DatasetManager:
         self.db = TinyDB(environ['DB_PATH'])
         self.database = Query()
 
-    def search_by_id(self, dataset_id: str) -> List[dict]:
+    def get_by_id(self, dataset_id: str) -> List[dict]:
         """
         This method searches for data with given dataset_id
 
@@ -44,7 +44,9 @@ class DatasetManager:
             stored in Tiny database.
         """
         self.db.clear_cache()
-        return self.db.search(self.database.dataset_id.all(dataset_id))
+        result = self.db.get(self.database.dataset_id == dataset_id)
+
+        return result
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """

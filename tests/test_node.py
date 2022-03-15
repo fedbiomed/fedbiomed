@@ -47,13 +47,12 @@ class TestNode(unittest.TestCase):
              'name': 'test_dataset2'}
         ]
 
-        self.database_id = [
-            {
-                'database_id': '1234',
-                'path': '/path/to/my/dataset',
-                'name': 'test_dataset1'
-            }
-        ]
+        self.database_id = {
+                            'database_id': '1234',
+                            'path': '/path/to/my/dataset',
+                            'name': 'test_dataset1'
+                            }
+
 
         # patchers
         self.task_queue_patch = patch('fedbiomed.common.messaging.Messaging.__init__',
@@ -71,7 +70,7 @@ class TestNode(unittest.TestCase):
         mock_dataset_manager.list_my_data = MagicMock(return_value=self.database_list)
         mock_model_manager = MagicMock()
         mock_dataset_manager.reply_model_status_request = MagicMock(return_value=None)
-        mock_dataset_manager.search_by_id = MagicMock(return_value=self.database_id)
+        mock_dataset_manager.get_by_id = MagicMock(return_value=self.database_id)
 
         self.model_manager_mock = mock_model_manager
 
@@ -434,7 +433,7 @@ class TestNode(unittest.TestCase):
 
         round_patch.assert_called_with(dict_msg_2_datasets['model_args'],
                                        dict_msg_2_datasets['training_args'],
-                                       self.database_id[0],
+                                       self.database_id,
                                        dict_msg_2_datasets['model_url'],
                                        dict_msg_2_datasets['model_class'],
                                        dict_msg_2_datasets['params_url'],
@@ -539,7 +538,7 @@ class TestNode(unittest.TestCase):
         # checks
         round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
                                             dict_msg_1_dataset['training_args'],
-                                            self.database_id[0],
+                                            self.database_id,
                                             dict_msg_1_dataset['model_url'],
                                             dict_msg_1_dataset['model_class'],
                                             dict_msg_1_dataset['params_url'],
@@ -585,7 +584,7 @@ class TestNode(unittest.TestCase):
         # checks
         round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
                                             dict_msg_1_dataset['training_args'],
-                                            self.database_id[0],
+                                            self.database_id,
                                             dict_msg_1_dataset['model_url'],
                                             dict_msg_1_dataset['model_class'],
                                             dict_msg_1_dataset['params_url'],
