@@ -2,10 +2,10 @@
 TrainingPlan definition for torchnn ML framework
 '''
 
-
 from typing import Union, Callable
 from copy import deepcopy
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -15,6 +15,8 @@ from fedbiomed.common.utils import get_method_spec
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import MetricTypes
+from fedbiomed.common.metrics import Metrics
 from ._base_training_plan import BaseTrainingPlan
 
 
@@ -89,6 +91,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         # DataLoader that will be used for Training Routine
         self.__training_data_loader: torch.utils.data.DataLoader = None
+        self.__testing_data_loader: torch.utils.data.DataLoader = None
 
     def type(self):
         """ Getter for training plan type """
@@ -283,6 +286,34 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # - and some gpu memory remains used until process (cuda kernel ?) finishes
         self.to(self.device_init)
         torch.cuda.empty_cache()
+
+    def testing_routine(self,
+                        data_loader: DataLoader,
+                        metric: MetricTypes):
+
+        self.__testing_data_loader = data_loader
+
+        # Build metrics object
+        metric_controller = Metrics()
+        result = []
+        # Complete prediction over batches
+        with torch.no_grad():
+            # There will be only one loop
+            for idx, (data, target) in enumerate(self.__testing_data_loader):
+                # Pass data through network layers
+                try:
+                    pred = self(data)
+                except Exception as e:
+                    raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - ")
+
+                # Convert prediction and actual values to numpy array
+                actual = target.detach().numpy()
+                predicted = pred.detach().numpy()
+                m = metric_controller.evaluate(actual, predicted, metric=metric)
+                result.append(m)
+                print(result)
+
+        del metric_controller
 
     # provided by fedbiomed
     def save(self, filename, params: dict = None) -> None:

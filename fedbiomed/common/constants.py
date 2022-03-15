@@ -65,20 +65,29 @@ class ProcessTypes(_BaseEnum):
     DATA_LOADER = 0
     PARAMS = 1
 
+
+class MetricForms(_BaseEnum):
+
+    CLASSIFICATION_LABELS = 0
+    CLASSIFICATION_SCORES = 1
+    REGRESSION = 2
+
+
 class MetricTypes(_BaseEnum):
     """
     List of Performance metrics used to evaluate the model.
     """
-    ACCURACY = 'ACCURACY'
-    F1_SCORE = 'F1_SCORE'
-    PRECISION = 'PRECISION'
-    AVG_PRECISION = 'AVG_PRECISION'
-    RECALL = 'RECALL'
-    ROC_AUC = 'ROC_AUC'
 
-    MEAN_SQUARE_ERROR = 'MEAN_SQUARE_ERROR'
-    MEAN_ABSOLUTE_ERROR ='MEAN_ABSOLUTE_ERROR'
-    EXPLAINED_VARIANCE ='EXPLAINED_VARIANCE'
+    ACCURACY = MetricForms.CLASSIFICATION_LABELS
+    F1_SCORE = MetricForms.CLASSIFICATION_LABELS
+    PRECISION = MetricForms.CLASSIFICATION_LABELS
+    AVG_PRECISION = MetricForms.CLASSIFICATION_SCORES
+    RECALL = MetricForms.CLASSIFICATION_LABELS
+    ROC_AUC = MetricForms.CLASSIFICATION_SCORES
+    MEAN_SQUARE_ERROR = MetricForms.REGRESSION
+    MEAN_ABSOLUTE_ERROR = MetricForms.REGRESSION
+    EXPLAINED_VARIANCE = MetricForms.REGRESSION
+
 
 class ErrorNumbers(_BaseEnum):
     """
@@ -154,10 +163,7 @@ class ErrorNumbers(_BaseEnum):
     FB608 = "FB608: torch data manager error"
     FB609 = "FB608: scikit-learn data manager error"
     FB610 = "FB609: Torch based tabular dataset creation error"
-
-    # Metrics error
-
-    FB607 = "FB607: Error while trying to evaluate using the specified metric."
+    FB611 = "FB611: Error while trying to evaluate using the specified metric."
 
     # oops
     FB999 = "FB999: unknown error code sent by the node"

@@ -2,60 +2,97 @@ from sklearn import metrics
 import torch
 import numpy as np
 
-from fedbiomed.common.constants import MetricTypes,ErrorNumbers
-from fedbiomed.common.logger     import logger
+from fedbiomed.common.constants import MetricTypes, MetricForms, ErrorNumbers
+from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedMetricError
 
-class Metrics():
-    """
-    Performance metrics used in training/testing evaluation.
-    This class return sklearn metrics after performing sanity check on predictions and true values inputs.
-    All inputs of type tensor torch are transformed to numpy array.
 
-    Parameters:
-    ----------
-    y_true: array-like or torch.Tensor
-            Ground Truth (correct) target values or labels.
-    y_pred: array-like or torch.Tensor
-            Estimated target values or Predicted labels.
-    y_score: array_like or torch.Tensor, default: None
-            Target scores.
+class Metrics(object):
 
-    Attributes:
-    ----------
-        Y_true: array-like
-            Ground Truth (correct) target values or labels.
-        Y_pred: array-like
-            Estimated target values or Predicted labels.
-        Y_score: array-like
-            Target scores.
-
-        metric: dict { MetricTypes : skleran.metrics }
-            Dictionary of keys value in  MetricTypes values: { ACCURACY, F1_SCORE, PRECISION, AVG_PRECISION, RECALL, ROC_AUC, MEAN_SQUARE_ERROR, MEAN_ABSOLUTE_ERROR, EXPLAINED_VARIANCE}
-
-    """
     def __init__(self,
-                 y_true,
-                 y_pred,
-                 y_score=None):
+                 y_true: np.ndarray = None,
+                 y_pred: np.ndarray = None):
 
-        self.Y_true = self._check_array(y_true)
-        self.Y_pred = self._check_array(y_pred)
-        self.Y_score = self._check_array(y_score)
+        """
+        Performance metrics used in training/testing evaluation.
+        This class return sklearn metrics after performing sanity check on predictions and true values inputs.
+        All inputs of type tensor torch are transformed to numpy array.
+
+        Parameters:
+        ----------
+        y_true: array-like or torch.Tensor
+                Ground Truth (correct) target values or labels.
+        y_pred: array-like or torch.Tensor
+                Estimated target values or Predicted labels.
+        y_score: array_like or torch.Tensor, default: None
+                Target scores.
+
+        Attributes:
+        ----------
+            Y_true: array-like
+                Ground Truth (correct) target values or labels.
+            Y_pred: array-like
+                Estimated target values or Predicted labels.
+            Y_score: array-like
+                Target scores.
+
+            metric: dict { MetricTypes : skleran.metrics }
+                Dictionary of keys value in  MetricTypes values: { ACCURACY, F1_SCORE, PRECISION, AVG_PRECISION, RECALL, ROC_AUC, MEAN_SQUARE_ERROR, MEAN_ABSOLUTE_ERROR, EXPLAINED_VARIANCE}
+
+        """
+
+        # At the beginning y_true and y_pred can be none and can be set by the setters
+        self.Y_true = None
+        self.Y_pred = None
 
         self.metrics = {
-                MetricTypes.ACCURACY.value : self.accuracy,
-                MetricTypes.PRECISION.value: self.precision,
-                MetricTypes.AVG_PRECISION.value: self.avg_precision,
-                MetricTypes.RECALL.value: self.recall,
-                MetricTypes.ROC_AUC.value: self.roc_auc,
-                MetricTypes.F1_SCORE.value: self.f1_score,
-                MetricTypes.MEAN_SQUARE_ERROR.value: self.mse,
-                MetricTypes.MEAN_ABSOLUTE_ERROR.value: self.mae,
-                MetricTypes.EXPLAINED_VARIANCE.value: self.explained_variance,
+            MetricTypes.ACCURACY.name: self.accuracy,
+            MetricTypes.PRECISION.name: self.precision,
+            MetricTypes.AVG_PRECISION.name: self.avg_precision,
+            MetricTypes.RECALL.name: self.recall,
+            MetricTypes.ROC_AUC.name: self.roc_auc,
+            MetricTypes.F1_SCORE.name: self.f1_score,
+            MetricTypes.MEAN_SQUARE_ERROR.name: self.mse,
+            MetricTypes.MEAN_ABSOLUTE_ERROR.name: self.mae,
+            MetricTypes.EXPLAINED_VARIANCE.name: self.explained_variance,
         }
 
-    def accuracy(self,**kwargs):
+    def set_y_true(self, y_true: np.ndarray):
+        """
+        Setter for true values (y_true)
+
+        Args:
+            y_true:
+
+        Raises:
+            - FedbiomedMetricError
+        """
+
+        if not isinstance(y_true, np.ndarray):
+            raise FedbiomedMetricError()
+
+        self.Y_true = y_true
+
+    def set_y_pred(self, y_pred: np.ndarray):
+        """
+        Setter for predicted values (y_pred)
+
+        Args:
+            y_true:
+
+        Raises:
+            - FedbiomedMetricError
+        """
+
+        if not isinstance(y_pred, np.ndarray):
+            raise FedbiomedMetricError()
+
+        self.Y_true = y_pred
+
+    @staticmethod
+    def accuracy(y_true: np.ndarray,
+                 y_pred: np.ndarray,
+                 **kwargs):
         """
         Evaluate the accuracy score
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html#sklearn.metrics.accuracy_score]
@@ -68,15 +105,18 @@ class Metrics():
             - sklearn.metrics.accuracy_score(Y_true, Y_pred, normalize = True,sample_weight = None)
             score (float)
         """
-        try:
-            return metrics.accuracy_score(self.Y_true, self.Y_pred, **kwargs)
-        except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
-            logger.critical(msg)
-            raise FedbiomedMetricError(msg)
-        return
 
-    def precision(self,**kwargs):
+        try:
+            return metrics.accuracy_score(y_true, y_pred, **kwargs)
+        except Exception as e:
+            print(e)
+            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            raise FedbiomedMetricError(msg)
+
+    @staticmethod
+    def precision(y_true: np.ndarray,
+                  y_pred: np.ndarray,
+                  **kwargs):
         """
         Evaluate the precision score
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html]
@@ -96,14 +136,16 @@ class Metrics():
             precision (float, or array of float of shape (n_unique_labels,))
         """
         try:
-            return metrics.precision_score(self.Y_true, self.Y_pred, **kwargs)
+            return metrics.precision_score(y_true, y_pred, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
-            logger.critical(msg)
             raise FedbiomedMetricError(msg)
         return
 
-    def avg_precision(self,**kwargs):
+    @staticmethod
+    def avg_precision(y_true: np.ndarray,
+                      y_score: np.ndarray,
+                      **kwargs):
         """
         Evaluate the average precision score from prediction scores (Y_score).
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html#sklearn.metrics.average_precision_score]
@@ -118,20 +160,16 @@ class Metrics():
             - sklearn.metrics.average_precision_score(Y_true, Y_score, normalize = True, sample_weight = None)
             average precision (float)
         """
-        if self.Y_score is None:
-            msg = ErrorNumbers.FB607.value + " For the computation of average precision score you should provide the target scores y_score "
-            logger.critical(msg)
-            raise FedbiomedMetricError(msg)
-            return
         try:
-            return metrics.average_precision_score(self.Y_true, self.Y_score, **kwargs)
+            return metrics.average_precision_score(y_true, y_score, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
-            logger.critical(msg)
             raise FedbiomedMetricError(msg)
-        return
 
-    def recall(self, **kwargs):
+    @staticmethod
+    def recall(y_true: np.ndarray,
+               y_pred: np.ndarray,
+               **kwargs):
         """
         Evaluate the recall.
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html#sklearn.metrics.recall_score]
@@ -151,14 +189,15 @@ class Metrics():
             recall (float (if average is not None) or array of float of shape (n_unique_labels,))
         """
         try:
-            return metrics.recall_score(self.Y_true, self.Y_pred, **kwargs)
+            return metrics.recall_score(y_true, y_pred, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
-            logger.critical(msg)
             raise FedbiomedMetricError(msg)
-        return
 
-    def roc_auc(self, **kwargs):
+    @staticmethod
+    def roc_auc(y_true: np.ndarray,
+                y_score: np.ndarray,
+                **kwargs):
         """
         Evaluate the Area Under the Receiver Operating Characteristic Curve (ROC AUC) from prediction scores.
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html#sklearn.metrics.roc_auc_score]
@@ -177,20 +216,17 @@ class Metrics():
             - sklearn.metrics.roc_auc_score(y_true, y_score, *, average='macro', sample_weight=None, max_fpr=None, multi_class='raise', labels=None)
             auc (float)
         """
-        if self.Y_score is None:
-            msg = ErrorNumbers.FB607.value + " For the computation of roc_auc you should provide the target scores y_score "
-            logger.critical(msg)
-            raise FedbiomedMetricError(msg)
-            return
+
         try:
-            return metrics.roc_auc_score(self.Y_true, self.Y_score, **kwargs)
+            return metrics.roc_auc_score(y_true, y_score, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
-            logger.critical(msg)
             raise FedbiomedMetricError(msg)
-        return
 
-    def f1_score(self, **kwargs):
+    @staticmethod
+    def f1_score(y_true: np.ndarray,
+                 y_pred: np.ndarray,
+                 **kwargs):
         """
         Evaluate the F1 score.
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html#sklearn.metrics.f1_score]
@@ -210,14 +246,15 @@ class Metrics():
             f1_score (float or array of float, shape = [n_unique_labels])
         """
         try:
-            return metrics.f1_score(self.Y_true, self.Y_pred, **kwargs)
+            return metrics.f1_score(y_true, y_pred, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
-            logger.critical(msg)
             raise FedbiomedMetricError(msg)
-        return
 
-    def mse(self, **kwargs):
+    @staticmethod
+    def mse(y_true: np.ndarray,
+            y_pred: np.ndarray,
+            **kwargs):
         """
         Evaluate the mean squared error.
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html#sklearn.metrics.mean_squared_error]
@@ -233,14 +270,15 @@ class Metrics():
             score (float or ndarray of floats)
         """
         try:
-            return metrics.mean_squared_error(self.Y_true, self.Y_pred, **kwargs)
+            return metrics.mean_squared_error(y_true, y_pred, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
-            logger.critical(msg)
             raise FedbiomedMetricError(msg)
-        return
 
-    def mae(self, **kwargs):
+    @staticmethod
+    def mae(y_true: np.ndarray,
+            y_pred: np.ndarray,
+            **kwargs):
         """
         Evaluate the mean absolute error.
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html#sklearn.metrics.mean_absolute_error]
@@ -254,14 +292,15 @@ class Metrics():
             score (float or ndarray of floats)
         """
         try:
-            return metrics.mean_absolute_error(self.Y_true, self.Y_pred, **kwargs)
+            return metrics.mean_absolute_error(y_true, y_pred, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
-            logger.critical(msg)
             raise FedbiomedMetricError(msg)
-        return
 
-    def explained_variance(self, **kwargs):
+    @staticmethod
+    def explained_variance(y_true: np.ndarray,
+                           y_pred: np.ndarray,
+                           **kwargs):
         """
         Evaluate the accuracy score.
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.explained_variance_score.html#sklearn.metrics.explained_variance_score]
@@ -275,15 +314,16 @@ class Metrics():
             score (float or ndarray of floats)
         """
         try:
-            return metrics.explained_variance_score(self.Y_true, self.Y_pred, **kwargs)
-
+            return metrics.explained_variance_score(y_true, y_pred, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
-            logger.critical(msg)
             raise FedbiomedMetricError(msg)
-        return
 
-    def evaluate(self, metric=None, **kwargs):
+    def evaluate(self,
+                 y_true: np.ndarray,
+                 y_pred: np.ndarray,
+                 metric: MetricTypes,
+                 **kwargs):
         """
         evaluate performance.
         Args:
@@ -293,76 +333,93 @@ class Metrics():
         Returns:
             - score, auc, ... (float or array of floats) depending on the metric used.
         """
-        if metric is not None and type(metric)==MetricTypes and metric in MetricTypes:
-            result = self.metrics[metric.value](**kwargs)
-        elif type(metric) == str and metric in MetricTypes.list():
-            result = self.metrics[metric](**kwargs)
-        else:
-            result = self._get_default_metric()
+        if not isinstance(metric, MetricTypes):
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Metric should instance of `MetricTypes`")
+
+        if y_true is not None and not isinstance(y_true, np.ndarray):
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_true` should an instance "
+                                       f"of `np.ndarray`, but got {type(y_true)} ")
+
+        if y_pred is not None and not isinstance(y_pred, np.ndarray):
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_pred` should an instance "
+                                       f"of `np.ndarray`, but got {type(y_true)} ")
+
+        # if set(y_true.shape) != set(y_pred.shape):
+        #     raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Shape of true `y_true` and predicted `y_pred` "
+        #                                f"does not match; {y_true.shape}, {y_pred.shape}")
+
+        y_pred = self._configure_y_pred_based_on_metric_form(y_pred=y_pred, metric=metric)
+        print(y_pred)
+        print(y_true)
+        print(metric.name)
+        result = self.metrics[metric.name](y_true, y_pred, **kwargs)
+
         return result
 
-    def _convert_to_array(self,X):
+    @staticmethod
+    def _configure_y_pred_based_on_metric_form(y_pred: np.ndarray,
+                                               metric: MetricTypes):
         """
-        Convert torch tensor to numpy array
 
-        Args:
-            X: torch tensor
-        Returns:
-            numpy array
         """
-        return X.numpy()
+        # Get shape of the prediction should be 1D or 2D array
+        shape = y_pred.shape
 
-    def _check_array(self, array):
-        """
-        Check if the input is of type torch tensor and transform it to numpy array.
+        # Shape of the prediction array should be (samples, outputs) or (samples, )
+        if len(shape) > 2:
+            raise FedbiomedMetricError()
 
-        Args:
-            array: array-like or torch tensor
-        Returns:
-            array: array-like
-        """
-        if array is not None:
-            dtype_orig = getattr(array, "dtype", None)
-            if isinstance(dtype_orig, torch.dtype):
-                array = self._convert_to_array(array)
-        return array
+        output_shape = shape[1] if len(shape) == 2 else 0  # 0 for 1D array
 
-    def _get_default_metric(self):
-        """
-        If metric name is not specified, return default metrics: accuracy_score in case of classification and mean_absolute_error in case of regression.
+        if metric.value is MetricForms.CLASSIFICATION_LABELS:
+            pred_labels = []
+            if output_shape == 0:
+                # TODO: Get threshold value from researcher
+                y_pred = np.where(y_pred > 0.5, 1, 0)
+            else:
+                y_pred = np.argmax(y_pred, axis=1)
 
-        Returns:
-            metric: sklearn.metrics.accuracy_score or metrics.mean_squared_error
-        """
-        if np.array(self.Y_true).dtype == 'float':
-            return metrics.accuracy_score(self.Y_true,self.Y_pred)
-        else:
-            return metrics.mean_squared_error(self.Y_true,self.Y_pred)
+        elif metric.value is MetricForms.REGRESSION:
+            if output_shape > 0:
+                raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: For the metric `{metric.name}` multiple "
+                                           f"output regression is not supported")
 
-# def evaluate_metric(y_true,y_pred,metric_name=None,*args,**kwargs):
-#     """
-#     [TO DO] This funcion will be moved to the test/evaluation logic.
-#
-#     Create an instance of Metrics and evaluate the performance based on the metric name and arguments passed as input.
-#
-#     Parameters:
-#     ----------
-#     y_true: array-like or torch.Tensor
-#             Ground Truth (correct) target values or labels
-#     y_pred: array-like or torch.Tensor
-#             Estimated target values or Predicted labels.
-#     metric_name: str, default: None
-#             The performance metric used for evaluation. If None mean_absolute_error is used for regression and accuracy_score for classification.
-#     Returns:
-#     -------
-#     Performance: The output of sklearn.metrics used for evaluation.
-#     """
-#     evaluation = Metrics(y_true,y_pred)
-#
-#     acc = evaluation.evaluate(MetricTypes.ACCURACY)
-#     f1 = evaluation.evaluate(MetricTypes.F1)
+        return y_pred
 
-
-
-
-
+    # def _convert_to_array(self, X):
+    #     """
+    #     Convert torch tensor to numpy array
+    #
+    #     Args:
+    #         X: torch tensor
+    #     Returns:
+    #         numpy array
+    #     """
+    #     return X.numpy()
+    #
+    # def _check_array(self, array):
+    #     """
+    #     Check if the input is of type torch tensor and transform it to numpy array.
+    #
+    #     Args:
+    #         array: array-like or torch tensor
+    #     Returns:
+    #         array: array-like
+    #     """
+    #     if array is not None:
+    #         dtype_orig = getattr(array, "dtype", None)
+    #         if isinstance(dtype_orig, torch.dtype):
+    #             array = self._convert_to_array(array)
+    #     return array
+    #
+    # def _get_default_metric(self):
+    #     """
+    #     If metric name is not specified, return default metrics: accuracy_score in case of classification and mean_absolute_error in case of regression.
+    #
+    #     Returns:
+    #         metric: sklearn.metrics.accuracy_score or metrics.mean_squared_error
+    #     """
+    #     if np.array(self.Y_true).dtype == 'float':
+    #         return metrics.accuracy_score(self.Y_true, self.Y_pred)
+    #     else:
+    #         return metrics.mean_squared_error(self.Y_true, self.Y_pred)

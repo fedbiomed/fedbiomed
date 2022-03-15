@@ -12,7 +12,7 @@ import uuid
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, TrainReply
 from fedbiomed.common.repository import Repository
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, MetricTypes
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -172,7 +172,7 @@ class Round:
         # Split training and testing data
         if not is_failed:
             try:
-                self._set_train_and_test_data()
+                self._set_train_and_test_data(test_ratio=0.2)
             except FedbiomedError as e:
                 is_failed = True
                 # Just return error message as it is since it is already raise by Fed-BioMed
@@ -183,6 +183,10 @@ class Round:
                                                 node_args=self.node_args,
                                                 **self.training_kwargs)
             logger.info(f'training with arguments {training_kwargs_with_history}')
+
+        if not is_failed:
+            self.model.testing_routine(data_loader=self.testing_data_loader,
+                                       metric=MetricTypes.ACCURACY)
 
         if not is_failed:
             try:
