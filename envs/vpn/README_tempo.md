@@ -207,7 +207,7 @@ On the build machine
 [user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode-nogpu
 [user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
 ```
-* save images for container
+* save image for container
 ```bash
 [user@build $] docker image save fedbiomed/vpn-node | gzip >/tmp/vpn-node-image.tar.gz
 ```
@@ -220,7 +220,7 @@ On the build machine
 
 On the node machine
 
-* load images for container
+* load image for container
 ```bash
 [user@node $] docker image load </tmp/vpn-node-image.tar.gz
 ```
@@ -310,12 +310,64 @@ Run this for all launches of the container :
 
 ### initializing node gui (optional)
 
+The node gui is associated with a node, it usually runs on a machine where the node is also installed.
+
+#### specific instructions: building gui image in classical case
+
+This paragraph contains specific instructions for the classical case where
+you build the gui image on the same machine and in the same code tree where
+you run it.
+
 Run this only at first launch of container or after cleaning :
 
 * build container
 ```bash
 [user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build gui
 ```
+
+#### specific instructions: building gui image on a different machine
+
+This paragraph contains specific instructions when building gui image
+on a different machine than the machine where the node and gui run.
+
+If you do not want to clone the repo and build the gui image on a machine, you can
+instantiate a gui from an image built on another machine.
+
+* in this paragraph we distinguish commands typed on the build machine (eg `[user@build $]`) from the commands typed on the machine running the node (eg `[user@node $]`)
+
+
+Run this only at first launch of container or after cleaning
+
+On the build machine
+
+* for building use the `CONTAINER_UID` and `CONTAINER_GID` that will be used on the node machine for running the gui (they may differ from the ids on the build machine)
+* build container
+```bash
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build gui
+```
+* save image for container
+```bash
+[user@build $] docker image save fedbiomed/vpn-gui | gzip >/tmp/vpn-gui-image.tar.gz
+```
+* we assume files needed for running container were already installed (see node documentation)
+
+On the node and gui machine
+
+* load image for container
+```bash
+[user@node $] docker image load </tmp/vpn-gui-image.tar.gz
+```
+* change to directory you want to use as base directory for running this container
+* we assume files and data needed for running container were already installed (see node documentation)
+
+Then follow the common instructions for gui (below).
+
+
+
+#### common instructions: in all cases
+
+Always follow this paragraph for initializing a gui, whether you build it on the same machine 
+or another machine.
 
 Run this for all launches of the container :
 
@@ -329,7 +381,7 @@ Use the node gui from outside the gui container :
 * to enable connection to the GUI from any IP address
   - specify the bind IP address at container launch time (eg: your node public IP address `NODE_IP`, or `0.0.0.0` to listen on all node addresses)
 ```bash
-[user@researcher $] GUI_HOST=0.0.0.0 docker-compose up -d gui
+[user@node $] GUI_HOST=0.0.0.0 docker-compose up -d gui
 ```
   - connect to `http://${NODE_IP}:8484`
   - **warning** allowing connections from non-`localhost` exposes the gui to attacks from the network. Only use with proper third party security measures (web proxy, firewall, etc.) Currently, the provided gui container does not include a user authentication mechanism or encrypted communications for the user.
