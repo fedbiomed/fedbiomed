@@ -23,6 +23,7 @@ services:
     volumes:
       - ./node/run_mounts/config:/config # contains VPN configurations
       - ./node/run_mounts/data:/data # datasets can be added here
+      - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
   # not using gpu
   node:
     << : *standard-node
@@ -30,3 +31,15 @@ services:
   node-gpu:
     << : *standard-node
     runtime: nvidia
+  #
+  # node gui component
+  gui:
+    container_name: fedbiomed-vpn-gui
+    image: fedbiomed/vpn-gui
+    ports:
+      - "${GUI_HOST:-127.0.0.1}:8484:8484"
+    volumes:
+      # caution: /data and /etc directory must be shared with node
+      - ./node/run_mounts/data:/data # datasets can be added here
+      - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
+

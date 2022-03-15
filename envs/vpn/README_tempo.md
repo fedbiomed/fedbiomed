@@ -324,8 +324,16 @@ Run this for all launches of the container :
 [user@node $] docker-compose up -d gui
 ```
 
-* to use gui, from outside the node gui container connect to `http://localhost:8484` or `http://NODE_IP:8484`
-  * TODO : add protection for distant connection to node gui
+Use the node gui from outside the gui container :
+* connect to `http://localhost:8484` from your browser. By default, only connections from `localhost` are authorized
+* to enable connection to the GUI from any IP address
+  - specify the bind IP address at container launch time (eg: your node public IP address `NODE_IP`, or `0.0.0.0` to listen on all node addresses)
+```bash
+[user@researcher $] GUI_HOST=0.0.0.0 docker-compose up -d gui
+```
+  - connect to `http://${NODE_IP}:8484`
+  - **warning** allowing connections from non-`localhost` exposes the gui to attacks from the network. Only use with proper third party security measures (web proxy, firewall, etc.) Currently, the provided gui container does not include a user authentication mechanism or encrypted communications for the user.
+
 
 
 ### initializing researcher
@@ -385,8 +393,16 @@ Run this for all launches of the container :
 [user@researcher-container $] ./notebooks/101_getting-started.py
 ```
 
-* to use notebooks, from outside the researcher container connect to `http://localhost:8888` or `http://SERVER_IP:8888`
-  * TODO : add protection for distant connection to researcher
+Use notebooks from outside the researcher container :
+* connect to `http://localhost:8888` from your browser. By default, only connections from `localhost` are authorized
+* to enable connection to the researcher from any IP address
+  - specify the bind IP address at container launch time (eg: your server public IP address `SERVER_IP`, or `0.0.0.0` to listen on all server addresses)
+```bash
+[user@researcher $] RESEARCHER_HOST=${SERVER_IP} docker-compose up -d researcher
+```
+  - connect to `http://${SERVER_IP}:8888`
+  - **warning** allowing connections from non-`localhost` exposes the researcher to attacks from the network. Only use with proper third party security measures (web proxy, firewall, etc.) Currently, the provided researcher container does not include a user authentication mechanism or encrypted communications for the user.
+
 
 ## GPU support in container {#gpu-docker}
 

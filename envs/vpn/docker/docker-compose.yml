@@ -133,7 +133,7 @@ services:
         - CONTAINER_GROUP
     image: fedbiomed/vpn-gui
     ports:
-      - "8484:8484"
+      - "${GUI_HOST:-127.0.0.1}:8484:8484"
     volumes:
       # caution: /data and /etc directory must be shared with node
       - ./node/run_mounts/data:/data # datasets can be added here
@@ -154,7 +154,7 @@ services:
     env_file:
       - ./researcher/run_mounts/config/config.env
     ports:
-      - "8888:8888"
+      - "${RESEARCHER_HOST:-127.0.0.1}:8888:8888"
     cap_add:
       - net_admin
       - sys_module
