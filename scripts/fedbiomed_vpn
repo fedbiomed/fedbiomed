@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+#
+# wrapper to all vpn containers commands
+#
+#
+
+# detect how the file is run
+([[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
+ [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
+    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
+ [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)) && sourced=1 || sourced=0
+
+[[ "${sourced}" == "1" ]] && echo "This file MUST NOT be sourced" && return
+
+
+usage() {
+    #
+    # print usage
+    #
+    echo "\
+Usage: ${0##*/} [-b|--build] [-c|--clean] [-g|--generate-keys]
+       ${0##*/} [-s|--server]
+       ${0##*/} [-n|--node]
+
+Build/configure/run docker containers for VPN support
+( build / node / server flags are incompatibles )
+
+
+ -b|--build          build all containers
+
+     if -c|--clean           clean environments first
+     if -g|--generate_keys   generate new keys for components
+
+ -s|--server        start local server's dockers (already built)
+
+ -n|--node          start a local node's docker (already built_
+
+"
+}
+
+CLEAN=0
+BUILD=0
+GENERATE=0
+NODE=0
+SERVER=0
+
+# must provide at least an option
+if [ $# -eq 0 ]; then
+    echo "must provide an option"
+
+    usage
+    exit 1
+fi
+
+# arguments decoding
+while (($# > 0)); do
+    case $1 in
+
+        -b|--build)
+            BUILD=1
+            ;;
+
+        -c|--clean)
+            CLEAN=1
+            ;;
+
+        -g|--generate_keys)
+            GENERATE=1
+            ;;
+
+        -h|--help)
+            usage
+            exit 0
+            ;;
+
+        -n|--node)
+            NODE=1
+            ;;
+
+        -s|--server)
+            SERVER=1
+            ;;
+
+        *)
+            echo "unknown option: $1"
+
+            usage
+            exit 1
+            ;;
+
+    esac
+    shift
+done
+
+
+# check arguments coherence
+ERROR=0
+if [ $NODE -eq 1 ]; then
+    if [ $SERVER -eq 1 ]; then
+        echo "-n and -s flags are not compatible"
+        ERROR=1
+    fi
+    if [ $BUILD -eq 1 ]; then
+        echo "-n and -b flags are not compatible"
+        ERROR=1
+    fi
+    if [ $CLEAN -eq 1 ]; then
+        echo "-n and -c flags are not compatible"
+        ERROR=1
+    fi
+    if [ $GENERATE -eq 1 ]; then
+        echo "-n and -g flags are not compatible"
+        ERROR=1
+    fi
+fi
+if [ $SERVER -eq 1 ]; then
+    if [ $NODE -eq 1 ]; then
+        echo "-s and -n flags are not compatible"
+        ERROR=1
+    fi
+    if [ $BUILD -eq 1 ]; then
+        echo "-s and -b flags are not compatible"
+        ERROR=1
+    fi
+    if [ $CLEAN -eq 1 ]; then
+        echo "-s and -c flags are not compatible"
+        ERROR=1
+    fi
+    if [ $GENERATE -eq 1 ]; then
+        echo "-s and -g flags are not compatible"
+        ERROR=1
+    fi
+fi
+
+if [ $ERROR -eq 1 ]; then
+    usage
+    exit 1
+fi
+
+# start doing something usefull
+if [ $CLEAN -eq 1 ]; then
+    echo "CLEANING"
+fi
+
+if [ $BUILD -eq 1 ]; then
+    echo "BUILDING"
+fi
+
+if [ $GENERATE -eq 1 ]; then
+    echo "GENERATEING KEYS"
+fi
+
+if [ $NODE -eq 1 ]; then
+    echo "NODE"
+fi
+
+if [ $SERVER -eq 1 ]; then
+    echo "SERVER"
+fi
