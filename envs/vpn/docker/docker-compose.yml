@@ -100,6 +100,7 @@ services:
       - ./node/run_mounts/config:/config # contains VPN configurations
       - ./node/run_mounts/data:/data # datasets can be added here
       - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
+      - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
   # not using gpu
   node:
     << : *standard-node
@@ -135,9 +136,10 @@ services:
     ports:
       - "${GUI_HOST:-127.0.0.1}:8484:8484"
     volumes:
-      # caution: /data and /etc directory must be shared with node
+      # caution: /data /etc /var directory must be shared with node
       - ./node/run_mounts/data:/data # datasets can be added here
       - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
+      - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
   #
   # researcher component
   researcher:
@@ -163,6 +165,9 @@ services:
     volumes:
       - ./researcher/run_mounts/config:/config # contains VPN configurations
       - ./researcher/run_mounts/data:/data # results and persistent data can be saved here
+      - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
+      - ./node/run_mounts/runs:/fedbiomed/runs # contains fedbiomed tensorboard results
+      - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
   #
   # mqtt server component
   mqtt:

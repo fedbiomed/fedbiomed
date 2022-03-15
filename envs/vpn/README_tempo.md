@@ -363,7 +363,6 @@ On the node and gui machine
 Then follow the common instructions for gui (below).
 
 
-
 #### common instructions: in all cases
 
 Always follow this paragraph for initializing a gui, whether you build it on the same machine 
