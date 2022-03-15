@@ -157,7 +157,7 @@ class ErrorNumbers(_BaseEnum):
 
     # Metrics error
 
-    FB607 = "FB607: Error while trying to evaluate using the specified metric."
+    FB611 = "FB607: Error while trying to evaluate using the specified metric."
 
     # oops
     FB999 = "FB999: unknown error code sent by the node"

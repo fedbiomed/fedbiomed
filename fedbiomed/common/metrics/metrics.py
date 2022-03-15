@@ -73,7 +73,7 @@ class Metrics():
         try:
             return metrics.accuracy_score(self.y_true, self.y_pred, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
             raise FedbiomedMetricError(msg)
         return
@@ -121,14 +121,14 @@ class Metrics():
             average precision (float)
         """
         if self.y_score is None:
-            msg = ErrorNumbers.FB607.value + " For the computation of average precision score you should provide the target scores y_score "
+            msg = ErrorNumbers.FB611.value + " For the computation of average precision score you should provide the target scores y_score "
             logger.critical(msg)
             raise FedbiomedMetricError(msg)
             return
         try:
             return metrics.average_precision_score(self.y_true, self.y_score, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
             raise FedbiomedMetricError(msg)
         return
@@ -155,7 +155,7 @@ class Metrics():
         try:
             return metrics.recall_score(self.y_true, self.y_pred, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
             raise FedbiomedMetricError(msg)
         return
@@ -180,14 +180,14 @@ class Metrics():
             auc (float)
         """
         if self.y_score is None:
-            msg = ErrorNumbers.FB607.value + " For the computation of roc_auc you should provide the target scores y_score "
+            msg = ErrorNumbers.FB611.value + " For the computation of roc_auc you should provide the target scores y_score "
             logger.critical(msg)
             raise FedbiomedMetricError(msg)
             return
         try:
             return metrics.roc_auc_score(self.y_true, self.y_score, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
             raise FedbiomedMetricError(msg)
         return
@@ -214,7 +214,7 @@ class Metrics():
         try:
             return metrics.f1_score(self.y_true, self.y_pred, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
             raise FedbiomedMetricError(msg)
         return
@@ -237,7 +237,7 @@ class Metrics():
         try:
             return metrics.mean_squared_error(self.y_true, self.y_pred, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
             raise FedbiomedMetricError(msg)
         return
@@ -258,7 +258,7 @@ class Metrics():
         try:
             return metrics.mean_absolute_error(self.y_true, self.y_pred, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
             raise FedbiomedMetricError(msg)
         return
@@ -280,7 +280,7 @@ class Metrics():
             return metrics.explained_variance_score(self.y_true, self.y_pred, **kwargs)
 
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
             raise FedbiomedMetricError(msg)
         return
