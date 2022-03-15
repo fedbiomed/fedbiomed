@@ -14,8 +14,7 @@ class TestFederatedDataset(unittest.TestCase):
     def setUp(self):
         self.data = {
             'node-1': [{'dataset_id': 'dataset-id-1',
-                        'shape': [100, 100],
-                        'test_ratio': .0}],
+                        'shape': [100, 100]}],
             'node-2': [{'dataset_id': 'dataset-id-2',
                         'shape': [120, 120], 
                         'test_ratio': .0}],
@@ -31,8 +30,10 @@ class TestFederatedDataset(unittest.TestCase):
         """ Testing property .data()
         """
 
-        data = self.fds.data()
-        self.assertDictEqual(self.data, data, 'Can not get data properly from FederatedDataset')
+        updated_data = self.fds.data()
+        # federated dataset should add a new entry `test_ratio` in the FederatedDataset
+        self.data['node-1'][0]['test_ratio'] = .0
+        self.assertDictEqual(self.data, updated_data, 'Can not get data properly from FederatedDataset')
 
     def test_federated_dataset_02_node_ids(self):
         """ Testing node_ids getter/properties

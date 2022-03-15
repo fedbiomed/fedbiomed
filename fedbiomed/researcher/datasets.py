@@ -3,10 +3,11 @@ class which allows researcher to interact with remote datasets (federated datase
 '''
 import copy
 
-from typing import Any, List, Dict, Optional, Tuple, Union
+from typing import Any, List, Dict, Union
 import uuid
-
 from fedbiomed.common.exceptions import FedbiomedError
+
+from fedbiomed.common.logger import logger
 
 
 class FederatedDataSet:
@@ -23,18 +24,39 @@ class FederatedDataSet:
         """
         simple constructor
         """
+        
         self._data = data
-        
+        self._check_data_format()
         # testing attributes
-        
-        if 'test_ratio' in data:
-            self._test_ratio = data['test_ratio']
+
+        # retrieve the first key of the dictionary
+        _key_list = list(data.keys())
+        if _key_list and 'test_ratio' in data[_key_list[0]][0]:
+            # FIXME: in this version, `test_ratio` should be the same 
+            # for each nodes. We don't handle cases where `test_ratio`
+            # appears only in some of the node entries
+            self._test_ratio = data[_key_list[0]][0]['test_ratio']
         else:
-            self._test_ratio = test_ratio
+            self.set_test_ratio(test_ratio)
+
         # self._test_metric = test_metric
         # self._test_metric_args = {} if test_metric_args is None else test_metric_args
         # self.test_on_global_updates = test_on_global_updates
         # self.test_on_local_updates = test_on_local_updates
+
+    def _check_data_format(self):
+        _is_data_structure_ok = True
+        if self._data is not None:
+            
+            for node_id in self._data:
+
+                if isinstance(self._data[node_id], list):
+                    if not isinstance(self._data[node_id][0], dict):
+                        _is_data_structure_ok = False
+                else:
+                    _is_data_structure_ok = False
+        if not _is_data_structure_ok:
+            raise FedbiomedError()
 
     def data(self) -> Dict:
         """
@@ -43,18 +65,7 @@ class FederatedDataSet:
         Returns:
             Dict: Dict of federated datasets, keys as node ids
         """
-        data = copy.deepcopy(self._data)
-        if isinstance(data, dict):
-            for node_id in data.keys(): 
-                if 'test_ratio' not in data[node_id]:
-                    print("FATASET", type(data[node_id]), type(data[node_id][0]))
-                    if isinstance(data[node_id], dict):
-                        data[node_id].update({'test_ratio': self._test_ratio})
-                        
-                    elif isinstance(data[node_id][0], dict):
-                        data[node_id][0].update({'test_ratio': self._test_ratio})
-                    else:
-                        raise FedbiomedError()  
+        data = copy.deepcopy(self._data)  # prevent user to change FederatedDataset value through references
         return data
     
     def test_ratio(self) -> Union[float, Dict[str, float]]:
@@ -62,6 +73,13 @@ class FederatedDataSet:
     
     def set_test_ratio(self, ratio: float) -> float:
         self._test_ratio = ratio
+        
+        for node_id in self._data.keys(): 
+            if 'test_ratio' not in self._data[node_id][0]:
+                
+                self._data[node_id][0].update({'test_ratio': self._test_ratio})
+            else:
+                logger.warning("Cannot set `test_ratio`")
         return self._test_ratio
     
     # def test_metric(self) -> Tuple[str, Dict[str, Any]]:

@@ -609,7 +609,7 @@ class Experiment(object):
             self._fds = None
             logger.debug('Experiment not fully configured yet: no training data')
         # at this point, self._fds is either None or a FederatedDataSet object
-        if hasattr(self, '_training_args'):
+        if hasattr(self, '_training_args') and self._training_args is not None:
             # update testing parameters on the FederatedDataset  (that may have been saved already on `_training_args`)
             _exp_test_ratio = self._training_args.get('test_ratio', False)
             if self._fds is not None and self._fds.test_ratio() > 0:
