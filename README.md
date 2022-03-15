@@ -429,6 +429,7 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui config config-n3.
 ```
 
 ### Development/Debugging for GUI
+
 If you want to customize or work on user interface for debugging purposes, it is always better to use ReactJS in development mode, otherwise building GUI
 after every update will take a lot of time. To launch user interface in development mode first you need to start Flask server. This can be
 easily done with the previous start command. Currently, Flask server always get started on development mode.  To enable debug mode you should add `--debug`
