@@ -61,7 +61,7 @@ class FedbiomedMessagingError(FedbiomedError):
 class FedbiomedModelManagerError(FedbiomedError):
     """
     Exception specific to the ModelManager
-    (from fedbiomed.common.data_manager)
+    (from fedbiomed.common.model_manager)
     """
     pass
 
@@ -116,8 +116,44 @@ class FedbiomedTrainingPlanError(FedbiomedError):
     """
     pass
 
+
 class FedbiomedMetricError(FedbiomedError):
     """
     Exception raised when evualution fails because of inconsistence in using the metric.
+    """
+    pass
+
+
+class FedbiomedDataManagerError(FedbiomedError):
+    """
+    Exception for DataManager errors.
+    """
+    pass
+
+
+class FedbiomedTorchDataManagerError(FedbiomedError):
+    """
+    Exceptions specific for the class TorchDataset.
+    """
+    pass
+
+
+class FedbiomedSkLearnDataManagerError(FedbiomedError):
+    """
+    Exceptions specific for the class SkLearnDataset.
+    """
+    pass
+
+
+class FedbiomedTorchTabularDatasetError(FedbiomedError):
+    """
+    Exceptions specific for the class fedbiomed.common.data.TorchTabularDataset.
+    """
+    pass
+
+
+class FedbiomedRoundError(FedbiomedError):
+    """
+    Exceptions specific for the class node round class.
     """
     pass

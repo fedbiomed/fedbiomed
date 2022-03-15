@@ -20,8 +20,12 @@ class FakeModel:
 
         # For testing Job model_args
         self.model_args = model_args
-
+        self.__type = 'DummyTrainingPlan'
         pass
+
+    def type(self):
+        """ Getter for TrainingPlan Type"""
+        return self.__type
 
     def load(self, path: str, to_params: bool):
         """Fakes `load` method of TrainingPlan classes,

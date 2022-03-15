@@ -40,13 +40,22 @@ class TestLocalJob(unittest.TestCase):
 
     def setUp(self):
 
+        mock_data_manager = MagicMock(return_value=None)
+        mock_data_manager.load = MagicMock(return_value=None)
+        mock_data_manager.split = MagicMock(return_value=(None, None))
+
         # Set MagicMock for Model Instance of Local Job
         self.model = MagicMock(return_value=None)
         self.model.save = MagicMock(return_value=None)
         self.model.save_code = MagicMock(return_value=None)
         self.model.load = MagicMock(return_value={'model_params': True})
         self.model.set_dataset_path = MagicMock(return_value=None)
+        self.model.training_data.return_value = mock_data_manager
+        self.model.type = MagicMock(return_value=None)
         self.model.training_routine = MagicMock(return_value=None)
+
+
+
         type(self.model).dependencies = PropertyMock(return_value=['from os import mkdir'])
         # Global Local Job Object
         self.local_job = localJob(model_class=self.model)
@@ -123,7 +132,7 @@ class TestLocalJob(unittest.TestCase):
         self.local_job.training_args = tr_args
         # Start training
         self.local_job.start_training()
-        self.model.training_routine.assert_called_once_with(args=True)
+        self.model.training_routine.assert_called_once_with(data_loader=None, args=True)
 
         # Test failure during training
         self.model.training_routine.side_effect = Exception

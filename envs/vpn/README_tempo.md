@@ -14,6 +14,15 @@ Which machine to use ?
 
 ## containers
 
+Pre-requisites for using containers :
+
+* **`docker-compose` version 1.27.0 or higher** is needed for extended file format for [GPU support in docker]](https://docs.docker.com/compose/gpu-support/)) even if you're not using GPU in container.
+*  some distributions (eg Ubuntu 20.04) don't provide a package with a recent enough version.
+* Type `docker-compose --version` to check installed version.
+* You can use your usual package manager to  install up-to-date version (eg: `sudo apt-get update && sudo apt-get install docker-compose` for apt, `sudo dnf clean metadata && sudo dnf update docker-compose` for dnf).
+* If no suitable package exist for your system, you can use [`docker-compose` install page](https://docs.docker.com/compose/install/).
+
+
 ### building images
 
 Done when initializing each container (see after)
@@ -160,8 +169,13 @@ Run this only at first launch of container or after cleaning :
 
 * build container
 ```bash
-[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode
 [user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
+```
+  Alternative: build an (thiner) image without GPU support if you will never use it 
+```bash
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode-nogpu
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
 ```
 
 Then follow the common instructions for nodes (below).
@@ -185,7 +199,12 @@ On the build machine
 * for building use the `CONTAINER_UID` and `CONTAINER_GID` that will be used on the node machine for running the node (they may differ from the ids on the build machine)
 * build container
 ```bash
-[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
+```
+  Alternative: build an (thiner) image without GPU support if you will never use it 
+```bash
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode-nogpu
 [user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
 ```
 * save images for container
@@ -242,6 +261,10 @@ Run this only at first launch of container or after cleaning :
 * launch container
 ```bash
 [user@node $] docker-compose up -d node
+```
+Alternative: launch container with Nvidia GPU support activated. Before launching, install [all the pre-requisites for GPU support](#gpu-docker).
+```bash
+[user@node $] docker-compose up -d node-gpu
 ```
 * retrieve the *publickey*
 ```bash
@@ -345,7 +368,59 @@ Run this for all launches of the container :
 * to use notebooks, from outside the researcher container connect to `http://localhost:8888` or `http://SERVER_IP:8888`
   * TODO : add protection for distant connection to researcher
 
+## GPU support in container {#gpu-docker}
 
+You can access the host machine GPU accelerator from a node container to speed up training.
+- reminder: Fed-BioMed currently [supports only](https://fedbiomed.gitlabpages.inria.fr/user-guide/nodes/using-gpu/) (1) Nvidia GPUs (2) for PyTorch training (3) on node side
+
+Before using a GPU for Fed-BioMed in a `node` docker container, you need to meet the requirements for the host machine:
+
+* a **Nvidia GPU** recent enough (**`Kepler` or newer** generation) to support `450.x` Nvidia drivers that are needed for CUDA 11.x
+  Recommended GPU memory is **>= 4GB or more** depending on your models size.
+* a **supported operating system**
+  - tested on **Fedora 35**, should work for recent RedHat based Linux
+  - partly tested on **Ubuntu 20.04**, should work for recent Debian based Linux
+  - not tested on Windows with WSL2, but should work with Windows 10 version 21H2 or higher, that [support GPU in WSL2](https://docs.microsoft.com/en/windows/wsl/tutorials/gpu-compute)
+  - not supported on MacOS (few Nvidia cards, docker virtualized)
+* **Nvidia drivers and CUDA >= 11.5.0** (the version used by Fed-BioMed container with GPU support)
+* **[Nvidia container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)**
+* **`docker-compose` version 1.27.0 or higher** (already installed for container support)
+
+
+Installation guidelines for requirements:
+
+* Nvidia drivers and CUDA: Type `nvidia-smi` to check driver version installed. You can use your usual package manager (`apt`, `dnf`) or [nvidia CUDA toolkit](https://developer.nvidia.com/cuda-downloads) download. In both cases, commands depend on your machine configuration.
+* Nvidia container toolkit: check list of supported systems and [specific instructions](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html). First enable the repository, then install the package (eg: `sudo apt-get update && sudo apt-get install nvidia-docker2` on Ubuntu/Debian, `sudo dnf install nvidia-docker2` on CentOS).
+  - if your system version is not supported, you can try to use an approaching version. For example, for Fedora 35 we installed and ran the CentOS 8 version with:
+```bash
+distribution=centos8
+curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.repo | \
+  sudo tee /etc/yum.repos.d/nvidia-docker.repo
+sudo dnf install nvidia-docker2
+```
+
+
+FAQ for issues with GPU in containers :
+* `docker-compose` file format error when launching any container :
+```bash
+ERROR: The Compose file './docker-compose.yml' is invalid because:
+Unsupported config option for services.node-gpu-other: 'runtime'
+```
+  - you need to update you `docker-compose` version
+* `runtime` error when launching `node-gpu` container :
+```bash
+ERROR: for node-gpu  Cannot create container for service node-gpu:
+Unknown runtime specified nvidia
+```
+  - you need to install Nvidia container toolkit and/or Nvidia drivers and CUDA
+* cuda version error when launching `node-gpu` container :
+```bash
+docker: Error response from daemon: OCI runtime create failed: [...]
+nvidia-container-cli: requirement error: unsatisfied condition: cuda>=11.6,
+please update your driver to a newer version,  or use an earlier cuda
+container: unknown.
+```
+  - you need to update Nvidia drivers and/or CUDA version on your host machine
 
 ## connecting to containers
 
@@ -361,13 +436,14 @@ You can connect to a container only if the corresponding container is already ru
 ```
 * connect on the node as user to handle experiments
 ```bash
-[user@node $] docker-compose exec -ti -u $(id -u) node bash
-[user@researcher $] docker-compose exec -ti -u $(id -u) researcher bash
+[user@node $] docker-compose exec -u $(id -u) node bash
+[user@researcher $] docker-compose exec -u $(id -u) researcher bash
 ```
 
-Note : can also use commands in the form
+Note : can also use commands in the form, so you don't have to be in the docker-compose file directory
 ```bash
 [user@node $] docker container exec -ti -u $(id -u) fedbiomed-vpn-node bash
+[user@researcher $] docker container exec -ti -u $(id -u) fedbiomed-vpn-researcher bash
 ```
 
 ## cleaning
@@ -387,6 +463,7 @@ Note : can also use commands in the form
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-vpnserver
+[user@network $] docker image prune -f
 ```
 
 ### mqtt
@@ -403,6 +480,7 @@ Note : can also use commands in the form
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-mqtt
+[user@network $] docker image prune -f
 ```
 
 ### restful
@@ -422,6 +500,7 @@ Note : can also use commands in the form
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-restful
+[user@network $] docker image prune -f
 ```
 
 ### node 
@@ -439,6 +518,7 @@ Note : can also use commands in the form
 
 # level 3 : image
 [user@node $] docker image rm fedbiomed/vpn-node
+[user@network $] docker image prune -f
 ```
 
 ### researcher
@@ -458,6 +538,7 @@ Same as node
 
 # level 3 : image
 [user@researcher $] docker image rm fedbiomed/vpn-researcher
+[user@network $] docker image prune -f
 ```
 
 ## background / wireguard

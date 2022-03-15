@@ -1,0 +1,89 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from fedbiomed.common.training_plans import TorchTrainingPlan
+from fedbiomed.common.data import DataManager
+from fedbiomed.common.constants import ProcessTypes
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+from torchvision import datasets, transforms
+import torch.nn.functional as F
+from opacus import PrivacyEngine
+
+class MyTrainingPlan(TorchTrainingPlan):
+    def __init__(self, model_args):
+        super(MyTrainingPlan, self).__init__()
+
+        # Here we define the custom dependencies that will be needed by our custom Dataloader
+        # In this case, we need the torch DataLoader classes
+        # Since we will train on MNIST, we need datasets and transform from torchvision
+        deps = ["from torchvision import datasets, transforms",
+                "import torch.nn.functional as F",
+                "from opacus import PrivacyEngine",]
+        self.add_dependency(deps)
+
+        self.model = self.make_model()
+
+        self.noise_multiplier = model_args['noise_multiplier']
+        self.max_grad_norm = model_args['max_grad_norm']
+
+        # Add preprocess
+        self.add_preprocess(method=self.preprocess, process_type=ProcessTypes.DATA_LOADER)
+
+
+    def make_model(self):
+        model = nn.Sequential(nn.Conv2d(1, 32, 3, 1),
+                                  nn.ReLU(),
+                                  nn.Conv2d(32, 64, 3, 1),
+                                  nn.ReLU(),
+                                  nn.MaxPool2d(2),
+                                  nn.Dropout(0.25),
+                                  nn.Flatten(),
+                                  nn.Linear(9216, 128),
+                                  nn.ReLU(),
+                                  nn.Dropout(0.5),
+                                  nn.Linear(128, 10),
+                                  nn.LogSoftmax(dim=1))
+        return model
+
+    def forward(self, x):
+        return self.model(x)
+
+    def preprocess(self, data_loader):
+        """
+            This is a method that is going to be executed just before the training loop. This method
+            should be registered in the `__init__` of training plan with `self.add_preprocess()`
+            Process type should be declared by the argument `process_type` of `self.add_process`.
+        """
+
+        # enter PrivacyEngine
+        privacy_engine = PrivacyEngine()
+        self.model, self.optimizer, data_loader = privacy_engine.make_private(module=self.model,
+                                                                              optimizer=self.optimizer,
+                                                                              data_loader=data_loader,
+                                                                              noise_multiplier=self.noise_multiplier,
+                                                                              max_grad_norm=self.max_grad_norm,
+                                                                    )
+        return data_loader
+
+    def training_data(self, batch_size = 48):
+        # Custom torch Dataloader for MNIST data
+        transform = transforms.Compose([transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))])
+        dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
+        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+        return DataManager(dataset1, **train_kwargs)
+
+    def training_step(self, data, target):
+        output = self.forward(data)
+        loss   = torch.nn.functional.nll_loss(output, target)
+        return loss
+
+    def postprocess(self, params):
+        # params keys are changed by the privacy engine (as _module.param_key): should be re-named
+        params_keys = list(params.keys())
+        for key in params_keys:
+            if '_module' in key:
+                newkey = key.replace('_module.', '')
+                params[newkey] = params.pop(key)
+        return params
