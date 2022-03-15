@@ -2,6 +2,7 @@
 code code of the researcher. implements the experiment orchestration
 '''
 
+from cgi import test
 import os
 import sys
 import json
@@ -1669,7 +1670,7 @@ class Experiment(object):
         # check parameters type
         if not isinstance(breakpoint_folder_path, str) and breakpoint_folder_path is not None:
             msg = ErrorNumbers.FB413.value + ' - load failed, ' + \
-                '`breakpoint_folder_path` has bad type {type(breakpoint_folder_path)}'
+                f'`breakpoint_folder_path` has bad type {type(breakpoint_folder_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1694,6 +1695,9 @@ class Experiment(object):
 
         # -----  retrieve breakpoint training data ---
         bkpt_fds = saved_state.get('training_data')
+        _saved_state_training_args = saved_state.get("training_args")
+        test_ratio = _saved_state_training_args.get('test_ratio', 0.)
+        bkpt_fds = FederatedDataSet(bkpt_fds, test_ratio=test_ratio)
         # keeping bkpt_fds a dict so that FederatedDataSet will be instantiated
         # in Experiment.__init__() applying some type checks.
         # More checks to verify the structure/content of saved_state.get('training_data')
@@ -1701,7 +1705,10 @@ class Experiment(object):
 
         # -----  retrieve breakpoint sampling strategy ----
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
-        bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=bkpt_fds)
+        
+        bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args,
+                                                    data=bkpt_fds
+                                                    )
 
         # ----- retrieve federator -----
         bkpt_aggregator_args = saved_state.get("aggregator")

@@ -408,7 +408,7 @@ class TestExperiment(unittest.TestCase):
                                                      'object')
 
         # Test by passing dict
-        td_expected = {'node-1': [{'dataset_id': 'ids'}]}
+        td_expected = {'node-1': [{'dataset_id': 'ids', 'test_ratio': .0}]}
         training_data = self.test_exp.set_training_data(training_data=td_expected)
         self.assertEqual(training_data.data(), td_expected, 'Setter for training data did not set given '
                                                             'FederatedDataset object')
@@ -424,7 +424,7 @@ class TestExperiment(unittest.TestCase):
 
         # Test when job is not None
         self.mock_logger_debug.reset_mock()
-        td_expected = {'node-1': [{'dataset_id': 'ids'}]}
+        td_expected = {'node-1': [{'dataset_id': 'ids', 'test_ratio': .0}]}
         self.test_exp._job = MagicMock()
         training_data = self.test_exp.set_training_data(training_data=td_expected)
         self.assertEqual(training_data.data(), td_expected, 'Setter for training data did not set given '
@@ -1070,7 +1070,8 @@ class TestExperiment(unittest.TestCase):
         # name to for breakpoint file
         bkpt_file = 'my_breakpoint'
         # training data
-        training_data = {'node1': 'dataset1', 'node2': 'dataset2'}
+        training_data = {'node1': [{'name': 'dataset1', 'test_ratio': .0}],
+                         'node2': [{'name': 'dataset2', 'test_ratio': .0}]}
         # we want to test with non null values
         training_args = {'trarg1': 'my_string', 'trarg2': 444, 'trarg3': True}
         self.test_exp._training_args = training_args
@@ -1208,7 +1209,7 @@ class TestExperiment(unittest.TestCase):
         # Prepare breakpoint data ----------------------------------------------------------------
         bkpt_file = 'file_4_breakpoint'
 
-        training_data = {'train_node1': 'my_first_dataset', 2: 243}
+        training_data = {'train_node1': [{'name': 'my_first_dataset', 2: 243}]}
         training_args = {1: 'my_first arg', 'training_arg2': 123.45}
         model_args = {'modarg1': True, 'modarg2': 7.12, 'modarg3': 'model_param_foo'}
         model_path = '/path/to/breakpoint_model_file.py'
@@ -1259,7 +1260,9 @@ class TestExperiment(unittest.TestCase):
         # target breakpoint element arguments
         final_tags = self.tags
         final_experimentation_folder = experimentation_folder
-        final_training_data = {'train_node1': 'my_first_dataset', '2': 243}
+        final_training_data = {'train_node1': [{'name': 'my_first_dataset',
+                                                '2': 243,
+                                                'test_ratio': .0}]}
         final_training_args = {'1': 'my_first arg', 'training_arg2': 123.45}
         final_aggregator = {'aggreg1': False, 'aggreg2': 'dummy_agg_param', '18': 'agg_param18'}
         final_strategy = {'strat1': 'test_strat_param', 'strat2': 421, '3': 'strat_param3'}
@@ -1323,7 +1326,7 @@ class TestExperiment(unittest.TestCase):
         # verification
         self.assertTrue(isinstance(loaded_exp, Experiment))
         self.assertEqual(loaded_exp._tags, final_tags)
-        self.assertEqual(loaded_exp._fds, final_training_data)
+        self.assertEqual(loaded_exp._fds.data(), final_training_data)
         self.assertEqual(loaded_exp._aggregator, final_aggregator)
         self.assertEqual(loaded_exp._node_selection_strategy, final_strategy)
         self.assertEqual(loaded_exp._round_current, round_current)

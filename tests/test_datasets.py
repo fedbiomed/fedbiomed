@@ -13,8 +13,12 @@ class TestFederatedDataset(unittest.TestCase):
     # before the tests
     def setUp(self):
         self.data = {
-            'node-1': [{'dataset_id': 'dataset-id-1', 'shape': [100, 100]}],
-            'node-2': [{'dataset_id': 'dataset-id-2', 'shape': [120, 120]}],
+            'node-1': [{'dataset_id': 'dataset-id-1',
+                        'shape': [100, 100],
+                        'test_ratio': .0}],
+            'node-2': [{'dataset_id': 'dataset-id-2',
+                        'shape': [120, 120], 
+                        'test_ratio': .0}],
         }
 
         self.fds = FederatedDataSet(self.data)

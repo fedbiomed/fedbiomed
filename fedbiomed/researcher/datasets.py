@@ -6,6 +6,8 @@ import copy
 from typing import Any, List, Dict, Optional, Tuple, Union
 import uuid
 
+from fedbiomed.common.exceptions import FedbiomedError
+
 
 class FederatedDataSet:
     """
@@ -45,7 +47,14 @@ class FederatedDataSet:
         if isinstance(data, dict):
             for node_id in data.keys(): 
                 if 'test_ratio' not in data[node_id]:
-                    data[node_id][0].update({'test_ratio': self._test_ratio})
+                    print("FATASET", type(data[node_id]), type(data[node_id][0]))
+                    if isinstance(data[node_id], dict):
+                        data[node_id].update({'test_ratio': self._test_ratio})
+                        
+                    elif isinstance(data[node_id][0], dict):
+                        data[node_id][0].update({'test_ratio': self._test_ratio})
+                    else:
+                        raise FedbiomedError()  
         return data
     
     def test_ratio(self) -> Union[float, Dict[str, float]]:
