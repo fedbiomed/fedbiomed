@@ -1,6 +1,6 @@
 import sys
 import inspect
-
+from typing import Callable
 from IPython.core.magics.code import extract_symbols
 from fedbiomed.common.exceptions import FedbiomedError
 
@@ -20,7 +20,7 @@ def get_class_source(cls) -> str:
     """
 
     if not inspect.isclass(cls):
-        raise FedbiomedError(f'The argument `cls` must be a python class')
+        raise FedbiomedError('The argument `cls` must be a python class')
 
     # Check ipython status
     status = is_ipython()
@@ -84,3 +84,20 @@ def _get_ipython_class_file(cls) -> str:
                 return inspect.getfile(member)
     else:
         raise FedbiomedError(f'{cls} has no attribute `__module__`, source is not found.')
+
+
+def get_method_spec(method: Callable):
+    """
+    Helper to get argument specification
+    """
+
+    method_spec = {}
+    parameters = inspect.signature(method).parameters
+    for (key, val) in parameters.items():
+        method_spec[key] = {
+            'name': val.name,
+            'default': None if val.default is inspect._empty else val.default,
+            'annotation': None if val.default is inspect._empty else val.default
+        }
+
+    return method_spec

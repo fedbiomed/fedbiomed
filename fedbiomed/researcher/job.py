@@ -674,7 +674,12 @@ class localJob:
             results = {}
             try:
                 self.model_instance.set_dataset_path(self.dataset_path)
-                self.model_instance.training_routine(**self._localjob_training_args)
+                data_manager = self.model_instance.training_data()
+                tp_type = self.model_instance.type()
+                data_manager.load(tp_type=tp_type)
+                train_loader, test_loader = data_manager.split(test_ratio=0)
+                self.model_instance.training_routine(data_loader=train_loader,
+                                                     **self._localjob_training_args)
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot train model in job : " + str(e)

@@ -42,7 +42,6 @@ class TestFedbiosklearn(unittest.TestCase):
         t = TestModel(kw)
         self.assertRaises(FedbiomedTrainingPlanError,lambda: t.training_data())
 
-
     def test_save_and_load(self):
         randomfile = tempfile.NamedTemporaryFile()
 
@@ -55,6 +54,7 @@ class TestFedbiosklearn(unittest.TestCase):
 
         self.assertEqual(m.max_iter,1000)
         self.assertEqual(m.tol, 0.001)
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

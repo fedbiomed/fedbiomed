@@ -43,10 +43,10 @@ TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SGDSkLearnModel)
 Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SGDSkLearnModel])
 
 
-# Exception handling at top lever for researcher ---------------------------------------------
-
+# Exception handling at top lever for researcher
 def exp_exceptions(function):
-    """Decorator for handling all exceptions in the Experiment class() :
+    """
+    Decorator for handling all exceptions in the Experiment class() :
     pretty print a message for the user, quit Experiment.
     """
 
@@ -104,7 +104,7 @@ def exp_exceptions(function):
     return payload
 
 
-# Experiment ---------------------------------------------------------------------------------
+# Experiment
 
 class Experiment(object):
     """
@@ -208,6 +208,28 @@ class Experiment(object):
                 detection heuristic by `load_breakpoint`.
         """
 
+        # predefine all class variables, so no need to write try/except
+        # block each time we use it
+        self._fds = None
+        self._node_selection_strategy = None
+        self._job = None
+        self._round_limit = None
+        self._model_path = None
+        self._reqs = None
+        self._training_args = None
+        self._node_selection_strategy = None
+        self._tags = None
+
+#        training_data: Union[FederatedDataSet, dict, None] = None,
+#        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
+#        node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
+#        model_class: Union[Type_TrainingPlan, str, None] = None,
+#        model_args: dict = {},
+#        training_args: dict = {},
+#        save_breakpoints: bool = False,
+#        tensorboard: bool = False,
+#        experimentation_folder: Union[str, None] = None
+
         # set self._tags and self._nodes
         self.set_tags(tags)
         self.set_nodes(nodes)
@@ -253,25 +275,19 @@ class Experiment(object):
         self._aggregated_params = {}
 
         self.set_save_breakpoints(save_breakpoints)
-        self.set_monitor(tensorboard)
+
+        # always create a monitoring process
+        self._monitor = Monitor()
+        self._reqs.add_monitor_callback(self._monitor.on_message_handler)
+        self._monitor.set_tensorboard(tensorboard)
 
     # destructor
     @exp_exceptions
     def __del__(self):
         # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
+        self._reqs.remove_monitor_callback()
+        self._monitor.close_writer()
 
-        # _monitor may not exist (early del == constructor could not complete - will this happen ?)
-        try:
-            if self._monitor is not None:
-                # stop writing in SummaryWriters
-                self._reqs.remove_monitor_callback()
-                # Close SummaryWriters for tensorboard
-                self._monitor.close_writer()
-        except AttributeError:
-            # no monitor to finish, if not yet defined
-            pass
-
-    # Getters ---------------------------------------------------------------------------------------------------------
 
     @exp_exceptions
     def tags(self) -> Union[List[str], None]:
@@ -378,26 +394,42 @@ class Experiment(object):
         # at this point all attributes are initialized (in constructor)
         info = {
             'Arguments': [
-                'Tags', 'Nodes filter', 'Training Data',
-                'Aggregator', 'Strategy', 'Job',
-                'Model Path', 'Model Class',
-                'Model Arguments', 'Training Arguments',
-                'Rounds already run', 'Rounds total',
-                'Experiment folder', 'Experiment Path',
-                'Breakpoint State', 'Monitoring'
+                'Tags',
+                'Nodes filter',
+                'Training Data',
+                'Aggregator',
+                'Strategy',
+                'Job',
+                'Model Path',
+                'Model Class',
+                'Model Arguments',
+                'Training Arguments',
+                'Rounds already run',
+                'Rounds total',
+                'Experiment folder',
+                'Experiment Path',
+                'Breakpoint State'
             ],
-            # max 40 characters per column for values - can we do that with tabulate() ?
-            'Values': [ '\n'.join(findall('.{1,40}', str(e))) for e in [
-                        self._tags, self._nodes, self._fds,
-                        self._aggregator, self._node_selection_strategy, self._job,
-                        self._model_path, self._model_class,
-                        self._model_args, self._training_args,
-                        self._round_current, self._round_limit,
-                        self._experimentation_folder,
-                        self.experimentation_path(),
-                        self._save_breakpoints, self._monitor
-                        ]
-                        ]
+            # max 60 characters per column for values - can we do that with tabulate() ?
+            'Values': ['\n'.join(findall('.{1,60}',
+                                         str(e))) for e in [
+                                             self._tags,
+                                             self._nodes,
+                                             self._fds,
+                                             self._aggregator.aggregator_name if self._aggregator is not None else None,
+                                             self._node_selection_strategy,
+                                             self._job,
+                                             self._model_path,
+                                             self._model_class,
+                                             self._model_args,
+                                             self._training_args,
+                                             self._round_current,
+                                             self._round_limit,
+                                             self._experimentation_folder,
+                                             self.experimentation_path(),
+                                             self._save_breakpoints
+                                         ]
+                       ]
         }
         print(tabulate(info, headers='keys'))
 
@@ -428,7 +460,7 @@ class Experiment(object):
         else:
             print('\nExperiment can be run now (fully defined)')
 
-    # Setters ---------------------------------------------------------------------------------------------------------
+    # Setters
 
     @exp_exceptions
     def set_tags(self, tags: Union[List[str], str, None]) -> Union[List[str], None]:
@@ -463,13 +495,8 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
         # self._tags always exist at this point
 
-        # self._fds doesn't always exist at this point
-        try:
-            if self._fds is not None:
-                logger.debug('Experimentation tags changed, you may need to update `training_data`')
-        except AttributeError:
-            # nothing to do if not defined yet
-            pass
+        if self._fds is not None:
+            logger.debug('Experimentation tags changed, you may need to update `training_data`')
 
         return self._tags
 
@@ -502,13 +529,9 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
         # self._nodes always exist at this point
 
-        # self._fds doesn't always exist at this point
-        try:
-            if self._fds is not None:
-                logger.debug('Experimentation nodes filter changed, you may need to update `training_data`')
-        except AttributeError:
-            # nothing to do if not defined yet
-            pass
+        if self._fds is not None:
+            logger.debug('Experimentation nodes filter changed, you may need to update `training_data`')
+
 
         return self._nodes
 
@@ -571,19 +594,11 @@ class Experiment(object):
         # at this point, self._fds is either None or a FederatedDataSet object
 
         # self._strategy and self._job don't always exist at this point
-        try:
-            if self._node_selection_strategy is not None:
-                logger.debug('Training data changed, '
-                             'you may need to update `node_selection_strategy`')
-        except AttributeError:
-            # nothing to do if not defined yet
-            pass
-        try:
-            if self._job is not None:
-                logger.debug('Training data changed, you may need to update `job`')
-        except AttributeError:
-            # nothing to do if not defined yet
-            pass
+        if self._node_selection_strategy is not None:
+            logger.debug('Training data changed, '
+                         'you may need to update `node_selection_strategy`')
+        if self._job is not None:
+            logger.debug('Training data changed, you may need to update `job`')
 
         return self._fds
 
@@ -706,11 +721,6 @@ class Experiment(object):
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
             elif round_limit < self._round_current:
-                # need to ensure self._round_limit is set
-                try:
-                    self._round_limit  # raise exception if not defined
-                except AttributeError:
-                    self._round_limit = None
                 # self._round_limit can't be less than current round
                 logger.error(f'cannot set `round_limit` to less than the number of already run rounds '
                              f'({self._round_current})')
@@ -755,25 +765,22 @@ class Experiment(object):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-            # at this point self._round_limit may be undefined (in constructor)
-        try:
-            # raise error if not existing
-            self._round_limit
-            is_defined = True
-        except AttributeError:
-            is_defined = False
-
-        # at this point self._round_limit is an int
-        if round_current < 0 or (is_defined and isinstance(self._round_limit, int) and
-                                 round_current > self._round_limit):
+        if round_current < 0:
             # cannot set a round <0
+            msg = ErrorNumbers.FB410.value + f' `round_current` : {round_current}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        #
+        if self._round_limit is not None and round_current > self._round_limit:
+
             # cannot set a round over the round_limit (when it is not None)
             msg = ErrorNumbers.FB410.value + f' `round_current` : {round_current}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-        else:
-            # correct value
-            self._round_current = round_current
+
+        # everything is OK
+        self._round_current = round_current
 
         # at this point self._round_current is an int
         return self._round_current
@@ -808,12 +815,8 @@ class Experiment(object):
             # at this point self._experimentation_folder is a str valid for a foldername
 
         # _job doesn't always exist at this point
-        try:
-            if self._job is not None:
-                logger.debug('Experimentation folder changed, you may need to update `job`')
-        except AttributeError:
-            # nothing to do if not defined yet
-            pass
+        if self._job is not None:
+            logger.debug('Experimentation folder changed, you may need to update `job`')
 
         return self._experimentation_folder
 
@@ -845,13 +848,9 @@ class Experiment(object):
                 # correct python identifier
                 self._model_class = model_class
                 # model_path may not be defined at this point
-                try:
-                    # valid model definition if we use model_path
-                    self._model_is_defined = isinstance(self._model_path, str)
-                except AttributeError:
-                    # we don't set model_is_defined to True because
-                    # model_path is not defined (!= defined to None ...)
-                    self._model_is_defined = False
+
+                self._model_is_defined = isinstance(self._model_path, str)
+
             else:
                 # bad identifier
                 msg = ErrorNumbers.FB410.value + f' `model_class` : {model_class} bad identifier'
@@ -863,13 +862,9 @@ class Experiment(object):
                 # valid class
                 self._model_class = model_class
                 # model_path may not be defined at this point
-                try:
-                    # valid model definition if we don't use model_path
-                    self._model_is_defined = self._model_path is None
-                except AttributeError:
-                    # we don't set model_is_defined to True because
-                    # model_path is not defined (!= defined to None ...)
-                    self._model_is_defined = False
+
+                self._model_is_defined = self._model_path is None
+
             else:
                 # bad class
                 msg = ErrorNumbers.FB410.value + f' `model_class` : {model_class} class'
@@ -882,23 +877,12 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
             # self._model_is_defined and self._model_class always exist at this point
-        try:
-            self._model_path  # raise exception if not defined
-            if not self._model_is_defined:
-                logger.debug(f'Experiment not fully configured yet: no valid model, '
-                             f'model_class={self._model_class} model_path={self._model_path}')
-        except AttributeError:
-            # we don't want to issue a warning is model_path not initialized yet
-            # (== still initializing the class)
-            pass
+        if not self._model_is_defined:
+            logger.debug(f'Experiment not fully configured yet: no valid model, '
+                         f'model_class={self._model_class} model_path={self._model_path}')
 
-        # _job doesn't always exist at this point
-        try:
-            if self._job is not None:
-                logger.debug('Experimentation model_class changed, you may need to update `job`')
-        except AttributeError:
-            # nothing to do if not defined yet
-            pass
+        if self._job is not None:
+            logger.debug('Experimentation model_class changed, you may need to update `job`')
 
         return self._model_class
 
@@ -947,13 +931,8 @@ class Experiment(object):
             logger.debug(f'Experiment not fully configured yet: no valid model, '
                          f'model_class={self._model_class} model_path={self._model_path}')
 
-        # _job doesn't always exist at this point
-        try:
-            if self._job is not None:
-                logger.debug('Experimentation model_path changed, you may need to update `job`')
-        except AttributeError:
-            # nothing to do if not defined yet
-            pass
+        if self._job is not None:
+            logger.debug('Experimentation model_path changed, you may need to update `job`')
 
         return self._model_path
 
@@ -983,14 +962,9 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
         # self._model_args always exist at this point
 
-        # _job doesn't always exist at this point
-        try:
-            if self._job is not None:
-                logger.debug('Experimentation model_args changed, you may need to update `job`')
-        except AttributeError:
-            # nothing to do if not defined yet
-            pass
 
+        if self._job is not None:
+            logger.debug('Experimentation model_args changed, you may need to update `job`')
         return self._model_args
 
     # TODO: training_args need checking of dict items, to be done by Job and node
@@ -1019,15 +993,10 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
             # self._training_args always exist at this point
 
-        # _job doesn't always exist at this point
-        try:
-            if self._job is not None:
-                # job setter function exists, use it
-                self._job.training_args = self._training_args
-                logger.debug('Experimentation training_args updated for `job`')
-        except AttributeError:
-            # nothing to do if not defined yet
-            pass
+        if self._job is not None:
+            # job setter function exists, use it
+            self._job.training_args = self._training_args
+            logger.debug('Experimentation training_args updated for `job`')
 
         return self._training_args
 
@@ -1046,15 +1015,10 @@ class Experiment(object):
         # self._experimentation_folder => self.experimentation_path()
         # self._round_current
 
-        # _job may not be defined at this point
-        try:
-            if self._job is not None:
-                # a job is already defined, and it may also have run some rounds
-                logger.debug('Experimentation `job` changed after running '
-                             '{self._round_current} rounds, may give inconsistent results')
-        except AttributeError:
-            # nothing to do if not defined yet
-            pass
+        if self._job is not None:
+            # a job is already defined, and it may also have run some rounds
+            logger.debug('Experimentation `job` changed after running '
+                         '{self._round_current} rounds, may give inconsistent results')
 
         if self._model_is_defined is not True:
             # model not properly defined yet
@@ -1107,60 +1071,23 @@ class Experiment(object):
 
         return self._save_breakpoints
 
-    # TODO: accept an optional Monitor param (`monitor: Monitor = None`)
+    # Run experiment functions
+
+
     @exp_exceptions
-    def set_monitor(self, tensorboard: bool) -> Union[Monitor, None]:
-        """ Setter for monitoring in tensorboard + verification on arguments type
-
-        Args:
-            - tensorboard (bool): whether to save scalar values
-                for displaying in Tensorboard during training for each node.
-                Currently it is only used for loss values.
-                * If it is true, monitor instantiates a `Monitor` object that write
-                  scalar logs into `./runs` directory.
-                * If it is False, it stops monitoring if it was active.
-
-        Raises:
-            - FedbiomedExperimentError : bad tensorboard type
-
-        Returns:
-            - monitor (Union[Monitor, None])
+    def set_tensorboard(self, tensorboard: bool) -> bool:
+        """
+        set the tensorboard flag
         """
         if isinstance(tensorboard, bool):
-            # do nothing if setting is the same as active configuration
-            action = True
-            try:
-                if self._monitor is not None and tensorboard:
-                    action = False
-                    logger.info('Experimentation monitoring is already active, nothing to do')
-                if self._monitor is None and not tensorboard:
-                    action = False
-                    logger.info('Experimentation monitoring is already inactive, nothing to do')
-            except AttributeError:
-                pass
-
-            # Q: should we issue a warning if activating monitoring during an experiment ?
-
-            if action:
-                #  set monitoring loss values with tensorboard
-                if tensorboard:
-                    self._monitor = Monitor()
-                    self._reqs.add_monitor_callback(self._monitor.on_message_handler)
-                else:
-                    self._monitor = None
-                    # Remove callback. Since request class is singleton callback
-                    # function might be already added into request before.
-                    self._reqs.remove_monitor_callback()
+            self._tensorboard = tensorboard
+            self._monitor.set_tensorboard(tensorboard)
         else:
-            # bad type
             msg = ErrorNumbers.FB410.value + f' `tensorboard` : {type(tensorboard)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        # self._monitor exists at this point
-        return self._monitor
-
-    # Run experiment functions -------------------------------------------------------------------
+        return self._tensorboard
 
     @exp_exceptions
     def run_once(self, increase: bool = False) -> int:
@@ -1351,7 +1278,7 @@ class Experiment(object):
 
         return rounds
 
-    # Model checking functions -------------------------------------------------------------------
+    # Model checking functions
 
     @exp_exceptions
     def model_file(self, display: bool = True) -> str:
@@ -1427,7 +1354,7 @@ class Experiment(object):
 
         return responses
 
-    # Breakpoint functions ----------------------------------------------------------------
+    # Breakpoint functions
 
     @exp_exceptions
     def breakpoint(self) -> None:
@@ -1576,22 +1503,22 @@ class Experiment(object):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        # -----  retrieve breakpoint training data ---
+        # retrieve breakpoint training data
         bkpt_fds = saved_state.get('training_data')
         # keeping bkpt_fds a dict so that FederatedDataSet will be instantiated
         # in Experiment.__init__() applying some type checks.
         # More checks to verify the structure/content of saved_state.get('training_data')
         # should be added in FederatedDataSet.__init__() when refactoring it
 
-        # -----  retrieve breakpoint sampling strategy ----
+        # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=bkpt_fds)
 
-        # ----- retrieve federator -----
+        # retrieve federator
         bkpt_aggregator_args = saved_state.get("aggregator")
         bkpt_aggregator = cls._create_object(bkpt_aggregator_args)
 
-        # ------ initializing experiment -------
+        # initializing experiment
 
         loaded_exp = cls(tags=saved_state.get('tags'),
                          nodes=None,  # list of previous nodes is contained in training_data
@@ -1607,7 +1534,7 @@ class Experiment(object):
                          experimentation_folder=saved_state.get('experimentation_folder')
                          )
 
-        # ------- changing `Experiment` attributes -------
+        # changing `Experiment` attributes
         loaded_exp._set_round_current(saved_state.get('round_current'))
 
         # TODO: checks when loading parameters
@@ -1623,7 +1550,7 @@ class Experiment(object):
                 model_instance.load
             )
 
-        # ------- changing `Job` attributes -------
+        # changing `Job` attributes
         loaded_exp._job.load_state(saved_state.get('job'))
         # nota: exceptions should be handled in Job, when refactoring it
 

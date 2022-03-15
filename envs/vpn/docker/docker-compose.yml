@@ -16,13 +16,33 @@ services:
     # profiles:
     #  - debug # not started by `docker-compose up` except if `--profile debug`
   #
-  # intermediate step : base image for building vpn, node and researcher containers
+  # intermediate step : base image for building vpn and researcher containers
   # we usually dont want to launch this service (used for building other services)
   base:
     container_name: fedbiomed-vpn-base
     build:
       context: ./base/build_files
     image: fedbiomed/vpn-base
+    entrypoint: /bin/true
+    # profiles:
+    #  - debug
+  #
+  # intermediate step : base image for building node container 
+  # 2 options : without or without nvidia gpu support
+  # we usually dont want to launch this service (used for building other services)
+  basenode-no-gpu:
+    container_name: fedbiomed-vpn-base-node-no-gpu
+    build:
+      context: ./base/build_files
+    image: fedbiomed/vpn-basenode
+    entrypoint: /bin/true
+    # profiles:
+    #  - debug 
+  basenode:
+    container_name: fedbiomed-vpn-base-node
+    build:
+      context: ./basegpu/build_files
+    image: fedbiomed/vpn-basenode
     entrypoint: /bin/true
     # profiles:
     #  - debug
@@ -57,7 +77,8 @@ services:
       - 51820:51820/udp
   #
   # node component
-  node:
+  x-node:
+    &standard-node
     container_name: fedbiomed-vpn-node
     build:
       context: ../../..
@@ -78,6 +99,25 @@ services:
     volumes:
       - ./node/run_mounts/config:/config # contains VPN configurations
       - ./node/run_mounts/data:/data # datasets can be added here
+  # not using gpu
+  node:
+    << : *standard-node
+  # using gpu (need image with gpu support)
+  node-gpu:
+    << : *standard-node
+    runtime: nvidia
+    #
+    ## alternate syntax from the `Compose` specification, needs both
+    ## Docker Compose v1.28.0+ and a supported config (eg seems not to
+    ## be working with CentOS)
+    ##
+    #deploy:
+    #  resources:
+    #    reservations:
+    #      devices:
+    #        - driver: nvidia
+    #          #count: 1
+    #          capabilities: [gpu]
   #
   # researcher component
   researcher:
@@ -158,4 +198,3 @@ services:
     volumes:
       - ./restful/run_mounts/app:/app # django application
       - ./restful/run_mounts/config:/config # contains VPN configurations
-

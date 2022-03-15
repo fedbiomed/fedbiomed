@@ -47,13 +47,12 @@ class TestNode(unittest.TestCase):
              'name': 'test_dataset2'}
         ]
 
-        self.database_id = [
-            {
-                'database_id': '1234',
-                'path': '/path/to/my/dataset',
-                'name': 'test_dataset1'
-            }
-        ]
+        self.database_id = {
+                            'database_id': '1234',
+                            'path': '/path/to/my/dataset',
+                            'name': 'test_dataset1'
+                            }
+
 
         # patchers
         self.task_queue_patch = patch('fedbiomed.common.messaging.Messaging.__init__',
@@ -66,18 +65,18 @@ class TestNode(unittest.TestCase):
         self.messaging_patcher = self.messaging_patch.start()
 
         # mocks
-        mock_data_manager = MagicMock()
-        mock_data_manager.search_by_tags = MagicMock(return_value=self.database_val)
-        mock_data_manager.list_my_data = MagicMock(return_value=self.database_list)
+        mock_dataset_manager = MagicMock()
+        mock_dataset_manager.search_by_tags = MagicMock(return_value=self.database_val)
+        mock_dataset_manager.list_my_data = MagicMock(return_value=self.database_list)
         mock_model_manager = MagicMock()
-        mock_data_manager.reply_model_status_request = MagicMock(return_value=None)
-        mock_data_manager.search_by_id = MagicMock(return_value=self.database_id)
+        mock_dataset_manager.reply_model_status_request = MagicMock(return_value=None)
+        mock_dataset_manager.get_by_id = MagicMock(return_value=self.database_id)
 
         self.model_manager_mock = mock_model_manager
 
         # creating Node objects
-        self.n1 = Node(mock_data_manager, mock_model_manager)
-        self.n2 = Node(mock_data_manager, mock_model_manager)
+        self.n1 = Node(mock_dataset_manager, mock_model_manager)
+        self.n2 = Node(mock_dataset_manager, mock_model_manager)
 
     def tearDown(self) -> None:
         # stopping patches
@@ -434,7 +433,7 @@ class TestNode(unittest.TestCase):
 
         round_patch.assert_called_with(dict_msg_2_datasets['model_args'],
                                        dict_msg_2_datasets['training_args'],
-                                       self.database_id[0],
+                                       self.database_id,
                                        dict_msg_2_datasets['model_url'],
                                        dict_msg_2_datasets['model_class'],
                                        dict_msg_2_datasets['params_url'],
@@ -485,11 +484,11 @@ class TestNode(unittest.TestCase):
         }
         # create tested object
 
-        mock_data_manager = MagicMock()
+        mock_dataset_manager = MagicMock()
         # return emtpy list to mimic dataset that havenot been found
-        mock_data_manager.search_by_id = MagicMock(return_value=[])
+        mock_dataset_manager.search_by_id = MagicMock(return_value=[])
 
-        self.n1.data_manager = mock_data_manager
+        self.n1.dataset_manager = mock_dataset_manager
 
         # action
 
@@ -538,7 +537,7 @@ class TestNode(unittest.TestCase):
         # checks
         round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
                                             dict_msg_1_dataset['training_args'],
-                                            self.database_id[0],
+                                            self.database_id,
                                             dict_msg_1_dataset['model_url'],
                                             dict_msg_1_dataset['model_class'],
                                             dict_msg_1_dataset['params_url'],
@@ -583,7 +582,7 @@ class TestNode(unittest.TestCase):
         # checks
         round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
                                             dict_msg_1_dataset['training_args'],
-                                            self.database_id[0],
+                                            self.database_id,
                                             dict_msg_1_dataset['model_url'],
                                             dict_msg_1_dataset['model_class'],
                                             dict_msg_1_dataset['params_url'],

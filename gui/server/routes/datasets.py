@@ -14,10 +14,10 @@ from schemas import AddDataSetRequest, \
     AddDefaultDatasetRequest, \
     ListDatasetRequest
 
-from fedbiomed.node.data_manager import DataManager
+from fedbiomed.node.dataset_manager import DatasetManager
 
-# Initialize Fed-BioMed DataManager
-datamanager = DataManager()
+# Initialize Fed-BioMed DatasetManager
+dataset_manager = DatasetManager()
 
 
 @api.route('/datasets/list', methods=['POST'])
@@ -103,7 +103,7 @@ def remove_dataset():
 @validate_request_data(schema=AddDataSetRequest)
 def add_dataset():
     """ API endpoint to add single dataset to the database. Currently it
-        uses some methods of datamanager.
+        uses some methods of data set manager.
 
     Request {application/json}:
 
@@ -137,17 +137,17 @@ def add_dataset():
     # Data path that will be saved in the DB
     data_path_save = os.path.join(app.config['DATA_PATH_SAVE'], *req['path'])
 
-    # Get image dataset information from datamanager
+    # Get image dataset information from data set manager
     if req['type'] == 'images':
         if not os.path.isdir(data_path):
             return error('Provided path is not a directory. Please select the folder that '
                          'includes sub folders of image dataset.'), 400
         try:
-            shape = datamanager.load_images_dataset(data_path)
+            shape = dataset_manager.load_images_dataset(data_path)
             types = []
         except Exception as e:
             return error(str(e)), 400
-    # Get csv dataset information from datamanager
+    # Get csv dataset information from dataset manager
     elif req['type'] == 'csv':
         accepted_ext = ['.csv', '.txt']
         extension = os.path.splitext(data_path)[1]
@@ -155,9 +155,9 @@ def add_dataset():
             return error(f'Unsupported extension "{extension}" for CSV datasets. '
                          f'Please select a "csv" or "txt" file.'), 400
         try:
-            data = datamanager.load_csv_dataset(data_path)
+            data = dataset_manager.load_csv_dataset(data_path)
             shape = data.shape
-            types = datamanager.get_csv_data_types(data)
+            types = dataset_manager.get_csv_data_types(data)
         except Exception as e:
             return error(str(e)), 400
     else:
@@ -255,7 +255,7 @@ def get_preview_dataset():
 
     if dataset:
         if os.path.isfile(data_path):
-            df = datamanager.read_csv(data_path)
+            df = dataset_manager.read_csv(data_path)
             data_preview = df.head().to_dict('split')
             dataset['data_preview'] = data_preview
         elif os.path.isdir(data_path):
@@ -292,7 +292,7 @@ def add_default_dataset():
             error   : Boolean error status
             result  : null
             message : Message about error. For this API it comes from
-                     `DataManager` class of Fed-BioMed.
+                     `DatasetManager` class of Fed-BioMed.
 
         200:
             success : Boolean value indicates that the request is success
@@ -328,7 +328,7 @@ def add_default_dataset():
         data_path = os.path.join(app.config['DATA_PATH_SAVE'], 'defaults', 'mnist')
 
     try:
-        shape = datamanager.load_default_database(name="MNIST",
+        shape = dataset_manager.load_default_database(name="MNIST",
                                                   path=path,
                                                   as_dataset=False)
     except Exception as e:
