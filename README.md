@@ -451,7 +451,7 @@ npm start
 ```
 
 After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
-in ``${FEDBIOMED_DIR}/gui/ui/src`` it will get dynamically updated on ``loncahost:3000``.
+in ``${FEDBIOMED_DIR}/gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
 
 Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in
 `${FEDBIOMED_DIR}/gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why
