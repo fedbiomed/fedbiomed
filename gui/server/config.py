@@ -100,7 +100,7 @@ class Config:
         self.configuration['HOST'] = os.getenv('HOST', 'localhost')
 
         # Log information for setting up a node connection
-        print(f'INFO: Fed-BioMed Node root dir has been set as'
+        print(f'INFO: Fed-BioMed Node root dir has been set as 
               f'{self.configuration["NODE_FEDBIOMED_ROOT"]} \n')
 
         print(f'INFO: Fed-BioMed  Node config file is '
