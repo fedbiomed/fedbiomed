@@ -23,11 +23,11 @@ class Metrics():
 
     Attributes:
     ----------
-        Y_true: array-like
+        y_true: array-like
             Ground Truth (correct) target values or labels.
-        Y_pred: array-like
+        y_pred: array-like
             Estimated target values or Predicted labels.
-        Y_score: array-like
+        y_score: array-like
             Target scores.
 
         metric: dict { MetricTypes : skleran.metrics }
@@ -39,9 +39,9 @@ class Metrics():
                  y_pred,
                  y_score=None):
 
-        self.Y_true = self._check_array(y_true)
-        self.Y_pred = self._check_array(y_pred)
-        self.Y_score = self._check_array(y_score)
+        self.y_true = self._check_array(y_true)
+        self.y_pred = self._check_array(y_pred)
+        self.y_score = self._check_array(y_score)
 
         self.metrics = {
                 MetricTypes.ACCURACY.value : self.accuracy,
@@ -54,6 +54,8 @@ class Metrics():
                 MetricTypes.MEAN_ABSOLUTE_ERROR.value: self.mae,
                 MetricTypes.EXPLAINED_VARIANCE.value: self.explained_variance,
         }
+        # pearson
+        # odd ratio
 
     def accuracy(self,**kwargs):
         """
@@ -65,11 +67,11 @@ class Metrics():
             - sample_weight (array-like of shape (n_samples,), default=None, optional)
             Sample weights.
         Returns:
-            - sklearn.metrics.accuracy_score(Y_true, Y_pred, normalize = True,sample_weight = None)
+            - sklearn.metrics.accuracy_score(y_true, y_pred, normalize = True,sample_weight = None)
             score (float)
         """
         try:
-            return metrics.accuracy_score(self.Y_true, self.Y_pred, **kwargs)
+            return metrics.accuracy_score(self.y_true, self.y_pred, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
@@ -96,7 +98,7 @@ class Metrics():
             precision (float, or array of float of shape (n_unique_labels,))
         """
         try:
-            return metrics.precision_score(self.Y_true, self.Y_pred, **kwargs)
+            return metrics.precision_score(self.y_true, self.y_pred, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
@@ -105,7 +107,7 @@ class Metrics():
 
     def avg_precision(self,**kwargs):
         """
-        Evaluate the average precision score from prediction scores (Y_score).
+        Evaluate the average precision score from prediction scores (y_score).
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html#sklearn.metrics.average_precision_score]
         Args:
             - average ({‘micro’, ‘samples’, ‘weighted’, ‘macro’} or None, default=’macro’, optional)
@@ -115,16 +117,16 @@ class Metrics():
             - sample_weight (array-like of shape (n_samples,), default=None, optional)
             Sample weights.
         Returns:
-            - sklearn.metrics.average_precision_score(Y_true, Y_score, normalize = True, sample_weight = None)
+            - sklearn.metrics.average_precision_score(y_true, y_score, normalize = True, sample_weight = None)
             average precision (float)
         """
-        if self.Y_score is None:
+        if self.y_score is None:
             msg = ErrorNumbers.FB607.value + " For the computation of average precision score you should provide the target scores y_score "
             logger.critical(msg)
             raise FedbiomedMetricError(msg)
             return
         try:
-            return metrics.average_precision_score(self.Y_true, self.Y_score, **kwargs)
+            return metrics.average_precision_score(self.y_true, self.y_score, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
@@ -151,7 +153,7 @@ class Metrics():
             recall (float (if average is not None) or array of float of shape (n_unique_labels,))
         """
         try:
-            return metrics.recall_score(self.Y_true, self.Y_pred, **kwargs)
+            return metrics.recall_score(self.y_true, self.y_pred, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
@@ -177,13 +179,13 @@ class Metrics():
             - sklearn.metrics.roc_auc_score(y_true, y_score, *, average='macro', sample_weight=None, max_fpr=None, multi_class='raise', labels=None)
             auc (float)
         """
-        if self.Y_score is None:
+        if self.y_score is None:
             msg = ErrorNumbers.FB607.value + " For the computation of roc_auc you should provide the target scores y_score "
             logger.critical(msg)
             raise FedbiomedMetricError(msg)
             return
         try:
-            return metrics.roc_auc_score(self.Y_true, self.Y_score, **kwargs)
+            return metrics.roc_auc_score(self.y_true, self.y_score, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
@@ -210,7 +212,7 @@ class Metrics():
             f1_score (float or array of float, shape = [n_unique_labels])
         """
         try:
-            return metrics.f1_score(self.Y_true, self.Y_pred, **kwargs)
+            return metrics.f1_score(self.y_true, self.y_pred, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
@@ -233,7 +235,7 @@ class Metrics():
             score (float or ndarray of floats)
         """
         try:
-            return metrics.mean_squared_error(self.Y_true, self.Y_pred, **kwargs)
+            return metrics.mean_squared_error(self.y_true, self.y_pred, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
@@ -254,7 +256,7 @@ class Metrics():
             score (float or ndarray of floats)
         """
         try:
-            return metrics.mean_absolute_error(self.Y_true, self.Y_pred, **kwargs)
+            return metrics.mean_absolute_error(self.y_true, self.y_pred, **kwargs)
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
             logger.critical(msg)
@@ -275,7 +277,7 @@ class Metrics():
             score (float or ndarray of floats)
         """
         try:
-            return metrics.explained_variance_score(self.Y_true, self.Y_pred, **kwargs)
+            return metrics.explained_variance_score(self.y_true, self.y_pred, **kwargs)
 
         except Exception as e:
             msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
@@ -334,10 +336,11 @@ class Metrics():
         Returns:
             metric: sklearn.metrics.accuracy_score or metrics.mean_squared_error
         """
-        if np.array(self.Y_true).dtype == 'float':
-            return metrics.accuracy_score(self.Y_true,self.Y_pred)
+        if np.array(self.y_true).dtype.kind == 'f':
+            return metrics.mean_squared_error(self.y_true, self.y_pred)
+
         else:
-            return metrics.mean_squared_error(self.Y_true,self.Y_pred)
+            return metrics.accuracy_score(self.y_true,self.y_pred)
 
 # def evaluate_metric(y_true,y_pred,metric_name=None,*args,**kwargs):
 #     """
