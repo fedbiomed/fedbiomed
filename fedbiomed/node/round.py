@@ -186,7 +186,7 @@ class Round:
 
         if not is_failed:
             self.model.testing_routine(data_loader=self.testing_data_loader,
-                                       metric=MetricTypes.ACCURACY,
+                                       metric=MetricTypes.AVG_PRECISION,
                                        history_monitor=self.history_monitor)
 
         if not is_failed:

@@ -13,7 +13,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.researcher.environ import environ
 
 
-class Monitor():
+class Monitor:
     """
     This is the class that subscribes monitor channel and logs scalar values
     using `logger`. It also writes scalar values to tensorboard log files.
@@ -26,6 +26,7 @@ class Monitor():
         """
 
         self._log_dir = environ['TENSORBOARD_RESULTS_DIR']
+        self._metric_logs = {}
         self._event_writers = {}
         self._round_state = 0
         self._tensorboard = False
@@ -34,6 +35,46 @@ class Monitor():
             logger.info('Removing tensorboard logs from previous experiment')
             # Clear logs directory from the files from other experiments.
             self._remove_logs()
+
+    def _instantiate_node_metric_scalar_dict(self):
+        """
+
+        Schema of Metric Logs:
+
+        - node_id: {
+                    'training': {
+                        'metric-1' : {
+                             0 : {
+                                epoch: {
+                                   0 : {
+                                        iteration: []
+                                        values: []
+                                    }
+                                }
+                            }
+                        }
+                        'metric-2' :
+                    }
+                    'testing': {
+                            'before_training_round': {}
+                            'after_training_round': {
+                                'metric-1':{
+                                        0 : {
+                                            iteration : []
+                                            values    : []
+                                        }
+                                    }
+                            }
+                    }
+                    }
+        """
+        self._metric_logs['node'] = {
+            'training': {},
+            'testing': {
+                'before_training_round': {},
+                'after_training_round': {}
+            }
+        }
 
     def on_message_handler(self, msg: Dict[str, Any]):
         """
@@ -48,6 +89,19 @@ class Monitor():
 
         # For now monitor can only handle add_scalar messages
         if msg['command'] == 'add_scalar':
+
+            # Loging fancy feedback
+            logger.info("\033[1m{}\033[0m on NODE_ID: {} \n"
+                        "\t\t\t\t\t Epoch: {} | Completed: {}/{} ({:.0f}%) \n"
+                        "\t\t\t\t\t {}: \033[1m{:.6f}\033[0m \n "
+                        "\t\t\t\t\t ---------".format(msg['result_for'].upper(),
+                                                      msg['node_id'],
+                                                      msg['epoch'],
+                                                      msg['iteration']*msg['batch_samples'],
+                                                      msg['total_samples'],
+                                                      100 * msg['iteration'] / msg['num_batches'],
+                                                      msg['key'].upper(),
+                                                      msg['value']))
             if self._tensorboard:
                 # transfer data to tensorboard
                 self._summary_writer(metric_for=msg['result_for'].upper(),
@@ -56,18 +110,6 @@ class Monitor():
                                      global_step=msg['iteration'],
                                      scalar=msg['value'],
                                      epoch=msg['epoch'])
-
-            # Log result
-            logger.info("\033[1m{}\033[0m on NODE_ID:[{}] "
-                        "Epoch: {} [{}] "
-                        "Completed ({:.0f}%)]\t "
-                        "Metric[{}] \033[1m{:.6f}\033[0m".format(msg['result_for'].upper(),
-                                                                 msg['node_id'],
-                                                                 msg['epoch'],
-                                                                 msg['batch_samples'],
-                                                                 100 * msg['iteration'] / msg['num_batches'],
-                                                                 msg['key'],
-                                                                 msg['value']))
 
     def set_tensorboard(self, tensorboard: bool):
         """

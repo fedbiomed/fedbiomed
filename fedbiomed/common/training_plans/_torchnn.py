@@ -237,6 +237,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             # researcher's notebook)
             # training_data = self.training_data(batch_size=batch_size)
             for batch_idx, (data, target) in enumerate(self.__training_data_loader):
+
+                # Plus one since batch_idx starts from 0
+                batch_ = batch_idx + 1
+
                 self.train()  # model training
                 data, target = data.to(self.device), target.to(self.device)
                 self.optimizer.zero_grad()
@@ -260,25 +264,25 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 # do not take into account more than batch_maxnum
                 # batches from the dataset
-                if (batch_maxnum > 0) and (batch_idx >= batch_maxnum):
+                if (batch_maxnum > 0) and (batch_ >= batch_maxnum):
                     # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
                     logger.debug('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
                     break
 
-                if batch_idx % log_interval == 0:
-                    # logger.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    #     epoch,
-                    #     batch_idx * len(data),
-                    #     len(self.__training_data_loader.dataset),
-                    #     100 * batch_idx / len(self.__training_data_loader),
-                    #     res.item()))
+                if batch_ % log_interval == 0:
+                    logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                        epoch,
+                        batch_idx * len(data),
+                        len(self.__training_data_loader.dataset),
+                        100 * batch_idx / len(self.__training_data_loader),
+                        res.item()))
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
                         history_monitor.add_scalar(key='Loss',
                                                    result_for='Training',
                                                    value=res.item(),
-                                                   iteration=batch_idx,
+                                                   iteration=batch_,
                                                    epoch=epoch,
                                                    num_batches=len(self.__training_data_loader),
                                                    total_samples=len(self.__training_data_loader.dataset),
@@ -310,12 +314,12 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # Complete prediction over batches
         with torch.no_grad():
             # Data Loader for testing partition includes entire dataset in the first batch
-            for batch_idx, (data, target) in enumerate(self.__testing_data_loader):
+            for batch_ndx, (data, target) in enumerate(self.__testing_data_loader):
                 try:
                     # Pass data through network layers
                     pred = self(data)
                 except Exception as e:
-                    raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - ")
+                    raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - {str(e)}")
 
                 # Convert prediction and actual values to numpy array
                 true = target.detach().numpy()
@@ -323,13 +327,13 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 m_value = metric_controller.evaluate(y_true=true, y_pred=predicted, metric=metric)
 
                 logger.info('Testing: Batch {} [{}/{}] | Metric[{}]: {:.6f}'.format(
-                    str(batch_idx), (batch_idx + 1) * len(true), tot_samples, metric.name, m_value))
+                    str(batch_ndx), (batch_ndx + 1) * len(true), tot_samples, metric.name, m_value))
                 # Send scalar values via general/feedback topic
                 if history_monitor is not None:
                     history_monitor.add_scalar(key=f'Before Train `{metric.name}`',
                                                value=float(m_value),
                                                result_for='Testing',
-                                               iteration=batch_idx,
+                                               iteration=batch_ndx,
                                                epoch=0,  # no epoch
                                                total_samples=tot_samples,
                                                batch_samples=len(true),

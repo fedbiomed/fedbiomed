@@ -135,8 +135,19 @@ class Metrics(object):
             - sklearn.metrics.precision_score(y_true, y_pred, *, labels=None, pos_label=1, average='binary', sample_weight=None, zero_division='warn')
             precision (float, or array of float of shape (n_unique_labels,))
         """
+
+        # Check target variable is multi class or binary
+        if len(np.unique(y_true)) > 2:
+            average = kwargs.get('average', 'weighted')
+            logger.info(f'Actual/True values (y_true) has more than two levels, using multiclass `{average}` '
+                        f'calculation for the metric PRECISION')
+        else:
+            average = kwargs.get('average', 'binary')
+
+        # Remove `average` parameter from **kwargs
+        kwargs.pop("average", None)
         try:
-            return metrics.precision_score(y_true, y_pred, **kwargs)
+            return metrics.precision_score(y_true, y_pred, average=average, labels=labels, **kwargs)
         except Exception as e:
             print(e)
             msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
@@ -161,11 +172,16 @@ class Metrics(object):
             - sklearn.metrics.average_precision_score(y_true, y_score, normalize = True, sample_weight = None)
             average precision (float)
         """
+
+        if len(np.unique(y_true)) > 2:
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Multiclass format is not supported for"
+                                       f"AVG_PRECISION. Please use `MetricTypes.PRECISION` instead")
+
         try:
             return metrics.average_precision_score(y_true, y_score, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
-            raise FedbiomedMetricError(msg)
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `AVG_PRECISION` "
+                                       f"calculation: {str(e)}")
 
     @staticmethod
     def recall(y_true: np.ndarray,
@@ -189,11 +205,22 @@ class Metrics(object):
             - sklearn.metrics.recall_score(y_true, y_pred, *, labels=None, pos_label=1, average='binary', sample_weight=None, zero_division='warn')
             recall (float (if average is not None) or array of float of shape (n_unique_labels,))
         """
+        # Check target variable is multi class or binary
+        if len(np.unique(y_true)) > 2:
+            average = kwargs.get('average', 'weighted')
+            logger.info(f'Actual/True values (y_true) has more than two levels, using multiclass `{average}` '
+                        f'calculation for the metric RECALL')
+        else:
+            average = kwargs.get('average', 'binary')
+
+        # Remove `average` parameter from **kwargs
+        kwargs.pop("average", None)
+
         try:
-            return metrics.recall_score(y_true, y_pred, **kwargs)
+            return metrics.recall_score(y_true, y_pred, average=average, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
-            raise FedbiomedMetricError(msg)
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `RECALL` "
+                                       f"calculation: {str(e)}")
 
     @staticmethod
     def roc_auc(y_true: np.ndarray,
@@ -204,7 +231,8 @@ class Metrics(object):
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html#sklearn.metrics.roc_auc_score]
         Args:
             - average ({‘micro’, ‘macro’, ‘samples’,’weighted’, ‘binary’} or None, default=’binary’, optional)
-            This parameter is required for multiclass/multilabel targets. If None, the scores for each class are returned. Otherwise, this determines the type of averaging performed on the data.
+            This parameter is required for multiclass/multilabel targets. If None, the scores for each class are returned.
+            Otherwise, this determines the type of averaging performed on the data.
             - sample_weight (array-like of shape (n_samples,), default=None, optional)
             Sample weights.
             - max_fpr (float > 0 and <= 1, default=None, optional)
@@ -221,8 +249,8 @@ class Metrics(object):
         try:
             return metrics.roc_auc_score(y_true, y_score, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
-            raise FedbiomedMetricError(msg)
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `ROC_AUC` "
+                                       f"calculation: {str(e)}")
 
     @staticmethod
     def f1_score(y_true: np.ndarray,
@@ -250,7 +278,8 @@ class Metrics(object):
         # Check target variable is multi class or binary
         if len(np.unique(y_true)) > 2:
             average = kwargs.get('average', 'weighted')
-            logger.info('Using weighted calculation for multiclass F1 SCORE')
+            logger.info(f'Actual/True values (y_true) has more than two levels, using multiclass `{average}` '
+                        f'calculation for the metric F1 SCORE')
         else:
             average = kwargs.get('average', 'binary')
 
@@ -260,8 +289,7 @@ class Metrics(object):
         try:
             return metrics.f1_score(y_true, y_pred, average=average, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
-            raise FedbiomedMetricError(msg)
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `F1_SCORE` {str(e)}")
 
     @staticmethod
     def mse(y_true: np.ndarray,
@@ -284,8 +312,8 @@ class Metrics(object):
         try:
             return metrics.mean_squared_error(y_true, y_pred, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
-            raise FedbiomedMetricError(msg)
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `MEAN_SQUARED_ERROR`"
+                                       f" {str(e)}")
 
     @staticmethod
     def mae(y_true: np.ndarray,
@@ -306,8 +334,8 @@ class Metrics(object):
         try:
             return metrics.mean_absolute_error(y_true, y_pred, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
-            raise FedbiomedMetricError(msg)
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `MEAN_ABSOLUTE_ERROR`"
+                                       f" {str(e)}")
 
     @staticmethod
     def explained_variance(y_true: np.ndarray,
@@ -328,8 +356,8 @@ class Metrics(object):
         try:
             return metrics.explained_variance_score(y_true, y_pred, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
-            raise FedbiomedMetricError(msg)
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `EXPLAINED_VARIANCE`"
+                                       f" {str(e)}")
 
     def evaluate(self,
                  y_true: np.ndarray,
@@ -366,8 +394,9 @@ class Metrics(object):
         return result
 
     @staticmethod
-    def _configure_y_pred_based_on_metric_form(y_pred: np.ndarray,
-                                               metric: MetricTypes):
+    def _configure_y_true_pred_(y_true: np.ndarray,
+                                y_pred: np.ndarray,
+                                metric: MetricTypes):
         """
 
         """
