@@ -165,9 +165,10 @@ services:
     volumes:
       - ./researcher/run_mounts/config:/config # contains VPN configurations
       - ./researcher/run_mounts/data:/data # results and persistent data can be saved here
-      - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
-      - ./node/run_mounts/runs:/fedbiomed/runs # contains fedbiomed tensorboard results
-      - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
+      - ./researcher/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
+      - ./researcher/run_mounts/samples:/fedbiomed/notebooks/samples # contains researcher sample notebooks
+      - ./researcher/run_mounts/runs:/fedbiomed/runs # contains fedbiomed tensorboard results
+      - ./researcher/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
   #
   # mqtt server component
   mqtt:

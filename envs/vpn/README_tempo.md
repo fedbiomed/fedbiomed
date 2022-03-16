@@ -260,15 +260,17 @@ Run this only at first launch of container or after cleaning :
 ```
 * launch container
 ```bash
-[user@node $] docker-compose up -d node
+[user@node $] NODE=node
+[user@node $] docker-compose up -d $NODE
 ```
 Alternative: launch container with Nvidia GPU support activated. Before launching, install [all the pre-requisites for GPU support](#gpu-docker).
 ```bash
-[user@node $] docker-compose up -d node-gpu
+[user@node $] NODE=node-gpu
+[user@node $] docker-compose up -d $NODE
 ```
 * retrieve the *publickey*
 ```bash
-[user@node $] docker-compose exec node wg show wg0 public-key
+[user@node $] docker-compose exec $NODE wg show wg0 public-key
 ```
 * connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
 ```bash
@@ -278,19 +280,19 @@ Alternative: launch container with Nvidia GPU support activated. Before launchin
 ```bash
 # 10.220.0.1 is vpnserver contacted inside the VPN
 # it should answer to the ping
-[user@node $] docker-compose exec node ping -c 3 -W 1 10.220.0.1
+[user@node $] docker-compose exec $NODE ping -c 3 -W 1 10.220.0.1
 ```
 
 Run this for all launches of the container :
 
 * launch container
 ```bash
-[user@node $] docker-compose up -d node
+[user@node $] docker-compose up -d $NODE
 ```
 * TODO: better package/scripting needed
   Connect again to the node and launch manually, now that the VPN is established
 ```bash
-[user@node $] docker-compose exec -u $(id -u) node bash
+[user@node $] docker-compose exec -u $(id -u) $NODE bash
 # TODO : make more general by including it in the VPN configuration and user environment ?
 # TODO : create scripts in VPN environment
 # need proper parameters at first launch to create configuration file
@@ -303,10 +305,24 @@ Run this for all launches of the container :
 # example : add MNIST dataset using persistent (mounted) /data
 [user@node-container $] python -m fedbiomed.node.cli -am /data
 # start the node
-[user@node-container $] python -m fedbiomed.node.cli --start
+# default gpu policy : use GPU if available *and* requested by researcher
+[user@node-container $] python -m fedbiomed.node.cli --start --gpu
 # alternative: start the node in background
 # [user@node-container $] nohup python -m fedbiomed.node.cli  -s >./fedbiomed_node.out &
 ```
+
+To add datasets in the node, copy them in the directory `./node/run_mounts/data` on the node host machine :
+```bash
+[user@node $] ls ./node/run_mounts/data
+MNIST
+```
+- in the node gui (see below), this directory maps to the `/` directory.
+- in the node and node gui containers command line, this directory maps to `/data` directory :
+```bash
+[user@node-container $] ls ./data
+MNIST
+```
+
 
 ### initializing node gui (optional)
 
@@ -453,6 +469,18 @@ Use notebooks from outside the researcher container :
 ```
   - connect to `http://${SERVER_IP}:8888`
   - **warning** allowing connections from non-`localhost` exposes the researcher to attacks from the network. Only use with proper third party security measures (web proxy, firewall, etc.) Currently, the provided researcher container does not include a user authentication mechanism or encrypted communications for the user.
+
+To permanently save your notebooks on the researcher host machine (outside of the container) use the directory `./researcher/run_mounts/samples` :
+```bash
+[user@researcher $] ls ./researcher/run_mounts/samples
+my_notebook.ipynb
+```
+- in the researcher container Jupyter Notebook web GUI this directory maps to the `/samples` directory under the base notebooks dir (which contains Fed-BioMed sample notebooks).
+- in the researcher container CLI, this directory maps to `/fedbiomed/notebooks/samples` directory :
+```bash
+[user@researcher-container $] ls ./notebooks/samples
+my_notebook.ipynb
+```
 
 
 ## GPU support in container {#gpu-docker}
@@ -603,7 +631,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 # level 2 : configuration
 [user@node $] rm -rf ./node/run_mounts/config/wireguard
 [user@node $] echo > ./node/run_mounts/config/config.env
-[user@node $] rm -rf ./node/run_mounts/{data,etc}/*
+[user@node $] rm -rf ./node/run_mounts/{data,etc,var}/*
 
 # level 3 : image
 [user@node $] docker image rm fedbiomed/vpn-node fedbiomed/vpn-basenode
@@ -619,7 +647,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 [user@node $] docker-compose rm -sf gui
 
 # level 2 : configuration
-[user@node $] rm -rf ./node/run_mounts/{data,etc}/*
+[user@node $] rm -rf ./node/run_mounts/{data,etc,var}/*
 
 # level 3 : image
 [user@node $] docker image rm fedbiomed/vpn-gui
@@ -639,7 +667,7 @@ Same as node
 # level 2 : configuration
 [user@researcher $] rm -rf ./researcher/run_mounts/config/wireguard
 [user@researcher $] echo > ./researcher/run_mounts/config/config.env
-[user@researcher $] rm -rf ./researcher/run_mounts/data/*
+[user@researcher $] rm -rf ./researcher/run_mounts/{data,etc,runs,var}/*
 
 # level 3 : image
 [user@researcher $] docker image rm fedbiomed/vpn-researcher fedbiomed/vpn-base

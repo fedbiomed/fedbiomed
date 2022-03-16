@@ -276,11 +276,11 @@ Run following command to start tensorboard
 
 ## Model Hashing and Enabling Model Approve
 
-Fed-BioMed offers optional model approval feature to approve the models requested by the researcher. This model approval process is done by hashing/checksum oparation by the ModelManager of node instance. When the `MODEL_APPROVE` mode is enabled, node should register/approve model files before performing the training. For testing and easy development, there are already presented default models by Fed-BioMed for the tutorials that we provide in the `notebooks` directory. However, node can also enable or disable the mode for allowing default models to perform training.
+Fed-BioMed offers optional model approval feature to approve the models requested by the researcher. This model approval process is done by hashing/checksum operation by the ModelManager of node instance. When the `MODEL_APPROVE` mode is enabled, node should register/approve model files before performing the training. For testing and easy development, there are already presented default models by Fed-BioMed for the tutorials that we provide in the `notebooks` directory. However, node can also enable or disable the mode for allowing default models to perform training.
 
 #### Config file for security parameters
 
-Enabling model approval mode, allowing default Fed-BioMed models and the hashing algorithm that will be performed for the checksum oparation can be configurred from the config file of the node. The following code snippet represents an example security section of config file with default values.
+Enabling model approval mode, allowing default Fed-BioMed models and the hashing algorithm that will be performed for the checksum operation can be configurred from the config file of the node. The following code snippet represents an example security section of config file with default values.
 
 ```
 [default]
@@ -333,7 +333,7 @@ For starting node with disabled model approval and default models;
 
 #### Default Models
 
-Default models has been located at the `env/development/default_models/` directory as `txt` files. Each time when the node started with the `model_approval = True` and `allow_default_model = True` modes, hashing of the model files are get checked to detect if the file is modified, the hashing algorithm has changed or is there any new model file added. If model files are modified `ModelManager` updates hashes for these models in the database. If the hashing algoritmh of the model is different that the active hashing algorithm, hashes also get updated. This process only occurs when both `model-approval` and `allow-default-models` modes are activated. To add new default model for the examples or for testing, model files should be saved as `txt` and copied into the `envs/development/default_models` directory. After the copy/save oparation node should be restarted.
+Default models has been located at the `env/development/default_models/` directory as `txt` files. Each time when the node started with the `model_approval = True` and `allow_default_model = True` modes, hashing of the model files are get checked to detect if the file is modified, the hashing algorithm has changed or is there any new model file added. If model files are modified `ModelManager` updates hashes for these models in the database. If the hashing algoritmh of the model is different that the active hashing algorithm, hashes also get updated. This process only occurs when both `model-approval` and `allow-default-models` modes are activated. To add new default model for the examples or for testing, model files should be saved as `txt` and copied into the `envs/development/default_models` directory. After the copy/save operation node should be restarted.
 
 
 #### Registering New Models
