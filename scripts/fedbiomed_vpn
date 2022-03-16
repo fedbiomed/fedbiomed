@@ -88,13 +88,13 @@ internal_find_my_ip() {
 
 find_my_ip() {
 
-    for i in {1..7}
+    for i in {1..100}
     do
         IP=$(internal_find_my_ip $i)
         [[ ! -z "$IP" ]] && { echo $IP ; return ; }
     done
 
-    # just in case
+    # just in case (never happends but I am paranoid)
     return "127.0.0.1"
 }
 
@@ -112,6 +112,13 @@ container_build() {
 
     echo "- building vpnserver"
     CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build vpnserver
+
+    # substitute @IP in config file
+    CONFIG="$basedir/envs/vpn/docker/vpnserver/run_mounts/config/config.env"
+    IP=$(find_my_ip)
+    git checkout $CONFIG
+    sed -i -e "s:replace_with.myserver.mydomain:$IP:" $CONFIG
+
 }
 
 keys_generate() {
@@ -257,7 +264,3 @@ fi
 if [ $SERVER -eq 1 ]; then
     start_servers
 fi
-
-#
-IP=$(find_my_ip)
-echo "IP=$IP"
