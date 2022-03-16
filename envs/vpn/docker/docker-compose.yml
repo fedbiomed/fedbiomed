@@ -74,7 +74,7 @@ services:
     volumes:
       - ./vpnserver/run_mounts/config:/config # contains VPN configurations
     ports:
-      - 51820:51820/udp
+      - 51820:51820/udp # wireguard server
   #
   # node component
   x-node:
@@ -134,7 +134,7 @@ services:
         - CONTAINER_GROUP
     image: fedbiomed/vpn-gui
     ports:
-      - "${GUI_HOST:-127.0.0.1}:8484:8484"
+      - "${GUI_HOST:-127.0.0.1}:8484:8484" # flask server
     volumes:
       # caution: /data /etc /var directory must be shared with node
       - ./node/run_mounts/data:/data # datasets can be added here
@@ -156,7 +156,8 @@ services:
     env_file:
       - ./researcher/run_mounts/config/config.env
     ports:
-      - "${RESEARCHER_HOST:-127.0.0.1}:8888:8888"
+      - "${RESEARCHER_HOST:-127.0.0.1}:8888:8888" # jupyter notebook
+      - "${RESEARCHER_HOST:-127.0.0.1}:6006:6007" # tensorboard via socat proxy
     cap_add:
       - net_admin
       - sys_module
