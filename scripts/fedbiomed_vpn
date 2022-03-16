@@ -13,14 +13,15 @@
 [[ "${sourced}" == "1" ]] && echo "This file MUST NOT be sourced" && return
 
 
+# all functions
 usage() {
     #
     # print usage
     #
     echo "\
 Usage: ${0##*/} [-b|--build] [-c|--clean] [-g|--generate-keys]
-       ${0##*/} [-s|--server]
-       ${0##*/} [-n|--node]
+       ${0##*/} [-s|--server] [-m|--model-approval]
+       ${0##*/} [-n|--node]   [-m|--model-approval]
 
 Build/configure/run docker containers for VPN support
 ( build / node / server flags are incompatibles )
@@ -28,21 +29,116 @@ Build/configure/run docker containers for VPN support
 
  -b|--build          build all containers
 
-     if -c|--clean           clean environments first
-     if -g|--generate_keys   generate new keys for components
+     Optional with --build:
+
+     -c|--clean           clean environments first
+     -g|--generate_keys   generate new keys for components
 
  -s|--server        start local server's dockers (already built)
-
  -n|--node          start a local node's docker (already built_
 
+     Optional with --node/--server:
+
+     -m|--model-approval  enforce model approval in config files
 "
 }
 
+internal_find_my_ip() {
+
+    algo=$1
+    # heuristically test some commands to find my "external" IP
+
+    case $1 in
+        1)
+            # linux/unixes
+            _IP=$(hostname -I 2>/dev/null | sed -e 's:\ .*$::')
+            ;;
+        2)
+            # linux again using ip command
+            _IP=$(ip -brief address 2>/dev/null | grep UP | head -1 | awk '{print $3}' | sed -e 's:/.*::')
+            ;;
+        3)
+            _IP=$(ip route get 1.2.3.4 2>/dev/null | head -1 | awk '{print $7}')
+            ;;
+        4)
+            # other cases using ifconfig command
+            _IP=$(ifconfig eth0 2> /dev/null| grep 'inet '| awk '{print $2}')
+            ;;
+        5)
+            _IP=$(ifconfig en0 2> /dev/null| grep 'inet '| awk '{print $2}')
+            ;;
+        6)
+            # check also wireless
+            _IP=$(ifconfig wlan0 2> /dev/null| grep 'inet '| awk '{print $2}')
+            ;;
+        #
+        # you may add more heuristics here
+        #
+        *|'')
+            # always true, even if not the best choice
+            _IP="127.0.0.1"
+            ;;
+    esac
+
+    # verify that the result is an IPv4 adress
+    _IP=$(echo $_IP | egrep '([0-9]{1,3}[\.]){3}[0-9]{1,3}')
+
+    echo $_IP
+}
+
+find_my_ip() {
+
+    for i in {1..7}
+    do
+        IP=$(internal_find_my_ip $i)
+        [[ ! -z "$IP" ]] && { echo $IP ; return ; }
+    done
+
+    # just in case
+    return "127.0.0.1"
+}
+
+container_clean() {
+    echo "CLEANING"
+}
+
+container_build() {
+    echo "BUILD PHASE"
+
+    cd "$basedir/envs/vpn/docker"
+
+    echo "- building base component"
+    CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
+
+    echo "- building vpnserver"
+    CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build vpnserver
+}
+
+keys_generate() {
+    echo "GENERATING KEYS"
+}
+
+start_node() {
+    echo "STARTING node"
+}
+
+start_servers() {
+    echo "STARTING servers"
+}
+
+### main
+
+# detect topdir
+basedir=$(cd $(dirname $0)/.. || exit ; pwd)
+cd $basedir || exit
+
+#
 CLEAN=0
 BUILD=0
 GENERATE=0
 NODE=0
 SERVER=0
+APPROVAL=0
 
 # must provide at least an option
 if [ $# -eq 0 ]; then
@@ -71,6 +167,10 @@ while (($# > 0)); do
         -h|--help)
             usage
             exit 0
+            ;;
+
+        -m|--model-approval)
+            APPROVAL=1
             ;;
 
         -n|--node)
@@ -139,21 +239,25 @@ fi
 
 # start doing something usefull
 if [ $CLEAN -eq 1 ]; then
-    echo "CLEANING"
+    container_clean
 fi
 
 if [ $BUILD -eq 1 ]; then
-    echo "BUILDING"
+    container_build
 fi
 
 if [ $GENERATE -eq 1 ]; then
-    echo "GENERATEING KEYS"
+    keys_generate
 fi
 
 if [ $NODE -eq 1 ]; then
-    echo "NODE"
+    start_node
 fi
 
 if [ $SERVER -eq 1 ]; then
-    echo "SERVER"
+    start_servers
 fi
+
+#
+IP=$(find_my_ip)
+echo "IP=$IP"
