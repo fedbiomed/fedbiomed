@@ -8,8 +8,6 @@ import uuid
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedDatasetError
 
-from fedbiomed.common.logger import logger
-
 
 class FederatedDataSet:
     """
@@ -42,15 +40,17 @@ class FederatedDataSet:
             else:
                 self.set_test_ratio(test_ratio)
 
-        # self._test_metric = test_metric
-        # self._test_metric_args = {} if test_metric_args is None else test_metric_args
-        # self.test_on_global_updates = test_on_global_updates
-        # self.test_on_local_updates = test_on_local_updates
-
     def _check_data_format(self):
+        """
+        Checks input data format. It MUST be of format: 
+            Dict[str, List[Dict[str, Any]]]
+
+        Raises:
+            FedbiomedDatasetError: raised if data format is not correct
+        """
         _is_data_structure_ok = True
         if self._data is not None:
-            
+
             for node_id in self._data:
 
                 if isinstance(self._data[node_id], list):
@@ -69,32 +69,28 @@ class FederatedDataSet:
         Returns:
             Dict: Dict of federated datasets, keys as node ids
         """
-        data = copy.deepcopy(self._data)  # prevent user to change FederatedDataset value through references
-        return data
-    
+        return self._data
+
     def test_ratio(self) -> Union[float, Dict[str, float]]:
         return self._test_ratio
-    
+
     def set_test_ratio(self, ratio: float) -> float:
+        """
+        Sets testing ratio. 
+
+        Args:
+            ratio (float): testing ratio, that MUST be within interval
+            [0, 1]
+
+        Returns:
+            float: set testing ratio
+        """
         self._test_ratio = ratio
-        
         for node_id in self._data.keys(): 
-            
             self._data[node_id][0].update({'test_ratio': self._test_ratio})
 
         return self._test_ratio
-    
-    # def test_metric(self) -> Tuple[str, Dict[str, Any]]:
-    #     return self._test_metric, self._test_metric_args
-    
-    # def set_test_metric(self,
-    #                     metric: str,
-    #                     metric_args: Optional[Dict[str, Any]]) -> Tuple[str, Dict[str, Any]]:
-    #     self._test_metric = metric
-    #     self._test_metric_args = metric_args
-    #     return self._test_metric, self._test_metric_args
-    
-    
+
     def node_ids(self) -> List[uuid.UUID]:
         """
         Getter for Node ids

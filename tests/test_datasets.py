@@ -28,10 +28,14 @@ class TestFederatedDataset(unittest.TestCase):
         pass
 
     def test_federated_dataset_01_constructor_data_exception(self):
+        """
+        Tests private method `_check_data_fromat`, which is called when constructing
+        FedbiomedDatasetError object
+        """
         incorrect_data_format_1 = {'node1': {'dataset': 'dataset_id'}}
         with self.assertRaises(FedbiomedDatasetError):
             FederatedDataSet(incorrect_data_format_1)
-            
+
         incorrect_data_format_2 = {'node1': [[{'dataset': 'dataset_id'}]]}
         with self.assertRaises(FedbiomedDatasetError):
             FederatedDataSet(incorrect_data_format_2)
@@ -44,6 +48,19 @@ class TestFederatedDataset(unittest.TestCase):
         # federated dataset should have added a new entry `test_ratio` in the FederatedDataset
         self.data['node-1'][0]['test_ratio'] = .0
         self.assertDictEqual(self.data, updated_data, 'Can not get data properly from FederatedDataset')
+
+    def test_federated_dataset_03_set_test_ratio(self):
+        """
+        Tests setter `set_test_ratio` for setting the testing ratio
+        """
+        ratio = .6
+        updated_ratio = self.fds.set_test_ratio(ratio)
+
+        data = self.fds.data()
+        # checks
+        self.assertEqual(updated_ratio, ratio)
+        for d in data.values():
+            self.assertEqual(ratio, d[0].get('test_ratio'))
 
     def test_federated_dataset_03_node_ids(self):
         """ Testing node_ids getter/properties

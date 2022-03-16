@@ -285,8 +285,8 @@ class Experiment(object):
         # attributes
         # ---------------
         # public attributes
-        self.flag_test_on_global_updates = True
-        self.flag_test_on_local_updates = False
+        self._flag_test_on_global_updates = True
+        self._flag_test_on_local_updates = False
         # private attributes
         self._do_training = True  # whether to perform a training or not
 
@@ -358,6 +358,14 @@ class Experiment(object):
     @exp_exceptions
     def test_metric(self) -> str:
         return self._training_args.get('test_metric')
+
+    @exp_exceptions
+    def flag_test_on_local_updates(self) -> bool:
+        return self._flag_test_on_local_updates
+
+    @exp_exceptions
+    def flag_test_on_global_updates(self) -> bool:
+        return self._flag_test_on_global_updates
 
     @exp_exceptions
     def job(self) -> Union[Job, None]:
@@ -1019,6 +1027,8 @@ class Experiment(object):
             - training_args (dict): contains training arguments passed to the
                 `training_routine` of the training plan when launching it:
                 lr, epochs, batch_size...
+            - reset (bool): whether to reset the training_args (if previous training_args has already been set),
+                or to update it with training_args
 
         Raise:
             - FedbiomedExperimentError : bad training_args type
@@ -1052,11 +1062,29 @@ class Experiment(object):
 
     @exp_exceptions
     def clean_training_args(self):
+        """
+        Cleans / resets training arguments `training_args`
+        """
         self._training_args = {}
 
     @exp_exceptions
     def set_test_ratio(self, ratios: Union[Dict[str, float], float]) -> Union[Dict[str, float], float]:
-        
+        """
+        Sets testing ratio for model evaluation. When setting test_ratio, nodes will allocate 
+        test_ratio -1 percent of data for training and the remaining for testing model. This
+        could be usefull for evaluating the model, once evry round, as well as controlling
+        overfitting, doing early stopping, ....
+
+        Args:
+            ratios (Union[Dict[str, float], float]): testing ratio. Must be within interval [0,1].
+
+        Raises:
+            FedbiomedExperimentError: bad data type
+            FedbiomedExperimentError: ratio is not within interval [0, 1]
+
+        Returns:
+            Union[Dict[str, float], float]: testing ratios
+        """
         # data type checks
         if not isinstance(ratios, (int, float, dict)):
             msg = ErrorNumbers.FB410.value + ": incorrect argument ratios type:" + \
@@ -1078,10 +1106,10 @@ class Experiment(object):
         self._training_args['test_ratio'] = ratios
         if self._fds is not None:
             self._fds.set_test_ratio(ratios)
-            
+
         # add testing flags to `training_args`
-        self._training_args['test_on_global_updates'] = self.flag_test_on_global_updates
-        self._training_args['test_on_local_updates'] = self.flag_test_on_local_updates
+        self._training_args['test_on_global_updates'] = self._flag_test_on_global_updates
+        self._training_args['test_on_local_updates'] = self._flag_test_on_local_updates
         return ratios
 
     @exp_exceptions
@@ -1101,6 +1129,18 @@ class Experiment(object):
         self._training_args['test_metric_args'] = metric_args
 
         return metric, metric_args
+
+    @exp_exceptions
+    def set_flag_test_on_local_updates(self, flag: bool = True) -> bool:
+        self._flag_test_on_local_updates = flag
+        self._training_args['test_on_local_updates'] = self._flag_test_on_local_updates
+        return self._flag_test_on_local_updates
+
+    @exp_exceptions
+    def set_flag_test_on_global_updates(self, flag: bool = True) -> bool:
+        self._flag_test_on_global_updates = flag
+        self._training_args['test_on_global_updates'] = self._flag_test_on_global_updates
+        return self._flag_test_on_global_updates
 
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?
