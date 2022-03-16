@@ -5,7 +5,8 @@ import copy
 
 from typing import Any, List, Dict, Union
 import uuid
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedDatasetError
 
 from fedbiomed.common.logger import logger
 
@@ -19,25 +20,27 @@ class FederatedDataSet:
     aggregating or sampling strategies on researcher's side
     """
     def __init__(self,
-                 data: Dict,
+                 data: Dict[str, List[Dict[str, Any]]],
                  test_ratio: Union[float, Dict[str, float]] = .0):
         """
         simple constructor
         """
-        
+
         self._data = data
         self._check_data_format()
-        # testing attributes
+        # at this point, data can be only dict or None
 
-        # retrieve the first key of the dictionary
-        _key_list = list(data.keys())
-        if _key_list and 'test_ratio' in data[_key_list[0]][0]:
-            # FIXME: in this version, `test_ratio` should be the same 
-            # for each nodes. We don't handle cases where `test_ratio`
-            # appears only in some of the node entries
-            self._test_ratio = data[_key_list[0]][0]['test_ratio']
-        else:
-            self.set_test_ratio(test_ratio)
+        # testing facility attributes
+        if self._data is not None:
+            # retrieve the keys of the dictionary
+            _key_list = list(data.keys())
+            if _key_list and 'test_ratio' in data[_key_list[0]][0]:
+                # FIXME: in this version, `test_ratio` should be the same 
+                # for each nodes. We don't handle cases where `test_ratio`
+                # appears only in some of the node entries
+                self._test_ratio = data[_key_list[0]][0]['test_ratio']
+            else:
+                self.set_test_ratio(test_ratio)
 
         # self._test_metric = test_metric
         # self._test_metric_args = {} if test_metric_args is None else test_metric_args
@@ -56,7 +59,8 @@ class FederatedDataSet:
                 else:
                     _is_data_structure_ok = False
         if not _is_data_structure_ok:
-            raise FedbiomedError()
+            raise FedbiomedDatasetError(ErrorNumbers.FB414.value + ". Expected data of type "
+                                        f"Dict[str, List[Dict[str, Any]]], but got {self._data}")
 
     def data(self) -> Dict:
         """
@@ -75,11 +79,9 @@ class FederatedDataSet:
         self._test_ratio = ratio
         
         for node_id in self._data.keys(): 
-            if 'test_ratio' not in self._data[node_id][0]:
-                
-                self._data[node_id][0].update({'test_ratio': self._test_ratio})
-            else:
-                logger.warning("Cannot set `test_ratio`")
+            
+            self._data[node_id][0].update({'test_ratio': self._test_ratio})
+
         return self._test_ratio
     
     # def test_metric(self) -> Tuple[str, Dict[str, Any]]:

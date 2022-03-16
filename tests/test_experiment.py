@@ -14,7 +14,7 @@ from testsupport.fake_experiment import ExperimentMock
 from testsupport.fake_training_plan import FakeModel
 
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.exceptions import FedbiomedSilentTerminationError
+from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedSilentTerminationError
 
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
@@ -698,7 +698,7 @@ class TestExperiment(unittest.TestCase):
         self.mock_logger_debug.assert_called_once()
 
     def test_experiment_13_set_training_arguments(self):
-        """ Testing setter for training arguments of Experiment """
+        """training_data_2_2.get('test_ratio' Testing setter for training arguments of Experiment """
 
         # Test setting model_args as in invalid type
         with self.assertRaises(SystemExit):
@@ -709,6 +709,16 @@ class TestExperiment(unittest.TestCase):
         model_args = self.test_exp.set_training_args(ma_expected)
         self.assertDictEqual(ma_expected, model_args, 'Training arguments has not been set correctly by setter')
 
+        # test update of testing_args with argument `reset` set to False
+        ma_expected_2 = {'arg-2': 'loss'}
+        model_args_2 = self.test_exp.set_training_args(ma_expected_2, reset = False)
+        ma_expected_2.update(ma_expected)
+        self.assertDictEqual(model_args_2, ma_expected_2)
+        
+        # test update of testing_args with argument `reset` set to True
+        model_args_3 = self.test_exp.set_training_args(ma_expected, reset = True)
+        self.assertDictEqual(model_args_3, ma_expected)
+        
         # Test setting model_args while the ._job is not None
         self.mock_logger_debug.reset_mock()
         self.test_exp._job = MagicMock(return_value=True)
@@ -716,6 +726,67 @@ class TestExperiment(unittest.TestCase):
         # There will be one debug call.
         self.assertDictEqual(ma_expected, model_args, 'Training arguments has not been set correctly by setter')
         self.mock_logger_debug.assert_called_once()
+        
+
+    def test_experiment_14_set_test_ratio(self):
+        
+        # case 1: add test_ratio when federated_dataset is not defined
+        ratio_1 = .2
+        self.test_exp.set_test_ratio(ratio_1)
+        
+        # get training data 
+        training_data_1 = self.test_exp.training_args()
+        self.assertEqual(training_data_1.get('test_ratio'), ratio_1)
+        
+        # case 2: add test_ratio when federated dataset is defined
+        ratio_2_1 = .4
+        ratio_2_2 = .5
+        fed_dataset = FederatedDataSet({'node-id': [{'dataset_id': 'dataset', 'shape': [200, 300]}]},
+                                       ratio_2_1)
+        self.test_exp.set_training_data(fed_dataset)
+        training_data_2_1 = self.test_exp.training_args()
+        self.assertEqual(training_data_2_1.get('test_ratio'), ratio_2_1)
+        self.assertEqual(training_data_2_1.get('test_on_global_updates'),
+                         self.test_exp.flag_test_on_global_updates)
+        
+        self.assertEqual(training_data_2_1.get('test_on_local_updates'),
+                         self.test_exp.flag_test_on_local_updates)
+        self.test_exp.set_test_ratio(ratio_2_2)
+        training_data_2_2 = self.test_exp.training_args()
+        updated_fed_dataset = self.test_exp.training_data()
+        self.assertEqual(training_data_2_2.get('test_ratio'), ratio_2_2)
+        self.assertEqual(updated_fed_dataset.data()['node-id'][0].get('test_ratio'),
+                        ratio_2_2)
+        
+        # case 3: bad test_ratio values (trigger SystemExit exception)
+        # 3.1 : test_ratio type is not correct
+        # 3.2 : test_ratio is a float not whithin [0;1] interval
+        ratio_3_1 = "some value"
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_test_ratio(ratio_3_1)
+        
+        ratio_3_2 = 2.1
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_test_ratio(ratio_3_2)
+
+    def test_experiment_14_set_test_metric(self):
+        
+        # case 1. metric has been passed as a string
+        metric_1 = "ACCURACY"
+        metric_args_1 = {'normalize': True}
+        
+        self.test_exp.set_test_metric(metric=metric_1, **metric_args_1)
+        
+        training_args_1 = self.test_exp.training_args()
+        
+        self.assertEqual(training_args_1.get('test_metric'), metric_1)
+        self.assertDictEqual(training_args_1.get('test_metric_args'), metric_args_1)
+        # case 2. metric has been passed as a Enum / callable
+        # TODO
+        
+        # case 3: failure, incorrect data type
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_test_metric(True)
 
     @patch('fedbiomed.researcher.job.Job')
     @patch('fedbiomed.researcher.job.Job.__init__')

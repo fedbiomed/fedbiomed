@@ -619,7 +619,7 @@ class Experiment(object):
                 if _exp_test_ratio:
                     logger.warning(f"FederatedDataset has a different test ratio than the one of Experiment:"
                                    f" {self._fds.test_ratio()}, it will change the test_ratio of "
-                                   f"the experiment set {_exp_test_ratio}")
+                                   f"the experiment set to {_exp_test_ratio}")
                 self.set_test_ratio(self._fds.test_ratio())
             # self._strategy and self._job don't always exist at this point
             elif _exp_test_ratio:
@@ -1064,9 +1064,11 @@ class Experiment(object):
                 "mapping <node_id>: <testing ratio>"
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-        
+
         if isinstance(ratios, dict):
+            # TODO: check that each ratio of each node is whithin [0;1]
             pass
+
         elif 0 > ratios or ratios > 1:
             msg = ErrorNumbers.FB410.value + ": incorrect argument ratios, ratios should" + \
                 f"be between 0 and 1, but got {ratios}"
@@ -1085,37 +1087,20 @@ class Experiment(object):
     @exp_exceptions
     def set_test_metric(self, metric: Union[Callable, str], **metric_args) -> Tuple[str, Dict[str, Any]]:
         if not (isinstance(metric, str) or callable(metric)):
-            raise FedbiomedExperimentError(ErrorNumbers.FB410.value + ": incorrect argument metric, got type "
-                                           f"{type(metric)}, but expected Callable, str")
+            _msg = ErrorNumbers.FB410.value + ": incorrect argument metric, got type " + \
+                f"{type(metric)}, but expected Callable, str"
+            raise FedbiomedExperimentError(_msg)
+
         elif callable(metric) and hasattr(metric, '__name__'):
             # get string of a known function passed as callable (eg sklearn accuracy)
             metric = metric.__name__
-        else:
-            msg = ErrorNumbers.FB410.value + f": unparsable metric {str(metric)}, only" + \
-                " callable methods or strings are accepeted"
-            logger.critical(msg)
-            FedbiomedExperimentError(msg)
-        
+
+        if self._training_args is None:
+            self._training_args = {}
         self._training_args['test_metric'] = metric
         self._training_args['test_metric_args'] = metric_args
 
         return metric, metric_args
-
-    @exp_exceptions
-    def set_flag_test_on_global_update(self, flag: bool) -> bool:
-        if not isinstance(flag, bool):
-            raise FedbiomedExperimentError('incorrect type')
-        self._training_args['test_on_global_upate'] = flag
-        
-        return flag
-        
-    @exp_exceptions
-    def set_flag_test_on_local_update(self, flag: bool) -> bool:
-        if not isinstance(flag, bool):
-            raise FedbiomedExperimentError('incorrect type')
-        self._training_args['test_on_local_update'] = flag
-
-        return flag
 
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?

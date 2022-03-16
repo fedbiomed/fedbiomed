@@ -121,6 +121,7 @@ class ErrorNumbers(_BaseEnum):
     FB411 = "FB411: cannot train an experiment that is not fully defined"
     FB412 = "FB412: cannot do model checking for experiment"
     FB413 = "FB413: cannot save or load breakpoint for experiment"
+    FB414 = "FB414: bad federated dataset format"
 
     # node problem detected by researcher
 
