@@ -557,7 +557,6 @@ class Experiment(object):
         if self._fds is not None:
             logger.debug('Experimentation nodes filter changed, you may need to update `training_data`')
 
-
         return self._nodes
 
     @exp_exceptions
@@ -579,6 +578,8 @@ class Experiment(object):
                     searching for datasets with a query to the nodes using `tags` and `nodes`
                   - if `from_tags` is False or `tags` is None, set training_data to None (no training_data set yet,
                     experiment is not fully initialized and cannot be launched)
+            Nota: if training_data object does contain `test_ratio`, training_args will update its
+            value by the value set in the `training_data` argument
             - from_tags (bool, optional):
                 If True, query nodes for datasets when no `training_data` is provided.
                 Not used when `training_data` is provided.
@@ -1114,6 +1115,18 @@ class Experiment(object):
 
     @exp_exceptions
     def set_test_metric(self, metric: Union[Callable, str], **metric_args) -> Tuple[str, Dict[str, Any]]:
+        """
+        Sets a metric for federated model evaluation
+
+        Args:
+            metric (Union[Callable, str]): _description_
+
+        Raises:
+            FedbiomedExperimentError: metric 
+
+        Returns:
+            Tuple[str, Dict[str, Any]]: _description_
+        """
         if not (isinstance(metric, str) or callable(metric)):
             _msg = ErrorNumbers.FB410.value + ": incorrect argument metric, got type " + \
                 f"{type(metric)}, but expected Callable, str"
@@ -1126,22 +1139,39 @@ class Experiment(object):
         if self._training_args is None:
             self._training_args = {}
         self._training_args['test_metric'] = metric
+        # TODO: check `metric_args` passed
         self._training_args['test_metric_args'] = metric_args
 
         return metric, metric_args
+
 
     @exp_exceptions
     def set_flag_test_on_local_updates(self, flag: bool = True) -> bool:
         self._flag_test_on_local_updates = flag
         self._training_args['test_on_local_updates'] = self._flag_test_on_local_updates
+        self._flag_setter_warning()
         return self._flag_test_on_local_updates
 
     @exp_exceptions
     def set_flag_test_on_global_updates(self, flag: bool = True) -> bool:
         self._flag_test_on_global_updates = flag
         self._training_args['test_on_global_updates'] = self._flag_test_on_global_updates
+        self._flag_setter_warning()
         return self._flag_test_on_global_updates
 
+    def _flag_setter_warning(self):
+        """
+        Displays Warning if testing facility has been badly designed 
+        """
+        if not self._training_args.get('test_ratio', False):
+            logger.warning("Testing ratio not set: setting testing flags without specifying testing"
+                           " ratio will prevent doing model evaluation. Please set a testing_ratio with setter"
+                           " `set_test_ratio`")
+        if not (self._flag_test_on_global_updates or self._flag_test_on_local_updates):
+            logger.warning("Both flags `test_on_global_updates` and `test_on_local_updates`"
+                           " set to False: this will prevent doing model evaluation."
+                           " Please set at least one flag to True")
+    
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?
     @exp_exceptions

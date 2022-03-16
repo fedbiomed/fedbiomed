@@ -62,7 +62,7 @@ class TestFederatedDataset(unittest.TestCase):
         for d in data.values():
             self.assertEqual(ratio, d[0].get('test_ratio'))
 
-    def test_federated_dataset_03_node_ids(self):
+    def test_federated_dataset_04_node_ids(self):
         """ Testing node_ids getter/properties
             FIXME: When refactoring properties as getters
         """
@@ -70,7 +70,7 @@ class TestFederatedDataset(unittest.TestCase):
         node_ids = self.fds.node_ids()
         self.assertListEqual(node_ids, ['node-1', 'node-2'], 'Can not get node ids of FederatedDataset properly')
 
-    def test_federated_dataset_04_sample_sizes(self):
+    def test_federated_dataset_05_sample_sizes(self):
         """ Testing node_ids getter/properties
            FIXME: When refactoring properties as getters
        """
@@ -79,7 +79,7 @@ class TestFederatedDataset(unittest.TestCase):
         sample_sizes = self.fds.sample_sizes()
         self.assertListEqual(sizes, sample_sizes, 'Provided sample sizes and result of sample_sizes do not match')
 
-    def test_federated_dataset_05_shapes(self):
+    def test_federated_dataset_06_shapes(self):
         """ Testing shapes property of FederatedDataset """
 
         node_1 = list(self.data.keys())[0]
