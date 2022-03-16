@@ -9,8 +9,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from fedbiomed.common.constants import TrainingPlans, ProcessTypes
 
+
+from fedbiomed.common.constants import TrainingPlans, ProcessTypes
 from fedbiomed.common.utils import get_method_spec
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
@@ -265,16 +266,23 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     break
 
                 if batch_idx % log_interval == 0:
-                    logger.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                        epoch,
-                        batch_idx * len(data),
-                        len(self.__training_data_loader.dataset),
-                        100 * batch_idx / len(self.__training_data_loader),
-                        res.item()))
+                    # logger.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    #     epoch,
+                    #     batch_idx * len(data),
+                    #     len(self.__training_data_loader.dataset),
+                    #     100 * batch_idx / len(self.__training_data_loader),
+                    #     res.item()))
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
-                        history_monitor.add_scalar('Loss', res.item(), batch_idx, epoch)
+                        history_monitor.add_scalar(key='Loss',
+                                                   result_for='Training',
+                                                   value=res.item(),
+                                                   iteration=batch_idx,
+                                                   epoch=epoch,
+                                                   num_batches=len(self.__training_data_loader),
+                                                   total_samples=len(self.__training_data_loader.dataset),
+                                                   batch_samples=len(data))
 
                     if dry_run:
                         self.to(self.device_init)
@@ -289,29 +297,43 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
     def testing_routine(self,
                         data_loader: DataLoader,
-                        metric: MetricTypes):
+                        metric: MetricTypes,
+                        history_monitor):
 
+        # TODO: Add preprocess option for testing_data_loader
         self.__testing_data_loader = data_loader
 
         # Build metrics object
         metric_controller = Metrics()
-        result = []
+        tot_samples = len(self.__testing_data_loader.dataset)
+
         # Complete prediction over batches
         with torch.no_grad():
-            # There will be only one loop
-            for idx, (data, target) in enumerate(self.__testing_data_loader):
-                # Pass data through network layers
+            # Data Loader for testing partition includes entire dataset in the first batch
+            for batch_idx, (data, target) in enumerate(self.__testing_data_loader):
                 try:
+                    # Pass data through network layers
                     pred = self(data)
                 except Exception as e:
                     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - ")
 
                 # Convert prediction and actual values to numpy array
-                actual = target.detach().numpy()
+                true = target.detach().numpy()
                 predicted = pred.detach().numpy()
-                m = metric_controller.evaluate(actual, predicted, metric=metric)
-                result.append(m)
-                print(result)
+                m_value = metric_controller.evaluate(y_true=true, y_pred=predicted, metric=metric)
+
+                logger.info('Testing: Batch {} [{}/{}] | Metric[{}]: {:.6f}'.format(
+                    str(batch_idx), (batch_idx + 1) * len(true), tot_samples, metric.name, m_value))
+                # Send scalar values via general/feedback topic
+                if history_monitor is not None:
+                    history_monitor.add_scalar(key=f'Before Train `{metric.name}`',
+                                               value=float(m_value),
+                                               result_for='Testing',
+                                               iteration=batch_idx,
+                                               epoch=0,  # no epoch
+                                               total_samples=tot_samples,
+                                               batch_samples=len(true),
+                                               num_batches=len(self.__testing_data_loader))
 
         del metric_controller
 

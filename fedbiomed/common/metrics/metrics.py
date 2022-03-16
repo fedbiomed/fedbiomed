@@ -102,7 +102,7 @@ class Metrics(object):
             - sample_weight (array-like of shape (n_samples,), default=None, optional)
             Sample weights.
         Returns:
-            - sklearn.metrics.accuracy_score(Y_true, Y_pred, normalize = True,sample_weight = None)
+            - sklearn.metrics.accuracy_score(y_true, y_pred, normalize = True,sample_weight = None)
             score (float)
         """
 
@@ -110,7 +110,7 @@ class Metrics(object):
             return metrics.accuracy_score(y_true, y_pred, **kwargs)
         except Exception as e:
             print(e)
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             raise FedbiomedMetricError(msg)
 
     @staticmethod
@@ -138,7 +138,8 @@ class Metrics(object):
         try:
             return metrics.precision_score(y_true, y_pred, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            print(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             raise FedbiomedMetricError(msg)
         return
 
@@ -147,7 +148,7 @@ class Metrics(object):
                       y_score: np.ndarray,
                       **kwargs):
         """
-        Evaluate the average precision score from prediction scores (Y_score).
+        Evaluate the average precision score from prediction scores (y_score).
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html#sklearn.metrics.average_precision_score]
         Args:
             - average ({‘micro’, ‘samples’, ‘weighted’, ‘macro’} or None, default=’macro’, optional)
@@ -157,13 +158,13 @@ class Metrics(object):
             - sample_weight (array-like of shape (n_samples,), default=None, optional)
             Sample weights.
         Returns:
-            - sklearn.metrics.average_precision_score(Y_true, Y_score, normalize = True, sample_weight = None)
+            - sklearn.metrics.average_precision_score(y_true, y_score, normalize = True, sample_weight = None)
             average precision (float)
         """
         try:
             return metrics.average_precision_score(y_true, y_score, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             raise FedbiomedMetricError(msg)
 
     @staticmethod
@@ -191,7 +192,7 @@ class Metrics(object):
         try:
             return metrics.recall_score(y_true, y_pred, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             raise FedbiomedMetricError(msg)
 
     @staticmethod
@@ -220,7 +221,7 @@ class Metrics(object):
         try:
             return metrics.roc_auc_score(y_true, y_score, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             raise FedbiomedMetricError(msg)
 
     @staticmethod
@@ -245,10 +246,21 @@ class Metrics(object):
             - sklearn.metrics.f1_score(y_true, y_pred, *, labels=None, pos_label=1, average='binary', sample_weight=None, zero_division='warn')
             f1_score (float or array of float, shape = [n_unique_labels])
         """
+
+        # Check target variable is multi class or binary
+        if len(np.unique(y_true)) > 2:
+            average = kwargs.get('average', 'weighted')
+            logger.info('Using weighted calculation for multiclass F1 SCORE')
+        else:
+            average = kwargs.get('average', 'binary')
+
+        # Remove `average` parameter from **kwargs
+        kwargs.pop("average", None)
+
         try:
-            return metrics.f1_score(y_true, y_pred, **kwargs)
+            return metrics.f1_score(y_true, y_pred, average=average, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             raise FedbiomedMetricError(msg)
 
     @staticmethod
@@ -272,7 +284,7 @@ class Metrics(object):
         try:
             return metrics.mean_squared_error(y_true, y_pred, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             raise FedbiomedMetricError(msg)
 
     @staticmethod
@@ -316,7 +328,7 @@ class Metrics(object):
         try:
             return metrics.explained_variance_score(y_true, y_pred, **kwargs)
         except Exception as e:
-            msg = ErrorNumbers.FB607.value + " Exception raised from SKLEARN metrics: " + str(e)
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             raise FedbiomedMetricError(msg)
 
     def evaluate(self,
@@ -349,9 +361,6 @@ class Metrics(object):
         #                                f"does not match; {y_true.shape}, {y_pred.shape}")
 
         y_pred = self._configure_y_pred_based_on_metric_form(y_pred=y_pred, metric=metric)
-        print(y_pred)
-        print(y_true)
-        print(metric.name)
         result = self.metrics[metric.name](y_true, y_pred, **kwargs)
 
         return result
@@ -363,6 +372,7 @@ class Metrics(object):
 
         """
         # Get shape of the prediction should be 1D or 2D array
+        y_pred = np.squeeze(y_pred)
         shape = y_pred.shape
 
         # Shape of the prediction array should be (samples, outputs) or (samples, )
@@ -371,15 +381,14 @@ class Metrics(object):
 
         output_shape = shape[1] if len(shape) == 2 else 0  # 0 for 1D array
 
-        if metric.value is MetricForms.CLASSIFICATION_LABELS:
-            pred_labels = []
+        if metric.value[1] is MetricForms.CLASSIFICATION_LABELS:
             if output_shape == 0:
                 # TODO: Get threshold value from researcher
                 y_pred = np.where(y_pred > 0.5, 1, 0)
             else:
                 y_pred = np.argmax(y_pred, axis=1)
 
-        elif metric.value is MetricForms.REGRESSION:
+        elif metric.value[1] is MetricForms.REGRESSION:
             if output_shape > 0:
                 raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: For the metric `{metric.name}` multiple "
                                            f"output regression is not supported")

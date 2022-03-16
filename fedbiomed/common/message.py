@@ -233,6 +233,10 @@ class AddScalarReply(Message):
     key: str
     value: float
     epoch: int
+    total_samples: int
+    batch_samples: int
+    num_batches: int
+    result_for: str
     iteration: int
     command: str
 

@@ -3,7 +3,6 @@ monitor class to trap information sent during training and
 sned it to tensordboard
 '''
 
-
 import os
 import shutil
 from typing import Dict, Any
@@ -49,29 +48,26 @@ class Monitor():
 
         # For now monitor can only handle add_scalar messages
         if msg['command'] == 'add_scalar':
-
             if self._tensorboard:
-                # transfert data to tensorboard
-                self._summary_writer(msg['node_id'],
-                                     msg['key'],
-                                     msg['iteration'],
-                                     msg['value'],
-                                     msg['epoch'] )
+                # transfer data to tensorboard
+                self._summary_writer(metric_for=msg['result_for'].upper(),
+                                     node=msg['node_id'],
+                                     key=msg['key'],
+                                     global_step=msg['iteration'],
+                                     scalar=msg['value'],
+                                     epoch=msg['epoch'])
 
-            else:
-                # log on console
-                msg = "Monitor: node_id=" + \
-                    msg['node_id'] + \
-                    " epoch=" + \
-                    str(msg['epoch']) + \
-                    " iteration=" + \
-                    str(msg['iteration']) + \
-                    " " + \
-                    msg['key'] + \
-                    ":" + \
-                    str(msg['value'])
-                logger.info(msg)
-
+            # Log result
+            logger.info("\033[1m{}\033[0m on NODE_ID:[{}] "
+                        "Epoch: {} [{}] "
+                        "Completed ({:.0f}%)]\t "
+                        "Metric[{}] \033[1m{:.6f}\033[0m".format(msg['result_for'].upper(),
+                                                                 msg['node_id'],
+                                                                 msg['epoch'],
+                                                                 msg['batch_samples'],
+                                                                 100 * msg['iteration'] / msg['num_batches'],
+                                                                 msg['key'],
+                                                                 msg['value']))
 
     def set_tensorboard(self, tensorboard: bool):
         """
@@ -89,8 +85,13 @@ class Monitor():
             logger.error("tensorboard should be a boolean")
             self._tensorboard = False
 
-
-    def _summary_writer(self, node: str, key: str, global_step: int, scalar: float, epoch: int ):
+    def _summary_writer(self,
+                        metric_for: str,
+                        node: str,
+                        key: str,
+                        global_step: int,
+                        scalar: float,
+                        epoch: int):
         """
         This method is for writing scalar values using torch SummaryWriter
         It creates new summary file for each node.
@@ -107,8 +108,8 @@ class Monitor():
         # Initialize event SummaryWriters
         if node not in self._event_writers:
             self._event_writers[node] = {
-                'writer' : SummaryWriter(
-                    log_dir = os.path.join(self._log_dir, node)
+                'writer': SummaryWriter(
+                    log_dir=os.path.join(self._log_dir, node)
                 ),
                 'stepper': 1,
                 'step_state': 0,
@@ -142,12 +143,12 @@ class Monitor():
         # the previous  epochs
         if global_step == 0:
             self._event_writers[node]['step_state'] = self._event_writers[node]['step'] + \
-                self._event_writers[node]['stepper']
+                                                      self._event_writers[node]['stepper']
 
         # Increase step by adding global_step to step_state
         self._event_writers[node]['step'] = self._event_writers[node]['step_state'] + global_step
 
-        self._event_writers[node]['writer'].add_scalar('Metric[{}]'.format(key),
+        self._event_writers[node]['writer'].add_scalar('{}/{}'.format(metric_for, key),
                                                        scalar,
                                                        self._event_writers[node]['step'])
 
