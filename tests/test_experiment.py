@@ -714,11 +714,11 @@ class TestExperiment(unittest.TestCase):
         model_args_2 = self.test_exp.set_training_args(ma_expected_2, reset = False)
         ma_expected_2.update(ma_expected)
         self.assertDictEqual(model_args_2, ma_expected_2)
-        
+
         # test update of testing_args with argument `reset` set to True
         model_args_3 = self.test_exp.set_training_args(ma_expected, reset = True)
         self.assertDictEqual(model_args_3, ma_expected)
-        
+
         # Test setting model_args while the ._job is not None
         self.mock_logger_debug.reset_mock()
         self.test_exp._job = MagicMock(return_value=True)
@@ -726,14 +726,25 @@ class TestExperiment(unittest.TestCase):
         # There will be one debug call.
         self.assertDictEqual(ma_expected, model_args, 'Training arguments has not been set correctly by setter')
         self.mock_logger_debug.assert_called_once()
-        
 
-    def test_experiment_14_set_test_ratio(self):
-        
+    def test_experiment_14_clean_training_arguments(self):
+        """
+        Tests if training arguments can be cleaned using `clean_training_args`
+        """
+        self.test_exp.set_training_args({'param': 1233})
+        self.test_exp.clean_training_args()
+
+        self.assertEqual(self.test_exp.training_args(), {})
+
+    def test_experiment_15_set_test_ratio(self):
+        """
+        Tests test_ratio setter `set_test_ratio`, correct uses and
+        Exceptions
+        """
         # case 1: add test_ratio when federated_dataset is not defined
         ratio_1 = .2
         self.test_exp.set_test_ratio(ratio_1)
-        
+
         # get training data 
         training_data_1 = self.test_exp.training_args()
         self.assertEqual(training_data_1.get('test_ratio'), ratio_1)
@@ -748,7 +759,7 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(training_data_2_1.get('test_ratio'), ratio_2_1)
         self.assertEqual(training_data_2_1.get('test_on_global_updates'),
                          self.test_exp.flag_test_on_global_updates)
-        
+
         self.assertEqual(training_data_2_1.get('test_on_local_updates'),
                          self.test_exp.flag_test_on_local_updates)
         self.test_exp.set_test_ratio(ratio_2_2)
@@ -756,41 +767,43 @@ class TestExperiment(unittest.TestCase):
         updated_fed_dataset = self.test_exp.training_data()
         self.assertEqual(training_data_2_2.get('test_ratio'), ratio_2_2)
         self.assertEqual(updated_fed_dataset.data()['node-id'][0].get('test_ratio'),
-                        ratio_2_2)
-        
+                         ratio_2_2)
+
         # case 3: bad test_ratio values (trigger SystemExit exception)
         # 3.1 : test_ratio type is not correct
         # 3.2 : test_ratio is a float not whithin [0;1] interval
         ratio_3_1 = "some value"
         with self.assertRaises(SystemExit):
             self.test_exp.set_test_ratio(ratio_3_1)
-        
+
         ratio_3_2 = 2.1
         with self.assertRaises(SystemExit):
             self.test_exp.set_test_ratio(ratio_3_2)
 
-    def test_experiment_14_set_test_metric(self):
-        
+    def test_experiment_16_set_test_metric(self):
+        """
+        Tests testing metric setter `set_test_metric
+        """
         # case 1. metric has been passed as a string
         metric_1 = "ACCURACY"
         metric_args_1 = {'normalize': True}
-        
+
         self.test_exp.set_test_metric(metric=metric_1, **metric_args_1)
-        
+
         training_args_1 = self.test_exp.training_args()
-        
+
         self.assertEqual(training_args_1.get('test_metric'), metric_1)
         self.assertDictEqual(training_args_1.get('test_metric_args'), metric_args_1)
         # case 2. metric has been passed as a Enum / callable
         # TODO
-        
+
         # case 3: failure, incorrect data type
         with self.assertRaises(SystemExit):
             self.test_exp.set_test_metric(True)
 
     @patch('fedbiomed.researcher.job.Job')
     @patch('fedbiomed.researcher.job.Job.__init__')
-    def test_experiment_14_set_job(self, mock_job_init, mock_job):
+    def test_experiment_17_set_job(self, mock_job_init, mock_job):
         """ Testing setter for Job in Experiment class """
 
         job_expected = "JOB"
@@ -825,7 +838,7 @@ class TestExperiment(unittest.TestCase):
         job = self.test_exp.set_job()
         self.assertIsInstance(job, Job, 'Job has not been set properly')
 
-    def test_experiment_15_set_save_breakpoints(self):
+    def test_experiment_18_set_save_breakpoints(self):
         """ Test setter for save_breakpoints attr of experiment class """
 
         # Test invalid type of argument
@@ -836,7 +849,7 @@ class TestExperiment(unittest.TestCase):
         sb = self.test_exp.set_save_breakpoints(True)
         self.assertTrue(sb, 'save_breakpoint has not been set correctly')
 
-    def test_experiment_16_set_tensorboard(self):
+    def test_experiment_19_set_tensorboard(self):
         """ Test setter for tensorboard """
 
         # Test invalid type of argument
@@ -858,7 +871,7 @@ class TestExperiment(unittest.TestCase):
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
     @patch('fedbiomed.researcher.job.Job.__init__')
-    def test_experiment_17_run_once(self,
+    def test_experiment_20_run_once(self,
                                     mock_job_init,
                                     mock_job_updates_params,
                                     mock_job_training,
@@ -927,8 +940,28 @@ class TestExperiment(unittest.TestCase):
                          'Round limit has not been increased after running run_once with '
                          'increase=True')
 
+        # Try same scenario with test_after argument as True
+
+        # resetting mocks
+        mock_job_training.reset_mock()
+        mock_strategy_refine.reset_mock()
+        mock_fedavg_aggregate.reset_mock()
+        mock_job_updates_params.reset_mock()
+        mock_experiment_breakpoint.reset_mock()
+        # action
+        self.test_exp._round_current = 1
+        result = self.test_exp.run_once(test_after=True)
+        # testing calls
+        mock_strategy_refine.assert_called_once()
+        mock_fedavg_aggregate.assert_called_once()
+        mock_job_updates_params.assert_called_once()
+        mock_experiment_breakpoint.assert_called_once()
+        self.assertEqual(mock_job_training.call_count, 2)
+        # additional checks
+        self.assertEqual(result, 1)
+
     @patch('fedbiomed.researcher.experiment.Experiment.run_once')
-    def test_experiment_18_run(self, mock_exp_run_once):
+    def test_experiment_21_run(self, mock_exp_run_once):
         """ Testing run method of Experiment class """
 
         def run_once_side_effect(increase, test_after=False):
@@ -1007,11 +1040,9 @@ class TestExperiment(unittest.TestCase):
             self.test_exp.run(rounds=1)
 
     @patch('builtins.open')
-    @patch('fedbiomed.researcher.job.Job.__init__', return_value=None)
     @patch('fedbiomed.researcher.job.Job.model_file', new_callable=PropertyMock)
-    def test_experiment_19_model_file(self,
+    def test_experiment_22_model_file(self,
                                       mock_model_file,
-                                      mock_job_init,
                                       mock_open):
         """ Testing getter model_file of the experiment class """
 
@@ -1051,7 +1082,7 @@ class TestExperiment(unittest.TestCase):
 
     @patch('fedbiomed.researcher.job.Job.__init__', return_value=None)
     @patch('fedbiomed.researcher.job.Job.check_model_is_approved_by_nodes')
-    def test_experiment_20_check_model_status(self,
+    def test_experiment_23_check_model_status(self,
                                               mock_job_model_is_approved,
                                               mock_job):
         """Testing method that checks model status """
@@ -1068,7 +1099,7 @@ class TestExperiment(unittest.TestCase):
         result = self.test_exp.check_model_status()
         self.assertDictEqual(result, expected_approved_result, 'check_model_status did not return expected value')
 
-    def test_experiment_21_breakpoint_raises(self):
+    def test_experiment_24_breakpoint_raises(self):
         """ Testing the scenarios where the method breakpoint() raises error """
 
         # Test if self._round_current is less than 1
@@ -1101,7 +1132,7 @@ class TestExperiment(unittest.TestCase):
     @patch('fedbiomed.researcher.experiment.choose_bkpt_file')
     # testing _save_breakpoint + _save_aggregated_params
     # (not exactly a unit test, but probably more interesting)
-    def test_experiment_22_save_breakpoint(
+    def test_experiment_25_save_breakpoint(
             self,
             patch_choose_bkpt_file,
             patch_create_ul,
@@ -1241,7 +1272,7 @@ class TestExperiment(unittest.TestCase):
     # test load_breakpoint + _load_aggregated_params
     # cannot test Experiment constructor, need to fake it
     # (not exactly a unit test, but probably more interesting)
-    def test_experiment_22_static_load_breakpoint(self,
+    def test_experiment_26_static_load_breakpoint(self,
                                                   patch_find_breakpoint_path,
                                                   patch_create_object,
                                                   patch_model_instance
@@ -1387,7 +1418,7 @@ class TestExperiment(unittest.TestCase):
         self.assertFalse(loaded_exp._monitor)
 
     @patch('fedbiomed.researcher.experiment.create_unique_file_link')
-    def test_experiment_23_static_save_aggregated_params(self,
+    def test_experiment_27_static_save_aggregated_params(self,
                                                          mock_create_unique_file_link):
         """Testing static private method of experiment for saving aggregated params"""
 
@@ -1417,7 +1448,7 @@ class TestExperiment(unittest.TestCase):
         agg_p = Experiment._save_aggregated_params(aggregated_params_init=agg_params, breakpoint_path='/')
         self.assertDictEqual(agg_p, expected_agg_params, '_save_aggregated_params result is not as expected')
 
-    def test_experiment_24_static_load_aggregated_params(self):
+    def test_experiment_28_static_load_aggregated_params(self):
         """ Testing static method for loading aggregated params of Experiment"""
 
         def load_func(x, to_params):
@@ -1449,7 +1480,7 @@ class TestExperiment(unittest.TestCase):
         result = Experiment._load_aggregated_params(agg_params, load_func)
         self.assertDictEqual(result, expected, '_load_aggregated_params did not return as expected')
 
-    def test_experiment_25_private_create_object(self):
+    def test_experiment_29_private_create_object(self):
         """tests `_create_object_ method :
         Importing class, creating and initializing multiple objects from
         breakpoint state for object and file containing class code
