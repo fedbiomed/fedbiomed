@@ -141,13 +141,15 @@ class Metrics(object):
             average = kwargs.get('average', 'weighted')
             logger.info(f'Actual/True values (y_true) has more than two levels, using multiclass `{average}` '
                         f'calculation for the metric PRECISION')
-        else:
+        elif len(np.unique(y_true)) == 2:
             average = kwargs.get('average', 'binary')
 
+        else:
+            raise FedbiomedMetricError("Cannot compute metric: only one class is provided")
         # Remove `average` parameter from **kwargs
         kwargs.pop("average", None)
         try:
-            return metrics.precision_score(y_true, y_pred, average=average, labels=labels, **kwargs)
+            return metrics.precision_score(y_true, y_pred, average=average, **kwargs)
         except Exception as e:
             print(e)
             msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)

@@ -252,7 +252,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     try:
                         _mu = float(fedprox_mu)
                     except ValueError:
-                        msg = ErrorNumbers.FB605.value + ": fedprox_mu parameter reuqested nut is not a float"
+                        msg = ErrorNumbers.FB605.value + ": fedprox_mu parameter requested is not a float"
                         logger.critical(msg)
                         raise FedbiomedTrainingPlanError(msg)
 
@@ -320,6 +320,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     # Pass data through network layers
                     pred = self(data)
                 except Exception as e:
+                    # Pytorch doesnot provide any means to catch exception (no custom Exceptions), that is why we need
+                    # to trap general Exception
                     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - {str(e)}")
 
                 # If `testing_step` is defined in the TrainingPlan
@@ -327,6 +329,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     try:
                         m_value = self.evaluation_step(true, predicted)
                     except Exception as e:
+                        # catch exception because we are letting the user to design this
+                        # `evaluation_step` method of the training plan
                         raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: an exception raised while "
                                                          f"executing `testing_step` : {str(e)}")
 

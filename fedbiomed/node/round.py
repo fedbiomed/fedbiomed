@@ -78,6 +78,8 @@ class Round:
         self.model = None
         self.training_data_loader = None
         self.testing_data_loader = None
+        
+        self._default_batch_size = 48  # default bath size
 
     def run_model_training(self) -> TrainReply:
         """This method downloads model file; then runs the training of a model
@@ -270,7 +272,7 @@ class Round:
         `dataset_path` for model and calls `training_data` method of training plan.
 
         Args:
-            ratio (float) : The ratio that represent test partition. Default is 0, means that
+            test_ratio (float) : The ratio that represent test partition. Default is 0, means that
                             all the samples will be used for training.
 
         Raises:
@@ -288,8 +290,8 @@ class Round:
         # Set requested data path for model training and testing
         self.model.set_dataset_path(self.dataset['path'])
 
-        # Get batch size from training argument if it is not exist use 48
-        batch_size = self.training_kwargs.get('batch_size', 48)
+        # Get batch size from training argument if it is not exist use default batch size
+        batch_size = self.training_kwargs.get('batch_size', self._default_batch_size)
 
         training_plan_type = self.model.type()
 
