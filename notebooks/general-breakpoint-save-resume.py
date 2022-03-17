@@ -196,7 +196,7 @@ del exp
 
 loaded_exp = Experiment.load_breakpoint()
 
-print(f'Experimention folder: {loaded_exp.experimentation_folder()}')
+print(f'Experimentation folder: {loaded_exp.experimentation_folder()}')
 print(f'Loaded experiment path: {loaded_exp.experimentation_path()}')
 
 # Continue training for the experiment loaded from breakpoint.
