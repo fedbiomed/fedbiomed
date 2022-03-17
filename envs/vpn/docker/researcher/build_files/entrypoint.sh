@@ -74,10 +74,10 @@ su -c "export PATH=${PATH} ; eval $(conda shell.bash hook) ; \
 # proxy port for TensorBoard
 # enables launching TB without `--host` option (thus listening only on `localhost`)
 # + `watch` for easy respawn in case of failure
-su -c "export PATH=${PATH} ; \
     while true ; do \
-        socat -s TCP-LISTEN:6007,fork,reuseaddr TCP4:127.0.0.1:6006 ; \
-        sleep 1 ; done" $CONTAINER_USER &
+        socat TCP-LISTEN:6007,fork,reuseaddr,su=$CONTAINER_USER TCP4:127.0.0.1:6006 ; \
+        sleep 1 ; \
+    done &
 
 sleep infinity &
 

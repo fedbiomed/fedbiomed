@@ -311,6 +311,8 @@ Run this for all launches of the container :
 # [user@node-container $] nohup python -m fedbiomed.node.cli  -s >./fedbiomed_node.out &
 ```
 
+#### using the node
+
 To add datasets in the node, copy them in the directory `./node/run_mounts/data` on the node host machine :
 ```bash
 [user@node $] ls ./node/run_mounts/data
@@ -391,9 +393,12 @@ Run this for all launches of the container :
 [user@node $] docker-compose up -d gui
 ```
 
+#### using the gui
+
 Use the node gui from outside the gui container :
-* connect to `http://localhost:8484` from your browser. By default, only connections from `localhost` are authorized
-* to enable connection to the GUI from any IP address
+* connect to `http://localhost:8484` from your browser.
+
+By default, only connections from `localhost` are authorized. To enable connection to the GUI from any IP address
   - specify the bind IP address at container launch time (eg: your node public IP address `NODE_IP`, or `0.0.0.0` to listen on all node addresses)
 ```bash
 [user@node $] GUI_HOST=0.0.0.0 docker-compose up -d gui
@@ -460,14 +465,32 @@ Run this for all launches of the container :
 [user@researcher-container $] ./notebooks/101_getting-started.py
 ```
 
+#### using the researcher
+
 Use notebooks from outside the researcher container :
 * connect to `http://localhost:8888` from your browser. By default, only connections from `localhost` are authorized
-* to enable connection to the researcher from any IP address
+
+Use tensorboard from outside the researcher container :
+* connect to `http://localhost:8888` from your browser and use embedded tensorboard in your notebook as in the `./notebooks/general-tensorboard.ipynb` example :
+```python
+from fedbiomed.researcher.environ import environ
+tensorboard_dir = environ['TENSORBOARD_RESULTS_DIR']
+%load_ext tensorboard
+tensorboard --logdir "$tensorboard_dir"
+```
+* alternatively connect to `http://localhost:6006` from your browser, after starting tensorboard either as an embedded tensorboard in the notebook (see above), or manually in the container with:
+```bash
+[user@researcher-container $] eval "$(conda shell.bash hook)"
+[user@researcher-container $] conda activate fedbiomed-researcher
+[user@researcher-container $] tensorboard --logdir runs &
+```
+
+To enable connection to the researcher and the tensorboard from any IP address using `RESEARCHER_HOST`
   - specify the bind IP address at container launch time (eg: your server public IP address `SERVER_IP`, or `0.0.0.0` to listen on all server addresses)
 ```bash
 [user@researcher $] RESEARCHER_HOST=${SERVER_IP} docker-compose up -d researcher
 ```
-  - connect to `http://${SERVER_IP}:8888`
+  - connect to `http://${SERVER_IP}:8888` and `http://${SERVER_IP}:6006`
   - **warning** allowing connections from non-`localhost` exposes the researcher to attacks from the network. Only use with proper third party security measures (web proxy, firewall, etc.) Currently, the provided researcher container does not include a user authentication mechanism or encrypted communications for the user.
 
 To permanently save your notebooks on the researcher host machine (outside of the container) use the directory `./researcher/run_mounts/samples` :
