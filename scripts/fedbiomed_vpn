@@ -28,26 +28,28 @@ Usage: ${0##*/} build     [-c|--clean]
 Build/configure/run docker containers for VPN support
 (cannot build / configure / node / server at same time)
 
- build                    build all containers
+ build           build all containers
 
      Optional with build:
 
-     -c|--clean           clean environments first
+     -c|--clean  clean environments first
 
- configure                   generate configuration files (IP and keys)
+ configure       generate configuration files (IP and keys)
 
      Optional with generate:
 
-     -n number            number of node configuration file(s) to generate
-                          (1 if not provided)
+     -n number   number of node configuration file(s) to generate
+                 (1 if not provided)
 
- node                     start/stop a local node's docker  (already built)
- server                   start/stop local server's dockers (already built)
+ node            start/stop local nodes docker     (already built and configured)
+                 number of nodes is deduced from the configured files
+ server          start/stop local server's dockers (already built and configured)
+                 vpn/mqtt/restful servers are started
 
      Required with node/server:
 
-     start                start the component
-     stop                 stop  the component
+     start       start the component
+     stop        stop  the component
 
      Optional with node/server:
 
