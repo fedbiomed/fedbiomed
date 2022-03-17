@@ -166,8 +166,9 @@ class Monitor():
         """
 
         for file in os.listdir(self._log_dir):
-            rf = os.path.join(self._log_dir, file)
-            if os.path.isdir(rf):
-                shutil.rmtree(rf)
-            elif os.path.isfile(rf):
-                os.remove(rf)
+            if not file.startswith('.'): # dont want to remove dotfiles
+                rf = os.path.join(self._log_dir, file)
+                if os.path.isdir(rf):
+                    shutil.rmtree(rf)
+                elif os.path.isfile(rf):
+                    os.remove(rf)
