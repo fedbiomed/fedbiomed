@@ -65,3 +65,16 @@ def federated_averaging(model_params: List[Dict[str, torch.Tensor]],
             avg_params[key] = np.average(matr, weights=np.array(weights), axis=0)
 
     return avg_params
+
+def perturb(model_params: List[Dict[str, torch.Tensor]], DP_params: Dict[float, float]) -> Dict[str, torch.Tensor]:
+
+    perturbed_params = {}
+
+    per_param_norms = [params.view(len(params), -1).norm(2,dim=-1) for key, params in model_params.items()]
+    per_sample_norms = torch.cat(per_param_norms,dim=0).norm(2)#torch.stack(per_param_norms, dim=1).norm(2,dim=1)
+    per_sample_clip_factor = (DP_params['clip_threshold'] / (per_sample_norms + 1e-6)).clamp(max=1.0)
+    for key in model_params.keys():
+        perturbed_params[key] = model_params[key].mul(per_sample_clip_factor) \
+                        + torch.sqrt(torch.tensor([2]))*DP_params['sigma'] * torch.randn_like(model_params[key])
+    return perturbed_params
+
