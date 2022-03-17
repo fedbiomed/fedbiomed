@@ -253,7 +253,7 @@ class Environ(metaclass = SingletonMeta):
                                                            f'db_{NODE_ID}.json')
 
         self._values['DEFAULT_MODELS_DIR']  = os.path.join(ROOT_DIR,
-                                                           'envs' , 'development', 'default_models')
+                                                           'envs' , 'common', 'default_models')
 
         try:
             _cfg_value = cfg.get('security', 'allow_default_models')
