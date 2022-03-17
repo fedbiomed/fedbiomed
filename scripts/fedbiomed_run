@@ -313,7 +313,7 @@ case $1 in
                     python -m fedbiomed.node.cli --start $PARAMS
                     ;;
                 *)
-                    echo "please run node with add or start option (full help with -h)"
+                    echo "Bad node command '$2' : please run node with add or start option (full help with -h)"
                     exit -1
                     ;;
             esac
