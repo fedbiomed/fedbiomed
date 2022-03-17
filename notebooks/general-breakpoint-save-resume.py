@@ -183,15 +183,15 @@ del exp
 # **To load a specific breakpoint** specify breakpoint folder.
 # 
 # - absolute path: use
-#   `Experiment.load_breakpoint("${FEDBIOMED_DIR}/var/breakpoints/Experiment_xxxx/breakpoint_yyyy)`.
+#   `Experiment.load_breakpoint("${FEDBIOMED_DIR}/var/experiments/Experiment_xxxx/breakpoint_yyyy)`.
 #    Replace `xxxx` and `yyyy` by the real values.
 # - relative path from a notebook: a notebook is running from the `${FEDBIOMED_DIR}/notebooks` directory
-#   so use `Experiment.load_breakpoint("../var/breakpoints/Experiment_xxxx/breakpoint_yyyy)`.
+#   so use `Experiment.load_breakpoint("../var/experiments/Experiment_xxxx/breakpoint_yyyy)`.
 #   Replace `xxxx` and `yyyy` by the real values.
 # - relative path from a script: if launching the script from the
 #   ${FEDBIOMED_DIR} directory (eg: `python ./notebooks/general-breakpoint-save-resume.py`)
 #  then use a path relative to the current directory eg:
-# `Experiment.load_breakpoint("./var/breakpoints/Experiment_xxxx/breakpoint_yyyy)`
+# `Experiment.load_breakpoint("./var/experiments/Experiment_xxxx/breakpoint_yyyy)`
 
 
 loaded_exp = Experiment.load_breakpoint()
