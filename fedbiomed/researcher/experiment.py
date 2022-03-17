@@ -1147,6 +1147,17 @@ class Experiment(object):
 
     @exp_exceptions
     def set_flag_test_on_local_updates(self, flag: bool = True) -> bool:
+        """
+        Setter for flag_test_on_local_updates, that indicates whether to
+        perform a testing on the federated model local updates or not.
+
+        Args:
+            flag (bool, optional): whether to peform model evaluation on local updates.
+            Defaults to True.
+
+        Returns:
+            bool: value of the flag `flag_test_on_local_updates`
+        """
         self._flag_test_on_local_updates = flag
         self._training_args['test_on_local_updates'] = self._flag_test_on_local_updates
         self._flag_setter_warning()
@@ -1154,6 +1165,16 @@ class Experiment(object):
 
     @exp_exceptions
     def set_flag_test_on_global_updates(self, flag: bool = True) -> bool:
+        """
+        Setter for flag_test_on_global_updates, that indicates whether to
+        perform a testing on the federated model updates updates or not.
+
+        Args:
+            flag (bool, optional): whether to peform model evaluation on global updates. Defaults to True.
+
+        Returns:
+            bool: value of the flag `flag_test_on_global_updates`.
+        """
         self._flag_test_on_global_updates = flag
         self._training_args['test_on_global_updates'] = self._flag_test_on_global_updates
         self._flag_setter_warning()
@@ -1161,16 +1182,19 @@ class Experiment(object):
 
     def _flag_setter_warning(self):
         """
-        Displays Warning if testing facility has been badly designed 
+        Displays Warnings if testing facility has been badly designed:
+        * if no test ratios has been set BUT testing flags and/or testing metric have been
+        * if testing flags are set 
+        
         """
         if not self._training_args.get('test_ratio', False):
             logger.warning("Testing ratio not set: setting testing flags without specifying testing"
                            " ratio will prevent doing model evaluation. Please set a testing_ratio with setter"
-                           " `set_test_ratio`")
+                           " `set_test_ratio` to perform model evaluation")
         if not (self._flag_test_on_global_updates or self._flag_test_on_local_updates):
             logger.warning("Both flags `test_on_global_updates` and `test_on_local_updates`"
                            " set to False: this will prevent doing model evaluation."
-                           " Please set at least one flag to True")
+                           " Please set at least one flag to True to perform model evaluation")
     
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?
