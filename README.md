@@ -351,7 +351,7 @@ For starting node with disabled model approval and default models;
 
 #### Default Models
 
-Default models has been located at the `env/development/default_models/` directory as `txt` files. Each time when the node started with the `model_approval = True` and `allow_default_model = True` modes, hashing of the model files are get checked to detect if the file is modified, the hashing algorithm has changed or is there any new model file added. If model files are modified `ModelManager` updates hashes for these models in the database. If the hashing algoritmh of the model is different that the active hashing algorithm, hashes also get updated. This process only occurs when both `model-approval` and `allow-default-models` modes are activated. To add new default model for the examples or for testing, model files should be saved as `txt` and copied into the `envs/common/default_models` directory. After the copy/save operation node should be restarted.
+Default models are located in the `envs/common/default_models/` directory as `txt` files. Each time  the node starts with the `model_approval = True` and `allow_default_model = True` modes, hashing of the model files are checked to detect if the file is modified, the hashing algorithm has changed or is there any new model file added. If model files are modified `ModelManager` updates hashes for these models in the database. If the hashing algorithm of the model is different from the active hashing algorithm, hashes also get updated. This process only occurs when both `model-approval` and `allow-default-models` modes are activated. To add new default model for the examples or for testing, model files should be saved as `txt` and copied into the `envs/common/default_models` directory. After the copy/save operation node should be restarted.
 
 
 #### Registering New Models
@@ -362,7 +362,7 @@ New models can be registered using `fedbiomed_run` scripts with `register-model`
 ./scripts/fedbiomed_run node config config-n1.ini register-model
 ```
 
-The CLI will ask for name of the model, description and the path where model file is stored. **Model files should saved as txt in the file system for registiration.** This because these files are for only hashing purposes not for loading modules.
+The CLI asks for the name of the model, description and the path where model file is stored. **Model files should be saved as txt in the file system for registration**. This is because these files are for only hashing purposes not for loading modules.
 
 #### Deleting Registered Models
 
