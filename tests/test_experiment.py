@@ -1,4 +1,3 @@
-import time
 import unittest
 import os
 import sys
@@ -14,7 +13,7 @@ from testsupport.fake_experiment import ExperimentMock
 from testsupport.fake_training_plan import FakeModel
 
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedSilentTerminationError
+from fedbiomed.common.exceptions import FedbiomedSilentTerminationError
 
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
@@ -94,7 +93,7 @@ class TestExperiment(unittest.TestCase):
         self.patchers = [
             patch('fedbiomed.researcher.datasets.FederatedDataSet',
                   FederatedDataSetMock),
-#            patch('fedbiomed.researcher.requests.Requests.add_monitor_callback',   # seems unused !
+# patch('fedbiomed.researcher.requests.Requests.add_monitor_callback',   # seems unused !
 #                  return_value=None),
             patch('fedbiomed.researcher.aggregators.aggregator.Aggregator.__init__',
                   return_value=None)
@@ -106,8 +105,10 @@ class TestExperiment(unittest.TestCase):
 
         # Patchers that required be modified during the tests
         self.patcher_monitor_init = patch('fedbiomed.researcher.monitor.Monitor', MagicMock(return_value=None))
-        self.patcher_monitor_on_message_handler = patch('fedbiomed.researcher.monitor.Monitor.on_message_handler', MagicMock(return_value=None))
-        self.patcher_monitor_close_writer = patch('fedbiomed.researcher.monitor.Monitor.close_writer', MagicMock(return_value=None))
+        self.patcher_monitor_on_message_handler = patch('fedbiomed.researcher.monitor.Monitor.on_message_handler',
+                                                        MagicMock(return_value=None))
+        self.patcher_monitor_close_writer = patch('fedbiomed.researcher.monitor.Monitor.close_writer',
+                                                  MagicMock(return_value=None))
         self.patcher_cr_folder = patch('fedbiomed.researcher.experiment.create_exp_folder',
                                        return_value=self.experimentation_folder)
         self.patcher_job = patch('fedbiomed.researcher.job.Job.__init__', MagicMock(return_value=None))
@@ -748,7 +749,7 @@ class TestExperiment(unittest.TestCase):
         # get training data 
         training_data_1 = self.test_exp.training_args()
         self.assertEqual(training_data_1.get('test_ratio'), ratio_1)
-        
+
         # case 2: add test_ratio when federated dataset is defined
         ratio_2_1 = .4
         ratio_2_2 = .5

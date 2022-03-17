@@ -621,6 +621,10 @@ class localJob:
         self._model_args = model_args
         self.dataset_path = dataset_path
 
+        if training_args is not None and training_args.get('test_ratio', False):
+            # if user wants to perform testing, display this message
+            logger.warning("- Cannot perform testing: testing currently not supported for LocalJob -")
+
         # handle case when model is in a file
         if model_path is not None:
             try:

@@ -1,7 +1,6 @@
 '''
 class which allows researcher to interact with remote datasets (federated datasets)
 '''
-import copy
 
 from typing import Any, List, Dict, Union
 import uuid
@@ -29,16 +28,15 @@ class FederatedDataSet:
         # at this point, data can be only dict or None
 
         # testing facility attributes
-        if self._data is not None:
-            # retrieve the keys of the dictionary
-            _key_list = list(data.keys())
-            if _key_list and 'test_ratio' in data[_key_list[0]][0]:
-                # FIXME: in this version, `test_ratio` should be the same 
-                # for each nodes. We don't handle cases where `test_ratio`
-                # appears only in some of the node entries
-                self._test_ratio = data[_key_list[0]][0]['test_ratio']
-            else:
-                self.set_test_ratio(test_ratio)
+
+        _key_list = list(data.keys())  # retrieve the keys of the dictionary
+        if _key_list and 'test_ratio' in data[_key_list[0]][0]:
+            # FIXME: in this version, `test_ratio` should be the same 
+            # for each nodes. We don't handle cases where `test_ratio`
+            # appears only in some of the node entries
+            self._test_ratio = data[_key_list[0]][0]['test_ratio']
+        else:
+            self.set_test_ratio(test_ratio)
 
     def _check_data_format(self):
         """
@@ -58,9 +56,12 @@ class FederatedDataSet:
                         _is_data_structure_ok = False
                 else:
                     _is_data_structure_ok = False
+        else:
+            _is_data_structure_ok = False
         if not _is_data_structure_ok:
             raise FedbiomedDatasetError(ErrorNumbers.FB414.value + ". Expected data of type "
-                                        f"Dict[str, List[Dict[str, Any]]], but got {self._data}")
+                                        f"Dict[str, List[Dict[str, Any]]], but got {self._data}"
+                                        f"(of type {type(self._data)})")
 
     def data(self) -> Dict:
         """

@@ -2,7 +2,6 @@
 code code of the researcher. implements the experiment orchestration
 '''
 
-from cgi import test
 import os
 import sys
 import json
@@ -11,7 +10,7 @@ import traceback
 
 from re import findall
 from tabulate import tabulate
-from typing import Callable, Optional, Tuple, Union, Dict, Any, TypeVar, Type, List
+from typing import Callable, Tuple, Union, Dict, Any, TypeVar, Type, List
 from pathvalidate import sanitize_filename, sanitize_filepath
 
 from fedbiomed.common.logger import logger
@@ -580,7 +579,7 @@ class Experiment(object):
                     experiment is not fully initialized and cannot be launched)
             Nota: if training_data object does contain `test_ratio`, training_args will update its
             value by the value set in the `training_data` argument
-            - from_tags (bool, optional):
+            - from_tags (bool, optional):Specificities
                 If True, query nodes for datasets when no `training_data` is provided.
                 Not used when `training_data` is provided.
                 Defaults to False
@@ -623,9 +622,8 @@ class Experiment(object):
             _exp_test_ratio = self._training_args.get('test_ratio', False)
             if self._fds is not None and self._fds.test_ratio() > 0:
                 # if fds comes with a specific test_ratio, update experiment with its test ratio
-                #_training_data_test_ratio = training_data.test_ratio()
 
-                if _exp_test_ratio:
+                if _exp_test_ratio and self._fds.test_ratio() != _exp_test_ratio:
                     logger.warning(f"FederatedDataset has a different test ratio than the one of Experiment:"
                                    f" {self._fds.test_ratio()}, it will change the test_ratio of "
                                    f"the experiment set to {_exp_test_ratio}")
@@ -642,15 +640,14 @@ class Experiment(object):
             # nothing to do if not defined yet
             pass
         try:
-            
             if self._job is not None:
-                
+
                 logger.debug('Training data changed, you may need to update `job`')
 
         except AttributeError:
             # nothing to do if not defined yet
             pass
-                
+
         return self._fds
 
     @exp_exceptions
@@ -1185,7 +1182,7 @@ class Experiment(object):
         Displays Warnings if testing facility has been badly designed:
         * if no test ratios has been set BUT testing flags and/or testing metric have been
         * if testing flags are set 
-        
+
         """
         if not self._training_args.get('test_ratio', False):
             logger.warning("Testing ratio not set: setting testing flags without specifying testing"
@@ -1195,7 +1192,7 @@ class Experiment(object):
             logger.warning("Both flags `test_on_global_updates` and `test_on_local_updates`"
                            " set to False: this will prevent doing model evaluation."
                            " Please set at least one flag to True to perform model evaluation")
-    
+
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?
     @exp_exceptions
