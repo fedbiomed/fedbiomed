@@ -475,7 +475,11 @@ Use tensorboard from outside the researcher container :
 ```python
 from fedbiomed.researcher.environ import environ
 tensorboard_dir = environ['TENSORBOARD_RESULTS_DIR']
+```
+```python
 %load_ext tensorboard
+```
+```python
 tensorboard --logdir "$tensorboard_dir"
 ```
 * alternatively connect to `http://localhost:6006` from your browser, after starting tensorboard either as an embedded tensorboard in the notebook (see above), or manually in the container with:
