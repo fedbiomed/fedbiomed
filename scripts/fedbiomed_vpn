@@ -23,6 +23,7 @@ usage() {
 Usage: ${0##*/} build     [-c|--clean]
        ${0##*/} configure [-n number]
        ${0##*/} start     [-m|--model-approval]
+       ${0##*/} status
        ${0##*/} stop
 
 Build/configure/run/stop docker containers for VPN support
@@ -37,6 +38,7 @@ Build/configure/run/stop docker containers for VPN support
  configure       generate configuration files
 
  start       start all components
+ status      give information on running containers
  stop        stop  all components
 
      Optional with node/server:
@@ -110,9 +112,24 @@ containers_clean() {
     echo "** CLEANING"
 }
 
+containers_status() {
+    echo "** status"
+    cd "$basedir/envs/vpn/docker"
+
+    echo "- running containers"
+    docker ps
+
+    # ping inside the wg vpn
+    for c in vpnserver mqtt restful
+    do
+        echo "- pinging VPN server from $c container"
+        docker-compose exec ${c} ping -c 3 -W 1 10.220.0.1
+    done
+
+}
+
 containers_build() {
     echo "** BUILDING"
-
     cd "$basedir/envs/vpn/docker"
 
     echo "- building base component"
@@ -137,6 +154,8 @@ containers_stop() {
 containers_configure() {
     echo "** GENERATING KEYS"
 
+    cd "$basedir/envs/vpn/docker"
+
     # replace IP in VPN main config file
     CONFIG="$basedir/envs/vpn/docker/vpnserver/run_mounts/config/config.env"
     IP=$(find_my_ip)
@@ -145,7 +164,6 @@ containers_configure() {
     sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" $CONFIG && /bin/rm ${CONFIG}-XXX
 
     # start vpn server to generate config files
-    cd "$basedir/envs/vpn/docker"
     docker-compose up -d vpnserver
 
     /bin/rm -fr ./vpnserver/run_mounts/config/config_peers 2> /dev/null
@@ -261,6 +279,7 @@ while (($# > 0)); do
             while (($# > 0)); do
                 case $1 in
                     -h|--help)          usage ; exit 0 ;;
+                    -c|--clean) CLEAN=1 ;;
 
                     # -n)
                     #     NODE_NUMBER=$2
@@ -285,30 +304,51 @@ while (($# > 0)); do
 
         start)
             START=1
-            if [ $STOP -eq 1 ]; then
-                echo "start and stop both required. What should I do ?"
-                usage
-                exit 1
-            fi
-            case $2 in
-                -m|--model-approval) APPROVAL=1 ;;
-                '') ;;
-                *)
-                    echo "unknown or incompatible option: $2"
-                    usage
-                    exit 1
-                    ;;
-            esac
             shift
+            while (($# > 0)); do
+                case $1 in
+                    -h|--help)          usage ; exit 0 ;;
+                    -m|--model-approval) APPROVAL=1 ;;
+                    *)
+                        echo "unknown or incompatible arguments"
+                        usage
+                        exit 1
+                        ;;
+                esac
+                shift
+            done
             ;;
 
         stop)
             STOP=1
-            if [ $START -eq 1 ]; then
-                echo "start and stop both required. What should I do ?"
-                usage
-                exit 1
-            fi
+            shift
+            while (($# > 0)); do
+                case $1 in
+                    -h|--help)          usage ; exit 0 ;;
+                    -m|--model-approval) APPROVAL=1 ;;
+                    *)
+                        echo "unknown or incompatible arguments"
+                        usage
+                        exit 1
+                        ;;
+                esac
+                shift
+            done
+            ;;
+        status)
+            STATUS=1
+            shift
+            while (($# > 0)); do
+                case $1 in
+                    -h|--help)          usage ; exit 0 ;;
+                    *)
+                        echo "unknown or incompatible arguments"
+                        usage
+                        exit 1
+                        ;;
+                esac
+                shift
+            done
             ;;
         *)
             echo "unknown or incompatible option: $1"
@@ -327,5 +367,6 @@ done
 [[ $CONFIGURE -eq 1 ]] && { containers_configure; }
 [[ $START -eq 1 ]]     && { containers_start; }
 [[ $STOP -eq 1 ]]      && { containers_stop; }
+[[ $STATUS -eq 1 ]]    && { containers_status; }
 
 exit 0
