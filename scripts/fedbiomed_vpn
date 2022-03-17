@@ -36,11 +36,6 @@ Build/configure/run/stop docker containers for VPN support
 
  configure       generate configuration files
 
-     Optional with generate:
-
-     -n number   number of node configuration file(s) to generate
-                 (1 if not provided)
-
  start       start all components
  stop        stop  all components
 
@@ -227,7 +222,8 @@ CONFIGURE=0
 START=0
 STOP=0
 NODE_NUMBER=1
-
+GPU=0
+APPROVAL=0
 
 # must provide at least an option
 if [ $# -eq 0 ]; then
@@ -246,8 +242,9 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    -c|--clean)         CLEAN=1 ;;
-                    -h|--help)          usage ; exit 0 ;;
+                    -c|--clean) CLEAN=1 ;;
+                    -g|--gpu)   GPU=1 ;;
+                    -h|--help)  usage ; exit 0 ;;
                     *)
                         echo "unknown or incompatible arguments"
                         usage
@@ -264,16 +261,17 @@ while (($# > 0)); do
             while (($# > 0)); do
                 case $1 in
                     -h|--help)          usage ; exit 0 ;;
-                    -n)
-                        NODE_NUMBER=$2
-                        shift
-                        NODE_NUMBER=$(echo $NODE_NUMBER | egrep -e '^[1-9][0-9]*$')
-                        if [ -z "$NODE_NUMBER" ]; then
-                            echo "node number must be a positive integer"
-                            usage
-                            exit 1
-                        fi
-                        ;;
+
+                    # -n)
+                    #     NODE_NUMBER=$2
+                    #     shift
+                    #     NODE_NUMBER=$(echo $NODE_NUMBER | egrep -e '^[1-9][0-9]*$')
+                    #     if [ -z "$NODE_NUMBER" ]; then
+                    #         echo "node number must be a positive integer"
+                    #         usage
+                    #         exit 1
+                    #      fi
+                    #      ;;
                     *)
                         echo "unknown or incompatible arguments"
                         usage
@@ -328,6 +326,6 @@ done
 [[ $BUILD -eq 1 ]]     && { containers_build; }
 [[ $CONFIGURE -eq 1 ]] && { containers_configure; }
 [[ $START -eq 1 ]]     && { containers_start; }
-[[ $STOP -eq 1 ]]      && { containers_ stop; }
+[[ $STOP -eq 1 ]]      && { containers_stop; }
 
 exit 0
