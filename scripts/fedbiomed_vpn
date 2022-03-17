@@ -175,15 +175,17 @@ containers_configure() {
     /bin/rm ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env-XXX
     /bin/cp ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env ./mqtt/run_mounts/config/config.env
 
-    # restfull config file
+    # restful config file
     docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf management restful
     sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/management/restful/config.env
     /bin/rm ./vpnserver/run_mounts/config/config_peers/management/restful/config.env-XXX
+    /bin/cp ./vpnserver/run_mounts/config/config_peers/management/restful/config.env ./restful/run_mounts/config/config.env
 
     # researcher config file
     docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf researcher researcher1
     sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env
     /bin/rm ./vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env-XXX
+    /bin/cp ./vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env ./researcher/run_mounts/config/config.env
 
     # nodes config files
     for (( i = 1; i <= NODE_NUMBER; ++i ))
@@ -192,6 +194,7 @@ containers_configure() {
         docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf node ${n}
         sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/node/${n}/config.env
         /bin/rm ./vpnserver/run_mounts/config/config_peers/node/${n}/config.env-XXX
+        /bin/cp ./vpnserver/run_mounts/config/config_peers/node/${n}/config.env node/run_mounts/config/config.env
     done
     containers_stop
 }
