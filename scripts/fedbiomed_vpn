@@ -20,30 +20,36 @@ usage() {
     # print usage
     #
     echo "\
-Usage: ${0##*/} build  [-c|--clean] [-g|--generate-keys]
-       ${0##*/} server [-m|--model-approval] start|stop
-       ${0##*/} node   [-m|--model-approval] start|stop
+Usage: ${0##*/} build     [-c|--clean]
+       ${0##*/} configure [-n number]
+       ${0##*/} node      [-m|--model-approval] start|stop
+       ${0##*/} server    [-m|--model-approval] start|stop
 
 Build/configure/run docker containers for VPN support
-( build / node / server flags are incompatibles )
-
+(cannot build / configure / node / server at same time)
 
  build                    build all containers
 
-     Optional with --build:
+     Optional with build:
 
      -c|--clean           clean environments first
-     -g|--generate_keys   generate new keys for components
 
- server                   start/stop local server's dockers (already built)
+ configure                   generate configuration files (IP and keys)
+
+     Optional with generate:
+
+     -n number            number of node configuration file(s) to generate
+                          (1 if not provided)
+
  node                     start/stop a local node's docker  (already built)
+ server                   start/stop local server's dockers (already built)
 
-     Required with --node/--server:
+     Required with node/server:
 
      start                start the component
      stop                 stop  the component
 
-     Optional with --node/--server:
+     Optional with node/server:
 
      -m|--model-approval  enforce model approval in config files
 
@@ -112,11 +118,11 @@ find_my_ip() {
 }
 
 container_clean() {
-    echo "CLEANING"
+    echo "** CLEANING"
 }
 
 container_build() {
-    echo "BUILD PHASE"
+    echo "** BUILDING"
 
     cd "$basedir/envs/vpn/docker"
 
@@ -128,16 +134,49 @@ container_build() {
 
 }
 
-keys_generate() {
-    echo "GENERATING KEYS"
+configure() {
+    echo "** GENERATING KEYS"
+    IP=$(find_my_ip)
+
+    cd "$basedir/envs/vpn/docker"
+    docker-compose up -d vpnserver
+
+    /bin/rm -fr ./vpnserver/run_mounts/config/config_peers 2> /dev/null
+    sleep 1 # sometimes the container volumes are not up to date immediately
+
+    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf management mqtt
+    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env
+    /bin/rm ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env-XXX
+
+    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf management restful
+    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/management/restful/config.env
+    /bin/rm ./vpnserver/run_mounts/config/config_peers/management/restful/config.env-XXX
+
+    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf researcher researcher1
+    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env
+    /bin/rm ./vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env-XXX
+
+    for (( i = 1; i <= NODE_NUMBER; ++i ))
+    do
+        n="node${i}"
+        docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf node ${n}
+        sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/node/${n}/config.env
+        /bin/rm ./vpnserver/run_mounts/config/config_peers/node/${n}/config.env-XXX
+    done
+
+    CONFIG="$basedir/envs/vpn/docker/vpnserver/run_mounts/config/config.env"
+    IP=$(find_my_ip)
+
+    git checkout $CONFIG
+    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" $CONFIG && /bin/rm ${CONFIG}-XXX
 }
 
 start_node() {
-    echo "STARTING node"
+    echo "** STARTING nodes"
 }
 
 start_servers() {
-    echo "STARTING server"
+    echo "** STARTING server"
 
     cd "$basedir/envs/vpn/docker"
 
@@ -145,9 +184,12 @@ start_servers() {
     CONFIG="$basedir/envs/vpn/docker/vpnserver/run_mounts/config/config.env"
     IP=$(find_my_ip)
 
-    git checkout $CONFIG
-    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" $CONFIG && /bin/rm ${CONFIG}-XXX
-
+    ip_in_file=$(grep "^VPN_SERVER_PUBLIC_ADDR=$IP$" $CONFIG)
+    if [ -z "$ip_in_file" ]; then
+        echo "** external IP adress has changed since last configuration"
+        echo "You may need to run:  ${0##*/} configure"
+        exit 1
+    fi
     docker-compose up -d vpnserver
 }
 
@@ -161,12 +203,13 @@ cd $basedir || exit
 #
 CLEAN=0
 BUILD=0
-GENERATE=0
+CONFIGURE=0
 NODE=0
 SERVER=0
 APPROVAL=0
 START=0
 STOP=0
+NODE_NUMBER=1
 
 ERROR=0
 
@@ -188,8 +231,33 @@ while (($# > 0)); do
             while (($# > 0)); do
                 case $1 in
                     -c|--clean)         CLEAN=1 ;;
-                    -g|--generate_keys) GENERATE=1 ;;
                     -h|--help)          usage ; exit 0 ;;
+                    *)
+                        echo "unknown or incompatible arguments"
+                        usage
+                        exit 1
+                        ;;
+                esac
+                shift
+            done
+            ;;
+
+        config*)
+            CONFIGURE=1
+            shift
+            while (($# > 0)); do
+                case $1 in
+                    -h|--help)          usage ; exit 0 ;;
+                    -n)
+                        NODE_NUMBER=$2
+                        shift
+                        NODE_NUMBER=$(echo $NODE_NUMBER | egrep -e '^[1-9][0-9]*$')
+                        if [ -z "$NODE_NUMBER" ]; then
+                            echo "node number must be a positive integer"
+                            usage
+                            exit 1
+                        fi
+                        ;;
                     *)
                         echo "unknown or incompatible arguments"
                         usage
@@ -212,15 +280,9 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                start)
-                    START=1
-                    ;;
-                stop)
-                    STOP=1
-                    ;;
-                -m|--model-approval)
-                    APPROVAL=1
-                    ;;
+                start) START=1 ;;
+                stop)  STOP=1 ;;
+                -m|--model-approval) APPROVAL=1 ;;
                 *)
                     echo "unknown or incompatible option: $1"
                     usage
@@ -229,6 +291,27 @@ while (($# > 0)); do
                 esac
                 shift
             done
+
+            # concatenate start/stop into ACTION
+            ACTION=""
+            if [ $STOP -eq 1 ]; then
+                if [ $START -eq 0 ]; then
+                    ACTION=stop
+                else
+                    echo "ERROR: do I stay or do I go ? (start and stop both requested)"
+                    usage
+                    exit 1
+                fi
+            fi
+            if [ $START -eq 1 ]; then
+                ACTION=start
+            fi
+            if [ -z $ACTION ]; then
+                echo "ERROR: must provide start or stop"
+                usage
+                exit 1
+            fi
+
             ;;
         *)
             echo "unknown or incompatible option: $1"
@@ -238,26 +321,6 @@ while (($# > 0)); do
     esac
     shift
 done
-
-# concatenate start/stop into ACTION
-ACTION=""
-if [ $STOP -eq 1 ]; then
-    if [ $START -eq 0 ]; then
-        ACTION=stop
-    else
-        echo "ERROR: do I stay or do I go ? (start and stop both requested)"
-        usage
-        exit 1
-    fi
-fi
-if [ $START -eq 1 ]; then
-    ACTION=start
-fi
-if [ -z $ACTION ]; then
-    echo "ERROR: must provide start or stop"
-    usage
-    exit 1
-fi
 
 # start doing something usefull
 # -----------------------------
@@ -269,8 +332,8 @@ if [ $BUILD -eq 1 ]; then
     container_build
 fi
 
-if [ $GENERATE -eq 1 ]; then
-    keys_generate
+if [ $CONFIGURE -eq 1 ]; then
+    configure
 fi
 
 if [ $NODE -eq 1 ]; then
