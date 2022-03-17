@@ -184,10 +184,13 @@ class Round:
                                                 **self.training_kwargs)
             logger.info(f'training with arguments {training_kwargs_with_history}')
 
+        # Testing Before Training ------------------------------------------------------------------------------------
         if not is_failed:
             self.model.testing_routine(data_loader=self.testing_data_loader,
-                                       metric=MetricTypes.AVG_PRECISION,
-                                       history_monitor=self.history_monitor)
+                                       metric=MetricTypes.RECALL,
+                                       history_monitor=self.history_monitor,
+                                       before_train=True)
+        # -----------------------------------------------------------------------------------------------------------
 
         if not is_failed:
             try:
@@ -202,6 +205,15 @@ class Round:
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot train model in round: " + str(e)
+
+        # Testing after training ------------------------------------------------------------------------------------
+        if not is_failed:
+            self.model.testing_routine(data_loader=self.testing_data_loader,
+                                       metric=MetricTypes.RECALL,
+                                       history_monitor=self.history_monitor,
+                                       before_train=False  # means that it is after training
+                                       )
+        # -----------------------------------------------------------------------------------------------------------
 
         if not is_failed:
             # Upload results

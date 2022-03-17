@@ -61,6 +61,7 @@ class Message(object):
         raise FedbiomedMessageError (FB601 error) if parameters of bad type
         remark: this is not check by @dataclass
         """
+
         if not self.__validate(self.__dataclass_fields__.items()):
             _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()
             logger.critical(_msg)
@@ -95,7 +96,7 @@ class Message(object):
         ret = True
         for field_name, field_def in fields:
             actual_type = type(getattr(self, field_name))
-            if actual_type != field_def.type:
+            if isinstance(field_def, actual_type):
                 logger.critical(f"{field_name}: '{actual_type}' instead of '{field_def.type}'")
                 ret = False
         return ret
@@ -230,16 +231,16 @@ class AddScalarReply(Message):
     researcher_id: str
     node_id: str
     job_id: str
-    key: str
-    value: float
-    epoch: int
+    train: bool
+    test: bool
+    before_training: Union[bool, None]
+    metric: Dict[str, Union[float, int]]
+    epoch: Union[int, None]
     total_samples: int
     batch_samples: int
     num_batches: int
-    result_for: str
     iteration: int
     command: str
-
 
 
 @catch_dataclass_exception

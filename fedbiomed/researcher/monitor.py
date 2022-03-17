@@ -5,7 +5,7 @@ sned it to tensordboard
 
 import os
 import shutil
-from typing import Dict, Any
+from typing import Dict, Union, Any
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -21,7 +21,7 @@ class Monitor:
 
     def __init__(self):
         """
-        Constructor of the class. Intialize empty event writers object and
+        Constructor of the class. Initialize empty event writers object and
         logs directory. Removes tensorboard logs from previous experiments.
         """
 
@@ -53,28 +53,22 @@ class Monitor:
                                 }
                             }
                         }
-                        'metric-2' :
                     }
                     'testing': {
-                            'before_training_round': {}
-                            'after_training_round': {
+                            'before_training': {}
+                            'after_training': {
                                 'metric-1':{
                                         0 : {
                                             iteration : []
                                             values    : []
                                         }
-                                    }
+
                             }
+                        }
                     }
                     }
         """
-        self._metric_logs['node'] = {
-            'training': {},
-            'testing': {
-                'before_training_round': {},
-                'after_training_round': {}
-            }
-        }
+        pass
 
     def on_message_handler(self, msg: Dict[str, Any]):
         """
@@ -90,26 +84,48 @@ class Monitor:
         # For now monitor can only handle add_scalar messages
         if msg['command'] == 'add_scalar':
 
-            # Loging fancy feedback
-            logger.info("\033[1m{}\033[0m on NODE_ID: {} \n"
-                        "\t\t\t\t\t Epoch: {} | Completed: {}/{} ({:.0f}%) \n"
-                        "\t\t\t\t\t {}: \033[1m{:.6f}\033[0m \n "
-                        "\t\t\t\t\t ---------".format(msg['result_for'].upper(),
-                                                      msg['node_id'],
-                                                      msg['epoch'],
-                                                      msg['iteration']*msg['batch_samples'],
-                                                      msg['total_samples'],
-                                                      100 * msg['iteration'] / msg['num_batches'],
-                                                      msg['key'].upper(),
-                                                      msg['value']))
-            if self._tensorboard:
-                # transfer data to tensorboard
-                self._summary_writer(metric_for=msg['result_for'].upper(),
-                                     node=msg['node_id'],
-                                     key=msg['key'],
-                                     global_step=msg['iteration'],
-                                     scalar=msg['value'],
-                                     epoch=msg['epoch'])
+            # Find out what metric is it fro
+
+            # Log metric result
+            self._log_metric_result(message=msg)
+
+            # Register node for the first
+            self._register_node_for_the_first_time(msg['node_id'])
+
+            if msg['train'] is True:
+                self._testing_metric_handler(msg)
+            elif msg['test'] is True:
+                self._training_metric_handler(msg)
+
+    def _register_node_for_the_first_time(self, node_id: str):
+        """
+        Method for registering node for the first time
+
+        Args:
+            node_id (str): Id of the node whose sends the metric
+        """
+        # Register if node is not in the metroc logs
+        if node_id not in self._metric_logs:
+            self._metric_logs[node_id] = {
+                'training': {},
+                'testing': {
+                    'before_training': {},
+                    'after_training': {},
+                    'global_test': {}
+                }
+            }
+
+    def _testing_metric_handler(self, node_id, before_train):
+
+        if before_train:
+            self._metric_logs[node_id]['before_training']
+        else:
+            self._metric_logs[node_id]['after_training']
+
+        pass
+
+    def _training_metric_handler(self, msg):
+        pass
 
     def set_tensorboard(self, tensorboard: bool):
         """
@@ -174,6 +190,7 @@ class Monitor:
         # step       : index for loss / metric values that will be used when displaying on
         #              tensorboard. It represents number of batches processed for
         #              training model
+
         if global_step != 0 and self._event_writers[node]['stepper'] < 2:
             self._event_writers[node]['stepper'] = 0
 
@@ -214,3 +231,41 @@ class Monitor:
                 shutil.rmtree(rf)
             elif os.path.isfile(rf):
                 os.remove(rf)
+
+    def _log_metric_result(self, message: Dict):
+        """
+        Method for loging metric result that comes from nodes
+        """
+
+        if message['train'] is True:
+            header = 'Training'
+        elif message['test'] is True and message['before_training'] is not None:
+            header = 'Testing before training' if message['before_training'] else 'Testing after training'
+        else:
+            header = 'Testing'
+
+        metric_dict = message['metric']
+        metric_result = ''
+        for key, val in metric_dict.items():
+            metric_result += "\t\t\t\t\t {}: \033[1m{:.6f}\033[0m \n".format(key, val)
+
+        # Loging fancy feedback for training
+        logger.info("\033[1m{}\033[0m \n"
+                    "\t\t\t\t\t NODE_ID: {} \n"
+                    "\t\t\t\t\t{} Completed: {}/{} ({:.0f}%) \n {}"
+                    "\t\t\t\t\t ---------".format(header.upper(),
+                                                  message['node_id'],
+                                                  '' if message['epoch'] is None else f" Epoch: {message['epoch']} |",
+                                                  message['iteration'] * message['batch_samples'],
+                                                  message['total_samples'],
+                                                  100 * message['iteration'] / message['num_batches'],
+                                                  metric_result))
+
+        if self._tensorboard:
+            # transfer data to tensorboard
+            self._summary_writer(metric_for=header.upper(),
+                                 node=message['node_id'],
+                                 key=message['key'],
+                                 global_step=message['iteration'],
+                                 scalar=message['value'],
+                                 epoch=message['epoch'])

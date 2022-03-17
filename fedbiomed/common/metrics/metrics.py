@@ -388,7 +388,7 @@ class Metrics(object):
         #     raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Shape of true `y_true` and predicted `y_pred` "
         #                                f"does not match; {y_true.shape}, {y_pred.shape}")
 
-        y_pred = self._configure_y_pred_based_on_metric_form(y_pred=y_pred, metric=metric)
+        y_pred = self._configure_y_true_pred_(y_true=y_true, y_pred=y_pred, metric=metric)
         result = self.metrics[metric.name](y_true, y_pred, **kwargs)
 
         return result

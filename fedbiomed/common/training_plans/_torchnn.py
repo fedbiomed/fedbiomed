@@ -279,11 +279,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                     # Send scalar values via general/feedback topic
                     if history_monitor is not None:
-                        history_monitor.add_scalar(key='Loss',
-                                                   result_for='Training',
-                                                   value=res.item(),
+                        history_monitor.add_scalar(metric={'Loss': res.item()},
                                                    iteration=batch_,
                                                    epoch=epoch,
+                                                   train=True,
                                                    num_batches=len(self.__training_data_loader),
                                                    total_samples=len(self.__training_data_loader.dataset),
                                                    batch_samples=len(data))
@@ -302,7 +301,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
     def testing_routine(self,
                         data_loader: DataLoader,
                         metric: MetricTypes,
-                        history_monitor):
+                        history_monitor,
+                        before_train: Union[bool, None] = None):
 
         # TODO: Add preprocess option for testing_data_loader
         self.__testing_data_loader = data_loader
@@ -315,26 +315,49 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         with torch.no_grad():
             # Data Loader for testing partition includes entire dataset in the first batch
             for batch_ndx, (data, target) in enumerate(self.__testing_data_loader):
+                batch_ = batch_ndx + 1
                 try:
                     # Pass data through network layers
                     pred = self(data)
                 except Exception as e:
                     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - {str(e)}")
 
-                # Convert prediction and actual values to numpy array
-                true = target.detach().numpy()
-                predicted = pred.detach().numpy()
-                m_value = metric_controller.evaluate(y_true=true, y_pred=predicted, metric=metric)
+                # If `testing_step` is defined in the TrainingPlan
+                if hasattr(self, 'testing_step'):
+                    try:
+                        m_value = self.evaluation_step(true, predicted)
+                    except Exception as e:
+                        raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: an exception raised while "
+                                                         f"executing `testing_step` : {str(e)}")
 
-                logger.info('Testing: Batch {} [{}/{}] | Metric[{}]: {:.6f}'.format(
-                    str(batch_ndx), (batch_ndx + 1) * len(true), tot_samples, metric.name, m_value))
+                    # If custom evaluation step returns None
+                    if m_value is None:
+                        raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: metric function return None")
+
+                    metric_name = 'Custom'
+
+                # Otherwise check a default metric is defined
+                elif metric is not None:
+                    # Convert prediction and actual values to numpy array
+                    true = target.detach().numpy()
+                    predicted = pred.detach().numpy()
+                    m_value = metric_controller.evaluate(y_true=true, y_pred=predicted, metric=metric)
+                    metric_name = metric.name
+
+                metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
+                if metric_dict is None:
+                    raise FedbiomedTrainingPlanError
+
+                # logger.info('Testing: Batch {} [{}/{}] | Metric[{}]: {:.6f}'.format(
+                #     str(batch_), batch_ * len(true), tot_samples, metric.name, m_value))
+
                 # Send scalar values via general/feedback topic
                 if history_monitor is not None:
-                    history_monitor.add_scalar(key=f'Before Train `{metric.name}`',
-                                               value=float(m_value),
-                                               result_for='Testing',
-                                               iteration=batch_ndx,
-                                               epoch=0,  # no epoch
+                    history_monitor.add_scalar(metric=metric_dict,
+                                               iteration=batch_,
+                                               epoch=None,  # no epoch
+                                               test=True,
+                                               before_training=before_train,
                                                total_samples=tot_samples,
                                                batch_samples=len(true),
                                                num_batches=len(self.__testing_data_loader))
@@ -358,7 +381,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             none
         """
         if params is not None:
-            return (torch.save(params, filename))
+            return torch.save(params, filename)
         else:
             return torch.save(self.state_dict(), filename)
 

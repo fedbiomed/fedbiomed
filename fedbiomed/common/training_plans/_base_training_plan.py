@@ -4,7 +4,7 @@ all training plans
 """
 
 from collections import OrderedDict
-from typing import List, Callable
+from typing import Dict, List, Callable, Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
@@ -133,3 +133,37 @@ class BaseTrainingPlan(object):
             'method': method,
             'process_type': process_type
         }
+
+    @staticmethod
+    def _create_metric_result_dict(metric: Union[dict, list, int],
+                                   metric_name: str = 'Custom'):
+        """
+        Base function to create metric dictionary
+        """
+
+        # If it is single int/float metric value
+        if isinstance(metric, (int, float)):
+            return {metric_name: metric}
+
+        # If metric function returns multiple values
+        elif isinstance(metric, list):
+            metric_name = [f"{metric_name}_{i}" for i, val in enumerate(metric)]
+            BaseTrainingPlan._check_metric_types_is_int_or_float(metric)
+            return dict(zip(metric_name, metric))
+
+        # if metric function returns dict as `metric_name:metric_value`
+        elif isinstance(metric, dict):
+            BaseTrainingPlan._check_metric_types_is_int_or_float(list(metric.values()))
+            return metric
+
+        # Return None, means that provided metric is not in good shape
+        else:
+            return None
+
+    @staticmethod
+    def _check_metric_types_is_int_or_float(values: list):
+
+        for val in values:
+            if not isinstance(val, (int, float)):
+                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: The values for metrics "
+                                                 f"should be int or float, but got {type(val)} ")
