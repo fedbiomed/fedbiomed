@@ -1,9 +1,10 @@
-from fedbiomed.common.training_plans import SGDSkLearnModel
-from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron 
-from sklearn.naive_bayes  import BernoulliNB, GaussianNB
 import inspect
 import numpy as np
 import pandas as pd
+from fedbiomed.common.training_plans import SGDSkLearnModel
+from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron 
+from sklearn.naive_bayes  import BernoulliNB, GaussianNB
+from fedbiomed.common.data import DataManager
 from sklearn.linear_model import SGDRegressor
 
 class SGDRegressorTrainingPlan(SGDSkLearnModel):
@@ -24,4 +25,4 @@ class SGDRegressorTrainingPlan(SGDSkLearnModel):
         
         X = (dataset[regressors_col].values-scaling_mean)/scaling_sd
         y = dataset[target_col]
-        return (X,y.values.ravel())
+        return DataManager(dataset=X, target=y.values.ravel())
