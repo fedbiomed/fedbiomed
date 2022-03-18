@@ -435,7 +435,7 @@ def update_model():
         return
 
     options = [m['name'] + '\t Model ID ' + m['model_id'] for m in models]
-    msg = "Select the model to delete:\n"
+    msg = "Select the model to update:\n"
     msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
     msg += "\nSelect: "
 
@@ -448,10 +448,10 @@ def update_model():
             model_id = models[opt_idx]['model_id']
 
             if not model_id:
-                logger.warning('No matching model to delete')
+                logger.warning('No matching model to update')
                 return
 
-            # Get the new file or same file.  User can ]provide same model file
+            # Get the new file or same file.  User can provide same model file
             # with updated content or new model file.
             path = validated_path_input(type = "txt")
 
