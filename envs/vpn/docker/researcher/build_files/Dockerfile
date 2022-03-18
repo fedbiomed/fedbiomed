@@ -1,5 +1,10 @@
 FROM fedbiomed/vpn-base
 
+# jupyter notebook
+EXPOSE 8888
+# tensorboard via socat proxy, should be exposed as 6006
+EXPOSE 6007
+
 ARG CONTAINER_GID
 ARG CONTAINER_UID
 ARG CONTAINER_GROUP

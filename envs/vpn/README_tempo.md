@@ -694,7 +694,7 @@ Same as node
 # level 2 : configuration
 [user@researcher $] rm -rf ./researcher/run_mounts/config/wireguard
 [user@researcher $] echo > ./researcher/run_mounts/config/config.env
-[user@researcher $] rm -rf ./researcher/run_mounts/{data,etc,runs,var}/*
+[user@researcher $] rm -rf ./researcher/run_mounts/{data,etc,samples,runs,var}/*
 
 # level 3 : image
 [user@researcher $] docker image rm fedbiomed/vpn-researcher fedbiomed/vpn-base

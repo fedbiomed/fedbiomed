@@ -1,5 +1,8 @@
 FROM debian:bullseye-slim
 
+# flask server
+EXPOSE 8484
+
 ARG CONTAINER_GID
 ARG CONTAINER_UID
 ARG CONTAINER_GROUP
