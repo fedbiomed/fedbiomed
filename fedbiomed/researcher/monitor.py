@@ -146,7 +146,7 @@ class Monitor:
     def _summary_writer(self,
                         metric_for: str,
                         node: str,
-                        key: str,
+                        metric_name: str,
                         global_step: int,
                         scalar: float,
                         epoch: int):
@@ -207,7 +207,7 @@ class Monitor:
         # Increase step by adding global_step to step_state
         self._event_writers[node]['step'] = self._event_writers[node]['step_state'] + global_step
 
-        self._event_writers[node]['writer'].add_scalar('{}/{}'.format(metric_for, key),
+        self._event_writers[node]['writer'].add_scalar('{}/{}'.format(metric_for, metric_name),
                                                        scalar,
                                                        self._event_writers[node]['step'])
 
@@ -236,7 +236,7 @@ class Monitor:
         """
         Method for loging metric result that comes from nodes
         """
-
+        logger.info('MESSAGE' + str(message))
         if message['train'] is True:
             header = 'Training'
         elif message['test'] is True and message['before_training'] is not None:
@@ -263,9 +263,10 @@ class Monitor:
 
         if self._tensorboard:
             # transfer data to tensorboard
-            self._summary_writer(metric_for=header.upper(),
-                                 node=message['node_id'],
-                                 key=message['key'],
-                                 global_step=message['iteration'],
-                                 scalar=message['value'],
-                                 epoch=message['epoch'])
+            for key, val in metric_dict.items():
+                self._summary_writer(metric_for=header.upper(),
+                                    node=message['node_id'],
+                                    metric_name=key,
+                                    global_step=message['iteration'],
+                                    scalar=val,
+                                    epoch=message['epoch'])

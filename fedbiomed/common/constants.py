@@ -68,8 +68,8 @@ class ProcessTypes(_BaseEnum):
 
 class MetricForms(_BaseEnum):
 
-    CLASSIFICATION_LABELS = 0
-    CLASSIFICATION_SCORES = 1
+    CLASSIFICATION_LABELS = 0  # return labels
+    CLASSIFICATION_SCORES = 1  # return proba
     REGRESSION = 2
 
 
@@ -88,6 +88,13 @@ class MetricTypes(_BaseEnum):
     MEAN_SQUARE_ERROR = (6, MetricForms.REGRESSION)
     MEAN_ABSOLUTE_ERROR = (7, MetricForms.REGRESSION)
     EXPLAINED_VARIANCE = (8, MetricForms.REGRESSION)
+
+    def __init__(self, idx: int, metric_form: MetricForms) -> None:
+        self._idx = idx
+        self._metric_form = metric_form
+
+    def metric_form(self) -> MetricForms:
+        return self._metric_form
 
 
 class ErrorNumbers(_BaseEnum):
