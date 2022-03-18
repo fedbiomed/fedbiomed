@@ -8,8 +8,8 @@ from torchvision import datasets, transforms
 class VariationalAutoencoderPlan(TorchTrainingPlan):
     """ Declaration of two encoding layers and 2 decoding layers
     """
-    def __init__(self):
-        super(VariationalAutoencoderPlan, self).__init__()
+    def __init__(self, model_args: dict = {}):
+        super(VariationalAutoencoderPlan, self).__init__(model_args)
         # 
         self.fc1 = nn.Linear(784, 400)
         self.fc21 = nn.Linear(400, 20)

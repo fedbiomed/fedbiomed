@@ -1,4 +1,6 @@
 from fedbiomed.common.training_plans import SGDSkLearnModel
+from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron 
+from sklearn.naive_bayes  import BernoulliNB, GaussianNB
 import inspect
 import numpy as np
 import pandas as pd
@@ -10,8 +12,16 @@ class SGDRegressorTrainingPlan(SGDSkLearnModel):
         self.add_dependency(["from sklearn.linear_model import SGDRegressor"])
     
     def training_data(self):
-        NUMBER_COLS = 5
-        dataset = pd.read_csv(self.dataset_path,header=None,delimiter=',')
-        X = dataset.iloc[:,0:NUMBER_COLS].values
-        y = dataset.iloc[:,NUMBER_COLS]
-        return (X,y.values)
+        dataset = pd.read_csv(self.dataset_path,delimiter=',')
+        regressors_col = ['SEX', 'AGE', 'PTEDUCAT', 'WholeBrain.bl',
+                          'Ventricles.bl', 'Hippocampus.bl', 'MidTemp.bl', 'Entorhinal.bl']
+        target_col = ['MMSE.bl']
+        
+        # mean and standard deviation for normalizing dataset
+        # it has been computed over the whole dataset
+        scaling_mean = np.array([0.8, 72.3, 16.2, 0.7, 0.0, 0.0, 0.0, 0.0])
+        scaling_sd = np.array([3.5e-01, 7.3e+00, 2.7e+00, 5.0e-02, 1.1e-02, 1.0e-03, 2.0e-03, 1.0e-03])
+        
+        X = (dataset[regressors_col].values-scaling_mean)/scaling_sd
+        y = dataset[target_col]
+        return (X,y.values.ravel())
