@@ -28,7 +28,7 @@ import os
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from fedbiomed.common.training_plans.torchnn import TorchTrainingPlan
+from fedbiomed.common.training_plans import TorchTrainingPlan
 
 # you can use any class name eg:
 # class AlterTrainingPlan(TorchTrainingPlan):

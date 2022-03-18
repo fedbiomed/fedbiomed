@@ -27,7 +27,7 @@
 
 import torch
 import torch.nn as nn
-from fedbiomed.common.training_plans.torchnn import TorchTrainingPlan
+from fedbiomed.common.training_plans import TorchTrainingPlan
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
