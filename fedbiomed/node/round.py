@@ -209,7 +209,7 @@ class Round:
         # Testing after training ------------------------------------------------------------------------------------
         if not is_failed:
             self.model.testing_routine(data_loader=self.testing_data_loader,
-                                       metric=MetricTypes.RECALL,
+                                       metric=MetricTypes.ACCURACY,
                                        history_monitor=self.history_monitor,
                                        before_train=False  # means that it is after training
                                        )

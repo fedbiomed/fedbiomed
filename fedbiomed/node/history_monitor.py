@@ -29,9 +29,8 @@ class HistoryMonitor:
                    total_samples: int,
                    batch_samples: int,
                    num_batches: int,
-                   test: bool = False,
                    train: bool = False,
-                   before_training: Union[bool, None] = None):
+                   before_training: bool = False):
 
         """
         Adds a scalar value to the monitor, and sends an 'AddScalarReply'
@@ -45,9 +44,7 @@ class HistoryMonitor:
             batch_samples (int):
             num_batches (int):
             train (bool):
-            test (ibool):
             before_training (bool):
-            after_training (bool):
         """
 
         self.messaging.send_message(NodeMessages.reply_create({
@@ -55,7 +52,6 @@ class HistoryMonitor:
             'job_id': self.job_id,
             'researcher_id': self.researcher_id,
             'train': train,
-            'test': test,
             'before_training': before_training,
             'metric': metric,
             'iteration': iteration,

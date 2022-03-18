@@ -231,9 +231,10 @@ class AddScalarReply(Message):
     researcher_id: str
     node_id: str
     job_id: str
-    train: bool
-    test: bool
-    before_training: Union[bool, None]
+    train: bool  # train_metric
+    # test: bool
+    before_training: bool # testing_b_train
+    # after_training
     metric: Dict[str, Union[float, int]]
     epoch: Union[int, None]
     total_samples: int

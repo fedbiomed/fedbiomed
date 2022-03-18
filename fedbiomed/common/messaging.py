@@ -160,6 +160,8 @@ class Messaging:
                 )
                 # to get Train/Epoch messages on console and on MQTT
                 logger.setLevel("DEBUG")
+                logger.setLevel("INFO", "MQTT")
+
                 self._logger_handler_installed = True
 
         self._is_connected = True

@@ -356,7 +356,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     history_monitor.add_scalar(metric=metric_dict,
                                                iteration=batch_,
                                                epoch=None,  # no epoch
-                                               test=True,
+                                               train=False,  # means that for sending test metric
                                                before_training=before_train,
                                                total_samples=tot_samples,
                                                batch_samples=len(true),

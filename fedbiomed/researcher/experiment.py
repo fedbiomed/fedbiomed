@@ -1165,6 +1165,10 @@ class Experiment(object):
                                                         'params_path': aggregated_params_path}
 
         self._round_current += 1
+
+        # Update round in monitor 
+        self._monitor.set_round(round_=self._round_current)
+
         if self._save_breakpoints:
             self.breakpoint()
         return 1
