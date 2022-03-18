@@ -1,9 +1,10 @@
-from fedbiomed.common.training_plans import SGDSkLearnModel
-from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron 
-from sklearn.naive_bayes  import BernoulliNB, GaussianNB
 import inspect
 import numpy as np
 import pandas as pd
+from fedbiomed.common.training_plans import SGDSkLearnModel
+from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron 
+from sklearn.naive_bayes  import BernoulliNB, GaussianNB
+from fedbiomed.common.data import DataManager
 from sklearn.linear_model import Perceptron
 
 class SkLearnTrainingPlan(SGDSkLearnModel):
@@ -16,4 +17,4 @@ class SkLearnTrainingPlan(SGDSkLearnModel):
         dataset = pd.read_csv(self.dataset_path,header=None,delimiter=',')
         X = dataset.iloc[:,0:NUMBER_COLS].values
         y = dataset.iloc[:,NUMBER_COLS]       
-        return (X,y.values)
+        return DataManager(dataset=X,target=y.values)

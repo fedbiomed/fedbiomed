@@ -1,10 +1,12 @@
-from fedbiomed.common.training_plans import TorchTrainingPlan
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from fedbiomed.common.training_plans import TorchTrainingPlan
+from fedbiomed.common.data import DataManager
+from fedbiomed.common.constants import ProcessTypes
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 import pandas as pd
 
 class MyTrainingPlan(TorchTrainingPlan):
@@ -19,7 +21,7 @@ class MyTrainingPlan(TorchTrainingPlan):
         # Here we define the custom dependencies that will be needed by our custom Dataloader
         # In this case, we need the torch Dataset and DataLoader classes
         # We need pandas to read the local .csv file at the node side
-        deps = ["from torch.utils.data import Dataset, DataLoader",
+        deps = ["from torch.utils.data import Dataset",
                 "import pandas as pd"]
         self.add_dependency(deps)
 
@@ -56,5 +58,4 @@ class MyTrainingPlan(TorchTrainingPlan):
     # The training_data creates the Dataloader to be used for training in the general class TorchTrainingPlan of fedbiomed
         dataset = self.csv_Dataset(self.dataset_path, self.in_features)
         train_kwargs = {'batch_size': batch_size, 'shuffle': True}
-        data_loader = DataLoader(dataset, **train_kwargs)
-        return data_loader
+        return DataManager(dataset=dataset , **train_kwargs)

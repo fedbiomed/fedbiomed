@@ -4,7 +4,6 @@ all the fedbiomed constants/enums
 do not import other fedbiomed packages here to avoid dependancy loop
 '''
 
-
 from enum import Enum
 
 
@@ -25,7 +24,7 @@ class ComponentType(_BaseEnum):
     """
 
     RESEARCHER = 1
-    NODE       = 2
+    NODE = 2
 
 
 class HashingAlgorithms(_BaseEnum):
@@ -34,14 +33,14 @@ class HashingAlgorithms(_BaseEnum):
     algorithms
     """
 
-    SHA256      = 'SHA256'
-    SHA384      = 'SHA384'
-    SHA512      = 'SHA512'
-    SHA3_256    = 'SHA3_256'
-    SHA3_384    = 'SHA3_384'
-    SHA3_512    = 'SHA3_512'
-    BLAKE2B     = 'BLAKE2B'
-    BLAKE2S     = 'BLAKE2S'
+    SHA256 = 'SHA256'
+    SHA384 = 'SHA384'
+    SHA512 = 'SHA512'
+    SHA3_256 = 'SHA3_256'
+    SHA3_384 = 'SHA3_384'
+    SHA3_512 = 'SHA3_512'
+    BLAKE2B = 'BLAKE2B'
+    BLAKE2S = 'BLAKE2S'
 
 
 class ModelTypes(_BaseEnum):
@@ -51,7 +50,20 @@ class ModelTypes(_BaseEnum):
     """
 
     REGISTERED = 'registered'
-    DEFAULT    = 'default'
+    DEFAULT = 'default'
+
+
+class TrainingPlans(_BaseEnum):
+    """ Enumeration class for Training plans """
+
+    TorchTrainingPlan = 'TorchTrainingPlan'
+    SkLearnTrainingPlan = 'SkLearnTrainingPlan'
+
+
+class ProcessTypes(_BaseEnum):
+    """Enumeration class for Preprocess types """
+    DATA_LOADER = 0
+    PARAMS = 1
 
 
 class ErrorNumbers(_BaseEnum):
@@ -92,7 +104,7 @@ class ErrorNumbers(_BaseEnum):
     FB311 = "FB311: receiving a new computation request during a running computation"
     FB312 = "FB312: Node stopped in SIGTERM signal handler"
     FB313 = "FB313: no dataset matching request"
-
+    FB314 = "FB314: training round error"
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"
@@ -124,6 +136,10 @@ class ErrorNumbers(_BaseEnum):
     FB604 = "FB604: repository error"
     FB605 = "FB605: training plan error"
     FB606 = "FB606: model manager error"
+    FB607 = "FB607: data manager error"
+    FB608 = "FB608: torch data manager error"
+    FB609 = "FB608: scikit-learn data manager error"
+    FB610 = "FB609: Torch based tabular dataset creation error"
 
     # oops
     FB999 = "FB999: unknown error code sent by the node"

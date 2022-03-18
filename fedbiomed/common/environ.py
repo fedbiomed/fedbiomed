@@ -137,7 +137,7 @@ class Environ(metaclass = SingletonMeta):
         else:
             ROOT_DIR = rootdir
 
-        # intialize all environment values
+        # Initialize all environment values
         self._values['ROOT_DIR'] = ROOT_DIR
 
         # main directories

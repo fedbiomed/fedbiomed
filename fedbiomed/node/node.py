@@ -189,8 +189,8 @@ class Node:
 
         if environ['NODE_ID'] in msg.get_param('training_data'):
             for dataset_id in msg.get_param('training_data')[environ['NODE_ID']]:
-                alldata = self.dataset_manager.search_by_id(dataset_id)
-                if len(alldata) != 1 or 'path' not in alldata[0].keys():
+                data = self.dataset_manager.get_by_id(dataset_id)
+                if data is None or 'path' not in data.keys():
                     # TODO: create a data structure for messaging
                     # (ie an object creating a dict with field accordingly)
                     # FIXME: 'the condition above depends on database model
@@ -209,7 +209,7 @@ class Node:
                 else:
                     self.rounds.append(Round(model_kwargs,
                                              training_kwargs,
-                                             alldata[0],
+                                             data,
                                              model_url,
                                              model_class,
                                              params_url,
