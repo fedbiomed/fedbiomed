@@ -99,10 +99,10 @@ def pick_with_tkinter(mode='file'):
     except (ModuleNotFoundError, _tkinter.TclError):
         # handling case where tkinter package cannot be found on system
         # or if tkinter crashes
-        if mode == 'file':
-            return input('Insert the path of the CSV file: ')
+        if mode == 'file' or mode == 'txt':
+            return input('Insert the path of the file: ')
         else:
-            return input('Insert the path of the dataset folder: ')
+            return input('Insert the path of the folder: ')
 
 
 def validated_path_input(type):

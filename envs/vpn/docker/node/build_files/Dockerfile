@@ -33,6 +33,7 @@ COPY ./envs/vpn/docker/node/build_files/entrypoint.sh /
 RUN mkdir -p /fedbiomed/envs /data
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
 COPY envs/vpn /fedbiomed/envs/vpn
+COPY envs/common /fedbiomed/envs/common
 COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
 # Alternative option : git clone & strip unused dirs

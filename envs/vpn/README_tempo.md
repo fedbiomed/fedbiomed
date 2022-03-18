@@ -305,8 +305,9 @@ Run this for all launches of the container :
 # example : add MNIST dataset using persistent (mounted) /data
 [user@node-container $] python -m fedbiomed.node.cli -am /data
 # start the node
-# default gpu policy : use GPU if available *and* requested by researcher
-[user@node-container $] python -m fedbiomed.node.cli --start --gpu
+# - `--gpu` : default gpu policy == use GPU if available *and* requested by researcher
+# - start with model approval enabled and default models allowed
+[user@node-container $] ENABLE_MODEL_APPROVAL=True ALLOW_DEFAULT_MODELS=True  python -m fedbiomed.node.cli --start --gpu
 # alternative: start the node in background
 # [user@node-container $] nohup python -m fedbiomed.node.cli  -s >./fedbiomed_node.out &
 ```
@@ -324,6 +325,22 @@ MNIST
 [user@node-container $] ls ./data
 MNIST
 ```
+
+To register approved models in the node, copy them in the directory `./node/run_mounts/data` on the node host machine :
+```bash
+[user@node $] ls ./node/run_mounts/data
+my_model.txt
+```
+- in the node container command line, this directory maps to `/data` directory :
+```bash
+[user@node-container $] ls ./data
+my_model.txt
+```
+- register a new model with :
+```bash
+[user@node-container $] ./scripts/fedbiomed_run node --register-model
+```
+- when prompted for the path of the model, indicate the `.txt` export of the model file (`/data/my_model.txt` in our example)
 
 
 ### initializing node gui (optional)
