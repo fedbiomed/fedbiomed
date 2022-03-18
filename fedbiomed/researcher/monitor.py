@@ -105,7 +105,7 @@ class Monitor:
 
     def __init__(self):
         """
-        Constructor of the class. Initialize empty event writers object and
+        Constructor of the class. Initializes empty event writers object and
         logs directory. Removes tensorboard logs from previous experiments.
         """
 

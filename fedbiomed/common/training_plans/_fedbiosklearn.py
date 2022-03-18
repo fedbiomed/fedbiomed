@@ -12,6 +12,8 @@ import numpy as np
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
 
+from fedbiomed.common.metrics.metrics import Metrics
+
 from ._base_training_plan import BaseTrainingPlan
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
@@ -307,6 +309,33 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 elif self.model_type in ['MultinomialNB', 'BernoulliNB']:
                     # TODO: Need to find a way for Bayesian approaches
                     pass
+
+    def testing_routine(self,
+                       data_loader, 
+                       metric, 
+                       hisory_monitor, 
+                       before_train):
+        self.__testing_data_loader = data_loader
+
+        # Build metrics object
+        metric_controller = Metrics()
+        tot_samples = len(self.__testing_data_loader.dataset)
+        
+        for batch_ndx, (data, target) in enumerate(self.__testing_data_loader):
+            
+            if hasattr(self, 'testing_step'):
+                # use `testing_step` defined by user
+                try:
+                    eval_res = self.testing_step()
+                except Exception as err:
+                    raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - {str(err)}")
+            # use default metric
+            elif True:
+                # case where proba are needed
+                pred = self.m.predict_proba(data)
+            else:
+                # case where label corresponding to proba are needed
+                pred = self.m.predict(data)
 
     def save(self, filename, params: dict = None):
         """

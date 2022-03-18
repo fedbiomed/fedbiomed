@@ -208,7 +208,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 - gpu_only (bool): force use of a GPU device if any available, even if researcher
                     doesnt request for using a GPU. Default False.
         """
-
+        self.train()  # pytorch switch for training
         self.__training_data_loader = data_loader
 
         # set correct type for node args
@@ -252,7 +252,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     try:
                         _mu = float(fedprox_mu)
                     except ValueError:
-                        msg = ErrorNumbers.FB605.value + ": fedprox_mu parameter reuqested nut is not a float"
+                        msg = ErrorNumbers.FB605.value + ": fedprox_mu parameter requested is not a float"
                         logger.critical(msg)
                         raise FedbiomedTrainingPlanError(msg)
 
@@ -311,6 +311,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         metric_controller = Metrics()
         tot_samples = len(self.__testing_data_loader.dataset)
 
+        self.eval()  # pytorch switch for model evaluation
         # Complete prediction over batches
         with torch.no_grad():
             # Data Loader for testing partition includes entire dataset in the first batch
@@ -320,13 +321,17 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     # Pass data through network layers
                     pred = self(data)
                 except Exception as e:
+                    # Pytorch does not provide any means to catch exception (no custom Exceptions), that is why we need
+                    # to trap general Exception
                     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - {str(e)}")
 
                 # If `testing_step` is defined in the TrainingPlan
                 if hasattr(self, 'testing_step'):
                     try:
-                        m_value = self.evaluation_step(true, predicted)
+                        m_value = self.testing(target, pred)
                     except Exception as e:
+                        # catch exception because we are letting the user to design this
+                        # `evaluation_step` method of the training plan
                         raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: an exception raised while "
                                                          f"executing `testing_step` : {str(e)}")
 
