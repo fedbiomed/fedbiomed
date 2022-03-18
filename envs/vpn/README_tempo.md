@@ -16,7 +16,7 @@ Which machine to use ?
 
 Pre-requisites for using containers :
 
-* **`docker-compose` version 1.27.0 or higher** is needed for extended file format for [GPU support in docker]](https://docs.docker.com/compose/gpu-support/)) even if you're not using GPU in container.
+* **`docker-compose` version 1.27.0 or higher** is needed for extended file format for [GPU support in docker](https://docs.docker.com/compose/gpu-support/) even if you're not using GPU in container.
 *  some distributions (eg Ubuntu 20.04) don't provide a package with a recent enough version.
 * Type `docker-compose --version` to check installed version.
 * You can use your usual package manager to  install up-to-date version (eg: `sudo apt-get update && sudo apt-get install docker-compose` for apt, `sudo dnf clean metadata && sudo dnf update docker-compose` for dnf).
@@ -32,8 +32,8 @@ Done when initializing each container (see after)
 ## CONTAINER_{UID,GID,USER,GROUP} are target id for running the container
 ## **TODO**: check if we can use different id than the account building the images
 #
-## when running on a single machine : build all containers at one time with
-#[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build
+## when running on a single machine : build all needed containers at one time with
+#[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build base vpnserver mqtt restful basenode node gui researcher
 ```
 
 Caveat : docker >= 20.10.0 needed to build mqtt, see [there](https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2). With older docker version it fails with a `make: sh: Operation not permitted`
@@ -263,7 +263,7 @@ Run this only at first launch of container or after cleaning :
 [user@node $] NODE=node
 [user@node $] docker-compose up -d $NODE
 ```
-Alternative: launch container with Nvidia GPU support activated. Before launching, install [all the pre-requisites for GPU support](#gpu-docker).
+Alternative: launch container with Nvidia GPU support activated. Before launching, install [all the pre-requisites for GPU support](#gpu-support-in-container).
 ```bash
 [user@node $] NODE=node-gpu
 [user@node $] docker-compose up -d $NODE
@@ -510,7 +510,7 @@ my_notebook.ipynb
 ```
 
 
-## GPU support in container {#gpu-docker}
+## GPU support in container
 
 You can access the host machine GPU accelerator from a node container to speed up training.
 - reminder: Fed-BioMed currently [supports only](https://fedbiomed.gitlabpages.inria.fr/user-guide/nodes/using-gpu/) (1) Nvidia GPUs (2) for PyTorch training (3) on node side
