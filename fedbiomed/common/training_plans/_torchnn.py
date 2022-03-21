@@ -330,7 +330,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     try:
                         m_value = self.testing(target, pred)
                     except Exception as e:
-                        # catch exception because we are letting the user to design this
+                        # catch exception because we are letting the user design this
                         # `evaluation_step` method of the training plan
                         raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: an exception raised while "
                                                          f"executing `testing_step` : {str(e)}")
@@ -353,8 +353,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 if metric_dict is None:
                     raise FedbiomedTrainingPlanError
 
-                # logger.info('Testing: Batch {} [{}/{}] | Metric[{}]: {:.6f}'.format(
-                #     str(batch_), batch_ * len(true), tot_samples, metric.name, m_value))
+                logger.debug('Testing: Batch {} [{}/{}] | Metric[{}]: {:.6f}'.format(
+                    str(batch_), batch_ * len(true), tot_samples, metric.name, m_value))
 
                 # Send scalar values via general/feedback topic
                 if history_monitor is not None:
