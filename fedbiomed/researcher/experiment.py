@@ -280,7 +280,7 @@ class Experiment(object):
         # always create a monitoring process
         self._monitor = Monitor()
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
-        self._monitor.set_tensorboard(tensorboard)
+        self.set_tensorboard(tensorboard)
 
 
     # destructor

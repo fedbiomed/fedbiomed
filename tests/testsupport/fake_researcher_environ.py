@@ -53,7 +53,7 @@ class EnvironResearcher(metaclass = SingletonMeta):
 
 
         #  Copy default model files to tmp directory for test
-        default_models_path = os.path.join(self.envdir, 'development' , 'default_models')
+        default_models_path = os.path.join(self.envdir, 'common' , 'default_models')
         files = os.listdir(default_models_path)
         for f in files:
             shutil.copy(os.path.join(default_models_path , f) , self._values['DEFAULT_MODELS_DIR'])

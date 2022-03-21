@@ -267,7 +267,7 @@ def get_preview_dataset():
 
         matched = re.match('^' + app.config['NODE_FEDBIOMED_ROOT'], str(dataset['path']))
         if matched:
-            dataset['path'] = dataset['path'].replace(app.config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_ROOT')
+            dataset['path'] = dataset['path'].replace(app.config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_DIR')
 
         return response(dataset), 200
 

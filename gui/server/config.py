@@ -5,15 +5,10 @@ from utils import get_node_id
 
 class Config:
 
-    def __init__(self, docker_status: bool = False):
+    def __init__(self):
         """
             Config class to update configuration for Flask
-
-            Args:
-                docker_status (bool): Indicates whether GUI
-                running on docker container
         """
-        self.docker_status = docker_status
         self.configuration = {}
 
     @property
@@ -28,40 +23,25 @@ class Config:
             returns (dict): Dict of configurati0n
 
         """
-        # Configuring data path both for RW and SAVE by
-        # considering docker status. Docker status means, Is gui
-        # runs in a docker container
-        if self.docker_status:
-            # If application is launched in docker container
-            # Fed-BioMed root will be /fedbiomed
-            self.configuration['NODE_FEDBIOMED_ROOT'] = '/fedbiomed'
-
-            # Data path where datafiles are stored.
-            self.configuration['DATA_PATH_RW'] = '/data'
-            # Data path for saving dataset
-            self.configuration['DATA_PATH_SAVE'] = os.getenv('DATA_PATH', '/data')
-
+        
+        # Configuration of Flask APP to be able to access Fed-BioMed node information
+        self.configuration['NODE_FEDBIOMED_ROOT'] = os.getenv('FEDBIOMED_DIR', '/fedbiomed')
+        data_path = os.getenv('DATA_PATH')
+        if not data_path:
+            data_path = '/data'
         else:
-            # Configuration of Flask APP to be able to access Fed-BioMed node information
-            self.configuration['NODE_FEDBIOMED_ROOT'] = os.getenv('FEDBIOMED_ROOT', '/fedbiomed')
-
-            data_path = os.getenv('DATA_PATH')
-            if not data_path:
-                data_path = '/data'
+            if data_path.startswith('/'):
+                assert os.path.isdir(
+                    data_path), f'Given absolute "{data_path}" does not exist or it is not a directory.'
             else:
-                if data_path.startswith('/'):
-                    assert os.path.isdir(
-                        data_path), f'Given absolute "{data_path}" does not exist or it is not a directory.'
-                else:
-                    data_path = os.path.join(self.configuration['NODE_FEDBIOMED_ROOT'], data_path)
-                    assert os.path.isdir(data_path), f'{data_path} has not been found in Fed-BioMed root directory or ' \
-                                                     f'it is not a directory. Please make sure that the folder is exist.'
-
-            # Data path where datafiles are stored. Since node and gui
-            # works in same machine without docker, path for writing and reading
-            # will be same for saving into database
-            self.configuration['DATA_PATH_RW'] = data_path
-            self.configuration['DATA_PATH_SAVE'] = data_path
+                data_path = os.path.join(self.configuration['NODE_FEDBIOMED_ROOT'], data_path)
+                assert os.path.isdir(data_path), f'{data_path} has not been found in Fed-BioMed root directory or ' \
+                                                 f'it is not a directory. Please make sure that the folder is exist.'
+        # Data path where datafiles are stored. Since node and gui
+        # works in same machine without docker, path for writing and reading
+        # will be same for saving into database
+        self.configuration['DATA_PATH_RW'] = data_path
+        self.configuration['DATA_PATH_SAVE'] = data_path
 
         # Get name of the config file default is "config_node.ini"
         self.configuration['NODE_CONFIG_FILE'] = os.getenv('NODE_CONFIG_FILE',
@@ -100,7 +80,7 @@ class Config:
         self.configuration['HOST'] = os.getenv('HOST', 'localhost')
 
         # Log information for setting up a node connection
-        print(f'INFO: Fed-BioMed Node root dir has been set as'
+        print(f'INFO: Fed-BioMed Node root dir has been set as '
               f'{self.configuration["NODE_FEDBIOMED_ROOT"]} \n')
 
         print(f'INFO: Fed-BioMed  Node config file is '
