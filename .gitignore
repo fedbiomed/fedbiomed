@@ -405,8 +405,9 @@ mylog.log
 sgd.sav
 data/*
 
-# vpn configurations
-**/config/config_peers
-**/config/ip_assign
-**/config/wireguard
+# vpn configurations - now in run_mounts for containers
+#**/config/config_peers
+#**/config/ip_assign
+#**/config/wireguard
+
 .scannerwork

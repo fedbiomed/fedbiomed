@@ -129,6 +129,16 @@ case $1 in
             python ${basedir}/scripts/clean_node.py
         fi
 
+        # gui cleaning
+        echo " * Node GUI cleaning"
+        gui_temp_paths='var/gui_build gui/ui/node_modules gui/ui/package-lock.json'
+        for p in $gui_temp_paths ; do
+            if [ -e "${basedir}/$p" ] ; then
+                echo "[INFO] Removing directory ${basedir}/$p"
+                rm -rf ${basedir}/$p
+            fi
+        done
+
         environment_reset
         activate_researcher
         if [ -f ${basedir}/scripts/clean_researcher.py ]
