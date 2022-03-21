@@ -2,6 +2,9 @@ FROM fedbiomed/vpn-base
 
 WORKDIR /fedbiomed
 
+# wireguard server
+EXPOSE 51820/udp
+
 ARG CONTAINER_GID
 ARG CONTAINER_UID
 ARG CONTAINER_GROUP

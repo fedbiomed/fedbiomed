@@ -247,40 +247,58 @@ exp = Experiment(tags=tags,
                  tensorboard=True
                 )
 ```
+Or after initialization :
+```
+exp.set_tensorboard(True)
+```
 
 During training, the scalar values (loss) will be writen in the `runs` directory. You can either start tensorboard from jupyter notebook or terminal window.
 
-**Start tensforboard from notebook**
+**Start tensorboard from notebook**
 
-First you should import ROOT_DIR from researcher environment in another cell
+First you should import `TENSORBOARD_RESULTS_DIR` from researcher environment in another cell
 
-`from fedbiomed.researcher.environ import ROOT_DIR`
+```python
+from fedbiomed.researcher.environ import environ
+tensorboard_dir = environ['TENSORBOARD_RESULTS_DIR']
+```
 
-Load tensroboard extension in a different code block.
+Load tensorboard extension in a different code block.
 
-`%load_ext tensorboard`
+```python
+%load_ext tensorboard
+```
 
 Run following command to start tensorboard
 
-`tensorboard --logdir "$ROOT_DIR"/runs`
+```python
+tensorboard --logdir "$tensorboard_dir"
+```
 
-**Start tensorboard from terminal windows**
+**Start tensorboard from terminal command line**
 
-- Open new terminal and cd into fedbiomed root directory and run following command.
+Open new terminal and change directory to Fed-BioMed base directory (`${FEDBIOMED_DIR}`)
 
-**Note:** Please make sure that already activated fedbiomed-researcher conda environment.
-.
+Make sure that already activated fedbiomed researcher conda environment :
 
-`tensorboard --logdir $PYTHONPATH/runs`
+```bash
+source ./scripts/fedbiomed_environment researcher
+```
+
+Launch tensorboard with the following command :
+
+```bash
+tensorboard --logdir "$tensorboard_dir"`
+```
 
 
 ## Model Hashing and Enabling Model Approve
 
-Fed-BioMed offers optional model approval feature to approve the models requested by the researcher. This model approval process is done by hashing/checksum oparation by the ModelManager of node instance. When the `MODEL_APPROVE` mode is enabled, node should register/approve model files before performing the training. For testing and easy development, there are already presented default models by Fed-BioMed for the tutorials that we provide in the `notebooks` directory. However, node can also enable or disable the mode for allowing default models to perform training.
+Fed-BioMed offers optional model approval feature to approve the models requested by the researcher. This model approval process is done by hashing/checksum operation by the `ModelManager` of node instance. When the `MODEL_APPROVE` mode is enabled, node should register/approve model files before performing the training. For testing and easy development, there are already presented default models by Fed-BioMed for the tutorials that we provide in the `notebooks` directory. However, node can also enable or disable the mode for allowing default models to perform training.
 
 #### Config file for security parameters
 
-Enabling model approval mode, allowing default Fed-BioMed models and the hashing algorithm that will be performed for the checksum oparation can be configurred from the config file of the node. The following code snippet represents an example security section of config file with default values.
+Enabling model approval mode, allowing default Fed-BioMed models and the hashing algorithm that will be performed for the checksum operation can be configurred from the config file of the node. The following code snippet represents an example security section of config file with default values.
 
 ```
 [default]
@@ -296,27 +314,27 @@ model_approval = False
 
 ```
 
-By default, when node is started/add-data for the first time without additional security parameters, `model_approval` mode comes as disable. If `model_approval` is disabled the status of `allow_defaults_models` will have no effect. To enable `model_approval` you should set `model_approval` to `True` and if it is desired `allow_default_models` can be set to `False` to not accepting models of default Fed-BioMed examples.
+By default, when node is launched for the first time without additional security parameters, `model_approval` mode comes as disabled. If `model_approval` is disabled the status of `allow_defaults_models` will have no effect. To enable `model_approval` you should set `model_approval` to `True` and if it is desired `allow_default_models` can be set to `False` for not accepting models of default Fed-BioMed examples.
 
 The default hashing algorithm is `SHA256` and it can also be changed to other hashing algorithms that are provided by Fed-BioMed. You can see the list of Hashing algorithms in the following section.
 
 
 #### Hashing Algorithms
 
-`ModelManager` provides different hashing algorithms, and the algorithm can be changed through the config file of the node. The name of the algorithms should typed with capital letters. However, after changing hashing algorithm node should be restarted because it checks/updates hashing algorithms of the register/default models during the starting process.
+`ModelManager` provides different hashing algorithms, and the algorithm can be changed through the config file of the node. The name of the algorithms should be typed with capital letters. However, after changing hashing algorithm node should be restarted because it checks/updates hashing algorithms of the register/default models during the starting process.
 
 Provided hashing algorithms are `SHA256`, `SHA384`, `SHA512`, `SHA3_256`, `SHA3_384`, `SHA3_512`, `BLAKE2B` and `BLAKE2S`. These are the algorithms that has been guaranteed by `hashlib` library of Python.
 
 
 #### Starting nodes with different modes
 
-To enable `model_approval` mode and `allow_default_models` node can be started following command.
+To enable `model_approval` mode and `allow_default_models` node, start the following command.
 
 ```shell
 ./scripts/fedbiomed_run node config config-n1.ini --enable-model-approval --allow-default-models start
 ```
 
-This command will start the node with in model approval mode even the config file has been set as `model_aprove = False`.However it doesn't change the config file. If there is no config file named `config-n1.ini` it creates a config file for the node with enabled model approved mode.
+This command will start the node with model approval activated mode even the config file has been set as `model_aprove = False`. However it doesn't change the config file. If there is no config file named `config-n1.ini` it creates a config file for the node with enabled model approval mode.
 
 ```
 [security]
@@ -333,7 +351,7 @@ For starting node with disabled model approval and default models;
 
 #### Default Models
 
-Default models has been located at the `env/development/default_models/` directory as `txt` files. Each time when the node started with the `model_approval = True` and `allow_default_model = True` modes, hashing of the model files are get checked to detect if the file is modified, the hashing algorithm has changed or is there any new model file added. If model files are modified `ModelManager` updates hashes for these models in the database. If the hashing algoritmh of the model is different that the active hashing algorithm, hashes also get updated. This process only occurs when both `model-approval` and `allow-default-models` modes are activated. To add new default model for the examples or for testing, model files should be saved as `txt` and copied into the `envs/development/default_models` directory. After the copy/save oparation node should be restarted.
+Default models are located in the `envs/common/default_models/` directory as `txt` files. Each time  the node starts with the `model_approval = True` and `allow_default_model = True` modes, hashing of the model files are checked to detect if the file is modified, the hashing algorithm has changed or is there any new model file added. If model files are modified `ModelManager` updates hashes for these models in the database. If the hashing algorithm of the model is different from the active hashing algorithm, hashes also get updated. This process only occurs when both `model-approval` and `allow-default-models` modes are activated. To add new default model for the examples or for testing, model files should be saved as `txt` and copied into the `envs/common/default_models` directory. After the copy/save operation node should be restarted.
 
 
 #### Registering New Models
@@ -344,7 +362,7 @@ New models can be registered using `fedbiomed_run` scripts with `register-model`
 ./scripts/fedbiomed_run node config config-n1.ini register-model
 ```
 
-The CLI will ask for name of the model, description and the path where model file is stored. **Model files should saved as txt in the file system for registiration.** This because these files are for only hashing purposes not for loading modules.
+The CLI asks for the name of the model, description and the path where model file is stored. **Model files should be saved as txt in the file system for registration**. This is because these files are for only hashing purposes not for loading modules.
 
 #### Deleting Registered Models
 
@@ -362,7 +380,7 @@ Select the model to delete:
 Select:
 ```
 
-Default models can not be removed using fedbiomed CLI. They should be removed from the `envs/development/default_models` directory. After restarting the node, deleted model files will be also removed from the `Models` table of the node DB.
+Default models can not be removed using fedbiomed CLI. They should be removed from the `envs/common/default_models` directory. After restarting the node, deleted model files will be also removed from the `Models` table of the node DB.
 
 
 #### Updating Registered model
@@ -376,14 +394,13 @@ can provide same model file to update its content.
 
 ## Fed-BioMed Node GUI
 
-Node GUI provides an interface for Node to manage datasets and deploy new ones. GUI is consist of two components
-as Server and UI. Server has been developed on Flask framework and UI is developed using ReactJS. Flask provide API
+Node GUI provides an interface for Node to manage datasets and deploy new ones. GUI consists of two components, Server and UI. Server is developed on Flask framework and UI is developed using ReactJS. Flask provides API
 services that use Fed-BioMed's DataManager for deploying and managing dataset. All the source files for GUI has been
 located on the `${FEDBIOMED_DIR}/gui` directory.
 
 ### Starting GUI
 
-Node GUI can be started suing Fed-BioMEd CLI.
+Node GUI can be started using Fed-BioMed CLI.
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder '<path-for-data-folder>' config '<name-of-the-config-file>' start
@@ -391,7 +408,7 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder '<path-for-data-folder>' 
 
 Arguments:
 
-- ``data-folder``: Data folder represent the folder path where datasets have been stored. It can be absolute or relative path.
+- ``data-folder``: Data folder represents the folder path where datasets have been stored. It can be absolute or relative path.
 If it is relative path, Fed-BioMed base directory is going to be used as reference. **If `datafolder` is not provided. Script will look for
 `data` folder in the Fed-BioMed root directory and if it doesn't exist it will raise an error.**
 - ``config``: Config file represents the name of the configuration file which is going to be used for GUI. If it is not
@@ -409,12 +426,12 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder ../data config config-n1.
 
 ### Details of Start Process
 
-While the Node GUI is started, it install `npm` modules and builds ReactJS application in ``${FEDBIOMED_DIR}/var/gui-build``. If the GUI
+When the Node GUI is started, it installs `npm` modules and builds ReactJS application in ``${FEDBIOMED_DIR}/var/gui-build``. If the GUI
 is already built (means that `gui/ui/node_modules` and `var/gui-build` folders exist), it does not reinstall and rebuild ReactJS. If you want to
 reinstall and rebuild, please add `--recreate` flag in the command same as below,
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
+${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder ../data --recreate start
 ```
 
 
@@ -430,6 +447,7 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui config config-n3.
 ```
 
 ### Development/Debugging for GUI
+
 If you want to customize or work on user interface for debugging purposes, it is always better to use ReactJS in development mode, otherwise building GUI
 after every update will take a lot of time. To launch user interface in development mode first you need to start Flask server. This can be
 easily done with the previous start command. Currently, Flask server always get started on development mode.  To enable debug mode you should add `--debug`
@@ -451,7 +469,7 @@ npm start
 ```
 
 After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
-in ``${FEDBIOMED_DIR}/gui/ui/src`` it will get dynamically updated on ``loncahost:3000``.
+in ``${FEDBIOMED_DIR}/gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
 
 Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in
 `${FEDBIOMED_DIR}/gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why
