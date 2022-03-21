@@ -133,8 +133,8 @@ containers_status() {
 
 
     if [ $ERROR -eq 1 ]; then
-        echo "at least one of the requested docker container is not running"
-        docker ps
+        echo "ERROR: at least one of the requested docker container is not running"
+        docker ps | tail -n +2
         return
     fi
 
