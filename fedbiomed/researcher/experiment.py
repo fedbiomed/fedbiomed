@@ -219,6 +219,7 @@ class Experiment(object):
         self._training_args = None
         self._node_selection_strategy = None
         self._tags = None
+        self._monitor = None
 
 #        training_data: Union[FederatedDataSet, dict, None] = None,
 #        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
@@ -292,9 +293,11 @@ class Experiment(object):
     # destructor
     @exp_exceptions
     def __del__(self):
-        # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
-        self._reqs.remove_monitor_callback()
-        self._monitor.close_writer()
+        if self._reqs is not None:
+            # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
+            self._reqs.remove_monitor_callback()
+        if self._monitor is not None:
+            self._monitor.close_writer()
 
 
     @exp_exceptions
