@@ -1,4 +1,7 @@
-FROM fedbiomed/vpn-basenode
+FROM debian:bullseye-slim
+
+# flask server
+EXPOSE 8484
 
 ARG CONTAINER_GID
 ARG CONTAINER_UID
@@ -13,7 +16,7 @@ ENV CONTAINER_GID=${CONTAINER_GID:-root}
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
-RUN apt-get update && apt-get install -y apt-utils wget
+RUN apt-get update && apt-get install -y apt-utils wget procps
 
 RUN [ "$CONTAINER_GROUP" != 'root' ] && groupadd -g $CONTAINER_GID $CONTAINER_GROUP || :
 RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
@@ -28,14 +31,14 @@ RUN wget -q --directory-prefix=$HOME https://repo.anaconda.com/miniconda/Minicon
 # ${HOME} not defined in ENV command, only in RUN/etc. (executing in subshell)
 ENV PATH=${PATH}:/miniconda/bin
 
-COPY ./envs/vpn/docker/node/build_files/entrypoint.sh /
+COPY ./envs/vpn/docker/gui/build_files/entrypoint.sh /
 # Setup subset of fedbiomed code tree
 RUN mkdir -p /fedbiomed/envs /data
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
 COPY envs/vpn /fedbiomed/envs/vpn
-COPY envs/common /fedbiomed/envs/common
 COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
+COPY gui /fedbiomed/gui
 # Alternative option : git clone & strip unused dirs
 #  - ensures working with clean repo (docker build begins with a stat(), hangs for 
 #    a long time if you have zillion files in notebooks/data)
@@ -47,10 +50,12 @@ WORKDIR /fedbiomed
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Configure conda env in context of alternate account
-RUN conda env update --file ./envs/vpn/conda/fedbiomed-node.yaml
+RUN conda env update --file ./envs/vpn/conda/fedbiomed-gui.yaml
 # another option : add tag to configure script to call "./scripts/configure_conda fedbiomed-node"
+ 
+# `data-folder` and `config` are not used when doing `install-only`
+RUN ./scripts/fedbiomed_run gui data-folder /data config DUMMY install-only start
 
-# Launch as root to manage VPN
-USER root:root
+# Launch GUI as user
 ENTRYPOINT ["/entrypoint.sh"]
 

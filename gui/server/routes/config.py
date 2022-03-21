@@ -59,7 +59,7 @@ def fedbiomed_environ():
             res[key] = environ[key]
             matched = re.match('^' + app.config['NODE_FEDBIOMED_ROOT'], str(environ[key]))
             if matched and key is not 'ROOT_DIR':
-                res[key] = res[key].replace(app.config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_ROOT')
+                res[key] = res[key].replace(app.config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_DIR')
         except Exception as e:
             print(f'ERROR: An error occurred while calling /node-environ endpoint - {e} \n')
             pass
