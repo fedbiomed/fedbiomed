@@ -254,7 +254,7 @@ exp.set_tensorboard(True)
 
 During training, the scalar values (loss) will be writen in the `runs` directory. You can either start tensorboard from jupyter notebook or terminal window.
 
-**Start tensforboard from notebook**
+**Start tensorboard from notebook**
 
 First you should import `TENSORBOARD_RESULTS_DIR` from researcher environment in another cell
 
@@ -263,7 +263,7 @@ from fedbiomed.researcher.environ import environ
 tensorboard_dir = environ['TENSORBOARD_RESULTS_DIR']
 ```
 
-Load tensoboard extension in a different code block.
+Load tensorboard extension in a different code block.
 
 ```python
 %load_ext tensorboard
