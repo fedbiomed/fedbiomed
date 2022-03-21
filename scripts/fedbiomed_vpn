@@ -20,20 +20,24 @@ usage() {
     # print usage
     #
     echo "\
-Usage: ${0##*/} build     [-c|--clean]
-       ${0##*/} configure [-n number]
-       ${0##*/} start     [-m|--model-approval]
+Usage: ${0##*/} build     [-c|--clean] [-g|--gpu] [CONTAINER..]
+       ${0##*/} configure                         [CONTAINER..]
+       ${0##*/} start     [-m|--model-approval]   [CONTAINER..]
        ${0##*/} status
        ${0##*/} stop
 
 Build/configure/run/stop docker containers for VPN support
 (cannot build / configure / start / stop at same time)
 
+[CONTAINER..] is a list of containers to configure/build/run.
+This list may contain: vpnserver, mqtt, restful, node
+
  build           build all containers
 
      Optional with build:
 
      -c|--clean  clean environments first
+     -g|--gpu    build docker containers with GPU support
 
  configure       generate configuration files
 
@@ -41,7 +45,7 @@ Build/configure/run/stop docker containers for VPN support
  status      give information on running containers
  stop        stop  all components
 
-     Optional with node/server:
+     Optional with start:
 
      -m|--model-approval  enforce model approval in config files
 "
@@ -109,27 +113,54 @@ find_my_ip() {
 }
 
 containers_clean() {
-    echo "** CLEANING"
+    echo "** Cleaning"
 }
 
 containers_status() {
-    echo "** status"
+    echo "** Docker images & Wireguard VPN status"
     cd "$basedir/envs/vpn/docker"
 
-    echo "- running containers"
-    docker ps
+    ERROR=0
+    echo -n "- running containers -> "
+    status=$(docker ps | grep fedbiomed/vpn- | wc -l)
+
+    if [ $status -eq 3 ]; then
+        echo "OK"
+    else
+        echo "BROKEN"
+        ERROR=1
+    fi
+
+
+    if [ $ERROR -eq 1 ]; then
+        echo "at least one of the requested docker container is not running"
+        docker ps
+        return
+    fi
 
     # ping inside the wg vpn
     for c in vpnserver mqtt restful
     do
-        echo "- pinging VPN server from $c container"
-        docker-compose exec ${c} ping -c 3 -W 1 10.220.0.1
+        echo -n "- pinging VPN server from $c container -> "
+        ping=$(docker-compose exec ${c} ping -n -c 3 -W 1 10.220.0.1 2>/dev/null | cat -v)
+
+        status=$(echo $ping|grep seq=)
+        if [ -z "$status" ]; then
+            echo "BROKEN"
+            ERROR=1
+        else
+            echo "OK"
+        fi
     done
 
+    if [ $ERROR -eq 1 ]; then
+        echo "Something is BRoKeN here.  You must check what is going on..."
+        echo "(either docker images are not running properly or wiregard not configured)"
+    fi
 }
 
 containers_build() {
-    echo "** BUILDING"
+    echo "** Building docker VPN images"
     cd "$basedir/envs/vpn/docker"
 
     echo "- building base component"
@@ -146,13 +177,13 @@ containers_build() {
 }
 
 containers_stop() {
-    echo "** STOPPING components"
+    echo "** Stopping cocker VPN components"
     cd "$basedir/envs/vpn/docker"
     docker-compose stop
 }
 
 containers_configure() {
-    echo "** GENERATING KEYS"
+    echo "** Generating Wireguards keys"
 
     cd "$basedir/envs/vpn/docker"
 
@@ -225,8 +256,9 @@ containers_start() {
     do
         pubkey=$(docker-compose exec ${c} wg show wg0 public-key | tr -d '\r')
         docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add management ${c} $pubkey
-        docker-compose exec ${c} ping -c 3 -W 1 10.220.0.1
     done
+
+    containers_status
 }
 
 # main
