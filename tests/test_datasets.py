@@ -29,7 +29,7 @@ class TestFederatedDataset(unittest.TestCase):
 
     def test_federated_dataset_01_constructor_data_exception(self):
         """
-        Tests private method `_check_data_fromat`, which is called when constructing
+        Tests private method `_check_data_format`, which is called when constructing
         FedbiomedDatasetError object
         """
         incorrect_data_format_1 = {'node1': {'dataset': 'dataset_id'}}

@@ -759,10 +759,10 @@ class TestExperiment(unittest.TestCase):
         training_data_2_1 = self.test_exp.training_args()
         self.assertEqual(training_data_2_1.get('test_ratio'), ratio_2_1)
         self.assertEqual(training_data_2_1.get('test_on_global_updates'),
-                         self.test_exp.flag_test_on_global_updates())
+                         self.test_exp.test_on_global_updates())
 
         self.assertEqual(training_data_2_1.get('test_on_local_updates'),
-                         self.test_exp.flag_test_on_local_updates())
+                         self.test_exp.test_on_local_updates())
         self.test_exp.set_test_ratio(ratio_2_2)
         training_data_2_2 = self.test_exp.training_args()
         updated_fed_dataset = self.test_exp.training_data()

@@ -1,5 +1,5 @@
 '''
-code code of the researcher. implements the experiment orchestration
+Code of the researcher. Implements the experiment orchestration
 '''
 
 import os
@@ -235,6 +235,10 @@ class Experiment(object):
         self.set_tags(tags)
         self.set_nodes(nodes)
 
+        # set self._model_args and self._training_args to dict
+        self.set_model_args(model_args)
+        self.set_training_args(training_args)
+
         # Useless to add a param and setter/getter for Requests() as it is a singleton ?
         self._reqs = Requests()
 
@@ -265,10 +269,6 @@ class Experiment(object):
         self.set_model_class(model_class)
         self.set_model_path(model_path)
 
-        # set self._model_args and self._training_args to dict
-        self.set_model_args(model_args)
-        self.set_training_args(training_args)
-
         # set self._job to Union[Job, None]
         self.set_job()
 
@@ -282,13 +282,6 @@ class Experiment(object):
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self._monitor.set_tensorboard(tensorboard)
 
-        # attributes
-        # ---------------
-        # public attributes
-        self._flag_test_on_global_updates = True
-        self._flag_test_on_local_updates = False
-        # private attributes
-        self._do_training = True  # whether to perform a training or not
 
     # destructor
     @exp_exceptions
@@ -362,12 +355,12 @@ class Experiment(object):
         return self._training_args.get('test_metric')
 
     @exp_exceptions
-    def flag_test_on_local_updates(self) -> bool:
-        return self._flag_test_on_local_updates
+    def test_on_local_updates(self) -> bool:
+        return self._training_args.get('test_on_local_updates')
 
     @exp_exceptions
-    def flag_test_on_global_updates(self) -> bool:
-        return self._flag_test_on_global_updates
+    def test_on_global_updates(self) -> bool:
+        return self._training_args.get('test_on_global_updates')
 
     @exp_exceptions
     def job(self) -> Union[Job, None]:
@@ -620,36 +613,27 @@ class Experiment(object):
             self._fds = None
             logger.debug('Experiment not fully configured yet: no training data')
         # at this point, self._fds is either None or a FederatedDataSet object
-        if hasattr(self, '_training_args') and self._training_args is not None:
-            # update testing parameters on the FederatedDataset  (that may have been saved already on `_training_args`)
-            _exp_test_ratio = self._training_args.get('test_ratio', False)
-            if self._fds is not None and self._fds.test_ratio() > 0:
-                # if fds comes with a specific test_ratio, update experiment with its test ratio
+        
+        # at this point, we know self._training_args is an initialized dict
+        if self._fds is not None:
+            # we decide who has master information for the `test_ratio` depending on
+            # the type of the `training_data` passed to the function
+            if isinstance(training_data, FederatedDataSet):
+                exp_test_ratio = self._training_args['test_ratio']
+                fds_test_ratio = self._fds.test_ratio()
+                if exp_test_ratio != fds_test_ratio:
+                    logger.info(f"Override existing test ratio {exp_test_ratio} of the Experiment with "
+                        f" FederatedDataset test ratio value {fds_test_ratio}")
+                self._training_args['test_ratio'] = fds_test_ratio
+            else:
+                # don't want to overwrite dataset-specific ratio settings, when they exist
+                self._fds.set_test_ratio(self._training_args['test_ratio'], overwrite=False)
 
-                if _exp_test_ratio and self._fds.test_ratio() != _exp_test_ratio:
-                    logger.warning(f"FederatedDataset has a different test ratio than the one of Experiment:"
-                                   f" {self._fds.test_ratio()}, it will change the test_ratio of "
-                                   f"the experiment set to {_exp_test_ratio}")
-                self.set_test_ratio(self._fds.test_ratio())
-            # self._strategy and self._job don't always exist at this point
-            elif _exp_test_ratio:
-                # update FederatedDataset with the correct test ratio
-                self._fds.set_test_ratio(_exp_test_ratio)
-        try:
-            if self._node_selection_strategy is not None:
-                logger.debug('Training data changed, '
-                             'you may need to update `node_selection_strategy`')
-        except AttributeError:
-            # nothing to do if not defined yet
-            pass
-        try:
-            if self._job is not None:
-
-                logger.debug('Training data changed, you may need to update `job`')
-
-        except AttributeError:
-            # nothing to do if not defined yet
-            pass
+        if self._node_selection_strategy is not None:
+            logger.debug('Training data changed, '
+                         'you may need to update `node_selection_strategy`')
+        if self._job is not None:
+            logger.debug('Training data changed, you may need to update `job`')
 
         return self._fds
 
@@ -990,7 +974,7 @@ class Experiment(object):
     # TODO: model_args need checking of dict items, to be done by Job and node
     # (using a training plan method ?)
     @exp_exceptions
-    def set_model_args(self, model_args: dict):
+    def set_model_args(self, model_args: dict) -> dict:
         """Setter for `model_args` + verification on arguments type
 
         Args:
@@ -1021,15 +1005,16 @@ class Experiment(object):
     # TODO: training_args need checking of dict items, to be done by Job and node
     # (using a training plan method ? changing `training_routine` prototype ?)
     @exp_exceptions
-    def set_training_args(self, training_args: dict, reset: bool = False):
+    def set_training_args(self, training_args: dict, reset: bool = True) -> dict:
         """Setter for `training_args` + verification on arguments type
 
         Args:
             - training_args (dict): contains training arguments passed to the
                 `training_routine` of the training plan when launching it:
                 lr, epochs, batch_size...
-            - reset (bool): whether to reset the training_args (if previous training_args has already been set),
-                or to update it with training_args
+            - reset (bool, optional): whether to reset the training_args (if previous
+                training_args has already been set), or to update them with training_args.
+                Defaults to True.
 
         Raise:
             - FedbiomedExperimentError : bad training_args type
@@ -1038,15 +1023,10 @@ class Experiment(object):
             - training_args (dict)
         """
         if isinstance(training_args, dict):
-            if not hasattr(self, '_training_args') :
-                self._training_args = training_args
-            elif self._training_args is None:
-                self._training_args = training_args
-            elif reset:
+            if reset or self._training_args is None:
+                # (re)start from minimal training arguments
                 self.clean_training_args()
-                self._training_args = training_args
-            else:
-                self._training_args.update(training_args)
+            self._training_args.update(training_args)
         else:
             # bad type
             msg = ErrorNumbers.FB410.value + f' `training_args` : {type(training_args)}'
@@ -1066,51 +1046,49 @@ class Experiment(object):
         """
         Cleans / resets training arguments `training_args`
         """
-        self._training_args = {}
+        # minimal content for the training args
+        self._training_args = {
+            'test_ratio': .0,
+            'test_on_local_updates': False,
+            'test_on_global_updates': False            
+        }
 
     @exp_exceptions
-    def set_test_ratio(self, ratios: Union[Dict[str, float], float]) -> Union[Dict[str, float], float]:
+    def set_test_ratio(self, ratios: float) -> float:
         """
         Sets testing ratio for model evaluation. When setting test_ratio, nodes will allocate 
-        test_ratio -1 percent of data for training and the remaining for testing model. This
-        could be usefull for evaluating the model, once evry round, as well as controlling
+        (1 - `test_ratio`) fraction of data for training and the remaining for testing model.
+        This could be useful for evaluating the model, once every round, as well as controlling
         overfitting, doing early stopping, ....
 
         Args:
-            ratios (Union[Dict[str, float], float]): testing ratio. Must be within interval [0,1].
+            - ratios (float): testing ratio. Must be within interval [0,1].
 
         Raises:
-            FedbiomedExperimentError: bad data type
-            FedbiomedExperimentError: ratio is not within interval [0, 1]
+            - FedbiomedExperimentError: bad data type
+            - FedbiomedExperimentError: ratio is not within interval [0, 1]
 
         Returns:
-            Union[Dict[str, float], float]: testing ratios
+            - float: testing ratios
         """
         # data type checks
-        if not isinstance(ratios, (int, float, dict)):
-            msg = ErrorNumbers.FB410.value + ": incorrect argument ratios type:" + \
-                f"{type(ratios)}. Are only accepted integers, floats or dictionary" + \
-                "mapping <node_id>: <testing ratio>"
+        if not isinstance(ratios, (int, float)):
+            msg = ErrorNumbers.FB410.value + ": incorrect argument `ratios` type:" + \
+                f" {type(ratios)} expected integer or float"
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        if isinstance(ratios, dict):
-            # TODO: check that each ratio of each node is whithin [0;1]
-            pass
-
-        elif 0 > ratios or ratios > 1:
-            msg = ErrorNumbers.FB410.value + ": incorrect argument ratios, ratios should" + \
-                f"be between 0 and 1, but got {ratios}"
+        if 0 > ratios or ratios > 1:
+            msg = ErrorNumbers.FB410.value + ": incorrect argument `ratios` value, " + \
+                f"should be between 0 and 1, but got {ratios}"
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
         self._training_args['test_ratio'] = ratios
         if self._fds is not None:
-            self._fds.set_test_ratio(ratios)
+            # need to override existing values for all datasets
+            self._fds.set_test_ratio(ratios, overwrite=True)
 
-        # add testing flags to `training_args`
-        self._training_args['test_on_global_updates'] = self._flag_test_on_global_updates
-        self._training_args['test_on_local_updates'] = self._flag_test_on_local_updates
         return ratios
 
     @exp_exceptions
@@ -1119,13 +1097,13 @@ class Experiment(object):
         Sets a metric for federated model evaluation
 
         Args:
-            metric (Union[Callable, str]): _description_
+            - metric (Union[Callable, str]): _description_
 
         Raises:
-            FedbiomedExperimentError: metric 
+            - FedbiomedExperimentError: metric 
 
         Returns:
-            Tuple[str, Dict[str, Any]]: _description_
+            - Tuple[str, Dict[str, Any]]: _description_
         """
         if not (isinstance(metric, str) or callable(metric)):
             _msg = ErrorNumbers.FB410.value + ": incorrect argument metric, got type " + \
@@ -1144,57 +1122,52 @@ class Experiment(object):
 
         return metric, metric_args
 
-
     @exp_exceptions
-    def set_flag_test_on_local_updates(self, flag: bool = True) -> bool:
+    def set_test_on_local_updates(self, flag: bool = True) -> bool:
         """
-        Setter for flag_test_on_local_updates, that indicates whether to
+        Setter for test_on_local_updates, that indicates whether to
         perform a testing on the federated model local updates or not.
 
         Args:
-            flag (bool, optional): whether to peform model evaluation on local updates.
-            Defaults to True.
+            - flag (bool, optional): whether to peform model evaluation on local updates.
+              Defaults to True.
+
+        Raises:
+            - FedbiomedExperimentError : bad flag type
 
         Returns:
-            bool: value of the flag `flag_test_on_local_updates`
+            - bool: value of the flag `test_on_local_updates`
         """
-        self._flag_test_on_local_updates = flag
-        self._training_args['test_on_local_updates'] = self._flag_test_on_local_updates
-        self._flag_setter_warning()
-        return self._flag_test_on_local_updates
+        if not isinstance(flag, bool):
+            msg = ErrorNumbers.FB410.value + f' `flag` : got {type(flag)} but expected a boolean'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        self._training_args['test_on_local_updates'] = flag
+        return self._training_args['test_on_local_updates']
 
     @exp_exceptions
-    def set_flag_test_on_global_updates(self, flag: bool = True) -> bool:
+    def set_test_on_global_updates(self, flag: bool = True) -> bool:
         """
-        Setter for flag_test_on_global_updates, that indicates whether to
+        Setter for test_on_global_updates, that indicates whether to
         perform a testing on the federated model updates updates or not.
 
         Args:
-            flag (bool, optional): whether to peform model evaluation on global updates. Defaults to True.
+            - flag (bool, optional): whether to peform model evaluation on global updates. Defaults to True.
+
+        Raises:
+            - FedbiomedExperimentError : bad flag type
 
         Returns:
-            bool: value of the flag `flag_test_on_global_updates`.
+            - bool: value of the flag `test_on_global_updates`.
         """
-        self._flag_test_on_global_updates = flag
-        self._training_args['test_on_global_updates'] = self._flag_test_on_global_updates
-        self._flag_setter_warning()
-        return self._flag_test_on_global_updates
+        if not isinstance(flag, bool):
+            msg = ErrorNumbers.FB410.value + f' `flag` : got {type(flag)} but expected a boolean'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
 
-    def _flag_setter_warning(self):
-        """
-        Displays Warnings if testing facility has been badly designed:
-        * if no test ratios has been set BUT testing flags and/or testing metric have been
-        * if testing flags are set 
-
-        """
-        if not self._training_args.get('test_ratio', False):
-            logger.warning("Testing ratio not set: setting testing flags without specifying testing"
-                           " ratio will prevent doing model evaluation. Please set a testing_ratio with setter"
-                           " `set_test_ratio` to perform model evaluation")
-        if not (self._flag_test_on_global_updates or self._flag_test_on_local_updates):
-            logger.warning("Both flags `test_on_global_updates` and `test_on_local_updates`"
-                           " set to False: this will prevent doing model evaluation."
-                           " Please set at least one flag to True to perform model evaluation")
+        self._training_args['test_on_global_updates'] = flag
+        return self._training_args['test_on_global_updates']
 
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
     # job is initialized with arguments that can be set ?
@@ -1268,7 +1241,6 @@ class Experiment(object):
         return self._save_breakpoints
 
     # Run experiment functions
-
 
     @exp_exceptions
     def set_tensorboard(self, tensorboard: bool) -> bool:
