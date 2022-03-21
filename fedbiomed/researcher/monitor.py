@@ -87,12 +87,8 @@ class _MetricStore(dict):
         for val in rounds.values():
             iter_frequencies = collections.Counter(val['iterations'])
             last_iteration = val['iterations'][-1]
-
-            if iter_frequencies[last_iteration] == 1:
-                cum_iteration += last_iteration
-            else:
-                max_iter_value = max(val['iterations'])
-                cum_iteration += (max_iter_value * iter_frequencies[max_iter_value]) + last_iteration
+            max_iter_value = max(val['iterations'])
+            cum_iteration += (max_iter_value * (iter_frequencies[last_iteration] - 1)) + last_iteration
 
         return cum_iteration
 

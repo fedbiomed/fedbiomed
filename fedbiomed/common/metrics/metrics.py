@@ -390,7 +390,7 @@ class Metrics(object):
         #     raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Shape of true `y_true` and predicted `y_pred` "
         #                                f"does not match; {y_true.shape}, {y_pred.shape}")
 
-        y_pred = self._configure_y_true_pred_(y_true=y_true, y_pred=y_pred, metric=metric)
+        y_true, y_pred = self._configure_y_true_pred_(y_true=y_true, y_pred=y_pred, metric=metric)
         result = self.metrics[metric.name](y_true, y_pred, **kwargs)
 
         return result
@@ -405,66 +405,48 @@ class Metrics(object):
         """
         # Get shape of the prediction should be 1D or 2D array
         y_pred = np.squeeze(y_pred)
-        shape = y_pred.shape
+        y_true = np.squeeze(y_pred)
+        shape_y_pred = y_pred.shape
+        shape_y_true = y_true.shape
+
 
         # Shape of the prediction array should be (samples, outputs) or (samples, )
-        if len(shape) > 2:
+        if len(shape_y_pred) > 2:
             raise FedbiomedMetricError()
 
-        output_shape = shape[1] if len(shape) == 2 else 0  # 0 for 1D array
+        output_shape_y_pred = shape_y_pred[1] if len(shape_y_pred) == 2 else 0  # 0 for 1D array
+        output_shape_y_true = shape_y_true[1] if len(shape_y_true) == 2 else 0  # 0 for 1D array
 
         if metric.metric_form() is MetricForms.CLASSIFICATION_LABELS:
-            if output_shape == 0:
-                # prediction for binary classification
+            if output_shape_y_pred == 0 and output_shape_y_true == 0:
                 # TODO: Get threshold value from researcher
                 y_pred = np.where(y_pred > 0.5, 1, 0)
-            else:
-                # prediction for multiclass classification
-                # TODO: implement a label storage to get label <-> predicted class
+
+            # If y_true is one hot encoding array and y_pred is 1D array of label probabilities
+            # Example: y_true: [ [0,1], [1,0]] | y_pred : [0.1, 0.5]
+            elif output_shape_y_pred == 0 and output_shape_y_true > 0:
+                y_pred = np.where(y_pred > 0.5, 1, 0)
+                y_true = np.argmax(y_true, axis=1)
+
+            # If y_pred is 2D array where each array represents class probabilities and y_true is 1D array of classes
+            # Example: y_true: [0,1,1,2,] | y_pred : [[-0.2, 0.3, 0.5], [0.5, -1.2, 1,2 ], [0.5, -1.2, 1,2 ]]
+            elif output_shape_y_pred > 0 and output_shape_y_true == 0:
                 y_pred = np.argmax(y_pred, axis=1)
 
+            # If y_pred and y_true is 2D array
+            # Example: y_true: [ [0,1],[1,0]] | y_pred : [[-0.2, 0.3], [0.5, 1,2 ]]
+            elif output_shape_y_pred > 0 and output_shape_y_true > 0:
+
+                if output_shape_y_pred != output_shape_y_true:
+                    raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Can not convert values to class labels "
+                                               f"the shape of predicted array and true array does not match.")
+                y_pred = np.argmax(y_pred, axis=1)
+                y_true = np.argmax(y_true, axis=1)
+
         elif metric.metric_form() is MetricForms.REGRESSION:
-            if output_shape > 0:
+            if output_shape_y_pred != output_shape_y_true:
                 raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: For the metric `{metric.name}` multiple "
                                            f"output regression is not supported")
 
-        # if metric form is CLASSIFICATION_SCORES, keep it as it is
-        return y_pred
+        return y_true, y_pred
 
-    # def _convert_to_array(self, X):
-    #     """
-    #     Convert torch tensor to numpy array
-    #
-    #     Args:
-    #         X: torch tensor
-    #     Returns:
-    #         numpy array
-    #     """
-    #     return X.numpy()
-    #
-    # def _check_array(self, array):
-    #     """
-    #     Check if the input is of type torch tensor and transform it to numpy array.
-    #
-    #     Args:
-    #         array: array-like or torch tensor
-    #     Returns:
-    #         array: array-like
-    #     """
-    #     if array is not None:
-    #         dtype_orig = getattr(array, "dtype", None)
-    #         if isinstance(dtype_orig, torch.dtype):
-    #             array = self._convert_to_array(array)
-    #     return array
-    #
-    # def _get_default_metric(self):
-    #     """
-    #     If metric name is not specified, return default metrics: accuracy_score in case of classification and mean_absolute_error in case of regression.
-    #
-    #     Returns:
-    #         metric: sklearn.metrics.accuracy_score or metrics.mean_squared_error
-    #     """
-    #     if np.array(self.Y_true).dtype == 'float':
-    #         return metrics.accuracy_score(self.Y_true, self.Y_pred)
-    #     else:
-    #         return metrics.mean_squared_error(self.Y_true, self.Y_pred)
