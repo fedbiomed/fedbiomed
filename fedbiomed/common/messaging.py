@@ -160,6 +160,8 @@ class Messaging:
                 )
                 # to get Train/Epoch messages on console and on MQTT
                 logger.setLevel("DEBUG")
+
+                # Send messages to researcher starting from INFO level
                 logger.setLevel("INFO", "MQTT")
 
                 self._logger_handler_installed = True
