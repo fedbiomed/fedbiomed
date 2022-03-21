@@ -21,6 +21,7 @@ usage() {
     #
     echo "\
 Usage: ${0##*/} build     [-c|--clean] [-g|--gpu] [CONTAINER..]
+       ${0##*/} clean
        ${0##*/} configure                         [CONTAINER..]
        ${0##*/} start     [-m|--model-approval]   [CONTAINER..]
        ${0##*/} status
@@ -32,22 +33,25 @@ Build/configure/run/stop docker containers for VPN support
 [CONTAINER..] is a list of containers to configure/build/run.
 This list may contain: vpnserver, mqtt, restful, node
 
- build           build all containers
+ build       build all containers
 
-     Optional with build:
+       Optional with build:
 
-     -c|--clean  clean environments first
-     -g|--gpu    build docker containers with GPU support
+       -c|--clean  clean environments first
+       -g|--gpu    build docker containers with GPU support
 
- configure       generate configuration files
+ clean       clean everything
+             (can also be invoked with build option)
+
+ configure   generate configuration files
 
  start       start all components
  status      give information on running containers
  stop        stop  all components
 
-     Optional with start:
+       Optional with start:
 
-     -m|--model-approval  enforce model approval in config files
+       -m|--model-approval  enforce model approval in config files
 "
 }
 
@@ -112,12 +116,56 @@ find_my_ip() {
     return "127.0.0.1"
 }
 
+containers_stop() {
+    echo "** Stopping docker VPN components"
+    cd "$basedir/envs/vpn/docker"
+    docker-compose stop
+}
+
 containers_clean() {
     echo "** Cleaning"
+
+    cd "$basedir/envs/vpn/docker"
+
+    containers_stop
+
+    # specific to restful
+    rm -f  ./restful/run_mounts/app/db.sqlite3
+
+    # specific to node
+    rm -rf ./node/run_mounts/data/*
+    rm -rf ./node/run_mounts/etc/*
+    rm -rf ./node/run_mounts/var/*
+
+    # specific to researcher
+    rm -rf ./researcher/run_mounts/data/*
+    rm -rf ./researcher/run_mounts/etc/*
+    rm -rf ./researcher/run_mounts/samples/*
+    rm -rf ./researcher/run_mounts/runs/*
+    rm -rf ./researcher/run_mounts/var/*
+
+    #
+    for i in base basenode gui
+    do
+        docker-compose rm -sf $i
+        docker image rm -f fedbiomed/vpn-$i
+    done
+
+    for i in vpnserver mqtt restful node researcher
+    do
+        docker-compose rm -sf $i
+        docker image rm -f fedbiomed/vpn-$i
+        git checkout $i/run_mounts/config/config.env
+    done
+
+
+    #
+    docker image prune -f
+
 }
 
 containers_status() {
-    echo "** Docker images & Wireguard VPN status"
+    echo "** Checking docker VPN images & VPN access"
     cd "$basedir/envs/vpn/docker"
 
     ERROR=0
@@ -176,14 +224,9 @@ containers_build() {
     CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build restful
 }
 
-containers_stop() {
-    echo "** Stopping cocker VPN components"
-    cd "$basedir/envs/vpn/docker"
-    docker-compose stop
-}
 
 containers_configure() {
-    echo "** Generating Wireguards keys"
+    echo "** Generating VPN/Wireguards keys"
 
     cd "$basedir/envs/vpn/docker"
 
@@ -231,7 +274,7 @@ containers_configure() {
 }
 
 containers_start() {
-    echo "** STARTING components"
+    echo "** Starting docker VPN components"
 
     cd "$basedir/envs/vpn/docker"
 
@@ -241,7 +284,7 @@ containers_start() {
 
     ip_in_file=$(grep "^VPN_SERVER_PUBLIC_ADDR=$IP$" $CONFIG)
     if [ -z "$ip_in_file" ]; then
-        echo "** external IP adress has changed since last configuration"
+        echo "WARNING: external IP adress has changed since last configuration"
         echo "You may need to run:  ${0##*/} configure"
         exit 1
     fi
@@ -298,6 +341,22 @@ while (($# > 0)); do
                     -c|--clean) CLEAN=1 ;;
                     -g|--gpu)   GPU=1 ;;
                     -h|--help)  usage ; exit 0 ;;
+                    *)
+                        echo "unknown or incompatible arguments"
+                        usage
+                        exit 1
+                        ;;
+                esac
+                shift
+            done
+            ;;
+
+        clean)
+            CLEAN=1
+            shift
+            while (($# > 0)); do
+                case $1 in
+                    -h|--help)          usage ; exit 0 ;;
                     *)
                         echo "unknown or incompatible arguments"
                         usage
@@ -370,6 +429,7 @@ while (($# > 0)); do
                 shift
             done
             ;;
+
         status)
             STATUS=1
             shift
