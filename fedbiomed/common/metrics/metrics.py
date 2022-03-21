@@ -398,7 +398,8 @@ class Metrics(object):
     @staticmethod
     def _configure_y_true_pred_(y_true: np.ndarray,
                                 y_pred: np.ndarray,
-                                metric: MetricTypes):
+                                metric: MetricTypes,
+                                label_mapping=None):
         """
 
         """
@@ -412,18 +413,22 @@ class Metrics(object):
 
         output_shape = shape[1] if len(shape) == 2 else 0  # 0 for 1D array
 
-        if metric.value[1] is MetricForms.CLASSIFICATION_LABELS:
+        if metric.metric_form() is MetricForms.CLASSIFICATION_LABELS:
             if output_shape == 0:
+                # prediction for binary classification
                 # TODO: Get threshold value from researcher
                 y_pred = np.where(y_pred > 0.5, 1, 0)
             else:
+                # prediction for multiclass classification
+                # TODO: implement a label storage to get label <-> predicted class
                 y_pred = np.argmax(y_pred, axis=1)
 
-        elif metric.value[1] is MetricForms.REGRESSION:
+        elif metric.metric_form() is MetricForms.REGRESSION:
             if output_shape > 0:
                 raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: For the metric `{metric.name}` multiple "
                                            f"output regression is not supported")
 
+        # if metric form is CLASSIFICATION_SCORES, keep it as it is
         return y_pred
 
     # def _convert_to_array(self, X):

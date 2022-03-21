@@ -331,10 +331,14 @@ class SGDSkLearnModel(BaseTrainingPlan):
                     raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - {str(err)}")
             # use default metric
             elif True:
-                # case where proba are needed
-                pred = self.m.predict_proba(data)
+                # case where score is needed
+                
+                score = self.m.decision_function(data) 
+                # decision_function computes the distance
+                # between hyperplan and point. Can be seen as a score
             else:
-                # case where label corresponding to proba are needed
+                # case where label corresponding to proba are needed OR a 
+                # regression is performed
                 pred = self.m.predict(data)
 
     def save(self, filename, params: dict = None):
