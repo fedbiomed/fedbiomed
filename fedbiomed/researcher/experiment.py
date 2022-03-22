@@ -1025,8 +1025,8 @@ class Experiment(object):
                 self.set_test_on_local_updates(training_args['test_on_local_updates'])
             if 'test_on_global_updates' in training_args:
                 self.set_test_on_global_updates(training_args['test_on_global_updates'])
-            if 'test_metric_args' in training_args and not 'test_metric' in training_args:
-                msg = ErrorNumbers.FB410.value + f' `test_metric_args` cannot be set ' + \
+            if 'test_metric_args' in training_args and 'test_metric' not in training_args:
+                msg = ErrorNumbers.FB410.value + ' `test_metric_args` cannot be set ' + \
                     'without setting a `test_metric`'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
@@ -1035,7 +1035,7 @@ class Experiment(object):
                 try:
                     self.set_test_metric(training_args['test_metric'], **test_metric_args)
                 except TypeError:
-                    msg = ErrorNumbers.FB410.value + f' `test_metric_args` expected a dict, ' + \
+                    msg = ErrorNumbers.FB410.value + ' `test_metric_args` expected a dict, ' + \
                         f'got a {type(test_metric_args)}'
                     logger.critical(msg)
                     raise FedbiomedExperimentError(msg)
@@ -1057,6 +1057,14 @@ class Experiment(object):
     def clean_training_args(self):
         """
         Cleans / resets training arguments `training_args`
+        with default values.
+
+        Sets:
+         - test_ratio: 0.
+         - test_on_local_updates: False
+         - test_on_global_updates: False
+         - test_metric: None
+         - test_metric_args: to an empty dictionary
         """
         # minimal content for the training args
         self._training_args = {

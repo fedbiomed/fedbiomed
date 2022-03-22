@@ -1,3 +1,4 @@
+from typing import Dict
 import unittest
 import os
 import sys
@@ -145,6 +146,13 @@ class TestExperiment(unittest.TestCase):
         self.tags = ['some_tag', 'more_tag']
         self.nodes = ['node-1', 'node-2']
 
+        self.default_training_args = {
+            'test_ratio': .0,
+            'test_on_local_updates': False,
+            'test_on_global_updates': False,
+            'test_metric': None,
+            'test_metric_args': {}
+        }
         # useful for all tests, except load_breakpoint
         self.test_exp = Experiment(
             nodes=['node-1', 'node-2'],
@@ -186,6 +194,14 @@ class TestExperiment(unittest.TestCase):
         tmp_dir = os.path.join(environ['TMP_DIR'], 'tmp_models')
         if os.path.isdir(tmp_dir):
             shutil.rmtree(tmp_dir)
+
+    def assertSubDictInDict(self, sub_dict: Dict, dict: Dict, msg: str = ''):
+        ok_array = [False] * len(sub_dict)
+        for i, (s_key, s_val) in enumerate(sub_dict.items()):
+            for key, val in dict.items():
+                if s_key == key and val == s_val:
+                    ok_array[i] = True
+        assert all(ok_array), msg + f'{sub_dict} is not in {dict}'
 
     def test_experiment_01_getters(self):
         """ Testings getters of Experiment class """
@@ -251,7 +267,8 @@ class TestExperiment(unittest.TestCase):
 
         # Test getter for training arguments
         training_args = self.test_exp.training_args()
-        self.assertDictEqual(training_args, {}, 'Getter for model_class did not return expected value')
+        self.assertDictEqual(training_args, self.default_training_args,
+                             'Getter for model_class did not return expected value')
 
         # Test getter fpr Job instance
         job = self.test_exp.job()
@@ -699,7 +716,7 @@ class TestExperiment(unittest.TestCase):
         self.mock_logger_debug.assert_called_once()
 
     def test_experiment_13_set_training_arguments(self):
-        """training_data_2_2.get('test_ratio' Testing setter for training arguments of Experiment """
+        """Testing setter for training arguments of Experiment """
 
         # Test setting model_args as in invalid type
         with self.assertRaises(SystemExit):
@@ -707,35 +724,43 @@ class TestExperiment(unittest.TestCase):
 
         # Test setting model_args properly with dict
         ma_expected = {'arg-1': 100}
-        model_args = self.test_exp.set_training_args(ma_expected)
-        self.assertDictEqual(ma_expected, model_args, 'Training arguments has not been set correctly by setter')
+        train_args = self.test_exp.set_training_args(ma_expected)
+        self.assertSubDictInDict(ma_expected, train_args, 'Training arguments has not been set correctly by setter')
 
         # test update of testing_args with argument `reset` set to False
         ma_expected_2 = {'arg-2': 'loss'}
-        model_args_2 = self.test_exp.set_training_args(ma_expected_2, reset = False)
+        train_args_2 = self.test_exp.set_training_args(ma_expected_2, reset = False)
         ma_expected_2.update(ma_expected)
-        self.assertDictEqual(model_args_2, ma_expected_2)
+        self.assertSubDictInDict(ma_expected_2, train_args_2)
+        self.assertSubDictInDict(ma_expected, train_args_2)
 
         # test update of testing_args with argument `reset` set to True
-        model_args_3 = self.test_exp.set_training_args(ma_expected, reset = True)
-        self.assertDictEqual(model_args_3, ma_expected)
+        ma_expected_3 = {'arg-3': 1e-4}
+        train_args_3 = self.test_exp.set_training_args(ma_expected_3, reset = True)
+        self.assertSubDictInDict(ma_expected_3, train_args_3)
+        self.assertNotIn(list(ma_expected.keys()), list(train_args_3.keys()))
+        self.assertNotIn(list(ma_expected_3.keys()), list(train_args_3.keys()))
 
         # Test setting model_args while the ._job is not None
         self.mock_logger_debug.reset_mock()
         self.test_exp._job = MagicMock(return_value=True)
-        model_args = self.test_exp.set_training_args(ma_expected)
+        train_args = self.test_exp.set_training_args(ma_expected)
         # There will be one debug call.
-        self.assertDictEqual(ma_expected, model_args, 'Training arguments has not been set correctly by setter')
+        self.assertSubDictInDict(ma_expected, train_args, 'Training arguments has not been set correctly by setter')
         self.mock_logger_debug.assert_called_once()
 
     def test_experiment_14_clean_training_arguments(self):
         """
         Tests if training arguments can be cleaned using `clean_training_args`
         """
-        self.test_exp.set_training_args({'param': 1233})
+        # initalisation of test
+        some_training_args = {'param': 1233}
+        self.test_exp.set_training_args(some_training_args)
+
+        # action
         self.test_exp.clean_training_args()
 
-        self.assertEqual(self.test_exp.training_args(), {})
+        self.assertNotIn(some_training_args, self.test_exp.training_args())
 
     def test_experiment_15_set_test_ratio(self):
         """
@@ -753,8 +778,7 @@ class TestExperiment(unittest.TestCase):
         # case 2: add test_ratio when federated dataset is defined
         ratio_2_1 = .4
         ratio_2_2 = .5
-        fed_dataset = FederatedDataSet({'node-id': [{'dataset_id': 'dataset', 'shape': [200, 300]}]},
-                                       ratio_2_1)
+        fed_dataset = FederatedDataSet({'node-id': [{'dataset_id': 'dataset', 'shape': [200, 300]}]})
         self.test_exp.set_training_data(fed_dataset)
         training_data_2_1 = self.test_exp.training_args()
         self.assertEqual(training_data_2_1.get('test_ratio'), ratio_2_1)
