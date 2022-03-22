@@ -351,7 +351,7 @@ class Experiment(object):
         return self._training_args.get('test_ratio')
 
     @exp_exceptions
-    def test_metric(self) -> str:
+    def test_metric(self) -> Union[str, None]:
         return self._training_args.get('test_metric')
 
     @exp_exceptions
@@ -1016,6 +1016,24 @@ class Experiment(object):
                 # (re)start from minimal training arguments
                 self.clean_training_args()
             self._training_args.update(training_args)
+
+            # verify the content of training args items with setters/validators,
+            # when the item and the validator exist
+            if 'test_ratio' in training_args:
+                self.set_test_ratio(training_args['test_ratio'])
+            if 'test_on_local_updates' in training_args:
+                self.set_test_on_local_updates(training_args['test_on_local_updates'])
+            if 'test_on_global_updates' in training_args:
+                self.set_test_on_global_updates(training_args['test_on_global_updates'])
+            if 'test_metric' in training_args:
+                test_metric_args = training_args.get('test_metric_args', {})
+                try:
+                    self.set_test_metric(training_args['test_metric'], **test_metric_args)
+                except TypeError:
+                    msg = ErrorNumbers.FB410.value + f' `test_metric_args` expected a dict, ' + \
+                        f'got a {type(test_metric_args)}'
+                    logger.critical(msg)
+                    raise FedbiomedExperimentError(msg)
         else:
             # bad type
             msg = ErrorNumbers.FB410.value + f' `training_args` : {type(training_args)}'
@@ -1081,36 +1099,38 @@ class Experiment(object):
         return ratio
 
     @exp_exceptions
-    def set_test_metric(self, metric: Union[Callable, str], **metric_args) -> Tuple[str, Dict[str, Any]]:
+    def set_test_metric(self, metric: Union[Callable, str, None], **metric_args) -> \
+            Tuple[Union[str, None], Dict[str, Any]]:
         """
         Sets a metric for federated model evaluation
 
         Args:
-            - metric (Union[Callable, str]): _description_
-            - metric_args (??) : ?? TODO
+            - metric (Union[Callable, str, None]): name of the evaluation metric to use for testing
+            - metric_args (Dict[str, Any], optional) : arguments for the metric 
 
         Raises:
             - FedbiomedExperimentError: metric 
 
         Returns:
-            - Tuple[str, Dict[str, Any]]: _description_
+            - Tuple[Union[str, None], Dict[str, Any]]: metric, metric args
         """
-        if not (isinstance(metric, str) or callable(metric)):
+        if not (metric is None or isinstance(metric, str) or callable(metric)):
             _msg = ErrorNumbers.FB410.value + ": incorrect argument metric, got type " + \
                 f"{type(metric)}, but expected Callable or str"
             raise FedbiomedExperimentError(_msg)
+        elif callable(metric):
+            if hasattr(metric, '__name__'):
+                # get string of a known function passed as callable (eg sklearn accuracy)
+                metric = str(metric.__name__)
+            else:
+                _msg = ErrorNumbers.FB410.value + ": incorrect argument metric, " + \
+                    "got type Callable but has no __name__ attribute"
+                raise FedbiomedExperimentError(_msg)                
+        # at this point, metric is a str or None
 
-        elif callable(metric) and hasattr(metric, '__name__'):
-            # get string of a known function passed as callable (eg sklearn accuracy)
-            metric = metric.__name__
-
-        # TODO : else ?? metric needs to be a str ?
-
-        # TODO : delete
-        #if self._training_args is None:
-        #    self._training_args = {}
         self._training_args['test_metric'] = metric
-        # TODO: check `metric_args` passed
+
+        # using **metric_args, we know `test_metric_args` is a Dict[str, Any]
         self._training_args['test_metric_args'] = metric_args
 
         return metric, metric_args
@@ -1689,9 +1709,6 @@ class Experiment(object):
 
         # retrieve breakpoint training data
         bkpt_fds = saved_state.get('training_data')
-        _saved_state_training_args = saved_state.get("training_args")
-        test_ratio = _saved_state_training_args.get('test_ratio', 0.)
-        bkpt_fds = FederatedDataSet(bkpt_fds, test_ratio=test_ratio)
         # keeping bkpt_fds a dict so that FederatedDataSet will be instantiated
         # in Experiment.__init__() applying some type checks.
         # More checks to verify the structure/content of saved_state.get('training_data')
@@ -1699,10 +1716,8 @@ class Experiment(object):
 
         # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
-        
-        bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args,
-                                                    data=bkpt_fds
-                                                    )
+
+        bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=bkpt_fds)
 
         # retrieve federator
         bkpt_aggregator_args = saved_state.get("aggregator")
