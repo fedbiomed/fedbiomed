@@ -155,7 +155,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         raise FedbiomedTrainingPlanError(msg)
 
     def training_routine(self,
-                         data_loader: DataLoader,
                          epochs: int = 2,
                          log_interval: int = 10,
                          lr: Union[int, float] = 1e-3,

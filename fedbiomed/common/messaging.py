@@ -4,14 +4,13 @@ wrapper around the mqtt broket
 This allows to replace mqqt library without changing the API of Messaging
 '''
 
-
 import socket
 from typing import Any, Callable, Union
 
 import paho.mqtt.client as mqtt
 
 from fedbiomed.common import json
-from fedbiomed.common.constants  import ComponentType, ErrorNumbers
+from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessagingError
 import fedbiomed.common.message as message
 from fedbiomed.common.logger import logger
@@ -81,7 +80,6 @@ class Messaging:
         else:
             self._default_send_topic = None
 
-
     def on_message(self,
                    client: mqtt.Client,
                    userdata: Any,
@@ -98,7 +96,7 @@ class Messaging:
 
         if self._on_message_handler is not None:
             message = json.deserialize_msg(msg.payload)
-            self._on_message_handler( msg = message, topic = msg.topic)
+            self._on_message_handler(msg=message, topic=msg.topic)
         else:
             logger.warning("no message handler defined")
 
@@ -154,10 +152,8 @@ class Messaging:
                 # this should be done once.
                 # This is sldo tested by the addHandler() method, but
                 # it may raise a MQTT message (that we prefer not to send)
-                logger.addMqttHandler(
-                    mqtt          = self._mqtt,
-                    node_id       = self._messaging_id
-                )
+                logger.addMqttHandler(mqtt=self._mqtt,
+                                      node_id=self._messaging_id)
                 # to get Train/Epoch messages on console and on MQTT
                 logger.setLevel("DEBUG")
 
@@ -204,7 +200,7 @@ class Messaging:
 
         try:
             self._mqtt.connect(self._mqtt_broker, self._mqtt_broker_port, keepalive=60)
-        except (ConnectionRefusedError, TimeoutError, socket.timeout ) as e:
+        except (ConnectionRefusedError, TimeoutError, socket.timeout) as e:
 
             logger.delMqttHandler()  # just in case !
             self._logger_handler_installed = False
@@ -289,20 +285,18 @@ class Messaging:
             logger.critical(msg)
             raise FedbiomedMessagingError(msg)
 
-
         # format error message and send it
         msg = dict(
-            command       = 'error',
-            errnum        = errnum,
-            node_id       = self._messaging_id,
-            extra_msg     = extra_msg,
-            researcher_id = researcher_id
+            command='error',
+            errnum=errnum,
+            node_id=self._messaging_id,
+            extra_msg=extra_msg,
+            researcher_id=researcher_id
         )
 
         # just check the syntax bfore sendind
         _ = message.NodeMessages.reply_create(msg)
         self._mqtt.publish("general/researcher", json.serialize_msg(msg))
-
 
     def is_failed(self):
         '''
