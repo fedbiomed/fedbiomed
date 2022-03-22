@@ -1488,7 +1488,7 @@ class Experiment(object):
 
         # run the rounds
         for _ in range(rounds):
-            if isinstance(self._round_limit, int) and self._round_current == self._round_limit \
+            if isinstance(self._round_limit, int) and self._round_current == (self._round_limit - 1) \
                     and self._training_args['test_on_global_updates'] is True:
                 # Do "testing after a round" only if this a round limit is defined and we reached it
                 # and testing is active on global params
