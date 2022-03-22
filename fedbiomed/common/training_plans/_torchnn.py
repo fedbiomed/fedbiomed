@@ -90,10 +90,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # Aggregated model parameters
         self.init_params = None
 
-        # DataLoader that will be used for Training Routine
-        self.__training_data_loader: torch.utils.data.DataLoader = None
-        self.__testing_data_loader: torch.utils.data.DataLoader = None
-
     def type(self):
         """ Getter for training plan type """
 
@@ -209,7 +205,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     doesnt request for using a GPU. Default False.
         """
         self.train()  # pytorch switch for training
-        self.__training_data_loader = data_loader
 
         # set correct type for node args
         if not isinstance(node_args, dict):
@@ -236,7 +231,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             # (below) sampling data (with `training_data` method defined on
             # researcher's notebook)
             # training_data = self.training_data(batch_size=batch_size)
-            for batch_idx, (data, target) in enumerate(self.__training_data_loader):
+            for batch_idx, (data, target) in enumerate(self.training_data_loader):
 
                 # Plus one since batch_idx starts from 0
                 batch_ = batch_idx + 1
@@ -273,8 +268,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
                         batch_idx * len(data),
-                        len(self.__training_data_loader.dataset),
-                        100 * batch_idx / len(self.__training_data_loader),
+                        len(self.training_data_loader.dataset),
+                        100 * batch_idx / len(self.training_data_loader),
                         res.item()))
 
                     # Send scalar values via general/feedback topic
@@ -283,8 +278,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                                                    iteration=batch_,
                                                    epoch=epoch,
                                                    train=True,
-                                                   num_batches=len(self.__training_data_loader),
-                                                   total_samples=len(self.__training_data_loader.dataset),
+                                                   num_batches=len(self.training_data_loader),
+                                                   total_samples=len(self.training_data_loader.dataset),
                                                    batch_samples=len(data))
 
                     if dry_run:
@@ -299,23 +294,21 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         torch.cuda.empty_cache()
 
     def testing_routine(self,
-                        data_loader: DataLoader,
                         metric: MetricTypes,
                         history_monitor,
                         before_train: Union[bool, None] = None):
 
         # TODO: Add preprocess option for testing_data_loader
-        self.__testing_data_loader = data_loader
 
         # Build metrics object
         metric_controller = Metrics()
-        tot_samples = len(self.__testing_data_loader.dataset)
+        tot_samples = len(self.testing_data_loader.dataset)
 
         self.eval()  # pytorch switch for model evaluation
         # Complete prediction over batches
         with torch.no_grad():
             # Data Loader for testing partition includes entire dataset in the first batch
-            for batch_ndx, (data, target) in enumerate(self.__testing_data_loader):
+            for batch_ndx, (data, target) in enumerate(self.testing_data_loader):
                 batch_ = batch_ndx + 1
                 try:
                     # Pass data through network layers
@@ -365,7 +358,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                                                before_training=before_train,
                                                total_samples=tot_samples,
                                                batch_samples=len(true),
-                                               num_batches=len(self.__testing_data_loader))
+                                               num_batches=len(self.testing_data_loader))
 
         del metric_controller
 
@@ -480,7 +473,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                                              f"argument/parameter")
 
         try:
-            data_loader = self.preprocess(self.__training_data_loader)
+            data_loader = self.preprocess(self.training_data_loader)
         except Exception as e:
             raise FedbiomedTrainingPlanError(
                 f"{ErrorNumbers.FB605.value}: Error while running process method -> `{method.__name__}`: "
@@ -489,12 +482,12 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # Debug after running preprocess
         logger.debug(f'The process `{method.__name__}` has been successfully executed.')
 
-        if isinstance(data_loader, type(self.__training_data_loader)):
-            self.__training_data_loader = data_loader
+        if isinstance(data_loader, type(self.training_data_loader)):
+            self.training_data_loader = data_loader
             logger.debug(f'Data loader for training routine has been updated by the process `{method.__name__}` ')
         else:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: The input argument of the method "
                                              f"`preprocess` is `data_loader` and expected return value "
                                              f"should be an instance of  "
-                                             f"{type(self.__training_data_loader)}, but got "
+                                             f"{type(self.training_data_loader)}, but got "
                                              f"{type(data_loader)}")

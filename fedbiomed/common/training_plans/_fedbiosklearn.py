@@ -19,7 +19,7 @@ from ._base_training_plan import BaseTrainingPlan
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
-from fedbiomed.common.constants import ProcessTypes
+from fedbiomed.common.constants import ProcessTypes, MetricTypes
 from fedbiomed.common.utils import get_method_spec
 
 
@@ -51,6 +51,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
         "BernoulliNB": BernoulliNB,
         "GaussianNB": GaussianNB,
 
+        # Not implemented
         # 'MultinomialNB': MultinomialNB,
         # 'PassiveAggressiveClassifier': PassiveAggressiveClassifier,
         # 'PassiveAggressiveRegressor': PassiveAggressiveRegressor,
@@ -58,15 +59,18 @@ class SGDSkLearnModel(BaseTrainingPlan):
         # 'MiniBatchDictionaryLearning': MiniBatchDictionaryLearning,
     }
 
-    #
+    # Learning Algorithms
+    CLUSTERING_MODELS = ('MiniBatchKMeans', 'MiniBatchDictionaryLearning')
+    CLASSIFICATION_MODELS = ('MultinomialNB', 'BernoulliNB', 'Perceptron', 'SGDClassifier',
+                             'PassiveAggressiveClassifier')
+    REGRESSION_MODELS = ('SGDRegressor', 'PassiveAggressiveRegressor')
+
     # SKLEARN method that can return loss value
-    #
     _verbose_capture = ['Perceptron',
                         'SGDClassifier',
                         'PassiveAggressiveClassifier',
                         'SGDRegressor',
-                        'PassiveAggressiveRegressor',
-                        ]
+                        'PassiveAggressiveRegressor']
 
     def __init__(self, model_args: dict = {}):
         """
@@ -117,8 +121,8 @@ class SGDSkLearnModel(BaseTrainingPlan):
             logger.info("[TENSORBOARD ERROR]: cannot compute loss for " +
                         model_args['model'] + ": it needs to be implemeted")
 
-        # instanciate the model
-        self.model =  self.model_map[self.model_type]()
+        # Instantiate the model
+        self.model = self.model_map[self.model_type]()
 
         self.params_sgd = self.model.get_params()
         from_args_sgd_proper_pars = {key: model_args[key] for key in model_args if key in self.params_sgd}
@@ -126,10 +130,22 @@ class SGDSkLearnModel(BaseTrainingPlan):
         self.param_list = []
         self.set_init_params(model_args)
         self.dataset_path = None
-        self._is_classif = False  # whether the model selected is a classifier or not
-        self._is_binary_classif = False  # whether the classification is binary or multi classes
-        self.__train_data = None
-        self.__train_target = None
+
+        # Register learning type
+        self._is_classification = False
+        self._is_binary_classification = False
+        self._is_clustering = False
+        self._is_regression = False
+
+        if self.model_type in SGDSkLearnModel.CLASSIFICATION_MODELS:
+            self._is_classification = True
+            self._is_binary_classification = False
+
+        if self.model_type in SGDSkLearnModel.CLUSTERING_MODELS:
+            self._is_clustering = True
+
+        if self.model_type in SGDSkLearnModel.REGRESSION_MODELS:
+            self._is_regression = True
 
     def type(self):
         """Getter for training plan type """
@@ -214,7 +230,6 @@ class SGDSkLearnModel(BaseTrainingPlan):
             return support
 
     def training_routine(self,
-                         data_loader: Tuple[np.ndarray, np.ndarray],
                          epochs=1,
                          history_monitor=None,
                          node_args: Union[dict, None] = None):
@@ -240,98 +255,104 @@ class SGDSkLearnModel(BaseTrainingPlan):
         #
         # perform sklearn training
         #
-        (self.__train_data, self.__train_target) = data_loader
+        (data, target) = self.training_data_loader
 
         # Run preprocesses
         self.__preprocess()
 
-        classes = np.unique(self.__train_target)
         for epoch in range(epochs):
             with _Capturer() as output:
-                if self.model_type == 'MultinomialNB' or \
-                        self.model_type == 'BernoulliNB' or \
-                        self.model_type == 'Perceptron' or \
-                        self.model_type == 'SGDClassifier' or \
-                        self.model_type == 'PassiveAggressiveClassifier':
-                    self.model.partial_fit(self.__train_data, self.__train_target, classes=classes)
-                    self._is_classif = True
+                # Fit model based on model type
+                if self._is_classification:
+                    classes = self.__classes_from_concatenated_train_test()
+                    self.model.partial_fit(data, target, classes=classes)
 
-                elif self.model_type == 'SGDRegressor' or \
-                        self.model_type == 'PassiveAggressiveRegressor':  # noqa
-                    self.model.partial_fit(self.__train_data, self.__train_target)
+                elif self._is_regression:
+                    self.model.partial_fit(data, target)
 
-                elif self.model_type == 'MiniBatchKMeans' or \
-                        self.model_type == 'MiniBatchDictionaryLearning':  # noqa
-                    self.model.partial_fit(self.__train_data)
+                elif self._is_clustering:
+                    self.model.partial_fit(data)
 
+            # Logging training training outputs -------------------------------------------------------------------
             if history_monitor is not None:
                 _loss_collector = []
-                if self._is_classif:
-                    if classes.shape[0] < 3:
-                        # check whether it is a binary classification
-                        # or a multiclass classification
-                        self._is_binary_classif = True
+
+                # check whether it is a binary classification or a multiclass classification
+                if self._is_classification and classes.shape[0] < 3:
+                    self._is_binary_classification = True
+
                 if self.model_type in self._verbose_capture:
                     for line in output:
-                        # line is of type 'str'
                         if len(line.split("loss: ")) == 1:
                             continue
                         try:
                             loss = line.split("loss: ")[-1]
                             _loss_collector.append(float(loss))
-                            # Logging loss values with global logger
-                            logger.info('Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}'.format(
-                                epoch,
-                                float(loss)))
 
+                            # Logging loss values with global logger
+                            logger.info('Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}'.format(epoch,
+                                                                                                   float(loss)))
                         except ValueError as e:
                             logger.error("Value error during monitoring:" + str(e))
                         except Exception as e:
                             logger.error("Error during monitoring:" + str(e))
 
-                    if self._is_classif and not self._is_binary_classif:
+                    if self._is_classification and not self._is_binary_classification:
                         # WARNING: only for plain SGD models in scikit learn
                         # if other models are implemented, should be updated
-                        support = self._compute_support(self.__train_target)
+                        support = self._compute_support(target)
                         loss = np.average(_loss_collector, weights=support)  # perform a weighted average
 
                         logger.warning("Loss plot displayed on Tensorboard may be inaccurate (due to some plain" +
                                        " SGD scikit learn limitations)")
 
-                    # Batch -1 means Batch Gradient Descent, use all samples
                     # TODO: This part should be changed after mini-batch implementation is completed
                     history_monitor.add_scalar(metric={'Loss': float(loss)},
                                                iteration=1,
                                                epoch=epoch,
                                                train=True,
                                                num_batches=1,
-                                               total_samples=len(self.__train_data),
-                                               batch_samples=len(self.__train_data))
-
-                elif self.model_type == "MiniBatchKMeans":
-                    # Passes inertia value as scalar. It should be emplemented when KMeans implementation is ready
-                    # history_monitor.add_scalar('Inertia', self.model.inertia_, -1 , epoch)
-                    pass
-                elif self.model_type in ['MultinomialNB', 'BernoulliNB']:
-                    # TODO: Need to find a way for Bayesian approaches
+                                               total_samples=len(data),
+                                               batch_samples=len(data))
+                else:
+                    # TODO: For clustering; passes inertia value as scalar. It should be implemented when
+                    #  KMeans implementation is ready history_monitor.add_scalar('Inertia',
+                    #  self.model.inertia_, -1 , epoch) Need to find a way for Bayesian approaches
                     pass
 
     def testing_routine(self,
-                        data_loader,
-                        metric,
+                        metric: Union[MetricTypes, None],
                         history_monitor,
-                        before_train):
+                        before_train: bool):
+        """
+        Testing routine for SGDSkLearnModel. This method is called by the Round class if testing
+        is activated for the Federated training round
 
-        data, target = data_loader
+        Args:
+            metric (MetricType, None): The metric that is going to be used for evaluation. Should be
+                an instance of MetricTypes. If it is None and there is no `testing_step` is defined
+                by researcher method will raise an Exception
+
+            history_monitor (HistoryMonitor): History monitor class of node side to send evaluation results
+                to researcher.
+
+            before_train (bool): If True, this means testing is going to be performed after loading model parameters
+              without training. Otherwise, after training.
+
+        """
+        # Check testing data loader is exists
+        data, target = self.testing_data_loader
+
+        # At the first round model won't have classes_ attribute
+        if self._is_classification and not hasattr(self.model, 'classes_'):
+            classes = self.__classes_from_concatenated_train_test()
+            setattr(self.model, 'classes_', classes)
 
         # Build metrics object
         metric_controller = Metrics()
         tot_samples = len(data)
 
-        # At the first round model won't have classes_ attribute
-        if not hasattr(self.model, 'classes_'):
-            setattr(self.model, 'classes_', np.unique(target))
-
+        # Use testing method defined by user
         if hasattr(self, 'testing_step') and callable(self.testing_step):
             try:
                 m_value = self.testing_step()
@@ -344,22 +365,27 @@ class SGDSkLearnModel(BaseTrainingPlan):
 
             metric_name = 'Custom'
 
-        else:
-            # Use model predict method only
-
+        # If metric is defined use pre-defined evaluation for Fed-BioMed
+        elif metric is not None:
             try:
                 pred = self.model.predict(data)
             except Exception as e:
-                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: metric function has returned None")
+                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: An exception has raise predicting test"
+                                                 f"data set. {str(e)}")
 
             m_value = metric_controller.evaluate(target, pred, metric=metric)
             metric_name = metric.name
 
-        metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
+        # Raise error
+        else:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Either specify a metric or `testing_step` "
+                                             f"in training plan class.")
 
+        metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
         if metric_dict is None:
             raise FedbiomedTrainingPlanError
 
+        # For logging in node console
         logger.debug('Testing: [{}/{}] | Metric[{}]: {:.6f}'.format(len(target), tot_samples,
                                                                     metric.name, m_value))
 
@@ -424,12 +450,6 @@ class SGDSkLearnModel(BaseTrainingPlan):
         file.close()
         return di_ret
 
-    def set_dataset_path(self, dataset_path):
-        """
-          :param dataset_path (string)
-        """
-        self.dataset_path = dataset_path
-        logger.debug('Dataset_path' + str(self.dataset_path))
 
     def get_model(self):
         """
@@ -471,7 +491,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
                                              f"inputs/data and target sets that will be used for training. ")
 
         try:
-            data_loader = self.preprocess(self.__train_data, self.__train_target)
+            data_loader = self.preprocess(self.training_data_loader[0], self.training_data_loader[1])
         except Exception as e:
             raise FedbiomedTrainingPlanError(
                 f"{ErrorNumbers.FB605.value}: Error while running process method -> `{method.__name__}`: "
@@ -486,8 +506,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 and isinstance(data_loader[1], np.ndarray):
 
             if len(data_loader[0]) == len(data_loader[1]):
-                self.__train_data = data_loader[0]
-                self.__train_target = data_loader[1]
+                self.training_data_loader = data_loader
                 logger.debug(f"Inputs/data and target sets for training routine has been updated by the process "
                              f"`{method.__name__}` ")
             else:
@@ -497,3 +516,15 @@ class SGDSkLearnModel(BaseTrainingPlan):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Process method `{method.__name__}` should "
                                              f"return tuple length of two as dataset and target and both should be and "
                                              f"instance of np.ndarray. ")
+
+    def __classes_from_concatenated_train_test(self):
+        """
+        Method for getting all classes from test and target dataset. This action is required
+        in case of some class is only exist in training subset or testing subset
+        """
+
+        target_test = self.testing_data_loader[1]
+        target_train = self.training_data_loader[1]
+        target_test_train = np.concatenate((target_test, target_train))
+
+        return np.unique(target_test_train)

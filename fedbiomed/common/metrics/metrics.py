@@ -26,9 +26,7 @@ class Metrics(object):
         self.metrics = {
             MetricTypes.ACCURACY.name: self.accuracy,
             MetricTypes.PRECISION.name: self.precision,
-            MetricTypes.AVG_PRECISION.name: self.avg_precision,
             MetricTypes.RECALL.name: self.recall,
-            MetricTypes.ROC_AUC.name: self.roc_auc,
             MetricTypes.F1_SCORE.name: self.f1_score,
             MetricTypes.MEAN_SQUARE_ERROR.name: self.mse,
             MetricTypes.MEAN_ABSOLUTE_ERROR.name: self.mae,
@@ -356,7 +354,6 @@ class Metrics(object):
 
         Args:
             list_ (np.ndarray): Numpy array that is going to be checked for types
-
         """
 
         if len(list_.shape) == 1:

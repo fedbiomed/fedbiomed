@@ -28,6 +28,8 @@ class BaseTrainingPlan(object):
         self.dependencies = []
         self.dataset_path = None
         self.pre_processes = OrderedDict()
+        self.training_data_loader = None
+        self.testing_data_loader = None
 
     def add_dependency(self, dep: List[str]):
         """
@@ -52,6 +54,15 @@ class BaseTrainingPlan(object):
         """
         self.dataset_path = dataset_path
         logger.debug('Dataset path has been set as' + self.dataset_path)
+
+    def set_data_loaders(self, train_data_loader, test_data_loader):
+        """
+        Args:
+            train_data_loader,
+            test_data_loader,
+        """
+        self.training_data_loader = train_data_loader
+        self.testing_data_loader = test_data_loader
 
     def save_code(self, filepath: str):
         """
@@ -167,3 +178,4 @@ class BaseTrainingPlan(object):
             if not isinstance(val, (int, float)):
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: The values for metrics "
                                                  f"should be int or float, but got {type(val)} ")
+

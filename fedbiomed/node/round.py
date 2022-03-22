@@ -78,7 +78,7 @@ class Round:
         self.model = None
         self.training_data_loader = None
         self.testing_data_loader = None
-        
+
         self._default_batch_size = 48  # default bath size
 
     def run_model_training(self) -> TrainReply:
@@ -164,7 +164,7 @@ class Round:
             # We want to have explicit message in case of overloading attempt
             # (and continue training) though by default it fails with
             # "dict() got multiple values for keyword argument"
-            node_side_args = [ 'history_monitor', 'node_args' ]
+            node_side_args = ['history_monitor', 'node_args']
             for arg in node_side_args:
                 if arg in self.training_kwargs:
                     del self.training_kwargs[arg]
@@ -174,10 +174,13 @@ class Round:
         # Split training and testing data
         if not is_failed:
             try:
+                # Setting test and train subsets based on test_ratio
                 self._set_train_and_test_data(test_ratio=0.2)
+                # Set models testing and training parts for model
+                self.model.set_data_loaders(train_data_loader=self.training_data_loader,
+                                            test_data_loader=self.testing_data_loader)
             except FedbiomedError as e:
                 is_failed = True
-                # Just return error message as it is since it is already raise by Fed-BioMed
                 error_message = str(e)
 
         if not is_failed:
@@ -188,8 +191,7 @@ class Round:
 
         # Testing Before Training ------------------------------------------------------------------------------------
         if not is_failed:
-            self.model.testing_routine(data_loader=self.testing_data_loader,
-                                       metric=MetricTypes.RECALL,
+            self.model.testing_routine(metric=MetricTypes.RECALL,
                                        history_monitor=self.history_monitor,
                                        before_train=True)
         # -----------------------------------------------------------------------------------------------------------
@@ -199,9 +201,7 @@ class Round:
                 results = {}
                 rtime_before = time.perf_counter()
                 ptime_before = time.process_time()
-                # rename training_data as data_loader
-                self.model.training_routine(data_loader=self.training_data_loader,  # rename self.train_data_loader
-                                            **training_kwargs_with_history)
+                self.model.training_routine(**training_kwargs_with_history)
                 rtime_after = time.perf_counter()
                 ptime_after = time.process_time()
             except Exception as e:
@@ -210,11 +210,9 @@ class Round:
 
         # Testing after training ------------------------------------------------------------------------------------
         if not is_failed:
-            self.model.testing_routine(data_loader=self.testing_data_loader,
-                                       metric=MetricTypes.ACCURACY,
+            self.model.testing_routine(metric=MetricTypes.ACCURACY,
                                        history_monitor=self.history_monitor,
-                                       before_train=False  # means that it is after training
-                                       )
+                                       before_train=False)
         # -----------------------------------------------------------------------------------------------------------
 
         if not is_failed:
