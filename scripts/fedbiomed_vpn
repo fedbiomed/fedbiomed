@@ -14,7 +14,7 @@
 
 # main variables
 # --------------
-ALL_VPN_CONTAINERS=( vpnserver mqtt restful )
+ALL_VPN_CONTAINERS=( vpnserver mqtt restful researcher node )
 #ALL_VPN_CONTAINERS=( vpnserver mqtt restful researcher node )
 
 # all functions
@@ -58,6 +58,21 @@ This list may contain: vpnserver, mqtt, restful, node
        -m|--model-approval  enforce model approval in config files
 "
 }
+
+check_prerequisite() {
+    #
+    # verify that every needed commands are installed
+    commands=( docker docker-compose )
+
+    ERROR=0
+    for i in ${commands[@]}
+    do
+        status=$(which $i)
+        [[ -z "$status" ]] && { echo "ERROR: command not found: $i"; ERROR=1; }
+    done
+    [[ $ERROR -eq 1 ]] && { echo "Please install needed commands before running this script." ; exit 1; }
+}
+
 
 internal_find_my_ip() {
 
@@ -133,20 +148,25 @@ containers_clean() {
 
     containers_stop
 
+    # specific to vpnserver
+    /bin/rm -fr ./vpnserver/run_mounts/config/config_peers 2> /dev/null
+    /bin/rm -fr ./vpnserver/run_mounts/config/ip_assign    2> /dev/null
+    /bin/rm -fr ./vpnserver/run_mounts/config/wireguard    2> /dev/null
+
     # specific to restful
-    rm -f  ./restful/run_mounts/app/db.sqlite3
+    /bin/rm -f  ./restful/run_mounts/app/db.sqlite3   2> /dev/null
 
     # specific to node
-    rm -rf ./node/run_mounts/data/*
-    rm -rf ./node/run_mounts/etc/*
-    rm -rf ./node/run_mounts/var/*
+    /bin/rm -rf ./node/run_mounts/data/* 2> /dev/null
+    /bin/rm -rf ./node/run_mounts/etc/*  2> /dev/null
+    /bin/rm -rf ./node/run_mounts/var/*  2> /dev/null
 
     # specific to researcher
-    rm -rf ./researcher/run_mounts/data/*
-    rm -rf ./researcher/run_mounts/etc/*
-    rm -rf ./researcher/run_mounts/samples/*
-    rm -rf ./researcher/run_mounts/runs/*
-    rm -rf ./researcher/run_mounts/var/*
+    /bin/rm -rf ./researcher/run_mounts/data/*     2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/etc/*      2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/samples/*  2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/runs/*     2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/var/*      2> /dev/null
 
     #
     for i in base basenode gui
@@ -155,13 +175,13 @@ containers_clean() {
         docker image rm -f fedbiomed/vpn-$i
     done
 
-    for i in vpnserver mqtt restful node researcher
+    for i in ${ALL_VPN_CONTAINERS[@]}
     do
         docker-compose rm -sf $i
         docker image rm -f fedbiomed/vpn-$i
+        /bin/rm -rf ./$i/run_mounts/config/wireguard 2> /dev/null
         git checkout $i/run_mounts/config/config.env
     done
-
 
     #
     docker image prune -f
@@ -188,16 +208,16 @@ containers_status() {
         for i in ${ALL_VPN_CONTAINERS[@]}
         do
             status=$(docker ps | grep fedbiomed/vpn-$i)
-            [[ -z "$status" ]] && { echo "- $i not running"; }
+            [[ -z "$status" ]] && { echo "- container $i not running"; }
         done
         return
     fi
 
     # ping inside the wg vpn
-    for c in vpnserver mqtt restful
+    for i in ${ALL_VPN_CONTAINERS[@]}
     do
-        echo -n "- pinging VPN server from $c container -> "
-        ping=$(docker-compose exec ${c} ping -n -c 3 -W 1 10.220.0.1 2>/dev/null | cat -v)
+        echo -n "- pinging VPN server from container $i -> "
+        ping=$(docker-compose exec ${i} ping -n -c 3 -W 1 10.220.0.1 2>/dev/null | cat -v)
 
         status=$(echo $ping|grep seq=)
         if [ -z "$status" ]; then
@@ -209,8 +229,8 @@ containers_status() {
     done
 
     if [ $ERROR -eq 1 ]; then
-        echo "Something is BRoKeN here.  You must check what is going on..."
-        echo "(either docker images are not running properly or wiregard not configured)"
+        echo "Cannot ping using VPN adresses inside docker containers"
+        echo "You must check what is going on."
     fi
 }
 
@@ -218,23 +238,20 @@ containers_build() {
     echo "** Building docker VPN images"
     cd "$basedir/envs/vpn/docker"
 
-    echo "- building base component"
+    echo "- building base components"
     CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
+    CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode
 
-    echo "- building vpn server"
-    CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build vpnserver
-
-    echo "- building mqtt server"
-    CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build mqtt
-
-    echo "- building restful server"
-    CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build restful
+    for i in ${ALL_VPN_CONTAINERS[@]}
+    do
+        echo "- building $i container"
+        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build $i
+    done
 }
 
 
 containers_configure() {
     echo "** Generating VPN/Wireguards keys"
-
     cd "$basedir/envs/vpn/docker"
 
     # replace IP in VPN main config file
@@ -247,36 +264,35 @@ containers_configure() {
     # start vpn server to generate config files
     docker-compose up -d vpnserver
 
-    /bin/rm -fr ./vpnserver/run_mounts/config/config_peers 2> /dev/null
-    sleep 1 # sometimes the container volumes are not up to date immediately
-
     # mqtt configuration file
     docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf management mqtt
+    /bin/rm -fr ./mqtt/run_mounts/config/wireguard    2> /dev/null
     sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env
     /bin/rm ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env-XXX
     /bin/cp ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env ./mqtt/run_mounts/config/config.env
 
     # restful config file
     docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf management restful
+    /bin/rm -fr ./restful/run_mounts/config/wireguard    2> /dev/null
     sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/management/restful/config.env
     /bin/rm ./vpnserver/run_mounts/config/config_peers/management/restful/config.env-XXX
     /bin/cp ./vpnserver/run_mounts/config/config_peers/management/restful/config.env ./restful/run_mounts/config/config.env
 
     # researcher config file
     docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf researcher researcher1
+    /bin/rm -fr ./researcher/run_mounts/config/wireguard    2> /dev/null
     sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env
     /bin/rm ./vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env-XXX
     /bin/cp ./vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env ./researcher/run_mounts/config/config.env
 
-    # nodes config files
-    for (( i = 1; i <= NODE_NUMBER; ++i ))
-    do
-        n="node${i}"
-        docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf node ${n}
-        sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/node/${n}/config.env
-        /bin/rm ./vpnserver/run_mounts/config/config_peers/node/${n}/config.env-XXX
-        /bin/cp ./vpnserver/run_mounts/config/config_peers/node/${n}/config.env node/run_mounts/config/config.env
-    done
+    # node config files
+    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf node node1
+    /bin/rm -fr ./node/run_mounts/config/wireguard    2> /dev/null
+    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/node/node1/config.env
+    /bin/rm ./vpnserver/run_mounts/config/config_peers/node/node1/config.env-XXX
+    /bin/cp ./vpnserver/run_mounts/config/config_peers/node/node1/config.env node/run_mounts/config/config.env
+
+    #
     containers_stop
 }
 
@@ -303,12 +319,19 @@ containers_start() {
     done
 
     # propagate wiregard keys
-    for c in mqtt restful
-    do
-        pubkey=$(docker-compose exec ${c} wg show wg0 public-key | tr -d '\r')
-        docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add management ${c} $pubkey
-    done
+    pubkey=$(docker-compose exec mqtt wg show wg0 public-key | tr -d '\r')
+    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add management mqtt $pubkey
 
+    pubkey=$(docker-compose exec restful wg show wg0 public-key | tr -d '\r')
+    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add management restful $pubkey
+
+    pubkey=$(docker-compose exec node wg show wg0 public-key | tr -d '\r')
+    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node node1 $pubkey
+
+    pubkey=$(docker-compose exec researcher wg show wg0 public-key | tr -d '\r')
+    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add researcher researcher1 $pubkey
+
+    sleep 1 # sometimes the container volumes are not up to date immediately
     containers_status
 }
 
@@ -328,6 +351,9 @@ STOP=0
 NODE_NUMBER=1
 GPU=0
 APPROVAL=0
+
+#
+check_prerequisite
 
 # must provide at least an option
 if [ $# -eq 0 ]; then
@@ -382,17 +408,6 @@ while (($# > 0)); do
                 case $1 in
                     -h|--help)          usage ; exit 0 ;;
                     -c|--clean) CLEAN=1 ;;
-
-                    # -n)
-                    #     NODE_NUMBER=$2
-                    #     shift
-                    #     NODE_NUMBER=$(echo $NODE_NUMBER | egrep -e '^[1-9][0-9]*$')
-                    #     if [ -z "$NODE_NUMBER" ]; then
-                    #         echo "node number must be a positive integer"
-                    #         usage
-                    #         exit 1
-                    #      fi
-                    #      ;;
                     *)
                         echo "unknown or incompatible arguments"
                         usage
