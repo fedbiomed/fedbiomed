@@ -397,20 +397,25 @@ class Metrics(object):
     @staticmethod
     def _configure_y_true_pred_(y_true: np.ndarray,
                                 y_pred: np.ndarray,
-                                metric: MetricTypes,
-                                label_mapping=None):
+                                metric: MetricTypes):
         """
 
         """
         # Get shape of the prediction should be 1D or 2D array
         y_pred = np.squeeze(y_pred)
-        y_true = np.squeeze(y_pred)
+        y_true = np.squeeze(y_true)
         shape_y_pred = y_pred.shape
-        shape_y_true = y_true.shape\
+        shape_y_true = y_true.shape
 
         # Shape of the prediction array should be (samples, outputs) or (samples, )
         if len(shape_y_pred) > 2:
             raise FedbiomedMetricError()
+
+        if Metrics._is_array_of_str(y_pred):
+            if metric.metric_form() is MetricForms.REGRESSION:
+                raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Can not apply metric `{metric.name}` "
+                                           f"to non-numeric prediction results")
+            return y_true, y_pred
 
         output_shape_y_pred = shape_y_pred[1] if len(shape_y_pred) == 2 else 0  # 0 for 1D array
         output_shape_y_true = shape_y_true[1] if len(shape_y_true) == 2 else 0  # 0 for 1D array
@@ -420,13 +425,13 @@ class Metrics(object):
                 # TODO: Get threshold value from researcher
                 y_pred = np.where(y_pred > 0.5, 1, 0)
 
-            # If y_true is one hot encoding array and y_pred is 1D array of label probabilities
+            # If y_true is one 2D array and y_pred is 1D array
             # Example: y_true: [ [0,1], [1,0]] | y_pred : [0.1, 0.5]
             elif output_shape_y_pred == 0 and output_shape_y_true > 0:
                 y_pred = np.where(y_pred > 0.5, 1, 0)
                 y_true = np.argmax(y_true, axis=1)
 
-            # If y_pred is 2D array where each array represents class probabilities and y_true is 1D array of classes
+            # If y_pred is 2D array where each array and y_true is 1D array of classes
             # Example: y_true: [0,1,1,2,] | y_pred : [[-0.2, 0.3, 0.5], [0.5, -1.2, 1,2 ], [0.5, -1.2, 1,2 ]]
             elif output_shape_y_pred > 0 and output_shape_y_true == 0:
                 y_pred = np.argmax(y_pred, axis=1)
@@ -447,4 +452,13 @@ class Metrics(object):
                                            f"output regression is not supported")
 
         return y_true, y_pred
+
+    @staticmethod
+    def _is_array_of_str(list_):
+
+        if len(list_.shape) == 1:
+            return True if isinstance(list_[0], str) else False
+        else:
+            return True if isinstance(list_[0][0], str) else False
+
 
