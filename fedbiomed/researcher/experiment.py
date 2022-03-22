@@ -613,21 +613,6 @@ class Experiment(object):
             self._fds = None
             logger.debug('Experiment not fully configured yet: no training data')
         # at this point, self._fds is either None or a FederatedDataSet object
-        
-        # at this point, we know self._training_args is an initialized dict
-        if self._fds is not None:
-            # we decide who has master information for the `test_ratio` depending on
-            # the type of the `training_data` passed to the function
-            if isinstance(training_data, FederatedDataSet):
-                exp_test_ratio = self._training_args['test_ratio']
-                fds_test_ratio = self._fds.test_ratio()
-                if exp_test_ratio != fds_test_ratio:
-                    logger.info(f"Override existing test ratio {exp_test_ratio} of the Experiment with "
-                        f" FederatedDataset test ratio value {fds_test_ratio}")
-                self._training_args['test_ratio'] = fds_test_ratio
-            else:
-                # don't want to overwrite dataset-specific ratio settings, when they exist
-                self._fds.set_test_ratio(self._training_args['test_ratio'], overwrite=False)
 
         if self._node_selection_strategy is not None:
             logger.debug('Training data changed, '
@@ -1054,7 +1039,7 @@ class Experiment(object):
         }
 
     @exp_exceptions
-    def set_test_ratio(self, ratios: float) -> float:
+    def set_test_ratio(self, ratio: float) -> float:
         """
         Sets testing ratio for model evaluation. When setting test_ratio, nodes will allocate 
         (1 - `test_ratio`) fraction of data for training and the remaining for testing model.
@@ -1062,34 +1047,31 @@ class Experiment(object):
         overfitting, doing early stopping, ....
 
         Args:
-            - ratios (float): testing ratio. Must be within interval [0,1].
+            - ratio (float): testing ratio. Must be within interval [0,1].
 
         Raises:
             - FedbiomedExperimentError: bad data type
             - FedbiomedExperimentError: ratio is not within interval [0, 1]
 
         Returns:
-            - float: testing ratios
+            - float: testing ratio
         """
         # data type checks
-        if not isinstance(ratios, (int, float)):
+        if not isinstance(ratio, (int, float)):
             msg = ErrorNumbers.FB410.value + ": incorrect argument `ratios` type:" + \
                 f" {type(ratios)} expected integer or float"
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        if 0 > ratios or ratios > 1:
+        if 0 > ratio or ratio > 1:
             msg = ErrorNumbers.FB410.value + ": incorrect argument `ratios` value, " + \
-                f"should be between 0 and 1, but got {ratios}"
+                f"should be between 0 and 1, but got {ratio}"
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        self._training_args['test_ratio'] = ratios
-        if self._fds is not None:
-            # need to override existing values for all datasets
-            self._fds.set_test_ratio(ratios, overwrite=True)
+        self._training_args['test_ratio'] = ratio
 
-        return ratios
+        return ratio
 
     @exp_exceptions
     def set_test_metric(self, metric: Union[Callable, str], **metric_args) -> Tuple[str, Dict[str, Any]]:
