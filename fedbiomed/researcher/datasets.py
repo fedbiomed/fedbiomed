@@ -2,7 +2,7 @@
 class which allows researcher to interact with remote datasets (federated datasets)
 '''
 
-from typing import Any, List, Dict
+from typing import List, Dict
 import uuid
 
 class FederatedDataSet:
