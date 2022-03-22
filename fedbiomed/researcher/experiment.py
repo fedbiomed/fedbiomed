@@ -347,7 +347,7 @@ class Experiment(object):
         return self._training_args
 
     @exp_exceptions
-    def test_ratio(self) -> Union[Dict[str, float], float]:
+    def test_ratio(self) -> float:
         return self._training_args.get('test_ratio')
 
     @exp_exceptions
@@ -1098,6 +1098,7 @@ class Experiment(object):
 
         Args:
             - metric (Union[Callable, str]): _description_
+            - metric_args (??) : ?? TODO
 
         Raises:
             - FedbiomedExperimentError: metric 
@@ -1107,15 +1108,18 @@ class Experiment(object):
         """
         if not (isinstance(metric, str) or callable(metric)):
             _msg = ErrorNumbers.FB410.value + ": incorrect argument metric, got type " + \
-                f"{type(metric)}, but expected Callable, str"
+                f"{type(metric)}, but expected Callable or str"
             raise FedbiomedExperimentError(_msg)
 
         elif callable(metric) and hasattr(metric, '__name__'):
             # get string of a known function passed as callable (eg sklearn accuracy)
             metric = metric.__name__
 
-        if self._training_args is None:
-            self._training_args = {}
+        # TODO : else ?? metric needs to be a str ?
+
+        # TODO : delete
+        #if self._training_args is None:
+        #    self._training_args = {}
         self._training_args['test_metric'] = metric
         # TODO: check `metric_args` passed
         self._training_args['test_metric_args'] = metric_args
@@ -1270,6 +1274,10 @@ class Experiment(object):
             - increase (bool, optional) : automatically increase the `round_limit` of the
               experiment if needed. Does nothing if `round_limit` is `None`
               Defaults to False
+            - test_after (bool, optional) : if True, do a second request to the nodes after
+              the round, only for testing on aggregated params. Intended to be used after
+              the last training round of an experiment.
+              Defaults to False.
 
         Raises:
             - FedbiomedExperimentError : bad argument type or value
@@ -1338,6 +1346,7 @@ class Experiment(object):
         if test_after:   
             # FIXME: should we sample nodes here too?
             self._job.start_nodes_training_round(round=self._round_current, do_training=False)
+        
         return 1
 
     @exp_exceptions
@@ -1438,19 +1447,27 @@ class Experiment(object):
 
                             # run the rounds
         # At this point `rounds` is an int > 0 (not None)
-        for n_round in range(rounds):
-            if n_round < rounds - 1:
-                increment = self.run_once(increase=False, test_after=False)
-            else:
-                # at this point, we are reaching the last round: do a testing
-                # after the last round
-                increment = self.run_once(increase=False, test_after=True)
+        for _ in range(rounds):
+            increment = self.run_once(increase=False, test_after=False)
+        #for n_round in range(rounds):
+        #    if n_round < rounds - 1:
+        #        increment = self.run_once(increase=False, test_after=False)
+        #    else:
+        #        # at this point, we are reaching the last round: do a testing
+        #        # after the last round
+        #        increment = self.run_once(increase=False, test_after=True)
             if increment == 0:
                 # should not happen
                 msg = ErrorNumbers.FB400.value + \
                     f', in method `run` method `run_once` returns {increment}'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
+
+        # after the last round, do testing only if a round limit is defined and we reached it
+        # and testing is active on global params
+        if isinstance(self._round_limit, int) and self._round_current == self._round_limit \
+                and self._training_args['test_on_global_updates'] is True:
+            self.run_once(increase=False, test_after=True)
 
         return rounds
 
