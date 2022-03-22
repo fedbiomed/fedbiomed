@@ -355,6 +355,10 @@ class Experiment(object):
         return self._training_args.get('test_metric')
 
     @exp_exceptions
+    def test_metric_args(self) -> Dict[str, Any]:
+        return self._training_args.get('test_metric_args')
+
+    @exp_exceptions
     def test_on_local_updates(self) -> bool:
         return self._training_args.get('test_on_local_updates')
 
@@ -1035,7 +1039,10 @@ class Experiment(object):
         self._training_args = {
             'test_ratio': .0,
             'test_on_local_updates': False,
-            'test_on_global_updates': False            
+            'test_on_global_updates': False,
+            # TODO: better default value ?
+            'test_metric': None,
+            'test_metric_args': {}
         }
 
     @exp_exceptions
@@ -1325,10 +1332,13 @@ class Experiment(object):
         self._round_current += 1
         if self._save_breakpoints:
             self.breakpoint()
+
+        # do final evaluation after saving breakpoint :
+        # not saved in breakpoint for current round, but more simple
         if test_after:   
             # FIXME: should we sample nodes here too?
             self._job.start_nodes_training_round(round=self._round_current, do_training=False)
-        
+
         return 1
 
     @exp_exceptions
@@ -1427,29 +1437,28 @@ class Experiment(object):
                                            f'run from {rounds} to {new_rounds}')
                             rounds = new_rounds
 
-                            # run the rounds
         # At this point `rounds` is an int > 0 (not None)
+
+        # run the rounds
         for _ in range(rounds):
-            increment = self.run_once(increase=False, test_after=False)
-        #for n_round in range(rounds):
-        #    if n_round < rounds - 1:
-        #        increment = self.run_once(increase=False, test_after=False)
-        #    else:
-        #        # at this point, we are reaching the last round: do a testing
-        #        # after the last round
-        #        increment = self.run_once(increase=False, test_after=True)
+            if isinstance(self._round_limit, int) and self._round_current == self._round_limit \
+                    and self._training_args['test_on_global_updates'] is True:
+                # Do "testing after a round" only if this a round limit is defined and we reached it
+                # and testing is active on global params
+                # When this condition is met, it also means we are running the last of
+                # the `rounds` rounds in this function
+                test_after = True
+            else:
+                test_after = False
+            
+            increment = self.run_once(increase=False, test_after=test_after)
+            
             if increment == 0:
                 # should not happen
                 msg = ErrorNumbers.FB400.value + \
                     f', in method `run` method `run_once` returns {increment}'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
-
-        # after the last round, do testing only if a round limit is defined and we reached it
-        # and testing is active on global params
-        if isinstance(self._round_limit, int) and self._round_current == self._round_limit \
-                and self._training_args['test_on_global_updates'] is True:
-            self.run_once(increase=False, test_after=True)
 
         return rounds
 
