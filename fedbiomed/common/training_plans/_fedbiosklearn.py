@@ -216,10 +216,10 @@ class SGDSkLearnModel(BaseTrainingPlan):
                          epochs=1,
                          history_monitor=None,
                          node_args: Union[dict, None] = None,
-                         test_ratio: float = 0,
+                         test_ratio: float = .0,
                          test_metric: Optional[str] = None, 
-                         test_metric_args: Optional[dict] = None,
-                         test_on_global_updates: bool = True,
+                         test_metric_args: dict = {},
+                         test_on_global_updates: bool = False,
                          test_on_local_updates: bool = False,):
         # FIXME: remove parameters specific for testing specified in the
         # training routine

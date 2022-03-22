@@ -2,8 +2,6 @@
 TrainingPlan definition for torchnn ML framework
 '''
 
-
-import inspect
 from typing import Optional, Union, Callable
 from copy import deepcopy
 
@@ -162,10 +160,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          lr: Union[int, float] = 1e-3,
                          batch_size: int = 48,
                          batch_maxnum: int = 0,
-                         test_ratio: float = 0,
+                         test_ratio: float = .0,
                          test_metric: Optional[str] = None, 
-                         test_metric_args: Optional[dict] = None,
-                         test_on_global_updates: bool = True,
+                         test_metric_args: dict = {},
+                         test_on_global_updates: bool = False,
                          test_on_local_updates: bool = False, 
                          dry_run: bool = False,
                          use_gpu: Union[bool, None] = None,
