@@ -12,6 +12,10 @@
 
 [[ "${sourced}" == "1" ]] && echo "This file MUST NOT be sourced" && return
 
+# main variables
+# --------------
+ALL_VPN_CONTAINERS=( vpnserver mqtt restful )
+#ALL_VPN_CONTAINERS=( vpnserver mqtt restful researcher node )
 
 # all functions
 # -------------
@@ -172,17 +176,20 @@ containers_status() {
     echo -n "- running containers -> "
     status=$(docker ps | grep fedbiomed/vpn- | wc -l)
 
-    if [ $status -eq 3 ]; then
+    if [ $status -eq ${#ALL_VPN_CONTAINERS[@]} ]; then
         echo "OK"
     else
         echo "BROKEN"
         ERROR=1
     fi
 
-
     if [ $ERROR -eq 1 ]; then
         echo "ERROR: at least one of the requested docker container is not running"
-        docker ps | tail -n +2
+        for i in ${ALL_VPN_CONTAINERS[@]}
+        do
+            status=$(docker ps | grep fedbiomed/vpn-$i)
+            [[ -z "$status" ]] && { echo "- $i not running"; }
+        done
         return
     fi
 
@@ -290,9 +297,10 @@ containers_start() {
     fi
 
     # start servers
-    docker-compose up -d vpnserver
-    docker-compose up -d mqtt
-    docker-compose up -d restful
+    for i in ${ALL_VPN_CONTAINERS[@]}
+    do
+        docker-compose up -d $i
+    done
 
     # propagate wiregard keys
     for c in mqtt restful
