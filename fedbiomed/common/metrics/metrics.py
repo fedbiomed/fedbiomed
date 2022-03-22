@@ -365,6 +365,7 @@ class Metrics(object):
                  y_true: np.ndarray,
                  y_pred: np.ndarray,
                  metric: MetricTypes,
+                 with_scores: bool = True,
                  **kwargs):
         """
         evaluate performance.
@@ -386,11 +387,9 @@ class Metrics(object):
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_pred` should an instance "
                                        f"of `np.ndarray`, but got {type(y_true)} ")
 
-        # if set(y_true.shape) != set(y_pred.shape):
-        #     raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Shape of true `y_true` and predicted `y_pred` "
-        #                                f"does not match; {y_true.shape}, {y_pred.shape}")
+        if with_scores:
+            y_true, y_pred = self._configure_y_true_pred_(y_true=y_true, y_pred=y_pred, metric=metric)
 
-        y_true, y_pred = self._configure_y_true_pred_(y_true=y_true, y_pred=y_pred, metric=metric)
         result = self.metrics[metric.name](y_true, y_pred, **kwargs)
 
         return result
@@ -407,8 +406,7 @@ class Metrics(object):
         y_pred = np.squeeze(y_pred)
         y_true = np.squeeze(y_pred)
         shape_y_pred = y_pred.shape
-        shape_y_true = y_true.shape
-
+        shape_y_true = y_true.shape\
 
         # Shape of the prediction array should be (samples, outputs) or (samples, )
         if len(shape_y_pred) > 2:

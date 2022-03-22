@@ -340,7 +340,7 @@ class Round:
         # self.testing_data will be equal to None
 
         # Split dataset as train and test
-        self.training_data_loader, self.testing_data_loader, classes = data_manager.split(test_ratio=test_ratio)
+        self.training_data_loader, self.testing_data_loader = data_manager.split(test_ratio=test_ratio)
 
         # If testing is inactive following method can be called to load all samples as train
         # self.train_data = sp.da_data_manager.load_all_samples()
