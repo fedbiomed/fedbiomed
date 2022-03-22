@@ -9,41 +9,19 @@ from fedbiomed.common.exceptions import FedbiomedMetricError
 
 class Metrics(object):
 
-    def __init__(self,
-                 y_true: np.ndarray = None,
-                 y_pred: np.ndarray = None):
+    def __init__(self):
 
         """
         Performance metrics used in training/testing evaluation.
         This class return sklearn metrics after performing sanity check on predictions and true values inputs.
         All inputs of type tensor torch are transformed to numpy array.
 
-        Parameters:
-        ----------
-        y_true: array-like or torch.Tensor
-                Ground Truth (correct) target values or labels.
-        y_pred: array-like or torch.Tensor
-                Estimated target values or Predicted labels.
-        y_score: array_like or torch.Tensor, default: None
-                Target scores.
-
-        Attributes:
-        ----------
-            Y_true: array-like
-                Ground Truth (correct) target values or labels.
-            Y_pred: array-like
-                Estimated target values or Predicted labels.
-            Y_score: array-like
-                Target scores.
-
-            metric: dict { MetricTypes : skleran.metrics }
-                Dictionary of keys value in  MetricTypes values: { ACCURACY, F1_SCORE, PRECISION, AVG_PRECISION, RECALL, ROC_AUC, MEAN_SQUARE_ERROR, MEAN_ABSOLUTE_ERROR, EXPLAINED_VARIANCE}
+        Attrs:
+            metrics: dict { MetricTypes : skleran.metrics }
+                Dictionary of keys values in  MetricTypes values: { ACCURACY, F1_SCORE, PRECISION,
+                RECALL, ROC_AUC, MEAN_SQUARE_ERROR, MEAN_ABSOLUTE_ERROR, EXPLAINED_VARIANCE}
 
         """
-
-        # At the beginning y_true and y_pred can be none and can be set by the setters
-        self.Y_true = None
-        self.Y_pred = None
 
         self.metrics = {
             MetricTypes.ACCURACY.name: self.accuracy,
@@ -57,37 +35,38 @@ class Metrics(object):
             MetricTypes.EXPLAINED_VARIANCE.name: self.explained_variance,
         }
 
-    def set_y_true(self, y_true: np.ndarray):
+    def evaluate(self,
+                 y_true: np.ndarray,
+                 y_pred: np.ndarray,
+                 metric: MetricTypes,
+                 with_scores: bool = True,
+                 **kwargs):
         """
-        Setter for true values (y_true)
-
+        evaluate performance.
         Args:
-            y_true:
-
-        Raises:
-            - FedbiomedMetricError
+            - metric (MetricTypes, or str in {ACCURACY, F1_SCORE, PRECISION, AVG_PRECISION, RECALL, ROC_AUC, MEAN_SQUARE_ERROR, MEAN_ABSOLUTE_ERROR, EXPLAINED_VARIANCE}), default = None.
+            The metric used to evaluate performance. If None default Metric is used: accuracy_score for classification and mean squared error for regression.
+            - kwargs: The arguments specifics to each type of metrics.
+        Returns:
+            - score, auc, ... (float or array of floats) depending on the metric used.
         """
+        if not isinstance(metric, MetricTypes):
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Metric should instance of `MetricTypes`")
 
-        if not isinstance(y_true, np.ndarray):
-            raise FedbiomedMetricError()
+        if y_true is not None and not isinstance(y_true, np.ndarray):
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_true` should an instance "
+                                       f"of `np.ndarray`, but got {type(y_true)} ")
 
-        self.Y_true = y_true
+        if y_pred is not None and not isinstance(y_pred, np.ndarray):
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_pred` should an instance "
+                                       f"of `np.ndarray`, but got {type(y_true)} ")
 
-    def set_y_pred(self, y_pred: np.ndarray):
-        """
-        Setter for predicted values (y_pred)
+        if with_scores:
+            y_true, y_pred = self._configure_y_true_pred_(y_true=y_true, y_pred=y_pred, metric=metric)
 
-        Args:
-            y_true:
+        result = self.metrics[metric.name](y_true, y_pred, **kwargs)
 
-        Raises:
-            - FedbiomedMetricError
-        """
-
-        if not isinstance(y_pred, np.ndarray):
-            raise FedbiomedMetricError()
-
-        self.Y_true = y_pred
+        return result
 
     @staticmethod
     def accuracy(y_true: np.ndarray,
@@ -157,35 +136,6 @@ class Metrics(object):
         return
 
     @staticmethod
-    def avg_precision(y_true: np.ndarray,
-                      y_score: np.ndarray,
-                      **kwargs):
-        """
-        Evaluate the average precision score from prediction scores (y_score).
-        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html#sklearn.metrics.average_precision_score]
-        Args:
-            - average ({‘micro’, ‘samples’, ‘weighted’, ‘macro’} or None, default=’macro’, optional)
-            If None, the scores for each class are returned. Otherwise, this determines the type of averaging performed on the data.
-            - pos_label (int or str, default=1, optional)
-            The label of the positive class.
-            - sample_weight (array-like of shape (n_samples,), default=None, optional)
-            Sample weights.
-        Returns:
-            - sklearn.metrics.average_precision_score(y_true, y_score, normalize = True, sample_weight = None)
-            average precision (float)
-        """
-
-        if len(np.unique(y_true)) > 2:
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Multiclass format is not supported for"
-                                       f"AVG_PRECISION. Please use `MetricTypes.PRECISION` instead")
-
-        try:
-            return metrics.average_precision_score(y_true, y_score, **kwargs)
-        except Exception as e:
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `AVG_PRECISION` "
-                                       f"calculation: {str(e)}")
-
-    @staticmethod
     def recall(y_true: np.ndarray,
                y_pred: np.ndarray,
                **kwargs):
@@ -222,36 +172,6 @@ class Metrics(object):
             return metrics.recall_score(y_true, y_pred, average=average, **kwargs)
         except Exception as e:
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `RECALL` "
-                                       f"calculation: {str(e)}")
-
-    @staticmethod
-    def roc_auc(y_true: np.ndarray,
-                y_score: np.ndarray,
-                **kwargs):
-        """
-        Evaluate the Area Under the Receiver Operating Characteristic Curve (ROC AUC) from prediction scores.
-        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html#sklearn.metrics.roc_auc_score]
-        Args:
-            - average ({‘micro’, ‘macro’, ‘samples’,’weighted’, ‘binary’} or None, default=’binary’, optional)
-            This parameter is required for multiclass/multilabel targets. If None, the scores for each class are returned.
-            Otherwise, this determines the type of averaging performed on the data.
-            - sample_weight (array-like of shape (n_samples,), default=None, optional)
-            Sample weights.
-            - max_fpr (float > 0 and <= 1, default=None, optional)
-            If not None, the standardized partial AUC [2] over the range [0, max_fpr] is returned. For the multiclass case, max_fpr, should be either equal to None or 1.0.
-            - multi_class({‘raise’, ‘ovr’, ‘ovo’}, default=’raise’, optional)
-            Only used for multiclass targets. Determines the type of configuration to use. The default value raises an error, so either 'ovr' or 'ovo' must be passed explicitly.
-            - labels (array-like of shape (n_classes,), default=None, optional)
-            Only used for multiclass targets. List of labels that index the classes in y_score. If None, the numerical or lexicographical order of the labels in y_true is used.
-        Returns:
-            - sklearn.metrics.roc_auc_score(y_true, y_score, *, average='macro', sample_weight=None, max_fpr=None, multi_class='raise', labels=None)
-            auc (float)
-        """
-
-        try:
-            return metrics.roc_auc_score(y_true, y_score, **kwargs)
-        except Exception as e:
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `ROC_AUC` "
                                        f"calculation: {str(e)}")
 
     @staticmethod
@@ -361,44 +281,18 @@ class Metrics(object):
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `EXPLAINED_VARIANCE`"
                                        f" {str(e)}")
 
-    def evaluate(self,
-                 y_true: np.ndarray,
-                 y_pred: np.ndarray,
-                 metric: MetricTypes,
-                 with_scores: bool = True,
-                 **kwargs):
-        """
-        evaluate performance.
-        Args:
-            - metric (MetricTypes, or str in {ACCURACY, F1_SCORE, PRECISION, AVG_PRECISION, RECALL, ROC_AUC, MEAN_SQUARE_ERROR, MEAN_ABSOLUTE_ERROR, EXPLAINED_VARIANCE}), default = None.
-            The metric used to evaluate performance. If None default Metric is used: accuracy_score for classification and mean squared error for regression.
-            - kwargs: The arguments specifics to each type of metrics.
-        Returns:
-            - score, auc, ... (float or array of floats) depending on the metric used.
-        """
-        if not isinstance(metric, MetricTypes):
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Metric should instance of `MetricTypes`")
-
-        if y_true is not None and not isinstance(y_true, np.ndarray):
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_true` should an instance "
-                                       f"of `np.ndarray`, but got {type(y_true)} ")
-
-        if y_pred is not None and not isinstance(y_pred, np.ndarray):
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_pred` should an instance "
-                                       f"of `np.ndarray`, but got {type(y_true)} ")
-
-        if with_scores:
-            y_true, y_pred = self._configure_y_true_pred_(y_true=y_true, y_pred=y_pred, metric=metric)
-
-        result = self.metrics[metric.name](y_true, y_pred, **kwargs)
-
-        return result
 
     @staticmethod
     def _configure_y_true_pred_(y_true: np.ndarray,
                                 y_pred: np.ndarray,
                                 metric: MetricTypes):
         """
+        Method for configuring y_true and y_pred array to compatible format
+        for metrics
+
+        y_true (np.ndarray): True values of test dataset
+        y_pred (np.ndarray): Predicted values
+        metric (MetricTypes): Metric that is going to be used for evaluation
 
         """
         # Get shape of the prediction should be 1D or 2D array
@@ -409,7 +303,9 @@ class Metrics(object):
 
         # Shape of the prediction array should be (samples, outputs) or (samples, )
         if len(shape_y_pred) > 2:
-            raise FedbiomedMetricError()
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Prediction results are in unsupported shape "
+                                       f"`{y_true.shape}`. Please create a custom `testing_step` method in "
+                                       f"training plan")
 
         if Metrics._is_array_of_str(y_pred):
             if metric.metric_form() is MetricForms.REGRESSION:
@@ -454,11 +350,16 @@ class Metrics(object):
         return y_true, y_pred
 
     @staticmethod
-    def _is_array_of_str(list_):
+    def _is_array_of_str(list_: np.ndarray):
+        """
+        Method for checking whether list elements are of type string
+
+        Args:
+            list_ (np.ndarray): Numpy array that is going to be checked for types
+
+        """
 
         if len(list_.shape) == 1:
             return True if isinstance(list_[0], str) else False
         else:
             return True if isinstance(list_[0][0], str) else False
-
-
