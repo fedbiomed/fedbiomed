@@ -12,9 +12,7 @@ class Metrics(object):
     def __init__(self):
 
         """
-        Performance metrics used in training/testing evaluation.
-        This class return sklearn metrics after performing sanity check on predictions and true values inputs.
-        All inputs of type tensor torch are transformed to numpy array.
+        Class of performance metrics used in testing evaluation.
 
         Attrs:
             metrics: dict { MetricTypes : skleran.metrics }
@@ -37,17 +35,23 @@ class Metrics(object):
                  y_true: np.ndarray,
                  y_pred: np.ndarray,
                  metric: MetricTypes,
-                 with_scores: bool = True,
                  **kwargs):
         """
-        evaluate performance.
+        Evaluate method to perform evaluation based on given metric. This method configures given y_pred
+        and y_true to make them compatible with default evaluation methods.
+
         Args:
-            - metric (MetricTypes, or str in {ACCURACY, F1_SCORE, PRECISION, AVG_PRECISION, RECALL, ROC_AUC, MEAN_SQUARE_ERROR, MEAN_ABSOLUTE_ERROR, EXPLAINED_VARIANCE}), default = None.
-            The metric used to evaluate performance. If None default Metric is used: accuracy_score for classification and mean squared error for regression.
+            - y_true (np.ndarray): True values
+            - y_pred (np.ndarray): Predicted values
+            - metric (MetricTypes): An instance of MetricTypes to chose metric that will be used for evaluation
             - kwargs: The arguments specifics to each type of metrics.
         Returns:
-            - score, auc, ... (float or array of floats) depending on the metric used.
+            - int or float as result of the evaluation metric
+
+        Raises:
+            - FedbiomedMetricError: in case of invalid metric, y_true and y_pred types
         """
+
         if not isinstance(metric, MetricTypes):
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Metric should instance of `MetricTypes`")
 
@@ -59,8 +63,7 @@ class Metrics(object):
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_pred` should an instance "
                                        f"of `np.ndarray`, but got {type(y_true)} ")
 
-        if with_scores:
-            y_true, y_pred = self._configure_y_true_pred_(y_true=y_true, y_pred=y_pred, metric=metric)
+        y_true, y_pred = self._configure_y_true_pred_(y_true=y_true, y_pred=y_pred, metric=metric)
 
         result = self.metrics[metric.name](y_true, y_pred, **kwargs)
 
@@ -72,10 +75,11 @@ class Metrics(object):
                  **kwargs):
         """
         Evaluate the accuracy score
-        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html#sklearn.metrics.accuracy_score]
+        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html]
         Args:
             - normalize (bool, default=True, optional):
-              If False, return the number of correctly classified samples. Otherwise, return the fraction of correctly classified samples.
+              If False, return the number of correctly classified samples. Otherwise, return the fraction of correctly
+              classified samples.
             - sample_weight (array-like of shape (n_samples,), default=None, optional)
             Sample weights.
         Returns:
@@ -103,7 +107,8 @@ class Metrics(object):
             - pos_label (str or int, default=1, optional)
             The class to report if average='binary' and the data is binary.
             - average ({‘micro’, ‘macro’, ‘samples’,’weighted’, ‘binary’} or None, default=’binary’, optional)
-            This parameter is required for multiclass/multilabel targets. If None, the scores for each class are returned. Otherwise, this determines the type of averaging performed on the data.
+            This parameter is required for multiclass/multilabel targets. If None, the scores for each class are
+            returned. Otherwise, this determines the type of averaging performed on the data.
             - sample_weight (array-like of shape (n_samples,), default=None, optional)
             Sample weights.
             - zero_division (“warn”, 0 or 1, default=”warn”, optional)
@@ -139,20 +144,22 @@ class Metrics(object):
                **kwargs):
         """
         Evaluate the recall.
-        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html#sklearn.metrics.recall_score]
+        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html]
         Args:
             - labels (array-like, default=None, optional)
             The set of labels to include when average != 'binary', and their order if average is None.
             - pos_label (str or int, default=1, optional)
             The class to report if average='binary' and the data is binary.
             - average ({‘micro’, ‘macro’, ‘samples’,’weighted’, ‘binary’} or None, default=’binary’, optional)
-            This parameter is required for multiclass/multilabel targets. If None, the scores for each class are returned. Otherwise, this determines the type of averaging performed on the data.
+            This parameter is required for multiclass/multilabel targets. If None, the scores for each class are
+            returned. Otherwise, this determines the type of averaging performed on the data.
             - sample_weight (array-like of shape (n_samples,), default=None, optional)
             Sample weights.
             - zero_division (“warn”, 0 or 1, default=”warn”, optional)
             Sets the value to return when there is a zero division.
         Returns:
-            - sklearn.metrics.recall_score(y_true, y_pred, *, labels=None, pos_label=1, average='binary', sample_weight=None, zero_division='warn')
+            - sklearn.metrics.recall_score(y_true, y_pred, *, labels=None, pos_label=1, average='binary',
+            sample_weight=None, zero_division='warn')
             recall (float (if average is not None) or array of float of shape (n_unique_labels,))
         """
         # Check target variable is multi class or binary
@@ -178,20 +185,22 @@ class Metrics(object):
                  **kwargs):
         """
         Evaluate the F1 score.
-        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html#sklearn.metrics.f1_score]
+        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html]
         Args:
             - labels (array-like, default=None, optional)
             The set of labels to include when average != 'binary', and their order if average is None.
             - pos_label (str or int, default=1, optional)
             The class to report if average='binary' and the data is binary.
             - average{‘micro’, ‘macro’, ‘samples’,’weighted’, ‘binary’} or None, default=’binary’
-            This parameter is required for multiclass/multilabel targets. If None, the scores for each class are returned. Otherwise, this determines the type of averaging performed on the data.
+            This parameter is required for multiclass/multilabel targets. If None, the scores for each class are
+            returned. Otherwise, this determines the type of averaging performed on the data.
             - sample_weight (array-like of shape (n_samples,), default=None, optional)
             Sample weights.
             - zero_division (“warn”, 0 or 1, default=”warn”, optional)
             Sets the value to return when there is a zero division.
         Returns:
-            - sklearn.metrics.f1_score(y_true, y_pred, *, labels=None, pos_label=1, average='binary', sample_weight=None, zero_division='warn')
+            - sklearn.metrics.f1_score(y_true, y_pred, *, labels=None, pos_label=1, average='binary',
+            sample_weight=None, zero_division='warn')
             f1_score (float or array of float, shape = [n_unique_labels])
         """
 
@@ -217,17 +226,18 @@ class Metrics(object):
             **kwargs):
         """
         Evaluate the mean squared error.
-        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html#sklearn.metrics.mean_squared_error]
+        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html]
         Args:
             - sample_weight (array-like of shape (n_samples,), default=None, optional)
             Sample weights.
-            - multioutput ({‘raw_values’, ‘uniform_average’} or array-like of shape (n_outputs,), default=’uniform_average’, optional)
-            Defines aggregating of multiple output values. Array-like value defines weights used to average errors.
+            - multioutput ({‘raw_values’, ‘uniform_average’} or array-like of shape (n_outputs,),
+            default=’uniform_average’, optional) Defines aggregating of multiple output values. Array-like value
+            defines weights used to average errors.
             - squared (bool, default=True, optional)
             If True returns MSE value, if False returns RMSE value.
         Returns:
-            - sklearn.metrics.mean_squared_error(y_true, y_pred, *, sample_weight=None, multioutput='uniform_average', squared=True)
-            score (float or ndarray of floats)
+            - sklearn.metrics.mean_squared_error(y_true, y_pred, *, sample_weight=None, multioutput='uniform_average',
+            squared=True) score (float or ndarray of floats)
         """
         try:
             return metrics.mean_squared_error(y_true, y_pred, **kwargs)
@@ -241,12 +251,13 @@ class Metrics(object):
             **kwargs):
         """
         Evaluate the mean absolute error.
-        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html#sklearn.metrics.mean_absolute_error]
+        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html]
         Args:
             - sample_weight (array-like of shape (n_samples,), default=None, optional)
             Sample weights.
-            - multioutput ({‘raw_values’, ‘uniform_average’} or array-like of shape (n_outputs,), default=’uniform_average’, optional)
-            Defines aggregating of multiple output values. Array-like value defines weights used to average errors.
+            - multioutput ({‘raw_values’, ‘uniform_average’} or array-like of shape (n_outputs,),
+            default=’uniform_average’, optional) Defines aggregating of multiple output values. Array-like value
+            defines weights used to average errors.
         Returns:
             - sklearn.metrics.mean_absolute_error(y_true, y_pred, *, sample_weight=None, multioutput='uniform_average')
             score (float or ndarray of floats)
@@ -263,15 +274,16 @@ class Metrics(object):
                            **kwargs):
         """
         Evaluate the accuracy score.
-        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.explained_variance_score.html#sklearn.metrics.explained_variance_score]
+        [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.explained_variance_score.html]
         Args:
             - sample_weight (array-like of shape (n_samples,), default=None, optional)
             Sample weights.
-            - multioutput ({‘raw_values’, ‘uniform_average’, ‘variance_weighted’} or array-like of shape (n_outputs,), default=’uniform_average’, optional)
-            Defines aggregating of multiple output values. Array-like value defines weights used to average errors.
+            - multioutput ({‘raw_values’, ‘uniform_average’, ‘variance_weighted’} or array-like of shape (n_outputs,),
+            default=’uniform_average’, optional) Defines aggregating of multiple output values. Array-like value
+            defines weights used to average errors.
         Returns:
-            - sklearn.metrics.explained_variance_score(y_true, y_pred, *, sample_weight=None, multioutput='uniform_average')
-            score (float or ndarray of floats)
+            - sklearn.metrics.explained_variance_score(y_true, y_pred, *, sample_weight=None,
+            multioutput='uniform_average') score (float or ndarray of floats)
         """
         try:
             return metrics.explained_variance_score(y_true, y_pred, **kwargs)
@@ -279,23 +291,25 @@ class Metrics(object):
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `EXPLAINED_VARIANCE`"
                                        f" {str(e)}")
 
-
     @staticmethod
     def _configure_y_true_pred_(y_true: np.ndarray,
                                 y_pred: np.ndarray,
                                 metric: MetricTypes):
         """
-        Method for configuring y_true and y_pred array to compatible format
-        for metrics
+        Method for configuring y_true and y_pred array to make them compatible for metric functions. It
+        guarantees that the y_true and y_pred will be in same shape.
 
-        y_true (np.ndarray): True values of test dataset
-        y_pred (np.ndarray): Predicted values
-        metric (MetricTypes): Metric that is going to be used for evaluation
-
+        Args:
+            y_true (np.ndarray): True values of test dataset
+            y_pred (np.ndarray): Predicted values
+            metric (MetricTypes): Metric that is going to be used for evaluation
         """
-        # Get shape of the prediction should be 1D or 2D array
+
+        # Squeeze array [[1],[2],[3]] to [1,2,3]
         y_pred = np.squeeze(y_pred)
         y_true = np.squeeze(y_true)
+
+        # Get shape of the prediction should be 1D or 2D array
         shape_y_pred = y_pred.shape
         shape_y_true = y_true.shape
 
