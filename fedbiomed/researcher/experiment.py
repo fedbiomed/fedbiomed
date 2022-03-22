@@ -1025,6 +1025,11 @@ class Experiment(object):
                 self.set_test_on_local_updates(training_args['test_on_local_updates'])
             if 'test_on_global_updates' in training_args:
                 self.set_test_on_global_updates(training_args['test_on_global_updates'])
+            if 'test_metric_args' in training_args and not 'test_metric' in training_args:
+                msg = ErrorNumbers.FB410.value + f' `test_metric_args` cannot be set ' + \
+                    'without setting a `test_metric`'
+                logger.critical(msg)
+                raise FedbiomedExperimentError(msg)
             if 'test_metric' in training_args:
                 test_metric_args = training_args.get('test_metric_args', {})
                 try:
@@ -1084,7 +1089,7 @@ class Experiment(object):
         # data type checks
         if not isinstance(ratio, (int, float)):
             msg = ErrorNumbers.FB410.value + ": incorrect argument `ratios` type:" + \
-                f" {type(ratios)} expected integer or float"
+                f" {type(ratio)} expected integer or float"
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1095,6 +1100,11 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         self._training_args['test_ratio'] = ratio
+
+        if self._job is not None:
+            # job setter function exists, use it
+            self._job.training_args = self._training_args
+            logger.debug('Experimentation training_args updated for `job`')
 
         return ratio
 
@@ -1133,6 +1143,11 @@ class Experiment(object):
         # using **metric_args, we know `test_metric_args` is a Dict[str, Any]
         self._training_args['test_metric_args'] = metric_args
 
+        if self._job is not None:
+            # job setter function exists, use it
+            self._job.training_args = self._training_args
+            logger.debug('Experimentation training_args updated for `job`')
+
         return metric, metric_args
 
     @exp_exceptions
@@ -1157,6 +1172,12 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         self._training_args['test_on_local_updates'] = flag
+
+        if self._job is not None:
+            # job setter function exists, use it
+            self._job.training_args = self._training_args
+            logger.debug('Experimentation training_args updated for `job`')
+
         return self._training_args['test_on_local_updates']
 
     @exp_exceptions
@@ -1180,6 +1201,12 @@ class Experiment(object):
             raise FedbiomedExperimentError(msg)
 
         self._training_args['test_on_global_updates'] = flag
+
+        if self._job is not None:
+            # job setter function exists, use it
+            self._job.training_args = self._training_args
+            logger.debug('Experimentation training_args updated for `job`')
+
         return self._training_args['test_on_global_updates']
 
     # we could also handle `set_job(self, Union[Job, None])` but is it useful as
