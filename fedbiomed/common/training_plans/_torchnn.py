@@ -342,8 +342,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     metric_name = metric.name
 
                 metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
-                if metric_dict is None:
-                    raise FedbiomedTrainingPlanError
 
                 logger.debug('Testing: Batch {} [{}/{}] | Metric[{}]: {:.6f}'.format(
                     str(batch_), batch_ * len(true), tot_samples, metric.name, m_value))

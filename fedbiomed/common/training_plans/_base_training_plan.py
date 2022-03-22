@@ -3,9 +3,13 @@ A Base class that includes common methods that are used for
 all training plans
 """
 
-from collections import OrderedDict
-from typing import Dict, List, Callable, Union
+import numpy as np
 
+from collections import OrderedDict
+from typing import Tuple, Dict, List, Callable, Union
+
+
+from torch.utils.data import DataLoader
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
@@ -55,7 +59,10 @@ class BaseTrainingPlan(object):
         self.dataset_path = dataset_path
         logger.debug('Dataset path has been set as' + self.dataset_path)
 
-    def set_data_loaders(self, train_data_loader, test_data_loader):
+    def set_data_loaders(self,
+                         train_data_loader: Union[DataLoader, Tuple[np.ndarray, np.ndarray], None],
+                         test_data_loader: Union[DataLoader, Tuple[np.ndarray, np.ndarray], None]):
+
         """
         Args:
             train_data_loader,
@@ -153,12 +160,12 @@ class BaseTrainingPlan(object):
         """
 
         # If it is single int/float metric value
-        if isinstance(metric, (int, float)):
+        if isinstance(metric, (int, float)) and not isinstance(metric, bool):
             return {metric_name: metric}
 
         # If metric function returns multiple values
         elif isinstance(metric, list):
-            metric_name = [f"{metric_name}_{i}" for i, val in enumerate(metric)]
+            metric_name = [f"{metric_name}_{i+1}" for i, val in enumerate(metric)]
             BaseTrainingPlan._check_metric_types_is_int_or_float(metric)
             return dict(zip(metric_name, metric))
 
@@ -167,15 +174,16 @@ class BaseTrainingPlan(object):
             BaseTrainingPlan._check_metric_types_is_int_or_float(list(metric.values()))
             return metric
 
-        # Return None, means that provided metric is not in good shape
         else:
-            return None
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Metric value should be one of type int, "
+                                             f"float, list of int/float or  dict of (key: (int/float)), "
+                                             f"but got {type(metric)} ")
 
     @staticmethod
     def _check_metric_types_is_int_or_float(values: list):
 
         for val in values:
-            if not isinstance(val, (int, float)):
+            if not isinstance(val, (int, float)) or isinstance(val, bool):
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: The values for metrics "
                                                  f"should be int or float, but got {type(val)} ")
 

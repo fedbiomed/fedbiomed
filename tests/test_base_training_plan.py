@@ -80,7 +80,6 @@ class TestBaseTrainingPlan(unittest.TestCase):
                 path, _ = self.tp.save_code(expected_filepath)
 
     def test_base_training_plan_04_add_preprocess(self):
-
         def method(args):
             pass
 
@@ -95,6 +94,51 @@ class TestBaseTrainingPlan(unittest.TestCase):
         # Test proper scenario
         self.tp.add_preprocess(method, ProcessTypes.DATA_LOADER)
         self.assertTrue('method' in self.tp.pre_processes, 'add_preprocess could not add process properly')
+
+    def test_base_training_plan_05_set_data_loaders(self):
+        test_data_loader = [1, 2, 3]
+        train_data_loader = [1, 2, 3]
+
+        self.tp.set_data_loaders(train_data_loader, test_data_loader)
+        self.assertListEqual(self.tp.training_data_loader, train_data_loader)
+        self.assertListEqual(self.tp.testing_data_loader, test_data_loader)
+
+    def test_base_training_plan_06__create_metric_result_dict(self):
+        """
+        Testing private method create metric result dict
+
+        This test function also tests the method _check_metric_types_is_int_or_float
+        as implicitly
+        """
+
+        metric = 14
+        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        self.assertDictEqual(result, {'Custom': 14})
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            metric = True
+            result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            metric = 'True'
+            result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+
+        metric = [14, 14, 14.5]
+        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        self.assertDictEqual(result, {'Custom_1': 14, 'Custom_2': 14, 'Custom_3': 14.5})
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            metric = ['14', '14', '14']
+            result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+
+        metric = {'my_metric': 12, 'other_metric': 14.15}
+        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        self.assertDictEqual(result, metric)
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            metric = {'my_metric': True, 'other_metric': 14.15}
+            result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
