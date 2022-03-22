@@ -2,11 +2,8 @@
 class which allows researcher to interact with remote datasets (federated datasets)
 '''
 
-from typing import Any, List, Dict, Union
+from typing import Any, List, Dict
 import uuid
-from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedDatasetError
-
 
 class FederatedDataSet:
     """
