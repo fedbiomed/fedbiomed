@@ -160,11 +160,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          lr: Union[int, float] = 1e-3,
                          batch_size: int = 48,
                          batch_maxnum: int = 0,
-                         test_ratio: float = .0,
-                         test_metric: Optional[str] = None,
-                         test_metric_args: dict = {},
-                         test_on_global_updates: bool = False,
-                         test_on_local_updates: bool = False,
                          dry_run: bool = False,
                          use_gpu: Union[bool, None] = None,
                          fedprox_mu=None,
@@ -305,6 +300,13 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         before_train: Union[bool, None] = None):
 
         # TODO: Add preprocess option for testing_data_loader
+
+        # Use accuracy as default metric
+        if metric is None:
+            metric = MetricTypes.ACCURACY
+
+        if self.testing_data_loader:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Can not find dataset for testing.")
 
         # Build metrics object
         metric_controller = Metrics()
