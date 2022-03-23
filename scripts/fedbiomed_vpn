@@ -14,8 +14,7 @@
 
 # main variables
 # --------------
-ALL_VPN_CONTAINERS=( vpnserver mqtt restful researcher node )
-#ALL_VPN_CONTAINERS=( vpnserver mqtt restful researcher node )
+ALL_VPN_CONTAINERS=( vpnserver mqtt restful researcher node gui )
 
 # all functions
 # -------------
@@ -24,38 +23,38 @@ usage() {
     # print usage
     #
     echo "\
-Usage: ${0##*/} build     [-c|--clean] [-g|--gpu] [CONTAINER..]
+Usage: ${0##*/} build [-c|--clean]
        ${0##*/} clean
-       ${0##*/} configure                         [CONTAINER..]
-       ${0##*/} start     [-m|--model-approval]   [CONTAINER..]
+       ${0##*/} configure
+       ${0##*/} start [-m|--model-approval] [-g|--gpu]
        ${0##*/} status
        ${0##*/} stop
 
-Build/configure/run/stop docker containers for VPN support
-(cannot build / configure / start / stop at same time)
+manage (local) docker containers with Wireguard VPN support
+(cannot use build / clean / configure / start / status / stop at same time)
 
-[CONTAINER..] is a list of containers to configure/build/run.
-This list may contain: vpnserver, mqtt, restful, node
+build                  build all containers
 
- build       build all containers
+  Optional with build:
 
-       Optional with build:
+  -c|--clean           clean environments first
+                       (same as running ${0##*/} clean before build)
 
-       -c|--clean  clean environments first
-       -g|--gpu    build docker containers with GPU support
+clean                  clean everything
 
- clean       clean everything
-             (can also be invoked with build option)
+configure              generate/modify configuration files
+                       (wireguard keys and @IP adresses)
 
- configure   generate configuration files
+status                 give information on running containers
 
- start       start all components
- status      give information on running containers
- stop        stop  all components
+stop                   stop  all containers
 
-       Optional with start:
+start                  start all containers
 
-       -m|--model-approval  enforce model approval in config files
+  Optional with start:
+
+  -m|--model-approval  enforce model approval in config files
+  -g|--gpu             GPU support option
 "
 }
 
@@ -68,9 +67,9 @@ check_prerequisite() {
     for i in ${commands[@]}
     do
         status=$(which $i)
-        [[ -z "$status" ]] && { echo "ERROR: command not found: $i"; ERROR=1; }
+        [[ -z "$status" ]] && { echo "** ERROR: command not found: $i"; ERROR=1; }
     done
-    [[ $ERROR -eq 1 ]] && { echo "Please install needed commands before running this script." ; exit 1; }
+    [[ $ERROR -eq 1 ]] && { echo "** Please install needed commands before running this script." ; exit 1; }
 }
 
 
@@ -127,8 +126,8 @@ find_my_ip() {
 
     case $IP in
         127.*)
-            echo "WARNING: vpnserver will use the localhost IP adress."
-            echo "         vpnserver may not work properly"
+            echo "** WARNING: vpnserver will use the localhost IP adress."
+            echo "            vpnserver may not work properly"
         ;;
     esac
     # just in case (never happends but I am paranoid)
@@ -204,11 +203,11 @@ containers_status() {
     fi
 
     if [ $ERROR -eq 1 ]; then
-        echo "ERROR: at least one of the requested docker container is not running"
+        echo "** ERROR: at least one of the requested docker container is not running"
         for i in ${ALL_VPN_CONTAINERS[@]}
         do
             status=$(docker ps | grep fedbiomed/vpn-$i)
-            [[ -z "$status" ]] && { echo "- container $i not running"; }
+            [[ -z "$status" ]] && { echo "- container $i is not running"; }
         done
         return
     fi
@@ -229,8 +228,8 @@ containers_status() {
     done
 
     if [ $ERROR -eq 1 ]; then
-        echo "Cannot ping using VPN adresses inside docker containers"
-        echo "You must check what is going on."
+        echo "** ERROR: cannot ping using VPN adresses inside docker containers"
+        echo "          You must check what is going on."
     fi
 }
 
@@ -307,15 +306,34 @@ containers_start() {
 
     ip_in_file=$(grep "^VPN_SERVER_PUBLIC_ADDR=$IP$" $CONFIG)
     if [ -z "$ip_in_file" ]; then
-        echo "WARNING: external IP adress has changed since last configuration"
-        echo "You may need to run:  ${0##*/} configure"
+        echo "** WARNING: external IP adress has changed since last configuration"
+        echo "            You may need to run:  ${0##*/} configure"
         exit 1
     fi
 
-    # start servers
+    # start containers
     for i in ${ALL_VPN_CONTAINERS[@]}
     do
-        docker-compose up -d $i
+        case $i in
+            gui)
+                RUNVARENV="GUI_HOST=0.0.0.0"
+                CONTAINER=$i
+                ;;
+            node)
+                RUNVARENV=""
+                if [ $GPU -eq 1 ]; then
+                    CONTAINER=node-gpu
+                else
+                    CONTAINER=node
+                fi
+                ;;
+            *  )
+                RUNVARENV=""
+                CONTAINER=$i
+                ;;
+        esac
+        echo "** DEBUG: $RUNVARENV docker-compose up -d $CONTAINER"
+        $RUNVARENV docker-compose up -d $CONTAINER
     done
 
     # propagate wiregard keys
@@ -372,9 +390,8 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    -c|--clean) CLEAN=1 ;;
-                    -g|--gpu)   GPU=1 ;;
-                    -h|--help)  usage ; exit 0 ;;
+                    -c|--clean)     CLEAN=1 ;;
+                    -h|--help|help) usage ; exit 0 ;;
                     *)
                         echo "unknown or incompatible arguments"
                         usage
@@ -390,7 +407,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    -h|--help)          usage ; exit 0 ;;
+                    -h|--help|help) usage ; exit 0 ;;
                     *)
                         echo "unknown or incompatible arguments"
                         usage
@@ -406,8 +423,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    -h|--help)          usage ; exit 0 ;;
-                    -c|--clean) CLEAN=1 ;;
+                    -h|--help|help) usage ; exit 0 ;;
                     *)
                         echo "unknown or incompatible arguments"
                         usage
@@ -424,8 +440,9 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    -h|--help)          usage ; exit 0 ;;
+                    -h|--help|help)      usage ; exit 0 ;;
                     -m|--model-approval) APPROVAL=1 ;;
+                    -g|--gpu)            GPU=1 ;;
                     *)
                         echo "unknown or incompatible arguments"
                         usage
@@ -441,8 +458,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    -h|--help)          usage ; exit 0 ;;
-                    -m|--model-approval) APPROVAL=1 ;;
+                    -h|--help|help) usage ; exit 0 ;;
                     *)
                         echo "unknown or incompatible arguments"
                         usage
@@ -458,7 +474,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    -h|--help)          usage ; exit 0 ;;
+                    -h|--help|help) usage ; exit 0 ;;
                     *)
                         echo "unknown or incompatible arguments"
                         usage
@@ -468,6 +484,9 @@ while (($# > 0)); do
                 shift
             done
             ;;
+
+        -h|--help|help) usage ; exit 0 ;;
+
         *)
             echo "unknown or incompatible option: $1"
             usage
