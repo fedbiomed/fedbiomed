@@ -201,7 +201,7 @@ class Round:
 
         # Testing Before Training ------------------------------------------------------------------------------------
         if not is_failed:
-            if self.testing_arguments.get('test_on_global_updates', False):
+            if self.testing_arguments.get('test_on_global_updates', False) is not False:
 
                 if self.model.testing_data_loader is not None:
                     try:
@@ -236,7 +236,7 @@ class Round:
 
         # Testing after training ------------------------------------------------------------------------------------
         if not is_failed:
-            if self.testing_arguments.get('test_on_local_updates', False):
+            if self.testing_arguments.get('test_on_local_updates', False) is not False:
 
                 if self.model.testing_data_loader is not None:
                     try:
@@ -244,14 +244,14 @@ class Round:
                                                    history_monitor=self.history_monitor,
                                                    before_train=True)
                     except FedbiomedError as e:
-                        logger.error(f"{ErrorNumbers.FB314}: During the testing phase on local parameter updates; "
+                        logger.error(f"{ErrorNumbers.FB314.value}: During the testing phase on local parameter updates; "
                                      f"{str(e)}")
                     except Exception as e:
                         logger.error(f"Undetermined error during the testing phase on local parameter updates"
                                      f"{e}")
 
                 else:
-                    logger.error(f"{ErrorNumbers.FB314}: Can not execute testing routine due to missing testing dataset"
+                    logger.error(f"{ErrorNumbers.FB314.value}: Can not execute testing routine due to missing testing dataset"
                              f"please make sure that test_ratio has been set correctly")
         # -----------------------------------------------------------------------------------------------------------
 
@@ -311,14 +311,13 @@ class Round:
         test_ratio = self.testing_arguments.get('test_ratio', 0)
         test_global_updates = self.testing_arguments.get('test_on_global_updates', False)
         test_local_updates = self.testing_arguments.get('test_on_local_updates', False)
-
+        print(self.testing_arguments)
         # Inform user about mismatch arguments settings
-        if test_ratio != 0 and (not test_local_updates or not test_global_updates):
-            logger.warning('There is no test activated for the round. Please set `test_on_global_updates`'
-                           ', `test_on_local_updates`, or both in the experiment. Splitting dataset for '
-                           'testing will be ignored')
+        if test_ratio != 0 and test_local_updates is False and test_global_updates is False:
+            logger.warning("There is no test activated for the round. Please set `test_on_global_updates`"
+                           ", `test_on_local_updates`, or both in the experiment. Testing won't be performed")
 
-        if test_ratio == 0 and not test_local_updates and not test_global_updates:
+        if test_ratio == 0 and (test_local_updates is False or test_global_updates is False):
             logger.warning('There is no test activated for the round. Please set flag for `test_on_global_updates`'
                            ', `test_on_local_updates`, or both. Splitting dataset for testing will be ignored')
 

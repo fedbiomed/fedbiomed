@@ -305,7 +305,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         if metric is None:
             metric = MetricTypes.ACCURACY
 
-        if self.testing_data_loader:
+        if self.testing_data_loader is None:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Can not find dataset for testing.")
 
         # Build metrics object
