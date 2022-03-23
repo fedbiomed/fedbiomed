@@ -22,39 +22,51 @@ usage() {
     #
     # print usage
     #
+    extra=$1
+
+    if [ -z "$extra" ]; then
+        return_code=0
+    else
+        return_code=0
+        echo "$extra"
+    fi
     echo "\
-Usage: ${0##*/} build [-c|--clean]
-       ${0##*/} clean
+Usage: ${0##*/} clean
+       ${0##*/} build [-c|--clean]  [CONTAINER..]
        ${0##*/} configure
-       ${0##*/} start [-m|--model-approval] [-g|--gpu]
+       ${0##*/} start [-g|--gpu]    [CONTAINER..]
        ${0##*/} status
-       ${0##*/} stop
+       ${0##*/} stop                [CONTAINER..]
 
 manage (local) docker containers with Wireguard VPN support
 (cannot use build / clean / configure / start / status / stop at same time)
 
-build                  build all containers
-
-  Optional with build:
-
-  -c|--clean           clean environments first
-                       (same as running ${0##*/} clean before build)
+for build/start/stop, a list of components may be given.
+Only these components will be affected by the command.
+il no CONTAINER is provided, all components will be considered.
+possible CONTAINER values: ${ALL_VPN_CONTAINERS[@]}
 
 clean                  clean everything
 
+build                  build container(s)
+                       - a list of container(s) may be given
+                       - else all containers are build
+  Optional with build:
+  -c|--clean           clean environments first
+                       (same as running ${0##*/} clean before build)
+
 configure              generate/modify configuration files
-                       (wireguard keys and @IP adresses)
+                       (wireguard keys and refresh @IP adresses)
+
+start                  start all containers
+                       - a list of container(s) may be given
+                       - else all containers are started
+  Optional with start:
+  -g|--gpu             GPU support option
 
 status                 give information on running containers
 
 stop                   stop  all containers
-
-start                  start all containers
-
-  Optional with start:
-
-  -m|--model-approval  enforce model approval in config files
-  -g|--gpu             GPU support option
 "
 }
 
@@ -131,8 +143,39 @@ find_my_ip() {
         ;;
     esac
     # just in case (never happends but I am paranoid)
-    return "127.0.0.1"
+    echo "127.0.0.1"
+    return
 }
+
+ONLY_CONTAINERS=()
+
+add_container() {
+    #
+    # deal with container names as arguments
+    #
+    container=$1
+
+    case $container in
+        vpnserver|mqtt|restful|researcher|node|gui)
+            # verify if container already in the list
+            found=0
+            for c in ${ONLY_CONTAINERS[@]}
+            do
+                if [ $c = $container ]; then
+                    found=1
+                    break
+                fi
+            done
+            if [ $found -eq 0 ]; then
+                ONLY_CONTAINERS+=("$container")
+            fi
+            ;;
+        *)
+            usage "unknown argument or incompatible argument"
+            ;;
+    esac
+}
+
 
 containers_stop() {
     echo "** Stopping docker VPN components"
@@ -179,6 +222,7 @@ containers_clean() {
         docker-compose rm -sf $i
         docker image rm -f fedbiomed/vpn-$i
         /bin/rm -rf ./$i/run_mounts/config/wireguard 2> /dev/null
+        [[ "$i" = "gui" ]] && { continue ; }
         git checkout $i/run_mounts/config/config.env
     done
 
@@ -324,7 +368,6 @@ containers_start() {
                 ;;
             *  ) CONTAINER=$i ;;
         esac
-        echo "** DEBUG: docker-compose up -d $CONTAINER"
         $RUNVARENV docker-compose up -d $CONTAINER
     done
 
@@ -360,17 +403,13 @@ START=0
 STOP=0
 NODE_NUMBER=1
 GPU=0
-APPROVAL=0
 
 #
 check_prerequisite
 
 # must provide at least an option
 if [ $# -eq 0 ]; then
-    echo "must provide an option"
-
-    usage
-    exit 1
+    usage "must provide an option"
 fi
 
 # arguments decoding
@@ -384,11 +423,7 @@ while (($# > 0)); do
                 case $1 in
                     -c|--clean)     CLEAN=1 ;;
                     -h|--help|help) usage ; exit 0 ;;
-                    *)
-                        echo "unknown or incompatible arguments"
-                        usage
-                        exit 1
-                        ;;
+                    *)              add_container $1;;
                 esac
                 shift
             done
@@ -400,11 +435,7 @@ while (($# > 0)); do
             while (($# > 0)); do
                 case $1 in
                     -h|--help|help) usage ; exit 0 ;;
-                    *)
-                        echo "unknown or incompatible arguments"
-                        usage
-                        exit 1
-                        ;;
+                    *)              add_container $1;;
                 esac
                 shift
             done
@@ -416,11 +447,7 @@ while (($# > 0)); do
             while (($# > 0)); do
                 case $1 in
                     -h|--help|help) usage ; exit 0 ;;
-                    *)
-                        echo "unknown or incompatible arguments"
-                        usage
-                        exit 1
-                        ;;
+                    *)              add_container $1;;
                 esac
                 shift
             done
@@ -433,13 +460,8 @@ while (($# > 0)); do
             while (($# > 0)); do
                 case $1 in
                     -h|--help|help)      usage ; exit 0 ;;
-                    -m|--model-approval) APPROVAL=1 ;;
                     -g|--gpu)            GPU=1 ;;
-                    *)
-                        echo "unknown or incompatible arguments"
-                        usage
-                        exit 1
-                        ;;
+                    *)                   add_container $1;;
                 esac
                 shift
             done
@@ -452,9 +474,7 @@ while (($# > 0)); do
                 case $1 in
                     -h|--help|help) usage ; exit 0 ;;
                     *)
-                        echo "unknown or incompatible arguments"
-                        usage
-                        exit 1
+                        usage "unknown or incompatible arguments"
                         ;;
                 esac
                 shift
@@ -468,9 +488,7 @@ while (($# > 0)); do
                 case $1 in
                     -h|--help|help) usage ; exit 0 ;;
                     *)
-                        echo "unknown or incompatible arguments"
-                        usage
-                        exit 1
+                        usage "unknown or incompatible arguments"
                         ;;
                 esac
                 shift
@@ -480,14 +498,11 @@ while (($# > 0)); do
         -h|--help|help) usage ; exit 0 ;;
 
         *)
-            echo "unknown or incompatible option: $1"
-            usage
-            exit 1
+            usage "unknown or incompatible option: $1"
             ;;
     esac
     shift
 done
-
 
 # start doing something usefull
 # -----------------------------
