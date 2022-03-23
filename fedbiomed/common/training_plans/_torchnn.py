@@ -320,7 +320,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 # If `testing_step` is defined in the TrainingPlan
                 if hasattr(self, 'testing_step'):
                     try:
-                        m_value = self.testing(target, pred)
+                        m_value = self.testing_step(target, pred)
                     except Exception as e:
                         # catch exception because we are letting the user design this
                         # `evaluation_step` method of the training plan
