@@ -16,7 +16,7 @@ from fedbiomed.common.utils import get_method_spec
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.constants import MetricTypes
+from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.metrics import Metrics
 from ._base_training_plan import BaseTrainingPlan
 

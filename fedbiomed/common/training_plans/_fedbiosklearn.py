@@ -19,9 +19,9 @@ from ._base_training_plan import BaseTrainingPlan
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
-from fedbiomed.common.constants import ProcessTypes, MetricTypes
+from fedbiomed.common.constants import ProcessTypes
 from fedbiomed.common.utils import get_method_spec
-from fedbiomed.common.metrics import Metrics
+from fedbiomed.common.metrics import Metrics, MetricTypes
 
 class _Capturer(list):
     """
