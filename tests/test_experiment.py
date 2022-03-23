@@ -797,13 +797,28 @@ class TestExperiment(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.test_exp.set_test_ratio(ratio_3_1)
 
-        ratio_3_2 = 2.1
-        with self.assertRaises(SystemExit):
-            self.test_exp.set_test_ratio(ratio_3_2)
+        # check good interval values
+        ratio_in  = 0
+        ratio_out = self.test_exp.set_test_ratio(ratio_in)
+        self.assertEqual(ratio_in, ratio_out)
 
-        ratio_3_2 = -0.1
-        with self.assertRaises(SystemExit):
-            self.test_exp.set_test_ratio(ratio_3_2)
+        ratio_in  = 0.0
+        ratio_out = self.test_exp.set_test_ratio(ratio_in)
+        self.assertEqual(ratio_in, ratio_out)
+
+        ratio_in  = 1
+        ratio_out = self.test_exp.set_test_ratio(ratio_in)
+        self.assertEqual(ratio_in, ratio_out)
+
+        ratio_in  = 1.0
+        ratio_out = self.test_exp.set_test_ratio(ratio_in)
+        self.assertEqual(ratio_in, ratio_out)
+
+        # check bag values
+        for ratio in ( -1, -1.0, 2, 2.0):
+            with self.assertRaises(SystemExit):
+                self.test_exp.set_test_ratio(ratio)
+
 
     def test_experiment_16_set_test_metric(self):
         """
