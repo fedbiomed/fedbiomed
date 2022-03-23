@@ -9,8 +9,7 @@ app = Flask(__name__, static_folder=build_dir)
 
 # Configure Flask app
 db_prefix = os.getenv('DB_PREFIX', 'db_')
-docker_status = os.getenv('DOCKER', 'False').lower() in ('true', '1')
-config = Config(docker_status=docker_status)
+config = Config()
 app.config.update(config.generate_config())
 
 

@@ -5,14 +5,14 @@ TrainingPlan definition for sklearn ML framework
 from io import StringIO
 from joblib import dump, load
 import sys
-from typing import Union, Callable
+from typing import Union, Tuple, Callable, Optional
 
 import numpy as np
 
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
 
-from fedbiomed.common.metrics import Metrics
+
 
 from ._base_training_plan import BaseTrainingPlan
 
@@ -21,7 +21,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.constants import ProcessTypes, MetricTypes
 from fedbiomed.common.utils import get_method_spec
-
+from fedbiomed.common.metrics import Metrics
 
 class _Capturer(list):
     """
@@ -232,7 +232,14 @@ class SGDSkLearnModel(BaseTrainingPlan):
     def training_routine(self,
                          epochs=1,
                          history_monitor=None,
-                         node_args: Union[dict, None] = None):
+                         node_args: Union[dict, None] = None,
+                         test_ratio: float = .0,
+                         test_metric: Optional[str] = None,
+                         test_metric_args: dict = {},
+                         test_on_global_updates: bool = False,
+                         test_on_local_updates: bool = False,):
+        # FIXME: remove parameters specific for testing specified in the
+        # training routine
         """
         Method training_routine called in Round, to change only if you know what you are doing.
 

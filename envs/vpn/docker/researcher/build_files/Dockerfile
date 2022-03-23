@@ -1,5 +1,10 @@
 FROM fedbiomed/vpn-base
 
+# jupyter notebook
+EXPOSE 8888
+# tensorboard via socat proxy, should be exposed as 6006
+EXPOSE 6007
+
 ARG CONTAINER_GID
 ARG CONTAINER_UID
 ARG CONTAINER_GROUP
@@ -13,7 +18,7 @@ ENV CONTAINER_GID=${CONTAINER_GID:-root}
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
-RUN apt-get update && apt-get install -y apt-utils wget
+RUN apt-get update && apt-get install -y apt-utils wget socat
 
 RUN [ "$CONTAINER_GROUP" != 'root' ] && groupadd -g $CONTAINER_GID $CONTAINER_GROUP || :
 RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
@@ -30,9 +35,9 @@ ENV PATH=${PATH}:/miniconda/bin
 
 COPY ./envs/vpn/docker/researcher/build_files/entrypoint.sh /
 # Setup subset of fedbiomed code tree
-RUN mkdir /fedbiomed
+RUN mkdir -p /fedbiomed/envs /data
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
-COPY envs /fedbiomed/envs
+COPY envs/vpn /fedbiomed/envs/vpn
 COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
 COPY notebooks /fedbiomed/notebooks

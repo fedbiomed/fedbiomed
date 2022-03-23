@@ -180,11 +180,12 @@ class Monitor:
         """
 
         for file in os.listdir(self._log_dir):
-            rf = os.path.join(self._log_dir, file)
-            if os.path.isdir(rf):
-                shutil.rmtree(rf)
-            elif os.path.isfile(rf):
-                os.remove(rf)
+            if not file.startswith('.'):  # do not want to remove dotfiles
+                rf = os.path.join(self._log_dir, file)
+                if os.path.isdir(rf):
+                    shutil.rmtree(rf)
+                elif os.path.isfile(rf):
+                    os.remove(rf)
 
     def _log_metric_result(self, message: Dict, cum_iter: int = 0):
         """

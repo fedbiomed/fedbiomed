@@ -71,6 +71,14 @@ su -c "export PATH=${PATH} ; eval $(conda shell.bash hook) ; \
     conda activate fedbiomed-researcher ; cd notebooks ; \
     jupyter notebook --ip=0.0.0.0 --no-browser --NotebookApp.token='' " $CONTAINER_USER &
 
+# proxy port for TensorBoard
+# enables launching TB without `--host` option (thus listening only on `localhost`)
+# + `watch` for easy respawn in case of failure
+    while true ; do \
+        socat TCP-LISTEN:6007,fork,reuseaddr,su=$CONTAINER_USER TCP4:127.0.0.1:6006 ; \
+        sleep 1 ; \
+    done &
+
 sleep infinity &
 
 wait $!
