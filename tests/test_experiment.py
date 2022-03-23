@@ -760,41 +760,39 @@ class TestExperiment(unittest.TestCase):
         # action
         self.test_exp.clean_training_args()
 
-        self.assertNotIn(some_training_args, self.test_exp.training_args())
+        self.assertNotIn(list(some_training_args.keys()), list(self.test_exp.training_args().keys()))
 
     def test_experiment_15_set_test_ratio(self):
         """
         Tests test_ratio setter `set_test_ratio`, correct uses and
         Exceptions
         """
-        # case 1: add test_ratio when federated_dataset is not defined
-        ratio_1 = .2
-        self.test_exp.set_test_ratio(ratio_1)
+        # case 1
+        # add test_ratio when federated_dataset is not defined
+        ratio_1_1 = .2
+        self.test_exp.set_test_ratio(ratio_1_1)
 
         # get training data 
         training_data_1 = self.test_exp.training_args()
-        self.assertEqual(training_data_1.get('test_ratio'), ratio_1)
+        self.assertEqual(training_data_1.get('test_ratio'), ratio_1_1)
 
-        # case 2: add test_ratio when federated dataset is defined
-        ratio_2_1 = .4
-        ratio_2_2 = .5
-        fed_dataset = FederatedDataSet({'node-id': [{'dataset_id': 'dataset', 'shape': [200, 300]}]})
-        self.test_exp.set_training_data(fed_dataset)
-        training_data_2_1 = self.test_exp.training_args()
-        self.assertEqual(training_data_2_1.get('test_ratio'), ratio_2_1)
-        self.assertEqual(training_data_2_1.get('test_on_global_updates'),
-                         self.test_exp.test_on_global_updates())
+        # changing the value of `test_ratio`
+        ratio_1_2 = .4
 
-        self.assertEqual(training_data_2_1.get('test_on_local_updates'),
-                         self.test_exp.test_on_local_updates())
-        self.test_exp.set_test_ratio(ratio_2_2)
-        training_data_2_2 = self.test_exp.training_args()
-        updated_fed_dataset = self.test_exp.training_data()
-        self.assertEqual(training_data_2_2.get('test_ratio'), ratio_2_2)
-        self.assertEqual(updated_fed_dataset.data()['node-id'][0].get('test_ratio'),
-                         ratio_2_2)
+        self.test_exp.set_test_ratio(ratio_1_2)
+        self.assertEqual(self.test_exp._training_args.get('test_ratio'), ratio_1_2)
 
-        # case 3: bad test_ratio values (trigger SystemExit exception)
+        # case 2: setting a Job and a test_ratio afterwards
+        self.test_exp._model_is_defined = True
+        self.test_exp.set_model_class = TestExperiment.FakeModelTorch
+        self.test_exp.set_job()
+        ratio_2 = .8
+        
+        self.test_exp.set_test_ratio(ratio_2)
+        
+        self.assertEqual(self.test_exp._job._training_args.get('test_ratio'), ratio_2)
+
+        # case 3: bad test_ratio values (triggers SystemExit exception)
         # 3.1 : test_ratio type is not correct
         # 3.2 : test_ratio is a float not whithin [0;1] interval
         ratio_3_1 = "some value"
@@ -1362,8 +1360,7 @@ class TestExperiment(unittest.TestCase):
         final_tags = self.tags
         final_experimentation_folder = experimentation_folder
         final_training_data = {'train_node1': [{'name': 'my_first_dataset',
-                                                '2': 243,
-                                                'test_ratio': .0}]}
+                                                '2': 243}]}
         final_training_args = {'1': 'my_first arg', 'training_arg2': 123.45}
         final_aggregator = {'aggreg1': False, 'aggreg2': 'dummy_agg_param', '18': 'agg_param18'}
         final_strategy = {'strat1': 'test_strat_param', 'strat2': 421, '3': 'strat_param3'}

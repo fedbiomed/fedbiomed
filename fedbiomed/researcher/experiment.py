@@ -1505,9 +1505,9 @@ class Experiment(object):
                 test_after = True
             else:
                 test_after = False
-            
+
             increment = self.run_once(increase=False, test_after=test_after)
-            
+
             if increment == 0:
                 # should not happen
                 msg = ErrorNumbers.FB400.value + \
@@ -1748,7 +1748,7 @@ class Experiment(object):
         # in Experiment.__init__() applying some type checks.
         # More checks to verify the structure/content of saved_state.get('training_data')
         # should be added in FederatedDataSet.__init__() when refactoring it
-
+        bkpt_fds = FederatedDataSet(bkpt_fds)
         # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
 
