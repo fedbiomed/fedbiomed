@@ -15,8 +15,9 @@ class FederatedDataSet:
     aggregating or sampling strategies on researcher's side
     """
     def __init__(self, data: Dict):
+
         """
-        simple constructor
+        Constructor
         """
         self._data = data
 
@@ -27,7 +28,6 @@ class FederatedDataSet:
         Returns:
             Dict: Dict of federated datasets, keys as node ids
         """
-
         return self._data
 
     def node_ids(self) -> List[uuid.UUID]:

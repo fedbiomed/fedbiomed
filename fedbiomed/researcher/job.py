@@ -278,7 +278,7 @@ class Job:
         return responses
 
 
-    """ This method should change in sprint8 or as soon as we implement other
+    """ This method should change in the future or as soon as we implement other
     kind of strategies different than DefaultStrategy"""
     def waiting_for_nodes(self, responses: Responses) -> bool:
         """
@@ -299,19 +299,22 @@ class Job:
 
         return not nodes_done == set(self._nodes)
 
-    def start_nodes_training_round(self, round: int):
+    def start_nodes_training_round(self, round: int, do_training: bool = True):
         """
         this method sends training task to nodes and waits for the responses
         Args:
-            round (int): current number of round the algorithm is performing
-            (a round is considered to be all the
-            training steps of a federated model between 2 aggregations).
+            - round (int): current number of round the algorithm is performing
+              (a round is considered to be all the
+              training steps of a federated model between 2 aggregations).
+            - do_training (bool, optional): if False, skip training in this round
+              (do only testing/evaluation). Defaults to True.
 
         """
         headers = {
             'researcher_id': self._researcher_id,
             'job_id': self._id,
             'training_args': self._training_args,
+            'training': do_training,
             'model_args': self._model_args,
             'command': 'train'
         }
@@ -618,6 +621,12 @@ class localJob:
         self._localjob_training_args = training_args
         self._model_args = model_args
         self.dataset_path = dataset_path
+
+        if training_args is not None:
+            if training_args.get('test_on_local_updates', False) \
+                    or training_args.get('test_on_global_updates', False):
+                # if user wants to perform testing, display this message
+                logger.warning("Cannot perform testing, not supported for LocalJob")
 
         # handle case when model is in a file
         if model_path is not None:
