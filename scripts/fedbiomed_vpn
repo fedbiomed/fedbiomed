@@ -34,14 +34,14 @@ usage() {
 Usage: ${0##*/} clean
        ${0##*/} build [-c|--clean]  [CONTAINER..]
        ${0##*/} configure
-       ${0##*/} start [-g|--gpu]    [CONTAINER..]
+       ${0##*/} start [-g|--gpu]
        ${0##*/} status
-       ${0##*/} stop                [CONTAINER..]
+       ${0##*/} stop
 
 manage (local) docker containers with Wireguard VPN support
 (cannot use build / clean / configure / start / status / stop at same time)
 
-for build/start/stop, a list of components may be given.
+for build, a list of components may be given.
 Only these components will be affected by the command.
 il no CONTAINER is provided, all components will be considered.
 possible CONTAINER values: ${ALL_VPN_CONTAINERS[@]}
@@ -49,8 +49,7 @@ possible CONTAINER values: ${ALL_VPN_CONTAINERS[@]}
 clean                  clean everything
 
 build                  build container(s)
-                       - a list of container(s) may be given
-                       - else all containers are build
+
   Optional with build:
   -c|--clean           clean environments first
                        (same as running ${0##*/} clean before build)
@@ -58,11 +57,10 @@ build                  build container(s)
 configure              generate/modify configuration files
                        (wireguard keys and refresh @IP adresses)
 
-start                  start all containers
-                       - a list of container(s) may be given
-                       - else all containers are started
+start                  start container(s)
+
   Optional with start:
-  -g|--gpu             GPU support option
+  -g|--gpu             GPU support option (used for node container)
 
 status                 give information on running containers
 
@@ -281,11 +279,26 @@ containers_build() {
     echo "** Building docker VPN images"
     cd "$basedir/envs/vpn/docker"
 
-    echo "- building base components"
-    CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
-    CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode
+    BUILD_BASE=0
+    BUILD_NODEBASE=0
+    for i in ${ONLY_CONTAINERS[@]}
+    do
+        case $i in
+            vpnserver|researcher) BUILD_BASE=1;;
+            node)                 BUILD_NODEBASE=1;;
+        esac
+    done
 
-    for i in ${ALL_VPN_CONTAINERS[@]}
+    if [ $BUILD_BASE -eq 1 ]; then
+        echo "- building base components"
+        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
+    fi
+    if [ $BUILD_NODEBASE -eq 1 ]; then
+        echo "- building nodebase components"
+        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode
+    fi
+
+    for i in ${ONLY_CONTAINERS[@]}
     do
         echo "- building $i container"
         CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build $i
@@ -435,7 +448,7 @@ while (($# > 0)); do
             while (($# > 0)); do
                 case $1 in
                     -h|--help|help) usage ; exit 0 ;;
-                    *)              add_container $1;;
+                    *) usage "unknown or incompatible arguments" ;;
                 esac
                 shift
             done
@@ -447,7 +460,7 @@ while (($# > 0)); do
             while (($# > 0)); do
                 case $1 in
                     -h|--help|help) usage ; exit 0 ;;
-                    *)              add_container $1;;
+                    *) usage "unknown or incompatible arguments" ;;
                 esac
                 shift
             done
@@ -461,7 +474,7 @@ while (($# > 0)); do
                 case $1 in
                     -h|--help|help)      usage ; exit 0 ;;
                     -g|--gpu)            GPU=1 ;;
-                    *)                   add_container $1;;
+                    *) usage "unknown or incompatible arguments" ;;
                 esac
                 shift
             done
@@ -473,9 +486,7 @@ while (($# > 0)); do
             while (($# > 0)); do
                 case $1 in
                     -h|--help|help) usage ; exit 0 ;;
-                    *)
-                        usage "unknown or incompatible arguments"
-                        ;;
+                    *) usage "unknown or incompatible arguments" ;;
                 esac
                 shift
             done
@@ -487,9 +498,7 @@ while (($# > 0)); do
             while (($# > 0)); do
                 case $1 in
                     -h|--help|help) usage ; exit 0 ;;
-                    *)
-                        usage "unknown or incompatible arguments"
-                        ;;
+                    *) usage "unknown or incompatible arguments" ;;
                 esac
                 shift
             done
@@ -497,12 +506,15 @@ while (($# > 0)); do
 
         -h|--help|help) usage ; exit 0 ;;
 
-        *)
-            usage "unknown or incompatible option: $1"
-            ;;
+        *) usage "unknown or incompatible option: $1";;
     esac
     shift
 done
+
+# if no container on command line, use all of them
+if [ ${#ONLY_CONTAINERS[@]} -eq 0 ]; then
+    ONLY_CONTAINERS=(${ALL_VPN_CONTAINERS[@]})
+fi
 
 # start doing something usefull
 # -----------------------------
