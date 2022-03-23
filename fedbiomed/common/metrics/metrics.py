@@ -1,7 +1,8 @@
-from sklearn import metrics
-import torch
 import numpy as np
 
+from typing import Union
+from sklearn import metrics
+from copy import copy
 from fedbiomed.common.constants import MetricTypes, MetricForms, ErrorNumbers
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedMetricError
@@ -32,8 +33,8 @@ class Metrics(object):
         }
 
     def evaluate(self,
-                 y_true: np.ndarray,
-                 y_pred: np.ndarray,
+                 y_true: Union[np.ndarray, list],
+                 y_pred: Union[np.ndarray, list],
                  metric: MetricTypes,
                  **kwargs):
         """
@@ -55,11 +56,11 @@ class Metrics(object):
         if not isinstance(metric, MetricTypes):
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Metric should instance of `MetricTypes`")
 
-        if y_true is not None and not isinstance(y_true, np.ndarray):
+        if y_true is not None and not isinstance(y_true, (np.ndarray, list)):
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_true` should an instance "
                                        f"of `np.ndarray`, but got {type(y_true)} ")
 
-        if y_pred is not None and not isinstance(y_pred, np.ndarray):
+        if y_pred is not None and not isinstance(y_pred, (np.ndarray, list)):
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_pred` should an instance "
                                        f"of `np.ndarray`, but got {type(y_true)} ")
 
@@ -70,8 +71,8 @@ class Metrics(object):
         return result
 
     @staticmethod
-    def accuracy(y_true: np.ndarray,
-                 y_pred: np.ndarray,
+    def accuracy(y_true: Union[np.ndarray, list],
+                 y_pred: Union[np.ndarray, list],
                  **kwargs):
         """
         Evaluate the accuracy score
@@ -95,8 +96,8 @@ class Metrics(object):
             raise FedbiomedMetricError(msg)
 
     @staticmethod
-    def precision(y_true: np.ndarray,
-                  y_pred: np.ndarray,
+    def precision(y_true: Union[np.ndarray, list],
+                  y_pred: Union[np.ndarray, list],
                   **kwargs):
         """
         Evaluate the precision score
@@ -139,8 +140,8 @@ class Metrics(object):
         return
 
     @staticmethod
-    def recall(y_true: np.ndarray,
-               y_pred: np.ndarray,
+    def recall(y_true: Union[np.ndarray, list],
+               y_pred: Union[np.ndarray, list],
                **kwargs):
         """
         Evaluate the recall.
@@ -180,8 +181,8 @@ class Metrics(object):
                                        f"calculation: {str(e)}")
 
     @staticmethod
-    def f1_score(y_true: np.ndarray,
-                 y_pred: np.ndarray,
+    def f1_score(y_true: Union[np.ndarray, list],
+                 y_pred: Union[np.ndarray, list],
                  **kwargs):
         """
         Evaluate the F1 score.
@@ -205,24 +206,19 @@ class Metrics(object):
         """
 
         # Check target variable is multi class or binary
-        if len(np.unique(y_true)) > 2:
-            average = kwargs.get('average', 'weighted')
-            logger.info(f'Actual/True values (y_true) has more than two levels, using multiclass `{average}` '
-                        f'calculation for the metric F1 SCORE')
-        else:
-            average = kwargs.get('average', 'binary')
+        average, pos_label = Metrics._configure_multiclass_parameters(y_true, y_pred, kwargs, 'F1_SCORE')
 
-        # Remove `average` parameter from **kwargs
         kwargs.pop("average", None)
+        kwargs.pop("pos_label", None)
 
         try:
-            return metrics.f1_score(y_true, y_pred, average=average, **kwargs)
+            return metrics.f1_score(y_true, y_pred, average=average, pos_label=pos_label, **kwargs)
         except Exception as e:
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `F1_SCORE` {str(e)}")
 
     @staticmethod
-    def mse(y_true: np.ndarray,
-            y_pred: np.ndarray,
+    def mse(y_true: Union[np.ndarray, list],
+            y_pred: Union[np.ndarray, list],
             **kwargs):
         """
         Evaluate the mean squared error.
@@ -246,8 +242,8 @@ class Metrics(object):
                                        f" {str(e)}")
 
     @staticmethod
-    def mae(y_true: np.ndarray,
-            y_pred: np.ndarray,
+    def mae(y_true: Union[np.ndarray, list],
+            y_pred: Union[np.ndarray, list],
             **kwargs):
         """
         Evaluate the mean absolute error.
@@ -269,8 +265,8 @@ class Metrics(object):
                                        f" {str(e)}")
 
     @staticmethod
-    def explained_variance(y_true: np.ndarray,
-                           y_pred: np.ndarray,
+    def explained_variance(y_true: Union[np.ndarray, list],
+                           y_pred: Union[np.ndarray, list],
                            **kwargs):
         """
         Evaluate the accuracy score.
@@ -292,8 +288,8 @@ class Metrics(object):
                                        f" {str(e)}")
 
     @staticmethod
-    def _configure_y_true_pred_(y_true: np.ndarray,
-                                y_pred: np.ndarray,
+    def _configure_y_true_pred_(y_true: Union[np.ndarray, list],
+                                y_pred: Union[np.ndarray, list],
                                 metric: MetricTypes):
         """
         Method for configuring y_true and y_pred array to make them compatible for metric functions. It
@@ -330,8 +326,14 @@ class Metrics(object):
 
         if metric.metric_form() is MetricForms.CLASSIFICATION_LABELS:
             if output_shape_y_pred == 0 and output_shape_y_true == 0:
-                # TODO: Get threshold value from researcher
-                y_pred = np.where(y_pred > 0.5, 1, 0)
+                # If y_pred contains labels as integer, do not use threshold cut
+                if sum(y_pred) != sum([round(i) for i in y_pred]):
+                    y_pred = np.where(y_pred > 0.5, 1, 0)
+
+                if sum(y_true) != sum([round(i) for i in y_true]):
+                    raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: True values are continuous, "
+                                               f"classification metrics can't handle a mix of continuous and "
+                                               f"binary targets")
 
             # If y_true is one 2D array and y_pred is 1D array
             # Example: y_true: [ [0,1], [1,0]] | y_pred : [0.1, 0.5]
@@ -374,3 +376,22 @@ class Metrics(object):
             return True if isinstance(list_[0], str) else False
         else:
             return True if isinstance(list_[0][0], str) else False
+
+    @staticmethod
+    def _configure_multiclass_parameters(y_pred, y_true, parameters, metric):
+
+        average = parameters.get('average', 'binary')
+        pos_label = parameters.get('pos_label', 1)
+        # Check target variable is multi class or binary
+        if len(np.unique(y_true)) > 2:
+            average = parameters.get('average', 'weighted')
+            logger.info(f'Actual/True values (y_true) has more than two levels, using multiclass `{average}` '
+                        f'calculation for the metric {metric}')
+
+        else:
+            average = parameters.get('average', 'binary')
+            # Alphabetically select first label as pos_label
+            y_true_copy = copy(y_true).sort()
+            pos_label = y_true_copy[0] if isinstance(y_true[0], str) else parameters.get('pos_label', 1)
+
+        return average, pos_label

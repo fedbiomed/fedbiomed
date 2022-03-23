@@ -1,12 +1,12 @@
 import os
 import sys
 import unittest
-import fedbiomed.common.training_plans._base_training_plan
+import fedbiomed.common.training_plans._base_training_plan # noqa
 
 from unittest.mock import patch, MagicMock
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.constants import ProcessTypes
-from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
+from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan  # noqa
 
 
 class TestBaseTrainingPlan(unittest.TestCase):
