@@ -342,6 +342,14 @@ class SGDSkLearnModel(BaseTrainingPlan):
               without training. Otherwise, after training.
 
         """
+
+        # Use accuracy as default metric
+        if metric is None:
+            metric = MetricTypes.ACCURACY
+
+        if self.testing_data_loader is None:
+            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Can not find dataset for testing.")
+
         # Check testing data loader is exists
         data, target = self.testing_data_loader
 
