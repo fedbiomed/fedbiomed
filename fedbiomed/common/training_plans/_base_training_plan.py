@@ -4,6 +4,7 @@ all training plans
 """
 
 import numpy as np
+import torch
 
 from collections import OrderedDict
 from typing import Tuple, Dict, List, Callable, Union
@@ -158,7 +159,15 @@ class BaseTrainingPlan(object):
         """
         Base function to create metric dictionary
         """
+        # if the result is a tensor, convert it back to numpy
+        if isinstance(metric, torch.tensor):
+            metric = metric.numpy()[0]
+            metric = float(metric)
 
+        # if metric is an numpy integer (not recognized as an int by python)
+        if isinstance(metric, np.integer):
+            # convert nupy integer to a plain python integer
+            metric = int(metric)
         # If it is single int/float metric value
         if isinstance(metric, (int, float)) and not isinstance(metric, bool):
             return {metric_name: metric}

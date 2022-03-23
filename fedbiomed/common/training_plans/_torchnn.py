@@ -473,8 +473,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         argspec = get_method_spec(method)
         if len(argspec) != 1:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Process for type "
-                                             f"`PreprocessType.DATA_LOADER` should have only one "
-                                             f"argument/parameter")
+                                             "`PreprocessType.DATA_LOADER` should have only one "
+                                             "argument/parameter")
 
         try:
             data_loader = self.preprocess(self.training_data_loader)
