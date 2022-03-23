@@ -69,6 +69,19 @@ class TestMetrics(unittest.TestCase):
         result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
         self.assertEqual(result, 1, 'Binary: Could not calculate Precision correctly')
 
+        # Test both are 1D array with labels as string
+        y_true = ['0', '1', '2', '1']
+        y_pred = ['0', '1', '2', '1']
+        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+        self.assertEqual(result, 1, 'Binary: Could not calculate Accuracy correctly')
+        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
+        self.assertEqual(result, 1, 'Binary: Could not calculate F1 Score correctly')
+        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
+        self.assertEqual(result, 1, 'Binary: Could not calculate Recall correctly')
+        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
+        self.assertEqual(result, 1, 'Binary: Could not calculate Precision correctly')
+
+
         # Test y_true is 2D array and y_pred 1D array with num labels
         y_true = [[1, 0], [0, 1], [1, 0], [0, 1]]
         y_pred = [0, 1, 0, 1]

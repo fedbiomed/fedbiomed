@@ -120,19 +120,13 @@ class Metrics(object):
         """
 
         # Check target variable is multi class or binary
-        if len(np.unique(y_true)) > 2:
-            average = kwargs.get('average', 'weighted')
-            logger.info(f'Actual/True values (y_true) has more than two levels, using multiclass `{average}` '
-                        f'calculation for the metric PRECISION')
-        elif len(np.unique(y_true)) == 2:
-            average = kwargs.get('average', 'binary')
+        average, pos_label = Metrics._configure_multiclass_parameters(y_true, kwargs, 'PRECISION')
 
-        else:
-            raise FedbiomedMetricError("Cannot compute metric: only one class is provided")
-        # Remove `average` parameter from **kwargs
         kwargs.pop("average", None)
+        kwargs.pop("pos_label", None)
+
         try:
-            return metrics.precision_score(y_true, y_pred, average=average, **kwargs)
+            return metrics.precision_score(y_true, y_pred, average=average, pos_label=pos_label, **kwargs)
         except Exception as e:
             print(e)
             msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
@@ -163,19 +157,13 @@ class Metrics(object):
             sample_weight=None, zero_division='warn')
             recall (float (if average is not None) or array of float of shape (n_unique_labels,))
         """
-        # Check target variable is multi class or binary
-        if len(np.unique(y_true)) > 2:
-            average = kwargs.get('average', 'weighted')
-            logger.info(f'Actual/True values (y_true) has more than two levels, using multiclass `{average}` '
-                        f'calculation for the metric RECALL')
-        else:
-            average = kwargs.get('average', 'binary')
+        average, pos_label = Metrics._configure_multiclass_parameters(y_true, kwargs, 'RECALL')
 
-        # Remove `average` parameter from **kwargs
         kwargs.pop("average", None)
+        kwargs.pop("pos_label", None)
 
         try:
-            return metrics.recall_score(y_true, y_pred, average=average, **kwargs)
+            return metrics.recall_score(y_true, y_pred, average=average, pos_label=pos_label, **kwargs)
         except Exception as e:
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `RECALL` "
                                        f"calculation: {str(e)}")
@@ -206,7 +194,7 @@ class Metrics(object):
         """
 
         # Check target variable is multi class or binary
-        average, pos_label = Metrics._configure_multiclass_parameters(y_true, y_pred, kwargs, 'F1_SCORE')
+        average, pos_label = Metrics._configure_multiclass_parameters(y_true, kwargs, 'F1_SCORE')
 
         kwargs.pop("average", None)
         kwargs.pop("pos_label", None)
@@ -378,7 +366,7 @@ class Metrics(object):
             return True if isinstance(list_[0][0], str) else False
 
     @staticmethod
-    def _configure_multiclass_parameters(y_pred, y_true, parameters, metric):
+    def _configure_multiclass_parameters(y_true, parameters, metric):
 
         average = parameters.get('average', 'binary')
         pos_label = parameters.get('pos_label', 1)
@@ -391,7 +379,8 @@ class Metrics(object):
         else:
             average = parameters.get('average', 'binary')
             # Alphabetically select first label as pos_label
-            y_true_copy = copy(y_true).sort()
+            y_true_copy = copy(y_true)
+            y_true_copy.copy()
             pos_label = y_true_copy[0] if isinstance(y_true[0], str) else parameters.get('pos_label', 1)
 
         return average, pos_label
