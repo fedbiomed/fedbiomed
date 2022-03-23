@@ -2,7 +2,6 @@
 Implements the message exchanges from researcher to nodes
 """
 
-
 import json
 import tabulate
 from time import sleep
@@ -26,6 +25,7 @@ class Requests(metaclass=SingletonMeta):
     This class represents the requests addressed from Researcher to nodes.
     It creates a task queue storing reply to each incoming message.
     """
+
     def __init__(self, mess: Any = None):
         """
         Starts a message queue and reconfigures  message to be sent
@@ -54,14 +54,13 @@ class Requests(metaclass=SingletonMeta):
 
         self._monitor_message_callback = None
 
-
     def get_messaging(self) -> Messaging:
         """
         returns the messaging object
         """
-        return(self.messaging)
+        return (self.messaging)
 
-    def on_message(self, msg: Dict[str, Any] , topic: str):
+    def on_message(self, msg: Dict[str, Any], topic: str):
         """
         This handler is called by the Messaging class (Messager),
         when a message is received on researcher side.
@@ -95,7 +94,6 @@ class Requests(metaclass=SingletonMeta):
         else:
             logger.error("message received on wrong topic (" + topic + ") - IGNORING")
 
-
     def print_node_log_message(self, log: Dict[str, Any]):
         """
         print logger messages coming from the node
@@ -110,12 +108,13 @@ class Requests(metaclass=SingletonMeta):
         # instead of the json method when extracting json message
         original_msg = json.loads(log["msg"])
 
-        logger.info("log from: " +
-                    log["node_id"] +
-                    " / " +
-                    log["level"] +
-                    " - " +
-                    original_msg["message"])
+        # Loging fancy feedback for training
+        logger.info("\033[1m{} FROM NODE\033[0m {}\n"
+                    "\033[1mMESSAGE:\033[0m \n{}\033[0m\n"
+                    "{}".format(log["level"],
+                                log["node_id"],
+                                original_msg["message"],
+                                5 * '--------'))
 
     def send_message(self, msg: dict, client=None):
         """
@@ -157,7 +156,7 @@ class Requests(metaclass=SingletonMeta):
                 self.queue.task_done()
 
                 if not commands or \
-                   ('command' in item.keys() and item['command'] in commands):
+                        ('command' in item.keys() and item['command'] in commands):
                     answers.append(item)
                 else:
                     # currently trash all other messages
@@ -287,7 +286,7 @@ class Requests(metaclass=SingletonMeta):
                 self.messaging.send_message(
                     ResearcherMessages.request_create({'researcher_id': environ['RESEARCHER_ID'],
                                                        "command": "list"}
-                                                      ).get_dict() ,
+                                                      ).get_dict(),
                     client=node)
             logger.info(f'Listing datasets of given list of nodes : {nodes}')
         else:
@@ -307,13 +306,13 @@ class Requests(metaclass=SingletonMeta):
         # Print dataset tables usong data_found object
         if verbose:
             for node in data_found:
-                if len(data_found[node]) > 0 :
+                if len(data_found[node]) > 0:
                     rows = [row.values() for row in data_found[node]]
                     headers = data_found[node][0].keys()
-                    info = '\n Node: {} | Number of Datasets: {} \n'.format( node, len(data_found[node]))
+                    info = '\n Node: {} | Number of Datasets: {} \n'.format(node, len(data_found[node]))
                     logger.info(info + tabulate.tabulate(rows, headers, tablefmt="grid") + '\n')
                 else:
-                    logger.info('\n Node: {} | Number of Datasets: {}'.format( node, len(data_found[node])) +
+                    logger.info('\n Node: {} | Number of Datasets: {}'.format(node, len(data_found[node])) +
                                 " No data has been set up for this node.")
 
         return data_found
