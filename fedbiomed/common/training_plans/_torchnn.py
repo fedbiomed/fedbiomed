@@ -2,8 +2,7 @@
 TrainingPlan definition for torchnn ML framework
 '''
 
-
-from typing import Union, Callable
+from typing import Optional, Union, Callable
 from copy import deepcopy
 
 import torch
@@ -161,12 +160,19 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          lr: Union[int, float] = 1e-3,
                          batch_size: int = 48,
                          batch_maxnum: int = 0,
+                         test_ratio: float = .0,
+                         test_metric: Optional[str] = None, 
+                         test_metric_args: dict = {},
+                         test_on_global_updates: bool = False,
+                         test_on_local_updates: bool = False, 
                          dry_run: bool = False,
                          use_gpu: Union[bool, None] = None,
                          fedprox_mu=None,
                          history_monitor=None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
+        # FIXME 2: remove parameters specific for testing specified in the
+        # training routine
         """
         Training routine procedure.
 

@@ -521,7 +521,8 @@ class TestNode(unittest.TestCase):
             'job_id': 'job_id_1234',
             'researcher_id': 'researcher_id_1234',
             'command': 'train',
-            'training_data': {environ['NODE_ID']: ['dataset_id_1234']}
+            'training_data': {environ['NODE_ID']: ['dataset_id_1234']},
+            'training': True
         }
         # we convert this dataset into a string
         incoming_msg = json.dumps(dict_msg_1_dataset)
@@ -559,6 +560,7 @@ class TestNode(unittest.TestCase):
         dict_msg_1_dataset = {
             "model_args": {"lr": 0.1},
             "training_args": {"some_value": 1234},
+            "training": True,
             "model_url": "https://link.to.somewhere.where.my.model",
             "model_class": "my_test_training_plan",
             "params_url": "https://link.to_somewhere.where.my.model.parameters.is",
