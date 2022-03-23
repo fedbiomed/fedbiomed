@@ -364,6 +364,7 @@ class TrainRequest(Message):
     params_url: str
     training_args: dict
     training_data: dict
+    training: bool
     model_args: dict
     model_url: str
     model_class: str

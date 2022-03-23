@@ -10,8 +10,8 @@ import json
 
 from typing import Union
 
-from fedbiomed.common.constants import ErrorNumbers, MetricTypes
-
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.metrics import MetricTypes
 
 def deserialize_msg(msg: Union[str, bytes]) -> dict:
     """

@@ -3,10 +3,40 @@ import numpy as np
 from typing import Union
 from sklearn import metrics
 from copy import copy
-from fedbiomed.common.constants import MetricTypes, MetricForms, ErrorNumbers
+from fedbiomed.common.constants import _BaseEnum, ErrorNumbers
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedMetricError
 
+
+class _MetricCategory(_BaseEnum):
+
+    CLASSIFICATION_LABELS = 0  # return labels
+    CLASSIFICATION_SCORES = 1  # return proba
+    REGRESSION = 2
+
+
+class MetricTypes(_BaseEnum):
+    """
+    List of Performance metrics used to evaluate the model.
+    """
+
+    ACCURACY = (0, _MetricCategory.CLASSIFICATION_LABELS)
+    F1_SCORE = (1, _MetricCategory.CLASSIFICATION_LABELS)
+    PRECISION = (2, _MetricCategory.CLASSIFICATION_LABELS)
+    AVG_PRECISION = (3, _MetricCategory.CLASSIFICATION_SCORES)
+    RECALL = (4, _MetricCategory.CLASSIFICATION_LABELS)
+    ROC_AUC = (5, _MetricCategory.CLASSIFICATION_SCORES)
+
+    MEAN_SQUARE_ERROR = (6, _MetricCategory.REGRESSION)
+    MEAN_ABSOLUTE_ERROR = (7, _MetricCategory.REGRESSION)
+    EXPLAINED_VARIANCE = (8, _MetricCategory.REGRESSION)
+
+    def __init__(self, idx: int, metric_category: _MetricCategory) -> None:
+        self._idx = idx
+        self._metric_category = metric_category
+
+    def metric_category(self) -> _MetricCategory:
+        return self._metric_cetegory
 
 class Metrics(object):
 
@@ -327,7 +357,7 @@ class Metrics(object):
                                        f"different types `int` and `str`")
 
         if Metrics._is_array_of_str(y_pred):
-            if metric.metric_form() is MetricForms.REGRESSION:
+            if metric.metric_category() is _MetricCategory.REGRESSION:
                 raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Can not apply metric `{metric.name}` "
                                            f"to non-numeric prediction results")
             return y_true, y_pred
@@ -335,7 +365,7 @@ class Metrics(object):
         output_shape_y_pred = shape_y_pred[1] if len(shape_y_pred) == 2 else 0  # 0 for 1D array
         output_shape_y_true = shape_y_true[1] if len(shape_y_true) == 2 else 0  # 0 for 1D array
 
-        if metric.metric_form() is MetricForms.CLASSIFICATION_LABELS:
+        if metric.metric_category() is _MetricCategory.CLASSIFICATION_LABELS:
             if output_shape_y_pred == 0 and output_shape_y_true == 0:
                 # If y_pred contains labels as integer, do not use threshold cut
                 if sum(y_pred) != sum([round(i) for i in y_pred]):
@@ -367,7 +397,7 @@ class Metrics(object):
                 y_pred = np.argmax(y_pred, axis=1)
                 y_true = np.argmax(y_true, axis=1)
 
-        elif metric.metric_form() is MetricForms.REGRESSION:
+        elif metric.metric_category() is _MetricCategory.REGRESSION:
             if output_shape_y_pred != output_shape_y_true:
                 raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: For the metric `{metric.name}` multiple "
                                            f"output regression is not supported")

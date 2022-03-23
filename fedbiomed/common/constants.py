@@ -66,37 +66,6 @@ class ProcessTypes(_BaseEnum):
     PARAMS = 1
 
 
-class MetricForms(_BaseEnum):
-
-    CLASSIFICATION_LABELS = 0  # return labels
-    CLASSIFICATION_SCORES = 1  # return proba
-    REGRESSION = 2
-
-
-class MetricTypes(_BaseEnum):
-    """
-    List of Performance metrics used to evaluate the model.
-    """
-
-    ACCURACY = (0, MetricForms.CLASSIFICATION_LABELS)
-    F1_SCORE = (1, MetricForms.CLASSIFICATION_LABELS)
-    PRECISION = (2, MetricForms.CLASSIFICATION_LABELS)
-    AVG_PRECISION = (3, MetricForms.CLASSIFICATION_SCORES)
-    RECALL = (4, MetricForms.CLASSIFICATION_LABELS)
-    ROC_AUC = (5, MetricForms.CLASSIFICATION_SCORES)
-
-    MEAN_SQUARE_ERROR = (6, MetricForms.REGRESSION)
-    MEAN_ABSOLUTE_ERROR = (7, MetricForms.REGRESSION)
-    EXPLAINED_VARIANCE = (8, MetricForms.REGRESSION)
-
-    def __init__(self, idx: int, metric_form: MetricForms) -> None:
-        self._idx = idx
-        self._metric_form = metric_form
-
-    def metric_form(self) -> MetricForms:
-        return self._metric_form
-
-
 class ErrorNumbers(_BaseEnum):
     """
     list of all error messages types

@@ -16,7 +16,7 @@ Which machine to use ?
 
 Pre-requisites for using containers :
 
-* **`docker-compose` version 1.27.0 or higher** is needed for extended file format for [GPU support in docker]](https://docs.docker.com/compose/gpu-support/)) even if you're not using GPU in container.
+* **`docker-compose` version 1.27.0 or higher** is needed for extended file format for [GPU support in docker](https://docs.docker.com/compose/gpu-support/) even if you're not using GPU in container.
 *  some distributions (eg Ubuntu 20.04) don't provide a package with a recent enough version.
 * Type `docker-compose --version` to check installed version.
 * You can use your usual package manager to  install up-to-date version (eg: `sudo apt-get update && sudo apt-get install docker-compose` for apt, `sudo dnf clean metadata && sudo dnf update docker-compose` for dnf).
@@ -32,8 +32,8 @@ Done when initializing each container (see after)
 ## CONTAINER_{UID,GID,USER,GROUP} are target id for running the container
 ## **TODO**: check if we can use different id than the account building the images
 #
-## when running on a single machine : build all containers at one time with
-#[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build
+## when running on a single machine : build all needed containers at one time with
+#[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build base vpnserver mqtt restful basenode node gui researcher
 ```
 
 Caveat : docker >= 20.10.0 needed to build mqtt, see [there](https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2). With older docker version it fails with a `make: sh: Operation not permitted`
@@ -207,7 +207,7 @@ On the build machine
 [user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode-nogpu
 [user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
 ```
-* save images for container
+* save image for container
 ```bash
 [user@build $] docker image save fedbiomed/vpn-node | gzip >/tmp/vpn-node-image.tar.gz
 ```
@@ -220,7 +220,7 @@ On the build machine
 
 On the node machine
 
-* load images for container
+* load image for container
 ```bash
 [user@node $] docker image load </tmp/vpn-node-image.tar.gz
 ```
@@ -260,15 +260,17 @@ Run this only at first launch of container or after cleaning :
 ```
 * launch container
 ```bash
-[user@node $] docker-compose up -d node
+[user@node $] NODE=node
+[user@node $] docker-compose up -d $NODE
 ```
-Alternative: launch container with Nvidia GPU support activated. Before launching, install [all the pre-requisites for GPU support](#gpu-docker).
+Alternative: launch container with Nvidia GPU support activated. Before launching, install [all the pre-requisites for GPU support](#gpu-support-in-container).
 ```bash
-[user@node $] docker-compose up -d node-gpu
+[user@node $] NODE=node-gpu
+[user@node $] docker-compose up -d $NODE
 ```
 * retrieve the *publickey*
 ```bash
-[user@node $] docker-compose exec node wg show wg0 public-key
+[user@node $] docker-compose exec $NODE wg show wg0 public-key
 ```
 * connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
 ```bash
@@ -278,19 +280,19 @@ Alternative: launch container with Nvidia GPU support activated. Before launchin
 ```bash
 # 10.220.0.1 is vpnserver contacted inside the VPN
 # it should answer to the ping
-[user@node $] docker-compose exec node ping -c 3 -W 1 10.220.0.1
+[user@node $] docker-compose exec $NODE ping -c 3 -W 1 10.220.0.1
 ```
 
 Run this for all launches of the container :
 
 * launch container
 ```bash
-[user@node $] docker-compose up -d node
+[user@node $] docker-compose up -d $NODE
 ```
 * TODO: better package/scripting needed
   Connect again to the node and launch manually, now that the VPN is established
 ```bash
-[user@node $] docker-compose exec -u $(id -u) node bash
+[user@node $] docker-compose exec -u $(id -u) $NODE bash
 # TODO : make more general by including it in the VPN configuration and user environment ?
 # TODO : create scripts in VPN environment
 # need proper parameters at first launch to create configuration file
@@ -301,12 +303,127 @@ Run this for all launches of the container :
 [user@node-container $] eval "$(conda shell.bash hook)"
 [user@node-container $] conda activate fedbiomed-node
 # example : add MNIST dataset using persistent (mounted) /data
-[user@node-container $] python -m fedbiomed.node.cli -am /data
+[user@node-container $] ENABLE_MODEL_APPROVAL=True ALLOW_DEFAULT_MODELS=True python -m fedbiomed.node.cli -am /data
 # start the node
-[user@node-container $] python -m fedbiomed.node.cli --start
+# - `--gpu` : default gpu policy == use GPU if available *and* requested by researcher
+# - start with model approval enabled and default models allowed
+[user@node-container $] ENABLE_MODEL_APPROVAL=True ALLOW_DEFAULT_MODELS=True python -m fedbiomed.node.cli --start --gpu
 # alternative: start the node in background
 # [user@node-container $] nohup python -m fedbiomed.node.cli  -s >./fedbiomed_node.out &
 ```
+
+#### using the node
+
+To add datasets in the node, copy them in the directory `./node/run_mounts/data` on the node host machine :
+```bash
+[user@node $] ls ./node/run_mounts/data
+MNIST
+```
+- in the node gui (see below), this directory maps to the `/` directory.
+- in the node and node gui containers command line, this directory maps to `/data` directory :
+```bash
+[user@node-container $] ls ./data
+MNIST
+```
+
+To register approved models in the node, copy them in the directory `./node/run_mounts/data` on the node host machine :
+```bash
+[user@node $] ls ./node/run_mounts/data
+my_model.txt
+```
+- in the node container command line, this directory maps to `/data` directory :
+```bash
+[user@node-container $] ls ./data
+my_model.txt
+```
+- register a new model with :
+```bash
+[user@node-container $] ./scripts/fedbiomed_run node --register-model
+```
+- when prompted for the path of the model, indicate the `.txt` export of the model file (`/data/my_model.txt` in our example)
+
+
+### initializing node gui (optional)
+
+The node gui is associated with a node, it usually runs on a machine where the node is also installed.
+
+#### specific instructions: building gui image in classical case
+
+This paragraph contains specific instructions for the classical case where
+you build the gui image on the same machine and in the same code tree where
+you run it.
+
+Run this only at first launch of container or after cleaning :
+
+* build container
+```bash
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build gui
+```
+
+#### specific instructions: building gui image on a different machine
+
+This paragraph contains specific instructions when building gui image
+on a different machine than the machine where the node and gui run.
+
+If you do not want to clone the repo and build the gui image on a machine, you can
+instantiate a gui from an image built on another machine.
+
+* in this paragraph we distinguish commands typed on the build machine (eg `[user@build $]`) from the commands typed on the machine running the node (eg `[user@node $]`)
+
+
+Run this only at first launch of container or after cleaning
+
+On the build machine
+
+* for building use the `CONTAINER_UID` and `CONTAINER_GID` that will be used on the node machine for running the gui (they may differ from the ids on the build machine)
+* build container
+```bash
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build gui
+```
+* save image for container
+```bash
+[user@build $] docker image save fedbiomed/vpn-gui | gzip >/tmp/vpn-gui-image.tar.gz
+```
+* we assume files needed for running container were already installed (see node documentation)
+
+On the node and gui machine
+
+* load image for container
+```bash
+[user@node $] docker image load </tmp/vpn-gui-image.tar.gz
+```
+* change to directory you want to use as base directory for running this container
+* we assume files and data needed for running container were already installed (see node documentation)
+
+Then follow the common instructions for gui (below).
+
+
+#### common instructions: in all cases
+
+Always follow this paragraph for initializing a gui, whether you build it on the same machine 
+or another machine.
+
+Run this for all launches of the container :
+
+* launch container
+```bash
+[user@node $] docker-compose up -d gui
+```
+
+#### using the gui
+
+Use the node gui from outside the gui container :
+* connect to `http://localhost:8484` from your browser.
+
+By default, only connections from `localhost` are authorized. To enable connection to the GUI from any IP address
+  - specify the bind IP address at container launch time (eg: your node public IP address `NODE_IP`, or `0.0.0.0` to listen on all node addresses)
+```bash
+[user@node $] GUI_HOST=0.0.0.0 docker-compose up -d gui
+```
+  - connect to `http://${NODE_IP}:8484`
+  - **warning** allowing connections from non-`localhost` exposes the gui to attacks from the network. Only use with proper third party security measures (web proxy, firewall, etc.) Currently, the provided gui container does not include a user authentication mechanism or encrypted communications for the user.
+
+
 
 ### initializing researcher
 
@@ -365,10 +482,52 @@ Run this for all launches of the container :
 [user@researcher-container $] ./notebooks/101_getting-started.py
 ```
 
-* to use notebooks, from outside the researcher container connect to `http://localhost:8888` or `http://SERVER_IP:8888`
-  * TODO : add protection for distant connection to researcher
+#### using the researcher
 
-## GPU support in container {#gpu-docker}
+Use notebooks from outside the researcher container :
+* connect to `http://localhost:8888` from your browser. By default, only connections from `localhost` are authorized
+
+Use tensorboard from outside the researcher container :
+* connect to `http://localhost:8888` from your browser and use embedded tensorboard in your notebook as in the `./notebooks/general-tensorboard.ipynb` example :
+```python
+from fedbiomed.researcher.environ import environ
+tensorboard_dir = environ['TENSORBOARD_RESULTS_DIR']
+```
+```python
+%load_ext tensorboard
+```
+```python
+tensorboard --logdir "$tensorboard_dir"
+```
+* alternatively connect to `http://localhost:6006` from your browser, after starting tensorboard either as an embedded tensorboard in the notebook (see above), or manually in the container with:
+```bash
+[user@researcher-container $] eval "$(conda shell.bash hook)"
+[user@researcher-container $] conda activate fedbiomed-researcher
+[user@researcher-container $] tensorboard --logdir runs &
+```
+
+To enable connection to the researcher and the tensorboard from any IP address using `RESEARCHER_HOST`
+  - specify the bind IP address at container launch time (eg: your server public IP address `SERVER_IP`, or `0.0.0.0` to listen on all server addresses)
+```bash
+[user@researcher $] RESEARCHER_HOST=${SERVER_IP} docker-compose up -d researcher
+```
+  - connect to `http://${SERVER_IP}:8888` and `http://${SERVER_IP}:6006`
+  - **warning** allowing connections from non-`localhost` exposes the researcher to attacks from the network. Only use with proper third party security measures (web proxy, firewall, etc.) Currently, the provided researcher container does not include a user authentication mechanism or encrypted communications for the user.
+
+To permanently save your notebooks on the researcher host machine (outside of the container) use the directory `./researcher/run_mounts/samples` :
+```bash
+[user@researcher $] ls ./researcher/run_mounts/samples
+my_notebook.ipynb
+```
+- in the researcher container Jupyter Notebook web GUI this directory maps to the `/samples` directory under the base notebooks dir (which contains Fed-BioMed sample notebooks).
+- in the researcher container CLI, this directory maps to `/fedbiomed/notebooks/samples` directory :
+```bash
+[user@researcher-container $] ls ./notebooks/samples
+my_notebook.ipynb
+```
+
+
+## GPU support in container
 
 You can access the host machine GPU accelerator from a node container to speed up training.
 - reminder: Fed-BioMed currently [supports only](https://fedbiomed.gitlabpages.inria.fr/user-guide/nodes/using-gpu/) (1) Nvidia GPUs (2) for PyTorch training (3) on node side
@@ -437,12 +596,14 @@ You can connect to a container only if the corresponding container is already ru
 * connect on the node as user to handle experiments
 ```bash
 [user@node $] docker-compose exec -u $(id -u) node bash
+[user@node $] docker-compose exec -u $(id -u) gui bash
 [user@researcher $] docker-compose exec -u $(id -u) researcher bash
 ```
 
 Note : can also use commands in the form, so you don't have to be in the docker-compose file directory
 ```bash
 [user@node $] docker container exec -ti -u $(id -u) fedbiomed-vpn-node bash
+[user@node $] docker container exec -ti -u $(id -u) fedbiomed-vpn-gui bash
 [user@researcher $] docker container exec -ti -u $(id -u) fedbiomed-vpn-researcher bash
 ```
 
@@ -462,7 +623,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 [root@network #] rm -rf vpnserver/run_mounts/config/{config_peers,ip_assign,wireguard}
 
 # level 3 : image
-[user@network $] docker image rm fedbiomed/vpn-vpnserver
+[user@network $] docker image rm fedbiomed/vpn-vpnserver fedbiomed/vpn-base
 [user@network $] docker image prune -f
 ```
 
@@ -514,10 +675,26 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 # level 2 : configuration
 [user@node $] rm -rf ./node/run_mounts/config/wireguard
 [user@node $] echo > ./node/run_mounts/config/config.env
-[user@node $] rm -rf ./node/run_mounts/data/*
+[user@node $] rm -rf ./node/run_mounts/{data,etc,var}/*
 
 # level 3 : image
-[user@node $] docker image rm fedbiomed/vpn-node
+[user@node $] docker image rm fedbiomed/vpn-node fedbiomed/vpn-basenode
+[user@network $] docker image prune -f
+```
+
+### node gui
+
+```bash
+[user@node $] cd ./envs/vpn/docker
+
+# level 1 : container instance
+[user@node $] docker-compose rm -sf gui
+
+# level 2 : configuration
+[user@node $] rm -rf ./node/run_mounts/{data,etc,var}/*
+
+# level 3 : image
+[user@node $] docker image rm fedbiomed/vpn-gui
 [user@network $] docker image prune -f
 ```
 
@@ -534,10 +711,10 @@ Same as node
 # level 2 : configuration
 [user@researcher $] rm -rf ./researcher/run_mounts/config/wireguard
 [user@researcher $] echo > ./researcher/run_mounts/config/config.env
-[user@researcher $] rm -rf ./researcher/run_mounts/data/*
+[user@researcher $] rm -rf ./researcher/run_mounts/{data,etc,samples,runs,var}/*
 
 # level 3 : image
-[user@researcher $] docker image rm fedbiomed/vpn-researcher
+[user@researcher $] docker image rm fedbiomed/vpn-researcher fedbiomed/vpn-base
 [user@network $] docker image prune -f
 ```
 

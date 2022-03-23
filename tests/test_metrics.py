@@ -1,8 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from fedbiomed.common.metrics import Metrics
-from fedbiomed.common.constants import MetricTypes
+from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.exceptions import FedbiomedMetricError
 
 
