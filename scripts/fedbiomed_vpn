@@ -315,24 +315,16 @@ containers_start() {
     for i in ${ALL_VPN_CONTAINERS[@]}
     do
         case $i in
-            gui)
-                RUNVARENV="GUI_HOST=0.0.0.0"
-                CONTAINER=$i
-                ;;
             node)
-                RUNVARENV=""
                 if [ $GPU -eq 1 ]; then
                     CONTAINER=node-gpu
                 else
                     CONTAINER=node
                 fi
                 ;;
-            *  )
-                RUNVARENV=""
-                CONTAINER=$i
-                ;;
+            *  ) CONTAINER=$i ;;
         esac
-        echo "** DEBUG: $RUNVARENV docker-compose up -d $CONTAINER"
+        echo "** DEBUG: docker-compose up -d $CONTAINER"
         $RUNVARENV docker-compose up -d $CONTAINER
     done
 
