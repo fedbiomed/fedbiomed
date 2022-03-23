@@ -119,7 +119,7 @@ class Metrics(object):
             precision (float, or array of float of shape (n_unique_labels,))
         """
 
-        # Check target variable is multi class or binary
+        # Get average and pob_label argument based on multiclass status
         average, pos_label = Metrics._configure_multiclass_parameters(y_true, kwargs, 'PRECISION')
 
         kwargs.pop("average", None)
@@ -128,10 +128,8 @@ class Metrics(object):
         try:
             return metrics.precision_score(y_true, y_pred, average=average, pos_label=pos_label, **kwargs)
         except Exception as e:
-            print(e)
-            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
-            raise FedbiomedMetricError(msg)
-        return
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `PRECISION` "
+                                       f"calculation: {str(e)}")
 
     @staticmethod
     def recall(y_true: Union[np.ndarray, list],
@@ -157,6 +155,8 @@ class Metrics(object):
             sample_weight=None, zero_division='warn')
             recall (float (if average is not None) or array of float of shape (n_unique_labels,))
         """
+
+        # Get average and pob_label argument based on multiclass status
         average, pos_label = Metrics._configure_multiclass_parameters(y_true, kwargs, 'RECALL')
 
         kwargs.pop("average", None)
@@ -193,7 +193,7 @@ class Metrics(object):
             f1_score (float or array of float, shape = [n_unique_labels])
         """
 
-        # Check target variable is multi class or binary
+        # Get average and pob_label argument based on multiclass status
         average, pos_label = Metrics._configure_multiclass_parameters(y_true, kwargs, 'F1_SCORE')
 
         kwargs.pop("average", None)
@@ -223,8 +223,13 @@ class Metrics(object):
             - sklearn.metrics.mean_squared_error(y_true, y_pred, *, sample_weight=None, multioutput='uniform_average',
             squared=True) score (float or ndarray of floats)
         """
+
+        # Set multiouput as raw_values is it is not defined by researcher
+        multi_output = kwargs.get('multioutput', 'raw_values')
+        kwargs.pop('multioutput', None)
+
         try:
-            return metrics.mean_squared_error(y_true, y_pred, **kwargs)
+            return metrics.mean_squared_error(y_true, y_pred,  multioutput=multi_output, **kwargs)
         except Exception as e:
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `MEAN_SQUARED_ERROR`"
                                        f" {str(e)}")
@@ -246,8 +251,12 @@ class Metrics(object):
             - sklearn.metrics.mean_absolute_error(y_true, y_pred, *, sample_weight=None, multioutput='uniform_average')
             score (float or ndarray of floats)
         """
+        # Set multiouput as raw_values is it is not defined by researcher
+        multi_output = kwargs.get('multioutput', 'raw_values')
+        kwargs.pop('multioutput', None)
+
         try:
-            return metrics.mean_absolute_error(y_true, y_pred, **kwargs)
+            return metrics.mean_absolute_error(y_true, y_pred,  multioutput=multi_output, **kwargs)
         except Exception as e:
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `MEAN_ABSOLUTE_ERROR`"
                                        f" {str(e)}")
@@ -269,8 +278,13 @@ class Metrics(object):
             - sklearn.metrics.explained_variance_score(y_true, y_pred, *, sample_weight=None,
             multioutput='uniform_average') score (float or ndarray of floats)
         """
+
+        # Set multiouput as raw_values is it is not defined by researcher
+        multi_output = kwargs.get('multioutput', 'raw_values')
+        kwargs.pop('multioutput', None)
+
         try:
-            return metrics.explained_variance_score(y_true, y_pred, **kwargs)
+            return metrics.explained_variance_score(y_true, y_pred, multioutput=multi_output, **kwargs)
         except Exception as e:
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `EXPLAINED_VARIANCE`"
                                        f" {str(e)}")
@@ -293,15 +307,24 @@ class Metrics(object):
         y_pred = np.squeeze(y_pred)
         y_true = np.squeeze(y_true)
 
+        if len(y_pred) != len(y_true):
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predictions or true values should have"
+                                       f"equal number of samples, {len(y_true)}, {len(y_pred)}")
+
         # Get shape of the prediction should be 1D or 2D array
         shape_y_pred = y_pred.shape
         shape_y_true = y_true.shape
 
         # Shape of the prediction array should be (samples, outputs) or (samples, )
-        if len(shape_y_pred) > 2:
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Prediction results are in unsupported shape "
-                                       f"`{y_true.shape}`. Please create a custom `testing_step` method in "
-                                       f"training plan")
+        if len(shape_y_pred) > 2 or len(shape_y_true) > 2:
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predictions or true values are not in "
+                                       f"supported shape {y_pred.shape}, `{y_true.shape}`, should be 1D or 2D "
+                                       f"list/array. If it isa special case,  please consider creating a custom "
+                                       f"`testing_step` method in training plan")
+
+        if Metrics._is_array_of_str(y_pred) != Metrics._is_array_of_str(y_true):
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predicted values and true values are not in"
+                                       f"different types `int` and `str`")
 
         if Metrics._is_array_of_str(y_pred):
             if metric.metric_form() is MetricForms.REGRESSION:
@@ -339,8 +362,8 @@ class Metrics(object):
             elif output_shape_y_pred > 0 and output_shape_y_true > 0:
 
                 if output_shape_y_pred != output_shape_y_true:
-                    raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Can not convert values to class labels "
-                                               f"the shape of predicted array and true array does not match.")
+                    raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Can not convert values to class labels, "
+                                               f"shape of predicted and true values do not match.")
                 y_pred = np.argmax(y_pred, axis=1)
                 y_true = np.argmax(y_true, axis=1)
 

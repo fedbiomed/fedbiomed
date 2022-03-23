@@ -5,14 +5,14 @@ TrainingPlan definition for sklearn ML framework
 from io import StringIO
 from joblib import dump, load
 import sys
-from typing import Union, Tuple, Callable
+from typing import Union, Callable
 
 import numpy as np
 
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
 
-from fedbiomed.common.metrics.metrics import Metrics
+from fedbiomed.common.metrics import Metrics
 
 from ._base_training_plan import BaseTrainingPlan
 
