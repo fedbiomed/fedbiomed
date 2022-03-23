@@ -770,7 +770,7 @@ class TestExperiment(unittest.TestCase):
         ratio_1_1 = .2
         self.test_exp.set_test_ratio(ratio_1_1)
 
-        # get training data 
+        # get training data
         training_data_1 = self.test_exp.training_args()
         self.assertEqual(training_data_1.get('test_ratio'), ratio_1_1)
 
@@ -798,6 +798,10 @@ class TestExperiment(unittest.TestCase):
             self.test_exp.set_test_ratio(ratio_3_1)
 
         ratio_3_2 = 2.1
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_test_ratio(ratio_3_2)
+
+        ratio_3_2 = -0.1
         with self.assertRaises(SystemExit):
             self.test_exp.set_test_ratio(ratio_3_2)
 
