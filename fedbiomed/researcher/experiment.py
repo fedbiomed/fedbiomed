@@ -282,7 +282,6 @@ class Experiment(object):
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self.set_tensorboard(tensorboard)
 
-
     # destructor
     @exp_exceptions
     def __del__(self):

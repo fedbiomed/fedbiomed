@@ -94,8 +94,6 @@ class TestExperiment(unittest.TestCase):
         self.patchers = [
             patch('fedbiomed.researcher.datasets.FederatedDataSet',
                   FederatedDataSetMock),
-# patch('fedbiomed.researcher.requests.Requests.add_monitor_callback',   # seems unused !
-#                  return_value=None),
             patch('fedbiomed.researcher.aggregators.aggregator.Aggregator.__init__',
                   return_value=None)
         ]
@@ -787,9 +785,9 @@ class TestExperiment(unittest.TestCase):
         self.test_exp.set_model_class = TestExperiment.FakeModelTorch
         self.test_exp.set_job()
         ratio_2 = .8
-        
+
         self.test_exp.set_test_ratio(ratio_2)
-        
+
         self.assertEqual(self.test_exp._job._training_args.get('test_ratio'), ratio_2)
 
         # case 3: bad test_ratio values (triggers SystemExit exception)
