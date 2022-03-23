@@ -12,8 +12,8 @@ import uuid
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, TrainReply
 from fedbiomed.common.repository import Repository
-from fedbiomed.common.constants import ErrorNumbers, MetricTypes
-
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.model_manager import ModelManager
@@ -63,8 +63,21 @@ class Round:
                 - gpu_only (bool): force use of a GPU device if any available, even if researcher
                     doesnt request for using a GPU.
         """
+        testing_args_keys = ['test_ratio', 'test_on_local_updates',
+                             'test_on_global_updates', 'test_metric',
+                             'test_metric_args']
+
         self.model_kwargs = model_kwargs
+
+        # Split testing and training arguments
+        self.testing_arguments = {}
+        for arg in testing_args_keys:
+            self.testing_arguments[arg] = training_kwargs.get('arg', None)
+            training_kwargs.pop(arg, None)
+
+        # Set training arguments after removing testing arguments
         self.training_kwargs = training_kwargs
+
         self.dataset = dataset
         self.model_url = model_url
         self.model_class = model_class
@@ -76,8 +89,6 @@ class Round:
         self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
         self.model = None
-        self.training_data_loader = None
-        self.testing_data_loader = None
 
         self._default_batch_size = 48  # default bath size
 
@@ -174,14 +185,13 @@ class Round:
         # Split training and testing data
         if not is_failed:
             try:
-                # Setting test and train subsets based on test_ratio
-                self._set_train_and_test_data(test_ratio=0.2)
-                # Set models testing and training parts for model
-                self.model.set_data_loaders(train_data_loader=self.training_data_loader,
-                                            test_data_loader=self.testing_data_loader)
+                self._set_training_testing_data_loaders()
             except FedbiomedError as e:
                 is_failed = True
-                error_message = str(e)
+                error_message = f"Can not create test/train data: {str(e)}"
+            except Exception as e:
+                error_message = f"Undetermined error while creating data for training/test. Can not create " \
+                                f"test/train data: {str(e)}"
 
         if not is_failed:
             training_kwargs_with_history = dict(history_monitor=self.history_monitor,
@@ -191,28 +201,58 @@ class Round:
 
         # Testing Before Training ------------------------------------------------------------------------------------
         if not is_failed:
-            self.model.testing_routine(metric=MetricTypes.RECALL,
-                                       history_monitor=self.history_monitor,
-                                       before_train=True)
+            if self.testing_arguments.get('test_on_global_updates', False):
+
+                if self.model.testing_data_loader is not None:
+                    try:
+                        self.model.testing_routine(metric=self.testing_arguments.get('test_metric', None),
+                                                   history_monitor=self.history_monitor,
+                                                   before_train=True)
+                    except FedbiomedError as e:
+                        logger.error(f"{ErrorNumbers.FB314}: During the testing phase on global parameter updates; "
+                                     f"{str(e)}")
+                    except Exception as e:
+                        logger.error(f"Undetermined error during the testing phase on global parameter updates"
+                                     f"{e}")
+                else:
+                    logger.error(f"{ErrorNumbers.FB314}: Can not execute testing routine due to missing testing dataset"
+                                 f"please make sure that test_ratio has been set correctly")
         # -----------------------------------------------------------------------------------------------------------
 
+        # Training --------------------------------------------------------------------------------------------------
         if not is_failed:
-            try:
-                results = {}
-                rtime_before = time.perf_counter()
-                ptime_before = time.process_time()
-                self.model.training_routine(**training_kwargs_with_history)
-                rtime_after = time.perf_counter()
-                ptime_after = time.process_time()
-            except Exception as e:
-                is_failed = True
-                error_message = "Cannot train model in round: " + str(e)
+            if self.model.training_data_loader is not None:
+                try:
+                    results = {}
+                    rtime_before = time.perf_counter()
+                    ptime_before = time.process_time()
+                    self.model.training_routine(**training_kwargs_with_history)
+                    rtime_after = time.perf_counter()
+                    ptime_after = time.process_time()
+                except Exception as e:
+                    is_failed = True
+                    error_message = "Cannot train model in round: " + str(e)
+        # -----------------------------------------------------------------------------------------------------------
 
         # Testing after training ------------------------------------------------------------------------------------
         if not is_failed:
-            self.model.testing_routine(metric=MetricTypes.ACCURACY,
-                                       history_monitor=self.history_monitor,
-                                       before_train=False)
+            if self.testing_arguments.get('test_on_local_updates', False):
+
+                if self.model.testing_data_loader is not None:
+                    try:
+                        self.model.testing_routine(metric=self.testing_arguments.get('test_metric', None),
+                                                   history_monitor=self.history_monitor,
+                                                   before_train=True)
+                    except FedbiomedError as e:
+                        logger.error(f"{ErrorNumbers.FB314}: During the testing phase on local parameter updates; "
+                                     f"{str(e)}")
+                    except Exception as e:
+                        logger.error(f"Undetermined error during the testing phase on local parameter updates"
+                                     f"{e}")
+
+                else:
+                    logger.error(f"{ErrorNumbers.FB314}: Can not execute testing routine due to missing testing dataset"
+                             f"please make sure that test_ratio has been set correctly")
         # -----------------------------------------------------------------------------------------------------------
 
         if not is_failed:
@@ -264,7 +304,31 @@ class Round:
                                               'msg': error_message,
                                               'timing': {}}).get_dict()
 
-    def _set_train_and_test_data(self, test_ratio: float = 0):
+    def _set_training_testing_data_loaders(self):
+        """
+
+        """
+        test_ratio = self.testing_arguments.get('test_ratio', 0)
+        test_global_updates = self.testing_arguments.get('test_on_global_updates', False)
+        test_local_updates = self.testing_arguments.get('test_on_local_updates', False)
+
+        # Inform user about mismatch arguments settings
+        if test_ratio != 0 and (not test_local_updates or not test_global_updates):
+            logger.warning('There is no test activated for the round. Please set `test_on_global_updates`'
+                           ', `test_on_local_updates`, or both in the experiment. Splitting dataset for '
+                           'testing will be ignored')
+
+        if test_ratio == 0 and not test_local_updates and not test_global_updates:
+            logger.warning('There is no test activated for the round. Please set flag for `test_on_global_updates`'
+                           ', `test_on_local_updates`, or both. Splitting dataset for testing will be ignored')
+
+        # Setting test and train subsets based on test_ratio
+        training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=0.2)
+        # Set models testing and training parts for model
+        self.model.set_data_loaders(train_data_loader=training_data_loader,
+                                    test_data_loader=testing_data_loader)
+
+    def _split_train_and_test_data(self, test_ratio: float = 0):
         """
         Method for splitting training and testing data based on training plan type. It sets
         `dataset_path` for model and calls `training_data` method of training plan.
@@ -338,6 +402,7 @@ class Round:
         # self.testing_data will be equal to None
 
         # Split dataset as train and test
-        self.training_data_loader, self.testing_data_loader = data_manager.split(test_ratio=test_ratio)
+        return data_manager.split(test_ratio=test_ratio)
+
         # If testing is inactive following method can be called to load all samples as train
         # self.train_data = sp.da_data_manager.load_all_samples()

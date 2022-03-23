@@ -168,6 +168,7 @@ class BaseTrainingPlan(object):
         if isinstance(metric, np.integer):
             # convert nupy integer to a plain python integer
             metric = int(metric)
+
         # If it is single int/float metric value
         if isinstance(metric, (int, float)) and not isinstance(metric, bool):
             return {metric_name: metric}

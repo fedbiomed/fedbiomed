@@ -36,7 +36,8 @@ class MetricTypes(_BaseEnum):
         self._metric_category = metric_category
 
     def metric_category(self) -> _MetricCategory:
-        return self._metric_cetegory
+        return self._metric_category
+
 
 class Metrics(object):
 

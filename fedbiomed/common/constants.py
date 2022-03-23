@@ -104,7 +104,8 @@ class ErrorNumbers(_BaseEnum):
     FB311 = "FB311: receiving a new computation request during a running computation"
     FB312 = "FB312: Node stopped in SIGTERM signal handler"
     FB313 = "FB313: no dataset matching request"
-    FB314 = "FB314: training round error"
+    FB314 = "FB314: Node round error"
+
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"
