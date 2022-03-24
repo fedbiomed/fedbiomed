@@ -63,16 +63,17 @@ class Round:
                 - gpu_only (bool): force use of a GPU device if any available, even if researcher
                     doesnt request for using a GPU.
         """
-        testing_args_keys = ['test_ratio', 'test_on_local_updates',
+        testing_args_keys = ('test_ratio', 'test_on_local_updates',
                              'test_on_global_updates', 'test_metric',
-                             'test_metric_args']
+                             'test_metric_args')
 
         self.model_kwargs = model_kwargs
 
         # Split testing and training arguments
+
         self.testing_arguments = {}
         for arg in testing_args_keys:
-            self.testing_arguments[arg] = training_kwargs.get('arg', None)
+            self.testing_arguments[arg] = training_kwargs.get(arg, None)
             training_kwargs.pop(arg, None)
 
         # Set training arguments after removing testing arguments

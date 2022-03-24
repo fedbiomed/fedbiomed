@@ -1,7 +1,7 @@
 '''
 TrainingPlan definition for torchnn ML framework
 '''
-
+from collections.abc import Iterable
 from typing import Optional, Union, Callable
 from copy import deepcopy
 
@@ -318,18 +318,11 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             # Data Loader for testing partition includes entire dataset in the first batch
             for batch_ndx, (data, target) in enumerate(self.testing_data_loader):
                 batch_ = batch_ndx + 1
-                try:
-                    # Pass data through network layers
-                    pred = self(data)
-                except Exception as e:
-                    # Pytorch does not provide any means to catch exception (no custom Exceptions), that is why we need
-                    # to trap general Exception
-                    raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - {str(e)}")
 
                 # If `testing_step` is defined in the TrainingPlan
                 if hasattr(self, 'testing_step'):
                     try:
-                        m_value = self.testing_step(target, pred)
+                        m_value = self.testing_step(data, target)
                     except Exception as e:
                         # catch exception because we are letting the user design this
                         # `evaluation_step` method of the training plan
@@ -344,6 +337,14 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 # Otherwise check a default metric is defined
                 elif metric is not None:
+                    try:
+                        # Pass data through network layers
+                        pred = self(data)
+                    except Exception as e:
+                        # Pytorch does not provide any means to catch exception (no custom Exceptions), that is why we need
+                        # to trap general Exception
+                        raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - {str(e)}")
+
                     # Convert prediction and actual values to numpy array
                     y_true = target.detach().numpy()
                     predicted = pred.detach().numpy()
@@ -352,8 +353,11 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
 
-                logger.debug('Testing: Batch {} [{}/{}] | Metric[{}]: {:.6f}'.format(
-                    str(batch_), batch_ * len(data), tot_samples, metric.name, m_value))
+                if not isinstance(m_value, Iterable):
+                    m_value = (m_value)
+                for m_val in m_value:
+                    logger.debug('Testing: Batch {} [{}/{}] | Metric[{}]: {:.6f}'.format(
+                        str(batch_), batch_ * len(data), tot_samples, metric.name, m_val))
 
                 # Send scalar values via general/feedback topic
                 if history_monitor is not None:
