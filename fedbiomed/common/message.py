@@ -2,6 +2,7 @@
 Definition of messages exchanged by the researcher and the nodes
 '''
 
+import typing
 from dataclasses import dataclass
 from typing import Dict, Any, Union
 
@@ -73,14 +74,14 @@ class Message(object):
         Args:
             param (str): name of the param
         """
-        return(getattr(self, param))
+        return getattr(self, param)
 
     def get_dict(self) -> Dict[str, Any]:
         """Returns pairs (Message class attributes name, attributes values)
         into a dictionary
 
         """
-        return(self.__dict__)
+        return self.__dict__
 
     def __validate(self, fields: Dict[str, Any]) -> bool:
         """checks whether incoming field types match with attributes
@@ -95,9 +96,9 @@ class Message(object):
         """
         ret = True
         for field_name, field_def in fields:
-            actual_type = type(getattr(self, field_name))
-            if isinstance(field_def, actual_type):
-                logger.critical(f"{field_name}: '{actual_type}' instead of '{field_def.type}'")
+            value = getattr(self, field_name)
+            if not isinstance(value, field_def.type):
+                logger.critical(f"{field_name}: '{value}' instead of '{field_def.type}'")
                 ret = False
         return ret
 
@@ -235,8 +236,8 @@ class AddScalarReply(Message):
     # test: bool
     before_training: bool # testing_b_train
     # after_training
-    metric: Dict[str, Union[float, int]]
-    epoch: Union[int, None]
+    metric: dict
+    epoch: (int, type(None))
     total_samples: int
     batch_samples: int
     num_batches: int
