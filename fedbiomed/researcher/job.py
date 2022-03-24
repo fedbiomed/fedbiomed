@@ -329,6 +329,9 @@ class Job:
             time_start[cli] = time.perf_counter()
             self._reqs.send_message(msg, cli)  # send request to node
 
+        if not do_training:
+            # if there is no training involved, no need to wait for nodes and update model parameters
+            return self._nodes
         # Recollect models trained
         self._training_replies[round] = Responses([])
         while self.waiting_for_nodes(self._training_replies[round]):

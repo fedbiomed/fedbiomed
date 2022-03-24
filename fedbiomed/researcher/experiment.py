@@ -1366,7 +1366,7 @@ class Experiment(object):
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
         # Trigger training round on sampled nodes
-        self._job.start_nodes_training_round(round=self._round_current, do_training=True)
+        status = self._job.start_nodes_training_round(round=self._round_current, do_training=True)
 
         # refining/normalizing model weights received from nodes
         model_params, weights = self._node_selection_strategy.refine(
