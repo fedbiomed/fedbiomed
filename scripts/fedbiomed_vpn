@@ -32,7 +32,7 @@ usage() {
     fi
     echo "\
 Usage: ${0##*/} clean
-       ${0##*/} build [-c|--clean]  [CONTAINER..]
+       ${0##*/} build [-c|--clean]
        ${0##*/} configure
        ${0##*/} start [-g|--gpu]
        ${0##*/} status
@@ -41,14 +41,9 @@ Usage: ${0##*/} clean
 manage (local) docker containers with Wireguard VPN support
 (cannot use build / clean / configure / start / status / stop at same time)
 
-for build, a list of components may be given.
-Only these components will be affected by the command.
-il no CONTAINER is provided, all components will be considered.
-possible CONTAINER values: ${ALL_VPN_CONTAINERS[@]}
-
 clean                  clean everything
 
-build                  build container(s)
+build                  build containers
 
   Optional with build:
   -c|--clean           clean environments first
@@ -57,7 +52,7 @@ build                  build container(s)
 configure              generate/modify configuration files
                        (wireguard keys and refresh @IP adresses)
 
-start                  start container(s)
+start                  start containers
 
   Optional with start:
   -g|--gpu             GPU support option (used for node container)
@@ -147,7 +142,6 @@ find_my_ip() {
 }
 
 ONLY_CONTAINERS=()
-
 add_container() {
     #
     # deal with container names as arguments
@@ -221,7 +215,7 @@ containers_clean() {
         docker-compose rm -sf $i
         docker image rm -f fedbiomed/vpn-$i
         /bin/rm -rf ./$i/run_mounts/config/wireguard 2> /dev/null
-        [[ "$i" = "gui" ]] && { continue ; }
+        [[ "$i" = "gui" ]] && { continue ; }   ## gui container does not have a config.emv file
         git checkout $i/run_mounts/config/config.env
     done
 
@@ -453,7 +447,7 @@ while (($# > 0)); do
                 case $1 in
                     -c|--clean)     CLEAN=1 ;;
                     -h|--help|help) usage   ;;
-                    vpnserver|mqtt|restful|researcher|node|gui) add_container $1;;
+                    #vpnserver|mqtt|restful|researcher|node|gui) add_container $1;;   ### JLS removed on purpose - need more work
                     *) usage "unknown or incompatible arguments" ;;
                 esac
                 shift
