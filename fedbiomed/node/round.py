@@ -244,15 +244,17 @@ class Round:
                                                    history_monitor=self.history_monitor,
                                                    before_train=True)
                     except FedbiomedError as e:
-                        logger.error(f"{ErrorNumbers.FB314.value}: During the testing phase on local parameter updates; "
-                                     f"{str(e)}")
+                        logger.error(
+                            f"{ErrorNumbers.FB314.value}: During the testing phase on local parameter updates; "
+                            f"{str(e)}")
                     except Exception as e:
                         logger.error(f"Undetermined error during the testing phase on local parameter updates"
                                      f"{e}")
 
                 else:
-                    logger.error(f"{ErrorNumbers.FB314.value}: Can not execute testing routine due to missing testing dataset"
-                             f"please make sure that test_ratio has been set correctly")
+                    logger.error(
+                        f"{ErrorNumbers.FB314.value}: Can not execute testing routine due to missing testing dataset"
+                        f"please make sure that test_ratio has been set correctly")
         # -----------------------------------------------------------------------------------------------------------
 
         if not is_failed:
@@ -306,23 +308,31 @@ class Round:
 
     def _set_training_testing_data_loaders(self):
         """
+        Method for setting training and testing data loaders based on the training and testing
+        arguments.
 
         """
+
+        # Set requested data path for model training and testing
+        self.model.set_dataset_path(self.dataset['path'])
+
+        # Get testing parameters
         test_ratio = self.testing_arguments.get('test_ratio', 0)
         test_global_updates = self.testing_arguments.get('test_on_global_updates', False)
         test_local_updates = self.testing_arguments.get('test_on_local_updates', False)
-        print(self.testing_arguments)
+
         # Inform user about mismatch arguments settings
         if test_ratio != 0 and test_local_updates is False and test_global_updates is False:
-            logger.warning("There is no test activated for the round. Please set `test_on_global_updates`"
-                           ", `test_on_local_updates`, or both in the experiment. Testing won't be performed")
+            logger.warning("Testing will not be perform for the round, since there is no test activated. "
+                           "Please set `test_on_global_updates`, `test_on_local_updates`, or both in the "
+                           "experiment.")
 
         if test_ratio == 0 and (test_local_updates is False or test_global_updates is False):
             logger.warning('There is no test activated for the round. Please set flag for `test_on_global_updates`'
                            ', `test_on_local_updates`, or both. Splitting dataset for testing will be ignored')
 
         # Setting test and train subsets based on test_ratio
-        training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=0.2)
+        training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
         # Set models testing and training parts for model
         self.model.set_data_loaders(train_data_loader=training_data_loader,
                                     test_data_loader=testing_data_loader)
@@ -345,11 +355,6 @@ class Round:
                                    `fedbiomed.common.data.DataManager`.
                                  - If `load` method of DataManager returns an error
         """
-
-        # TODO: Discuss this part should this part be in the BaseTrainingPLan
-
-        # Set requested data path for model training and testing
-        self.model.set_dataset_path(self.dataset['path'])
 
         # Get batch size from training argument if it is not exist use default batch size
         batch_size = self.training_kwargs.get('batch_size', self._default_batch_size)

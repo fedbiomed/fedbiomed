@@ -94,7 +94,8 @@ class Requests(metaclass=SingletonMeta):
         else:
             logger.error("message received on wrong topic (" + topic + ") - IGNORING")
 
-    def print_node_log_message(self, log: Dict[str, Any]):
+    @staticmethod
+    def print_node_log_message(log: Dict[str, Any]):
         """
         print logger messages coming from the node
 
@@ -104,7 +105,7 @@ class Requests(metaclass=SingletonMeta):
         """
 
         # log contains the original message sent by the node
-        # FIXME: we should use `fedbioed.common.json.deserialize` method
+        # FIXME: we should use `fedbiomed.common.json.deserialize` method
         # instead of the json method when extracting json message
         original_msg = json.loads(log["msg"])
 
