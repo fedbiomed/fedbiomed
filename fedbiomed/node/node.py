@@ -170,6 +170,7 @@ class Node:
         # Get arguments for the model and training
         model_kwargs = msg.get_param('model_args') or {}
         training_kwargs = msg.get_param('training_args') or {}
+        training_status = msg.get_param('training') or False
         model_url = msg.get_param('model_url')
         model_class = msg.get_param('model_class')
         params_url = msg.get_param('params_url')
@@ -209,6 +210,7 @@ class Node:
                 else:
                     self.rounds.append(Round(model_kwargs,
                                              training_kwargs,
+                                             training_status,
                                              data,
                                              model_url,
                                              model_class,

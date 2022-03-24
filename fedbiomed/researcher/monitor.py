@@ -19,7 +19,7 @@ class _MetricStore(dict):
     def add_iteration(self,
                       node: str,
                       train: bool,
-                      before_training: bool,
+                      test_on_global_updates: bool,
                       round_: int,
                       metric: dict,
                       iter_: int):
@@ -29,7 +29,7 @@ class _MetricStore(dict):
         Args:
             node (str):
             train (bool):
-            before_training (bool):
+            test_on_global_updates (bool):
             round_ (int):
             metric (dict):
             iter_ (int)
@@ -40,8 +40,8 @@ class _MetricStore(dict):
         cum_iter = []
         for metric_name, metric_value in metric.items():
 
-            for_ = 'training' if train is True else 'testing_b_train' \
-                if before_training is True else 'testing_a_train'
+            for_ = 'training' if train is True else 'testing_global_updates' \
+                if test_on_global_updates is True else 'testing_local_updates'
 
             if metric_name not in self[node][for_]:
                 self._register_metric(node=node, for_=for_, metric_name=metric_name)
@@ -63,13 +63,13 @@ class _MetricStore(dict):
         """
         self[node] = {
             "training": {},
-            "testing_b_train": {},  # Testing before training
-            "testing_a_train": {}  # Testing after training
+            "testing_global_updates": {},  # Testing before training
+            "testing_local_updates": {}  # Testing after training
         }
 
     def _register_metric(self, node, for_, metric_name):
         """
-        Method for registering metric for the given node. It create stating point
+        Method for registering metric for the given node. It creates stating point
         for the metric from round 0.
 
         Args: node
@@ -139,12 +139,13 @@ class Monitor:
         # For now monitor can only handle add_scalar messages
         if msg['command'] == 'add_scalar':
             # Save iteration value
-            cumulative_iter, *_ = self._metric_store.add_iteration(node=msg['node_id'],
-                                                                   train=msg['train'],
-                                                                   before_training=msg['before_training'],
-                                                                   metric=msg['metric'],
-                                                                   round_=self._round,
-                                                                   iter_=msg['iteration'])
+            cumulative_iter, *_ = self._metric_store.add_iteration(
+                node=msg['node_id'],
+                train=msg['train'],
+                test_on_global_updates=msg['test_on_global_updates'],
+                metric=msg['metric'],
+                round_=self._round,
+                iter_=msg['iteration'])
 
             # Log metric result
             self._log_metric_result(message=msg, cum_iter=cumulative_iter)
@@ -195,7 +196,8 @@ class Monitor:
         if message['train'] is True:
             header = 'Training'
         else:
-            header = 'Testing Before Training' if message['before_training'] else 'Testing After Training'
+            header = 'Testing On Global Parameters' if message['test_on_global_updates'] else 'Testing On Local ' \
+                                                                                              'Updated Parameters'
 
         metric_dict = message['metric']
         metric_result = ''

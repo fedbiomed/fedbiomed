@@ -396,7 +396,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
             raise FedbiomedTrainingPlanError
 
         # For logging in node console
-        logger.debug('Testing: [{}/{}] | Metric[{}]: {:.6f}'.format(len(target), tot_samples,
+        logger.debug('Testing: [{}/{}] | Metric[{}]: {}'.format(len(target), tot_samples,
                                                                     metric.name, m_value))
 
         # Send scalar values via general/feedback topic
@@ -404,8 +404,9 @@ class SGDSkLearnModel(BaseTrainingPlan):
             history_monitor.add_scalar(metric=metric_dict,
                                        iteration=1,  # since there is only one
                                        epoch=None,  # no epoch
-                                       train=False,  # means that for sending test metric
-                                       before_training=before_train,
+                                       test=True,  # means that for sending test metric
+                                       test_on_local_updates=False if before_train else True,
+                                       test_on_global_updates=before_train,
                                        total_samples=tot_samples,
                                        batch_samples=len(target),
                                        num_batches=1)

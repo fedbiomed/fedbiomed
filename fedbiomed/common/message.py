@@ -232,10 +232,10 @@ class AddScalarReply(Message):
     researcher_id: str
     node_id: str
     job_id: str
-    train: bool  # train_metric
-    # test: bool
-    before_training: bool # testing_b_train
-    # after_training
+    train: bool
+    test: bool
+    test_on_local_updates: bool
+    test_on_global_updates: bool
     metric: dict
     epoch: (int, type(None))
     total_samples: int

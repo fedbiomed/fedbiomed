@@ -353,19 +353,17 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
 
-                if not isinstance(m_value, Iterable):
-                    m_value = (m_value)
-                for m_val in m_value:
-                    logger.debug('Testing: Batch {} [{}/{}] | Metric[{}]: {:.6f}'.format(
-                        str(batch_), batch_ * len(data), tot_samples, metric.name, m_val))
+                logger.debug('Testing: Batch {} [{}/{}] | Metric[{}]: {}'.format(
+                    str(batch_), batch_ * len(data), tot_samples, metric.name, m_value))
 
                 # Send scalar values via general/feedback topic
                 if history_monitor is not None:
                     history_monitor.add_scalar(metric=metric_dict,
                                                iteration=batch_,
                                                epoch=None,  # no epoch
-                                               train=False,  # means that for sending test metric
-                                               before_training=before_train,
+                                               test=True,
+                                               test_on_local_updates=False if before_train else True,
+                                               test_on_global_updates=before_train,
                                                total_samples=tot_samples,
                                                batch_samples=len(data),
                                                num_batches=len(self.testing_data_loader))

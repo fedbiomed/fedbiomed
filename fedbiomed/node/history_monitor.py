@@ -30,7 +30,9 @@ class HistoryMonitor:
                    batch_samples: int,
                    num_batches: int,
                    train: bool = False,
-                   before_training: bool = False):
+                   test: bool = False,
+                   test_on_global_updates: bool = False,
+                   test_on_local_updates: bool = False):
 
         """
         Adds a scalar value to the monitor, and sends an 'AddScalarReply'
@@ -52,7 +54,9 @@ class HistoryMonitor:
             'job_id': self.job_id,
             'researcher_id': self.researcher_id,
             'train': train,
-            'before_training': before_training,
+            'test': test,
+            'test_on_global_updates':test_on_global_updates,
+            'test_on_local_updates': test_on_local_updates,
             'metric': metric,
             'iteration': iteration,
             'epoch': epoch,
