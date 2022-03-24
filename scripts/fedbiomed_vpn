@@ -258,6 +258,7 @@ containers_status() {
     # ping inside the wg vpn
     for i in ${ALL_VPN_CONTAINERS[@]}
     do
+        [[ "$i" = "gui" ]] && { continue ; } # gui container does not use wireguard
         echo -n "- pinging VPN server from container $i -> "
         ping=$(docker-compose exec ${i} ping -n -c 3 -W 1 10.220.0.1 2>/dev/null | cat -v)
 
@@ -306,6 +307,37 @@ containers_build() {
     done
 }
 
+single_container_configure() {
+    container=$1
+    destination=$2
+
+    # patch to fix name mismatch between logical container name and localisation on disk
+    # must be fixed then implementing multiple researcher/node support
+    case $container in
+        mqtt|restful)
+            localname=$container;;
+        researcher*)
+            localname="researcher";;
+        node*)
+            localname="node";;
+        *)
+            echo "** ERROR: in single_container_configure call"
+            exit 1
+            ;;
+    esac
+
+    IP=$(find_my_ip)
+
+    /bin/rm -fr ./vpnserver/run_mounts/config/config_peers/${destination}/${container}
+    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf ${destination} ${container}
+    sleep 1
+
+    /bin/rm -fr ./${container}/run_mounts/config/wireguard    2> /dev/null
+    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/${destination}/${container}/config.env
+    /bin/rm ./vpnserver/run_mounts/config/config_peers/${destination}/${container}/config.env-XXX
+    /bin/cp ./vpnserver/run_mounts/config/config_peers/${destination}/${container}/config.env ./${localname}/run_mounts/config/config.env
+}
+
 
 containers_configure() {
     echo "** Generating VPN/Wireguards keys"
@@ -322,32 +354,16 @@ containers_configure() {
     docker-compose up -d vpnserver
 
     # mqtt configuration file
-    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf management mqtt
-    /bin/rm -fr ./mqtt/run_mounts/config/wireguard    2> /dev/null
-    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env
-    /bin/rm ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env-XXX
-    /bin/cp ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env ./mqtt/run_mounts/config/config.env
+    single_container_configure mqtt management
 
     # restful config file
-    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf management restful
-    /bin/rm -fr ./restful/run_mounts/config/wireguard    2> /dev/null
-    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/management/restful/config.env
-    /bin/rm ./vpnserver/run_mounts/config/config_peers/management/restful/config.env-XXX
-    /bin/cp ./vpnserver/run_mounts/config/config_peers/management/restful/config.env ./restful/run_mounts/config/config.env
+    single_container_configure restful management
 
     # researcher config file
-    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf researcher researcher1
-    /bin/rm -fr ./researcher/run_mounts/config/wireguard    2> /dev/null
-    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env
-    /bin/rm ./vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env-XXX
-    /bin/cp ./vpnserver/run_mounts/config/config_peers/researcher/researcher1/config.env ./researcher/run_mounts/config/config.env
+    single_container_configure researcher1 researcher
 
     # node config files
-    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf node node1
-    /bin/rm -fr ./node/run_mounts/config/wireguard    2> /dev/null
-    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/node/node1/config.env
-    /bin/rm ./vpnserver/run_mounts/config/config_peers/node/node1/config.env-XXX
-    /bin/cp ./vpnserver/run_mounts/config/config_peers/node/node1/config.env node/run_mounts/config/config.env
+    single_container_configure node1 node node
 
     #
     containers_stop
@@ -436,7 +452,7 @@ while (($# > 0)); do
             while (($# > 0)); do
                 case $1 in
                     -c|--clean)     CLEAN=1 ;;
-                    -h|--help|help) usage ; exit 0 ;;
+                    -h|--help|help) usage   ;;
                     vpnserver|mqtt|restful|researcher|node|gui) add_container $1;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
@@ -449,7 +465,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    -h|--help|help) usage ; exit 0 ;;
+                    -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
                 shift
@@ -461,7 +477,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    -h|--help|help) usage ; exit 0 ;;
+                    -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
                 shift
@@ -474,8 +490,8 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    -h|--help|help)      usage ; exit 0 ;;
-                    -g|--gpu)            GPU=1 ;;
+                    -h|--help|help) usage ;;
+                    -g|--gpu)       GPU=1 ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
                 shift
@@ -487,7 +503,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    -h|--help|help) usage ; exit 0 ;;
+                    -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
                 shift
@@ -499,14 +515,14 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    -h|--help|help) usage ; exit 0 ;;
+                    -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
                 shift
             done
             ;;
 
-        -h|--help|help) usage ; exit 0 ;;
+        -h|--help|help) usage ;;
 
         *) usage "unknown or incompatible option: $1";;
     esac
