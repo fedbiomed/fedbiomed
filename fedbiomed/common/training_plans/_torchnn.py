@@ -345,15 +345,15 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 # Otherwise check a default metric is defined
                 elif metric is not None:
                     # Convert prediction and actual values to numpy array
-                    true = target.detach().numpy()
+                    y_true = target.detach().numpy()
                     predicted = pred.detach().numpy()
-                    m_value = metric_controller.evaluate(y_true=true, y_pred=predicted, metric=metric)
+                    m_value = metric_controller.evaluate(y_true=y_true, y_pred=predicted, metric=metric)
                     metric_name = metric.name
 
                 metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
 
                 logger.debug('Testing: Batch {} [{}/{}] | Metric[{}]: {:.6f}'.format(
-                    str(batch_), batch_ * len(true), tot_samples, metric.name, m_value))
+                    str(batch_), batch_ * len(data), tot_samples, metric.name, m_value))
 
                 # Send scalar values via general/feedback topic
                 if history_monitor is not None:
@@ -363,7 +363,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                                                train=False,  # means that for sending test metric
                                                before_training=before_train,
                                                total_samples=tot_samples,
-                                               batch_samples=len(true),
+                                               batch_samples=len(data),
                                                num_batches=len(self.testing_data_loader))
 
         del metric_controller
