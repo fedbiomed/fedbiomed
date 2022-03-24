@@ -2,12 +2,12 @@
 A Base class that includes common methods that are used for
 all training plans
 """
-
 import numpy as np
 import torch
 
-from collections import OrderedDict
-from typing import Tuple, Dict, List, Callable, Union
+from collections import OrderedDict, Iterable
+from typing import Iterator, Tuple, Dict, List, Callable, Union
+from fedbiomed.common import utils
 
 
 from torch.utils.data import DataLoader
@@ -154,20 +154,22 @@ class BaseTrainingPlan(object):
         }
 
     @staticmethod
-    def _create_metric_result_dict(metric: Union[dict, list, int],
+    def _create_metric_result_dict(metric: Union[dict, list, int, float, np.ndarray, torch.tensor, List[torch.tensor]],
                                    metric_name: str = 'Custom'):
         """
         Base function to create metric dictionary
         """
-        # if the result is a tensor, convert it back to numpy
-        if isinstance(metric, torch.tensor):
-            metric = metric.numpy()[0]
-            metric = float(metric)
-
-        # if metric is an numpy integer (not recognized as an int by python)
-        if isinstance(metric, np.integer):
-            # convert nupy integer to a plain python integer
-            metric = int(metric)
+        if isinstance(metric, Iterable):
+            if isinstance(metric, torch.Tensor):
+                # torch.tensor is iterable
+                if metric.shape:
+                    metric = utils.convert_iterator_to_list_of_python_floats(metric)
+                else:
+                    metric = utils.convert_to_python_float(metric)
+            elif len(metric) > 0:
+                metric = utils.convert_iterator_to_list_of_python_floats(metric)
+        else:
+            metric = utils.convert_to_python_float(metric)
 
         # If it is single int/float metric value
         if isinstance(metric, (int, float)) and not isinstance(metric, bool):
@@ -196,4 +198,5 @@ class BaseTrainingPlan(object):
             if not isinstance(val, (int, float)) or isinstance(val, bool):
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: The values for metrics "
                                                  f"should be int or float, but got {type(val)} ")
+
 

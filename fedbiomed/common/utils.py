@@ -1,7 +1,11 @@
 import sys
 import inspect
-from typing import Callable
+from collections.abc import Iterable
+from typing import Callable, Iterator, List, Union
 from IPython.core.magics.code import extract_symbols
+
+import torch
+import numpy as np
 from fedbiomed.common.exceptions import FedbiomedError
 
 
@@ -101,3 +105,31 @@ def get_method_spec(method: Callable):
         }
 
     return method_spec
+
+
+def convert_to_python_float(value: Union[torch.tensor, np.integer, np.float, float]) -> float:
+    # if the result is a tensor, convert it back to numpy
+    print("VALUE:", value)
+    if isinstance(value, torch.Tensor):
+        value = value.numpy()
+
+    # if value is an numpy integer (not recognized as an int by python)
+    if isinstance(value, np.integer):
+        # convert numpy integer to a plain python integer
+        value = int(value)
+    return float(value)
+
+
+def convert_iterator_to_list_of_python_floats(iterator: Iterator) -> List[float]:
+    if not isinstance(iterator, Iterable):
+        raise FedbiomedError(f"object {type(iterator)} is not iterable")
+    print("VALUE", iterator)
+    list_of_floats = []
+    if isinstance(iterator, dict):
+        # specific processing for dictionaries
+        for val in iterator.values():
+            list_of_floats.append(convert_to_python_float(val))
+    else:
+        for it in iterator:
+            list_of_floats.append(convert_to_python_float(it))
+    return list_of_floats
