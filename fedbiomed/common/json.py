@@ -11,6 +11,7 @@ import json
 from typing import Union
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.metrics import MetricTypes
 
 def deserialize_msg(msg: Union[str, bytes]) -> dict:
@@ -61,18 +62,15 @@ def serialize_msg(msg: dict) -> str:
 
 def _deserialize_test_metric(msg):
     if msg.get('training_args', False):
-        if msg['training_args'].get('test_metric', False):
-            for m in MetricTypes:
-                if m.name == msg['training_args']['test_metric']:
-                    msg['training_args']['test_metric'] = m
-                    break
-
+        metric = msg['training_args'].get('test_metric', False)
+        if metric:
+            msg['training_args']['test_metric'] = MetricTypes.get_metric_type_by_name(metric)
     return msg
 
 
 def _serialize_test_metric(msg):
     if msg.get('training_args', False):
-        if msg['training_args'].get('test_metric', False):
-            msg['training_args']['test_metric'] = msg['training_args']['test_metric'].name
-
+        metric = msg['training_args'].get('test_metric', False)
+        if metric and isinstance(metric, MetricTypes):
+            msg['training_args']['test_metric'] = metric.name
     return msg

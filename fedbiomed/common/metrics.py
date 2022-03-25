@@ -1,6 +1,6 @@
 import numpy as np
 
-from typing import Union
+from typing import List, Union
 from sklearn import metrics
 from copy import copy
 from fedbiomed.common.constants import _BaseEnum, ErrorNumbers
@@ -37,7 +37,15 @@ class MetricTypes(_BaseEnum):
 
     def metric_category(self) -> _MetricCategory:
         return self._metric_category
+        
+    def get_all_metrics() -> List[str]:
+        return [metric.name for metric in MetricTypes]
 
+    def get_metric_type_by_name(metric_name: str):
+        for metric in MetricTypes:
+            if metric.name == metric_name:
+                return metric
+            
 
 class Metrics(object):
 

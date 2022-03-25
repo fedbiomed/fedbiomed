@@ -295,15 +295,14 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         torch.cuda.empty_cache()
 
     def testing_routine(self,
-                        metric: MetricTypes,
+                        metric: Union[MetricTypes, None],
                         history_monitor,
                         before_train: Union[bool, None] = None):
 
         # TODO: Add preprocess option for testing_data_loader
 
-        # Use accuracy as default metric
-        if metric is None:
-            metric = MetricTypes.ACCURACY
+        # if isinstance(metric, str):
+        #     metric = self.get_metric_type(metric)
 
         if self.testing_data_loader is None:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Can not find dataset for testing.")
@@ -336,7 +335,14 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     metric_name = 'Custom'
 
                 # Otherwise check a default metric is defined
-                elif metric is not None:
+                # Use accuracy as default metric
+                else:
+                    if metric is None:
+                        metric = MetricTypes.ACCURACY
+                        logger.info(f"No `testing_step` method found in TrainingPlan: using default metric {metric.name}"
+                                    " for model evaluation")
+                    metric_name = metric.name
+                    
                     try:
                         # Pass data through network layers
                         pred = self(data)
@@ -349,12 +355,12 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     y_true = target.detach().numpy()
                     predicted = pred.detach().numpy()
                     m_value = metric_controller.evaluate(y_true=y_true, y_pred=predicted, metric=metric)
-                    metric_name = metric.name
+                    
 
                 metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
 
                 logger.debug('Testing: Batch {} [{}/{}] | Metric[{}]: {}'.format(
-                    str(batch_), batch_ * len(data), tot_samples, metric.name, m_value))
+                    str(batch_), batch_ * len(data), tot_samples, metric_name, m_value))
 
                 # Send scalar values via general/feedback topic
                 if history_monitor is not None:

@@ -531,7 +531,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
     def __classes_from_concatenated_train_test(self):
         """
         Method for getting all classes from test and target dataset. This action is required
-        in case of some class is only exist in training subset or testing subset
+        in case of some class only exist in training subset or testing subset
         """
 
         target_test = self.testing_data_loader[1]
