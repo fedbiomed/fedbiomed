@@ -6,7 +6,7 @@ import os
 import sys
 import time
 import inspect
-from typing import Union
+from typing import Union, Dict, Any
 import uuid
 
 from fedbiomed.common.logger import logger
@@ -93,7 +93,7 @@ class Round:
         self.training = training
         self._default_batch_size = 48  # default bath size
 
-    def run_model_training(self) -> TrainReply:
+    def run_model_training(self) -> dict[str, Any]:
         """This method downloads model file; then runs the training of a model
         and finally uploads model params
 
@@ -111,16 +111,16 @@ class Round:
             status, _ = self.repository.download_file(self.model_url,
                                                       import_module + '.py')
 
-            if (status != 200):
-                is_failed = True
+            if status != 200:
                 error_message = "Cannot download model file: " + self.model_url
+                return self._send_round_reply(success=False, message=error_message)
             else:
                 if environ["MODEL_APPROVAL"]:
                     approved, model = self.model_manager.check_is_model_approved(os.path.join(environ["TMP_DIR"],
                                                                                               import_module + '.py'))
                     if not approved:
-                        is_failed = True
                         error_message = f'Requested model is not approved by the node: {environ["NODE_ID"]}'
+                        return self._send_round_reply(success=False, message=error_message)
                     else:
                         logger.info(f'Model has been approved by the node {model["name"]}')
 
@@ -129,185 +129,188 @@ class Round:
                     self.params_url,
                     'my_model_' + str(uuid.uuid4()) + '.pt')
                 if (status != 200) or params_path is None:
-                    is_failed = True
-                    error_message = "Cannot download param file: " \
-                                    + self.params_url
+                    error_message = f"Cannot download param file: {self.params_url}"
+                    return self._send_round_reply(success=False, message=error_message)
 
         except Exception as e:
             is_failed = True
             # FIXME: this will trigger if model is not approved by node
-            error_message = "Cannot download model files:" + str(e)
+            error_message = f"Cannot download model files: {str(e)}"
+            return self._send_round_reply(success=False, message=error_message)
 
         # import module, declare the model, load parameters
-        if not is_failed:
-            try:
-                sys.path.insert(0, environ['TMP_DIR'])
+        try:
+            sys.path.insert(0, environ['TMP_DIR'])
 
-                # import TrainingPlan created by Researcher on node
-                exec('import ' + import_module, globals())
-                sys.path.pop(0)
+            # import TrainingPlan created by Researcher on node
+            exec('import ' + import_module, globals())
+            sys.path.pop(0)
 
-                # instantiate model as `train_class`
-                train_class = eval(import_module + '.' + self.model_class)
-                if self.model_kwargs is None or len(self.model_kwargs) == 0:
-                    # case where no args have been found (default)
-                    self.model = train_class()
-                else:
-                    # case where args have been found  (and passed)
-                    self.model = train_class(self.model_kwargs)
-            except Exception as e:
-                is_failed = True
-                error_message = "Cannot instantiate model object: " + str(e)
+            # instantiate model as `train_class`
+            train_class = eval(import_module + '.' + self.model_class)
+            if self.model_kwargs is None or len(self.model_kwargs) == 0:
+                # case where no args have been found (default)
+                self.model = train_class()
+            else:
+                # case where args have been found  (and passed)
+                self.model = train_class(self.model_kwargs)
+        except Exception as e:
+            error_message = f"Cannot instantiate model object: {str(e)}"
+            return self._send_round_reply(success=False, message=error_message)
 
         # import model params into the model instance
-        if not is_failed:
-            try:
-                self.model.load(params_path, to_params=False)
-            except Exception as e:
-                is_failed = True
-                error_message = "Cannot initialize model parameters:" + str(e)
+        try:
+            self.model.load(params_path, to_params=False)
+        except Exception as e:
+            error_message = f"Cannot initialize model parameters: f{str(e)}"
+            return self._send_round_reply(success=False, message=error_message)
 
         # Run the training routine
-        if not is_failed:
-            # Caution: always provide values for node-side arguments
-            # (history_monitor, node_args) especially if they are security
-            # related, to avoid overloading by malicious researcher.
-            #
-            # We want to have explicit message in case of overloading attempt
-            # (and continue training) though by default it fails with
-            # "dict() got multiple values for keyword argument"
-            node_side_args = ['history_monitor', 'node_args']
-            for arg in node_side_args:
-                if arg in self.training_kwargs:
-                    del self.training_kwargs[arg]
-                    logger.warning(f'Researcher trying to set node-side training parameter {arg}. '
-                                   f' Maybe a malicious researcher attack.')
+        # Caution: always provide values for node-side arguments
+        # (history_monitor, node_args) especially if they are security
+        # related, to avoid overloading by malicious researcher.
+        #
+        # We want to have explicit message in case of overloading attempt
+        # (and continue training) though by default it fails with
+        # "dict() got multiple values for keyword argument"
+        node_side_args = ['history_monitor', 'node_args']
+        for arg in node_side_args:
+            if arg in self.training_kwargs:
+                del self.training_kwargs[arg]
+                logger.warning(f'Researcher trying to set node-side training parameter {arg}. '
+                               f' Maybe a malicious researcher attack.')
 
         # Split training and testing data
-        if not is_failed:
-            try:
-                self._set_training_testing_data_loaders()
-            except FedbiomedError as e:
-                is_failed = True
-                error_message = f"Can not create test/train data: {str(e)}"
-            except Exception as e:
-                error_message = f"Undetermined error while creating data for training/test. Can not create " \
-                                f"test/train data: {str(e)}"
+        try:
+            self._set_training_testing_data_loaders()
+        except FedbiomedError as e:
+            error_message = f"Can not create test/train data: {str(e)}"
+            return self._send_round_reply(success=False, message=error_message)
+        except Exception as e:
+            error_message = f"Undetermined error while creating data for training/test. Can not create " \
+                            f"test/train data: {str(e)}"
+            return self._send_round_reply(success=False, message=error_message)
 
-        if not is_failed:
-            training_kwargs_with_history = dict(history_monitor=self.history_monitor,
-                                                node_args=self.node_args,
-                                                **self.training_kwargs)
-            logger.info(f'training with arguments {training_kwargs_with_history}')
+        training_kwargs_with_history = dict(history_monitor=self.history_monitor,
+                                            node_args=self.node_args,
+                                            **self.training_kwargs)
+        logger.info(f'training with arguments {training_kwargs_with_history}')
 
         # Testing Before Training ------------------------------------------------------------------------------------
-        if not is_failed:
-            if self.testing_arguments.get('test_on_global_updates', False) is not False:
+        if self.testing_arguments.get('test_on_global_updates', False) is not False:
 
-                # Last control to make sure testing data loader is set.
+            # Last control to make sure testing data loader is set.
+            if self.model.testing_data_loader is not None:
+                try:
+                    self.model.testing_routine(metric=self.testing_arguments.get('test_metric', None),
+                                               history_monitor=self.history_monitor,
+                                               before_train=True)
+                except FedbiomedError as e:
+                    logger.error(f"{ErrorNumbers.FB314}: During the testing phase on global parameter updates; "
+                                 f"{str(e)}")
+                except Exception as e:
+                    logger.error(f"Undetermined error during the testing phase on global parameter updates: "
+                                 f"{e}")
+            else:
+                logger.error(f"{ErrorNumbers.FB314}: Can not execute testing routine due to missing testing dataset"
+                             f"Please make sure that `test_ratio` has been set correctly")
+        # -----------------------------------------------------------------------------------------------------------
+        # If training is activated.
+        if self.training:
+            if self.model.training_data_loader is not None:
+                try:
+                    results = {}
+                    rtime_before = time.perf_counter()
+                    ptime_before = time.process_time()
+                    self.model.training_routine(**training_kwargs_with_history)
+                    rtime_after = time.perf_counter()
+                    ptime_after = time.process_time()
+                except Exception as e:
+                    error_message = f"Cannot train model in round: {str(e)}"
+                    return self._send_round_reply(success=False, message=error_message)
+
+            # Testing after training
+            if self.testing_arguments.get('test_on_local_updates', False) is not False:
+
                 if self.model.testing_data_loader is not None:
                     try:
                         self.model.testing_routine(metric=self.testing_arguments.get('test_metric', None),
                                                    history_monitor=self.history_monitor,
                                                    before_train=True)
                     except FedbiomedError as e:
-                        logger.error(f"{ErrorNumbers.FB314}: During the testing phase on global parameter updates; "
-                                     f"{str(e)}")
+                        logger.error(
+                            f"{ErrorNumbers.FB314.value}: During the testing phase on local parameter updates; "
+                            f"{str(e)}")
                     except Exception as e:
-                        logger.error(f"Undetermined error during the testing phase on global parameter updates: "
+                        logger.error(f"Undetermined error during the testing phase on local parameter updates"
                                      f"{e}")
                 else:
-                    logger.error(f"{ErrorNumbers.FB314}: Can not execute testing routine due to missing testing dataset"
-                                 f"Please make sure that `test_ratio` has been set correctly")
-        # -----------------------------------------------------------------------------------------------------------
-        # If training is activated.
-        if self.training:
-            if not is_failed:
-                if self.model.training_data_loader is not None:
-                    try:
-                        results = {}
-                        rtime_before = time.perf_counter()
-                        ptime_before = time.process_time()
-                        self.model.training_routine(**training_kwargs_with_history)
-                        rtime_after = time.perf_counter()
-                        ptime_after = time.process_time()
-                    except Exception as e:
-                        is_failed = True
-                        error_message = "Cannot train model in round: " + str(e)
+                    logger.error(
+                        f"{ErrorNumbers.FB314.value}: Can not execute testing routine due to missing testing "
+                        f"dataset please make sure that test_ratio has been set correctly")
 
-            # Testing after training
-            if not is_failed:
-                if self.testing_arguments.get('test_on_local_updates', False) is not False:
-
-                    if self.model.testing_data_loader is not None:
-                        try:
-                            self.model.testing_routine(metric=self.testing_arguments.get('test_metric', None),
-                                                       history_monitor=self.history_monitor,
-                                                       before_train=True)
-                        except FedbiomedError as e:
-                            logger.error(
-                                f"{ErrorNumbers.FB314.value}: During the testing phase on local parameter updates; "
-                                f"{str(e)}")
-                        except Exception as e:
-                            logger.error(f"Undetermined error during the testing phase on local parameter updates"
-                                         f"{e}")
-
-                    else:
-                        logger.error(
-                            f"{ErrorNumbers.FB314.value}: Can not execute testing routine due to missing testing "
-                            f"dataset please make sure that test_ratio has been set correctly")
-
-            if not is_failed:
-                # Upload results
-                results['researcher_id'] = self.researcher_id
-                results['job_id'] = self.job_id
-                results['model_params'] = self.model.after_training_params()
-                results['node_id'] = environ['NODE_ID']
-                try:
-                    # TODO : should test status code but not yet returned
-                    # by upload_file
-                    filename = environ['TMP_DIR'] + '/node_params_' + str(uuid.uuid4()) + '.pt'
-                    self.model.save(filename, results)
-                    res = self.repository.upload_file(filename)
-                    logger.info("results uploaded successfully ")
-                except Exception as e:
-                    is_failed = True
-                    error_message = "Cannot upload results: " + str(e)
+            # Upload results
+            results['researcher_id'] = self.researcher_id
+            results['job_id'] = self.job_id
+            results['model_params'] = self.model.after_training_params()
+            results['node_id'] = environ['NODE_ID']
+            try:
+                # TODO : should test status code but not yet returned
+                # by upload_file
+                filename = environ['TMP_DIR'] + '/node_params_' + str(uuid.uuid4()) + '.pt'
+                self.model.save(filename, results)
+                res = self.repository.upload_file(filename)
+                logger.info("results uploaded successfully ")
+            except Exception as e:
+                is_failed = True
+                error_message = f"Cannot upload results: {str(e)}"
+                return self._send_round_reply(success=False, message=error_message)
 
             # end : clean the namespace
             try:
                 del self.model
                 del import_module
-            except Exception:
+            except Exception as e:
+                logger.debug(f'Exception raise while deleting model {e}')
                 pass
 
-            if not is_failed:
-                return NodeMessages.reply_create({'node_id': environ['NODE_ID'],
-                                                'job_id': self.job_id,
-                                                'researcher_id': self.researcher_id,
-                                                'command': 'train',
-                                                'success': True,
-                                                'dataset_id': self.dataset['dataset_id'],
-                                                'params_url': res['file'],
-                                                'msg': '',
-                                                'timing': {
-                                                    'rtime_training': rtime_after - rtime_before,
-                                                    'ptime_training': ptime_after - ptime_before}
-                                                }).get_dict()
-            else:
-                logger.error(error_message)
-                return NodeMessages.reply_create({'node_id': environ['NODE_ID'],
-                                                'job_id': self.job_id,
-                                                'researcher_id': self.researcher_id,
-                                                'command': 'train',
-                                                'success': False,
-                                                'dataset_id': '',
-                                                'params_url': '',
-                                                'msg': error_message,
-                                                'timing': {}}).get_dict()
+            return self._send_round_reply(success=True,
+                                          timing={'rtime_training': rtime_after - rtime_before,
+                                                  'ptime_training': ptime_after - ptime_before},
+                                          params_url=res['file'])
         else:
-            return None
+            # Only for testing
+            return self._send_round_reply(success=True)
 
+    def _send_round_reply(self,
+                          message: str = '',
+                          success: bool = False,
+                          params_url: Union[str, None] = None,
+                          timing: dict = {}):
+        """
+        Private method for sending reply to researcher after training/testing. Message content changes
+        based on success status.
+
+        Args:
+            message (str):
+            success (bool):
+            params_url (str):
+            timing (dict):
+        """
+
+        # If round is not successful log error message
+        if not success:
+            logger.error(message)
+
+        return NodeMessages.reply_create({'node_id': environ['NODE_ID'],
+                                          'job_id': self.job_id,
+                                          'researcher_id': self.researcher_id,
+                                          'command': 'train',
+                                          'success': success,
+                                          'dataset_id': self.dataset['dataset_id'] if success else '',
+                                          'params_url': params_url if params_url else '',
+                                          'msg': message,
+                                          'timing': timing}).get_dict()
 
     def _set_training_testing_data_loaders(self):
         """

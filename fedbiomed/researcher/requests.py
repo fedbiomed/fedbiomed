@@ -110,12 +110,13 @@ class Requests(metaclass=SingletonMeta):
         original_msg = json.loads(log["msg"])
 
         # Loging fancy feedback for training
-        logger.info("\033[1m{} FROM NODE\033[0m {}\n"
-                    "\033[1mMESSAGE:\033[0m \n{}\033[0m\n"
+        logger.info("\033[1m{}\033[0m\n"
+                    "\t\t\t\t\t\033[1m NODE\033[0m {}\n"
+                    "\t\t\t\t\t\033[1m MESSAGE:\033[0m {}\033[0m\n"
                     "{}".format(log["level"],
                                 log["node_id"],
                                 original_msg["message"],
-                                5 * '--------'))
+                                5*"-------------"))
 
     def send_message(self, msg: dict, client=None):
         """
