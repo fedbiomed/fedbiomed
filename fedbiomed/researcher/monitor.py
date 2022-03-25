@@ -196,8 +196,8 @@ class Monitor:
         if message['train'] is True:
             header = 'Training'
         else:
-            header = 'Testing On Global Parameters' if message['test_on_global_updates'] else 'Testing On Local ' \
-                                                                                              'Updated Parameters'
+            header = 'Testing On Global Updates' if message['test_on_global_updates'] else 'Testing On Local ' \
+                                                                                              'Updates'
 
         metric_dict = message['metric']
         metric_result = ''

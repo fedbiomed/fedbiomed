@@ -9,18 +9,6 @@ from fedbiomed.common.training_plans import SGDSkLearnModel
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 
 
-class TestModel(SGDSkLearnModel):
-    """
-    What is it ?
-    """
-
-    def __init__(self, model_args: dict = {}):
-        super(TestModel).__init__()
-
-    def adhoc(self):
-        print('adhoc')
-
-
 class TestFedbiosklearn(unittest.TestCase):
 
     def setUp(self):
@@ -40,11 +28,6 @@ class TestFedbiosklearn(unittest.TestCase):
         self.assertIsNone(p.get('lelo'))
         self.assertIsNone(p.get('toto'))
         self.assertIsNone(p.get('model'))
-
-    def test_not_implemented_method(self):
-        kw = {'toto': 'le', 'lelo': 'la', 'max_iter': 7000, 'tol': 0.3456, 'n_features': 10, 'model': 'SGDRegressor'}
-        t = TestModel(kw)
-        self.assertRaises(FedbiomedTrainingPlanError, lambda: t.training_data())
 
     def test_save_and_load(self):
         randomfile = tempfile.NamedTemporaryFile()
