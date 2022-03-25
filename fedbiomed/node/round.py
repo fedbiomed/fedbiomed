@@ -257,54 +257,56 @@ class Round:
                             f"{ErrorNumbers.FB314.value}: Can not execute testing routine due to missing testing "
                             f"dataset please make sure that test_ratio has been set correctly")
 
-        if not is_failed:
-            # Upload results
-            results['researcher_id'] = self.researcher_id
-            results['job_id'] = self.job_id
-            results['model_params'] = self.model.after_training_params()
-            results['node_id'] = environ['NODE_ID']
+            if not is_failed:
+                # Upload results
+                results['researcher_id'] = self.researcher_id
+                results['job_id'] = self.job_id
+                results['model_params'] = self.model.after_training_params()
+                results['node_id'] = environ['NODE_ID']
+                try:
+                    # TODO : should test status code but not yet returned
+                    # by upload_file
+                    filename = environ['TMP_DIR'] + '/node_params_' + str(uuid.uuid4()) + '.pt'
+                    self.model.save(filename, results)
+                    res = self.repository.upload_file(filename)
+                    logger.info("results uploaded successfully ")
+                except Exception as e:
+                    is_failed = True
+                    error_message = "Cannot upload results: " + str(e)
+
+            # end : clean the namespace
             try:
-                # TODO : should test status code but not yet returned
-                # by upload_file
-                filename = environ['TMP_DIR'] + '/node_params_' + str(uuid.uuid4()) + '.pt'
-                self.model.save(filename, results)
-                res = self.repository.upload_file(filename)
-                logger.info("results uploaded successfully ")
-            except Exception as e:
-                is_failed = True
-                error_message = "Cannot upload results: " + str(e)
+                del self.model
+                del import_module
+            except Exception:
+                pass
 
-        # end : clean the namespace
-        try:
-            del self.model
-            del import_module
-        except Exception:
-            pass
-
-        if not is_failed:
-            return NodeMessages.reply_create({'node_id': environ['NODE_ID'],
-                                              'job_id': self.job_id,
-                                              'researcher_id': self.researcher_id,
-                                              'command': 'train',
-                                              'success': True,
-                                              'dataset_id': self.dataset['dataset_id'],
-                                              'params_url': res['file'],
-                                              'msg': '',
-                                              'timing': {
-                                                  'rtime_training': rtime_after - rtime_before,
-                                                  'ptime_training': ptime_after - ptime_before}
-                                              }).get_dict()
+            if not is_failed:
+                return NodeMessages.reply_create({'node_id': environ['NODE_ID'],
+                                                'job_id': self.job_id,
+                                                'researcher_id': self.researcher_id,
+                                                'command': 'train',
+                                                'success': True,
+                                                'dataset_id': self.dataset['dataset_id'],
+                                                'params_url': res['file'],
+                                                'msg': '',
+                                                'timing': {
+                                                    'rtime_training': rtime_after - rtime_before,
+                                                    'ptime_training': ptime_after - ptime_before}
+                                                }).get_dict()
+            else:
+                logger.error(error_message)
+                return NodeMessages.reply_create({'node_id': environ['NODE_ID'],
+                                                'job_id': self.job_id,
+                                                'researcher_id': self.researcher_id,
+                                                'command': 'train',
+                                                'success': False,
+                                                'dataset_id': '',
+                                                'params_url': '',
+                                                'msg': error_message,
+                                                'timing': {}}).get_dict()
         else:
-            logger.error(error_message)
-            return NodeMessages.reply_create({'node_id': environ['NODE_ID'],
-                                              'job_id': self.job_id,
-                                              'researcher_id': self.researcher_id,
-                                              'command': 'train',
-                                              'success': False,
-                                              'dataset_id': '',
-                                              'params_url': '',
-                                              'msg': error_message,
-                                              'timing': {}}).get_dict()
+            return None
 
 
     def _set_training_testing_data_loaders(self):

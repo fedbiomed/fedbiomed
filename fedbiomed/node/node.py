@@ -236,7 +236,8 @@ class Node:
                     # in the current round (here round refers
                     # to a round to be done on a specific dataset).
                     msg = round.run_model_training()
-                    self.messaging.send_message(msg)
+                    if msg is not None:                     
+                        self.messaging.send_message(msg)
 
                 self.tasks_queue.task_done()
             except Exception as e:
