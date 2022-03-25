@@ -85,6 +85,7 @@ class Metrics(object):
             - y_pred (np.ndarray): Predicted values
             - metric (MetricTypes): An instance of MetricTypes to chose metric that will be used for evaluation
             - kwargs: The arguments specifics to each type of metrics.
+
         Returns:
             - int or float as result of the evaluation metric
 

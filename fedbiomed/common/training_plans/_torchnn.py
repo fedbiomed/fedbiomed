@@ -2,7 +2,7 @@
 TrainingPlan definition for torchnn ML framework
 '''
 from collections.abc import Iterable
-from typing import Optional, Union, Callable
+from typing import Any, Dict, Optional, Union, Callable
 from copy import deepcopy
 
 import numpy as np
@@ -296,6 +296,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
     def testing_routine(self,
                         metric: Union[MetricTypes, None],
+                        metric_args: Dict[str, Any],
                         history_monitor,
                         before_train: Union[bool, None] = None):
 
@@ -354,7 +355,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     # Convert prediction and actual values to numpy array
                     y_true = target.detach().numpy()
                     predicted = pred.detach().numpy()
-                    m_value = metric_controller.evaluate(y_true=y_true, y_pred=predicted, metric=metric)
+                    m_value = metric_controller.evaluate(y_true=y_true, y_pred=predicted, metric=metric, **metric_args)
                     
 
                 metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)

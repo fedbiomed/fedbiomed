@@ -203,6 +203,7 @@ class Round:
             if self.model.testing_data_loader is not None:
                 try:
                     self.model.testing_routine(metric=self.testing_arguments.get('test_metric', None),
+                                               metric_args=self.testing_arguments.get('test_metric_args', {}),
                                                history_monitor=self.history_monitor,
                                                before_train=True)
                 except FedbiomedError as e:
@@ -235,6 +236,7 @@ class Round:
                 if self.model.testing_data_loader is not None:
                     try:
                         self.model.testing_routine(metric=self.testing_arguments.get('test_metric', None),
+                                                   metric_args=self.testing_arguments.get('test_metric_args', {}),
                                                    history_monitor=self.history_monitor,
                                                    before_train=True)
                     except FedbiomedError as e:
