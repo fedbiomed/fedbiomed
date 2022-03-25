@@ -94,53 +94,17 @@ class TestMonitor(unittest.TestCase):
         self.assertFalse(os.path.isfile(test_file), "Tensorboard log file has not been removed properly")
         self.assertFalse(os.path.isdir(test_dir), "Tensorboard log folder has not been removed properly")
 
-    def test_monitor_04_summary_writer_global_step_minus(self):
-        """Test writing loss value as global step is epoch not iteration """
-
-        node_id = "1234"
-        self.monitor._summary_writer(node_id, "loss", global_step=-1, scalar=2, epoch=3)
-
-        self.mock_add_scalar.assert_called_once()
-        self.assertEqual(self.monitor._event_writers[node_id]['step'], 3)
-        self.assertEqual(self.monitor._event_writers[node_id]['stepper'], 0)
-        self.assertEqual(self.monitor._event_writers[node_id]['step_state'], 0)
-
-    def test_monitor_05_summary_writer_global_step_zero(self):
+    def test_monitor_05_summary_writer(self):
         """ Test writing loss value at the first step 0 iteration """
 
         node_id = "1234"
-        self.monitor._summary_writer(node_id, "loss", global_step=0, scalar=2, epoch=3)
+        self.monitor._summary_writer('Train', node_id, metric={"Loss": 12}, cum_iter=1)
+        self.assertTrue('1234' in self.monitor._event_writers)
         self.mock_add_scalar.assert_called_once()
-        self.assertEqual(self.monitor._event_writers[node_id]['step'], 1)
-        self.assertEqual(self.monitor._event_writers[node_id]['stepper'], 1)
-        self.assertEqual(self.monitor._event_writers[node_id]['step_state'], 1)
 
-    def test_monitor_05_summary_writer_multiple_entry(self):
-        """ Test writing multiple loss values from single node with summary writer"""
-
-        node_id = "1234"
-        self.monitor._summary_writer(node_id, "loss", global_step=0, scalar=2, epoch=3)
-        self.monitor._summary_writer(node_id, "loss", global_step=10, scalar=2, epoch=3)
-        self.monitor._summary_writer(node_id, "loss", global_step=20, scalar=2, epoch=3)
-
-        self.assertEqual(self.mock_add_scalar.call_count, 3)
-        self.assertEqual(self.monitor._event_writers[node_id]['step'], 21)
-        self.assertEqual(self.monitor._event_writers[node_id]['stepper'], 0)
-        self.assertEqual(self.monitor._event_writers[node_id]['step_state'], 1)
-
-    def test_monitor_05_summary_writer_multiple_entry_second_round(self):
-        """ Test writing multiple rounds of loss values  with summary writer"""
-
-        node_id = "1234"
-        self.monitor._summary_writer(node_id, "loss", global_step=0, scalar=2, epoch=3)
-        self.monitor._summary_writer(node_id, "loss", global_step=10, scalar=2, epoch=3)
-        self.monitor._summary_writer(node_id, "loss", global_step=20, scalar=2, epoch=3)
-        self.monitor._summary_writer(node_id, "loss", global_step=0, scalar=2, epoch=3)
-
-        self.assertEqual(self.mock_add_scalar.call_count, 4)
-        self.assertEqual(self.monitor._event_writers[node_id]['step'], 22)
-        self.assertEqual(self.monitor._event_writers[node_id]['stepper'], 1)
-        self.assertEqual(self.monitor._event_writers[node_id]['step_state'], 22)
+        self.mock_add_scalar.reset_mock()
+        self.monitor._summary_writer('Train', node_id, metric={"Loss": 12, "Loss2": 14}, cum_iter=1)
+        self.assertEqual(self.mock_add_scalar.call_count, 2)
 
     @patch('fedbiomed.researcher.monitor.Monitor._summary_writer')
     def test_monitor_06_on_message_handler(self, mock_summary_writer):
@@ -153,13 +117,22 @@ class TestMonitor(unittest.TestCase):
             'researcher_id': '123123',
             'node_id': 'asd123',
             'job_id': '1233',
-            'iteration': 2,
-            'key': 'loss',
-            'value': 1.23,
+            'train': False,
+            'test': True,
+            'test_on_local_updates': True,
+            'test_on_global_updates': True,
+            'metric': {'metric_1': 12, 'metric_2': 13},
+            'batch_samples': 13,
+            'num_batches': 1,
+            'total_samples': 1000,
+            'iteration': 1,
             'epoch': 1,
             'command': 'add_scalar'
         })
-        mock_summary_writer.assert_called_once_with('asd123', 'loss', 2, 1.23, 1)
+        mock_summary_writer.assert_called_once_with(header='TESTING ON GLOBAL PARAMETERS',
+                                                    node='asd123',
+                                                    metric={'metric_1': 12, 'metric_2': 13},
+                                                    cum_iter=1)
 
         mock_summary_writer.reset_mock()
         self.monitor.set_tensorboard(False)
@@ -167,9 +140,15 @@ class TestMonitor(unittest.TestCase):
             'researcher_id': '123123',
             'node_id': 'asd123',
             'job_id': '1233',
+            'train': False,
+            'test': True,
+            'test_on_local_updates': True,
+            'test_on_global_updates': True,
+            'metric': {'metric_1': 12, 'metric_2': 13},
+            'batch_samples': 13,
+            'num_batches': 1,
+            'total_samples': 1000,
             'iteration': 2,
-            'key': 'loss',
-            'value': 1.23,
             'epoch': 1,
             'command': 'add_scalar'
         })
@@ -177,25 +156,33 @@ class TestMonitor(unittest.TestCase):
 
         mock_summary_writer.reset_mock()
         self.monitor.set_tensorboard(True)
-        self.monitor.set_tensorboard("not_a_bool")   # as a side effect, this will set tensorboard flag to false
+        self.monitor.set_tensorboard("not_a_bool")  # as a side effect, this will set tensorboard flag to false
         self.monitor.on_message_handler({
             'researcher_id': '123123',
             'node_id': 'asd123',
             'job_id': '1233',
+            'train': False,
+            'test': True,
+            'test_on_local_updates': True,
+            'test_on_global_updates': True,
+            'metric': {'metric_1': 12, 'metric_2': 13},
+            'batch_samples': 13,
+            'num_batches': 1,
+            'total_samples': 1000,
             'iteration': 2,
-            'key': 'loss',
-            'value': 1.23,
             'epoch': 1,
             'command': 'add_scalar'
         })
         mock_summary_writer.assert_not_called()
 
-
     @patch('fedbiomed.researcher.monitor.SummaryWriter.close')
     def test_monitor_07_close_writers(self, mock_close):
         """  Testing closing writers """
 
-        self.monitor._summary_writer('1234', "loss", global_step=-1, scalar=2, epoch=3)
+        self.monitor._summary_writer(header='TESTING ON GLOBAL PARAMETERS',
+                                     node='asd123',
+                                     metric={'metric_1': 12, 'metric_2': 13},
+                                     cum_iter=1)
         self.monitor.close_writer()
         mock_close.assert_called_once()
 

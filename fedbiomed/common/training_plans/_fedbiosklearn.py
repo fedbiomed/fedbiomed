@@ -534,8 +534,9 @@ class SGDSkLearnModel(BaseTrainingPlan):
         in case of some class only exist in training subset or testing subset
         """
 
-        target_test = self.testing_data_loader[1]
-        target_train = self.training_data_loader[1]
+        target_test = self.testing_data_loader[1] if self.testing_data_loader is not None else np.array([])
+        target_train = self.training_data_loader[1] if self.training_data_loader is not None else np.array([])
+
         target_test_train = np.concatenate((target_test, target_train))
 
         return np.unique(target_test_train)

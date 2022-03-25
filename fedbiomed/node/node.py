@@ -2,7 +2,6 @@
 core code of the node component
 '''
 
-
 from json import decoder
 
 from typing import Optional, Union, Dict, Any
@@ -29,10 +28,11 @@ class Node:
     with researcher through Messager, and executing / parsing task
     requested by researcher stored in a queue.
     """
-    def __init__( self,
-                  dataset_manager: DatasetManager,
-                  model_manager: ModelManager,
-                  node_args: Union[dict, None] = None):
+
+    def __init__(self,
+                 dataset_manager: DatasetManager,
+                 model_manager: ModelManager,
+                 node_args: Union[dict, None] = None):
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
         self.messaging = Messaging(self.on_message, ComponentType.NODE,
@@ -51,7 +51,7 @@ class Node:
         """
         self.tasks_queue.add(task)
 
-    def on_message(self, msg, topic = None):
+    def on_message(self, msg, topic=None):
         """Handler to be used with `Messaging` class (ie with messager).
         It is called when a  messsage arrive through the messager
         It reads and triggers instruction received by node from Researcher,
@@ -117,7 +117,7 @@ class Node:
                      'node_id': environ['NODE_ID'],
                      'researcher_id': msg['researcher_id'],
                      'databases': databases,
-                     'count' : len(databases),
+                     'count': len(databases),
                      }).get_dict())
             elif command == 'model-status':
                 # Check is model approved
@@ -129,29 +129,28 @@ class Node:
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
             self.send_error(ErrorNumbers.FB301,
-                            extra_msg = "Not able to deserialize the message",
-                            researcher_id= resid)
+                            extra_msg="Not able to deserialize the message",
+                            researcher_id=resid)
         except NotImplementedError:
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
             self.send_error(ErrorNumbers.FB301,
-                            extra_msg = f"Command `{command}` is not implemented",
-                            researcher_id= resid)
+                            extra_msg=f"Command `{command}` is not implemented",
+                            researcher_id=resid)
         except KeyError:
             # FIXME: this error could be raised for other missing keys (eg
             # researcher_id, ....)
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
             self.send_error(ErrorNumbers.FB301,
-                            extra_msg = "'command' property was not found",
-                            researcher_id= resid)
+                            extra_msg="'command' property was not found",
+                            researcher_id=resid)
         except TypeError:  # Message was not serializable
             resid = 'researcher_id' in msg.keys(
             ) and msg['researcher_id'] or 'unknown_researcher_id'
             self.send_error(ErrorNumbers.FB301,
-                            extra_msg = 'Message was not serializable',
-                            researcher_id= resid)
-
+                            extra_msg='Message was not serializable',
+                            researcher_id=resid)
 
     def parser_task(self, msg: Union[bytes, str, Dict[str, Any]]):
         """ This method parses a given task message to create a round instance
@@ -183,7 +182,8 @@ class Node:
         assert model_class is not None, 'classname for the model and training routine was not found in message.'
 
         assert isinstance(
-            model_class, str), '`model_class` must be a string corresponding to the classname for the model and training routine in the repository'  # noqa
+            model_class,
+            str), '`model_class` must be a string corresponding to the classname for the model and training routine in the repository'  # noqa
 
         self.rounds = []  # store here rounds associated to each dataset_id
         # (so it is possible to train model on several dataset per round)
@@ -236,8 +236,7 @@ class Node:
                     # in the current round (here round refers
                     # to a round to be done on a specific dataset).
                     msg = round.run_model_training()
-                    if msg is not None:                     
-                        self.messaging.send_message(msg)
+                    self.messaging.send_message(msg)
 
                 self.tasks_queue.task_done()
             except Exception as e:
@@ -263,8 +262,7 @@ class Node:
         """
         self.messaging.start(block)
 
-
-    def send_error(self, errnum: ErrorNumbers, extra_msg: str = "", researcher_id : str = "<unknown>"):
+    def send_error(self, errnum: ErrorNumbers, extra_msg: str = "", researcher_id: str = "<unknown>"):
         """
         send an error message through MQTT
 
@@ -272,4 +270,4 @@ class Node:
         """
 
         #
-        self.messaging.send_error(errnum, extra_msg = extra_msg, researcher_id = researcher_id)
+        self.messaging.send_error(errnum, extra_msg=extra_msg, researcher_id=researcher_id)
