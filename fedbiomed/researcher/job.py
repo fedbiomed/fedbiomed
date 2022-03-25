@@ -326,7 +326,7 @@ class Job:
             else:
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
-                            f'\t\t\t\t\t\033[1m Reqeust: \033[0m: Perform training with arguments: {str(msg)} '
+                            f'\t\t\t\t\t\033[1m Reqeust: \033[0m: Perform training with the arguments: {str(msg)} '
                             f'\n {5*"-------------"}')
 
             time_start[cli] = time.perf_counter()

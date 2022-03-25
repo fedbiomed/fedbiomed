@@ -159,44 +159,52 @@ class BaseTrainingPlan(object):
         """
         Base function to create metric dictionary
         """
-        if isinstance(metric, Iterable):
-            if isinstance(metric, torch.Tensor):
-                # torch.tensor is iterable
-                if metric.shape:
-                    metric = utils.convert_iterator_to_list_of_python_floats(metric)
-                else:
-                    metric = utils.convert_to_python_float(metric)
-            elif len(metric) > 0:
-                metric = utils.convert_iterator_to_list_of_python_floats(metric)
-        else:
-            metric = utils.convert_to_python_float(metric)
+
+        if isinstance(metric, torch.Tensor):
+            metric = metric.numpy()
+            metric = list(metric) if metric.shape else float(metric)
+        elif isinstance(metric, np.ndarray):
+            metric = list(metric)
 
         # If it is single int/float metric value
-        if isinstance(metric, (int, float)) and not isinstance(metric, bool):
+        if isinstance(metric, (int, float, np.integer)) and not isinstance(metric, bool):
             return {metric_name: metric}
 
         # If metric function returns multiple values
         elif isinstance(metric, list):
             metric_name = [f"{metric_name}_{i+1}" for i, val in enumerate(metric)]
+            try:
+                metric = utils.convert_iterator_to_list_of_python_floats(metric)
+            except FedbiomedError as e:
+                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value} Wrong typed metric: {e}")
             BaseTrainingPlan._check_metric_types_is_int_or_float(metric)
             return dict(zip(metric_name, metric))
 
         # if metric function returns dict as `metric_name:metric_value`
         elif isinstance(metric, dict):
-            BaseTrainingPlan._check_metric_types_is_int_or_float(list(metric.values()))
-            return metric
+            keys = metric.keys()
+            try:
+                metric = utils.convert_iterator_to_list_of_python_floats(metric)
+            except FedbiomedError as e:
+                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value} Wrong typed metric: {e}")
+
+            BaseTrainingPlan._check_metric_types_is_int_or_float(metric)
+            return dict(zip(keys, metric))
 
         else:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Metric value should be one of type int, "
-                                             f"float, list of int/float or  dict of (key: (int/float)), "
+                                             f"float, np.integer, torch.tensor, "
+                                             f"list of int/float/np.integer/torch.tensor or  dict of "
+                                             f"(key: (int/float/np.integer/torch.tensor)), "
                                              f"but got {type(metric)} ")
 
     @staticmethod
     def _check_metric_types_is_int_or_float(values: list):
 
         for val in values:
-            if not isinstance(val, (int, float)) or isinstance(val, bool):
+            if not isinstance(val, (int, float, np.integer)) or isinstance(val, bool):
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: The values for metrics "
-                                                 f"should be int or float, but got {type(val)} ")
+                                                 f"should be int, float, np.integer or torch.tensor "
+                                                 f"but got {type(val)} ")
 
 

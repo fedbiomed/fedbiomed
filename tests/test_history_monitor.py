@@ -57,10 +57,16 @@ class TestHistoryMonitor(unittest.TestCase):
         add_scalar method
         """
         scalar = self.history_monitor.add_scalar(
-            key='loss',
-            value=123.34,
-            iteration=1,
-            epoch=1,
+            metric={'test': 123},
+            train=True,
+            test=False,
+            test_on_global_updates=False,
+            test_on_local_updates=False,
+            total_samples=1234,
+            batch_samples=12,
+            num_batches=12,
+            iteration=111,
+            epoch=111
         )
         self.assertEqual(scalar, None)
 
@@ -73,8 +79,14 @@ class TestHistoryMonitor(unittest.TestCase):
 
         with self.assertRaises(FedbiomedMessageError):
             _ = self.history_monitor.add_scalar(
-                key=123,
-                value='asdasd',
+                metric={'test': 123},
+                train=True,
+                test=False,
+                test_on_global_updates=False,
+                test_on_local_updates=False,
+                total_samples=1234,
+                batch_samples=12,
+                num_batches=12,
                 iteration='111',
                 epoch='111',
             )

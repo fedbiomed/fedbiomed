@@ -172,7 +172,7 @@ class Monitor:
         """
         # Close each open SummaryWriter
         for node in self._event_writers:
-            self._event_writers[node]['writer'].close()
+            self._event_writers[node].close()
 
     def _remove_logs(self):
         """
