@@ -115,7 +115,6 @@ class TestRound(unittest.TestCase):
         # action!
         msg_test1 = self.r1.run_model_training()
 
-        print(msg_test1)
         # check results
         self.assertTrue(msg_test1.get('success', False))
         self.assertEqual(msg_test1.get('params_url', False), TestRound.URL_MSG)

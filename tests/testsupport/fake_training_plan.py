@@ -86,6 +86,10 @@ class FakeModel:
         """
         time.sleep(FakeModel.SLEEPING_TIME)
 
+    def testing_routine(self, metric, history_monitor, before_train: bool):
+        pass
+
+
     def after_training_params(self) -> List[int]:
         """Fakes `after_training_params` method of TrainingPlan classes.
         Originally used to get the parameters after training is performed.

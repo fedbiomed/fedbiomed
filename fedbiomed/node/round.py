@@ -238,7 +238,7 @@ class Round:
                         self.model.testing_routine(metric=self.testing_arguments.get('test_metric', None),
                                                    metric_args=self.testing_arguments.get('test_metric_args', {}),
                                                    history_monitor=self.history_monitor,
-                                                   before_train=True)
+                                                   before_train=False)
                     except FedbiomedError as e:
                         logger.error(
                             f"{ErrorNumbers.FB314.value}: During the testing phase on local parameter updates; "

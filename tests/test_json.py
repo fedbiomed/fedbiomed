@@ -27,8 +27,6 @@ class TestJson(unittest.TestCase):
         loop1 = js.serialize_msg(js.deserialize_msg(msg))
         self.assertEqual(loop1, msg)
 
-        loop2 = js.deserialize_msg(js.serialize_msg(msg))
-        self.assertEqual(loop1, msg)
         pass
 
     def test_errnum_json(self):
