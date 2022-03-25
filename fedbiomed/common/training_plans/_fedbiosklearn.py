@@ -100,6 +100,8 @@ class SGDSkLearnModel(BaseTrainingPlan):
         if not isinstance(model_args, dict):
             model_args = {}
 
+        print('###', model_args)
+
         if 'model' not in model_args:
             msg = ErrorNumbers.FB303.value + ": SKLEARN model not provided"
             logger.critical(msg)
