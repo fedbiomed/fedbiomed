@@ -11,6 +11,7 @@ import traceback
 from re import findall
 from tabulate import tabulate
 from typing import Callable, Tuple, Union, Dict, Any, TypeVar, Type, List
+from fedbiomed.common.metrics import MetricTypes
 from pathvalidate import sanitize_filename, sanitize_filepath
 
 from fedbiomed.common.logger import logger
@@ -1115,7 +1116,7 @@ class Experiment(object):
         return ratio
 
     @exp_exceptions
-    def set_test_metric(self, metric: Union[Callable, str, None], **metric_args) -> \
+    def set_test_metric(self, metric: Union[MetricTypes, str, None], **metric_args) -> \
             Tuple[Union[str, None], Dict[str, Any]]:
         """
         Sets a metric for federated model evaluation
@@ -1130,20 +1131,18 @@ class Experiment(object):
         Returns:
             - Tuple[Union[str, None], Dict[str, Any]]: metric, metric args
         """
-        if not (metric is None or isinstance(metric, str) or callable(metric)):
+        if not (metric is None or isinstance(metric, str) or isinstance(metric, MetricTypes)):
             _msg = ErrorNumbers.FB410.value + ": incorrect argument metric, got type " + \
                 f"{type(metric)}, but expected Callable or str"
             raise FedbiomedExperimentError(_msg)
-        elif callable(metric):
-            if hasattr(metric, '__name__'):
-                # get string of a known function passed as callable (eg sklearn accuracy)
-                metric = str(metric.__name__)
-            else:
-                _msg = ErrorNumbers.FB410.value + ": incorrect argument metric, " + \
-                    "got type Callable but has no __name__ attribute"
-                raise FedbiomedExperimentError(_msg)                
-        # at this point, metric is a str or None
-
+           
+        # at this point, metric is a str, MetricTypes or None
+        if isinstance(metric, str):
+            metric = metric.upper()
+            if metric not in MetricTypes.get_all_metrics():
+                raise FedbiomedExperimentError(f"Metric {metric} is not a default Metric Type supprted by Fedbiomed."
+                                               f" Please use {MetricTypes.get_all_metrics()} or define your"
+                                               " `testing_step` method in the TrainingPlan")
         self._training_args['test_metric'] = metric
 
         # using **metric_args, we know `test_metric_args` is a Dict[str, Any]

@@ -5,7 +5,7 @@ TrainingPlan definition for sklearn ML framework
 from io import StringIO
 from joblib import dump, load
 import sys
-from typing import Union, Tuple, Callable, Optional
+from typing import Any, Dict, Union, Tuple, Callable, Optional
 
 import numpy as np
 
@@ -267,8 +267,10 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 # Fit model based on model type
                 if self._is_classification:
                     classes = self.__classes_from_concatenated_train_test()
+                    #classes = np.unique(target)
+                    print("BEFORE PARTIAL FIT")
                     self.model.partial_fit(data, target, classes=classes)
-
+                    print("AFTER PARTIAL FIT")
                 elif self._is_regression:
                     self.model.partial_fit(data, target)
 
@@ -278,7 +280,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
             # Logging training training outputs -------------------------------------------------------------------
             if history_monitor is not None:
                 _loss_collector = []
-
+                
                 # check whether it is a binary classification or a multiclass classification
                 if self._is_classification and classes.shape[0] < 3:
                     self._is_binary_classification = True
@@ -324,6 +326,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
 
     def testing_routine(self,
                         metric: Union[MetricTypes, None],
+                        metric_args: Dict[str, Any],
                         history_monitor,
                         before_train: bool):
         """
@@ -383,7 +386,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: An exception has raise predicting test"
                                                  f"data set. {str(e)}")
 
-            m_value = metric_controller.evaluate(target, pred, metric=metric)
+            m_value = metric_controller.evaluate(target, pred, metric=metric, **metric_args)
             metric_name = metric.name
 
         # Raise error
@@ -531,7 +534,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
     def __classes_from_concatenated_train_test(self):
         """
         Method for getting all classes from test and target dataset. This action is required
-        in case of some class is only exist in training subset or testing subset
+        in case of some class only exist in training subset or testing subset
         """
 
         target_test = self.testing_data_loader[1] if self.testing_data_loader is not None else np.array([])
