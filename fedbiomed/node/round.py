@@ -287,7 +287,7 @@ class Round:
     def _send_round_reply(self,
                           message: str = '',
                           success: bool = False,
-                          params_url: Union[str, None] = None,
+                          params_url: Union[str, None] = '',
                           timing: dict = {}):
         """
         Private method for sending reply to researcher after training/testing. Message content changes
@@ -310,7 +310,7 @@ class Round:
                                           'command': 'train',
                                           'success': success,
                                           'dataset_id': self.dataset['dataset_id'] if success else '',
-                                          'params_url': params_url if params_url else '',
+                                          'params_url': params_url,
                                           'msg': message,
                                           'timing': timing}).get_dict()
 
@@ -414,6 +414,3 @@ class Round:
 
         # Split dataset as train and test
         return data_manager.split(test_ratio=test_ratio)
-
-        # If testing is inactive following method can be called to load all samples as train
-        # self.train_data = sp.da_data_manager.load_all_samples()

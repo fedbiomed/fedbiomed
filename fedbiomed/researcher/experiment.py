@@ -286,12 +286,11 @@ class Experiment(object):
     # destructor
     @exp_exceptions
     def __del__(self):
-        if self._reqs is not None:
-            # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
-            self._reqs.remove_monitor_callback()
+        # if self._reqs is not None:
+        #     # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
+        #     self._reqs.remove_monitor_callback()
         if self._monitor is not None:
             self._monitor.close_writer()
-
 
     @exp_exceptions
     def tags(self) -> Union[List[str], None]:
