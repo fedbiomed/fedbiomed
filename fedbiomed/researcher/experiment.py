@@ -1059,7 +1059,7 @@ class Experiment(object):
         Cleans / resets training arguments `training_args`
         with default values.
 
-        Sets:
+        Sets (as default values):
          - test_ratio: 0.
          - test_on_local_updates: False
          - test_on_global_updates: False

@@ -46,7 +46,10 @@ class _MetricStore(dict):
             if metric_name not in self[node][for_]:
                 self._register_metric(node=node, for_=for_, metric_name=metric_name)
 
-            if round_ in self[node][for_][metric_name]:
+            # FIXME: for now, if testing is done on global updates (before model local update)
+            # last testing metric value computed on global updates at last round is overwritten
+            # by the first one computed at first round 
+            if round_ in self[node][for_][metric_name] and train:
                 self[node][for_][metric_name][round_]['iterations'].append(iter_)
                 self[node][for_][metric_name][round_]['values'].append(metric_value)
             else:
