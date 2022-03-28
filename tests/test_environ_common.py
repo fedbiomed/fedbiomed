@@ -76,14 +76,9 @@ class TestEnvironCommon(unittest.TestCase):
     #
 
     def test_environ_00_bad_component(self):
-        from fedbiomed.common.environ import Environ
-        try:
+        with self.assertRaises(FedbiomedEnvironError):
+            from fedbiomed.common.environ import Environ
             env = Environ("==== bad input test")
-            print("==== CANNOT BE HERE")
-        except FedbiomedEnvironError as e:
-            print("==== CAUGHT !!")
-        except Exception as e:
-            print("==== BAD EXCEPTION", e)
 
 
     def test_environ_01_file_creation(self):
@@ -231,6 +226,23 @@ class TestEnvironCommon(unittest.TestCase):
             if os.path.isfile(config_path):
                 os.remove(config_path)
 
+    def test_environ_04_badkey(self):
+        with self.assertRaises(FedbiomedEnvironError):
+            from fedbiomed.common.environ import Environ
+            environ = Environ(ComponentType.NODE)
+            print(environ["This_is_an_unknown_key"])
+
+    def test_environ_05_badsetter(self):
+        with self.assertRaises(FedbiomedEnvironError):
+            from fedbiomed.common.environ import Environ
+            environ = Environ(ComponentType.NODE)
+            environ["This_is_an_unknown_newkey"] = None
+
+    def test_environ_06_set_get(self):
+        from fedbiomed.common.environ import Environ
+        environ = Environ(ComponentType.NODE)
+        environ["This_is_a_new_key"] = 123
+        self.assertEqual( environ["This_is_a_new_key"] , 123 )
 
 
 if __name__ == '__main__':  # pragma: no cover
