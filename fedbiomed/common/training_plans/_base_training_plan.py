@@ -157,7 +157,13 @@ class BaseTrainingPlan(object):
     def _create_metric_result_dict(metric: Union[dict, list, int, float, np.ndarray, torch.tensor, List[torch.tensor]],
                                    metric_name: str = 'Custom'):
         """
-        Base function to create metric dictionary
+        Base function to create metric dictionary.
+
+        Args:
+            metric (dict, list, int, float): Array-like metric values or dictionary
+            metric_name (str): Name of the metric. If `metric` is of type list, metric names will be in format of
+                (`metric_name_1`, `metric_name_n`). If the `metric` argument is  provided as dict the argument
+                `metric_name` will be ignored and metric names will be keys of the dict.
         """
 
         if isinstance(metric, torch.Tensor):
@@ -176,8 +182,7 @@ class BaseTrainingPlan(object):
             try:
                 metric = utils.convert_iterator_to_list_of_python_floats(metric)
             except FedbiomedError as e:
-                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value} Wrong typed metric: {e}")
-            BaseTrainingPlan._check_metric_types_is_int_or_float(metric)
+                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value} Wrong typed metric value: {e}")
             return dict(zip(metric_name, metric))
 
         # if metric function returns dict as `metric_name:metric_value`
@@ -188,7 +193,6 @@ class BaseTrainingPlan(object):
             except FedbiomedError as e:
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value} Wrong typed metric: {e}")
 
-            BaseTrainingPlan._check_metric_types_is_int_or_float(metric)
             return dict(zip(keys, metric))
 
         else:
@@ -197,14 +201,5 @@ class BaseTrainingPlan(object):
                                              f"list of int/float/np.integer/torch.tensor or  dict of "
                                              f"(key: (int/float/np.integer/torch.tensor)), "
                                              f"but got {type(metric)} ")
-
-    @staticmethod
-    def _check_metric_types_is_int_or_float(values: list):
-
-        for val in values:
-            if not isinstance(val, (int, float, np.integer)) or isinstance(val, bool):
-                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: The values for metrics "
-                                                 f"should be int, float, np.integer or torch.tensor "
-                                                 f"but got {type(val)} ")
 
 
