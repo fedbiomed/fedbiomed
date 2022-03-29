@@ -331,7 +331,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                     # If custom evaluation step returns None
                     if m_value is None:
-                        raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: metric function return None")
+                        raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: metric function returned None")
 
                     metric_name = 'Custom'
 
