@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.monitor import Monitor
+from fedbiomed.researcher.monitor import Monitor, _MetricStore  # noqa
 
 
 def create_file(file_name: str):
@@ -129,7 +129,30 @@ class TestMonitor(unittest.TestCase):
             'epoch': 1,
             'command': 'add_scalar'
         })
-        mock_summary_writer.assert_called_once_with(header='TESTING ON GLOBAL PARAMETERS',
+        mock_summary_writer.assert_called_once_with(header='TESTING ON GLOBAL UPDATES',
+                                                    node='asd123',
+                                                    metric={'metric_1': 12, 'metric_2': 13},
+                                                    cum_iter=1)
+
+        mock_summary_writer.reset_mock()
+        self.monitor.set_tensorboard(True)
+        self.monitor.on_message_handler({
+            'researcher_id': '123123',
+            'node_id': 'asd123',
+            'job_id': '1233',
+            'train': True,
+            'test': False,
+            'test_on_local_updates': True,
+            'test_on_global_updates': True,
+            'metric': {'metric_1': 12, 'metric_2': 13},
+            'batch_samples': 13,
+            'num_batches': 1,
+            'total_samples': 1000,
+            'iteration': 1,
+            'epoch': 1,
+            'command': 'add_scalar'
+        })
+        mock_summary_writer.assert_called_once_with(header='TRAINING',
                                                     node='asd123',
                                                     metric={'metric_1': 12, 'metric_2': 13},
                                                     cum_iter=1)
@@ -185,6 +208,240 @@ class TestMonitor(unittest.TestCase):
                                      cum_iter=1)
         self.monitor.close_writer()
         mock_close.assert_called_once()
+
+
+class TestMetricStore(unittest.TestCase):
+
+    # before the tests
+    def setUp(self):
+        self.metric_store = _MetricStore()
+
+    # after the tests
+    def tearDown(self):
+        pass
+
+    def test_metric_store_01_add_iteration_for_train_loss(self):
+        """Testing add iteration method of the class MetricStore"""
+
+        node_1 = 'node-1'
+        node_2 = 'node-2'
+
+        # Test first round for node 1 ----------------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_1,
+                                                       train=True,
+                                                       test_on_global_updates=False,
+                                                       round_=1,
+                                                       metric={'Metric_1': 12},
+                                                       iter_=1)
+        expected = {'node-1': {'testing_global_updates': {},
+                               'testing_local_updates': {},
+                               'training': {
+                                   'Metric_1': {
+                                       1: {'iterations': [1], 'values': [12]}}}
+                               }}
+        self.assertDictEqual(self.metric_store, expected, 'Iteration could not set properly for the first '
+                                                          'train iteration of node-1')
+        self.assertEqual(cum_iter, 1)
+
+        # Test first round for node 2 ---------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_2,
+                                                       train=True,
+                                                       test_on_global_updates=False,
+                                                       round_=1,
+                                                       metric={'Metric_1': 12},
+                                                       iter_=1)
+        expected.update({'node-2': {'testing_global_updates': {},
+                                    'testing_local_updates': {},
+                                    'training': {
+                                        'Metric_1': {
+                                            1: {'iterations': [1], 'values': [12]}}}
+                                    }})
+        self.assertDictEqual(self.metric_store, expected, 'Iteration could not set properly for the first '
+                                                          'train iteration of node-2')
+        self.assertEqual(cum_iter, 1)
+
+        # Test first round for node 1 for another metric ---------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_1,
+                                                       train=True,
+                                                       test_on_global_updates=False,
+                                                       round_=1,
+                                                       metric={'Metric_2': 12},
+                                                       iter_=1)
+        expected['node-1']['training'].update({'Metric_2': {1: {'iterations': [1], 'values': [12]}}})
+        self.assertDictEqual(self.metric_store, expected, 'Iteration could not set properly for the first '
+                                                          'train iteration for another metric of node-1')
+        self.assertEqual(cum_iter, 1)
+
+        # Test first round for node 2 for another metric ---------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_2,
+                                                       train=True,
+                                                       test_on_global_updates=False,
+                                                       round_=1,
+                                                       metric={'Metric_2': 12},
+                                                       iter_=1)
+        expected['node-2']['training'].update({'Metric_2': {1: {'iterations': [1], 'values': [12]}}})
+        self.assertDictEqual(self.metric_store, expected, 'Iteration could not set properly for the first '
+                                                          'train iteration for another metric of node-2')
+        self.assertEqual(cum_iter, 1)
+
+        # Test second round for node 1  ---------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_1,
+                                                       train=True,
+                                                       test_on_global_updates=False,
+                                                       round_=2,
+                                                       metric={'Metric_1': 12},
+                                                       iter_=1)
+        expected['node-1']['training']['Metric_1'].update({2: {'iterations': [1], 'values': [12]}})
+        self.assertDictEqual(self.metric_store, expected, 'Iteration could not set properly for the second '
+                                                          'round of training for node-1')
+        self.assertEqual(cum_iter, 2)
+
+        # Test second round for node 2  ---------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_2,
+                                                       train=True,
+                                                       test_on_global_updates=False,
+                                                       round_=2,
+                                                       metric={'Metric_1': 12},
+                                                       iter_=1)
+        expected['node-2']['training']['Metric_1'].update({2: {'iterations': [1], 'values': [12]}})
+        self.assertDictEqual(self.metric_store, expected, 'Iteration could not set properly for the second '
+                                                          'round of training for node-2')
+        self.assertEqual(cum_iter, 2)
+
+        # Test second round - second iter for node 1  ---------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_1,
+                                                       train=True,
+                                                       test_on_global_updates=False,
+                                                       round_=2,
+                                                       metric={'Metric_1': 12},
+                                                       iter_=2)
+        expected['node-1']['training']['Metric_1'].update({2: {'iterations': [1, 2], 'values': [12, 12]}})
+        self.assertDictEqual(self.metric_store, expected, 'Second iteration could not set properly for the second '
+                                                          'round of training for node-1')
+        self.assertEqual(cum_iter, 3)
+
+        # Test second round - second iter for node 2  ---------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_2,
+                                                       train=True,
+                                                       test_on_global_updates=False,
+                                                       round_=2,
+                                                       metric={'Metric_1': 12},
+                                                       iter_=2)
+        expected['node-2']['training']['Metric_1'].update({2: {'iterations': [1, 2], 'values': [12, 12]}})
+        self.assertDictEqual(self.metric_store, expected, 'Second Iteration could not set properly for the second '
+                                                          'round of training for node-1')
+        self.assertEqual(cum_iter, 3)
+
+    def test_metric_store_01_add_iteration_for_test_on_global_updates(self):
+        """Testing add iteration method of the class MetricStore"""
+
+        node_1 = 'node-1'
+        node_2 = 'node-2'
+
+        # Test first round for node 1 ----------------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_1,
+                                                       train=False,
+                                                       test_on_global_updates=True,
+                                                       round_=1,
+                                                       metric={'Metric_1': 12},
+                                                       iter_=1)
+        expected = {'node-1': {'training': {},
+                               'testing_local_updates': {},
+                               'testing_global_updates': {
+                                   'Metric_1': {
+                                       1: {'iterations': [1], 'values': [12]}}}
+                               }}
+        self.assertDictEqual(self.metric_store, expected, 'Iteration could not set properly for the first '
+                                                          'train iteration of node-1')
+        self.assertEqual(cum_iter, 1)
+
+        # Test first round for node 2 ---------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_2,
+                                                       train=False,
+                                                       test_on_global_updates=True,
+                                                       round_=1,
+                                                       metric={'Metric_1': 12},
+                                                       iter_=1)
+        expected.update({'node-2': {'training': {},
+                                    'testing_local_updates': {},
+                                    'testing_global_updates': {
+                                        'Metric_1': {
+                                            1: {'iterations': [1], 'values': [12]}}}
+                                    }})
+        self.assertEqual(cum_iter, 1)
+
+        self.assertDictEqual(self.metric_store, expected, 'Iteration could not set properly for the first '
+                                                          'train iteration of node-2')
+
+        # Test first round for node 1 for another metric ---------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_1,
+                                                       train=False,
+                                                       test_on_global_updates=True,
+                                                       round_=1,
+                                                       metric={'Metric_2': 12},
+                                                       iter_=1)
+        expected['node-1']['testing_global_updates'].update({'Metric_2': {1: {'iterations': [1], 'values': [12]}}})
+        self.assertDictEqual(self.metric_store, expected, 'Iteration could not set properly for the first '
+                                                          'train iteration for another metric of node-1')
+
+        # Test first round for node 2 for another metric ---------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_2,
+                                                       train=False,
+                                                       test_on_global_updates=True,
+                                                       round_=1,
+                                                       metric={'Metric_2': 12},
+                                                       iter_=1)
+        expected['node-2']['testing_global_updates'].update({'Metric_2': {1: {'iterations': [1], 'values': [12]}}})
+        self.assertDictEqual(self.metric_store, expected, 'Iteration could not set properly for the first '
+                                                          'train iteration for another metric of node-2')
+
+        # Test second round for node 1  ---------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_1,
+                                                       train=False,
+                                                       test_on_global_updates=True,
+                                                       round_=2,
+                                                       metric={'Metric_1': 12},
+                                                       iter_=1)
+        expected['node-1']['testing_global_updates']['Metric_1'].update({2: {'iterations': [1], 'values': [12]}})
+        self.assertDictEqual(self.metric_store, expected, 'Iteration could not set properly for the second '
+                                                          'round of training for node-1')
+        self.assertEqual(cum_iter, 2)
+
+        # Test second round for node 2  ---------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_2,
+                                                       train=False,
+                                                       test_on_global_updates=True,
+                                                       round_=2,
+                                                       metric={'Metric_1': 12},
+                                                       iter_=1)
+        expected['node-2']['testing_global_updates']['Metric_1'].update({2: {'iterations': [1], 'values': [12]}})
+        self.assertDictEqual(self.metric_store, expected, 'Iteration could not set properly for the second '
+                                                          'round of training for node-2')
+        self.assertEqual(cum_iter, 2)
+
+        # Test second round - second iter for node 1  ---------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_1,
+                                                       train=False,
+                                                       test_on_global_updates=True,
+                                                       round_=2,
+                                                       metric={'Metric_1': 12},
+                                                       iter_=2)
+        expected['node-1']['testing_global_updates']['Metric_1'].update({2: {'iterations': [1, 2], 'values': [12, 12]}})
+        self.assertDictEqual(self.metric_store, expected, 'Second iteration could not set properly for the second '
+                                                          'round of training for node-1')
+        self.assertEqual(cum_iter, 3)
+
+        # Test second round - second iter for node 2  ---------------------------------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_2,
+                                                       train=False,
+                                                       test_on_global_updates=True,
+                                                       round_=2,
+                                                       metric={'Metric_1': 12},
+                                                       iter_=2)
+        expected['node-2']['testing_global_updates']['Metric_1'].update({2: {'iterations': [1, 2], 'values': [12, 12]}})
+        self.assertDictEqual(self.metric_store, expected, 'Second Iteration could not set properly for the second '
+                                                          'round of training for node-1')
+        self.assertEqual(cum_iter, 3)
 
 
 if __name__ == '__main__':  # pragma: no cover
