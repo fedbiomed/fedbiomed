@@ -2,6 +2,7 @@ import numpy as np
 
 from typing import List, Union
 from sklearn import metrics
+from sklearn.preprocessing import OneHotEncoder
 from copy import copy
 from fedbiomed.common.constants import _BaseEnum, ErrorNumbers
 from fedbiomed.common.logger import logger
@@ -105,7 +106,6 @@ class Metrics(object):
                                        f"of `np.ndarray`, but got {type(y_true)} ")
 
         y_true, y_pred = self._configure_y_true_pred_(y_true=y_true, y_pred=y_pred, metric=metric)
-
         result = self.metrics[metric.name](y_true, y_pred, **kwargs)
 
         return result
@@ -160,7 +160,7 @@ class Metrics(object):
         """
 
         # Get average and pob_label argument based on multiclass status
-        average, pos_label = Metrics._configure_multiclass_parameters(y_true, kwargs, 'PRECISION')
+        y_true, y_pred, average, pos_label = Metrics._configure_multiclass_parameters(y_true, y_pred, kwargs, 'PRECISION')
 
         kwargs.pop("average", None)
         kwargs.pop("pos_label", None)
@@ -197,7 +197,7 @@ class Metrics(object):
         """
 
         # Get average and pob_label argument based on multiclass status
-        average, pos_label = Metrics._configure_multiclass_parameters(y_true, kwargs, 'RECALL')
+        y_true, y_pred, average, pos_label = Metrics._configure_multiclass_parameters(y_true, y_pred, kwargs, 'RECALL')
 
         kwargs.pop("average", None)
         kwargs.pop("pos_label", None)
@@ -234,7 +234,10 @@ class Metrics(object):
         """
 
         # Get average and pob_label argument based on multiclass status
-        average, pos_label = Metrics._configure_multiclass_parameters(y_true, kwargs, 'F1_SCORE')
+        y_true, y_pred, average, pos_label = Metrics._configure_multiclass_parameters(y_true,
+                                                                                      y_pred,
+                                                                                      kwargs,
+                                                                                      'F1_SCORE')
 
         kwargs.pop("average", None)
         kwargs.pop("pos_label", None)
@@ -429,7 +432,7 @@ class Metrics(object):
             return True if isinstance(list_[0][0], str) else False
 
     @staticmethod
-    def _configure_multiclass_parameters(y_true, parameters, metric):
+    def _configure_multiclass_parameters(y_true, y_pred, parameters, metric):
 
         average = parameters.get('average', 'binary')
         pos_label = parameters.get('pos_label', 1)
@@ -439,6 +442,13 @@ class Metrics(object):
             logger.info(f'Actual/True values (y_true) has more than two levels, using multiclass `{average}` '
                         f'calculation for the metric {metric}')
 
+            encoder = OneHotEncoder()
+            y_true = np.expand_dims(y_true, axis=1)
+            y_pred = np.expand_dims(y_pred, axis=1)
+            encoder.fit(y_true)
+
+            y_true = encoder.transform(y_true).toarray()
+            y_pred = encoder.transform(y_pred).toarray()
         else:
             average = parameters.get('average', 'binary')
             # Alphabetically select first label as pos_label
@@ -446,4 +456,4 @@ class Metrics(object):
             y_true_copy.copy()
             pos_label = y_true_copy[0] if isinstance(y_true[0], str) else parameters.get('pos_label', 1)
 
-        return average, pos_label
+        return y_true, y_pred, average, pos_label
