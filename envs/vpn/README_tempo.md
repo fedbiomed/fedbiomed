@@ -26,6 +26,16 @@ Pre-requisites for using containers :
 
 ## setup VPN and fedbiomed
 
+Tip: build images from a clean file tree (avoid copying modified/config/temporary files to images) :
+- method 1 : use a fresh `git clone git@gitlab.inria.fr:fedbiomed/fedbiomed.git` tree
+- method 2 : clean your existing file tree
+  * general cleaning
+``` bash
+[user@laptop $] source ./scripts/fedbiomed_environment clean
+```
+  * specific [cleaning](#cleaning) for containers
+
+
 ### (optional) building all images
 
 Optionally build all images in one command. 
