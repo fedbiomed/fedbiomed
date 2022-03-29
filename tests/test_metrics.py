@@ -204,6 +204,20 @@ class TestMetrics(unittest.TestCase):
         result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
         self.assertEqual(result, 1, 'Multiclass: Could not compute Precision correctly')
 
+        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE, average='samples')
+        self.assertEqual(result, 1, 'Multiclass: Could not compute F1 Score correctly')
+        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL, average='samples')
+        self.assertEqual(result, 1, 'Multiclass: Could not compute Recall correctly')
+        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION, average='samples')
+        self.assertEqual(result, 1, 'Multiclass: Could not compute Precision correctly')
+
+        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE, average='macro')
+        self.assertEqual(result, 1, 'Multiclass: Could not compute F1 Score correctly')
+        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL, average='macro')
+        self.assertEqual(result, 1, 'Multiclass: Could not compute Recall correctly')
+        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION, average='macro')
+        self.assertEqual(result, 1, 'Multiclass: Could not compute Precision correctly')
+
     def test_metrics_14_evaluate_regression_1D_1D_array_strings(self):
         """ Multiclass: Test both are 1D array with labels as string """
 
@@ -244,7 +258,7 @@ class TestMetrics(unittest.TestCase):
 
         # Test missmatch shape for regression metrics should raise exception
         y_true = [[12, 12], [13, 13], [14, 14], [15, 15]]
-        y_pred = [11, 12, 13 ,14]
+        y_pred = [11, 12, 13, 14]
         with self.assertRaises(FedbiomedMetricError):
             self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.MEAN_SQUARE_ERROR)
 
