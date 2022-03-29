@@ -14,6 +14,11 @@
 import fedbiomed.__init__
 import fedbiomed.common.__init__
 import fedbiomed.common.constants
+import fedbiomed.common.data.__init__
+import fedbiomed.common.data._data_manager
+import fedbiomed.common.data._sklearn_data_manager
+import fedbiomed.common.data._torch_data_manager
+import fedbiomed.common.data._torch_tabular_dataset
 import fedbiomed.common.environ
 import fedbiomed.common.exceptions
 import fedbiomed.common.json
