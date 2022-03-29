@@ -12,6 +12,7 @@ services:
   x-node:
     &standard-node
     container_name: fedbiomed-vpn-node
+    hostname: fedbiomed-vpn-node
     image: fedbiomed/vpn-node
     env_file:
       - ./node/run_mounts/config/config.env
@@ -36,6 +37,7 @@ services:
   # node gui component
   gui:
     container_name: fedbiomed-vpn-gui
+    hostname: fedbiomed-vpn-gui
     image: fedbiomed/vpn-gui
     ports:
       - "${GUI_HOST:-127.0.0.1}:8484:8484"
