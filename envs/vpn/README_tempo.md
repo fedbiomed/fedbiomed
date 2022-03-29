@@ -1,6 +1,6 @@
 # WIP notes for Fed-BioMed VPN'ization
 
-**TODO** : convert to updates for main README.md + additions to install scripts
+**TODO** : convert to gitlabpages documentation + additions to install scripts
 
 Which identity to use ?
 
@@ -12,20 +12,24 @@ Which machine to use ?
 - when using distinct machines for the components, type node commands (eg `[user@node $]`) on node, researcher commands (eg `[user@researcher $]`) on researcher, network commands on network (eg `[user@network $]`)
 - when running all components on a single laptop, all components are on this machine
 
-## containers
+## requirements
 
 Pre-requisites for using containers :
 
-* **`docker-compose` version 1.27.0 or higher** is needed for extended file format for [GPU support in docker](https://docs.docker.com/compose/gpu-support/) even if you're not using GPU in container.
-*  some distributions (eg Ubuntu 20.04) don't provide a package with a recent enough version.
-* Type `docker-compose --version` to check installed version.
-* You can use your usual package manager to  install up-to-date version (eg: `sudo apt-get update && sudo apt-get install docker-compose` for apt, `sudo dnf clean metadata && sudo dnf update docker-compose` for dnf).
-* If no suitable package exist for your system, you can use [`docker-compose` install page](https://docs.docker.com/compose/install/).
+* **`docker >= 20.10.0`** is needed to build mqtt, see [there](https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2). With older docker version it fails with a `make: sh: Operation not permitted`
+* **`docker-compose` >= 1.27.0** is needed for extended file format for [GPU support in docker](https://docs.docker.com/compose/gpu-support/) even if you're not using GPU in container.
+  -  some distributions (eg Ubuntu 20.04) don't provide a package with a recent enough version.
+  - Type `docker-compose --version` to check installed version.
+  - You can use your usual package manager to  install up-to-date version (eg: `sudo apt-get update && sudo apt-get install docker-compose` for apt, `sudo dnf clean metadata && sudo dnf update docker-compose` for dnf).
+  - If no suitable package exist for your system, you can use [`docker-compose` install page](https://docs.docker.com/compose/install/).
 
 
-### building images
+## setup VPN and fedbiomed
 
-Done when initializing each container (see after)
+### (optional) building all images
+
+Optionally build all images in one command. 
+Usually build each image separately when initializing each container (see after)
 
 ```bash
 #[user@laptop $] cd ./envs/vpn/docker
@@ -35,11 +39,6 @@ Done when initializing each container (see after)
 ## when running on a single machine : build all needed containers at one time with
 #[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build base vpnserver mqtt restful basenode node gui researcher
 ```
-
-Caveat : docker >= 20.10.0 needed to build mqtt, see [there](https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2). With older docker version it fails with a `make: sh: Operation not permitted`
-
-
-## setup VPN and fedbiomed
 
 ### initializing vpnserver
 
