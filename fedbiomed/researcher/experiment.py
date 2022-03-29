@@ -286,9 +286,14 @@ class Experiment(object):
     # destructor
     @exp_exceptions
     def __del__(self):
+        # This part has been commented, self._reqs.remove_monitor_callback() removes monitor
+        # callback when initializing an experiment for the second time with same name.
+        # While recreating a class with same variable name python first calls __init__ and then __del__.
+
         # if self._reqs is not None:
         #     # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
         #     self._reqs.remove_monitor_callback()
+
         if self._monitor is not None:
             self._monitor.close_writer()
 
