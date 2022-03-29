@@ -41,7 +41,6 @@ import fedbiomed.researcher.aggregators.__init__
 import fedbiomed.researcher.aggregators.aggregator
 import fedbiomed.researcher.aggregators.fedavg
 import fedbiomed.researcher.aggregators.functional
-import fedbiomed.researcher.cli
 import fedbiomed.researcher.datasets
 #import fedbiomed.researcher.environ
 import fedbiomed.researcher.experiment
