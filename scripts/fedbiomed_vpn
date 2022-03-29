@@ -36,7 +36,7 @@ Usage: ${0##*/} clean
        ${0##*/} configure
        ${0##*/} start [-g|--gpu]
        ${0##*/} status
-       ${0##*/} launch (node|researcher)
+       ${0##*/} launch (node/researcher) *
        ${0##*/} stop
 
 manage (local) docker containers with Wireguard VPN support
@@ -60,8 +60,14 @@ start                  start containers
 
 status                 give information on running containers
 
-launch  node           start a node inside node container
-launch  researcher     start a node inside researcher container
+launch  node       *   start a 'fedbiomed_run node'       command
+                       inside node container
+launch  researcher *   start a 'fedbiomed_run researcher' command
+                       inside researcher container
+
+  All extra arguments (*) are passed to the fedbiomed_run scripts
+  which is launched inside the container.
+  Run 'fedbiomed_run --help' for more help on valid arguments
 
 stop                   stop  all containers
 "
@@ -421,7 +427,7 @@ containers_start() {
 launch() {
     component=$1
 
-    echo "** Launch $component"
+    echo "** Launch command inside $component VPN container"
     cd "$basedir/envs/vpn/docker"
 
     # find @IP of mqtt and restful inside the VPN
@@ -451,6 +457,11 @@ launch() {
         echo "- verify that docker containers are configured"
         exit 1
     }
+
+    CMD="export MQTT_BROKER=$mqtt_IP && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ && /fedbiomed/scripts/fedbiomed_run $component ${LAUNCH_ARGS}"
+    echo "** $CMD"
+
+    docker-compose exec -u $(id -u) $component bash -c "$CMD"
 }
 
 # main
@@ -470,6 +481,7 @@ NODE_NUMBER=1
 GPU=0
 LAUNCH_NODE=0
 LAUNCH_RESEARCHER=0
+LAUNCH_ARGS=""
 
 #
 check_prerequisite
@@ -563,10 +575,10 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    node|n*)        LAUNCH_NODE=1 ;;
-                    researcher|r*)  LAUNCH_RESEARCHER=1 ;;
+                    node)           LAUNCH_NODE=1 ;;
+                    researcher)     LAUNCH_RESEARCHER=1 ;;
                     -h|--help|help) usage ;;
-                    *)              usage "unknown or incompatible arguments" ;;
+                    *)              LAUNCH_ARGS="${LAUNCH_ARGS} $1" ;;
                 esac
                 shift
             done
