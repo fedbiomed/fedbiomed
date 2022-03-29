@@ -1,6 +1,6 @@
 import numpy as np
 
-from typing import List, Union
+from typing import List, Tuple, Union
 from sklearn import metrics
 from copy import copy
 from fedbiomed.common.constants import _BaseEnum, ErrorNumbers
@@ -332,7 +332,7 @@ class Metrics(object):
     @staticmethod
     def _configure_y_true_pred_(y_true: Union[np.ndarray, list],
                                 y_pred: Union[np.ndarray, list],
-                                metric: MetricTypes):
+                                metric: MetricTypes) -> Tuple[np.ndarray, np.ndarray]:
         """
         Method for configuring y_true and y_pred array to make them compatible for metric functions. It
         guarantees that the y_true and y_pred will be in same shape.
