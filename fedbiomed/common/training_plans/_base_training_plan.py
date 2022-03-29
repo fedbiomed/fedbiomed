@@ -155,10 +155,6 @@ class BaseTrainingPlan(object):
         }
 
     @staticmethod
-    def get_metric_type(metric_name: str) -> MetricTypes:
-        return MetricTypes.get_metric_type_by_name(metric_name)
-
-    @staticmethod
     def _create_metric_result_dict(metric: Union[dict, list, int, float, np.ndarray, torch.tensor, List[torch.tensor]],
                                    metric_name: str = 'Custom'):
         """

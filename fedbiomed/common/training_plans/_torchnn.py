@@ -302,9 +302,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         # TODO: Add preprocess option for testing_data_loader
 
-        # if isinstance(metric, str):
-        #     metric = self.get_metric_type(metric)
-
         if self.testing_data_loader is None:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Can not find dataset for testing.")
 

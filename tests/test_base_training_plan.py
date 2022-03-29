@@ -161,7 +161,7 @@ class TestBaseTrainingPlan(unittest.TestCase):
 
         with self.assertRaises(FedbiomedTrainingPlanError):
             metric = {"m1": torch.tensor([14.5, 14.5]), "m2": torch.tensor([14.5,14.5])}
-            result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+            BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
 
         # Testing numpy arrays
         metric = np.array([14, 14, 14])
@@ -174,8 +174,15 @@ class TestBaseTrainingPlan(unittest.TestCase):
 
         with self.assertRaises(FedbiomedTrainingPlanError):
             metric = {"m1": np.array([14.5, 14.5]), "m2": np.array([14.5, 14.5])}
-            result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+            BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
 
+    def test_base_training_plan_07_training_data(self):
+        """ Test training_data method whether raises error """
+
+        # The method training data should be defined by user, that's why
+        # training_data in BaseTrainingPLan has been configured for raising error
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            self.tp.training_data()
 
 
 if __name__ == '__main__':  # pragma: no cover
