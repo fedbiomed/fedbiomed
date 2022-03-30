@@ -19,7 +19,7 @@ ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
 # read config.env in interactive shells & setup for reading it in entrypoint
-COPY ./envs/vpn/docker/test/build_files/bashrc_append /tmp
+COPY ./bashrc_append /tmp
 RUN cat /tmp/bashrc_append | tee -a /root/.bashrc /root/bashrc_entrypoint \
         /etc/skel/.bashrc /etc/skel/bashrc_entrypoint >/dev/null
 
