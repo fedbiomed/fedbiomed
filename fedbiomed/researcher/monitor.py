@@ -15,7 +15,29 @@ from fedbiomed.researcher.environ import environ
 
 
 class _MetricStore(dict):
-
+    """
+    Storage facility, used for storing trainig loss and testing metric values, in order to
+    display them on Tensorboard.
+    Inhereting from a dictionary, providing methods to simplify queries and saving metric values.
+    
+    Storage architecture:
+        {<node>:
+            {<for_>:
+                {<metric_name>:
+                    {<round_>: { <iterations/values>: List[float] }
+                    }
+                }
+            }
+        }
+        where:
+        node: node id
+        for_: either testing_global_updates, testing_local_updates, or training
+        metric_name: metric 's name. Custom or Custom_xxx if testing_step has been defined
+        in TrainingPlan (custom metric)
+        round_: round number
+        iterations: index of iterations stored
+        values: metric value
+    """
     def add_iteration(self,
                       node: str,
                       train: bool,
@@ -25,7 +47,7 @@ class _MetricStore(dict):
                       iter_: int):
         """
         Method adding iteration to MetricStore based on node, training/testing, round and metric.
-
+        
         Args:
             node (str):
             train (bool):
@@ -50,8 +72,24 @@ class _MetricStore(dict):
             # last testing metric value computed on global updates at last round is overwritten
             # by the first one computed at first round 
             if round_ in self[node][for_][metric_name]:  # Dirty fix
-                self[node][for_][metric_name][round_]['iterations'].append(iter_)
-                self[node][for_][metric_name][round_]['values'].append(metric_value)
+                update_testing_global_update = False
+                if for_ == "testing_global_updates" and \
+                        self[node]["testing_global_updates"][metric_name][round_].get('values', False):
+                    test_local_updates_keys = list(self[node]["testing_global_updates"][metric_name].keys())
+                    test_global_updates_keys = list(self[node]["testing_local_updates"][metric_name].keys())
+                    update_testing_global_update = (len(test_global_updates_keys) > len(test_local_updates_keys))
+                    if update_testing_global_update:
+                        # special case (when user hit twice `Experiment.run()` method)
+                        last_round_ = test_global_updates_keys[-1]
+                        print("LAST ROUND", last_round_)
+                        self[node][for_][metric_name][last_round_ - 1]['iterations'][-1] = iter_
+                        self[node][for_][metric_name][last_round_ - 1]['values'][-1] = metric_value
+                        self[node][for_][metric_name][last_round_ - 1]['iterations'].pop(0)
+                        self[node][for_][metric_name][last_round_ - 1]['values'].pop(0)
+                if not update_testing_global_update:
+                    # normal case
+                    self[node][for_][metric_name][round_]['iterations'].append(iter_)
+                    self[node][for_][metric_name][round_]['values'].append(metric_value)
             else:
                 self[node][for_][metric_name].update({round_: {'iterations': [iter_],
                                                                'values': [metric_value]}
@@ -62,7 +100,11 @@ class _MetricStore(dict):
 
     def _register_node(self, node):
         """
-        Register node for the first by initializing basic information on metrics
+        Register node for the first time (first iteration) by initializing basic information on metrics
+        Add the following fields to node entry:
+        - training: loss values from training
+        - testing_global_updates: metric values and names from testing on global updates
+        - testing_local_updates: metric values and names from testing on local updates
         """
         self[node] = {
             "training": {},
