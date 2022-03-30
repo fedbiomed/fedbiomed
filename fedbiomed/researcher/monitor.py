@@ -27,13 +27,15 @@ class _MetricStore(dict):
         Method adding iteration to MetricStore based on node, training/testing, round and metric.
 
         Args:
-            node (str):
-            train (bool):
-            test_on_global_updates (bool):
-            round_ (int):
-            metric (dict):
-            iter_ (int)
+            node (str): The node id that metric value received from
+            train (bool): Training status, If true metric value is for training, Otherwise for testing
+            test_on_global_updates (bool): If True metric value is for testing on global updates. Otherwise,
+                for testing on local updates
+            round_ (int): The round that metric value has received at
+            metric (dict): Dictionary that contains metric names and their values e.g {'<metric-name>':<value>}
+            iter_ (int): Iteration number for testing/training.
         """
+
         if node not in self:
             self._register_node(node=node)
 
@@ -49,16 +51,72 @@ class _MetricStore(dict):
             # FIXME: for now, if testing is done on global updates (before model local update)
             # last testing metric value computed on global updates at last round is overwritten
             # by the first one computed at first round 
-            if round_ in self[node][for_][metric_name]:  # Dirty fix
-                self[node][for_][metric_name][round_]['iterations'].append(iter_)
-                self[node][for_][metric_name][round_]['values'].append(metric_value)
+            if round_ in self[node][for_][metric_name]:
+
+                # Each duplication means a new epoch for training, and it is not expected for
+                # testing part. Especially for `testing_on_global_updates`. If there is a duplication
+                # last value should overwrite
+                duplicate = self._iter_duplication_status(round_=self[node][for_][metric_name][round_],
+                                                          next_iter=iter_)
+                if duplicate and test_on_global_updates:
+                    self._add_new_iteration(node, for_, metric_name, round_, iter_, metric_value, True)
+                else:
+                    self._add_new_iteration(node, for_, metric_name, round_, iter_, metric_value)
             else:
-                self[node][for_][metric_name].update({round_: {'iterations': [iter_],
-                                                               'values': [metric_value]}
-                                                      })
+                self._add_new_iteration(node, for_, metric_name, round_, iter_, metric_value, True)
+
             cum_iter.append(self._cumulative_iteration(self[node][for_][metric_name]))
 
         return cum_iter
+
+    def _add_new_iteration(self,
+                           node: str,
+                           for_: str,
+                           metric_name: str,
+                           round_: int,
+                           iter_: int,
+                           metric_value: Union[int, float],
+                           new_round: bool = False):
+        """
+        Method for adding new iteration based on `new_round` status. If the round is new
+        for the metric it registers key round key and assigns iteration and metric value. Otherwise,
+        appends iteration and metric value to the existing round,
+
+        Args:
+            node (str): The node id that metric value received from
+            for_ (str): One of (training, testing_global_updates, testing_local_updates). To indicate metric
+                value belongs to which phase
+            metric_name (str): Name of the metric to use as a key in MetricStore dict
+            round_ (int): The round that metric value has received at
+            iter_ (int): Iteration number
+            metric_value (int, float): Value of the metric
+            new_round (bool): To indicate whether round should be created or new metric should append to the
+                existing one. This is also enables overwriting round values when needed.
+        """
+        if new_round:
+            self[node][for_][metric_name].update({round_: {'iterations': [iter_],
+                                                           'values': [metric_value]}
+                                                  })
+        else:
+            self[node][for_][metric_name][round_]['iterations'].append(iter_)
+            self[node][for_][metric_name][round_]['values'].append(metric_value)
+
+    @staticmethod
+    def _iter_duplication_status(round_, next_iter):
+        """
+        This method is required to find out is there iteration duplication in rounds for the
+        testing metrics.
+
+        Args:
+
+        """
+
+        iterations = round_['iterations']
+        if iterations:
+            first_val = iterations[0]
+            return True if next_iter == first_val else False
+        else:
+            return False  # No duplication
 
     def _register_node(self, node):
         """
@@ -201,7 +259,7 @@ class Monitor:
             header = 'Training'
         else:
             header = 'Testing On Global Updates' if message['test_on_global_updates'] else 'Testing On Local ' \
-                                                                                              'Updates'
+                                                                                           'Updates'
 
         metric_dict = message['metric']
         metric_result = ''
