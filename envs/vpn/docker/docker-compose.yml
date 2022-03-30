@@ -63,8 +63,6 @@ services:
         - CONTAINER_USER # build and use other account than "root"
         - CONTAINER_GROUP # build and use other group than "root"
     image: fedbiomed/vpn-vpnserver
-    env_file:
-      - ./vpnserver/run_mounts/config/config.env
     #environment:
     ## not needed, use image settings
     #  - CONTAINER_UID
@@ -95,8 +93,6 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-node
-    env_file:
-      - ./node/run_mounts/config/config.env
     cap_add:
       - net_admin
       - sys_module
@@ -161,8 +157,6 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-researcher
-    env_file:
-      - ./researcher/run_mounts/config/config.env
     ports:
       - "${RESEARCHER_HOST:-127.0.0.1}:8888:8888" # jupyter notebook
       - "${RESEARCHER_HOST:-127.0.0.1}:6006:6007" # tensorboard via socat proxy
@@ -191,8 +185,6 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-mqtt
-    env_file:
-      - ./mqtt/run_mounts/config/config.env
     # no open ports ! this would backdoor the vpnization
     #ports:
     #  - "1883:1883"
@@ -217,8 +209,6 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-restful
-    env_file:
-      - ./restful/run_mounts/config/config.env
     environment:
       - PRODUCTION=1
       - DJANGO_SUPERUSER_USERNAME=admin

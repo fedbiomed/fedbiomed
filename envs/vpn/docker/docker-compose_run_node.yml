@@ -14,8 +14,6 @@ services:
     container_name: fedbiomed-vpn-node
     hostname: fedbiomed-vpn-node
     image: fedbiomed/vpn-node
-    env_file:
-      - ./node/run_mounts/config/config.env
     cap_add:
       - net_admin
       - sys_module
