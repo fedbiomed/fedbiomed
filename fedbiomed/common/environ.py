@@ -505,7 +505,8 @@ class Environ(metaclass = SingletonMeta):
         uploads_ip = os.getenv('UPLOADS_IP')
         if uploads_ip:
             UPLOADS_URL = "http://" + uploads_ip + ":8844/upload/"
-            UPLOADS_URL = os.getenv('UPLOADS_URL', UPLOADS_URL)
+
+        UPLOADS_URL = os.getenv('UPLOADS_URL', UPLOADS_URL)
 
         # trailing slash is needed for repo url
         if not UPLOADS_URL.endswith('/'):
