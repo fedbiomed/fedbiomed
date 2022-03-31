@@ -62,6 +62,7 @@ Run this only at first launch of container or after cleaning :
 ```
 * set the VPN server public IP *VPN_SERVER_PUBLIC_ADDR*
 ```bash
+[user@network $] cp ./vpnserver/run_mounts/config/config.env.sample ./vpnserver/run_mounts/config/config.env
 [user@network $] vi ./vpnserver/run_mounts/config/config.env # change VPN_SERVER_PUBLIC_ADDR
 ```
 * launch container
@@ -629,7 +630,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 # level 2 : configuration
 # currently as root 
 # TODO write config files as CONTAINER_USER
-[root@network #] rm -rf vpnserver/run_mounts/config/{config_peers,ip_assign,wireguard}
+[root@network #] rm -rf vpnserver/run_mounts/config/{config.env,config_peers,ip_assign,wireguard}
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-vpnserver fedbiomed/vpn-base
@@ -645,8 +646,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 [user@network $] docker-compose rm -sf mqtt
 
 # level 2 : configuration
-[user@network $] rm -rf ./mqtt/run_mounts/config/wireguard
-[user@network $] echo > ./mqtt/run_mounts/config/config.env
+[user@network $] rm -rf ./mqtt/run_mounts/config/{config.env,wireguard}
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-mqtt
@@ -662,8 +662,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 [user@network $] docker-compose rm -sf restful
 
 # level 2 : configuration
-[user@network $] rm -rf ./restful/run_mounts/config/wireguard
-[user@network $] echo > ./restful/run_mounts/config/config.env
+[user@network $] rm -rf ./restful/run_mounts/config/{config.env,wireguard}
 
 [user@network $] rm -f ./restful/run_mounts/app/db.sqlite3
 # also clean saved files ? (same for env/developement)
@@ -682,8 +681,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 [user@node $] docker-compose rm -sf node
 
 # level 2 : configuration
-[user@node $] rm -rf ./node/run_mounts/config/wireguard
-[user@node $] echo > ./node/run_mounts/config/config.env
+[user@node $] rm -rf ./node/run_mounts/config/{config.env,wireguard}
 [user@node $] rm -rf ./node/run_mounts/{data,etc,var}/*
 
 # level 3 : image
@@ -718,8 +716,7 @@ Same as node
 [user@researcher $] docker-compose rm -sf researcher
 
 # level 2 : configuration
-[user@researcher $] rm -rf ./researcher/run_mounts/config/wireguard
-[user@researcher $] echo > ./researcher/run_mounts/config/config.env
+[user@researcher $] rm -rf ./researcher/run_mounts/config/{config.env,wireguard}
 [user@researcher $] rm -rf ./researcher/run_mounts/{data,etc,samples,runs,var}/*
 
 # level 3 : image

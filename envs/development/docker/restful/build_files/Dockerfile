@@ -1,6 +1,8 @@
 FROM python:3.9-alpine
 ENV PYTHONUNBUFFERED 1
 
+# http restful server, expected on port 8844 by fedbiomed
+EXPOSE 8000
 
 ARG CONTAINER_GID
 ARG CONTAINER_UID

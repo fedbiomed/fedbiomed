@@ -69,7 +69,7 @@ def add(peer_type, peer_id, peer_public_key):
     filepath=f"{PEER_CONFIG_FOLDER}/{peer_type}/{peer_id}/config.env"
 
     with open(filepath, 'r') as f:
-        peer_config=dict(tuple(line.split('=', 1)) for line in map(lambda line: line.strip(" \n"), f.readlines()) if not line.startswith('#') and not line=='')
+        peer_config=dict(tuple(line.removeprefix('export').lstrip().split('=', 1)) for line in map(lambda line: line.strip(" \n"), f.readlines()) if not line.startswith('#') and not line=='')
 
     # apply the config to the server
     subprocess.run(["wg", "set", "wg0", "peer", peer_public_key, "allowed-ips", f"{peer_config['VPN_IP']}/32", "preshared-key", "/dev/stdin"], text=True, input=peer_config['VPN_SERVER_PSK']) 
