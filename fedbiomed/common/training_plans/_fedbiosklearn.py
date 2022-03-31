@@ -12,8 +12,6 @@ import numpy as np
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
 
-
-
 from ._base_training_plan import BaseTrainingPlan
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
@@ -22,6 +20,7 @@ from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.constants import ProcessTypes
 from fedbiomed.common.utils import get_method_spec
 from fedbiomed.common.metrics import Metrics, MetricTypes
+
 
 class _Capturer(list):
     """
@@ -267,7 +266,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 # Fit model based on model type
                 if self._is_classification:
                     classes = self.__classes_from_concatenated_train_test()
-                    #classes = np.unique(target)
+                    # classes = np.unique(target)
                     print("BEFORE PARTIAL FIT")
                     self.model.partial_fit(data, target, classes=classes)
                     print("AFTER PARTIAL FIT")
@@ -280,7 +279,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
             # Logging training training outputs -------------------------------------------------------------------
             if history_monitor is not None:
                 _loss_collector = []
-                
+
                 # check whether it is a binary classification or a multiclass classification
                 if self._is_classification and classes.shape[0] < 3:
                     self._is_binary_classification = True
@@ -294,8 +293,8 @@ class SGDSkLearnModel(BaseTrainingPlan):
                             _loss_collector.append(float(loss))
 
                             # Logging loss values with global logger
-                            logger.info('Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}'.format(epoch,
-                                                                                                   float(loss)))
+                            logger.debug('Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}'.format(epoch,
+                                                                                                    float(loss)))
                         except ValueError as e:
                             logger.error("Value error during monitoring:" + str(e))
                         except Exception as e:
@@ -310,8 +309,9 @@ class SGDSkLearnModel(BaseTrainingPlan):
                         logger.warning("Loss plot displayed on Tensorboard may be inaccurate (due to some plain" +
                                        " SGD scikit learn limitations)")
 
+                    loss_function = 'Loss ' + self.model.loss if hasattr(self.model, 'loss') else 'Loss'
                     # TODO: This part should be changed after mini-batch implementation is completed
-                    history_monitor.add_scalar(metric={'Loss': float(loss)},
+                    history_monitor.add_scalar(metric={loss_function: float(loss)},
                                                iteration=1,
                                                epoch=epoch,
                                                train=True,
@@ -400,7 +400,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
 
         # For logging in node console
         logger.debug('Testing: [{}/{}] | Metric[{}]: {}'.format(len(target), tot_samples,
-                                                                    metric.name, m_value))
+                                                                metric.name, m_value))
 
         # Send scalar values via general/feedback topic
         if history_monitor is not None:
@@ -463,7 +463,6 @@ class SGDSkLearnModel(BaseTrainingPlan):
             di_ret['model_params'] = {key: getattr(self.model, key) for key in self.param_list}
         file.close()
         return di_ret
-
 
     def get_model(self):
         """
