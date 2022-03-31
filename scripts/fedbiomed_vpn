@@ -36,7 +36,7 @@ Usage: ${0##*/} clean
        ${0##*/} configure
        ${0##*/} start [-g|--gpu]
        ${0##*/} status
-       ${0##*/} launch (node/researcher) *
+       ${0##*/} run   (node/researcher) *
        ${0##*/} stop
 
 manage (local) docker containers with Wireguard VPN support
@@ -60,9 +60,9 @@ start                  start containers
 
 status                 give information on running containers
 
-launch  node       *   start a 'fedbiomed_run node'       command
+run node           *   start a 'fedbiomed_run node'       command
                        inside node container
-launch  researcher *   start a 'fedbiomed_run researcher' command
+run researcher     *   start a 'fedbiomed_run researcher' command
                        inside researcher container
 
   All extra arguments (*) are passed to the fedbiomed_run scripts
@@ -183,7 +183,10 @@ add_container() {
 containers_stop() {
     echo "** Stopping docker VPN components"
     cd "$basedir/envs/vpn/docker"
-    docker-compose stop
+    for i in ${ONLY_CONTAINERS[@]}
+    do
+        docker-compose rm -sf $i
+    done
 }
 
 containers_clean() {
@@ -217,13 +220,13 @@ containers_clean() {
     for i in base basenode gui
     do
         docker-compose rm -sf $i
-        docker image rm -f fedbiomed/vpn-$i
+        #docker image rm -f fedbiomed/vpn-$i   # will force to rebuild the image
     done
 
     for i in ${ALL_VPN_CONTAINERS[@]}
     do
         docker-compose rm -sf $i
-        docker image rm -f fedbiomed/vpn-$i
+        #docker image rm -f fedbiomed/vpn-$i   # will forece to rebuild the image
         /bin/rm -rf ./$i/run_mounts/config/wireguard 2> /dev/null
         [[ "$i" = "gui" ]] && { continue ; }   ## gui container does not have a config.emv file
         git checkout $i/run_mounts/config/config.env
@@ -313,33 +316,25 @@ containers_build() {
 
 single_container_configure() {
     container=$1
-    destination=$2
+    category=$2
 
     # patch to fix name mismatch between logical container name and localisation on disk
     # must be fixed then implementing multiple researcher/node support
-    case $container in
-        mqtt|restful)
-            localname=$container;;
-        researcher*)
-            localname="researcher";;
-        node*)
-            localname="node";;
-        *)
-            echo "** ERROR: in single_container_configure call"
-            exit 1
-            ;;
+    case $category in
+        management) destination=$container;;
+        *)          destination=$category;;
     esac
 
     IP=$(find_my_ip)
 
-    /bin/rm -fr ./vpnserver/run_mounts/config/config_peers/${destination}/${container}
-    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf ${destination} ${container}
+    /bin/rm -fr ./vpnserver/run_mounts/config/config_peers/${category}/${container}
+    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf ${category} ${container}
     sleep 1
 
     /bin/rm -fr ./${container}/run_mounts/config/wireguard    2> /dev/null
-    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/${destination}/${container}/config.env
-    /bin/rm ./vpnserver/run_mounts/config/config_peers/${destination}/${container}/config.env-XXX
-    /bin/cp ./vpnserver/run_mounts/config/config_peers/${destination}/${container}/config.env ./${localname}/run_mounts/config/config.env
+    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/${category}/${container}/config.env
+    /bin/rm ./vpnserver/run_mounts/config/config_peers/${category}/${container}/config.env-XXX
+    /bin/cp ./vpnserver/run_mounts/config/config_peers/${category}/${container}/config.env ./${destination}/run_mounts/config/config.env
 }
 
 
@@ -424,10 +419,10 @@ containers_start() {
     containers_status
 }
 
-launch() {
+run() {
     component=$1
 
-    echo "** Launch command inside $component VPN container"
+    echo "** Run command inside $component VPN container"
     cd "$basedir/envs/vpn/docker"
 
     # find @IP of mqtt and restful inside the VPN
@@ -458,7 +453,7 @@ launch() {
         exit 1
     }
 
-    CMD="export MQTT_BROKER=$mqtt_IP && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ && /fedbiomed/scripts/fedbiomed_run $component ${LAUNCH_ARGS}"
+    CMD="export MQTT_BROKER=$mqtt_IP && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ && export UPLOADS_IP=${restful_IP} && /fedbiomed/scripts/fedbiomed_run $component ${RUN_ARGS}"
     echo "** $CMD"
 
     docker-compose exec -u $(id -u) $component bash -c "$CMD"
@@ -479,9 +474,9 @@ START=0
 STOP=0
 NODE_NUMBER=1
 GPU=0
-LAUNCH_NODE=0
-LAUNCH_RESEARCHER=0
-LAUNCH_ARGS=""
+RUN_NODE=0
+RUN_RESEARCHER=0
+RUN_ARGS=""
 
 #
 check_prerequisite
@@ -575,14 +570,14 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    node)           LAUNCH_NODE=1 ;;
-                    researcher)     LAUNCH_RESEARCHER=1 ;;
+                    node)           RUN_NODE=1 ;;
+                    researcher)     RUN_RESEARCHER=1 ;;
                     -h|--help|help) usage ;;
-                    *)              LAUNCH_ARGS="${LAUNCH_ARGS} $1" ;;
+                    *)              RUN_ARGS="${RUN_ARGS} $1" ;;
                 esac
                 shift
             done
-            [[ $LAUNCH_NODE -eq 0 ]]  && [[ LAUNCH_RESEARCHER  -eq 0 ]] && { usage "launch option need to specify node or researcher" ; }
+            [[ $RUN_NODE -eq 0 ]]  && [[ RUN_RESEARCHER  -eq 0 ]] && { usage "launch option need to specify node or researcher" ; }
             ;;
 
         -h|--help|help) usage ;;
@@ -599,13 +594,13 @@ fi
 
 # start doing something usefull
 # -----------------------------
-[[ $CLEAN -eq 1 ]]             && { containers_clean; }
-[[ $BUILD -eq 1 ]]             && { containers_build; }
-[[ $CONFIGURE -eq 1 ]]         && { containers_configure; }
-[[ $START -eq 1 ]]             && { containers_start; }
-[[ $STOP -eq 1 ]]              && { containers_stop; }
-[[ $STATUS -eq 1 ]]            && { containers_status; }
-[[ $LAUNCH_NODE -eq 1 ]]       && { launch node; }
-[[ $LAUNCH_RESEARCHER -eq 1 ]] && { launch researcher; }
+[[ $CLEAN -eq 1 ]]          && { containers_clean; }
+[[ $BUILD -eq 1 ]]          && { containers_build; }
+[[ $CONFIGURE -eq 1 ]]      && { containers_configure; }
+[[ $START -eq 1 ]]          && { containers_start; }
+[[ $STOP -eq 1 ]]           && { containers_stop; }
+[[ $STATUS -eq 1 ]]         && { containers_status; }
+[[ $RUN_NODE -eq 1 ]]       && { run node; }
+[[ $RUN_RESEARCHER -eq 1 ]] && { run researcher; }
 
 exit 0
