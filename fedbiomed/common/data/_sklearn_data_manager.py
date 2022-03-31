@@ -55,9 +55,6 @@ class SkLearnDataManager(object):
         else:
             self._target = target
 
-        # computes classes
-        self.classses = np.unique(self._target)
-
         # Additional loader arguments
         self._loader_arguments = kwargs
 
@@ -153,9 +150,6 @@ class SkLearnDataManager(object):
             self._subset_train = (x_train, y_train)
 
         return self._subset_loader(self._subset_train), self._subset_loader(self._subset_test)
-
-    def classes(self) -> np.ndarray:
-        return self.classes
 
     @staticmethod
     def _subset_loader(subset: Tuple[np.ndarray, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:

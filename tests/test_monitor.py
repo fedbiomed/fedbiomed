@@ -426,6 +426,7 @@ class TestMetricStore(unittest.TestCase):
                                                        round_=2,
                                                        metric={'Metric_1': 12},
                                                        iter_=2)
+
         expected['node-1']['testing_global_updates']['Metric_1'].update({2: {'iterations': [1, 2], 'values': [12, 12]}})
         self.assertDictEqual(self.metric_store, expected, 'Second iteration could not set properly for the second '
                                                           'round of training for node-1')
@@ -442,6 +443,35 @@ class TestMetricStore(unittest.TestCase):
         self.assertDictEqual(self.metric_store, expected, 'Second Iteration could not set properly for the second '
                                                           'round of training for node-1')
         self.assertEqual(cum_iter, 3)
+
+        # Special for Test On Global Updates -------------------------------------------------------------------------
+
+        # Test second round - second iter 2 again for node 1, it should overwrite -------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_1,
+                                                       train=False,
+                                                       test_on_global_updates=True,
+                                                       round_=2,
+                                                       metric={'Metric_1': 12},
+                                                       iter_=1)
+
+        expected['node-1']['testing_global_updates']['Metric_1'].update({2: {'iterations': [1], 'values': [12]}})
+        self.assertDictEqual(self.metric_store, expected, 'Second iteration could not set properly for the second '
+                                                          'round of training for node-1')
+        # Since it will overwrite on 2 iteration cum iter should 2
+        self.assertEqual(cum_iter, 2)
+
+        # Test second round - second iter 2 again for node 2, it should overwrite -------------------------------
+        cum_iter, *_ = self.metric_store.add_iteration(node=node_2,
+                                                       train=False,
+                                                       test_on_global_updates=True,
+                                                       round_=2,
+                                                       metric={'Metric_1': 12},
+                                                       iter_=1)
+        expected['node-2']['testing_global_updates']['Metric_1'].update({2: {'iterations': [1], 'values': [12]}})
+        self.assertDictEqual(self.metric_store, expected, 'Second Iteration could not set properly for the second '
+                                                          'round of training for node-1')
+        # Since it will overwrite on 2 iteration cum iter should 2
+        self.assertEqual(cum_iter, 2)
 
     def test_metric_store_03_add_iteration_for_test_on_local_updates(self):
         """Testing add iteration method of the class MetricStore"""
@@ -617,7 +647,6 @@ class TestMetricStore(unittest.TestCase):
         self.metric_store._register_metric('node-1', 'testing_local_updates', 'Metric_1')
         expected['node-1']['testing_local_updates'].update({'Metric_1': {1: {'iterations': [], 'values': []}}})
         self.assertDictEqual(self.metric_store, expected)
-
 
         # Register metric for node 2 - testing_local_updates
         self.metric_store._register_metric('node-2', 'testing_local_updates', 'Metric_1')
