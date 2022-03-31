@@ -72,21 +72,32 @@ class _MetricStore(dict):
             # last testing metric value computed on global updates at last round is overwritten
             # by the first one computed at first round 
             if round_ in self[node][for_][metric_name]:  # Dirty fix
-                update_testing_global_update = False
+                do_update_testing_global_update = False
+                print("ROUND", round_)
+                if for_ == "testing_global_updates":
+                    print(self[node]["testing_global_updates"][metric_name][round_].get('values', False))
                 if for_ == "testing_global_updates" and \
                         self[node]["testing_global_updates"][metric_name][round_].get('values', False):
-                    test_local_updates_keys = list(self[node]["testing_global_updates"][metric_name].keys())
-                    test_global_updates_keys = list(self[node]["testing_local_updates"][metric_name].keys())
-                    update_testing_global_update = (len(test_global_updates_keys) > len(test_local_updates_keys))
-                    if update_testing_global_update:
+                    current_round = list(self[node]["testing_global_updates"][metric_name].keys())[-1]
+                    test_global_updates_len = len(self[node]["testing_global_updates"][metric_name][current_round]['iterations'])
+                    if current_round in self[node]["testing_local_updates"][metric_name]:
+                        test_local_updates_len = len(self[node]["testing_local_updates"][metric_name][current_round]['iterations'])
+                        do_update_testing_global_update = (test_global_updates_len > test_local_updates_len)
+                    else:
+                        do_update_testing_global_update = True
+                    
+                    print("ROUND: ", do_update_testing_global_update,
+                          
+                          test_global_updates_len)
+                    if do_update_testing_global_update:
                         # special case (when user hit twice `Experiment.run()` method)
-                        last_round_ = test_global_updates_keys[-1]
-                        print("LAST ROUND", last_round_)
-                        self[node][for_][metric_name][last_round_ - 1]['iterations'][-1] = iter_
-                        self[node][for_][metric_name][last_round_ - 1]['values'][-1] = metric_value
-                        self[node][for_][metric_name][last_round_ - 1]['iterations'].pop(0)
-                        self[node][for_][metric_name][last_round_ - 1]['values'].pop(0)
-                if not update_testing_global_update:
+                        
+                        print("LAST ROUND", current_round)
+                        self[node][for_][metric_name][current_round]['iterations'][-1] = iter_
+                        self[node][for_][metric_name][current_round]['values'][-1] = metric_value
+                        # self[node][for_][metric_name][current_round]['iterations'].pop(0)
+                        # self[node][for_][metric_name][current_round]['values'].pop(0)
+                if not do_update_testing_global_update:
                     # normal case
                     self[node][for_][metric_name][round_]['iterations'].append(iter_)
                     self[node][for_][metric_name][round_]['values'].append(metric_value)
