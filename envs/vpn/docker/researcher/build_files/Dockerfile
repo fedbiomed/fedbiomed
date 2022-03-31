@@ -21,7 +21,7 @@ ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 RUN apt-get update && apt-get install -y apt-utils wget socat
 
 # read config.env in interactive shells & setup for reading it in entrypoint
-COPY ./envs/vpn/docker/test/build_files/bashrc_append /tmp
+COPY ./envs/vpn/docker/researcher/build_files/bashrc_append /tmp
 RUN cat /tmp/bashrc_append | tee -a /root/.bashrc /root/bashrc_entrypoint \
         /etc/skel/.bashrc /etc/skel/bashrc_entrypoint >/dev/null
 
