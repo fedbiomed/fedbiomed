@@ -332,21 +332,28 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                     metric_name = 'Custom'
 
-                # Otherwise check a default metric is defined
+                # Otherwise, check a default metric is defined
                 # Use accuracy as default metric
                 else:
+
                     if metric is None:
                         metric = MetricTypes.ACCURACY
-                        logger.info(f"No `testing_step` method found in TrainingPlan: using default metric {metric.name}"
+                        logger.info(f"No `testing_step` method found in TrainingPlan and `test_metric` is not defined "
+                                    f"in the training arguments `: using default metric {metric.name}"
                                     " for model evaluation")
+                    else:
+                        logger.info(
+                            f"No `testing_step` method found in TrainingPlan: using defined metric {metric.name}"
+                            " for model evaluation.")
+
                     metric_name = metric.name
                     
                     try:
                         # Pass data through network layers
                         pred = self(data)
                     except Exception as e:
-                        # Pytorch does not provide any means to catch exception (no custom Exceptions), that is why we need
-                        # to trap general Exception
+                        # Pytorch does not provide any means to catch exception (no custom Exceptions),
+                        # that is why we need to trap general Exception
                         raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - {str(e)}")
 
                     # Convert prediction and actual values to numpy array
@@ -354,11 +361,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     predicted = pred.detach().numpy()
                     m_value = metric_controller.evaluate(y_true=y_true, y_pred=predicted, metric=metric, **metric_args)
                     
-
                 metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
 
                 logger.debug('Testing: Batch {} [{}/{}] | Metric[{}]: {}'.format(
-                    str(batch_), batch_ * len(data), tot_samples, metric_name, m_value))
+                    str(batch_), batch_ * len(target), tot_samples, metric_name, m_value))
 
                 # Send scalar values via general/feedback topic
                 if history_monitor is not None:
@@ -369,7 +375,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                                                test_on_local_updates=False if before_train else True,
                                                test_on_global_updates=before_train,
                                                total_samples=tot_samples,
-                                               batch_samples=len(data),
+                                               batch_samples=len(target),
                                                num_batches=len(self.testing_data_loader))
 
         del metric_controller
