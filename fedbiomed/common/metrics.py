@@ -316,6 +316,7 @@ class Metrics(object):
             - multioutput ({‘raw_values’, ‘uniform_average’} or array-like of shape (n_outputs,),
             default=’uniform_average’, optional) Defines aggregating of multiple output values. Array-like value
             defines weights used to average errors.
+            
         Returns:
             - sklearn.metrics.mean_absolute_error(y_true, y_pred, *, sample_weight=None, multioutput='uniform_average')
             score (float or ndarray of floats)

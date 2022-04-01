@@ -143,7 +143,7 @@ class BaseTrainingPlan(object):
         Method adding preprocesses
         
         Args:
-            method (Callable)
+            method (Callable): preprocess method to be run before training
         """
         if not isinstance(method, Callable):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while adding preprocess, preprocess "
@@ -206,5 +206,3 @@ class BaseTrainingPlan(object):
                                              f"list of int/float/np.integer/torch.tensor or  dict of "
                                              f"(key: (int/float/np.integer/torch.tensor)), "
                                              f"but got {type(metric)} ")
-
-
