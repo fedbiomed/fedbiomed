@@ -270,8 +270,9 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 self.optimizer.step()
 
-                # To be used by the nodes to assess budget locally
-                eps, alpha = self.privacy_engine.accountant.get_privacy_spent(delta=1e-6)
+                if self.DP:
+                    # To be used by the nodes to assess budget locally
+                    eps, alpha = self.privacy_engine.accountant.get_privacy_spent(delta=.1/len(self.__training_data_loader))
 
                 # do not take into account more than batch_maxnum
                 # batches from the dataset
