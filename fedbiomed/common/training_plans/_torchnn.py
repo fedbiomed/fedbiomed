@@ -16,6 +16,7 @@ from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from ._base_training_plan import BaseTrainingPlan
 
+from opacus import PrivacyEngine 
 
 class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
     """
@@ -88,6 +89,9 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         # DataLoader that will be used for Training Routine
         self.__training_data_loader: torch.utils.data.DataLoader = None
+
+        # Empty DP dictionary 
+        self.DP = {}
 
     def type(self):
         """ Getter for training plan type """
@@ -169,6 +173,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          use_gpu: Union[bool, None] = None,
                          fedprox_mu=None,
                          history_monitor=None,
+                         DP_args: dict = {},
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
         # FIXME 2: remove parameters specific for testing specified in the
@@ -212,7 +217,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         """
 
         self.__training_data_loader = data_loader
-
+        if DP_args:
+            self.initialize_dp(DP_args)
         # set correct type for node args
         if not isinstance(node_args, dict):
             node_args = {}
@@ -223,6 +229,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+
+        if self.DP:
+            # Add preprocess 
+            self.add_preprocess(method=self.__preprocess_ldp, process_type=ProcessTypes.DATA_LOADER)
 
         # Run preprocess when everything is ready before the training
         self.__preprocess()
@@ -250,7 +260,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     try:
                         _mu = float(fedprox_mu)
                     except ValueError:
-                        msg = ErrorNumbers.FB605.value + ": fedprox_mu parameter reuqested nut is not a float"
+                        msg = ErrorNumbers.FB605.value + ": fedprox_mu parameter requested is not a float"
                         logger.critical(msg)
                         raise FedbiomedTrainingPlanError(msg)
 
@@ -352,13 +362,59 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         try:
             # Check whether postprocess method exists, and use it
             logger.debug("running model.postprocess() method")
-            return self.postprocess(self.state_dict())  # Post process
+            post_params = self.postprocess(self.state_dict())  # Post process
+            if self.DP and self.DP['type']=='central':
+                return self.postprocess_cdp(post_params) 
+            return post_params
         except AttributeError:
             # Method does not exist; skip
             logger.debug("model.postprocess() method not provided")
-            pass
+            if self.DP and self.DP['type']=='central':
+                return self.postprocess_cdp(self.state_dict())
+            else: 
+                pass
 
         return self.state_dict()
+
+    def initialize_dp(self, DP_args):
+        print('initializing DP')
+        self.DP = DP_args
+        assert  self.DP['type'] in ['central','local'], "DP strategy unknown"
+        if self.DP == 'local':
+            try:
+                float(self.DP['sigma'])
+            except ValueError:
+                msg = ErrorNumbers.FB605.value + ": 'sigma'  parameter requested is not a float"
+                logger.critical(msg)
+                raise FedbiomedTrainingPlanError(msg)
+        else:
+            self.DP['sigma'] = 0. 
+        try:
+            float(self.DP['clip'])
+        except ValueError:
+            msg = ErrorNumbers.FB605.value + ": 'clip'  parameter requested is not a float"
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
+
+
+    def postprocess_cdp(self, params):
+        delta_params = {}
+        perturbed_params = {}
+        for name, param in params.items():
+
+            ###
+            ### Extracting the update
+            ###
+            delta_theta = params[name] - self.init_params[name]
+            delta_params[name] = delta_theta
+
+        for key in delta_params.keys():
+                delta_theta_tilde = delta_params[key] \
+                            + torch.sqrt(torch.tensor([2]))*self.DP['sigma']*self.DP['clip'] * torch.randn_like(delta_params[key])
+                perturbed_params[key]=self.init_params[key] + delta_theta_tilde
+
+        return perturbed_params
+         
 
     def __norm_l2(self):
         """
@@ -383,6 +439,24 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             else:
                 logger.debug(f"Process `{process_type}` is not implemented for `TorchTrainingPlan`. Preprocess will "
                              f"be ignored")
+
+    def __preprocess_ldp(self, data_loader):
+        """
+            This is a method that is going to be executed just before the training loop. This method
+            should be registered in the `__init__` of training plan with `self.add_preprocess()` 
+            Process type should be declared by the argument `process_type` of `self.add_process`.  
+        """
+
+        # enter PrivacyEngine
+        privacy_engine = PrivacyEngine()
+        self.model, self.optimizer, data_loader = privacy_engine.make_private(module=self.model,
+                                                                              optimizer=self.optimizer,
+                                                                              data_loader=data_loader,
+                                                                              noise_multiplier=self.DP['sigma'],
+                                                                              max_grad_norm=self.DP['clip'],
+                                                                    )
+        return data_loader
+
 
     def __process_data_loader(self, method: Callable):
         """
