@@ -345,7 +345,6 @@ class SGDSkLearnModel(BaseTrainingPlan):
               without training. Otherwise, after training.
 
         """
-
         # Use accuracy as default metric
         if metric is None:
             metric = MetricTypes.ACCURACY
@@ -530,10 +529,13 @@ class SGDSkLearnModel(BaseTrainingPlan):
                                              f"return tuple length of two as dataset and target and both should be and "
                                              f"instance of np.ndarray. ")
 
-    def __classes_from_concatenated_train_test(self):
+    def __classes_from_concatenated_train_test(self) -> np.ndarray:
         """
         Method for getting all classes from test and target dataset. This action is required
         in case of some class only exist in training subset or testing subset
+        
+        Returns:
+            np.ndarray: numpy array containing unique values from the whole dataset (training + testing dataset)
         """
 
         target_test = self.testing_data_loader[1] if self.testing_data_loader is not None else np.array([])

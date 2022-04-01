@@ -1,6 +1,6 @@
 import numpy as np
 
-from typing import List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 from sklearn import metrics
 from sklearn.preprocessing import OneHotEncoder
 from copy import copy
@@ -129,6 +129,7 @@ class Metrics(object):
         """
 
         try:
+            y_true, y_pred, _, _ = Metrics._configure_multiclass_parameters(y_true, y_pred, kwargs, 'ACCURACY')
             return metrics.accuracy_score(y_true, y_pred, **kwargs)
         except Exception as e:
             print(e)
@@ -366,7 +367,7 @@ class Metrics(object):
                                        f"`testing_step` method in training plan")
 
         if Metrics._is_array_of_str(y_pred) != Metrics._is_array_of_str(y_true):
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predicted values and true values are not in"
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predicted values and true values have "
                                        f"different types `int` and `str`")
 
         if Metrics._is_array_of_str(y_pred):
@@ -380,15 +381,15 @@ class Metrics(object):
 
         if metric.metric_category() is _MetricCategory.CLASSIFICATION_LABELS:
             if output_shape_y_pred == 0 and output_shape_y_true == 0:
-                # If y_pred contains labels as integer, do not use threshold cut
-                if sum(y_pred) != sum([round(i) for i in y_pred]):
-                    y_pred = np.where(y_pred > 0.5, 1, 0)
+            #     # If y_pred contains labels as integer, do not use threshold cut
+            #     if sum(y_pred) != sum([round(i) for i in y_pred]):
+            #         y_pred = np.where(y_pred > 0.5, 1, 0)
 
-                if sum(y_true) != sum([round(i) for i in y_true]):
-                    raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: True values are continuous, "
-                                               f"classification metrics can't handle a mix of continuous and "
-                                               f"binary targets")
-
+                # if sum(y_true) != sum([round(i) for i in y_true]):
+                #     raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: True values are continuous, "
+                #                                f"classification metrics can't handle a mix of continuous and "
+                #                                f"binary targets")
+                pass
             # If y_true is one 2D array and y_pred is 1D array
             # Example: y_true: [ [0,1], [1,0]] | y_pred : [0.1, 0.5]
             elif output_shape_y_pred == 0 and output_shape_y_true > 0:
@@ -418,12 +419,15 @@ class Metrics(object):
         return y_true, y_pred
 
     @staticmethod
-    def _is_array_of_str(list_: np.ndarray):
+    def _is_array_of_str(list_: np.ndarray) -> bool:
         """
         Method for checking whether list elements are of type string
 
         Args:
             list_ (np.ndarray): Numpy array that is going to be checked for types
+            
+        Returns:
+            bool: retruns either True if elements are of type string or False if they arenot
         """
 
         if len(list_.shape) == 1:
@@ -432,9 +436,37 @@ class Metrics(object):
             return True if isinstance(list_[0][0], str) else False
 
     @staticmethod
-    def _configure_multiclass_parameters(y_true, y_pred, parameters, metric):
+    def _configure_multiclass_parameters(y_true: np.ndarray,
+                                         y_pred: np.ndarray,
+                                         parameters: Dict[str, Any],
+                                         metric: str) -> Tuple[np.ndarray, np.ndarray, str, int]:
+        """
+        Reformates data giving the size of y_true and y_pred, in order to compute classification
+        testing metric.
+        If multiclass dataset, returns one hot encoding dataset.
+        else returns binary class dataset
 
-        average = parameters.get('average', 'binary')
+        Args:
+            y_true (np.ndarray): labels of data needed for classification
+            y_pred (np.ndarray): predicted values from the model. y_pred should tend towards y_true,
+            for an optimal classification.
+            parameters (Dict[str, Any]): parameters for the metric (metric_testing_args).
+                Nota: If entry 'average' is missing, defaults to 'weighted' if multiclass dataset, defaults to 'binary'
+                otherwise.
+                If entry 'pos_label' is missing, defaults to 1.
+            metric (str): name of the Metric
+
+        Returns:
+            Tuple of:
+                y_true (np.ndarray): reformatted y_true
+                y_pred (np.ndarray): reformatted y_pred
+                average (str): method name to be used in `average` argument (in the sklearn metric)
+                pos_label (int): label in dataset chosen to be considered as the positive dataset. Needed
+                for computing Precision, recall, ...
+        """
+
+        #average = parameters.get('average', 'binary')
+
         pos_label = parameters.get('pos_label', 1)
         # Check target variable is multi class or binary
         if len(np.unique(y_true)) > 2:
@@ -445,7 +477,12 @@ class Metrics(object):
             encoder = OneHotEncoder()
             y_true = np.expand_dims(y_true, axis=1)
             y_pred = np.expand_dims(y_pred, axis=1)
-            encoder.fit(y_true)
+            
+            if not np.array_equal(np.unique(y_true), np.unique(y_pred)):
+                y_true_and_pred = np.concatenate([y_true, y_pred], axis=0)
+                encoder.fit(y_true_and_pred)
+            else:
+                encoder.fit(y_true)
 
             y_true = encoder.transform(y_true).toarray()
             y_pred = encoder.transform(y_pred).toarray()
@@ -457,3 +494,4 @@ class Metrics(object):
             pos_label = y_true_copy[0] if isinstance(y_true[0], str) else parameters.get('pos_label', 1)
 
         return y_true, y_pred, average, pos_label
+
