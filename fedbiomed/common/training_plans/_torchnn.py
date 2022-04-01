@@ -344,7 +344,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                             " for model evaluation.")
 
                     metric_name = metric.name
-                    
+
                     try:
                         # Pass data through network layers
                         pred = self(data)
@@ -357,7 +357,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     y_true = target.detach().numpy()
                     predicted = pred.detach().numpy()
                     m_value = metric_controller.evaluate(y_true=y_true, y_pred=predicted, metric=metric, **metric_args)
-                    
+
                 metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
 
                 logger.debug('Testing: Batch {} [{}/{}] | Metric[{}]: {}'.format(

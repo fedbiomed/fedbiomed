@@ -36,9 +36,11 @@ class MetricTypes(_BaseEnum):
     def metric_category(self) -> _MetricCategory:
         return self._metric_category
 
+    @staticmethod
     def get_all_metrics() -> List[str]:
         return [metric.name for metric in MetricTypes]
 
+    @staticmethod
     def get_metric_type_by_name(metric_name: str):
         for metric in MetricTypes:
             if metric.name == metric_name:
@@ -158,7 +160,8 @@ class Metrics(object):
             Sets the value to return when there is a zero division.
 
         Returns:
-            - sklearn.metrics.precision_score(y_true, y_pred, *, labels=None, pos_label=1, average='binary', sample_weight=None, zero_division='warn')
+            - sklearn.metrics.precision_score(y_true, y_pred, *, labels=None, pos_label=1, average='binary',
+            sample_weight=None, zero_division='warn')
             precision (float, or array of float of shape (n_unique_labels,))
 
         Raises:
@@ -166,7 +169,10 @@ class Metrics(object):
         """
 
         # Get average and pob_label argument based on multiclass status
-        y_true, y_pred, average, pos_label = Metrics._configure_multiclass_parameters(y_true, y_pred, kwargs, 'PRECISION')
+        y_true, y_pred, average, pos_label = Metrics._configure_multiclass_parameters(y_true,
+                                                                                      y_pred,
+                                                                                      kwargs,
+                                                                                      'PRECISION')
 
         kwargs.pop("average", None)
         kwargs.pop("pos_label", None)
@@ -464,7 +470,7 @@ class Metrics(object):
 
         Args:
             list_ (np.ndarray): Numpy array that is going to be checked for types
-            
+
         Returns:
             bool: retruns either True if elements are of type string or False if they arenot
         """
@@ -514,7 +520,7 @@ class Metrics(object):
             encoder = OneHotEncoder()
             y_true = np.expand_dims(y_true, axis=1)
             y_pred = np.expand_dims(y_pred, axis=1)
-            
+
             if not np.array_equal(np.unique(y_true), np.unique(y_pred)):
                 y_true_and_pred = np.concatenate([y_true, y_pred], axis=0)
                 encoder.fit(y_true_and_pred)
@@ -532,4 +538,3 @@ class Metrics(object):
                 pos_label = y_true_copy[0]
 
         return y_true, y_pred, average, pos_label
-
