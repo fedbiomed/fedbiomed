@@ -363,14 +363,14 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             # Check whether postprocess method exists, and use it
             logger.debug("running model.postprocess() method")
             post_params = self.postprocess(self.state_dict())  # Post process
-            if self.DP and self.DP['type']=='central':
-                return self.postprocess_cdp(post_params) 
+            if self.DP:
+                return self.postprocess_dp(post_params) 
             return post_params
         except AttributeError:
             # Method does not exist; skip
             logger.debug("model.postprocess() method not provided")
-            if self.DP and self.DP['type']=='central':
-                return self.postprocess_cdp(self.state_dict())
+            if self.DP:
+                return self.postprocess_dp(self.state_dict())
             else: 
                 pass
 
@@ -397,23 +397,32 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             raise FedbiomedTrainingPlanError(msg)
 
 
-    def postprocess_cdp(self, params):
-        delta_params = {}
-        perturbed_params = {}
-        for name, param in params.items():
+    def postprocess_dp(self, params):
 
-            ###
-            ### Extracting the update
-            ###
-            delta_theta = params[name] - self.init_params[name]
-            delta_params[name] = delta_theta
+        if self.DP['type'] == 'central':
+            delta_params = {}
+            perturbed_params = {}
+            for name, param in params.items():
 
-        for key in delta_params.keys():
-                delta_theta_tilde = delta_params[key] \
+                ###
+                ### Extracting the update
+                ###
+                delta_theta = params[name] - self.init_params[name]
+                delta_params[name] = delta_theta
+
+                for key in delta_params.keys():
+                    delta_theta_tilde = delta_params[key] \
                             + torch.sqrt(torch.tensor([2]))*self.DP['sigma']*self.DP['clip'] * torch.randn_like(delta_params[key])
-                perturbed_params[key]=self.init_params[key] + delta_theta_tilde
+                    perturbed_params[key]=self.init_params[key] + delta_theta_tilde
+            params = perturbed_params 
 
-        return perturbed_params
+        params_keys = list(params.keys())
+        for key in params_keys:
+            if '_module' in key:
+                newkey = key.replace('_module.', '')
+                params[newkey] = params.pop(key)
+
+        return params
          
 
     def __norm_l2(self):
