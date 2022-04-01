@@ -44,7 +44,7 @@ class _MetricStore(dict):
                       test_on_global_updates: bool,
                       round_: int,
                       metric: dict,
-                      iter_: int) -> List[int]:
+                      iter_: int) -> list[int]:
         """
         Method adding iteration to MetricStore based on node, training/testing, round and metric.
 
@@ -58,7 +58,7 @@ class _MetricStore(dict):
             iter_ (int): Iteration number for testing/training.
 
         Returns
-             int - Cumulative iteration
+             list[int]: List of cumulative iteration for each metric/evaluation result
         """
 
         if node not in self:
@@ -192,7 +192,7 @@ class _MetricStore(dict):
             rounds : The dictionary that includes all the rounds for a metric, node and the phase
 
         Returns:
-            int: List of cumulative iteration for each metric/evaluation result
+            int: cumulative iteration for the metric/evaluation result
         """
 
         cum_iteration = 0
