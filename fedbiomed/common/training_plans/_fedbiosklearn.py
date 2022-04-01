@@ -76,7 +76,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
         Class initializer.
 
         Args:
-        - model_args (dict, optional): model arguments.
+        - model_args (dict, optional): model arguments. Defaults to {}.
         """
         super().__init__()
 
@@ -165,7 +165,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 'intercept_': np.array([0.]) if (model_args['n_classes'] == 2) else np.array(
                     [0.] * model_args['n_classes']),
                 'coef_': np.array([0.] * model_args['n_features']).reshape(1, model_args['n_features']) if (
-                        model_args['n_classes'] == 2) else np.array(
+                    model_args['n_classes'] == 2) else np.array(
                     [0.] * model_args['n_classes'] * model_args['n_features']).reshape(model_args['n_classes'],
                                                                                        model_args['n_features'])
             }
@@ -188,7 +188,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
-    def after_training_params(self):
+    def after_training_params(self) -> Dict:
         """
         Provide a dictionary with the federated parameters you need to aggregate, refer to
         scikit documentation for a detail of parameters
@@ -442,7 +442,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
             dump(self.model, file)
         file.close()
 
-    def load(self, filename, to_params: bool = False):
+    def load(self, filename, to_params: bool = False) -> Dict:
         """
         Method to load the updated parameters of a scikit model
         Load can be called from Job or Round.
@@ -493,7 +493,10 @@ class SGDSkLearnModel(BaseTrainingPlan):
            method (Callable) : Process method that is going to be executed
 
        Raises:
-            FedbiomedTrainingPlanError:
+            FedbiomedTrainingPlanError: raised when method doesnot have 2 positional arguments
+            FedbiomedTrainingPlanError: Raised if running method fails
+            FedbiomedTrainingPlanError: if dataloader returned by method is not of type: Tuple[np.ndarray, np.ndarray]
+            FedbiomedTrainingPlanError: if dataloaders contained in method output don't contain the same number of samples
        """
 
         argspec = get_method_spec(method)

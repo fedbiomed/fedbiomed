@@ -85,7 +85,8 @@ class BaseTrainingPlan(object):
             None
 
         Exceptions:
-            FedBioMedTrainingPlanError:
+            FedBioMedTrainingPlanError: raised when source of the model class cannot be assessed
+            FedBioMedTrainingPlanError: raised when model file cannot be created/opened/edited
         """
 
         try:
@@ -131,7 +132,7 @@ class BaseTrainingPlan(object):
         all subclasses must provide a training_data routine
         the purpose of this actual code is to detect that it has been provided
 
-        :raise FedbiomedTrainingPlanError if called
+        :raise FedbiomedTrainingPlanError if called and not inherited
         """
         msg = ErrorNumbers.FB303.value + ": training_data must be implemented"
         logger.critical(msg)
@@ -140,6 +141,9 @@ class BaseTrainingPlan(object):
     def add_preprocess(self, method: Callable, process_type: ProcessTypes):
         """
         Method adding preprocesses
+        
+        Args:
+            method (Callable): preprocess method to be run before training
         """
         if not isinstance(method, Callable):
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while adding preprocess, preprocess "
@@ -202,5 +206,3 @@ class BaseTrainingPlan(object):
                                              f"list of int/float/np.integer/torch.tensor or  dict of "
                                              f"(key: (int/float/np.integer/torch.tensor)), "
                                              f"but got {type(metric)} ")
-
-

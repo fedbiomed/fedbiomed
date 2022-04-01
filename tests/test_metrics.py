@@ -141,11 +141,16 @@ class TestMetrics(unittest.TestCase):
         r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
         self.assertEqual(r, 0)
 
-        y_true = [12.5, 12.5, 12.5, 12.5]
-        y_pred = [12.5, 12.5, 12.5, 12.5]
+        y_true = [12.5, 11.5, 10.5, 19.5]
+        y_pred = [12.5, 11.5, 10.5, 19.5]
         r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
         self.assertEqual(r, 1)
 
+        y_true = [12.5, 11.5, 0., 1e1]
+        y_pred = [12.5, 11.5, 10.5, 19.5]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+        self.assertEqual(r, .5)
+        
         # F1 SCORE -----------------------------------------------------------------------------
         y_true = [2.5, 0.1, 1.1, 2.2]
         y_pred = [2.5, 0.1, 1.2, 2.2]

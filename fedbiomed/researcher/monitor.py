@@ -19,7 +19,7 @@ class _MetricStore(dict):
     Storage facility, used for storing training loss and testing metric values, in order to
     display them on Tensorboard.
     Inheriting from a dictionary, providing methods to simplify queries and saving metric values.
-    
+
     Storage architecture:
         {<node>:
             {<for_>:
@@ -47,7 +47,7 @@ class _MetricStore(dict):
                       iter_: int) -> int:
         """
         Method adding iteration to MetricStore based on node, training/testing, round and metric.
-        
+
         Args:
             node (str): The node id that metric value received from
             train (bool): Training status, If true metric value is for training, Otherwise for testing
@@ -307,7 +307,8 @@ class Monitor:
 
     def _log_metric_result(self, message: Dict, cum_iter: int = 0):
         """
-        Method for loging metric result that comes from nodes
+        Method for loging metric result that comes from nodes, and store them
+        into tensorboard (through summary writer)
         """
 
         if message['train'] is True:
