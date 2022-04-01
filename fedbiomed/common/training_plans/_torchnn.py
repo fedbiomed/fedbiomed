@@ -232,7 +232,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         if self.DP:
             # Add preprocess 
-            self.add_preprocess(method=self.__preprocess_ldp, process_type=ProcessTypes.DATA_LOADER)
+            self.__preprocess_ldp()
 
         # Run preprocess when everything is ready before the training
         self.__preprocess()
@@ -440,7 +440,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 logger.debug(f"Process `{process_type}` is not implemented for `TorchTrainingPlan`. Preprocess will "
                              f"be ignored")
 
-    def __preprocess_ldp(self, data_loader):
+    def __preprocess_ldp(self):
         """
             This is a method that is going to be executed just before the training loop. This method
             should be registered in the `__init__` of training plan with `self.add_preprocess()` 
@@ -449,13 +449,12 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         # enter PrivacyEngine
         privacy_engine = PrivacyEngine()
-        self.model, self.optimizer, data_loader = privacy_engine.make_private(module=self.model,
+        self.model, self.optimizer, self.__training_data_loader = privacy_engine.make_private(module=self.model,
                                                                               optimizer=self.optimizer,
-                                                                              data_loader=data_loader,
+                                                                              data_loader = self.__training_data_loader,
                                                                               noise_multiplier=self.DP['sigma'],
                                                                               max_grad_norm=self.DP['clip'],
                                                                     )
-        return data_loader
 
 
     def __process_data_loader(self, method: Callable):
