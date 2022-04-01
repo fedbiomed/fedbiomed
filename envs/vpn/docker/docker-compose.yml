@@ -5,6 +5,7 @@ services:
   # we usually dont want to build or launch this service (only used for building "base")
   builder:
     container_name: fedbiomed-vpn-builder
+    hostname: fedbiomed-vpn-builder
     build:
       context: ./base/build_files
       target: builder
@@ -20,6 +21,7 @@ services:
   # we usually dont want to launch this service (used for building other services)
   base:
     container_name: fedbiomed-vpn-base
+    hostname: fedbiomed-vpn-base
     build:
       context: ./base/build_files
     image: fedbiomed/vpn-base
@@ -32,6 +34,7 @@ services:
   # we usually dont want to launch this service (used for building other services)
   basenode-no-gpu:
     container_name: fedbiomed-vpn-base-node-no-gpu
+    hostname: fedbiomed-vpn-base-node-no-gpu
     build:
       context: ./base/build_files
     image: fedbiomed/vpn-basenode
@@ -40,6 +43,7 @@ services:
     #  - debug 
   basenode:
     container_name: fedbiomed-vpn-base-node
+    hostname: fedbiomed-vpn-base-node
     build:
       context: ./basegpu/build_files
     image: fedbiomed/vpn-basenode
@@ -50,6 +54,7 @@ services:
   # vpn server component
   vpnserver:
     container_name: fedbiomed-vpn-vpnserver
+    hostname: fedbiomed-vpn-vpnserver
     build:
       context: ./vpnserver/build_files
       args:
@@ -58,8 +63,6 @@ services:
         - CONTAINER_USER # build and use other account than "root"
         - CONTAINER_GROUP # build and use other group than "root"
     image: fedbiomed/vpn-vpnserver
-    env_file:
-      - ./vpnserver/run_mounts/config/config.env
     #environment:
     ## not needed, use image settings
     #  - CONTAINER_UID
@@ -80,6 +83,7 @@ services:
   x-node:
     &standard-node
     container_name: fedbiomed-vpn-node
+    hostname: fedbiomed-vpn-node
     build:
       context: ../../..
       dockerfile: envs/vpn/docker/node/build_files/Dockerfile
@@ -89,8 +93,6 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-node
-    env_file:
-      - ./node/run_mounts/config/config.env
     cap_add:
       - net_admin
       - sys_module
@@ -124,6 +126,7 @@ services:
   # node gui component
   gui:
     container_name: fedbiomed-vpn-gui
+    hostname: fedbiomed-vpn-gui
     build:
       context: ../../..
       dockerfile: envs/vpn/docker/gui/build_files/Dockerfile
@@ -144,6 +147,7 @@ services:
   # researcher component
   researcher:
     container_name: fedbiomed-vpn-researcher
+    hostname: fedbiomed-vpn-researcher
     build:
       context: ../../..
       dockerfile: envs/vpn/docker/researcher/build_files/Dockerfile
@@ -153,8 +157,6 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-researcher
-    env_file:
-      - ./researcher/run_mounts/config/config.env
     ports:
       - "${RESEARCHER_HOST:-127.0.0.1}:8888:8888" # jupyter notebook
       - "${RESEARCHER_HOST:-127.0.0.1}:6006:6007" # tensorboard via socat proxy
@@ -174,6 +176,7 @@ services:
   # mqtt server component
   mqtt:
     container_name: fedbiomed-vpn-mqtt
+    hostname: fedbiomed-vpn-mqtt
     build:
       context: ./mqtt/build_files
       args:
@@ -182,8 +185,6 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-mqtt
-    env_file:
-      - ./mqtt/run_mounts/config/config.env
     # no open ports ! this would backdoor the vpnization
     #ports:
     #  - "1883:1883"
@@ -199,6 +200,7 @@ services:
   # resful http server component
   restful:
     container_name: fedbiomed-vpn-restful
+    hostname: fedbiomed-vpn-restful
     build:
       context: ./restful/build_files
       args:
@@ -207,8 +209,6 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-restful
-    env_file:
-      - ./restful/run_mounts/config/config.env
     environment:
       - PRODUCTION=1
       - DJANGO_SUPERUSER_USERNAME=admin
