@@ -447,12 +447,15 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         return self.state_dict()
 
-    def __norm_l2(self):
+    def __norm_l2(self) -> float:
         """
         used by FedProx optimization
+
+        Returns:
+            norm (float): L2 norm of model parameters (before local training)
         """
         norm = 0
-        for key, val in self.state_dict().items():
+        for key, val in self.state_dict().items(): 
             norm += ((val - self.init_params[key]) ** 2).sum()
         return norm
 
@@ -479,7 +482,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             method (Callable) : Process method that is going to be executed
 
         Raises:
-             FedbiomedTrainingPlanError:
+             FedbiomedTrainingPlanError: raised if number of arguments of method is different than 1.
+             FedbiomedTrainingPlanError: triggered if execution of method fails
+             FedbiomedTrainingPlanError: triggered if type of the output of the method is not an instance of
+             `self.training_data_loader` 
         """
         argspec = get_method_spec(method)
         if len(argspec) != 1:
