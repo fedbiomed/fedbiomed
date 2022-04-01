@@ -121,20 +121,93 @@ class TestMetrics(unittest.TestCase):
         result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
         self.assertEqual(result, 1, 'Binary: Could not compute Precision correctly')
 
-    def test_metrics_08_evaluate_multiclass_classification_1D_1D_array_errors(self):
+    def test_metrics_08_evaluate_multiclass_classification_1D_1D_array_if_continuous(self):
         """ Multiclass: test y_true is 1D and y_pred is 1D array """
 
         # Raises error since, metric is classification metric and y_true is continues
-        with self.assertRaises(FedbiomedMetricError):
-            y_true = [2.5, 0.1, 1.1, 2.2]
-            y_pred = [2.5, 0.1, 1.2, 2.2]
-            self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
-        with self.assertRaises(FedbiomedMetricError):
-            self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
-        with self.assertRaises(FedbiomedMetricError):
-            self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
-        with self.assertRaises(FedbiomedMetricError):
-            self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
+
+        y_true = [2.5, 0.1, 1.1, 2.2]
+        y_pred = [2.5, 0.1, 1.2, 2.2]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+        self.assertEqual(r, 1)
+
+        y_true = [12, 12, 12, 12]
+        y_pred = [12.5, 12.5, 12.5, 12.5]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+        self.assertEqual(r, 0)
+
+        y_true = [12.5, 12.5, 12.5, 12.5]
+        y_pred = [12, 12, 12, 12]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+        self.assertEqual(r, 0)
+
+        y_true = [12.5, 12.5, 12.5, 12.5]
+        y_pred = [12.5, 12.5, 12.5, 12.5]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+        self.assertEqual(r, 1)
+
+        # F1 SCORE -----------------------------------------------------------------------------
+        y_true = [2.5, 0.1, 1.1, 2.2]
+        y_pred = [2.5, 0.1, 1.2, 2.2]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
+        self.assertEqual(r, 1)
+
+        y_true = [12, 12, 12, 12]
+        y_pred = [12.5, 12.5, 12.5, 12.5]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
+        self.assertEqual(r, 0)
+
+        y_true = [12.5, 12.5, 12.5, 12.5]
+        y_pred = [12, 12, 12, 12]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
+        self.assertEqual(r, 0)
+
+        y_true = [12.5, 12.5, 12.5, 12.5]
+        y_pred = [12.5, 12.5, 12.5, 12.5]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
+        self.assertEqual(r, 1)
+
+        # RECALL -----------------------------------------------------------------------------
+        y_true = [2.5, 0.1, 1.1, 2.2]
+        y_pred = [2.5, 0.1, 1.2, 2.2]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
+        self.assertEqual(r, 1)
+
+        y_true = [12, 12, 12, 12]
+        y_pred = [12.5, 12.5, 12.5, 12.5]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
+        self.assertEqual(r, 0)
+
+        y_true = [12.5, 12.5, 12.5, 12.5]
+        y_pred = [12, 12, 12, 12]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
+        self.assertEqual(r, 0)
+
+        y_true = [12.5, 12.5, 12.5, 12.5]
+        y_pred = [12.5, 12.5, 12.5, 12.5]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
+        self.assertEqual(r, 1)
+
+        # PRECISION -----------------------------------------------------------------------------
+        y_true = [2.5, 0.1, 1.1, 2.2]
+        y_pred = [2.5, 0.1, 1.2, 2.2]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
+        self.assertEqual(r, 1)
+
+        y_true = [12, 12, 12, 12]
+        y_pred = [12.5, 12.5, 12.5, 12.5]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
+        self.assertEqual(r, 0)
+
+        y_true = [12.5, 12.5, 12.5, 12.5]
+        y_pred = [12, 12, 12, 12]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
+        self.assertEqual(r, 0)
+
+        y_true = [12.5, 12.5, 12.5, 12.5]
+        y_pred = [12.5, 12.5, 12.5, 12.5]
+        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
+        self.assertEqual(r, 1)
 
     def test_metrics_09_evaluate_multiclass_classification_2D_2D_array(self):
         """Multiclass: test y_true is 2D and y_pred is 2D array"""

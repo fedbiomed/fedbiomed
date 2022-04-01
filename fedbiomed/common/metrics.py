@@ -390,15 +390,15 @@ class Metrics(object):
 
         if metric.metric_category() is _MetricCategory.CLASSIFICATION_LABELS:
             if output_shape_y_pred == 0 and output_shape_y_true == 0:
-            #     # If y_pred contains labels as integer, do not use threshold cut
-            #     if sum(y_pred) != sum([round(i) for i in y_pred]):
-            #         y_pred = np.where(y_pred > 0.5, 1, 0)
+                # If y_pred contains labels as integer, do not use threshold cut
+                if sum(y_pred) != sum([round(i) for i in y_pred]):
+                    y_pred = np.where(y_pred > 0.5, 1, 0)
 
-                # if sum(y_true) != sum([round(i) for i in y_true]):
-                #     raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: True values are continuous, "
-                #                                f"classification metrics can't handle a mix of continuous and "
-                #                                f"binary targets")
-                pass
+                if sum(y_true) != sum([round(i) for i in y_true]):
+                    y_true = np.where(y_true > 0.5, 1, 0)
+                    logger.warning(f"Target data seems to be a regression, metric {metric.name} might "
+                                   "not be appropriate")
+
             # If y_true is one 2D array and y_pred is 1D array
             # Example: y_true: [ [0,1], [1,0]] | y_pred : [0.1, 0.5]
             elif output_shape_y_pred == 0 and output_shape_y_true > 0:
@@ -474,9 +474,7 @@ class Metrics(object):
                 for computing Precision, recall, ...
         """
 
-        #average = parameters.get('average', 'binary')
-
-        pos_label = parameters.get('pos_label', 1)
+        pos_label = parameters.get('pos_label', None)
         # Check target variable is multi class or binary
         if len(np.unique(y_true)) > 2:
             average = parameters.get('average', 'weighted')
@@ -498,9 +496,10 @@ class Metrics(object):
         else:
             average = parameters.get('average', 'binary')
             # Alphabetically select first label as pos_label
-            y_true_copy = copy(y_true)
-            y_true_copy.copy()
-            pos_label = y_true_copy[0] if isinstance(y_true[0], str) else parameters.get('pos_label', 1)
+            if pos_label is None:
+                y_true_copy = copy(y_true)
+                y_true_copy.sort()
+                pos_label = y_true_copy[0]
 
         return y_true, y_pred, average, pos_label
 
