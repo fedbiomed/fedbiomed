@@ -270,6 +270,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 self.optimizer.step()
 
+
+                eps, alpha = self.privacy_engine.accountant.get_privacy_spent(delta=1e-6)
+                print('########################### Privacy Spent ####################', eps, alpha)
+
                 # do not take into account more than batch_maxnum
                 # batches from the dataset
                 if (batch_maxnum > 0) and (batch_idx >= batch_maxnum):
@@ -377,10 +381,17 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         return self.state_dict()
 
     def initialize_dp(self, DP_args):
-        print('initializing DP')
+
         self.DP = DP_args
+
+        print('############### Initializing DP##################')
+
+        assert 'type' in self.DP,  "DP 'type' not provided"
+        assert 'sigma' in self.DP, "DP 'sigma' parameter not provided"
+        assert 'clip' in self.DP,  "DP 'clip' parameter not provided"
         assert  self.DP['type'] in ['central','local'], "DP strategy unknown"
-        if self.DP == 'local':
+
+        if self.DP['type'] == 'local':
             try:
                 float(self.DP['sigma'])
             except ValueError:
@@ -457,8 +468,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         """
 
         # enter PrivacyEngine
-        privacy_engine = PrivacyEngine()
-        self.model, self.optimizer, self.__training_data_loader = privacy_engine.make_private(module=self.model,
+        self.privacy_engine = PrivacyEngine()
+        self.model, self.optimizer, self.__training_data_loader = self.privacy_engine.make_private(module=self.model,
                                                                               optimizer=self.optimizer,
                                                                               data_loader = self.__training_data_loader,
                                                                               noise_multiplier=self.DP['sigma'],
