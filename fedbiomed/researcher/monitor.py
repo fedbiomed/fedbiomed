@@ -6,7 +6,7 @@ sned it to tensordboard
 import os
 import shutil
 import collections
-from typing import Dict, Union, Any
+from typing import Dict, List, Union, Any
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -44,7 +44,7 @@ class _MetricStore(dict):
                       test_on_global_updates: bool,
                       round_: int,
                       metric: dict,
-                      iter_: int):
+                      iter_: int) -> List[int]:
         """
         Method adding iteration to MetricStore based on node, training/testing, round and metric.
 
@@ -88,7 +88,7 @@ class _MetricStore(dict):
                 self._add_new_iteration(node, for_, metric_name, round_, iter_, metric_value, True)
 
             cum_iter.append(self._cumulative_iteration(self[node][for_][metric_name]))
-
+        from pdb import set_trace; set_trace()
         return cum_iter
 
     def _add_new_iteration(self,
@@ -293,7 +293,7 @@ class Monitor:
     def _log_metric_result(self, message: Dict, cum_iter: int = 0):
         """
         Method for loging metric result that comes from nodes, and store them
-        into tensorboard (through summary writer)
+        into tensorboard (through summary writer) if Tensorboard has been activted
         """
 
         if message['train'] is True:
