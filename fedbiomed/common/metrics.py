@@ -12,7 +12,6 @@ from fedbiomed.common.exceptions import FedbiomedMetricError
 class _MetricCategory(_BaseEnum):
 
     CLASSIFICATION_LABELS = 0  # return labels
-    CLASSIFICATION_SCORES = 1  # return proba
     REGRESSION = 2
 
 
@@ -24,13 +23,11 @@ class MetricTypes(_BaseEnum):
     ACCURACY = (0, _MetricCategory.CLASSIFICATION_LABELS)
     F1_SCORE = (1, _MetricCategory.CLASSIFICATION_LABELS)
     PRECISION = (2, _MetricCategory.CLASSIFICATION_LABELS)
-    AVG_PRECISION = (3, _MetricCategory.CLASSIFICATION_SCORES)
-    RECALL = (4, _MetricCategory.CLASSIFICATION_LABELS)
-    ROC_AUC = (5, _MetricCategory.CLASSIFICATION_SCORES)
+    RECALL = (3, _MetricCategory.CLASSIFICATION_LABELS)
 
-    MEAN_SQUARE_ERROR = (6, _MetricCategory.REGRESSION)
-    MEAN_ABSOLUTE_ERROR = (7, _MetricCategory.REGRESSION)
-    EXPLAINED_VARIANCE = (8, _MetricCategory.REGRESSION)
+    MEAN_SQUARE_ERROR = (4, _MetricCategory.REGRESSION)
+    MEAN_ABSOLUTE_ERROR = (5, _MetricCategory.REGRESSION)
+    EXPLAINED_VARIANCE = (6, _MetricCategory.REGRESSION)
 
     def __init__(self, idx: int, metric_category: _MetricCategory) -> None:
         self._idx = idx
@@ -268,7 +265,11 @@ class Metrics(object):
         """
 
         # Set multiouput as raw_values is it is not defined by researcher
-        multi_output = kwargs.get('multioutput', 'raw_values')
+        if len(y_true.shape) > 1:
+            multi_output = kwargs.get('multioutput', 'raw_values')
+        else:
+            multi_output = None
+
         kwargs.pop('multioutput', None)
 
         try:
@@ -295,7 +296,11 @@ class Metrics(object):
             score (float or ndarray of floats)
         """
         # Set multiouput as raw_values is it is not defined by researcher
-        multi_output = kwargs.get('multioutput', 'raw_values')
+        if len(y_true.shape) > 1:
+            multi_output = kwargs.get('multioutput', 'raw_values')
+        else:
+            multi_output = None
+
         kwargs.pop('multioutput', None)
 
         try:
@@ -323,7 +328,11 @@ class Metrics(object):
         """
 
         # Set multiouput as raw_values is it is not defined by researcher
-        multi_output = kwargs.get('multioutput', 'raw_values')
+        if len(y_true.shape) > 1:
+            multi_output = kwargs.get('multioutput', 'raw_values')
+        else:
+            multi_output = None
+
         kwargs.pop('multioutput', None)
 
         try:

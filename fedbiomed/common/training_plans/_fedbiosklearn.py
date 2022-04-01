@@ -122,7 +122,6 @@ class SGDSkLearnModel(BaseTrainingPlan):
 
         # Instantiate the model
         self.model = self.model_map[self.model_type]()
-
         self.params_sgd = self.model.get_params()
         from_args_sgd_proper_pars = {key: model_args[key] for key in model_args if key in self.params_sgd}
         self.params_sgd.update(from_args_sgd_proper_pars)
@@ -135,7 +134,6 @@ class SGDSkLearnModel(BaseTrainingPlan):
         self._is_binary_classification = False
         self._is_clustering = False
         self._is_regression = False
-
         if self.model_type in SGDSkLearnModel.CLASSIFICATION_MODELS:
             self._is_classification = True
             self._is_binary_classification = False
@@ -346,10 +344,6 @@ class SGDSkLearnModel(BaseTrainingPlan):
 
         """
 
-        # Use accuracy as default metric
-        if metric is None:
-            metric = MetricTypes.ACCURACY
-
         if self.testing_data_loader is None:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Can not find dataset for testing.")
 
@@ -368,7 +362,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
         # Use testing method defined by user
         if hasattr(self, 'testing_step') and callable(self.testing_step):
             try:
-                m_value = self.testing_step()
+                m_value = self.testing_step(data, target)
             except Exception as err:
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - {str(err)}")
 
@@ -379,24 +373,26 @@ class SGDSkLearnModel(BaseTrainingPlan):
             metric_name = 'Custom'
 
         # If metric is defined use pre-defined evaluation for Fed-BioMed
-        elif metric is not None:
+        else:
+            if metric is None:
+                metric = MetricTypes.ACCURACY
+                logger.info(f"No `testing_step` method found in TrainingPlan and `test_metric` is not defined "
+                            f"in the training arguments `: using default metric {metric.name}"
+                            " for model evaluation")
+            else:
+                logger.info(
+                    f"No `testing_step` method found in TrainingPlan: using defined metric {metric.name}"
+                    " for model evaluation.")
+
             try:
                 pred = self.model.predict(data)
             except Exception as e:
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: An exception has raise predicting test"
                                                  f"data set. {str(e)}")
-
             m_value = metric_controller.evaluate(target, pred, metric=metric, **metric_args)
             metric_name = metric.name
 
-        # Raise error
-        else:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Either specify a metric or `testing_step` "
-                                             f"in training plan class.")
-
         metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
-        if metric_dict is None:
-            raise FedbiomedTrainingPlanError
 
         # For logging in node console
         logger.debug('Testing: [{}/{}] | Metric[{}]: {}'.format(len(target), tot_samples,
