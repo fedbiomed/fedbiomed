@@ -401,7 +401,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                                              f"argument/parameter")
 
         try:
-            data_loader = self.preprocess(self.__training_data_loader)
+            data_loader = method(self.__training_data_loader)
         except Exception as e:
             raise FedbiomedTrainingPlanError(
                 f"{ErrorNumbers.FB605.value}: Error while running process method -> `{method.__name__}`: "
