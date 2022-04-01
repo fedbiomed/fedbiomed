@@ -1,7 +1,8 @@
 import unittest
+import numpy as np
 from unittest.mock import patch
 
-from fedbiomed.common.metrics import Metrics, MetricTypes
+from fedbiomed.common.metrics import Metrics, MetricTypes, _MetricCategory # noqa
 from fedbiomed.common.exceptions import FedbiomedMetricError
 
 
@@ -271,7 +272,7 @@ class TestMetrics(unittest.TestCase):
             result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
 
         y_true = [[0, 1], [0, 1], ]
-        y_pred = [[[0, 1], [0,1]], [[0, 1], [0, 1]]]
+        y_pred = [[[0, 1], [0, 1]], [[0, 1], [0, 1]]]
         with self.assertRaises(FedbiomedMetricError):
             result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
 
@@ -316,8 +317,8 @@ class TestMetrics(unittest.TestCase):
         patch_mean_abs.side_effect = Exception
         patch_exp_variance.side_effect = Exception
 
-        y_true = [1, 2, 3]
-        y_pred = [1, 2, 3]
+        y_true = np.array([1, 2, 3])
+        y_pred = np.array([1, 2, 3])
 
         with self.assertRaises(FedbiomedMetricError):
             self.metrics.accuracy(y_true, y_pred)
@@ -331,14 +332,82 @@ class TestMetrics(unittest.TestCase):
         with self.assertRaises(FedbiomedMetricError):
             self.metrics.precision(y_true, y_pred)
 
-        y_true = [12, 13, 14, 15]
-        y_pred = [11, 12, 13, 14]
+        y_true = np.array([12, 13, 14, 15])
+        y_pred = np.array([11, 12, 13, 14])
         with self.assertRaises(FedbiomedMetricError):
             self.metrics.explained_variance(y_true, y_pred)
         with self.assertRaises(FedbiomedMetricError):
             self.metrics.mae(y_true, y_pred)
         with self.assertRaises(FedbiomedMetricError):
             self.metrics.mse(y_true, y_pred)
+
+
+class TestMetricTypes(unittest.TestCase):
+    """ Testing Enum Class MetricTypes """
+    def setUp(self) -> None:
+        pass
+
+    def tearDown(self) -> None:
+        pass
+
+    def test_metric_type_01_metric_category(self):
+        """ Testing the method metric category """
+
+        mc = MetricTypes.ACCURACY.metric_category()
+        self.assertEqual(mc, _MetricCategory.CLASSIFICATION_LABELS)
+
+        mc = MetricTypes.PRECISION.metric_category()
+        self.assertEqual(mc, _MetricCategory.CLASSIFICATION_LABELS)
+
+        mc = MetricTypes.RECALL.metric_category()
+        self.assertEqual(mc, _MetricCategory.CLASSIFICATION_LABELS)
+
+        mc = MetricTypes.F1_SCORE.metric_category()
+        self.assertEqual(mc, _MetricCategory.CLASSIFICATION_LABELS)
+
+        mc = MetricTypes.MEAN_SQUARE_ERROR.metric_category()
+        self.assertEqual(mc, _MetricCategory.REGRESSION)
+
+        mc = MetricTypes.MEAN_ABSOLUTE_ERROR.metric_category()
+        self.assertEqual(mc, _MetricCategory.REGRESSION)
+
+        mc = MetricTypes.EXPLAINED_VARIANCE.metric_category()
+        self.assertEqual(mc, _MetricCategory.REGRESSION)
+
+    def test_metric_type_02_get_all_metrics(self):
+        """ Testing method getting all metrics in MetricTypes """
+
+        all = MetricTypes.get_all_metrics()
+        expected = ['ACCURACY', 'F1_SCORE', 'PRECISION', 'RECALL', 'MEAN_SQUARE_ERROR',
+                    'MEAN_ABSOLUTE_ERROR', 'EXPLAINED_VARIANCE']
+        self.assertListEqual(expected, all)
+
+    def test_metric_type_02_get_metric_type_by_name(self):
+        """ Testing method getting all metrics in MetricTypes """
+
+        mtype = MetricTypes.get_metric_type_by_name('ACCURACY')
+        self.assertEqual(mtype, MetricTypes.ACCURACY)
+
+        mtype = MetricTypes.get_metric_type_by_name('PRECISION')
+        self.assertEqual(mtype, MetricTypes.PRECISION)
+
+        mtype = MetricTypes.get_metric_type_by_name('RECALL')
+        self.assertEqual(mtype, MetricTypes.RECALL)
+
+        mtype = MetricTypes.get_metric_type_by_name('F1_SCORE')
+        self.assertEqual(mtype, MetricTypes.F1_SCORE)
+
+        mtype = MetricTypes.get_metric_type_by_name('EXPLAINED_VARIANCE')
+        self.assertEqual(mtype, MetricTypes.EXPLAINED_VARIANCE)
+
+        mtype = MetricTypes.get_metric_type_by_name('MEAN_SQUARE_ERROR')
+        self.assertEqual(mtype, MetricTypes.MEAN_SQUARE_ERROR)
+
+        mtype = MetricTypes.get_metric_type_by_name('MEAN_ABSOLUTE_ERROR')
+        self.assertEqual(mtype, MetricTypes.MEAN_ABSOLUTE_ERROR)
+
+        mtype = MetricTypes.get_metric_type_by_name('WRONG_NAME')
+        self.assertIsNone(mtype)
 
 
 if __name__ == '__main__':

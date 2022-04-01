@@ -1,15 +1,12 @@
 '''
 TrainingPlan definition for torchnn ML framework
 '''
-from collections.abc import Iterable
-from typing import Any, Dict, Optional, Union, Callable
+
+from typing import Any, Dict, Union, Callable
 from copy import deepcopy
 
-import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
-
 
 from fedbiomed.common.constants import TrainingPlans, ProcessTypes
 from fedbiomed.common.utils import get_method_spec
@@ -491,7 +488,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                                              "argument/parameter")
 
         try:
-            data_loader = self.preprocess(self.training_data_loader)
+            data_loader = method(self.training_data_loader)
         except Exception as e:
             raise FedbiomedTrainingPlanError(
                 f"{ErrorNumbers.FB605.value}: Error while running process method -> `{method.__name__}`: "

@@ -18,6 +18,11 @@ ENV CONTAINER_GID=${CONTAINER_GID:-root}
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
+# read config.env in interactive shells & setup for reading it in entrypoint
+COPY ./bashrc_append /tmp
+RUN cat /tmp/bashrc_append | tee -a /root/.bashrc /root/bashrc_entrypoint \
+        /etc/skel/.bashrc /etc/skel/bashrc_entrypoint >/dev/null
+
 RUN [ "$CONTAINER_GROUP" != 'root' ] && groupadd -g $CONTAINER_GID $CONTAINER_GROUP || :
 RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
         -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER || :
