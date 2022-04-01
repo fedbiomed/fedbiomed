@@ -56,6 +56,9 @@ class _MetricStore(dict):
             round_ (int): The round that metric value has received at
             metric (dict): Dictionary that contains metric names and their values e.g {'<metric-name>':<value>}
             iter_ (int): Iteration number for testing/training.
+
+        Returns
+             int - Cumulative iteration
         """
 
         if node not in self:
@@ -88,7 +91,6 @@ class _MetricStore(dict):
                 self._add_new_iteration(node, for_, metric_name, round_, iter_, metric_value, True)
 
             cum_iter.append(self._cumulative_iteration(self[node][for_][metric_name]))
-        from pdb import set_trace; set_trace()
         return cum_iter
 
     def _add_new_iteration(self,
@@ -124,7 +126,7 @@ class _MetricStore(dict):
             self[node][for_][metric_name][round_]['values'].append(metric_value)
 
     @staticmethod
-    def _iter_duplication_status(round_: dict, next_iter: int):
+    def _iter_duplication_status(round_: dict, next_iter: int) -> bool:
         """
         This method is required to find out is there iteration duplication in rounds for the
         testing metrics.
@@ -134,6 +136,9 @@ class _MetricStore(dict):
                 belongs to a node and a phase (training/testing_global_update or testing_local_updates)
             next_iter (int): An integer indicates the iteration number for the next iteration that is going to be
                 stored on the MetricStore
+
+        Returns:
+            bool: Indicates whether is there a duplication in the round iterations
         """
 
         iterations = round_['iterations']
@@ -156,6 +161,7 @@ class _MetricStore(dict):
         """
         self[node] = {
             "training": {},
+
             "testing_global_updates": {},  # Testing before training
             "testing_local_updates": {}  # Testing after training
         }
@@ -176,7 +182,7 @@ class _MetricStore(dict):
         self[node][for_].update({metric_name: {1: {'iterations': [], 'values': []}}})
 
     @staticmethod
-    def _cumulative_iteration(rounds) -> list[int]:
+    def _cumulative_iteration(rounds) -> int:
         """
         Method for calculation of cumulative iteration for the received metric value. Cumulative iteration
         should be calculated for each metric value received during training/testing to add it as next `step`
@@ -184,6 +190,9 @@ class _MetricStore(dict):
 
         Args:
             rounds : The dictionary that includes all the rounds for a metric, node and the phase
+
+        Returns:
+            int: List of cumulative iteration for each metric/evaluation result
         """
 
         cum_iteration = 0
@@ -221,8 +230,14 @@ class Monitor:
             # Clear logs' directory from the files from other experiments.
             self._remove_logs()
 
-    def set_round(self, round_: int):
+    def set_round(self, round_: int) -> int:
         """
+        Setting round number that metric results will be received for. By default, at the beginning
+        round is equal to 1 which stands for the first round. This method should be called by
+        experiment `run_once` after each round completed, and round should be set to current round + 1.
+        This will inform monitor about the current round where the metric values are getting received.
+        Args:
+            round_ (int): The round that metric value will be saved at they are received
         """
         self._round = round_
 
@@ -339,7 +354,7 @@ class Monitor:
             header (str): The header/title for the plot that is going to be displayed on the tensorboard
             node (str): Node id
             metric (dict): Metric values
-            cum_iter: Iteration number for the metric that is going to be added as scalar
+            cum_iter (int): Iteration number for the metric that is going to be added as scalar
         """
 
         # Initialize event SummaryWriters
