@@ -16,9 +16,9 @@ from fedbiomed.researcher.environ import environ
 
 class _MetricStore(dict):
     """
-    Storage facility, used for storing trainig loss and testing metric values, in order to
+    Storage facility, used for storing training loss and testing metric values, in order to
     display them on Tensorboard.
-    Inhereting from a dictionary, providing methods to simplify queries and saving metric values.
+    Inheriting from a dictionary, providing methods to simplify queries and saving metric values.
     
     Storage architecture:
         {<node>:
@@ -124,13 +124,16 @@ class _MetricStore(dict):
             self[node][for_][metric_name][round_]['values'].append(metric_value)
 
     @staticmethod
-    def _iter_duplication_status(round_, next_iter):
+    def _iter_duplication_status(round_: dict, next_iter: int):
         """
         This method is required to find out is there iteration duplication in rounds for the
         testing metrics.
 
         Args:
-
+            round_ (dict) : Dictionary that includes iteration numbers and values for single metric results
+                belongs to a node and a phase (training/testing_global_update or testing_local_updates)
+            next_iter (int): An integer indicates the iteration number for the next iteration that is going to be
+                stored on the MetricStore
         """
 
         iterations = round_['iterations']
@@ -147,6 +150,9 @@ class _MetricStore(dict):
         - training: loss values from training
         - testing_global_updates: metric values and names from testing on global updates
         - testing_local_updates: metric values and names from testing on local updates
+
+        Args:
+            node (str): Node id
         """
         self[node] = {
             "training": {},
@@ -159,17 +165,27 @@ class _MetricStore(dict):
         Method for registering metric for the given node. It creates stating point
         for the metric from round 0.
 
-        Args: node
+        Args:
+            node (str): The node id that metric value received from
+            for_ (str): One of (training, testing_global_updates, testing_local_updates). To indicate metric
+                value belongs to which phase
+            metric_name (str): Name of the metric to use as a key in MetricStore dict
         """
 
         # Round should start from 1 to match experiment's starting round
         self[node][for_].update({metric_name: {1: {'iterations': [], 'values': []}}})
 
     @staticmethod
-    def _cumulative_iteration(rounds):
+    def _cumulative_iteration(rounds) -> list[int]:
+        """
+        Method for calculation of cumulative iteration for the received metric value. Cumulative iteration
+        should be calculated for each metric value received during training/testing to add it as next `step`
+        in the tensorboard SummaryWriter. Please see Monitor._summary_writer.
+
+        Args:
+            rounds : The dictionary that includes all the rounds for a metric, node and the phase
         """
 
-        """
         cum_iteration = 0
         for val in rounds.values():
             if len(val['iterations']):
@@ -264,8 +280,7 @@ class Monitor:
 
     def _remove_logs(self):
         """
-        This is private method for removing logs files from
-        tensorboard logs dir.
+        Private method for removing logs files from tensorboard logs dir.
         """
 
         for file in os.listdir(self._log_dir):
@@ -321,9 +336,10 @@ class Monitor:
         It creates new summary file for each node.
 
         Args:
-            header (str)
-            node (str): node id that sends
-
+            header (str): The header/title for the plot that is going to be displayed on the tensorboard
+            node (str): Node id
+            metric (dict): Metric values
+            cum_iter: Iteration number for the metric that is going to be added as scalar
         """
 
         # Initialize event SummaryWriters
