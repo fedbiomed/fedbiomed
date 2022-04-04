@@ -454,8 +454,7 @@ run() {
         exit 1
     }
 
-    CMD="export MQTT_BROKER=$mqtt_IP && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ && export UPLOADS_IP=${restful_IP} && /fedbiomed/scripts/fedbiomed_run $component ${RUN_ARGS}"
-    echo "** $CMD"
+    CMD="export MQTT_BROKER=$mqtt_IP && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ && export UPLOADS_IP=${restful_IP} && export FEDBIOMED_NO_RESET=1 && /fedbiomed/scripts/fedbiomed_run $component ${RUN_ARGS}"
 
     docker-compose exec -u $(id -u) $component bash -c "$CMD"
 }
