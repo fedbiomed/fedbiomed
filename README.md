@@ -206,6 +206,70 @@ De-configure environments, remove all configuration files and caches
 source ./scripts/fedbiomed_environment clean
 ```
 
+## Install and run in vpn+development environment
+
+### Files
+
+The **envs/vpn** directory contains all material for VPN support.
+A full technical description is provided in **envs/vpn/README_tempo.md**
+
+The **./scripts/fedbiomed_vpn** script is provided to ease the deployement of
+a set of docker containers with VPN support. The provided containers are:
+
+- fedbiomed/vpn-vpnserver: WireGuard server
+- fedbiomed/vpn-restful: HTTP REST communication server
+- fedbiomed/vpn-mqtt: MQTT message broker server
+- fedbiomed/vpn-researcher: a researcher jupyter notebooks
+- fedbiomed/vpn-node: a node component
+- fedbiomed/vpn-gui: a GUI for managing node component data
+
+All these containers are communicating through the Wireguard VPN server.
+
+### Setup
+
+To setup all these components, you should:
+
+- clean/build the docker containers
+
+```
+./scripts/fedbiomed_vpn build -c
+```
+
+- configure the wireguard encryption keys of all containers
+
+```
+./scripts/fedbiomed_vpn configure
+```
+
+- start the containers
+
+```
+./scripts/fedbiomed_vpn start
+```
+
+- check the containers status (presence and Wireguard configuration)
+
+```
+./scripts/fedbiomed_vpn status
+```
+
+- run a **fedbiomed_run** command inside the node component. Eg:
+
+```
+./scripts/fedbiomed_vpn run node list
+```
+
+- manage data inside the node on http://127.0.0.1:8484
+
+- connect to the researcher jupyter on http://127.0.0.1:8888
+
+- stop the containers:
+
+```
+./scripts/fedbiomed_vpn stop
+```
+
+
 
 
 ## Misc developper tools to help debugging
