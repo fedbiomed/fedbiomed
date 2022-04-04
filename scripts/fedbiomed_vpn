@@ -36,42 +36,43 @@ Usage: ${0##*/} clean
        ${0##*/} configure
        ${0##*/} start [-g|--gpu]
        ${0##*/} status
-       ${0##*/} run   (node/researcher) *
        ${0##*/} stop
+       ${0##*/} node *
+       ${0##*/} researcher *
 
 manage (local) docker containers with Wireguard VPN support
 (cannot use build / clean / configure / start / status / stop at same time)
 
-clean                  clean everything
+clean          clean everything
 
-build                  build containers
+build          build containers
 
   Optional with build:
-  -c|--clean           clean environments first
-                       (same as running ${0##*/} clean before build)
+  -c|--clean   clean environments first
+               (same as running ${0##*/} clean before build)
 
-configure              generate/modify configuration files
-                       (wireguard keys and refresh @IP adresses)
+configure      generate/modify configuration files
+               (wireguard keys and refresh @IP adresses)
 
-start                  start containers
+start          start containers
 
   Optional with start:
-  -g|--gpu             GPU support option (used for node container)
+  -g|--gpu     GPU support option (used for node container)
 
-status                 give information on running containers
+status         give information on running containers
 
-run node           *   start a 'fedbiomed_run node *'       command
-                       inside node container (eg: ${0##*/} run node list)
-run researcher     *   start a 'fedbiomed_run researcher *' command
-                       inside researcher container
+stop                   stop  all containers
+
+node       *   start a 'fedbiomed_run node *'       command
+               inside node container (eg: ${0##*/} run node list)
+researcher *   start a 'fedbiomed_run researcher *' command
+               inside researcher container
 
   All extra arguments (*) are passed to the fedbiomed_run scripts
   which is launched inside the container.
   Run 'fedbiomed_run --help' for more help on valid arguments
   FIY: a jupyter notebook is already present in the researcher docker
   at startup
-
-stop                   stop  all containers
 "
     exit $return_code
 }
@@ -567,18 +568,28 @@ while (($# > 0)); do
             done
             ;;
 
-        run)
+        node)
             shift
+            RUN_NODE=1
             while (($# > 0)); do
                 case $1 in
-                    node)           RUN_NODE=1 ;;
-                    researcher)     RUN_RESEARCHER=1 ;;
                     -h|--help|help) usage ;;
                     *)              RUN_ARGS="${RUN_ARGS} $1" ;;
                 esac
                 shift
             done
-            [[ $RUN_NODE -eq 0 ]]  && [[ RUN_RESEARCHER  -eq 0 ]] && { usage "launch option need to specify node or researcher" ; }
+            ;;
+
+        researcher)
+            shift
+            RUN_RESEARCHER=1
+            while (($# > 0)); do
+                case $1 in
+                    -h|--help|help) usage ;;
+                    *)              RUN_ARGS="${RUN_ARGS} $1" ;;
+                esac
+                shift
+            done
             ;;
 
         -h|--help|help) usage ;;
