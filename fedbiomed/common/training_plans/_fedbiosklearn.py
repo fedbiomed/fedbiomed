@@ -2,13 +2,13 @@
 TrainingPlan definition for sklearn ML framework
 '''
 
-from io import StringIO
-from joblib import dump, load
 import sys
-from typing import Any, Dict, Union, Tuple, Callable, Optional
-
 import numpy as np
 
+from typing import Any, Dict, Union, Tuple, Callable, Optional
+from io import StringIO
+from joblib import dump, load
+from copy import deepcopy
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
 
@@ -264,10 +264,10 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 # Fit model based on model type
                 if self._is_classification:
                     classes = self.__classes_from_concatenated_train_test()
-                    # classes = np.unique(target)
-                    print("BEFORE PARTIAL FIT")
-                    self.model.partial_fit(data, target, classes=classes)
-                    print("AFTER PARTIAL FIT")
+                    try:
+                        self.model.partial_fit(data, target, classes=classes)
+                    except Exception as e:
+                        raise FedbiomedTrainingPlanError(f'Error while fitting the model; {str(e)}')
                 elif self._is_regression:
                     self.model.partial_fit(data, target)
 
@@ -543,6 +543,8 @@ class SGDSkLearnModel(BaseTrainingPlan):
 
         target_test = self.testing_data_loader[1] if self.testing_data_loader is not None else np.array([])
         target_train = self.training_data_loader[1] if self.training_data_loader is not None else np.array([])
+        print(np.unique(target_test))
+        print(np.unique(target_train))
 
         target_test_train = np.concatenate((target_test, target_train))
 
