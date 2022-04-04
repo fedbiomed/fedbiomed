@@ -568,7 +568,6 @@ def get_iterations(target_delta, sigma, q, max_epsilon, max_N):
       sigma: sigma to be used in Gaussian DP mechanism
       q: training sample ratio
       max_epsilon: Maximum budget allowed
-      dp_type: DP scheme used in FL ('local' or 'central')
       max_N: Maximum number of iterations 
       
     Returns:

@@ -17,6 +17,7 @@ from fedbiomed.common.logger import logger
 from ._base_training_plan import BaseTrainingPlan
 
 from opacus import PrivacyEngine 
+from opacus.validators import ModuleValidator
 
 class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
     """
