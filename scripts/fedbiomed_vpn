@@ -378,7 +378,7 @@ containers_start() {
     CONFIG="$basedir/envs/vpn/docker/vpnserver/run_mounts/config/config.env"
     IP=$(find_my_ip)
 
-    ip_in_file=$(grep "^VPN_SERVER_PUBLIC_ADDR=$IP$" $CONFIG)
+    ip_in_file=$(grep "^export VPN_SERVER_PUBLIC_ADDR=$IP$" $CONFIG)
     if [ -z "$ip_in_file" ]; then
         echo "** WARNING: external IP adress has changed since last configuration"
         echo "            You may need to run:  ${0##*/} configure"
