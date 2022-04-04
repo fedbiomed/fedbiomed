@@ -42,7 +42,8 @@ init_misc_environ() {
 
     # set command for dropping privileges
     SETUSER=eval
-    [ "$(id -u)" -eq 0 ] && SETUSER="runuser -u ${CONTAINER_USER} --"
+    [ "$(id -u)" -eq 0 ] && [ ${CONTAINER_USER} != root ] && \
+        SETUSER="runuser -u ${CONTAINER_USER} --"
 
     # do we prefer to use wireguard kernel vs userspace version
     [ -z "$USE_WG_KERNEL_MOD" ] && USE_WG_KERNEL_MOD=false
