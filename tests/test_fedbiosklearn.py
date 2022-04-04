@@ -29,7 +29,7 @@ class TrainingPlanTestingStep(SGDSkLearnModel):
 class TestFedbiosklearn(unittest.TestCase):
 
     def setUp(self):
-        self.model = SGDRegressor(max_iter=1000, tol=1e-3)
+        self.reg_model = SGDRegressor(max_iter=1000, tol=1e-3)  # seems unused
 
     def tearDown(self):
         pass
@@ -150,6 +150,10 @@ class TestFedbiosklearn(unittest.TestCase):
                                                            total_samples=3,
                                                            batch_samples=3,
                                                            num_batches=1)
+
+        # check if `classes_` attribute of classifier has been created
+        self.assertTrue(hasattr(tp.model, 'classes_'))
+        self.assertTrue(np.array_equal(tp.model.classes_, np.array([2])))
         history_monitor.add_scalar.reset_mock()
 
         # Test with regression metric
@@ -204,6 +208,15 @@ class TestFedbiosklearn(unittest.TestCase):
                                    metric_args={},
                                    history_monitor=history_monitor,
                                    before_train=True)
+
+
+        # Test `testig_step` raises an error if test_ratio equals 0
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            tp.set_data_loaders(train_data_loader=(test_x, test_y), test_data_loader=None)
+            tp.testing_routine(metric=MetricTypes.ACCURACY,
+                               metric_args={},
+                               history_monitor=history_monitor,
+                               before_train=False)
 
 
 if __name__ == '__main__':  # pragma: no cover
