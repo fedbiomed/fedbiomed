@@ -60,9 +60,9 @@ start                  start containers
 
 status                 give information on running containers
 
-run node           *   start a 'fedbiomed_run node'       command
+run node           *   start a 'fedbiomed_run node *'       command
                        inside node container
-run researcher     *   start a 'fedbiomed_run researcher' command
+run researcher     *   start a 'fedbiomed_run researcher *' command
                        inside researcher container
 
   All extra arguments (*) are passed to the fedbiomed_run scripts
@@ -422,6 +422,8 @@ run() {
     component=$1
 
     echo "** Run command inside $component VPN container"
+
+    [[ -z "$RUN_ARGS" ]] && { usage "fedbiomed run $component needs extra arguments";  }
     cd "$basedir/envs/vpn/docker"
 
     # find @IP of mqtt and restful inside the VPN
@@ -565,7 +567,7 @@ while (($# > 0)); do
             done
             ;;
 
-        launch)
+        run)
             shift
             while (($# > 0)); do
                 case $1 in
