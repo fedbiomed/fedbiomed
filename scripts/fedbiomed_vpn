@@ -61,13 +61,15 @@ start                  start containers
 status                 give information on running containers
 
 run node           *   start a 'fedbiomed_run node *'       command
-                       inside node container
+                       inside node container (eg: ${0##*/} run node list)
 run researcher     *   start a 'fedbiomed_run researcher *' command
                        inside researcher container
 
   All extra arguments (*) are passed to the fedbiomed_run scripts
   which is launched inside the container.
   Run 'fedbiomed_run --help' for more help on valid arguments
+  FIY: a jupyter notebook is already present in the researcher docker
+  at startup
 
 stop                   stop  all containers
 "
@@ -455,7 +457,6 @@ run() {
     }
 
     CMD="export MQTT_BROKER=$mqtt_IP && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ && export UPLOADS_IP=${restful_IP} && export FEDBIOMED_NO_RESET=1 && /fedbiomed/scripts/fedbiomed_run $component ${RUN_ARGS}"
-
     docker-compose exec -u $(id -u) $component bash -c "$CMD"
 }
 
