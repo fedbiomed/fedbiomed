@@ -185,7 +185,7 @@ containers_stop() {
     cd "$basedir/envs/vpn/docker"
     for i in ${ONLY_CONTAINERS[@]}
     do
-        docker-compose rm -sf $i
+        docker-compose rm -sf $i >/dev/null
     done
 }
 
@@ -219,17 +219,17 @@ containers_clean() {
     #
     for i in base basenode gui
     do
-        docker-compose rm -sf $i
+        docker-compose rm -sf $i >/dev/null
         #docker image rm -f fedbiomed/vpn-$i   # will force to rebuild the image
     done
 
     for i in ${ALL_VPN_CONTAINERS[@]}
     do
-        docker-compose rm -sf $i
+        docker-compose rm -sf $i >/dev/null
         #docker image rm -f fedbiomed/vpn-$i   # will forece to rebuild the image
         /bin/rm -rf ./$i/run_mounts/config/wireguard 2> /dev/null
-        [[ "$i" = "gui" ]] && { continue ; }   ## gui container does not have a config.emv file
-        git checkout $i/run_mounts/config/config.env
+        #[[ "$i" = "gui" ]] && { continue ; }   ## gui container does not have a config.emv file
+        #git checkout $i/run_mounts/config/config.env
     done
 
     #
@@ -328,12 +328,10 @@ single_container_configure() {
     IP=$(find_my_ip)
 
     /bin/rm -fr ./vpnserver/run_mounts/config/config_peers/${category}/${container}
-    docker-compose exec vpnserver python ./vpn/bin/configure_peer.py genconf ${category} ${container}
+    docker-compose exec vpnserver bash -c -i "python ./vpn/bin/configure_peer.py genconf ${category} ${container}"
     sleep 1
 
     /bin/rm -fr ./${container}/run_mounts/config/wireguard    2> /dev/null
-    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" ./vpnserver/run_mounts/config/config_peers/${category}/${container}/config.env
-    /bin/rm ./vpnserver/run_mounts/config/config_peers/${category}/${container}/config.env-XXX
     /bin/cp ./vpnserver/run_mounts/config/config_peers/${category}/${container}/config.env ./${destination}/run_mounts/config/config.env
 }
 
@@ -348,7 +346,8 @@ containers_configure() {
     CONFIG="$basedir/envs/vpn/docker/vpnserver/run_mounts/config/config.env"
     IP=$(find_my_ip)
 
-    git checkout $CONFIG
+    #git checkout $CONFIG
+    cp -f $CONFIG.sample $CONFIG
     sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" $CONFIG && /bin/rm ${CONFIG}-XXX
 
     # start vpn server to generate config files
