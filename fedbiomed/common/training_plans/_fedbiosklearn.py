@@ -224,7 +224,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
             idx = targets == aclass
             support[i] = np.sum(targets[targets[idx]])
 
-            return support
+        return support
 
     def training_routine(self,
                          epochs=1,
