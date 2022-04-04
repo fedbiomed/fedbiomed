@@ -1,6 +1,6 @@
 # WIP notes for Fed-BioMed VPN'ization
 
-**TODO** : convert to updates for main README.md + additions to install scripts
+**TODO** : convert to gitlabpages documentation + additions to install scripts
 
 Which identity to use ?
 
@@ -12,20 +12,34 @@ Which machine to use ?
 - when using distinct machines for the components, type node commands (eg `[user@node $]`) on node, researcher commands (eg `[user@researcher $]`) on researcher, network commands on network (eg `[user@network $]`)
 - when running all components on a single laptop, all components are on this machine
 
-## containers
+## requirements
 
 Pre-requisites for using containers :
 
-* **`docker-compose` version 1.27.0 or higher** is needed for extended file format for [GPU support in docker](https://docs.docker.com/compose/gpu-support/) even if you're not using GPU in container.
-*  some distributions (eg Ubuntu 20.04) don't provide a package with a recent enough version.
-* Type `docker-compose --version` to check installed version.
-* You can use your usual package manager to  install up-to-date version (eg: `sudo apt-get update && sudo apt-get install docker-compose` for apt, `sudo dnf clean metadata && sudo dnf update docker-compose` for dnf).
-* If no suitable package exist for your system, you can use [`docker-compose` install page](https://docs.docker.com/compose/install/).
+* **`docker >= 20.10.0`** is needed to build mqtt, see [there](https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2). With older docker version it fails with a `make: sh: Operation not permitted`
+* **`docker-compose` >= 1.27.0** is needed for extended file format for [GPU support in docker](https://docs.docker.com/compose/gpu-support/) even if you're not using GPU in container.
+  -  some distributions (eg Ubuntu 20.04) don't provide a package with a recent enough version.
+  - Type `docker-compose --version` to check installed version.
+  - You can use your usual package manager to  install up-to-date version (eg: `sudo apt-get update && sudo apt-get install docker-compose` for apt, `sudo dnf clean metadata && sudo dnf update docker-compose` for dnf).
+  - If no suitable package exist for your system, you can use [`docker-compose` install page](https://docs.docker.com/compose/install/).
 
 
-### building images
+## setup VPN and fedbiomed
 
-Done when initializing each container (see after)
+Tip: build images from a clean file tree (avoid copying modified/config/temporary files to images) :
+- method 1 : use a fresh `git clone git@gitlab.inria.fr:fedbiomed/fedbiomed.git` tree
+- method 2 : clean your existing file tree
+  * general cleaning
+``` bash
+[user@laptop $] source ./scripts/fedbiomed_environment clean
+```
+  * specific [cleaning](#cleaning) for containers
+
+
+### (optional) building all images
+
+Optionally build all images in one command. 
+Usually build each image separately when initializing each container (see after)
 
 ```bash
 #[user@laptop $] cd ./envs/vpn/docker
@@ -35,11 +49,6 @@ Done when initializing each container (see after)
 ## when running on a single machine : build all needed containers at one time with
 #[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn)  docker-compose build base vpnserver mqtt restful basenode node gui researcher
 ```
-
-Caveat : docker >= 20.10.0 needed to build mqtt, see [there](https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2). With older docker version it fails with a `make: sh: Operation not permitted`
-
-
-## setup VPN and fedbiomed
 
 ### initializing vpnserver
 
@@ -53,6 +62,7 @@ Run this only at first launch of container or after cleaning :
 ```
 * set the VPN server public IP *VPN_SERVER_PUBLIC_ADDR*
 ```bash
+[user@network $] cp ./vpnserver/run_mounts/config/config.env.sample ./vpnserver/run_mounts/config/config.env
 [user@network $] vi ./vpnserver/run_mounts/config/config.env # change VPN_SERVER_PUBLIC_ADDR
 ```
 * launch container
@@ -620,7 +630,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 # level 2 : configuration
 # currently as root 
 # TODO write config files as CONTAINER_USER
-[root@network #] rm -rf vpnserver/run_mounts/config/{config_peers,ip_assign,wireguard}
+[root@network #] rm -rf vpnserver/run_mounts/config/{config.env,config_peers,ip_assign,wireguard}
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-vpnserver fedbiomed/vpn-base
@@ -636,8 +646,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 [user@network $] docker-compose rm -sf mqtt
 
 # level 2 : configuration
-[user@network $] rm -rf ./mqtt/run_mounts/config/wireguard
-[user@network $] echo > ./mqtt/run_mounts/config/config.env
+[user@network $] rm -rf ./mqtt/run_mounts/config/{config.env,wireguard}
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-mqtt
@@ -653,8 +662,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 [user@network $] docker-compose rm -sf restful
 
 # level 2 : configuration
-[user@network $] rm -rf ./restful/run_mounts/config/wireguard
-[user@network $] echo > ./restful/run_mounts/config/config.env
+[user@network $] rm -rf ./restful/run_mounts/config/{config.env,wireguard}
 
 [user@network $] rm -f ./restful/run_mounts/app/db.sqlite3
 # also clean saved files ? (same for env/developement)
@@ -673,8 +681,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 [user@node $] docker-compose rm -sf node
 
 # level 2 : configuration
-[user@node $] rm -rf ./node/run_mounts/config/wireguard
-[user@node $] echo > ./node/run_mounts/config/config.env
+[user@node $] rm -rf ./node/run_mounts/config/{config.env,wireguard}
 [user@node $] rm -rf ./node/run_mounts/{data,etc,var}/*
 
 # level 3 : image
@@ -709,8 +716,7 @@ Same as node
 [user@researcher $] docker-compose rm -sf researcher
 
 # level 2 : configuration
-[user@researcher $] rm -rf ./researcher/run_mounts/config/wireguard
-[user@researcher $] echo > ./researcher/run_mounts/config/config.env
+[user@researcher $] rm -rf ./researcher/run_mounts/config/{config.env,wireguard}
 [user@researcher $] rm -rf ./researcher/run_mounts/{data,etc,samples,runs,var}/*
 
 # level 3 : image

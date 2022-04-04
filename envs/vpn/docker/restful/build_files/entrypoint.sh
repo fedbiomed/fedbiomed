@@ -4,6 +4,8 @@
 # - launched as root to handle VPN
 # - may drop privileges to CONTAINER_USER at some point
 
+# read config.env
+source ~/bashrc_entrypoint
 
 # set identity when we would like to drop privileges
 CONTAINER_USER=${CONTAINER_USER:-root}
