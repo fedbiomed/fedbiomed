@@ -173,27 +173,6 @@ services:
       - ./researcher/run_mounts/runs:/fedbiomed/runs # contains fedbiomed tensorboard results
       - ./researcher/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
   #
-  # test component
-  test:
-    container_name: fedbiomed-vpn-test
-    hostname: fedbiomed-vpn-test
-    build:
-      context: ../../..
-      dockerfile: envs/vpn/docker/test/build_files/Dockerfile
-      args:
-        - CONTAINER_UID
-        - CONTAINER_GID
-        - CONTAINER_USER
-        - CONTAINER_GROUP
-    image: fedbiomed/vpn-test
-    cap_add:
-      - net_admin
-      - sys_module
-    devices:
-      - /dev/net/tun
-    volumes:
-      - ./test/run_mounts/config:/config # contains VPN configurations
-  #
   # mqtt server component
   mqtt:
     container_name: fedbiomed-vpn-mqtt
