@@ -543,8 +543,6 @@ class SGDSkLearnModel(BaseTrainingPlan):
 
         target_test = self.testing_data_loader[1] if self.testing_data_loader is not None else np.array([])
         target_train = self.training_data_loader[1] if self.training_data_loader is not None else np.array([])
-        print(np.unique(target_test))
-        print(np.unique(target_train))
 
         target_test_train = np.concatenate((target_test, target_train))
 
