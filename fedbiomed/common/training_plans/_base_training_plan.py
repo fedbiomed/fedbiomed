@@ -160,17 +160,26 @@ class BaseTrainingPlan(object):
 
     @staticmethod
     def _create_metric_result_dict(metric: Union[dict, list, int, float, np.ndarray, torch.tensor, List[torch.tensor]],
-                                   metric_name: str = 'Custom'):
+                                   metric_name: str = 'Custom') -> Dict[str, float]:
         """
         Base function to create metric dictionary.
 
         Args:
             metric (dict, list, int, float): Array-like metric values or dictionary
             metric_name (str): Name of the metric. If `metric` is of type list, metric names will be in format of
-                (`metric_name_1`, `metric_name_n`). If the `metric` argument is  provided as dict the argument
-                `metric_name` will be ignored and metric names will be keys of the dict.
-        """
+                (`metric_name_1`, ..., `metric_name_n`), where `n` is the size of the list.
+                If the `metric` argument is  provided as dict the argument `metric_name` will be ignored and
+                metric names will be keys of the dict.
 
+        Returns:
+            Dict[str, float]: dictionary mapping <metric_name>:<metric values>, where <metric values>
+                are floats provided by `metric` argument. If `metric` argument is a dict, then returns
+                <keys of metric>: <metric values>
+
+        Raises:
+            FedbiomedTrainingPlanError: triggered if metric is not of type dict, list, int, float, torch.tensor, 
+            or np.ndarray.
+        """
         if isinstance(metric, torch.Tensor):
             metric = metric.numpy()
             metric = list(metric) if metric.shape else float(metric)
