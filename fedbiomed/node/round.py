@@ -6,19 +6,19 @@ import os
 import sys
 import time
 import inspect
-from typing import Union, Dict, Any
+from typing import Union, Any
 import uuid
 
-from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages, TrainReply
-from fedbiomed.common.repository import Repository
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.data import DataManager
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError
+from fedbiomed.common.logger import logger
+from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.repository import Repository
+
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.model_manager import ModelManager
-from fedbiomed.common.data import DataManager
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError
 
 
 class Round:

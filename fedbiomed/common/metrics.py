@@ -1,9 +1,15 @@
-import numpy as np
+"""
+???
+"""
 
+
+from copy import copy
+import numpy as np
 from typing import Any, Dict, List, Tuple, Union
+
 from sklearn import metrics
 from sklearn.preprocessing import OneHotEncoder
-from copy import copy
+
 from fedbiomed.common.constants import _BaseEnum, ErrorNumbers
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedMetricError
@@ -316,7 +322,7 @@ class Metrics(object):
             - multioutput ({‘raw_values’, ‘uniform_average’} or array-like of shape (n_outputs,),
             default=’uniform_average’, optional) Defines aggregating of multiple output values. Array-like value
             defines weights used to average errors.
-            
+
         Returns:
             - sklearn.metrics.mean_absolute_error(y_true, y_pred, *, sample_weight=None, multioutput='uniform_average')
             score (float or ndarray of floats)
@@ -390,7 +396,7 @@ class Metrics(object):
 
         Returns:
             y_true (np.ndarray): updated labels of dataset
-            y_pred (np.ndarray): updated prediction values    
+            y_pred (np.ndarray): updated prediction values
         """
 
         # Squeeze array [[1],[2],[3]] to [1,2,3]

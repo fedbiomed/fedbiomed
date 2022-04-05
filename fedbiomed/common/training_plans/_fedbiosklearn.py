@@ -5,21 +5,20 @@ TrainingPlan definition for sklearn ML framework
 import sys
 import numpy as np
 
-from typing import Any, Dict, Union, Tuple, Callable, Optional
+from typing import Any, Dict, Union, Callable
 from io import StringIO
 from joblib import dump, load
-from copy import deepcopy
+
 from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
 from sklearn.naive_bayes import BernoulliNB, GaussianNB
 
 from ._base_training_plan import BaseTrainingPlan
 
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
-from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlans, ProcessTypes
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
-from fedbiomed.common.constants import ProcessTypes
-from fedbiomed.common.utils import get_method_spec
+from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
+from fedbiomed.common.utils import get_method_spec
 
 
 class _Capturer(list):
@@ -487,16 +486,16 @@ class SGDSkLearnModel(BaseTrainingPlan):
     def __process_data_loader(self, method: Callable):
 
         """
-       Process handler for data loader kind processes.
+        Process handler for data loader kind processes.
 
-       Args:
-           method (Callable) : Process method that is going to be executed
+        Args:
+          method (Callable) : Process method that is going to be executed
 
-       Raises:
-            FedbiomedTrainingPlanError: raised when method doesnot have 2 positional arguments
-            FedbiomedTrainingPlanError: Raised if running method fails
-            FedbiomedTrainingPlanError: if dataloader returned by method is not of type: Tuple[np.ndarray, np.ndarray]
-            FedbiomedTrainingPlanError: if dataloaders contained in method output don't contain the same number of samples
+        Raises FedbiomedTrainingPlanError:
+          - raised when method doesnot have 2 positional arguments
+          - Raised if running method fails
+          - if dataloader returned by method is not of type: Tuple[np.ndarray, np.ndarray]
+          - if dataloaders contained in method output don't contain the same number of samples
        """
 
         argspec = get_method_spec(method)
@@ -536,7 +535,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
         """
         Method for getting all classes from test and target dataset. This action is required
         in case of some class only exist in training subset or testing subset
-        
+
         Returns:
             np.ndarray: numpy array containing unique values from the whole dataset (training + testing dataset)
         """

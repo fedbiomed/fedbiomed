@@ -55,7 +55,7 @@ class HistoryMonitor:
             'researcher_id': self.researcher_id,
             'train': train,
             'test': test,
-            'test_on_global_updates':test_on_global_updates,
+            'test_on_global_updates': test_on_global_updates,
             'test_on_local_updates': test_on_local_updates,
             'metric': metric,
             'iteration': iteration,

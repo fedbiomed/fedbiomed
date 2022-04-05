@@ -1,4 +1,5 @@
 '''
+???
 '''
 
 import atexit
@@ -14,11 +15,12 @@ import uuid
 import validators
 
 from typing import Union, Callable, List, Dict, Type
+
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.repository import Repository
-from fedbiomed.common.training_plans import TorchTrainingPlan  # noqa
-from fedbiomed.common.training_plans import SGDSkLearnModel  # noqa
+from fedbiomed.common.training_plans import TorchTrainingPlan, SGDSkLearnModel  # noqa
+
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
@@ -370,7 +372,7 @@ class Job:
                 if do_training:
                     logger.info(f"Downloading model params after training on {m['node_id']} - from {m['params_url']}")
                     _, params_path = self.repo.download_file(m['params_url'],
-                                                             'node_params_'+str(uuid.uuid4())+'.pt')
+                                                             'node_params_' + str(uuid.uuid4()) + '.pt')
                     params = self.model_instance.load(params_path, to_params=True)['model_params']
                 else:
                     params_path = None
@@ -703,10 +705,10 @@ class localJob:
                 error_message = "Cannot write results: " + str(e)
 
         # end : clean the namespace
-        try:
-            del model  # ???? model does not exist ???? what was the idea here ?
-        except Exception:
-            pass  # specially if we ignore the error....
+        # try:
+        #    del model  # ???? model does not exist ???? what was the idea here ?
+        # except Exception:
+        #    pass  # specially if we ignore the error....
 
         if error_message != '':
             logger.error(error_message)

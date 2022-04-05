@@ -1083,7 +1083,7 @@ class Experiment(object):
     @exp_exceptions
     def set_test_ratio(self, ratio: float) -> float:
         """
-        Sets testing ratio for model evaluation. When setting test_ratio, nodes will allocate 
+        Sets testing ratio for model evaluation. When setting test_ratio, nodes will allocate
         (1 - `test_ratio`) fraction of data for training and the remaining for testing model.
         This could be useful for evaluating the model, once every round, as well as controlling
         overfitting, doing early stopping, ....
@@ -1128,10 +1128,10 @@ class Experiment(object):
 
         Args:
             - metric (Union[Callable, str, None]): name of the evaluation metric to use for testing
-            - metric_args (Dict[str, Any], optional) : arguments for the metric 
+            - metric_args (Dict[str, Any], optional) : arguments for the metric
 
         Raises:
-            - FedbiomedExperimentError: metric 
+            - FedbiomedExperimentError: metric
 
         Returns:
             - Tuple[Union[str, None], Dict[str, Any]]: metric, metric args
@@ -1140,7 +1140,7 @@ class Experiment(object):
             _msg = ErrorNumbers.FB410.value + ": incorrect argument metric, got type " + \
                 f"{type(metric)}, but expected Callable or str"
             raise FedbiomedExperimentError(_msg)
-           
+
         # at this point, metric is a str, MetricTypes or None
         if isinstance(metric, str):
             metric = metric.upper()
@@ -1369,7 +1369,7 @@ class Experiment(object):
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
         # Trigger training round on sampled nodes
-        status = self._job.start_nodes_training_round(round=self._round_current, do_training=True)
+        _ = self._job.start_nodes_training_round(round=self._round_current, do_training=True)
 
         # refining/normalizing model weights received from nodes
         model_params, weights = self._node_selection_strategy.refine(
@@ -1389,14 +1389,14 @@ class Experiment(object):
         self._round_current += 1
 
         # Update round in monitor for the next round
-        self._monitor.set_round(round_=self._round_current+1)
+        self._monitor.set_round(round_=self._round_current + 1)
 
         if self._save_breakpoints:
             self.breakpoint()
 
         # do final evaluation after saving breakpoint :
         # not saved in breakpoint for current round, but more simple
-        if test_after:   
+        if test_after:
             # FIXME: should we sample nodes here too?
             self._job.start_nodes_training_round(round=self._round_current, do_training=False)
 

@@ -2,21 +2,21 @@
 A Base class that includes common methods that are used for
 all training plans
 """
+
+
 import numpy as np
-from fedbiomed.common.metrics import MetricTypes
 import torch
 
-from collections import OrderedDict, Iterable
-from typing import Iterator, Tuple, Dict, List, Callable, Union
-from fedbiomed.common import utils
-
+from collections import OrderedDict
+from typing import Tuple, Dict, List, Callable, Union
 
 from torch.utils.data import DataLoader
-from fedbiomed.common.constants import ErrorNumbers
+
+from fedbiomed.common import utils
+from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_class_source
-from fedbiomed.common.constants import ProcessTypes
 
 
 class BaseTrainingPlan(object):
@@ -141,7 +141,7 @@ class BaseTrainingPlan(object):
     def add_preprocess(self, method: Callable, process_type: ProcessTypes):
         """
         Method adding preprocesses
-        
+
         Args:
             method (Callable): preprocess method to be run before training
         """
@@ -177,7 +177,7 @@ class BaseTrainingPlan(object):
                 <keys of metric>: <metric values>
 
         Raises:
-            FedbiomedTrainingPlanError: triggered if metric is not of type dict, list, int, float, torch.tensor, 
+            FedbiomedTrainingPlanError: triggered if metric is not of type dict, list, int, float, torch.tensor,
             or np.ndarray.
         """
         if isinstance(metric, torch.Tensor):

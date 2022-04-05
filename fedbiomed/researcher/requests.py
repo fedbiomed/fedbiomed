@@ -116,7 +116,7 @@ class Requests(metaclass=SingletonMeta):
                     "{}".format(log["level"],
                                 log["node_id"],
                                 original_msg["message"],
-                                5*"-------------"))
+                                5 * "-------------"))
 
     def send_message(self, msg: dict, client=None):
         """

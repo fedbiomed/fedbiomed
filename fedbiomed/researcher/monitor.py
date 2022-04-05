@@ -3,10 +3,11 @@ monitor class to trap information sent during training and
 sned it to tensordboard
 '''
 
+
 import os
 import shutil
 import collections
-from typing import Dict, List, Union, Any
+from typing import Dict, Union, Any
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -75,7 +76,7 @@ class _MetricStore(dict):
 
             # FIXME: for now, if testing is done on global updates (before model local update)
             # last testing metric value computed on global updates at last round is overwritten
-            # by the first one computed at first round 
+            # by the first one computed at first round
             if round_ in self[node][for_][metric_name]:
 
                 # Each duplication means a new epoch for training, and it is not expected for
