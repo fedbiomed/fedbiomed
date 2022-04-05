@@ -2,6 +2,7 @@ import argparse
 from string import Template
 import subprocess
 import os
+import re
 import ipaddress as ip
 from pathlib import Path
 
@@ -93,6 +94,22 @@ def add(peer_type, peer_id, peer_public_key):
     subprocess.run(["wg", "set", "wg0", "peer", peer_public_key, "allowed-ips", f"{peer_config['VPN_IP']}/32", "preshared-key", "/dev/stdin"], text=True, input=peer_config['VPN_SERVER_PSK']) 
     subprocess.run(["bash", "-c", "(umask 0077; wg showconf wg0 > /config/wireguard/wg0.conf)"])
 
+def remove(peer_type, peer_id):
+    assert peer_type=="researcher" or peer_type=="node" or peer_type=="management"
+
+    filepath=f"{PEER_CONFIG_FOLDER}/{peer_type}/{peer_id}/config.env"
+
+    with open(filepath, 'r') as f:
+        peer_config=dict(tuple(line.removeprefix('export').lstrip().split('=', 1)) for line in map(lambda line: line.strip(" \n"), f.readlines()) if not line.startswith('#') and not line=='')
+   
+    # same as add() up to there - to be factored
+    f = os.popen('wg show wg0 allowed-ips')
+    for line in f:
+        peer = re.split('\s+', line.strip(" \n"))
+        if peer[1] == f"{peer_config['VPN_IP']}/32":
+            print(f"Found peer {peer[0]} to remove")
+        # TODO CONTINUE
+    f.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Configure Wireguard peers on the server")
@@ -104,11 +121,12 @@ if __name__ == "__main__":
 
 
     parser_add = subparsers.add_parser("add", help="add a new peer")
-    parser_add.add_argument("type", choices=["researcher", "node", "management"], help="type of client to generate config for")
+    parser_add.add_argument("type", choices=["researcher", "node", "management"], help="type of client to add")
     parser_add.add_argument("id", type=str, help="id of the client")
     parser_add.add_argument("publickey", type=str, help="publickey of the client")
 
     parser_remove = subparsers.add_parser("remove", help="remove a peer")
+    parser_remove.add_argument("type", choices=["researcher", "node", "management"], help="type of client to remove")
     parser_remove.add_argument("id", type=str, help="id client to remove")
 
     args = parser.parse_args()
@@ -131,6 +149,7 @@ if __name__ == "__main__":
     elif args.operation=="add":
         add(args.type, args.id, args.publickey)
     elif args.operation=="remove":
-        pass
+        remove(args.type, args.id)
+
 
     
