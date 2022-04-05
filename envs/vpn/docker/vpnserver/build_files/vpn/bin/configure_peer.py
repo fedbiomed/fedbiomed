@@ -5,6 +5,11 @@ import os
 import ipaddress as ip
 from pathlib import Path
 
+#
+# Script for handling wireguard VPN peer configurations
+# - launched in `vpnserver` container (Linux), thus can use some os-specific commands
+#
+
 TEMPLATE_FILE="/fedbiomed/vpn/config_templates/config_%s.env"
 ASSIGN_CONFIG_FILE="/config/ip_assign/last_ip_assign_%s"
 PEER_CONFIG_FOLDER="/config/config_peers"
@@ -29,9 +34,14 @@ def genconf(peer_type, peer_id):
             f.seek(0)
             f.write(str(peer_addr_ip))
     else:
-        with open(assign_file, 'w') as f:
-            peer_addr_ip=assign_net.network_address+2
-            f.write(str(peer_addr_ip))
+        os.setegid(container_gid)
+        os.seteuid(container_uid)
+        f = open(assign_file, 'w')
+        os.seteuid(init_uid)
+        os.setegid(init_gid)
+        peer_addr_ip=assign_net.network_address+2
+        f.write(str(peer_addr_ip))
+        f.close()
     
 
     assert peer_addr_ip in assign_net
@@ -52,14 +62,22 @@ def genconf(peer_type, peer_id):
     assert None not in mapping.values()
     assert "" not in mapping.values()
 
+    os.setegid(container_gid)
+    os.seteuid(container_uid)
     outpath=f"{PEER_CONFIG_FOLDER}/{peer_type}"
     Path(outpath).mkdir(parents=True, exist_ok=True)
     outpath+=f"/{peer_id}"
     Path(outpath).mkdir(parents=True)
     filepath=f"{outpath}/config.env"
-    with open(TEMPLATE_FILE%peer_type, 'r') as f_template, open(filepath, 'w') as f_config:
-        f_config.write(Template(f_template.read()).substitute(mapping))
     
+    f_config = open(filepath, 'w')
+    os.seteuid(init_uid)
+    os.setegid(init_gid)
+
+    with open(TEMPLATE_FILE%peer_type, 'r') as f_template:
+        f_config.write(Template(f_template.read()).substitute(mapping))
+    f_config.close()
+
     print("Configuration generated in", filepath)
 
 
@@ -95,6 +113,18 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+
+    init_uid = os.geteuid()
+    if 'CONTAINER_UID' in os.environ:
+        container_uid = int(os.environ['CONTAINER_UID'])
+    else:
+        container_uid = init_uid
+
+    init_gid = os.getegid()
+    if 'CONTAINER_GID' in os.environ:
+        container_gid = int(os.environ['CONTAINER_GID'])
+    else:
+        container_gid = init_gid
 
     if args.operation=="genconf":
         genconf(args.type, args.id)
