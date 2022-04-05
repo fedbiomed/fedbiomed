@@ -241,7 +241,7 @@ class Job:
         replied_nodes = []
         node_ids = self._data.node_ids()
 
-        # Send message to each node that has been found after dataset search reqeust
+        # Send message to each node that has been found after dataset search request
         for cli in node_ids:
             logger.info('Sending request to node ' +
                         str(cli) + " to check model is approved or not")
@@ -321,12 +321,12 @@ class Job:
             if not do_training:
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
-                            f'\t\t\t\t\t\033[1m Reqeust: \033[0m:Perform final testing on '
+                            f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final testing on '
                             f'aggregated parameters \n {5*"-------------"}')
             else:
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
-                            f'\t\t\t\t\t\033[1m Reqeust: \033[0m: Perform training with the arguments: {str(msg)} '
+                            f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: {str(msg)} '
                             f'\n {5*"-------------"}')
 
             time_start[cli] = time.perf_counter()
