@@ -196,7 +196,7 @@ class Round:
                                             **self.training_kwargs)
         logger.info(f'training with arguments {training_kwargs_with_history}')
 
-        # Testing Before Training ------------------------------------------------------------------------------------
+        # Testing Before Training
         if self.testing_arguments.get('test_on_global_updates', False) is not False:
 
             # Last control to make sure testing data loader is set.
@@ -215,7 +215,7 @@ class Round:
             else:
                 logger.error(f"{ErrorNumbers.FB314}: Can not execute testing routine due to missing testing dataset"
                              f"Please make sure that `test_ratio` has been set correctly")
-        # -----------------------------------------------------------------------------------------------------------
+        #
         # If training is activated.
         if self.training:
             if self.model.training_data_loader is not None:

@@ -273,7 +273,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 elif self._is_clustering:
                     self.model.partial_fit(data)
 
-            # Logging training training outputs -------------------------------------------------------------------
+            # Logging training training outputs
             if history_monitor is not None:
                 _loss_collector = []
 
