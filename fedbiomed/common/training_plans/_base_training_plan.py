@@ -201,6 +201,12 @@ class BaseTrainingPlan(object):
 
         # If metric function returns multiple values
         elif isinstance(metric, list) or isinstance(metric, dict):
+
+            if isinstance(metric, list):
+                metric_names = [f"{metric_name}_{i + 1}" for i, val in enumerate(metric)]
+            else:
+                metric_names = metric.keys()
+
             try:
                 metric = utils.convert_iterator_to_list_of_python_floats(metric)
             except FedbiomedError as e:
@@ -209,11 +215,6 @@ class BaseTrainingPlan(object):
                       str(e)
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
-
-            if isinstance(metric, list):
-                metric_names = [f"{metric_name}_{i + 1}" for i, val in enumerate(metric)]
-            else:
-                metric_names = metric.keys()
 
             return dict(zip(metric_names, metric))
 
