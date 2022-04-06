@@ -505,7 +505,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
                                              f"inputs/data and target sets that will be used for training. ")
 
         try:
-            data_loader = self.preprocess(self.training_data_loader[0], self.training_data_loader[1])
+            data_loader = method(self.training_data_loader[0], self.training_data_loader[1])
         except Exception as e:
             raise FedbiomedTrainingPlanError(
                 f"{ErrorNumbers.FB605.value}: Error while running process method -> `{method.__name__}`: "
