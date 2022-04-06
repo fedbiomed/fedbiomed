@@ -266,7 +266,11 @@ class SGDSkLearnModel(BaseTrainingPlan):
                     try:
                         self.model.partial_fit(data, target, classes=classes)
                     except Exception as e:
-                        raise FedbiomedTrainingPlanError(f'Error while fitting the model; {str(e)}')
+                        msg = ErrorNumbers.FB605 + \
+                            ": error while fitting the model - " + \
+                            str(e)
+                        logger.critical(msg)
+                        raise FedbiomedTrainingPlanError(msg)
                 elif self._is_regression:
                     self.model.partial_fit(data, target)
 
@@ -347,7 +351,9 @@ class SGDSkLearnModel(BaseTrainingPlan):
             metric = MetricTypes.ACCURACY
 
         if self.testing_data_loader is None:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Can not find dataset for testing.")
+            msg = ErrorNumbers.FB605.value + ": can not find dataset for testing."
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
         # Check testing data loader is exists
         data, target = self.testing_data_loader
@@ -366,11 +372,18 @@ class SGDSkLearnModel(BaseTrainingPlan):
             try:
                 m_value = self.testing_step(data, target)
             except Exception as err:
-                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - {str(err)}")
+                msg = ErrorNumbers.FB605.value + \
+                    ": error - " + \
+                    str(err)
+                logger.critical(msg)
+                raise FedbiomedTrainingPlanError(msg)
 
             # If custom evaluation step returns None
             if m_value is None:
-                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: metric function has returned None")
+                msg = ErrorNumbers.FB605.value + \
+                    ": metric function has returned None"
+                logger.critical(msg)
+                raise FedbiomedTrainingPlanError(msg)
 
             metric_name = 'Custom'
 
@@ -389,8 +402,12 @@ class SGDSkLearnModel(BaseTrainingPlan):
             try:
                 pred = self.model.predict(data)
             except Exception as e:
-                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: An exception has raise predicting test"
-                                                 f"data set. {str(e)}")
+                msg = ErrorNumbers.FB605.value + \
+                    ": error during predicting test data set - " + \
+                    str(e)
+                logger.critical(msg)
+                raise FedbiomedTrainingPlanError(msg)
+
             m_value = metric_controller.evaluate(target, pred, metric=metric, **metric_args)
             metric_name = metric.name
 
@@ -500,16 +517,22 @@ class SGDSkLearnModel(BaseTrainingPlan):
 
         argspec = get_method_spec(method)
         if len(argspec) != 2:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Process for type "
-                                             f"`PreprocessType.DATA_LOADER` should have two argument/parameter as "
-                                             f"inputs/data and target sets that will be used for training. ")
+            msg = ErrorNumbers.FB605.value + \
+                ": process for type `PreprocessType.DATA_LOADER`" + \
+                " should have two argument/parameter as inputs/data" + \
+                " and target sets that will be used for training. "
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
         try:
             data_loader = method(self.training_data_loader[0], self.training_data_loader[1])
         except Exception as e:
-            raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB605.value}: Error while running process method -> `{method.__name__}`: "
-                f"{str(e)}`")
+            msg = ErrorNumbers.FB605.value + \
+                ": error while running process method -> " + \
+                method.__name__ + \
+                str(e)
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
         # Debug after running preprocess
         logger.debug(f'The process `{method.__name__}` has been successfully executed.')
@@ -524,12 +547,21 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 logger.debug(f"Inputs/data and target sets for training routine has been updated by the process "
                              f"`{method.__name__}` ")
             else:
-                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Process error `{method.__name__}`: "
-                                                 f"number of samples of inputs and target sets should be equal ")
+                msg = ErrorNumbers.FB605.value + \
+                    ": process error " + \
+                    method.__name__ + \
+                    " : number of samples of inputs and target sets should be equal "
+                logger.critical(msg)
+                raise FedbiomedTrainingPlanError(msg)
+
         else:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Process method `{method.__name__}` should "
-                                             f"return tuple length of two as dataset and target and both should be and "
-                                             f"instance of np.ndarray. ")
+            msg = ErrorNumbers.FB605.value + \
+                ": process method " + \
+                method.__name__ + \
+                " should return tuple length of two as dataset and" + \
+                " target and both should be and instance of np.ndarray."
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
     def __classes_from_concatenated_train_test(self) -> np.ndarray:
         """
