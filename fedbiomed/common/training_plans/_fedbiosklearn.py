@@ -266,7 +266,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
                     try:
                         self.model.partial_fit(data, target, classes=classes)
                     except Exception as e:
-                        msg = ErrorNumbers.FB605 + \
+                        msg = ErrorNumbers.FB605.value + \
                             ": error while fitting the model - " + \
                             str(e)
                         logger.critical(msg)
