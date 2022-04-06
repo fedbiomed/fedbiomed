@@ -113,15 +113,15 @@ class BaseTrainingPlan(object):
         except PermissionError:
             _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges" + \
                 ", can't write the model content into it"
-            logger.error(_msg)
+            logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg)
         except MemoryError:
             _msg = ErrorNumbers.FB605.value + f" : Can't write model file on {filepath}: out of memory!"
-            logger.error(_msg)
+            logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg)
         except OSError:
             _msg = ErrorNumbers.FB605.value + f" : Can't open file {filepath} to write model content"
-            logger.error(_msg)
+            logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg)
 
         # Return filepath and content
