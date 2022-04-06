@@ -168,7 +168,7 @@ class SkLearnDataManager(object):
                                                    f'of size 2 that contains inputs/data and target as np.ndarray.')
 
         # Empty test set
-        if len(subset[0]) == 0 or len(subset[0]) == 0:
+        if len(subset[0]) == 0 or len(subset[1]) == 0:
             return None
 
         # TODO: Return DataLoader/BatchIterator for SkLearnDataset to apply batch training

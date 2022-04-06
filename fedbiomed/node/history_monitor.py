@@ -3,7 +3,7 @@ send information from node to researcher during the training
 '''
 
 
-from typing import Union
+from typing import Union, Dict
 
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.messaging import Messaging
@@ -22,25 +22,46 @@ class HistoryMonitor:
         self.researcher_id = researcher_id
         self.messaging = client
 
-    def add_scalar(self, key: str, value: Union[int, float], iteration: int, epoch: int ):
+    def add_scalar(self,
+                   metric: Dict[str, Union[int, float]],
+                   iteration: int,
+                   epoch: int,
+                   total_samples: int,
+                   batch_samples: int,
+                   num_batches: int,
+                   train: bool = False,
+                   test: bool = False,
+                   test_on_global_updates: bool = False,
+                   test_on_local_updates: bool = False):
+
         """
         Adds a scalar value to the monitor, and sends an 'AddScalarReply'
         response to researcher
 
         Args:
-            key (str): name value in logger to keep track with
-            value (Union[int, float]):  recorded value
+            metric (Dict[str, Union[int, float]]):  recorded value
             iteration (int): current epoch iteration.
             epoch (int): current epoch
+            total_samples (int):
+            batch_samples (int):
+            num_batches (int):
+            train (bool):
+            before_training (bool):
         """
 
         self.messaging.send_message(NodeMessages.reply_create({
             'node_id': environ['NODE_ID'],
             'job_id': self.job_id,
             'researcher_id': self.researcher_id,
-            'key' : key,
-            'value': value,
+            'train': train,
+            'test': test,
+            'test_on_global_updates': test_on_global_updates,
+            'test_on_local_updates': test_on_local_updates,
+            'metric': metric,
             'iteration': iteration,
-            'epoch' : epoch,
+            'epoch': epoch,
+            'total_samples': total_samples,
+            'batch_samples': batch_samples,
+            'num_batches': num_batches,
             'command': 'add_scalar'
         }).get_dict(), client='monitoring')

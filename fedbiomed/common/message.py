@@ -61,6 +61,7 @@ class Message(object):
         raise FedbiomedMessageError (FB601 error) if parameters of bad type
         remark: this is not check by @dataclass
         """
+
         if not self.__validate(self.__dataclass_fields__.items()):
             _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()
             logger.critical(_msg)
@@ -72,14 +73,14 @@ class Message(object):
         Args:
             param (str): name of the param
         """
-        return(getattr(self, param))
+        return getattr(self, param)
 
     def get_dict(self) -> Dict[str, Any]:
         """Returns pairs (Message class attributes name, attributes values)
         into a dictionary
 
         """
-        return(self.__dict__)
+        return self.__dict__
 
     def __validate(self, fields: Dict[str, Any]) -> bool:
         """checks whether incoming field types match with attributes
@@ -94,9 +95,9 @@ class Message(object):
         """
         ret = True
         for field_name, field_def in fields:
-            actual_type = type(getattr(self, field_name))
-            if actual_type != field_def.type:
-                logger.critical(f"{field_name}: '{actual_type}' instead of '{field_def.type}'")
+            value = getattr(self, field_name)
+            if not isinstance(value, field_def.type):
+                logger.critical(f"{field_name}: '{value}' instead of '{field_def.type}'")
                 ret = False
         return ret
 
@@ -230,12 +231,17 @@ class AddScalarReply(Message):
     researcher_id: str
     node_id: str
     job_id: str
-    key: str
-    value: float
-    epoch: int
+    train: bool
+    test: bool
+    test_on_local_updates: bool
+    test_on_global_updates: bool
+    metric: dict
+    epoch: (int, type(None))
+    total_samples: int
+    batch_samples: int
+    num_batches: int
     iteration: int
     command: str
-
 
 
 @catch_dataclass_exception
