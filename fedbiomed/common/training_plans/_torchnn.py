@@ -259,7 +259,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 # batches from the dataset
                 if (batch_maxnum > 0) and (batch_ >= batch_maxnum):
                     # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    logger.debug('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
                     break
 
                 if batch_ % log_interval == 0:
@@ -300,7 +300,9 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # TODO: Add preprocess option for testing_data_loader
 
         if self.testing_data_loader is None:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Can not find dataset for testing.")
+            msg = ErrorNumbers.FB605.value + ": can not find dataset for testing."
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
         # Build metrics object
         metric_controller = Metrics()
@@ -320,12 +322,20 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     except Exception as e:
                         # catch exception because we are letting the user design this
                         # `evaluation_step` method of the training plan
-                        raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: an exception raised while "
-                                                         f"executing `testing_step` : {str(e)}")
+                        msg = ErrorNumbers.FB605.value + \
+                            ": error then executing `testing_step` :" + \
+                            str(e)
+
+                        logger.critical(msg)
+                        raise FedbiomedTrainingPlanError(msg)
 
                     # If custom evaluation step returns None
                     if m_value is None:
-                        raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: metric function returned None")
+                        msg = ErrorNumbers.FB605.value + \
+                            ": metric function returned None"
+
+                        logger.critical(msg)
+                        raise FedbiomedTrainingPlanError(msg)
 
                     metric_name = 'Custom'
 
@@ -351,7 +361,11 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     except Exception as e:
                         # Pytorch does not provide any means to catch exception (no custom Exceptions),
                         # that is why we need to trap general Exception
-                        raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error - {str(e)}")
+                        msg = ErrorNumbers.FB605.value + \
+                            ": error - " + \
+                            str(e)
+                        logger.critical(msg)
+                        raise FedbiomedTrainingPlanError(msg)
 
                     # Convert prediction and actual values to numpy array
                     y_true = target.detach().numpy()
@@ -455,7 +469,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             norm (float): L2 norm of model parameters (before local training)
         """
         norm = 0
-        for key, val in self.state_dict().items(): 
+        for key, val in self.state_dict().items():
             norm += ((val - self.init_params[key]) ** 2).sum()
         return norm
 
@@ -471,7 +485,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             if process_type == ProcessTypes.DATA_LOADER:
                 self.__process_data_loader(method=method)
             else:
-                logger.debug(f"Process `{process_type}` is not implemented for `TorchTrainingPlan`. Preprocess will "
+                logger.error(f"Process `{process_type}` is not implemented for `TorchTrainingPlan`. Preprocess will "
                              f"be ignored")
 
     def __process_data_loader(self, method: Callable):
@@ -485,20 +499,23 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
              FedbiomedTrainingPlanError: raised if number of arguments of method is different than 1.
              FedbiomedTrainingPlanError: triggered if execution of method fails
              FedbiomedTrainingPlanError: triggered if type of the output of the method is not an instance of
-             `self.training_data_loader` 
+             `self.training_data_loader`
         """
         argspec = get_method_spec(method)
         if len(argspec) != 1:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Process for type "
-                                             "`PreprocessType.DATA_LOADER` should have only one "
-                                             "argument/parameter")
+            msg = ErrorNumbers.FB605.value + \
+                ": process for type `PreprocessType.DATA_LOADER` should have only one argument/parameter"
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
         try:
             data_loader = method(self.training_data_loader)
         except Exception as e:
-            raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB605.value}: Error while running process method -> `{method.__name__}`: "
-                f"{str(e)}`")
+            msg = ErrorNumbers.FB605.value + \
+                ": error while running process method -> `{method.__name__}` - " + \
+                str(e)
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
         # Debug after running preprocess
         logger.debug(f'The process `{method.__name__}` has been successfully executed.')
@@ -507,8 +524,11 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             self.training_data_loader = data_loader
             logger.debug(f'Data loader for training routine has been updated by the process `{method.__name__}` ')
         else:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: The input argument of the method "
-                                             f"`preprocess` is `data_loader` and expected return value "
-                                             f"should be an instance of  "
-                                             f"{type(self.training_data_loader)}, but got "
-                                             f"{type(data_loader)}")
+            msg = ErrorNumbers.FB605.value + \
+                ": the input argument of the method `preprocess` is `data_loader`" + \
+                " and expected return value should be an instance of: " + \
+                type(self.training_data_loader) + \
+                " instead of " + \
+                type(data_loader)
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
