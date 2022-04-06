@@ -116,8 +116,8 @@ class SGDSkLearnModel(BaseTrainingPlan):
             model_args['verbose'] = 1
 
         elif model_args['model'] not in self._verbose_capture:
-            logger.info("[TENSORBOARD ERROR]: cannot compute loss for " +
-                        model_args['model'] + ": it needs to be implemeted")
+            logger.error("[TENSORBOARD ERROR]: cannot compute loss for " +
+                         model_args['model'] + ": it needs to be implemeted")
 
         # Instantiate the model
         self.model = self.model_map[self.model_type]()
@@ -480,7 +480,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
             if process_type == ProcessTypes.DATA_LOADER:
                 self.__process_data_loader(method=method)
             else:
-                logger.debug(f"Process `{process_type}` is not implemented for the training plan SGBSkLearnModel. "
+                logger.error(f"Process `{process_type}` is not implemented for the training plan SGBSkLearnModel. "
                              f"Preprocess will be ignored")
 
     def __process_data_loader(self, method: Callable):
