@@ -191,23 +191,18 @@ class BaseTrainingPlan(object):
             return {metric_name: metric}
 
         # If metric function returns multiple values
-        elif isinstance(metric, list):
-            metric_name = [f"{metric_name}_{i+1}" for i, val in enumerate(metric)]
+        elif isinstance(metric, list) or isinstance(metric, dict):
             try:
                 metric = utils.convert_iterator_to_list_of_python_floats(metric)
             except FedbiomedError as e:
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value} Wrong typed metric value: {e}")
-            return dict(zip(metric_name, metric))
 
-        # if metric function returns dict as `metric_name:metric_value`
-        elif isinstance(metric, dict):
-            keys = metric.keys()
-            try:
-                metric = utils.convert_iterator_to_list_of_python_floats(metric)
-            except FedbiomedError as e:
-                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value} Wrong typed metric: {e}")
+            if isinstance(metric, list):
+                metric_names = [f"{metric_name}_{i + 1}" for i, val in enumerate(metric)]
+            else:
+                metric_names = metric.keys()
 
-            return dict(zip(keys, metric))
+            return dict(zip(metric_names, metric))
 
         else:
             raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Metric value should be one of type int, "
