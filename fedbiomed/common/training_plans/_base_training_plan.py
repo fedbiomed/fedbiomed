@@ -92,9 +92,11 @@ class BaseTrainingPlan(object):
         try:
             class_source = get_class_source(self.__class__)
         except FedbiomedError as e:
-            raise FedbiomedTrainingPlanError(ErrorNumbers.FB605.value +
-                                             ": Error while getting source of the " +
-                                             f"model class - {e}")
+            msg = ErrorNumbers.FB605.value + \
+                " : error while getting source of the model class - " + \
+                str(e)
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
         # Preparing content of the module
         content = ""
@@ -113,15 +115,15 @@ class BaseTrainingPlan(object):
         except PermissionError:
             _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges" + \
                 ", can't write the model content into it"
-            logger.error(_msg)
+            logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg)
         except MemoryError:
             _msg = ErrorNumbers.FB605.value + f" : Can't write model file on {filepath}: out of memory!"
-            logger.error(_msg)
+            logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg)
         except OSError:
             _msg = ErrorNumbers.FB605.value + f" : Can't open file {filepath} to write model content"
-            logger.error(_msg)
+            logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg)
 
         # Return filepath and content
@@ -146,12 +148,19 @@ class BaseTrainingPlan(object):
             method (Callable): preprocess method to be run before training
         """
         if not isinstance(method, Callable):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while adding preprocess, preprocess "
-                                             f"should be a callable method")
+            msg = ErrorNumbers.FB605.value + \
+                " : error while adding preprocess, " + \
+                "preprocess should be a callable method"
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
         if not isinstance(process_type, ProcessTypes):
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while adding preprocess, process type "
-                                             f"should be an instance of `fedbiomed.common.constants.ProcessType`")
+            msg = ErrorNumbers.FB605.value + \
+                " : error while adding preprocess," + \
+                " process type should be an instance of" + \
+                " `fedbiomed.common.constants.ProcessType`"
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
         self.pre_processes[method.__name__] = {
             'method': method,
@@ -195,7 +204,11 @@ class BaseTrainingPlan(object):
             try:
                 metric = utils.convert_iterator_to_list_of_python_floats(metric)
             except FedbiomedError as e:
-                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value} Wrong typed metric value: {e}")
+                msg = ErrorNumbers.FB605.value + \
+                      " : wrong typed metric value - " + \
+                      str(e)
+                logger.critical(msg)
+                raise FedbiomedTrainingPlanError(msg)
 
             if isinstance(metric, list):
                 metric_names = [f"{metric_name}_{i + 1}" for i, val in enumerate(metric)]
@@ -205,8 +218,11 @@ class BaseTrainingPlan(object):
             return dict(zip(metric_names, metric))
 
         else:
-            raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Metric value should be one of type int, "
-                                             f"float, np.integer, torch.tensor, "
-                                             f"list of int/float/np.integer/torch.tensor or  dict of "
-                                             f"(key: (int/float/np.integer/torch.tensor)), "
-                                             f"but got {type(metric)} ")
+            msg = ErrorNumbers.FB605.value + \
+                " : metric value should be one of type" + \
+                " int, float, np.integer, torch.tensor," + \
+                "list of int/float/np.integer/torch.tensor or" + \
+                "dict of key (int/float/np.integer/torch.tensor) instead of " + \
+                str(type(metric))
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
