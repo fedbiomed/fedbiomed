@@ -314,6 +314,26 @@ class TestExperiment(unittest.TestCase):
         model_instance = self.test_exp.model_instance()
         self.assertEqual(model_instance, fake_model_instance, 'Getter for model_instance did not return expected Model')
 
+        # Test getters for testing arguments
+        test_ratio = self.test_exp.test_ratio()
+        self.assertEqual(test_ratio, 0, 'Getter for test ratio has returned unexpected value')
+
+        test_metric = self.test_exp.test_metric()
+        # Should be None since there is no metric has been set
+        self.assertIsNone(test_metric, 'Getter for test metric has returned unexpected value')
+
+        test_metric_arg = self.test_exp.test_metric_args()
+        # Should be empty Dict since there is no metric has been set
+        self.assertDictEqual(test_metric_arg, {}, 'Getter for test metric args has returned unexpected value')
+
+        test = self.test_exp.test_on_global_updates()
+        # Should be false
+        self.assertEqual(test, False, 'Getter for test on global update args has returned unexpected value')
+
+        test = self.test_exp.test_on_local_updates()
+        # Should be false
+        self.assertEqual(test, False, 'Getter for test on local updates has returned unexpected value')
+
     def test_experiment_02_info(self):
         """Testing the method .info() of experiment class """
         self.test_exp.info()
@@ -727,14 +747,14 @@ class TestExperiment(unittest.TestCase):
 
         # test update of testing_args with argument `reset` set to False
         ma_expected_2 = {'arg-2': 'loss'}
-        train_args_2 = self.test_exp.set_training_args(ma_expected_2, reset = False)
+        train_args_2 = self.test_exp.set_training_args(ma_expected_2, reset=False)
         ma_expected_2.update(ma_expected)
         self.assertSubDictInDict(ma_expected_2, train_args_2)
         self.assertSubDictInDict(ma_expected, train_args_2)
 
         # test update of testing_args with argument `reset` set to True
         ma_expected_3 = {'arg-3': 1e-4}
-        train_args_3 = self.test_exp.set_training_args(ma_expected_3, reset = True)
+        train_args_3 = self.test_exp.set_training_args(ma_expected_3, reset=True)
         self.assertSubDictInDict(ma_expected_3, train_args_3)
         self.assertNotIn(list(ma_expected.keys()), list(train_args_3.keys()))
         self.assertNotIn(list(ma_expected_3.keys()), list(train_args_3.keys()))
@@ -746,6 +766,33 @@ class TestExperiment(unittest.TestCase):
         # There will be one debug call.
         self.assertSubDictInDict(ma_expected, train_args, 'Training arguments has not been set correctly by setter')
         self.mock_logger_debug.assert_called_once()
+
+        # Training arguments with testing arguments
+        expected_train_args = {
+            'lr': 0.14,
+            'test_ratio': 0.3,
+            'test_on_local_updates': True,
+            'test_on_global_updates': True,
+            'test_metric': 'ACCURACY',
+            'test_metric_args': {}
+        }
+        train_args = self.test_exp.set_training_args(expected_train_args, reset=True)
+        self.assertDictEqual(train_args, expected_train_args)
+
+        # Raises error - can not set test metric argument without setting metric
+        expected_train_args = {
+            'test_metric_args': {}
+        }
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_training_args(expected_train_args, reset=False)
+
+        # Raises error since test_metric_args is not of type dict
+        expected_train_args = {
+            'test_metric': 'ACCURACY',
+            'test_metric_args': 'test'
+        }
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_training_args(expected_train_args, reset=False)
 
     def test_experiment_14_clean_training_arguments(self):
         """
@@ -819,11 +866,15 @@ class TestExperiment(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 self.test_exp.set_test_ratio(ratio)
 
-
-    def test_experiment_16_set_test_metric(self):
+    @patch('fedbiomed.researcher.job.Job')
+    @patch('fedbiomed.researcher.job.Job.__init__')
+    def test_experiment_16_set_test_metric(self, mock_job_init, mock_job):
         """
         Tests testing metric setter `set_test_metric
         """
+
+
+
         # case 1. metric has been passed as a string
         metric_1 = "ACCURACY"
         metric_args_1 = {'normalize': True}
@@ -841,9 +892,39 @@ class TestExperiment(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.test_exp.set_test_metric(True)
 
+        # case 4: failure unsupported metric
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_test_metric('ABBURACY')
+
+
+        # case 4: Update jobs training arguments
+        self.test_exp.set_job()
+        self.test_exp.set_test_metric('ACCURACY')
+
+    def test_experiment_17_set_test_on_global_updates(self):
+
+        # Set job
+        result = self.test_exp.set_test_on_global_updates(True)
+        self.assertTrue(result)
+        self.assertTrue(self.test_exp.training_args()['test_on_global_updates'])
+
+        # Test wrong type
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_test_on_global_updates('NotBool')
+
+    def test_experiment_18_set_test_on_local_updates(self):
+
+        # Set job
+        result = self.test_exp.set_test_on_local_updates(True)
+        self.assertTrue(result)
+        self.assertTrue(self.test_exp.training_args()['test_on_local_updates'])
+        # Test wrong type
+        with self.assertRaises(SystemExit):
+            self.test_exp.set_test_on_local_updates('NotBool')
+
     @patch('fedbiomed.researcher.job.Job')
     @patch('fedbiomed.researcher.job.Job.__init__')
-    def test_experiment_17_set_job(self, mock_job_init, mock_job):
+    def test_experiment_19_set_job(self, mock_job_init, mock_job):
         """ Testing setter for Job in Experiment class """
 
         job_expected = "JOB"
@@ -878,7 +959,7 @@ class TestExperiment(unittest.TestCase):
         job = self.test_exp.set_job()
         self.assertIsInstance(job, Job, 'Job has not been set properly')
 
-    def test_experiment_18_set_save_breakpoints(self):
+    def test_experiment_20_set_save_breakpoints(self):
         """ Test setter for save_breakpoints attr of experiment class """
 
         # Test invalid type of argument
@@ -889,7 +970,7 @@ class TestExperiment(unittest.TestCase):
         sb = self.test_exp.set_save_breakpoints(True)
         self.assertTrue(sb, 'save_breakpoint has not been set correctly')
 
-    def test_experiment_19_set_tensorboard(self):
+    def test_experiment_21_set_tensorboard(self):
         """ Test setter for tensorboard """
 
         # Test invalid type of argument
@@ -911,7 +992,7 @@ class TestExperiment(unittest.TestCase):
     @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
     @patch('fedbiomed.researcher.job.Job.__init__')
-    def test_experiment_20_run_once(self,
+    def test_experiment_22_run_once(self,
                                     mock_job_init,
                                     mock_job_updates_params,
                                     mock_job_training,
@@ -1001,7 +1082,7 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(result, 1)
 
     @patch('fedbiomed.researcher.experiment.Experiment.run_once')
-    def test_experiment_21_run(self, mock_exp_run_once):
+    def test_experiment_23_run(self, mock_exp_run_once):
         """ Testing run method of Experiment class """
 
         def run_once_side_effect(increase, test_after=False):
@@ -1078,6 +1159,14 @@ class TestExperiment(unittest.TestCase):
         mock_exp_run_once.return_value = 0
         with self.assertRaises(SystemExit):
             self.test_exp.run(rounds=1)
+
+        mock_exp_run_once.reset_mock()
+        mock_exp_run_once.return_value = 1
+        # Test run when testing is activated for global updates
+        self.test_exp.set_round_limit(self.test_exp.round_current() + 1)
+        self.test_exp.set_test_on_global_updates(True)
+        rounds = self.test_exp.run()
+        self.assertEqual(rounds, 1)
 
     @patch('builtins.open')
     @patch('fedbiomed.researcher.job.Job.model_file', new_callable=PropertyMock)
