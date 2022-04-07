@@ -4,6 +4,7 @@ import subprocess
 import os
 import re
 import ipaddress as ip
+from typing import Callable
 
 import tabulate
 
@@ -33,6 +34,19 @@ else:
 
 
 
+# run `function(args, kwargs)` with privileges of
+# `container_uid:container_gid` (temporary drop)
+def run_drop_priv(function: Callable, *args, **kwargs):
+    os.setegid(container_gid)
+    os.seteuid(container_uid)
+
+    ret = function(*args, **kwargs)
+
+    os.seteuid(init_uid)
+    os.setegid(init_gid)
+    return ret
+
+
 def genconf(peer_type, peer_id):
     assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
 
@@ -49,24 +63,16 @@ def genconf(peer_type, peer_id):
 
     assign_file = assign_config_file % peer_type
     if os.path.exists(assign_file) and os.path.getsize(assign_file) > 0:
-        os.setegid(container_gid)
-        os.seteuid(container_uid)
-        f = open(assign_file, 'r+')
-        os.seteuid(init_uid)
-        os.setegid(init_gid)
+        f = run_drop_priv(open, assign_file, 'r+')
 
         # assign the next available ip to the peer
         peer_addr_ip = ip.IPv4Address(f.read()) + 1
         f.seek(0)
     else:
-        os.setegid(container_gid)
-        os.seteuid(container_uid)
-        f = open(assign_file, 'w')
-        os.seteuid(init_uid)
-        os.setegid(init_gid)
+        f = run_drop_priv(open, assign_file, 'w')
 
         peer_addr_ip = assign_net.network_address + 2
-        
+
     f.write(str(peer_addr_ip))
     f.close()
 
@@ -89,17 +95,14 @@ def genconf(peer_type, peer_id):
     assert None not in mapping.values()
     assert "" not in mapping.values()
 
-    os.setegid(container_gid)
-    os.seteuid(container_uid)
     outpath = os.path.join(peer_config_folder, peer_type)
-    os.makedirs(outpath, exist_ok=True)
-    outpath = os.path.join(outpath, peer_id)
-    os.mkdir(outpath)
-    filepath = os.path.join(outpath, config_file)
+    run_drop_priv(os.makedirs, outpath, exist_ok=True)
 
-    f_config = open(filepath, 'w')
-    os.seteuid(init_uid)
-    os.setegid(init_gid)
+    outpath = os.path.join(outpath, peer_id)
+    run_drop_priv(os.mkdir, outpath)
+
+    filepath = os.path.join(outpath, config_file)
+    f_config = run_drop_priv(open, filepath, 'w')
 
     with open(template_file % peer_type, 'r') as f_template:
         f_config.write(Template(f_template.read()).substitute(mapping))
@@ -159,12 +162,8 @@ def remove(peer_type, peer_id, removeconf: bool = False):
         conf_dir = os.path.join(peer_config_folder, peer_type, peer_id)
         conf_file = os.path.join(conf_dir, config_file)
         if os.path.isdir(conf_dir) and os.path.isfile(conf_file):
-            os.setegid(container_gid)
-            os.seteuid(container_uid)
-            os.remove(conf_file)
-            os.rmdir(conf_dir)
-            os.seteuid(init_uid)
-            os.setegid(init_gid)
+            run_drop_priv(os.remove, conf_file)
+            run_drop_priv(os.rmdir, conf_dir)
             print(f"info: removed config dir {conf_dir}")
         else:
             print("CRITICAL: missing configuration file {conf_file}")
