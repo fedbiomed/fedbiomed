@@ -30,16 +30,23 @@ def genconf(peer_type, peer_id):
 
     assign_file=ASSIGN_CONFIG_FILE%peer_type
     if os.path.exists(assign_file) and os.path.getsize(assign_file) > 0:
-        with open(assign_file, 'r+') as f:
-            peer_addr_ip=ip.IPv4Address(f.read())+1
-            f.seek(0)
-            f.write(str(peer_addr_ip))
+        os.setegid(container_gid)
+        os.seteuid(container_uid)
+        f= open(assign_file, 'r+')
+        os.seteuid(init_uid)
+        os.setegid(init_gid)
+
+        peer_addr_ip=ip.IPv4Address(f.read())+1
+        f.seek(0)
+        f.write(str(peer_addr_ip))
+        f.close()
     else:
         os.setegid(container_gid)
         os.seteuid(container_uid)
         f = open(assign_file, 'w')
         os.seteuid(init_uid)
         os.setegid(init_gid)
+
         peer_addr_ip=assign_net.network_address+2
         f.write(str(peer_addr_ip))
         f.close()
@@ -94,7 +101,7 @@ def add(peer_type, peer_id, peer_public_key):
     subprocess.run(["wg", "set", "wg0", "peer", peer_public_key, "allowed-ips", f"{peer_config['VPN_IP']}/32", "preshared-key", "/dev/stdin"], text=True, input=peer_config['VPN_SERVER_PSK']) 
     subprocess.run(["bash", "-c", "(umask 0077; wg showconf wg0 > /config/wireguard/wg0.conf)"])
 
-def remove(peer_type, peer_id):
+def remove(peer_type, peer_id, removeconf: bool = False):
     assert peer_type=="researcher" or peer_type=="node" or peer_type=="management"
 
     filepath=f"{PEER_CONFIG_FOLDER}/{peer_type}/{peer_id}/config.env"
@@ -103,19 +110,36 @@ def remove(peer_type, peer_id):
         peer_config=dict(tuple(line.removeprefix('export').lstrip().split('=', 1)) for line in map(lambda line: line.strip(" \n"), f.readlines()) if not line.startswith('#') and not line=='')
    
     # same as add() up to there - to be factored
+
     f = os.popen('wg show wg0 allowed-ips')
     for line in f:
         peer = re.split('\s+', line.strip(" \n"))
         if peer[1] == f"{peer_config['VPN_IP']}/32":
-            print(f"Found peer {peer[0]} to remove")
-        # TODO CONTINUE
+            subprocess.run(["wg", "set", "wg0", "peer", peer[0], "remove"])
+            print(f"info: removed peer {peer[0]}")
     f.close()
+
+    # same as add - to be factored
+    subprocess.run(["bash", "-c", "(umask 0077; wg showconf wg0 > /config/wireguard/wg0.conf)"])
+
+    if removeconf is True:
+        conf_dir = f"{PEER_CONFIG_FOLDER}/{peer_type}/{peer_id}"
+        conf_file = f"{conf_dir}/config.env"
+        if os.path.isdir(conf_dir) and os.path.isfile(conf_file):
+            os.setegid(container_gid)
+            os.seteuid(container_uid)
+            Path(conf_file).unlink()
+            Path(conf_dir).rmdir()
+            print(f"info: removed config dir {conf_dir}")
+        else:
+            print("CRITICAL: missing configuration file {conf_file}")
+            exit(1)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Configure Wireguard peers on the server")
     subparsers = parser.add_subparsers(dest='operation', required=True, help="operation to perform")
 
-    parser_genconf = subparsers.add_parser("genconf", help="generate the config for a new peer")
+    parser_genconf = subparsers.add_parser("genconf", help="generate the config file for a new peer")
     parser_genconf.add_argument("type", choices=["researcher", "node", "management"], help="type of client to generate config for")
     parser_genconf.add_argument("id", type=str, help="id of the new peer")
 
@@ -126,6 +150,10 @@ if __name__ == "__main__":
     parser_add.add_argument("publickey", type=str, help="publickey of the client")
 
     parser_remove = subparsers.add_parser("remove", help="remove a peer")
+    parser_remove.add_argument("type", choices=["researcher", "node", "management"], help="type of client to remove")
+    parser_remove.add_argument("id", type=str, help="id client to remove")
+
+    parser_remove = subparsers.add_parser("removeconf", help="remove a peer and its config file")
     parser_remove.add_argument("type", choices=["researcher", "node", "management"], help="type of client to remove")
     parser_remove.add_argument("id", type=str, help="id client to remove")
 
@@ -150,6 +178,7 @@ if __name__ == "__main__":
         add(args.type, args.id, args.publickey)
     elif args.operation=="remove":
         remove(args.type, args.id)
-
+    elif args.operation=="removeconf":
+        remove(args.type, args.id, True)
 
     
