@@ -4,6 +4,7 @@ import subprocess
 import os
 import re
 import ipaddress as ip
+import tabulate
 
 #
 # Script for handling wireguard VPN peer configurations
@@ -134,6 +135,54 @@ def remove(peer_type, peer_id, removeconf: bool = False):
             print("CRITICAL: missing configuration file {conf_file}")
             exit(1)
 
+def list():
+
+    # peers = {
+    #   IP_prefix_1 = {
+    #       'name' = str(name_of_peer_1)
+    #       'publickeys = [ str(peer_1_key_A), ... ]
+    #   ...
+    #   }
+    # }
+    peers = {}
+
+    # scan peer config files
+    for peer_type in os.listdir(PEER_CONFIG_FOLDER):
+        for peer_id in os.listdir(os.path.join(PEER_CONFIG_FOLDER, peer_type)):
+            peer_tmpconf = {}
+
+            filepath = os.path.join(PEER_CONFIG_FOLDER, peer_type, peer_id, 'config.env')
+            # to be factored with add/remove
+            with open(filepath, 'r') as f:
+                peer_config=dict(tuple(line.removeprefix('export').lstrip().split('=', 1)) for line in map(lambda line: line.strip(" \n"), f.readlines()) if not line.startswith('#') and not line=='')
+
+            peer_tmpconf['name'] = f'{peer_type}/{peer_id}'
+            peer_tmpconf['publickeys'] = []
+            peers[f"{peer_config['VPN_IP']}/32"] = peer_tmpconf
+
+    # scan active peers list
+    
+    # (partial) same as `remove` - to be factored
+    f = os.popen('wg show wg0 allowed-ips')
+    for line in f:
+        peer_declared = re.split('\s+', line.strip(" \n"))
+
+        for pkey, pval in peers.items():
+            if pkey == peer_declared[1]:
+                pval['publickeys'].append(peer_declared[0])
+                break
+        if not peer_declared[1] in peers:
+            peer_tmpconf = {}
+            peer_tmpconf['name'] = '?/?'
+            peer_tmpconf['publickeys'] = [ peer_declared[0] ]
+            peers[peer_declared[1]] = peer_tmpconf
+    f.close()
+
+    # display result
+    pretty_peers = [[v['name'], k, v['publickeys']] for k,v in peers.items()]
+    print(tabulate.tabulate(pretty_peers, headers = ['name', 'prefix', 'peers']))
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Configure Wireguard peers on the server")
     subparsers = parser.add_subparsers(dest='operation', required=True, help="operation to perform")
@@ -155,6 +204,8 @@ if __name__ == "__main__":
     parser_remove = subparsers.add_parser("removeconf", help="remove a peer and its config file")
     parser_remove.add_argument("type", choices=["researcher", "node", "management"], help="type of client to remove")
     parser_remove.add_argument("id", type=str, help="id client to remove")
+
+    parser_list = subparsers.add_parser("list", help="list peers and config files")
 
     args = parser.parse_args()
 
@@ -179,5 +230,6 @@ if __name__ == "__main__":
         remove(args.type, args.id)
     elif args.operation=="removeconf":
         remove(args.type, args.id, True)
-
+    elif args.operation=="list":
+        list()
     
