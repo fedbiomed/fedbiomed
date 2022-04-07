@@ -4,7 +4,6 @@ import subprocess
 import os
 import re
 import ipaddress as ip
-from pathlib import Path
 
 #
 # Script for handling wireguard VPN peer configurations
@@ -73,9 +72,9 @@ def genconf(peer_type, peer_id):
     os.setegid(container_gid)
     os.seteuid(container_uid)
     outpath=f"{PEER_CONFIG_FOLDER}/{peer_type}"
-    Path(outpath).mkdir(parents=True, exist_ok=True)
+    os.makedirs(outpath, exist_ok=True)
     outpath+=f"/{peer_id}"
-    Path(outpath).mkdir(parents=True)
+    os.mkdir(outpath)
     filepath=f"{outpath}/config.env"
     
     f_config = open(filepath, 'w')
@@ -128,8 +127,8 @@ def remove(peer_type, peer_id, removeconf: bool = False):
         if os.path.isdir(conf_dir) and os.path.isfile(conf_file):
             os.setegid(container_gid)
             os.seteuid(container_uid)
-            Path(conf_file).unlink()
-            Path(conf_dir).rmdir()
+            os.remove(conf_file)
+            os.rmdir(conf_dir)
             print(f"info: removed config dir {conf_dir}")
         else:
             print("CRITICAL: missing configuration file {conf_file}")
