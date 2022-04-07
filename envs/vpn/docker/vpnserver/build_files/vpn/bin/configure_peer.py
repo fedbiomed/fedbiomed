@@ -16,6 +16,8 @@ import tabulate
 template_file = os.path.join(os.sep, 'fedbiomed', 'vpn', 'config_templates', 'config_%s.env')
 assign_config_file = os.path.join(os.sep, 'config', 'ip_assign', 'last_ip_assign_%s')
 peer_config_folder = os.path.join(os.sep, 'config', 'config_peers')
+wg_config_file = os.path.join(os.sep, 'config', 'wireguard', 'wg0.conf')
+config_file = 'config.env'
 
 # UID and GID to use when dropping privileges
 init_uid = os.geteuid()
@@ -42,9 +44,7 @@ def genconf(peer_type, peer_id):
         ["wg", "show", "wg0", "public-key"],
         stdout=subprocess.PIPE, text=True).stdout.rstrip('\n')
 
-    # assign the next available ip to the peer
     vpn_net = ip.IPv4Interface(f"{os.environ['VPN_IP']}/{os.environ['VPN_SUBNET_PREFIX']}").network
-
     assign_net = ip.IPv4Network(os.environ[f"VPN_{peer_type.upper()}_IP_ASSIGN"])
 
     assign_file = assign_config_file % peer_type
@@ -55,10 +55,9 @@ def genconf(peer_type, peer_id):
         os.seteuid(init_uid)
         os.setegid(init_gid)
 
+        # assign the next available ip to the peer
         peer_addr_ip = ip.IPv4Address(f.read()) + 1
         f.seek(0)
-        f.write(str(peer_addr_ip))
-        f.close()
     else:
         os.setegid(container_gid)
         os.seteuid(container_uid)
@@ -67,8 +66,9 @@ def genconf(peer_type, peer_id):
         os.setegid(init_gid)
 
         peer_addr_ip = assign_net.network_address + 2
-        f.write(str(peer_addr_ip))
-        f.close()
+        
+    f.write(str(peer_addr_ip))
+    f.close()
 
 
     assert peer_addr_ip in assign_net
@@ -95,7 +95,7 @@ def genconf(peer_type, peer_id):
     os.makedirs(outpath, exist_ok=True)
     outpath = os.path.join(outpath, peer_id)
     os.mkdir(outpath)
-    filepath = os.path.join(outpath, 'config.env')
+    filepath = os.path.join(outpath, config_file)
 
     f_config = open(filepath, 'w')
     os.seteuid(init_uid)
@@ -111,7 +111,7 @@ def genconf(peer_type, peer_id):
 def add(peer_type, peer_id, peer_public_key):
     assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
 
-    filepath = os.path.join(peer_config_folder, peer_type, peer_id, 'config.env')
+    filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
 
     with open(filepath, 'r') as f:
         peer_config = dict(
@@ -122,17 +122,18 @@ def add(peer_type, peer_id, peer_public_key):
     # apply the config to the server
     subprocess.run(
         ["wg", "set", "wg0", "peer", peer_public_key, "allowed-ips",
-            f"{peer_config['VPN_IP']}/32", "preshared-key", "/dev/stdin"],
+            str(ip.IPv4Network(f"{peer_config['VPN_IP']}/32")),
+            "preshared-key", "/dev/stdin"],
         text=True,
         input=peer_config['VPN_SERVER_PSK']) 
     subprocess.run(
-        ["bash", "-c", "(umask 0077; wg showconf wg0 > /config/wireguard/wg0.conf)"])
+        ["bash", "-c", f"(umask 0077; wg showconf wg0 > {wg_config_file})"])
 
 
 def remove(peer_type, peer_id, removeconf: bool = False):
     assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
 
-    filepath = os.path.join(peer_config_folder, peer_type, peer_id, 'config.env')
+    filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
 
     with open(filepath, 'r') as f:
         peer_config = dict(
@@ -145,18 +146,18 @@ def remove(peer_type, peer_id, removeconf: bool = False):
     f = os.popen('wg show wg0 allowed-ips')
     for line in f:
         peer = re.split('\s+', line.strip(" \n"))
-        if peer[1] == f"{peer_config['VPN_IP']}/32":
+        if peer[1] == str(ip.IPv4Network(f"{peer_config['VPN_IP']}/32")):
             subprocess.run(["wg", "set", "wg0", "peer", peer[0], "remove"])
             print(f"info: removed peer {peer[0]}")
     f.close()
 
     # same as add - to be factored
     subprocess.run(
-        ["bash", "-c", "(umask 0077; wg showconf wg0 > /config/wireguard/wg0.conf)"])
+        ["bash", "-c", f"(umask 0077; wg showconf wg0 > {wg_config_file})"])
 
     if removeconf is True:
         conf_dir = os.path.join(peer_config_folder, peer_type, peer_id)
-        conf_file = os.path.join(conf_dir, 'config.env')
+        conf_file = os.path.join(conf_dir, config_file)
         if os.path.isdir(conf_dir) and os.path.isfile(conf_file):
             os.setegid(container_gid)
             os.seteuid(container_uid)
@@ -183,7 +184,7 @@ def list():
     for peer_type in os.listdir(peer_config_folder):
         for peer_id in os.listdir(os.path.join(peer_config_folder, peer_type)):
 
-            filepath = os.path.join(peer_config_folder, peer_type, peer_id, 'config.env')
+            filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
             # to be factored with add/remove
             with open(filepath, 'r') as f:
                 peer_config = dict(
@@ -193,7 +194,7 @@ def list():
 
             peer_tmpconf = { 'type': peer_type, 'id': peer_id }
             peer_tmpconf['publickeys'] = []
-            peers[f"{peer_config['VPN_IP']}/32"] = peer_tmpconf
+            peers[str(ip.IPv4Network(f"{peer_config['VPN_IP']}/32"))] = peer_tmpconf
 
     # scan active peers list
 
