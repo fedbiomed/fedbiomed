@@ -182,7 +182,6 @@ def list():
     # scan peer config files
     for peer_type in os.listdir(peer_config_folder):
         for peer_id in os.listdir(os.path.join(peer_config_folder, peer_type)):
-            peer_tmpconf = {}
 
             filepath = os.path.join(peer_config_folder, peer_type, peer_id, 'config.env')
             # to be factored with add/remove
@@ -192,7 +191,7 @@ def list():
                     for line in map(lambda line: line.strip(" \n"), f.readlines())
                     if not line.startswith('#') and not line == '')
 
-            peer_tmpconf['name'] = os.path.join(peer_type, peer_id)
+            peer_tmpconf = { 'type': peer_type, 'id': peer_id }
             peer_tmpconf['publickeys'] = []
             peers[f"{peer_config['VPN_IP']}/32"] = peer_tmpconf
 
@@ -208,15 +207,14 @@ def list():
                 pval['publickeys'].append(peer_declared[0])
                 break
         if not peer_declared[1] in peers:
-            peer_tmpconf = {}
-            peer_tmpconf['name'] = '?/?'
+            peer_tmpconf = { 'type': '?', 'id': '?' }
             peer_tmpconf['publickeys'] = [ peer_declared[0] ]
             peers[peer_declared[1]] = peer_tmpconf
     f.close()
 
     # display result
-    pretty_peers = [[v['name'], k, v['publickeys']] for k, v in peers.items()]
-    print(tabulate.tabulate(pretty_peers, headers = ['name', 'prefix', 'peers']))
+    pretty_peers = [[v['type'], v['id'], k, v['publickeys']] for k, v in peers.items()]
+    print(tabulate.tabulate(pretty_peers, headers = ['type', 'id', 'prefix', 'peers']))
 
 
 if __name__ == "__main__":
