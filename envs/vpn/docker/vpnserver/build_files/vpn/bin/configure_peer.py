@@ -163,6 +163,8 @@ def remove(peer_type, peer_id, removeconf: bool = False):
             os.seteuid(container_uid)
             os.remove(conf_file)
             os.rmdir(conf_dir)
+            os.seteuid(init_uid)
+            os.setegid(init_gid)
             print(f"info: removed config dir {conf_dir}")
         else:
             print("CRITICAL: missing configuration file {conf_file}")
