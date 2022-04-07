@@ -213,7 +213,7 @@ source ./scripts/fedbiomed_environment clean
 The **envs/vpn** directory contains all material for VPN support.
 A full technical description is provided in **envs/vpn/README_tempo.md**
 
-The **./scripts/fedbiomed_vpn** script is provided to ease the deployement of
+The **./scripts/fedbiomed_vpn** script is provided to ease the deployment of
 a set of docker containers with VPN support. The provided containers are:
 
 - fedbiomed/vpn-vpnserver: WireGuard server

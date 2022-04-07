@@ -52,7 +52,7 @@ build          build containers
                (same as running ${0##*/} clean before build)
 
 configure      generate/modify configuration files
-               (wireguard keys and refresh @IP adresses)
+               (wireguard keys and refresh @IP addresses)
 
 start          start containers
 
@@ -149,7 +149,7 @@ find_my_ip() {
 
     case $IP in
         127.*)
-            echo "** WARNING: vpnserver will use the localhost IP adress."
+            echo "** WARNING: 'vpnserver' will use the localhost IP address."
             echo "            VPN may not work properly"
         ;;
     esac
@@ -286,7 +286,7 @@ containers_status() {
     done
 
     if [ $ERROR -eq 1 ]; then
-        echo "** ERROR: cannot ping using VPN adresses inside docker containers"
+        echo "** ERROR: cannot ping using VPN addresses inside docker containers"
         echo "          You must check what is going on."
     fi
 }
@@ -306,17 +306,17 @@ containers_build() {
     done
 
     if [ $BUILD_BASE -eq 1 ]; then
-        echo "- building base components"
+        echo "- building 'base' component"
         CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
     fi
     if [ $BUILD_NODEBASE -eq 1 ]; then
-        echo "- building nodebase components"
+        echo "- building 'nodebase' component"
         CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode
     fi
 
     for i in ${ONLY_CONTAINERS[@]}
     do
-        echo "- building $i container"
+        echo "- building '$i' container"
         CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build $i
     done
 }
@@ -387,7 +387,7 @@ containers_start() {
 
     ip_in_file=$(grep "^export VPN_SERVER_PUBLIC_ADDR=$IP$" $CONFIG)
     if [ -z "$ip_in_file" ]; then
-        echo "** WARNING: external IP adress has changed since last configuration"
+        echo "** WARNING: external IP address has changed since last configuration"
         echo "            You may need to run:  ${0##*/} configure"
         exit 1
     fi
@@ -405,10 +405,13 @@ containers_start() {
                 ;;
             *  ) CONTAINER=$i ;;
         esac
-        $RUNVARENV docker-compose up -d $CONTAINER
+        # $RUNVARENV
+        # Use CONTAINER_UID variable again because if image is not build `docker-compose up ` will
+        # automatically build it
+        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d $CONTAINER
     done
 
-    # propagate wiregard keys
+    # propagate wireguard keys
     pubkey=$(docker-compose exec mqtt wg show wg0 public-key | tr -d '\r')
     docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add management mqtt $pubkey
 
@@ -468,7 +471,7 @@ run() {
 # main
 # ----
 
-# detect topdir
+# detect top directory
 basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit
 
@@ -607,7 +610,7 @@ if [ ${#ONLY_CONTAINERS[@]} -eq 0 ]; then
     ONLY_CONTAINERS=(${ALL_VPN_CONTAINERS[@]})
 fi
 
-# start doing something usefull
+# start doing something useful
 # -----------------------------
 [[ $CLEAN -eq 1 ]]          && { containers_clean; }
 [[ $BUILD -eq 1 ]]          && { containers_build; }
