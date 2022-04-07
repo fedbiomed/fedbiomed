@@ -11,6 +11,7 @@ import traceback
 from re import findall
 from tabulate import tabulate
 from typing import Callable, Tuple, Union, Dict, Any, TypeVar, Type, List
+from fedbiomed.common.metrics import MetricTypes
 from pathvalidate import sanitize_filename, sanitize_filepath
 
 from fedbiomed.common.logger import logger
@@ -285,12 +286,16 @@ class Experiment(object):
     # destructor
     @exp_exceptions
     def __del__(self):
-        if self._reqs is not None:
-            # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
-            self._reqs.remove_monitor_callback()
+        # This part has been commented, self._reqs.remove_monitor_callback() removes monitor
+        # callback when initializing an experiment for the second time with same name.
+        # While recreating a class with same variable name python first calls __init__ and then __del__.
+
+        # if self._reqs is not None:
+        #     # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
+        #     self._reqs.remove_monitor_callback()
+
         if self._monitor is not None:
             self._monitor.close_writer()
-
 
     @exp_exceptions
     def tags(self) -> Union[List[str], None]:
@@ -1058,7 +1063,7 @@ class Experiment(object):
         Cleans / resets training arguments `training_args`
         with default values.
 
-        Sets:
+        Sets (as default values):
          - test_ratio: 0.
          - test_on_local_updates: False
          - test_on_global_updates: False
@@ -1078,7 +1083,7 @@ class Experiment(object):
     @exp_exceptions
     def set_test_ratio(self, ratio: float) -> float:
         """
-        Sets testing ratio for model evaluation. When setting test_ratio, nodes will allocate 
+        Sets testing ratio for model evaluation. When setting test_ratio, nodes will allocate
         (1 - `test_ratio`) fraction of data for training and the remaining for testing model.
         This could be useful for evaluating the model, once every round, as well as controlling
         overfitting, doing early stopping, ....
@@ -1116,35 +1121,33 @@ class Experiment(object):
         return ratio
 
     @exp_exceptions
-    def set_test_metric(self, metric: Union[Callable, str, None], **metric_args) -> \
+    def set_test_metric(self, metric: Union[MetricTypes, str, None], **metric_args) -> \
             Tuple[Union[str, None], Dict[str, Any]]:
         """
         Sets a metric for federated model evaluation
 
         Args:
             - metric (Union[Callable, str, None]): name of the evaluation metric to use for testing
-            - metric_args (Dict[str, Any], optional) : arguments for the metric 
+            - metric_args (Dict[str, Any], optional) : arguments for the metric
 
         Raises:
-            - FedbiomedExperimentError: metric 
+            - FedbiomedExperimentError: metric
 
         Returns:
             - Tuple[Union[str, None], Dict[str, Any]]: metric, metric args
         """
-        if not (metric is None or isinstance(metric, str) or callable(metric)):
+        if not (metric is None or isinstance(metric, str) or isinstance(metric, MetricTypes)):
             _msg = ErrorNumbers.FB410.value + ": incorrect argument metric, got type " + \
                 f"{type(metric)}, but expected Callable or str"
             raise FedbiomedExperimentError(_msg)
-        elif callable(metric):
-            if hasattr(metric, '__name__'):
-                # get string of a known function passed as callable (eg sklearn accuracy)
-                metric = str(metric.__name__)
-            else:
-                _msg = ErrorNumbers.FB410.value + ": incorrect argument metric, " + \
-                    "got type Callable but has no __name__ attribute"
-                raise FedbiomedExperimentError(_msg)                
-        # at this point, metric is a str or None
 
+        # at this point, metric is a str, MetricTypes or None
+        if isinstance(metric, str):
+            metric = metric.upper()
+            if metric not in MetricTypes.get_all_metrics():
+                raise FedbiomedExperimentError(f"Metric {metric} is not a default Metric Type supprted by Fedbiomed."
+                                               f" Please use {MetricTypes.get_all_metrics()} or define your"
+                                               " `testing_step` method in the TrainingPlan")
         self._training_args['test_metric'] = metric
 
         # using **metric_args, we know `test_metric_args` is a Dict[str, Any]
@@ -1366,7 +1369,7 @@ class Experiment(object):
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
         # Trigger training round on sampled nodes
-        self._job.start_nodes_training_round(round=self._round_current, do_training=True)
+        _ = self._job.start_nodes_training_round(round=self._round_current, do_training=True)
 
         # refining/normalizing model weights received from nodes
         model_params, weights = self._node_selection_strategy.refine(
@@ -1384,12 +1387,16 @@ class Experiment(object):
                                                         'params_path': aggregated_params_path}
 
         self._round_current += 1
+
+        # Update round in monitor for the next round
+        self._monitor.set_round(round_=self._round_current + 1)
+
         if self._save_breakpoints:
             self.breakpoint()
 
         # do final evaluation after saving breakpoint :
         # not saved in breakpoint for current round, but more simple
-        if test_after:   
+        if test_after:
             # FIXME: should we sample nodes here too?
             self._job.start_nodes_training_round(round=self._round_current, do_training=False)
 
