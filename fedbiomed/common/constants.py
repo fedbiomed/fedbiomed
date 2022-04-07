@@ -20,7 +20,7 @@ class _BaseEnum(Enum):
 class ComponentType(_BaseEnum):
     """
     Enumeration class, used to characterize the type
-    of component of the fedbiomed architecture.
+    of component of the fedbiomed architecture
     """
 
     RESEARCHER = 1
@@ -44,9 +44,9 @@ class HashingAlgorithms(_BaseEnum):
 
 
 class ModelTypes(_BaseEnum):
-    """ Constant values for model type that will be saved into db.
-    - `registered` means model saved by a user/hospital/node.
-    - `default`    means model is default model provided by Fed-BioMed.
+    """ Constant values for model type that will be saved into db
+    - `registered` means model saved by a user/hospital/node
+    - `default`    means model is default model provided by Fed-BioMed
     """
 
     REGISTERED = 'registered'
@@ -104,7 +104,8 @@ class ErrorNumbers(_BaseEnum):
     FB311 = "FB311: receiving a new computation request during a running computation"
     FB312 = "FB312: Node stopped in SIGTERM signal handler"
     FB313 = "FB313: no dataset matching request"
-    FB314 = "FB314: training round error"
+    FB314 = "FB314: Node round error"
+
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"
@@ -140,6 +141,7 @@ class ErrorNumbers(_BaseEnum):
     FB608 = "FB608: torch data manager error"
     FB609 = "FB608: scikit-learn data manager error"
     FB610 = "FB609: Torch based tabular dataset creation error"
+    FB611 = "FB611: Error while trying to evaluate using the specified metric"
 
     # oops
     FB999 = "FB999: unknown error code sent by the node"

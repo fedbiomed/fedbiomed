@@ -46,9 +46,10 @@ class TestRound(unittest.TestCase):
         # instanciate Round class
         self.r1 = Round(model_url='http://somewhere/where/my/model?is_stored=True',
                         model_class='MyTrainingPlan',
-                        params_url='https://url/to/model/params?ok=True')
-
-        self.r1.training_kwargs = {}
+                        params_url='https://url/to/model/params?ok=True',
+                        training_kwargs={},
+                        training=True
+                        )
         params = {'path': 'my/dataset/path',
                   'dataset_id': 'id_1234'}
         self.r1.dataset = params
@@ -59,15 +60,16 @@ class TestRound(unittest.TestCase):
 
         self.r2 = Round(model_url='http://a/b/c/model',
                         model_class='another_training_plan',
-                        params_url='https://to/my/model/params')
-        self.r2.training_kwargs = {}
+                        params_url='https://to/my/model/params',
+                        training_kwargs={},
+                        training=True)
         self.r2.dataset = params
         self.r2.history_monitor = dummy_monitor
 
     def tearDown(self) -> None:
         pass
 
-    @patch('fedbiomed.node.round.Round._set_train_and_test_data')
+    @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('builtins.eval')
@@ -83,7 +85,7 @@ class TestRound(unittest.TestCase):
                                                      builtin_eval_patch,
                                                      repository_upload_patch,
                                                      node_msg_patch,
-                                                     mock_set_test_train_data,
+                                                     mock_split_test_train_data,
                                                      ):
         """tests correct execution and message parameters.
         Besides  tests the training time.
@@ -107,7 +109,7 @@ class TestRound(unittest.TestCase):
         builtin_eval_patch.return_value = FakeModel
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
-        mock_set_test_train_data.return_value = None
+        mock_split_test_train_data.return_value = (True, True)
 
         # test 1: case where argument `model_kwargs` = None
         # action!
@@ -137,7 +139,7 @@ class TestRound(unittest.TestCase):
         self.assertEqual(TestRound.URL_MSG, msg_test2.get('params_url', False))
         self.assertEqual('train', msg_test2.get('command', False))
 
-    @patch('fedbiomed.node.round.Round._set_train_and_test_data')
+    @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('builtins.eval')
@@ -153,7 +155,7 @@ class TestRound(unittest.TestCase):
                                                              builtin_eval_patch,
                                                              repository_upload_patch,
                                                              node_msg_patch,
-                                                             mock_set_train_and_test_data):
+                                                             mock_split_train_and_test_data):
         """tests if all methods of `model` have been called after instanciating
         (in run_model_training)"""
         # `run_model_training`, when no issues are found
@@ -176,7 +178,7 @@ class TestRound(unittest.TestCase):
         builtin_eval_patch.return_value = FakeModel
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
-        mock_set_train_and_test_data.return_value = None
+        mock_split_train_and_test_data.return_value = (True, True)
 
         self.r1.training_kwargs = {}
         self.r1.dataset = {'path': 'my/dataset/path',
@@ -212,17 +214,16 @@ class TestRound(unittest.TestCase):
             # Check set train and test data split function is called
             # Set dataset is called in set_train_and_test_data
             # mock_set_dataset.assert_called_once_with(self.r1.dataset.get('path'))
-            mock_set_train_and_test_data.assert_called_once()
+            mock_split_train_and_test_data.assert_called_once()
 
             # Since set training data return None, training_routine should be called as None
             mock_training_routine.assert_called_once_with( history_monitor=self.r1.history_monitor,
-                                                           node_args=None,
-                                                           data_loader=None)
+                                                           node_args=None)
 
             mock_after_training_params.assert_called_once()
             mock_save.assert_called_once_with(_model_filename, _model_results)
 
-    @patch('fedbiomed.node.round.Round._set_train_and_test_data')
+    @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
@@ -234,7 +235,7 @@ class TestRound(unittest.TestCase):
                                                               model_manager_patch,
                                                               repository_upload_patch,
                                                               node_msg_patch,
-                                                              mock_set_train_and_test_data):
+                                                              mock_split_train_and_test_data):
         """tests normal case scenario with a real model file"""
         FakeModel.SLEEPING_TIME = 0
 
@@ -244,18 +245,24 @@ class TestRound(unittest.TestCase):
         model_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
-        mock_set_train_and_test_data.return_value = None
+        mock_split_train_and_test_data.return_value = (True, True)
 
         # create dummy_model
         dummy_training_plan_test = \
             "class MyTrainingPlan:\n" + \
             "   def __init__(self, **kwargs):\n" + \
             "       self._kwargs = kwargs\n" + \
+            "       self._kwargs = kwargs\n" + \
+            "       self._kwargs = kwargs\n" + \
             "   def load(self, *args, **kwargs):\n" + \
             "       pass \n" + \
             "   def save(self, *args, **kwargs):\n" + \
             "       pass\n" + \
             "   def training_routine(self, *args, **kwargs):\n" + \
+            "       pass\n" + \
+            "   def set_data_loaders(self, *args, **kwargs):\n" + \
+            "       self.testing_data_loader = True\n" + \
+            "       self.training_data_loader = True\n" + \
             "       pass\n" + \
             "   def set_dataset_path(self, *args, **kwargs):\n" + \
             "       pass\n" + \
@@ -281,7 +288,7 @@ class TestRound(unittest.TestCase):
         # remove model file
         os.remove(module_file_path)
 
-    @patch('fedbiomed.node.round.Round._set_train_and_test_data')
+    @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
@@ -293,7 +300,7 @@ class TestRound(unittest.TestCase):
                                                           model_manager_patch,
                                                           repository_upload_patch,
                                                           node_msg_patch,
-                                                          mock_set_train_and_test_data):
+                                                          mock_split_train_and_test_data):
         """tests failures and exceptions during the download file process
         (in run_model_training)"""
         # Tests details:
@@ -324,7 +331,7 @@ class TestRound(unittest.TestCase):
         model_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
-        mock_set_train_and_test_data.return_value = None
+        mock_split_train_and_test_data.return_value = None
 
         # test 1: case where first call to `Repository.download` generates HTTP
         # status 404 (when downloading model_file)
@@ -411,7 +418,7 @@ class TestRound(unittest.TestCase):
 
         self.assertFalse(msg_test.get('success', True))
 
-    @patch('fedbiomed.node.round.Round._set_train_and_test_data')
+    @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
@@ -423,7 +430,7 @@ class TestRound(unittest.TestCase):
                                                       model_manager_patch,
                                                       repository_upload_patch,
                                                       node_msg_patch,
-                                                      mock_set_train_and_test_data):
+                                                      mock_split_train_and_test_data):
         """tests case where the import/loading of the model have failed"""
 
         FakeModel.SLEEPING_TIME = 0
@@ -434,7 +441,7 @@ class TestRound(unittest.TestCase):
         model_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
-        mock_set_train_and_test_data.return_value = None
+        mock_split_train_and_test_data.return_value = None
 
         # test 1: tests raise of exception during model import
         def exec_side_effect(*args, **kwargs):
@@ -525,7 +532,7 @@ class TestRound(unittest.TestCase):
 
         self.assertFalse(msg_test_3.get('success', True))
 
-    @patch('fedbiomed.node.round.Round._set_train_and_test_data')
+    @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
@@ -537,7 +544,7 @@ class TestRound(unittest.TestCase):
                                                            model_manager_patch,
                                                            repository_upload_patch,
                                                            node_msg_patch,
-                                                           mock_set_train_and_test_data):
+                                                           mock_split_train_and_test_data):
 
         """tests case where uploading model parameters file fails"""
         FakeModel.SLEEPING_TIME = 0
@@ -554,7 +561,7 @@ class TestRound(unittest.TestCase):
         model_manager_patch.return_value = (True, {'name': "model_name"})
         repository_upload_patch.side_effect = upload_side_effect
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
-        mock_set_train_and_test_data.return_value = None
+        mock_split_train_and_test_data.return_value = None
 
         # action
         with (self.assertLogs('fedbiomed', logging.ERROR) as captured,
@@ -570,7 +577,7 @@ class TestRound(unittest.TestCase):
 
         self.assertFalse(msg_test.get('success', True))
 
-    @patch('fedbiomed.node.round.Round._set_train_and_test_data')
+    @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('builtins.eval')
@@ -586,7 +593,7 @@ class TestRound(unittest.TestCase):
                                                                builtin_eval_patch,
                                                                repository_upload_patch,
                                                                node_msg_patch,
-                                                               mock_set_train_and_test_data):
+                                                               mock_split_train_and_test_data):
         """tests case where training plan contains node_side arguments"""
         FakeModel.SLEEPING_TIME = 1
 
@@ -598,7 +605,7 @@ class TestRound(unittest.TestCase):
         builtin_eval_patch.return_value = FakeModel
         repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
-        mock_set_train_and_test_data.return_value = None
+        mock_split_train_and_test_data.return_value = None
 
         # adding into `training_kwargs` node_side arguments
         self.r1.training_kwargs = {'param': 1234,
