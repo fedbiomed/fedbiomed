@@ -50,7 +50,7 @@ readline.parse_and_bind("tab: complete")
 
 
 def validated_data_type_input():
-    valid_options = ['csv', 'default', 'images']
+    valid_options = ['csv', 'default','mednist', 'images']
     valid_options = {i: val for i, val in enumerate(valid_options, 1)}
 
     msg = "Please select the data type that you're configuring:\n"
@@ -177,6 +177,14 @@ def add_database(interactive=True,
             name = 'MNIST'
             description = 'MNIST database'
 
+        elif data_type == 'mednist':
+            tags = ['#MEDNIST', "#dataset"]
+            if interactive is True:
+                while input(f'MEDNIST will be added with tags {tags} [y/N]').lower() != 'y':
+                    pass
+                path = validated_path_input(data_type)
+            name = 'MEDNIST'
+            description = 'MEDNIST dataset'
         else:
 
             name = input('Name of the database: ')
@@ -199,7 +207,7 @@ def add_database(interactive=True,
         description = str(description)
 
         data_type = str(data_type).lower()
-        if data_type not in [ 'csv', 'default', 'images' ]:
+        if data_type not in [ 'csv', 'default','mednist', 'images' ]:
             data_type = 'default'
 
         if not os.path.exists(path):

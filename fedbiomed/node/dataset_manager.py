@@ -153,6 +153,44 @@ class DatasetManager:
         else:
             return self.get_torch_dataset_shape(dataset)
 
+    def load_mednist_database(self,
+                              name: str,
+                              path: str,
+                              as_dataset: bool = False) -> Union[List[int],
+                                                                 torch.utils.data.Dataset]:
+        """
+        Loads the mednist dataset.
+
+        Args:
+            name (str): name of the dataset.
+            path (str): pathfile to MedNist dataset.
+            as_dataset (bool, optional): whether to return
+            the complete dataset (True) or dataset dimensions (False).
+            Defaults to False.
+
+        Raises:
+            NotImplementedError: triggered if name is not matching with
+            the name of a default dataset.
+
+        Returns:
+            [type]: depending on the value of the parameter `as_dataset`. If
+            set to True,  returns dataset (type: torch.utils.data.Dataset),
+            if set to False, returns the size of the dataset stored inside
+            a list (type: List[int])
+        """
+        kwargs = dict(root=path, download=True, transform=transforms.ToTensor())
+
+        if 'mnist' in name.lower():
+            dataset = datasets.MNIST(**kwargs)
+        else:
+            raise NotImplementedError(f'Default dataset `{name}` has'
+                                      'not been implemented.')
+        if as_dataset:
+            return dataset
+        else:
+            return self.get_torch_dataset_shape(dataset)
+
+
     def load_images_dataset(self,
                             folder_path: str,
                             as_dataset: bool = False) -> Union[List[int],
@@ -216,7 +254,7 @@ class DatasetManager:
         assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
 
         dtypes = []  # empty list for Image datasets
-        data_types = ['csv', 'default', 'images']
+        data_types = ['csv', 'default','mednist', 'images']
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
                                       ' a compatible data type. '
@@ -226,6 +264,11 @@ class DatasetManager:
         if data_type == 'default':
             assert os.path.isdir(path), f'Folder {path} for Default Dataset does not exist.'
             shape = self.load_default_database(name, path)
+
+        elif data_type == 'mednist':
+            assert os.path.isdir(path), f'Folder {path} for MedNIST Dataset does not exist.'
+            shape = self.load_mednist_database(name, path)
+
         elif data_type == 'csv':
             assert os.path.isfile(path), f'Path provided ({path}) does not correspond to a CSV file.'
             dataset = self.load_csv_dataset(path)
