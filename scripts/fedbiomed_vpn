@@ -71,7 +71,7 @@ researcher *   start a 'fedbiomed_run researcher *' command
   All extra arguments (*) are passed to the fedbiomed_run scripts
   which is launched inside the container.
   Run 'fedbiomed_run --help' for more help on valid arguments
-  FIY: a jupyter notebook is already present in the researcher docker
+  FYI: a jupyter notebook is already present in the researcher docker
   at startup
 "
     exit $return_code
@@ -136,21 +136,25 @@ internal_find_my_ip() {
 }
 
 find_my_ip() {
+    #
+    # run bunch of heuristics to find the external (joignable) IP address
+    #
+    IP=""
+    algo=1
 
-    for i in {1..100}
-    do
-        IP=$(internal_find_my_ip $i)
-        [[ ! -z "$IP" ]] && { echo $IP ; return ; }
+    while [ -z "$IP" ]; do
+        IP=$(internal_find_my_ip $algo)
+        let algo+=1
     done
 
     case $IP in
         127.*)
             echo "** WARNING: vpnserver will use the localhost IP adress."
-            echo "            vpnserver may not work properly"
+            echo "            VPN may not work properly"
         ;;
     esac
-    # just in case (never happends but I am paranoid)
-    echo "127.0.0.1"
+
+    echo $IP
     return
 }
 
