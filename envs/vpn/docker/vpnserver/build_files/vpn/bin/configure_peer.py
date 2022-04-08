@@ -177,18 +177,38 @@ def get_current_peers() -> list[list]:
 
 
 # generate and save configuration for a new peer
-def genconf(peer_type, peer_id):
+def genconf(peer_type, peer_id) -> None:
     assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
 
+    if not { 'VPN_SUBNET_PREFIX', 'VPN_SERVER_PUBLIC_ADDR', 'VPN_SERVER_PORT', 'VPN_IP',
+             f"VPN_{peer_type.upper()}_IP_ASSIGN" } <= os.environ.keys():
+        print("CRITICAL: missing environment variables in environment : "
+              "`VPN_SUBNET_PREFIX` or `VPN_SERVER_PUBLIC_ADDR` or `VPN_SERVER_PORT` or `VPN_IP`")
+        exit(1)
+
+    # don't update if config for this peer already exist => error
+    if os.path.isfile(os.path.join(peer_config_folder, peer_type, peer_id, config_file)):
+        print(f"WARNING: config file already exists for peer {peer_type}/{peer_id}. Do nothing.")
+        return
 
     # assign IP address for the new peer + save updated counter of assigned IP
-    assign_net = ip.IPv4Network(os.environ[f"VPN_{peer_type.upper()}_IP_ASSIGN"])
+    try:
+        assign_net = ip.IPv4Network(os.environ[f"VPN_{peer_type.upper()}_IP_ASSIGN"])
+    except (ip.AddressValueError, ip.NetmaskValueError, KeyError) as e:
+        print(f"CRITICAL: bad `VPN_{peer_type}_IP_ASSIGN` in config gives errors: {e}")
+        exit(1)
+
     assign_file = assign_config_file % peer_type
     if os.path.exists(assign_file) and os.path.getsize(assign_file) > 0:
         f = run_drop_priv(open, assign_file, 'r+')
 
         # assign the next available ip to the peer
-        peer_addr_ip = ip.IPv4Address(f.read()) + 1
+        try:
+            peer_addr_ip = ip.IPv4Address(f.read()) + 1
+        except (ip.AddressValueError, ip.NetmaskValueError) as e:
+            print(f"CRITICAL: bad IP address in assign file {assign_file} gives errors: {e}")
+            exit(1)
+
         f.seek(0)
     else:
         f = run_drop_priv(open, assign_file, 'w')
@@ -221,11 +241,17 @@ def genconf(peer_type, peer_id):
         print(f"CRITICAL: server public key retrieve failed with error : {e}")
         exit(1)    
 
-    vpn_net = ip.IPv4Interface(f"{os.environ['VPN_IP']}/{os.environ['VPN_SUBNET_PREFIX']}").network
+    try:
+        vpn_net = ip.IPv4Interface(f"{os.environ['VPN_IP']}/{os.environ['VPN_SUBNET_PREFIX']}").network
+    except (ip.AddressValueError, ip.NetmaskValueError, KeyError) as e:
+        print(f"CRITICAL: bad interface VPN_IP/VPN_SUBNET_PREFIX "
+              f"{os.environ['VPN_IP']}/{os.environ['VPN_SUBNET_PREFIX']} gives error : {e}")
+        exit(1)
 
-
-    assert peer_addr_ip in assign_net
-    assert peer_addr_ip in vpn_net
+    if peer_addr_ip not in assign_net or peer_addr_ip not in vpn_net:
+        print(f"CRITICAL: assigned peer IP {peer_addr_ip} is "
+              f"not in VPN network {vpn_net} or not in assign range {assign_net}")
+        exit(1)
 
     mapping = {
         "vpn_ip": peer_addr_ip,
@@ -238,8 +264,9 @@ def genconf(peer_type, peer_id):
         "fedbiomed_net_ip": os.environ['VPN_IP']
     }
 
-    assert None not in mapping.values()
-    assert "" not in mapping.values()
+    if None in mapping.values() or "" in mapping.values():
+        print(f"CRITICAL: bad value in configuration mapping {mapping}")
+        exit(1)
 
     # save new peer configuration file
     save_config_file(peer_type, peer_id, mapping)
@@ -247,7 +274,7 @@ def genconf(peer_type, peer_id):
 
 # finish definition of a new peer with peer's public key,
 # in current wireguard interface and wireguard file
-def add(peer_type, peer_id, peer_public_key):
+def add(peer_type, peer_id, peer_public_key) -> None:
     assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
 
     # read peer config file
@@ -274,7 +301,7 @@ def add(peer_type, peer_id, peer_public_key):
 
 # remove a peer from the current wireguard interface configuration,
 # save updated wireguard config file, and optionally remove peer config file
-def remove(peer_type, peer_id, removeconf: bool = False):
+def remove(peer_type, peer_id, removeconf: bool = False) -> None:
     assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
 
     # read peer config file
@@ -315,7 +342,7 @@ def remove(peer_type, peer_id, removeconf: bool = False):
 # build cross information on peers from configuration files
 # and current wireguard interface configuration, pretty print
 # on standard output
-def list():
+def list() -> None:
     # Structure of `peers`
     # peers = {
     #   IP_prefix_1 = {
