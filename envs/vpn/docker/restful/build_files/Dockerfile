@@ -44,7 +44,7 @@ RUN mkdir /etc/skel
 RUN cat /tmp/bashrc_append | tee -a /root/.bashrc /root/bashrc_entrypoint \
         /etc/skel/.bashrc /etc/skel/bashrc_entrypoint >/dev/null
 
-RUN apk update && apk add shadow bash
+RUN apk update && apk add shadow bash runuser
 RUN [ "$CONTAINER_GROUP" != 'root' ] && groupadd -g $CONTAINER_GID $CONTAINER_GROUP || :
 RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
         -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER || :
@@ -69,9 +69,6 @@ COPY --from=builder /usr/bin/wg* /usr/bin/
 RUN mkdir /app
 WORKDIR /app
 
-COPY ./entrypoint.sh /
+COPY ./entrypoint*.bash /
 
-# Expose ports
-EXPOSE 8000
-
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.bash"]
