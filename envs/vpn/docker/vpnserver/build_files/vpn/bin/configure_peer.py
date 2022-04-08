@@ -50,9 +50,21 @@ else:
 # Functions
 #
 
-# run `function(args, kwargs)` with privileges of
-# `container_uid:container_gid` (temporary drop)
+
 def run_drop_priv(function: Callable, *args, **kwargs) -> Any:
+    """ Run `function(args, kwargs)` with privileges of
+    `container_uid:container_gid` (temporary drop)
+
+    Args:
+        - function (Callable) : the function to run
+        - args : positional arguments to pass to the function
+        - kwargs : named arguments to pass to the function
+
+    Raises:
+
+    Returns:
+        - Any : return value of `function`
+    """
     try:
         os.setegid(container_gid)
         os.seteuid(container_uid)
@@ -79,8 +91,18 @@ def run_drop_priv(function: Callable, *args, **kwargs) -> Any:
     return ret
 
 
-# read a peer config.env file and build a dict from its content
 def read_config_file(filepath: str) -> dict:
+    """ Read a peer config.env file and build a dict from its content
+
+    Args:
+        - filepatch (str) : path to the config file to read
+
+    Raises:
+
+    Returns:
+        - dict : config file content as a dict of variable name (item key) and
+            variable value (item value)
+    """
 
     try:    
         f = open(filepath, 'r')
@@ -108,8 +130,20 @@ def read_config_file(filepath: str) -> dict:
     return peer_config
 
 
-# save a new peer config.env file from a mapping dict
 def save_config_file(peer_type: str, peer_id: str, mapping: dict) -> None:
+    """ Save a new peer config.env file from a mapping dict
+
+    Args:
+        - peer_type (str) : whether it is a management/node/researcher peer
+        - peer_id (str) : unique (within its `peer_type`) name for the peer
+        - mapping (dict) : dictionaries with the items needed to fill the peer
+            configuration template
+
+    Raises:
+
+    Returns:
+        - None
+    """
 
     outpath = os.path.join(peer_config_folder, peer_type)
     run_drop_priv(os.makedirs, outpath, exist_ok=True)
@@ -132,8 +166,18 @@ def save_config_file(peer_type: str, peer_id: str, mapping: dict) -> None:
     print(f"info: configuration for {peer_type}/{peer_id} saved in {filepath}")
 
 
-# remove configuration file and directory for `peer_id`
 def remove_config_file(peer_type: str, peer_id: str) -> None:
+    """ Remove configuration file and directory for `peer_id`
+
+    Args:
+        - peer_type (str) : whether it is a management/node/researcher peer
+        - peer_id (str) : unique (within its `peer_type`) name for the peer
+
+    Raises:
+
+    Returns:
+        - None
+    """
 
     conf_dir = os.path.join(peer_config_folder, peer_type, peer_id)
     conf_file = os.path.join(conf_dir, config_file)
@@ -146,8 +190,16 @@ def remove_config_file(peer_type: str, peer_id: str) -> None:
         exit(1)
 
 
-# save wireguard config file from current wireguard interface params
 def save_wg_file() -> None:
+    """ Save wireguard config file from current wireguard interface params
+
+    Args:
+
+    Raises:
+
+    Returns:
+        - None
+    """
 
     # read current wireguard interface config
     try:
@@ -166,8 +218,17 @@ def save_wg_file() -> None:
     f.close()
 
 
-# list peers currently declared in the current wireguard interface params
 def get_current_peers() -> list[list]:
+    """ List peers currently declared in the current wireguard interface params
+
+    Args:
+
+    Raises:
+
+    Returns:
+        - list[list] : list of peers, each element is a 2-strings list. First item
+            is the peer's public key, second item is the peer's IP prefix
+    """
 
     current_peers = []
 
@@ -193,6 +254,18 @@ def get_current_peers() -> list[list]:
 
 # check peer arguments type and value
 def check_peer_args(peer_type: str, peer_id: str) -> None:
+    """ Check peer arguments type and value
+
+    Args:
+        - peer_type (str) : whether it is a management/node/researcher peer
+        - peer_id (str) : unique (within its `peer_type`) name for the peer
+
+    Raises:
+
+    Returns:
+        - None
+    """
+
     if not isinstance(peer_type, str):
         print(f"CRITICAL: bad type for `peer_type` {peer_type}")
         exit(1)
@@ -204,8 +277,19 @@ def check_peer_args(peer_type: str, peer_id: str) -> None:
         exit(1)
 
 
-# generate and save configuration for a new peer
-def genconf(peer_type, peer_id) -> None:
+def genconf(peer_type: str, peer_id: str) -> None:
+    """ Generate and save configuration for a new peer
+    Args:
+        - peer_type (str) : whether it is a management/node/researcher peer
+        - peer_id (str) : unique (within its `peer_type`) name for the peer
+
+    Raises:
+
+    Returns:
+        - None
+    """
+
+    # check arguments
     check_peer_args(peer_type, peer_id)
 
     if not { 'VPN_SUBNET_PREFIX', 'VPN_SERVER_PUBLIC_ADDR', 'VPN_SERVER_PORT', 'VPN_IP',
@@ -300,10 +384,26 @@ def genconf(peer_type, peer_id) -> None:
     save_config_file(peer_type, peer_id, mapping)
 
 
-# finish definition of a new peer with peer's public key,
-# in current wireguard interface and wireguard file
-def add(peer_type, peer_id, peer_public_key) -> None:
+def add(peer_type: str, peer_id: str, peer_public_key: str) -> None:
+    """ Finish definition of a new peer with peer's public key,
+    in current wireguard interface and wireguard file
+
+    Args:
+        - peer_type (str) : whether it is a management/node/researcher peer
+        - peer_id (str) : unique (within its `peer_type`) name for the peer
+        - peer_public_key (str) : public key of the peer
+
+    Raises:
+
+    Returns:
+        - None
+    """
+
+    # check arguments
     check_peer_args(peer_type, peer_id)
+    if not isinstance(peer_public_key, str):
+        print(f"CRITICAL: bad type for `peer_public_key` {peer_public_key}")
+        exit(1)
 
     # read peer config file
     filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
@@ -336,10 +436,27 @@ def add(peer_type, peer_id, peer_public_key) -> None:
     save_wg_file()
 
 
-# remove a peer from the current wireguard interface configuration,
-# save updated wireguard config file, and optionally remove peer config file
-def remove(peer_type, peer_id, removeconf: bool = False) -> None:
+def remove(peer_type: str, peer_id: str, removeconf: bool = False) -> None:
+    """ Remove a peer from the current wireguard interface configuration,
+    save updated wireguard config file, and optionally remove peer config file
+
+    Args:
+        - peer_type (str) : whether it is a management/node/researcher peer
+        - peer_id (str) : unique (within its `peer_type`) name for the peer
+        - removeconf (bool, optional) : whether we should also remove the config file.
+            Defaults to False.
+
+    Raises:
+
+    Returns:
+        - None
+    """
+
+    # check arguments
     check_peer_args(peer_type, peer_id)
+    if not isinstance(removeconf, bool):
+        print(f"CRITICAL: bad type for `removeconf` {removeconf}")
+        exit(1)
 
     # read peer config file
     filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
@@ -382,10 +499,18 @@ def remove(peer_type, peer_id, removeconf: bool = False) -> None:
         remove_config_file(peer_type, peer_id)
 
 
-# build cross information on peers from configuration files
-# and current wireguard interface configuration, pretty print
-# on standard output
 def list() -> None:
+    """ Build cross information on peers from configuration files and
+    current wireguard interface configuration, pretty print on standard output
+
+    Args:
+
+    Raises:
+
+    Returns:
+        - None
+    """
+
     # Structure of `peers`
     # peers = {
     #   IP_prefix_1 = {
