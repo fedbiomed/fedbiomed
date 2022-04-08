@@ -400,6 +400,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
         else:
+            self.DP.update(sigma_CDP=DP_args['sigma'])
             self.DP['sigma'] = 0. 
         try:
             float(self.DP['clip'])
@@ -424,7 +425,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 for key in delta_params.keys():
                     delta_theta_tilde = delta_params[key] \
-                            + torch.sqrt(torch.tensor([2]))*self.DP['sigma']*self.DP['clip'] * torch.randn_like(delta_params[key])
+                            + torch.sqrt(torch.tensor([2]))*self.DP['sigma_CDP']*self.DP['clip'] * torch.randn_like(delta_params[key])
                     perturbed_params[key]=self.init_params[key] + delta_theta_tilde
             params = perturbed_params 
 
