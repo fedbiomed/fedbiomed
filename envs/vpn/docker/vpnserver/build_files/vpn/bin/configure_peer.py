@@ -27,12 +27,20 @@ config_file = 'config.env'
 # UID and GID to use when dropping privileges
 init_uid = os.geteuid()
 if 'CONTAINER_UID' in os.environ:
-    container_uid = int(os.environ['CONTAINER_UID'])
+    try:
+        container_uid = int(os.environ['CONTAINER_UID'])
+    except (TypeError, ValueError) as e:
+        print(f"CRITICAL: bad type or value of CONTAINER_UID={os.environ['CONTAINER_UID']} : {e}")
+        exit(1)
 else:
     container_uid = init_uid
 init_gid = os.getegid()
 if 'CONTAINER_GID' in os.environ:
-    container_gid = int(os.environ['CONTAINER_GID'])
+    try:
+        container_gid = int(os.environ['CONTAINER_GID'])
+    except (TypeError, ValueError) as e:
+        print(f"CRITICAL: bad type or value of CONTAINER_GID={os.environ['CONTAINER_GID']} : {e}")
+        exit(1)    
 else:
     container_gid = init_gid
 
@@ -44,24 +52,61 @@ else:
 # run `function(args, kwargs)` with privileges of
 # `container_uid:container_gid` (temporary drop)
 def run_drop_priv(function: Callable, *args, **kwargs) -> Any:
-    os.setegid(container_gid)
-    os.seteuid(container_uid)
+    try:
+        os.setegid(container_gid)
+        os.seteuid(container_uid)
+    except PermissionError as e:
+        print(f"CRITICAL: cannot set identity to {container_uid}:{container_gid} : {e}"
+              f"for running {function}")
+        exit(1)
 
-    ret = function(*args, **kwargs)
+    try:
+        ret = function(*args, **kwargs)
+    except Exception as e:
+        print(f"CRITICAL: error while running function {function} with identity "
+              f"{container_uid}:{container_gid} : {e}")
+        exit(1)        
 
-    os.seteuid(init_uid)
-    os.setegid(init_gid)
+    try:
+        os.seteuid(init_uid)
+        os.setegid(init_gid)
+    except PermissionError as e:
+        print(f"CRITICAL: cannot restore identity to {container_uid}:{container_gid} : {e}"
+              f"after running {function}")
+        exit(1)
+
     return ret
 
 
 # read a peer config.env file and build a dict from its content
 def read_config_file(filepath: str) -> dict:
 
-    with open(filepath, 'r') as f:
-        peer_config = dict(
-            tuple(line.removeprefix('export').lstrip().split('=', 1))
-            for line in map(lambda line: line.strip(" \n"), f.readlines())
-            if not line.startswith('#') and not line == '')
+    try:    
+        f = open(filepath, 'r')
+    except Exception as e:
+        print(f"CRITICAL: cannot open config file {filepath} : {e}")
+        exit(1)
+
+    peer_config = {}
+    for line in f:
+        if not line.startswith('#') and not line == '' and not line.isspace():
+            t = tuple(line.strip(" \n").removeprefix('export').lstrip().split('=', 1))
+            if not len(t) == 2 or not isinstance(t[0], str) or \
+                    not isinstance(t[1], str):
+                print(f"CRITICAL: bad variable in config file {filepath} : {t}")
+                exit(1)
+            peer_config[t[0]] = t[1]      
+    #peer_config = dict(
+    #    tuple(line.removeprefix('export').lstrip().split('=', 1))
+    #    for line in map(lambda line: line.strip(" \n"), f.readlines())
+    #    if not line.startswith('#') and not line == '')
+    f.close()
+
+    for variable in peer_config.items():
+        if not len(variable) == 2 or not isinstance(variable[0], str) or \
+                not isinstance(variable[1], str):
+            print(f"CRITICAL: bad variable in config file {filepath} : {variable}")
+            exit(1)
 
     return peer_config
 
@@ -207,7 +252,7 @@ def remove(peer_type, peer_id, removeconf: bool = False):
         if os.path.isdir(conf_dir) and os.path.isfile(conf_file):
             run_drop_priv(os.remove, conf_file)
             run_drop_priv(os.rmdir, conf_dir)
-            print(f"info: removed config dir {conf_dir}")
+            print(f"info: removed config file {conf_file}")
         else:
             print("CRITICAL: missing configuration file {conf_file}")
             exit(1)
