@@ -96,10 +96,6 @@ def read_config_file(filepath: str) -> dict:
                 print(f"CRITICAL: bad variable in config file {filepath} : {t}")
                 exit(1)
             peer_config[t[0]] = t[1]      
-    #peer_config = dict(
-    #    tuple(line.removeprefix('export').lstrip().split('=', 1))
-    #    for line in map(lambda line: line.strip(" \n"), f.readlines())
-    #    if not line.startswith('#') and not line == '')
     f.close()
 
     for variable in peer_config.items():
@@ -133,8 +129,21 @@ def save_config_file(peer_type: str, peer_id: str, mapping: dict):
 # save wireguard config file from current wireguard interface params
 def save_wg_file():
 
-    subprocess.run(
-        ["bash", "-c", f"(umask 0077; wg showconf wg0 > {wg_config_file})"])
+    # read current wireguard interface config
+    try:
+        wg_config = subprocess.run(
+            ['wg', 'showconf', 'wg0'],
+            stdout=subprocess.PIPE,
+            check=True).stdout.decode().splitlines()
+    except subprocess.CalledProcessError as e:
+        print(f"CRITICAL: wireguard config read failed with error : {e}")
+        exit(1)
+
+    # save wireguard config to file
+    f = run_drop_priv(open, wg_config_file, 'w')
+    for line in wg_config:
+        f.write(f'{line}\n')    # need to insert proper line breaks
+    f.close()
 
 
 # list peers currently declared in the current wireguard interface params
@@ -144,7 +153,7 @@ def get_current_peers() -> list[list]:
 
     f = os.popen('wg show wg0 allowed-ips')
     for line in f:
-        current_peers.append(re.split('\s+', line.strip(" \n")))
+        current_peers.append(re.split('\\s+', line.strip(" \n")))
     f.close()
 
     return current_peers
@@ -174,12 +183,26 @@ def genconf(peer_type, peer_id):
 
 
     # create configuration for the new peer
-    peer_psk = subprocess.run(
-        ["wg", "genpsk"],
-        stdout=subprocess.PIPE, text=True).stdout.rstrip('\n')
-    server_public_key = subprocess.run(
-        ["wg", "show", "wg0", "public-key"],
-        stdout=subprocess.PIPE, text=True).stdout.rstrip('\n')
+    try:
+        peer_psk = subprocess.run(
+            ["wg", "genpsk"],
+            stdout=subprocess.PIPE,
+            check=True,
+            text=True
+        ).stdout.rstrip('\n')
+    except subprocess.CalledProcessError as e:
+        print(f"CRITICAL: peer PSK generation failed with error : {e}")
+        exit(1)
+    try:
+        server_public_key = subprocess.run(
+            ["wg", "show", "wg0", "public-key"],
+            stdout=subprocess.PIPE,
+            check=True,
+            text=True
+        ).stdout.rstrip('\n')
+    except subprocess.CalledProcessError as e:
+        print(f"CRITICAL: server public key retrieve failed with error : {e}")
+        exit(1)    
 
     vpn_net = ip.IPv4Interface(f"{os.environ['VPN_IP']}/{os.environ['VPN_SUBNET_PREFIX']}").network
 
@@ -215,12 +238,18 @@ def add(peer_type, peer_id, peer_public_key):
     peer_config = read_config_file(filepath)
 
     # add the new peer to the current wireguard interface config
-    subprocess.run(
-        ["wg", "set", "wg0", "peer", peer_public_key, "allowed-ips",
-            str(ip.IPv4Network(f"{peer_config['VPN_IP']}/32")),
-            "preshared-key", "/dev/stdin"],
-        text=True,
-        input=peer_config['VPN_SERVER_PSK']) 
+    try:
+        subprocess.run(
+            ["wg", "set", "wg0", "peer", peer_public_key, "allowed-ips",
+                str(ip.IPv4Network(f"{peer_config['VPN_IP']}/32")),
+                "preshared-key", "/dev/stdin"],
+            input=peer_config['VPN_SERVER_PSK'],
+            check=True,
+            text=True
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"CRITICAL: setting peer in wireguard interface failed with error : {e}")
+        exit(1)
 
     # save updated wireguard config file
     save_wg_file()
@@ -239,7 +268,15 @@ def remove(peer_type, peer_id, removeconf: bool = False):
     current_peers = get_current_peers()
     for peer in current_peers:
         if peer[1] == str(ip.IPv4Network(f"{peer_config['VPN_IP']}/32")):
-            subprocess.run(["wg", "set", "wg0", "peer", peer[0], "remove"])
+            try:
+                subprocess.run(
+                    ["wg", "set", "wg0", "peer", peer[0], "remove"],
+                    check=True
+                )
+            except subprocess.CalledProcessError as e:
+                print(f"CRITICAL: removing peer from wireguard interface failed with error : {e}")
+                exit(1)
+
             print(f"info: removed peer {peer[0]}")
 
     # save updated wireguard config file
