@@ -4,7 +4,7 @@ import subprocess
 import os
 import re
 import ipaddress as ip
-from typing import Callable
+from typing import Any, Callable
 
 import tabulate
 
@@ -36,7 +36,7 @@ else:
 
 # run `function(args, kwargs)` with privileges of
 # `container_uid:container_gid` (temporary drop)
-def run_drop_priv(function: Callable, *args, **kwargs):
+def run_drop_priv(function: Callable, *args, **kwargs) -> Any:
     os.setegid(container_gid)
     os.seteuid(container_uid)
 
@@ -46,7 +46,43 @@ def run_drop_priv(function: Callable, *args, **kwargs):
     os.setegid(init_gid)
     return ret
 
+# read a peer config.env file and build a dict from its content
+def read_config_file(filepath: str) -> dict:
 
+    with open(filepath, 'r') as f:
+        peer_config = dict(
+            tuple(line.removeprefix('export').lstrip().split('=', 1))
+            for line in map(lambda line: line.strip(" \n"), f.readlines())
+            if not line.startswith('#') and not line == '')
+
+    return peer_config
+
+# save a new peer config.env file from a mapping dict
+def save_config_file(peer_type: str, peer_id: str, mapping: dict):
+
+    outpath = os.path.join(peer_config_folder, peer_type)
+    run_drop_priv(os.makedirs, outpath, exist_ok=True)
+
+    outpath = os.path.join(outpath, peer_id)
+    run_drop_priv(os.mkdir, outpath)
+
+    filepath = os.path.join(outpath, config_file)
+    f_config = run_drop_priv(open, filepath, 'w')
+
+    with open(template_file % peer_type, 'r') as f_template:
+        f_config.write(Template(f_template.read()).substitute(mapping))
+    f_config.close()
+
+    print(f"info: configuration for {peer_type}/{peer_id} saved in {filepath}")
+
+# save wireguard config file from current wireguard interface params
+def save_wg_file():
+
+    subprocess.run(
+        ["bash", "-c", f"(umask 0077; wg showconf wg0 > {wg_config_file})"])
+
+
+# generate and save configuration for a new peer
 def genconf(peer_type, peer_id):
     assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
 
@@ -95,32 +131,14 @@ def genconf(peer_type, peer_id):
     assert None not in mapping.values()
     assert "" not in mapping.values()
 
-    outpath = os.path.join(peer_config_folder, peer_type)
-    run_drop_priv(os.makedirs, outpath, exist_ok=True)
-
-    outpath = os.path.join(outpath, peer_id)
-    run_drop_priv(os.mkdir, outpath)
-
-    filepath = os.path.join(outpath, config_file)
-    f_config = run_drop_priv(open, filepath, 'w')
-
-    with open(template_file % peer_type, 'r') as f_template:
-        f_config.write(Template(f_template.read()).substitute(mapping))
-    f_config.close()
-
-    print(f"info: configuration generated in {filepath}")
+    save_config_file(peer_type, peer_id, mapping)
 
 
 def add(peer_type, peer_id, peer_public_key):
     assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
 
     filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
-
-    with open(filepath, 'r') as f:
-        peer_config = dict(
-            tuple(line.removeprefix('export').lstrip().split('=', 1))
-            for line in map(lambda line: line.strip(" \n"), f.readlines())
-            if not line.startswith('#') and not line == '')
+    peer_config = read_config_file(filepath)
 
     # apply the config to the server
     subprocess.run(
@@ -129,22 +147,14 @@ def add(peer_type, peer_id, peer_public_key):
             "preshared-key", "/dev/stdin"],
         text=True,
         input=peer_config['VPN_SERVER_PSK']) 
-    subprocess.run(
-        ["bash", "-c", f"(umask 0077; wg showconf wg0 > {wg_config_file})"])
+    save_wg_file()
 
 
 def remove(peer_type, peer_id, removeconf: bool = False):
     assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
 
     filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
-
-    with open(filepath, 'r') as f:
-        peer_config = dict(
-            tuple(line.removeprefix('export').lstrip().split('=', 1))
-            for line in map(lambda line: line.strip(" \n"), f.readlines())
-            if not line.startswith('#') and not line == '')
-
-    # same as add() up to there - to be factored
+    peer_config = read_config_file(filepath)
 
     f = os.popen('wg show wg0 allowed-ips')
     for line in f:
@@ -154,9 +164,7 @@ def remove(peer_type, peer_id, removeconf: bool = False):
             print(f"info: removed peer {peer[0]}")
     f.close()
 
-    # same as add - to be factored
-    subprocess.run(
-        ["bash", "-c", f"(umask 0077; wg showconf wg0 > {wg_config_file})"])
+    save_wg_file()
 
     if removeconf is True:
         conf_dir = os.path.join(peer_config_folder, peer_type, peer_id)
@@ -186,12 +194,7 @@ def list():
         for peer_id in os.listdir(os.path.join(peer_config_folder, peer_type)):
 
             filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
-            # to be factored with add/remove
-            with open(filepath, 'r') as f:
-                peer_config = dict(
-                    tuple(line.removeprefix('export').lstrip().split('=', 1))
-                    for line in map(lambda line: line.strip(" \n"), f.readlines())
-                    if not line.startswith('#') and not line == '')
+            peer_config = read_config_file(filepath)
 
             peer_tmpconf = { 'type': peer_type, 'id': peer_id }
             peer_tmpconf['publickeys'] = []
