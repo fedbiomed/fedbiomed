@@ -23,6 +23,7 @@ assign_config_file = os.path.join(os.sep, 'config', 'ip_assign', 'last_ip_assign
 peer_config_folder = os.path.join(os.sep, 'config', 'config_peers')
 wg_config_file = os.path.join(os.sep, 'config', 'wireguard', 'wg0.conf')
 config_file = 'config.env'
+peer_types = ["researcher", "node", "management"]
 
 # UID and GID to use when dropping privileges
 init_uid = os.geteuid()
@@ -131,6 +132,20 @@ def save_config_file(peer_type: str, peer_id: str, mapping: dict) -> None:
     print(f"info: configuration for {peer_type}/{peer_id} saved in {filepath}")
 
 
+# remove configuration file and directory for `peer_id`
+def remove_config_file(peer_type: str, peer_id: str) -> None:
+
+    conf_dir = os.path.join(peer_config_folder, peer_type, peer_id)
+    conf_file = os.path.join(conf_dir, config_file)
+    if os.path.isdir(conf_dir) and os.path.isfile(conf_file):
+        run_drop_priv(os.remove, conf_file)
+        run_drop_priv(os.rmdir, conf_dir)
+        print(f"info: removed config file {conf_file}")
+    else:
+        print(f"CRITICAL: missing configuration file {conf_file}")
+        exit(1)
+
+
 # save wireguard config file from current wireguard interface params
 def save_wg_file() -> None:
 
@@ -176,9 +191,22 @@ def get_current_peers() -> list[list]:
     return current_peers
 
 
+# check peer arguments type and value
+def check_peer_args(peer_type: str, peer_id: str) -> None:
+    if not isinstance(peer_type, str):
+        print(f"CRITICAL: bad type for `peer_type` {peer_type}")
+        exit(1)
+    if not isinstance(peer_id, str):
+        print(f"CRITICAL: bad type for `peer_id` {peer_id}")
+        exit(1)
+    if peer_type not in peer_types:
+        print(f"CRITICAL: bad value for `peer_type` {peer_type}")
+        exit(1)
+
+
 # generate and save configuration for a new peer
 def genconf(peer_type, peer_id) -> None:
-    assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
+    check_peer_args(peer_type, peer_id)
 
     if not { 'VPN_SUBNET_PREFIX', 'VPN_SERVER_PUBLIC_ADDR', 'VPN_SERVER_PORT', 'VPN_IP',
              f"VPN_{peer_type.upper()}_IP_ASSIGN" } <= os.environ.keys():
@@ -275,7 +303,7 @@ def genconf(peer_type, peer_id) -> None:
 # finish definition of a new peer with peer's public key,
 # in current wireguard interface and wireguard file
 def add(peer_type, peer_id, peer_public_key) -> None:
-    assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
+    check_peer_args(peer_type, peer_id)
 
     # read peer config file
     filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
@@ -311,7 +339,7 @@ def add(peer_type, peer_id, peer_public_key) -> None:
 # remove a peer from the current wireguard interface configuration,
 # save updated wireguard config file, and optionally remove peer config file
 def remove(peer_type, peer_id, removeconf: bool = False) -> None:
-    assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
+    check_peer_args(peer_type, peer_id)
 
     # read peer config file
     filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
@@ -351,16 +379,7 @@ def remove(peer_type, peer_id, removeconf: bool = False) -> None:
     save_wg_file()
 
     if removeconf is True:
-        # remove configuration file and directory for `peer_id`
-        conf_dir = os.path.join(peer_config_folder, peer_type, peer_id)
-        conf_file = os.path.join(conf_dir, config_file)
-        if os.path.isdir(conf_dir) and os.path.isfile(conf_file):
-            run_drop_priv(os.remove, conf_file)
-            run_drop_priv(os.rmdir, conf_dir)
-            print(f"info: removed config file {conf_file}")
-        else:
-            print(f"CRITICAL: missing configuration file {conf_file}")
-            exit(1)
+        remove_config_file(peer_type, peer_id)
 
 
 # build cross information on peers from configuration files
@@ -386,7 +405,11 @@ def list() -> None:
 
             peer_tmpconf = { 'type': peer_type, 'id': peer_id }
             peer_tmpconf['publickeys'] = []
-            peers[str(ip.IPv4Network(f"{peer_config['VPN_IP']}/32"))] = peer_tmpconf
+            try:
+                peers[str(ip.IPv4Network(f"{peer_config['VPN_IP']}/32"))] = peer_tmpconf
+            except (ip.AddressValueError, ip.NetmaskValueError) as e:
+                print(f"CRITICAL: bad `VPN_IP` {peer_config['VPN_IP']} gives error : {e}")
+                exit(1)
 
     # scan active peers list
     current_peers = get_current_peers()
@@ -416,7 +439,7 @@ if __name__ == "__main__":
     parser_genconf = subparsers.add_parser("genconf", help="generate the config file for a new peer")
     parser_genconf.add_argument(
         "type",
-        choices=["researcher", "node", "management"],
+        choices=peer_types,
         help="type of client to generate config for")
     parser_genconf.add_argument("id", type=str, help="id of the new peer")
 
@@ -424,7 +447,7 @@ if __name__ == "__main__":
     parser_add = subparsers.add_parser("add", help="add a new peer")
     parser_add.add_argument(
         "type",
-        choices=["researcher", "node", "management"],
+        choices=peer_types,
         help="type of client to add")
     parser_add.add_argument("id", type=str, help="id of the client")
     parser_add.add_argument("publickey", type=str, help="publickey of the client")
@@ -432,14 +455,14 @@ if __name__ == "__main__":
     parser_remove = subparsers.add_parser("remove", help="remove a peer")
     parser_remove.add_argument(
         "type",
-        choices=["researcher", "node", "management"],
+        choices=peer_types,
         help="type of client to remove")
     parser_remove.add_argument("id", type=str, help="id client to remove")
 
     parser_remove = subparsers.add_parser("removeconf", help="remove a peer and its config file")
     parser_remove.add_argument(
         "type",
-        choices=["researcher", "node", "management"],
+        choices=peer_types,
         help="type of client to remove")
     parser_remove.add_argument("id", type=str, help="id client to remove")
 
