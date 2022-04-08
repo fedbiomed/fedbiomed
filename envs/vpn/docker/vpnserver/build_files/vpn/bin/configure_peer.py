@@ -13,6 +13,10 @@ import tabulate
 # - launched in `vpnserver` container (Linux), thus can use some os-specific commands
 #
 
+#
+# Initialize variables
+#
+
 # paths templates for config files
 template_file = os.path.join(os.sep, 'fedbiomed', 'vpn', 'config_templates', 'config_%s.env')
 assign_config_file = os.path.join(os.sep, 'config', 'ip_assign', 'last_ip_assign_%s')
@@ -33,6 +37,9 @@ else:
     container_gid = init_gid
 
 
+#
+# Functions
+#
 
 # run `function(args, kwargs)` with privileges of
 # `container_uid:container_gid` (temporary drop)
@@ -46,6 +53,7 @@ def run_drop_priv(function: Callable, *args, **kwargs) -> Any:
     os.setegid(init_gid)
     return ret
 
+
 # read a peer config.env file and build a dict from its content
 def read_config_file(filepath: str) -> dict:
 
@@ -56,6 +64,7 @@ def read_config_file(filepath: str) -> dict:
             if not line.startswith('#') and not line == '')
 
     return peer_config
+
 
 # save a new peer config.env file from a mapping dict
 def save_config_file(peer_type: str, peer_id: str, mapping: dict):
@@ -75,6 +84,7 @@ def save_config_file(peer_type: str, peer_id: str, mapping: dict):
 
     print(f"info: configuration for {peer_type}/{peer_id} saved in {filepath}")
 
+
 # save wireguard config file from current wireguard interface params
 def save_wg_file():
 
@@ -82,21 +92,26 @@ def save_wg_file():
         ["bash", "-c", f"(umask 0077; wg showconf wg0 > {wg_config_file})"])
 
 
+# list peers currently declared in the current wireguard interface params
+def get_current_peers() -> list[list]:
+
+    current_peers = []
+
+    f = os.popen('wg show wg0 allowed-ips')
+    for line in f:
+        current_peers.append(re.split('\s+', line.strip(" \n")))
+    f.close()
+
+    return current_peers
+
+
 # generate and save configuration for a new peer
 def genconf(peer_type, peer_id):
     assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
 
-    # wireguard keys
-    peer_psk = subprocess.run(
-        ["wg", "genpsk"],
-        stdout=subprocess.PIPE, text=True).stdout.rstrip('\n')
-    server_public_key = subprocess.run(
-        ["wg", "show", "wg0", "public-key"],
-        stdout=subprocess.PIPE, text=True).stdout.rstrip('\n')
 
-    vpn_net = ip.IPv4Interface(f"{os.environ['VPN_IP']}/{os.environ['VPN_SUBNET_PREFIX']}").network
+    # assign IP address for the new peer + save updated counter of assigned IP
     assign_net = ip.IPv4Network(os.environ[f"VPN_{peer_type.upper()}_IP_ASSIGN"])
-
     assign_file = assign_config_file % peer_type
     if os.path.exists(assign_file) and os.path.getsize(assign_file) > 0:
         f = run_drop_priv(open, assign_file, 'r+')
@@ -113,10 +128,20 @@ def genconf(peer_type, peer_id):
     f.close()
 
 
+    # create configuration for the new peer
+    peer_psk = subprocess.run(
+        ["wg", "genpsk"],
+        stdout=subprocess.PIPE, text=True).stdout.rstrip('\n')
+    server_public_key = subprocess.run(
+        ["wg", "show", "wg0", "public-key"],
+        stdout=subprocess.PIPE, text=True).stdout.rstrip('\n')
+
+    vpn_net = ip.IPv4Interface(f"{os.environ['VPN_IP']}/{os.environ['VPN_SUBNET_PREFIX']}").network
+
+
     assert peer_addr_ip in assign_net
     assert peer_addr_ip in vpn_net
 
-    # create peer configuration
     mapping = {
         "vpn_ip": peer_addr_ip,
         "vpn_subnet_prefix": os.environ['VPN_SUBNET_PREFIX'],
@@ -131,42 +156,52 @@ def genconf(peer_type, peer_id):
     assert None not in mapping.values()
     assert "" not in mapping.values()
 
+    # save new peer configuration file
     save_config_file(peer_type, peer_id, mapping)
 
 
+# finish definition of a new peer with peer's public key,
+# in current wireguard interface and wireguard file
 def add(peer_type, peer_id, peer_public_key):
     assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
 
+    # read peer config file
     filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
     peer_config = read_config_file(filepath)
 
-    # apply the config to the server
+    # add the new peer to the current wireguard interface config
     subprocess.run(
         ["wg", "set", "wg0", "peer", peer_public_key, "allowed-ips",
             str(ip.IPv4Network(f"{peer_config['VPN_IP']}/32")),
             "preshared-key", "/dev/stdin"],
         text=True,
         input=peer_config['VPN_SERVER_PSK']) 
+
+    # save updated wireguard config file
     save_wg_file()
 
 
+# remove a peer from the current wireguard interface configuration,
+# save updated wireguard config file, and optionally remove peer config file
 def remove(peer_type, peer_id, removeconf: bool = False):
     assert peer_type == "researcher" or peer_type == "node" or peer_type == "management"
 
+    # read peer config file
     filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
     peer_config = read_config_file(filepath)
 
-    f = os.popen('wg show wg0 allowed-ips')
-    for line in f:
-        peer = re.split('\s+', line.strip(" \n"))
+    # remove peer declared with `peer_id`'s IP prefix from current wireguard configuration
+    current_peers = get_current_peers()
+    for peer in current_peers:
         if peer[1] == str(ip.IPv4Network(f"{peer_config['VPN_IP']}/32")):
             subprocess.run(["wg", "set", "wg0", "peer", peer[0], "remove"])
             print(f"info: removed peer {peer[0]}")
-    f.close()
 
+    # save updated wireguard config file
     save_wg_file()
 
     if removeconf is True:
+        # remove configuration file and directory for `peer_id`
         conf_dir = os.path.join(peer_config_folder, peer_type, peer_id)
         conf_file = os.path.join(conf_dir, config_file)
         if os.path.isdir(conf_dir) and os.path.isfile(conf_file):
@@ -178,8 +213,11 @@ def remove(peer_type, peer_id, removeconf: bool = False):
             exit(1)
 
 
+# build cross information on peers from configuration files
+# and current wireguard interface configuration, pretty print
+# on standard output
 def list():
-
+    # Structure of `peers`
     # peers = {
     #   IP_prefix_1 = {
     #       'name' = str(name_of_peer_1)
@@ -201,12 +239,8 @@ def list():
             peers[str(ip.IPv4Network(f"{peer_config['VPN_IP']}/32"))] = peer_tmpconf
 
     # scan active peers list
-
-    # (partial) same as `remove` - to be factored
-    f = os.popen('wg show wg0 allowed-ips')
-    for line in f:
-        peer_declared = re.split('\s+', line.strip(" \n"))
-
+    current_peers = get_current_peers()
+    for peer_declared in current_peers:
         for pkey, pval in peers.items():
             if pkey == peer_declared[1]:
                 pval['publickeys'].append(peer_declared[0])
@@ -215,12 +249,15 @@ def list():
             peer_tmpconf = { 'type': '?', 'id': '?' }
             peer_tmpconf['publickeys'] = [ peer_declared[0] ]
             peers[peer_declared[1]] = peer_tmpconf
-    f.close()
 
     # display result
     pretty_peers = [[v['type'], v['id'], k, v['publickeys']] for k, v in peers.items()]
     print(tabulate.tabulate(pretty_peers, headers = ['type', 'id', 'prefix', 'peers']))
 
+
+#
+# Main 
+#
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Configure Wireguard peers on the server")
