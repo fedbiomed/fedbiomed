@@ -188,7 +188,7 @@ def genconf(peer_type, peer_id) -> None:
 
     # don't update if config for this peer already exist => error
     if os.path.isfile(os.path.join(peer_config_folder, peer_type, peer_id, config_file)):
-        print(f"WARNING: config file already exists for peer {peer_type}/{peer_id}. Do nothing.")
+        print(f"WARNING: do nothing, config file already exists for peer {peer_type}/{peer_id}")
         return
 
     # assign IP address for the new peer + save updated counter of assigned IP
@@ -279,7 +279,16 @@ def add(peer_type, peer_id, peer_public_key) -> None:
 
     # read peer config file
     filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
+    if not os.path.isfile(filepath):
+        # want more explicit message and failure
+        print(f"ERROR: do nothing, peer {peer_type}/{peer_id} does not exist. "
+              "You need to create it with `genconf` first.")
+        return
+
     peer_config = read_config_file(filepath)
+    if not { 'VPN_SERVER_PSK', 'VPN_IP' } <= peer_config.keys():
+        print("CRITICAL: missing entries in peer config file : `VPN_SERVER_PSK` or `VPN_IP`")
+        exit(1)    
 
     # add the new peer to the current wireguard interface config
     try:
@@ -291,7 +300,7 @@ def add(peer_type, peer_id, peer_public_key) -> None:
             check=True,
             text=True
         )
-    except subprocess.CalledProcessError as e:
+    except (subprocess.CalledProcessError, ip.AddressValueError, ip.NetmaskValueError)as e:
         print(f"CRITICAL: setting peer in wireguard interface failed with error : {e}")
         exit(1)
 
