@@ -74,7 +74,7 @@ start_wireguard(){
         [ "$?" -eq 0 ] && RUNNING_KERNELWG=true
     fi
 
-    # use boringtun if explicitely requested or if kernel wg could not launch properly
+    # use boringtun if explicitly requested or if kernel wg could not launch properly
     if ! "$RUNNING_KERNELWG"
     then
         # need to remove kernel module if loaded for using boringtun alternative

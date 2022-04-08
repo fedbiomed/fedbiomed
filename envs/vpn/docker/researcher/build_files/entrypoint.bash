@@ -24,7 +24,7 @@ export UPLOADS_URL="http://10.220.0.3:8000/upload/"
 export PYTHONPATH=/fedbiomed
 su -c "export PATH=${PATH} ; eval $(conda shell.bash hook) ; \
     conda activate fedbiomed-researcher ; cd notebooks ; \
-    jupyter notebook --ip=0.0.0.0 --no-browser --NotebookApp.token='' " $CONTAINER_USER &
+    jupyter notebook --ip=0.0.0.0 --no-browser --allow-root --NotebookApp.token='' " $CONTAINER_USER &
 
 # proxy port for TensorBoard
 # enables launching TB without `--host` option (thus listening only on `localhost`)
