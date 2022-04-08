@@ -108,7 +108,7 @@ def read_config_file(filepath: str) -> dict:
 
 
 # save a new peer config.env file from a mapping dict
-def save_config_file(peer_type: str, peer_id: str, mapping: dict):
+def save_config_file(peer_type: str, peer_id: str, mapping: dict) -> None:
 
     outpath = os.path.join(peer_config_folder, peer_type)
     run_drop_priv(os.makedirs, outpath, exist_ok=True)
@@ -119,15 +119,20 @@ def save_config_file(peer_type: str, peer_id: str, mapping: dict):
     filepath = os.path.join(outpath, config_file)
     f_config = run_drop_priv(open, filepath, 'w')
 
-    with open(template_file % peer_type, 'r') as f_template:
-        f_config.write(Template(f_template.read()).substitute(mapping))
+    try:
+        f_template = open(template_file % peer_type, 'r')
+    except Exception as e:
+        print(f"CRITICAL: cannot open template file {f_template} % {peer_type} : {e}")
+        exit(1)
+
+    f_config.write(Template(f_template.read()).substitute(mapping))
     f_config.close()
 
     print(f"info: configuration for {peer_type}/{peer_id} saved in {filepath}")
 
 
 # save wireguard config file from current wireguard interface params
-def save_wg_file():
+def save_wg_file() -> None:
 
     # read current wireguard interface config
     try:
@@ -136,7 +141,7 @@ def save_wg_file():
             stdout=subprocess.PIPE,
             check=True).stdout.decode().splitlines()
     except subprocess.CalledProcessError as e:
-        print(f"CRITICAL: wireguard config read failed with error : {e}")
+        print(f"CRITICAL: wireguard config file read failed with error : {e}")
         exit(1)
 
     # save wireguard config to file
@@ -151,10 +156,22 @@ def get_current_peers() -> list[list]:
 
     current_peers = []
 
-    f = os.popen('wg show wg0 allowed-ips')
+    try:
+        f = subprocess.run(
+            ['wg', 'show', 'wg0', 'allowed-ips'],
+            stdout=subprocess.PIPE,
+            check=True
+        ).stdout.decode().splitlines()
+    except subprocess.CalledProcessError as e:
+        print(f"CRITICAL: wireguard current config read failed with error : {e}")
+        exit(1)
+
     for line in f:
-        current_peers.append(re.split('\\s+', line.strip(" \n")))
-    f.close()
+        peer = re.split('\\s+', line.strip(" \n"))
+        if not len(peer) == 2 and isinstance(peer[0], str) and isinstance(peer[1], str):
+            print(f"CRITICAL: wireguard current config gives incorrect output line : {peer}")
+            exit(1)            
+        current_peers.append(peer)
 
     return current_peers
 
