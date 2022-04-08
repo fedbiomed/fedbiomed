@@ -280,7 +280,7 @@ def add(peer_type, peer_id, peer_public_key) -> None:
     # read peer config file
     filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
     if not os.path.isfile(filepath):
-        # want more explicit message and failure
+        # want explicit message and failure
         print(f"ERROR: do nothing, peer {peer_type}/{peer_id} does not exist. "
               "You need to create it with `genconf` first.")
         return
@@ -315,12 +315,27 @@ def remove(peer_type, peer_id, removeconf: bool = False) -> None:
 
     # read peer config file
     filepath = os.path.join(peer_config_folder, peer_type, peer_id, config_file)
+    if not os.path.isfile(filepath):
+        # want explicit message and failure
+        print(f"ERROR: do nothing, peer {peer_type}/{peer_id} does not exist. "
+              "You need to create it with `genconf` first.")
+        return
+
     peer_config = read_config_file(filepath)
+    if 'VPN_IP' not in peer_config:
+        print("CRITICAL: missing entry in peer config file : `VPN_IP`")
+        exit(1) 
 
     # remove peer declared with `peer_id`'s IP prefix from current wireguard configuration
     current_peers = get_current_peers()
+    try:
+        remove_peer = ip.IPv4Network(f"{peer_config['VPN_IP']}/32")
+    except (ip.AddressValueError, ip.NetmaskValueError) as e:
+        print(f"CRITICAL: bad `VPN_IP` {peer_config['VPN_IP']} gives error : {e}")
+        exit(1)
+
     for peer in current_peers:
-        if peer[1] == str(ip.IPv4Network(f"{peer_config['VPN_IP']}/32")):
+        if peer[1] == str(remove_peer):
             try:
                 subprocess.run(
                     ["wg", "set", "wg0", "peer", peer[0], "remove"],
@@ -330,7 +345,7 @@ def remove(peer_type, peer_id, removeconf: bool = False) -> None:
                 print(f"CRITICAL: removing peer from wireguard interface failed with error : {e}")
                 exit(1)
 
-            print(f"info: removed peer {peer[0]}")
+            print(f"info: successfully removed peer {peer[0]}")
 
     # save updated wireguard config file
     save_wg_file()
@@ -344,7 +359,7 @@ def remove(peer_type, peer_id, removeconf: bool = False) -> None:
             run_drop_priv(os.rmdir, conf_dir)
             print(f"info: removed config file {conf_file}")
         else:
-            print("CRITICAL: missing configuration file {conf_file}")
+            print(f"CRITICAL: missing configuration file {conf_file}")
             exit(1)
 
 
