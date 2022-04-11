@@ -165,7 +165,7 @@ class DatasetManager:
         Loads the mednist dataset.
 
         Args:
-            path (str): pathfile to MedNist dataset.
+            path (str): pathfile to save the MedNist dataset.
             as_dataset (bool, optional): whether to return
             the complete dataset (True) or dataset dimensions (False).
             Defaults to False.
@@ -174,6 +174,10 @@ class DatasetManager:
             NotImplementedError: triggered if tarfile cannot be downloaded or the downloaded tarfile cannot be extracted
 
         Returns:
+            [type]: depending on the value of the parameter `as_dataset`. If
+            set to True,  returns dataset (type: torch.utils.data.Dataset),
+            if set to False, returns the size of the dataset stored inside
+            a list (type: List[int])
         """
         url = "https://github.com/Project-MONAI/MONAI-extra-test-data/releases/download/0.8.1/MedNIST.tar.gz"
         filepath = os.path.join(path,'MedNIST.tar.gz')
@@ -181,10 +185,13 @@ class DatasetManager:
             urlretrieve(url, filepath)
             with tarfile.open(filepath) as tar_file:
                 tar_file.extractall(path)
+            os.remove(filepath)
         except (URLError, HTTPError, ContentTooShortError, OSError, tarfile.TarError) as e:
             raise e
 
-        
+        return self.load_images_dataset(os.path.join(path, 'MedNIST'), as_dataset)
+
+
 
     def load_images_dataset(self,
                             folder_path: str,
