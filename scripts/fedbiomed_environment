@@ -117,6 +117,18 @@ case $1 in
         # docker containers
         (cd ${basedir}/envs/development/docker/ && docker-compose rm -sf &&  echo " * Docker cleaning" )
 
+        # network cleaner
+        echo " * Network cleaning"
+        restful_mount='envs/development/docker/restful/run_mounts'
+        net_temp_paths="${restful_mount}/app/db.sqlite3 ${restful_mount}/app/data/static"
+        net_temp_paths+=" ${restful_mount}/app/data/media/uploads ${restful_mount}/app/data/media/persistent/*"
+        for p in $net_temp_paths ; do
+            if [ -e "${basedir}/$p" ] ; then
+                echo "[INFO] Removing directory ${basedir}/$p"
+                rm -rf ${basedir}/$p
+            fi
+        done
+
         # node/researcher cleaners
         environment_reset
         activate_node
