@@ -27,7 +27,7 @@ check_vpn_environ() {
     fi
 }
 
-# initialize some environment variables
+# initialize some environment variables, create new account/group
 init_misc_environ() {
 
     #catch all errors in pipes
@@ -75,7 +75,7 @@ CONTAINER_GROUP=$CONTAINER_GROUP or CONTAINER_GID=$CONTAINER_GID : \
     if [ -z "$(getent passwd $CONTAINER_UID)" -a -z "$(getent passwd $CONTAINER_USER)" ]
     then
         useradd -m -d /home/$CONTAINER_BUILD_USER \
-            -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER
+            -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER 2>/dev/null
         if [ "$?" -ne 0 ]
         then
             echo "CRITICAL: could not create new user CONTAINER_USER=$CONTAINER_USER CONTAINER_UID=$CONTAINER_UID"
@@ -105,6 +105,39 @@ CONTAINER_USER=$CONTAINER_USER or CONTAINER_UID=$CONTAINER_UID : \
     # which version of wireguard is running
     RUNNING_KERNELWG=false
     RUNNING_BORINGTUN=false
+}
+
+# change ownership of some directories
+change_path_owner() {
+    local path_nocross=$1  # path to recursively change, dont cross mount boundaries
+    local path_full=$2  # path to recursively change, no additional checks
+
+    if [ "$USING_NEW_ACCOUNT" ]
+    then
+        for path in $path_nocross
+        do
+            # don't use `chown -R` that would cross mountpoints
+            find $path -mount -exec chown -h $CONTAINER_USER:$CONTAINER_GROUP {} \;
+            if [ "$?" -ne 0 ]
+            then
+                echo "CRITICAL: could not change ownership of $path to $CONTAINER_USER:$CONTAINER_GROUP"
+                exit 1
+            fi
+            echo "info: changed ownership of $path to $CONTAINER_USER:$CONTAINER_GROUP"
+        done
+
+        for path in $path_full
+        do
+            # far quicker than doing a `find`
+            chown -R $CONTAINER_USER:$CONTAINER_GROUP $path
+            if [ "$?" -ne 0 ]
+            then
+                echo "CRITICAL: could not change ownership of $path to $CONTAINER_USER:$CONTAINER_GROUP"
+                exit 1
+            fi
+            echo "info: changed ownership of $path to $CONTAINER_USER:$CONTAINER_GROUP"
+        done
+    fi
 }
 
 # check wireguard interface exists
