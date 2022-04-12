@@ -181,6 +181,7 @@ class DatasetManager:
         """
         url = "https://github.com/Project-MONAI/MONAI-extra-test-data/releases/download/0.8.1/MedNIST.tar.gz"
         filepath = os.path.join(path,'MedNIST.tar.gz')
+        print('path is',path)
         try:
             urlretrieve(url, filepath)
             with tarfile.open(filepath) as tar_file:
@@ -269,7 +270,7 @@ class DatasetManager:
 
         elif data_type == 'mednist':
             assert os.path.isdir(path), f'Folder {path} for MedNIST Dataset does not exist.'
-            shape = self.load_mednist_database(name, path)
+            shape = self.load_mednist_database(path)
 
         elif data_type == 'csv':
             assert os.path.isfile(path), f'Path provided ({path}) does not correspond to a CSV file.'
