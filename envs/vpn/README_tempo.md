@@ -663,7 +663,8 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 2 : configuration
 [user@network $] rm -rf ./restful/run_mounts/config/{config.env,wireguard}
-
+[user@network $] rm -rf ./restful/run_mounts/app/data/media/{persistent,uploads}
+[user@network $] rm -rf ./restful/run_mounts/app/data/static
 [user@network $] rm -f ./restful/run_mounts/app/db.sqlite3
 # also clean saved files ? (same for env/developement)
 
