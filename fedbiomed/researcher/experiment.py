@@ -8,6 +8,7 @@ import json
 import inspect
 import traceback
 
+from functools import wraps
 from re import findall
 from tabulate import tabulate
 from typing import Callable, Tuple, Union, Dict, Any, TypeVar, Type, List
@@ -52,6 +53,7 @@ def exp_exceptions(function):
     """
 
     # wrap the original function catching the exceptions
+    @wraps(function)
     def payload(*args, **kwargs):
         code = 0
         try:
