@@ -179,18 +179,19 @@ class DatasetManager:
             if set to False, returns the size of the dataset stored inside
             a list (type: List[int])
         """
-        url = "https://github.com/Project-MONAI/MONAI-extra-test-data/releases/download/0.8.1/MedNIST.tar.gz"
-        filepath = os.path.join(path,'MedNIST.tar.gz')
-        print('path is',path)
-        try:
-            urlretrieve(url, filepath)
-            with tarfile.open(filepath) as tar_file:
-                tar_file.extractall(path)
-            os.remove(filepath)
-        except (URLError, HTTPError, ContentTooShortError, OSError, tarfile.TarError) as e:
-            raise e
+        download_path = os.path.join(path, 'MedNIST')
+        if not os.path.isdir(download_path):
+            url = "https://github.com/Project-MONAI/MONAI-extra-test-data/releases/download/0.8.1/MedNIST.tar.gz"
+            filepath = os.path.join(path,'MedNIST.tar.gz')
+            try:
+                urlretrieve(url, filepath)
+                with tarfile.open(filepath) as tar_file:
+                    tar_file.extractall(path)
+                os.remove(filepath)
+            except (URLError, HTTPError, ContentTooShortError, OSError, tarfile.TarError) as e:
+                raise e
 
-        return self.load_images_dataset(os.path.join(path, 'MedNIST'), as_dataset)
+        return self.load_images_dataset(download_path, as_dataset)
 
 
 
