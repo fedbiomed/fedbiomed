@@ -27,6 +27,9 @@ RUN [ "$CONTAINER_GROUP" != 'root' ] && groupadd -g $CONTAINER_GID $CONTAINER_GR
 RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
         -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER || :
 
+# -qq to avoid warning because installing pip package as root
+RUN pip install -qq tabulate
+
 COPY ./vpn vpn/
 COPY ./entrypoint*.bash /
 
