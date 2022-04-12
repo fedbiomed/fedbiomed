@@ -84,6 +84,68 @@ Run this for all launches of the container :
 [user@network $] docker-compose up -d vpnserver
 ```
 
+#### Managing Peers in VPNServer
+
+Peers in VPN server can be listed or removed through `configure_peer.py`. 
+
+**Example:**
+
+Following code snippet will generate configurations for `mqtt` and `restful` component register their public keys in 
+VPN server. 
+```bash
+[user@network $] docker-compose exec vpnserver bash
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf management mqtt
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf management restful
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py add management mqtt 1OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py add management restful 2OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=
+```
+After running above commands, there will be two peers registered under the management as `mqtt` and `restful`. These 
+peers can be listed with the `list` command.
+
+```bash
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py list
+>>> Output:
+type        id       prefix         peers
+----------  -------  -------------  ------------------------------------------------
+management  restful  10.220.0.3/32  ['2OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
+management  mqtt     10.220.0.2/32  ['XOIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
+```
+A peer can have multiple registered keys: 
+
+```bash
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py add management mqtt 3OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py list
+>>> Output:
+type        id       prefix         peers
+----------  -------  -------------  ------------------------------------------------------------------------------------------------
+management  restful  10.220.0.3/32  ['2OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
+management  mqtt     10.220.0.2/32  ['3OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=', 'XOIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
+```
+
+To remove registered keys of the peer from VPN server: 
+```bash
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py remove management mqtt
+>>> Output:
+type        id       prefix         peers
+----------  -------  -------------  ------------------------------------------------
+management  restful  10.220.0.3/32  ['2OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
+management  mqtt     10.220.0.2/32  []
+```
+
+`remove` command removes only the registered keys for the given peer. Since the configuration files are not removed from 
+the `config_peers` directory, `list` command will still list removed peers. This will allow you to register new key 
+for the peer without generating configuration file all over again. 
+
+Config files of peers can be removed with the `removeconf` flag.
+
+```bash
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py removeconf management mqtt
+>>> Output:
+type        id       prefix         peers
+----------  -------  -------------  -----------------------------------------------
+management  restful  10.220.0.3/32  ['2OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
+```
+
 ### initializing mqtt
 
 Run this only at first launch of container or after cleaning :
