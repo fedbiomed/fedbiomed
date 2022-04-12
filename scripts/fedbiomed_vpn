@@ -32,11 +32,11 @@ usage() {
     fi
     echo "\
 Usage: ${0##*/} clean
-       ${0##*/} build            [CONTAINER...]
-       ${0##*/} configure        [CONTAINER...]
-       ${0##*/} start [-g|--gpu] [CONTAINER...]
+       ${0##*/} build                          [CONTAINER...]
+       ${0##*/} configure                      [CONTAINER...]
+       ${0##*/} start [-g|--gpu] [-s|--status] [CONTAINER...]
+       ${0##*/} stop                           [CONTAINER...]
        ${0##*/} status
-       ${0##*/} stop             [CONTAINER...]
        ${0##*/} node *
        ${0##*/} researcher *
 
@@ -63,6 +63,7 @@ start          start containers
 
   Optional with start:
   -g|--gpu     GPU support option (used for node container)
+  -s|--status  give information on running containers after the start
 
 status         give information on running containers
 
@@ -449,8 +450,7 @@ containers_start() {
         esac
     done
 
-    sleep 1 # sometimes the container volumes are synchronized immediately
-    containers_status
+    sleep 1 # sometimes the container volumes are not synchronized immediately
 }
 
 run() {
@@ -572,6 +572,7 @@ while (($# > 0)); do
                     vpnserver|mqtt|restful|researcher|node|gui) add_container $1;;
                     -h|--help|help) usage ;;
                     -g|--gpu)       GPU=1 ;;
+                    -s|--status)    STATUS=1 ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
                 shift
@@ -646,8 +647,10 @@ fi
 [[ $CONFIGURE -eq 1 ]]      && { containers_configure; }
 [[ $START -eq 1 ]]          && { containers_start; }
 [[ $STOP -eq 1 ]]           && { containers_stop; }
-[[ $STATUS -eq 1 ]]         && { containers_status; }
 [[ $RUN_NODE -eq 1 ]]       && { run node; }
 [[ $RUN_RESEARCHER -eq 1 ]] && { run researcher; }
+
+# must be the last
+[[ $STATUS -eq 1 ]]         && { containers_status; }
 
 exit 0
