@@ -239,7 +239,6 @@ services:
       - CONTAINER_GID
       - CONTAINER_USER
       - CONTAINER_GROUP
-    environment:
       - PRODUCTION=1
       - DJANGO_SUPERUSER_USERNAME=admin
       - DJANGO_SUPERUSER_EMAIL=dummy@gitlab.inria.fr
