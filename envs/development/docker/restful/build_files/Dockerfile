@@ -35,9 +35,9 @@ RUN apk add --no-cache --virtual .build-deps \
 RUN mkdir /app
 WORKDIR /app
 
-COPY ./entrypoint.sh /
+COPY ./entrypoint.bash /
 
 # Expose ports
 EXPOSE 8000
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.bash"]

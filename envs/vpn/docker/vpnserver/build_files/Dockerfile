@@ -28,6 +28,6 @@ RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
         -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER || :
 
 COPY ./vpn vpn/
-COPY ./entrypoint.sh .
+COPY ./entrypoint*.bash /
 
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.bash"]
