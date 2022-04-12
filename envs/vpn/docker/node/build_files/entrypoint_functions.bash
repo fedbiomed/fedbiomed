@@ -37,8 +37,59 @@ init_misc_environ() {
     CONFIG_DIR=/config
 
     # set identity when we would like to drop privileges
-    CONTAINER_USER=${CONTAINER_USER:-root}
-    echo "info: set CONTAINER_USER='${CONTAINER_USER}'"
+    echo "info: container was built with \
+CONTAINER_BUILD_USER=${CONTAINER_BUILD_USER} \
+CONTAINER_BUILD_UID=${CONTAINER_BUILD_UID} \
+CONTAINER_BUILD_GROUP=${CONTAINER_BUILD_GROUP} \
+CONTAINER_BUILD_GID=${CONTAINER_BUILD_GID}"
+    CONTAINER_USER=${CONTAINER_USER:-${CONTAINER_BUILD_USER:-root}}
+    CONTAINER_GROUP=${CONTAINER_GROUP:-${CONTAINER_BUILD_GROUP:-root}}
+    CONTAINER_UID=${CONTAINER_UID:-${CONTAINER_BUILD_UID:-0}}
+    CONTAINER_GID=${CONTAINER_GID:-${CONTAINER_BUILD_GID:-0}}
+    echo "info: set CONTAINER_USER=${CONTAINER_USER} \
+CONTAINER_UID=${CONTAINER_UID} \
+CONTAINER_GROUP=${CONTAINER_GROUP} \
+CONTAINER_GID=${CONTAINER_GID}"
+
+    # if using an account/group that does not exist, we need to create it
+    # and position a variable to indicate it to the script
+    if [ -z "$(getent group $CONTAINER_GID)" -a -z "$(getent group $CONTAINER_GROUP)" ]
+    then
+        groupadd -g $CONTAINER_GID $CONTAINER_GROUP
+        if [ "$?" -ne 0 ]
+        then
+            echo "CRITICAL: could not create new group CONTAINER_GROUP=$CONTAINER_GROUP CONTAINER_GID=$CONTAINER_GID"
+            exit 1
+        fi
+        echo "info: created new group CONTAINER_GROUP=$CONTAINER_GROUP CONTAINER_GID=$CONTAINER_GID"
+        USING_NEW_ACCOUNT=true
+    elif [ -z "$(getent group $CONTAINER_GID)" -o -z "$(getent group $CONTAINER_GROUP)" ]
+        # case of incoherent group spec : either gid is already used (with another group name)
+        # or group name is already used (with another gid)
+        echo "CRITICAL: bad group specification, a group already exists with either \
+CONTAINER_GROUP=$CONTAINER_GROUP or CONTAINER_GID=$CONTAINER_GID : \
+'$(getent group $CONTAINER_GID)' '$(getent group $CONTAINER_GROUP)'"
+        exit 1
+    fi
+    if [ -z "$(getent passwd $CONTAINER_UID)" -a -z "$(getent passwd $CONTAINER_USER)" ]
+    then
+        useradd -m -d /home/$CONTAINER_BUILD_USER \
+            -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER
+        if [ "$?" -ne 0 ]
+        then
+            echo "CRITICAL: could not create new user CONTAINER_USER=$CONTAINER_USER CONTAINER_UID=$CONTAINER_UID"
+            exit 1
+        fi
+        echo "info: created new user CONTAINER_USER=$CONTAINER_USER CONTAINER_UID=$CONTAINER_UID"
+        USING_NEW_ACCOUNT=true
+    elif [ -z "$(getent passwd $CONTAINER_UID)" -o -z "$(getent passwd $CONTAINER_USER)" ]
+        # case of incoherent user spec : either uid is already used (with another user name)
+        # or user name is already used (with another uid)
+        echo "CRITICAL: bad user specification, a user already exists with either \
+CONTAINER_USER=$CONTAINER_USER or CONTAINER_UID=$CONTAINER_UID : \
+'$(getent passwd $CONTAINER_UID)' '$(getent passwd $CONTAINER_USER)'"
+        exit 1
+    fi
 
     # set command for dropping privileges
     SETUSER=eval

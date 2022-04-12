@@ -94,7 +94,7 @@ services:
         - CONTAINER_GROUP
     image: fedbiomed/vpn-node
     environment:
-    # enables using different id than at build time
+    # enable overloading build-time id with a run-time id
       - CONTAINER_UID
       - CONTAINER_GID
       - CONTAINER_USER
