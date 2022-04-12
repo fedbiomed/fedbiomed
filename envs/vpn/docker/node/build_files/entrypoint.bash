@@ -12,10 +12,10 @@ source ~/bashrc_entrypoint
 
 
 
-CONTAINER_UID=${CONTAINER_UID:-0}
-CONTAINER_GID=${CONTAINER_GID:-0}
-CONTAINER_USER=${CONTAINER_USER:-root}
-CONTAINER_GROUP=${CONTAINER_GROUP:-root}
+CONTAINER_UID=${CONTAINER_UID:-${CONTAINER_BUILD_UID:-0}}
+CONTAINER_GID=${CONTAINER_GID:-${CONTAINER_BUILD_GID:-0}}
+CONTAINER_USER=${CONTAINER_USER:-${CONTAINER_BUILD_USER:-root}}
+CONTAINER_GROUP=${CONTAINER_GROUP:-${CONTAINER_BUILD_GROUP:-root}}
 
 if [ -z "$(getent group $CONTAINER_GID)" -a -z "$(getent group $CONTAINER_GROUP)" ]
 then
@@ -28,7 +28,7 @@ then
     echo "info: created new group CONTAINER_GROUP=$CONTAINER_GROUP CONTAINER_GID=$CONTAINER_GID"
     NEW_ACCOUNT=true
 fi
-if [ -z "$(getent group $CONTAINER_UID)" -a -z "$(getent group $CONTAINER_USER)" ]
+if [ -z "$(getent passwd $CONTAINER_UID)" -a -z "$(getent passwd $CONTAINER_USER)" ]
 then
     useradd -m -d /home/$CONTAINER_BUILD_USER \
         -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER
@@ -44,7 +44,7 @@ fi
 if [ "$NEW_ACCOUNT" ]
 then
     # don't use `chown -R` that would cross mountpoints
-    chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
+    find /fedbiomed -mount -exec chown -h $CONTAINER_USER:$CONTAINER_GROUP {} \;
     if [ "$?" -ne 0 ]
     then
         echo "CRITICAL: could not change ownership of /fedbiomed to $CONTAINER_USER:$CONTAINER_GROUP"

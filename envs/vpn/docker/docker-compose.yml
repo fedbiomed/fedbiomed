@@ -93,6 +93,12 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-node
+    environment:
+    # enables using different id than at build time
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
     cap_add:
       - net_admin
       - sys_module

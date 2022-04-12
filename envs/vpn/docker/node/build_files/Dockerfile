@@ -12,7 +12,6 @@ ENV CONTAINER_GID=${CONTAINER_GID:-0}
 # alpine does not accept users/groups with numerical names
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
-ENV CONTAINER_BUILD_USER=${CONTAINER_USER}
 
 RUN apt-get update && apt-get install -y apt-utils wget
 
@@ -55,6 +54,12 @@ USER $CONTAINER_USER:$CONTAINER_GROUP
 # Configure conda env in context of alternate account
 RUN conda env update --file ./envs/vpn/conda/fedbiomed-node.yaml
 # another option : add tag to configure script to call "./scripts/configure_conda fedbiomed-node"
+
+# transmit build-time values to running container
+ENV CONTAINER_BUILD_USER=${CONTAINER_USER}
+ENV CONTAINER_BUILD_GROUP=${CONTAINER_GROUP}
+ENV CONTAINER_BUILD_UID=${CONTAINER_UID}
+ENV CONTAINER_BUILD_GID=${CONTAINER_GID}
 
 # Launch as root to manage VPN
 USER root:root
