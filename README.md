@@ -229,10 +229,16 @@ All these containers are communicating through the Wireguard VPN server.
 
 To setup all these components, you should:
 
-- clean/build the docker containers
+- clean all containers and files
 
 ```
-./scripts/fedbiomed_vpn build -c
+./scripts/fedbiomed_vpn clean
+```
+
+- build all the docker containers
+
+```
+./scripts/fedbiomed_vpn build
 ```
 
 - configure the wireguard encryption keys of all containers
@@ -269,6 +275,36 @@ To setup all these components, you should:
 ./scripts/fedbiomed_vpn stop
 ```
 
+### managing individual containers
+
+You can manage individually the containers for the build/stop/start phases.
+
+For example, to build only the node, you can use:
+
+```
+./scripts/fedbiomed_vpn build node
+```
+
+You can build/stop/started more than one component at a time. Example:
+```
+./scripts/fedbiomed_vpn build gui node
+```
+
+This will stop and build the node container.
+
+The list of the container names is:
+
+- vpnserver
+- mqtt
+- restful
+- researcher
+- node
+- gui
+
+**Remarks**:
+- the configuration files are keeped then rebuilding individual containers
+- restarting network component (vpnserver, restful, mqqt) may lead to unpredictable
+behavior
 
 
 
