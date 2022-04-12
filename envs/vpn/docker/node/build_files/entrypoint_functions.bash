@@ -64,6 +64,7 @@ CONTAINER_GID=${CONTAINER_GID}"
         echo "info: created new group CONTAINER_GROUP=$CONTAINER_GROUP CONTAINER_GID=$CONTAINER_GID"
         USING_NEW_ACCOUNT=true
     elif [ -z "$(getent group $CONTAINER_GID)" -o -z "$(getent group $CONTAINER_GROUP)" ]
+    then
         # case of incoherent group spec : either gid is already used (with another group name)
         # or group name is already used (with another gid)
         echo "CRITICAL: bad group specification, a group already exists with either \
@@ -83,6 +84,7 @@ CONTAINER_GROUP=$CONTAINER_GROUP or CONTAINER_GID=$CONTAINER_GID : \
         echo "info: created new user CONTAINER_USER=$CONTAINER_USER CONTAINER_UID=$CONTAINER_UID"
         USING_NEW_ACCOUNT=true
     elif [ -z "$(getent passwd $CONTAINER_UID)" -o -z "$(getent passwd $CONTAINER_USER)" ]
+    then
         # case of incoherent user spec : either uid is already used (with another user name)
         # or user name is already used (with another uid)
         echo "CRITICAL: bad user specification, a user already exists with either \
