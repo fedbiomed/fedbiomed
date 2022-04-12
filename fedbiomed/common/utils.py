@@ -107,7 +107,7 @@ def get_method_spec(method: Callable):
     return method_spec
 
 
-def convert_to_python_float(value: Union[torch.tensor, np.integer, float, int]) -> float:
+def convert_to_python_float(value: Union[torch.Tensor, np.integer, float, int]) -> float:
     """"""
 
     if not isinstance(value, (torch.Tensor, np.integer, float, int)):

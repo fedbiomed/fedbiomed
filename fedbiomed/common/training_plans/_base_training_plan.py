@@ -168,7 +168,7 @@ class BaseTrainingPlan(object):
         }
 
     @staticmethod
-    def _create_metric_result_dict(metric: Union[dict, list, int, float, np.ndarray, torch.tensor, List[torch.tensor]],
+    def _create_metric_result_dict(metric: Union[dict, list, int, float, np.ndarray, torch.Tensor, List[torch.Tensor]],
                                    metric_name: str = 'Custom') -> Dict[str, float]:
         """
         Base function to create metric dictionary.
@@ -186,7 +186,7 @@ class BaseTrainingPlan(object):
                 <keys of metric>: <metric values>
 
         Raises:
-            FedbiomedTrainingPlanError: triggered if metric is not of type dict, list, int, float, torch.tensor,
+            FedbiomedTrainingPlanError: triggered if metric is not of type dict, list, int, float, torch.Tensor,
             or np.ndarray.
         """
         if isinstance(metric, torch.Tensor):
@@ -221,9 +221,9 @@ class BaseTrainingPlan(object):
         else:
             msg = ErrorNumbers.FB605.value + \
                 " : metric value should be one of type" + \
-                " int, float, np.integer, torch.tensor," + \
-                "list of int/float/np.integer/torch.tensor or" + \
-                "dict of key (int/float/np.integer/torch.tensor) instead of " + \
+                " int, float, np.integer, torch.Tensor," + \
+                "list of int/float/np.integer/torch.Tensor or" + \
+                "dict of key (int/float/np.integer/torch.Tensor) instead of " + \
                 str(type(metric))
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
