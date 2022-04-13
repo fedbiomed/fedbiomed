@@ -116,26 +116,32 @@ change_path_owner() {
     then
         for path in $path_nocross
         do
-            # don't use `chown -R` that would cross mountpoints
-            find $path -mount -exec chown -h $CONTAINER_USER:$CONTAINER_GROUP {} \;
-            if [ "$?" -ne 0 ]
+            if [ -e $path ]
             then
-                echo "CRITICAL: could not change ownership of $path to $CONTAINER_USER:$CONTAINER_GROUP"
-                exit 1
+                # don't use `chown -R` that would cross mountpoints
+                find $path -mount -exec chown -h $CONTAINER_USER:$CONTAINER_GROUP {} \;
+                if [ "$?" -ne 0 ]
+                then
+                    echo "CRITICAL: could not change ownership of $path to $CONTAINER_USER:$CONTAINER_GROUP"
+                    exit 1
+                fi
+                echo "info: changed ownership of $path to $CONTAINER_USER:$CONTAINER_GROUP"
             fi
-            echo "info: changed ownership of $path to $CONTAINER_USER:$CONTAINER_GROUP"
         done
 
         for path in $path_full
         do
-            # far quicker than doing a `find`
-            chown -R $CONTAINER_USER:$CONTAINER_GROUP $path
-            if [ "$?" -ne 0 ]
+            if [ -e $path ] 
             then
-                echo "CRITICAL: could not change ownership of $path to $CONTAINER_USER:$CONTAINER_GROUP"
-                exit 1
+                # far quicker than doing a `find`
+                chown -R $CONTAINER_USER:$CONTAINER_GROUP $path
+                if [ "$?" -ne 0 ]
+                then
+                    echo "CRITICAL: could not change ownership of $path to $CONTAINER_USER:$CONTAINER_GROUP"
+                    exit 1
+                fi
+                echo "info: changed ownership of $path to $CONTAINER_USER:$CONTAINER_GROUP"
             fi
-            echo "info: changed ownership of $path to $CONTAINER_USER:$CONTAINER_GROUP"
         done
     fi
 }
