@@ -75,6 +75,7 @@ CONTAINER_GROUP=$CONTAINER_GROUP or CONTAINER_GID=$CONTAINER_GID : \
     fi
     if [ -z "$(getent passwd $CONTAINER_UID)" -a -z "$(getent passwd $CONTAINER_USER)" ]
     then
+        # delete stderr to avoid warning messages because homedir already exists
         useradd -m -d /home/$CONTAINER_BUILD_USER \
             -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER 2>/dev/null
         if [ "$?" -ne 0 ]
