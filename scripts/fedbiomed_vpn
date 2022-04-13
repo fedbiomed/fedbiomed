@@ -36,16 +36,16 @@ Usage: ${0##*/} clean
        ${0##*/} configure                      [CONTAINER...]
        ${0##*/} start [-g|--gpu] [-s|--status] [CONTAINER...]
        ${0##*/} stop                           [CONTAINER...]
-       ${0##*/} status
+       ${0##*/} status                         [CONTAINER...]
        ${0##*/} node *
        ${0##*/} researcher *
 
 manage (local) docker containers with Wireguard VPN support
-(cannot use build / clean / configure / start / status / stop at same time)
+(cannot use build/clean/configure/start/status/stop on the same commannd line)
 
-Optional CONTAINER names may be added to the build/configure/start/stop commands
-to manage a subset of dockers containers.
-The CONTAINER list is: vpnserver mqtt restful researcher node gui
+Optional CONTAINER names may be added to the build/configure/start/stop/status
+commands to manage a subset of dockers containers.
+The CONTAINER list may contain: vpnserver mqtt restful researcher node gui
 
 Be aware that stopping/building/starting the network containers
 (vpnserver, mqtt, restful) when node/researcher containers are running may
@@ -247,34 +247,20 @@ containers_clean() {
 }
 
 containers_status() {
-    echo "** Checking docker VPN images & VPN access"
+    echo "** Checking docker VPN images & VPN access:" ${ONLY_CONTAINERS[@]}
     cd "$basedir/envs/vpn/docker"
 
-    ERROR=0
-    echo -n "- running containers -> "
-    status=$(docker ps | grep fedbiomed/vpn- | wc -l)
-
-    if [ $status -eq ${#ALL_VPN_CONTAINERS[@]} ]; then
-        echo "OK"
-    else
-        echo "BROKEN"
-        ERROR=1
-    fi
-
     RUNNING_CONTAINERS=()
-    if [ $ERROR -eq 1 ]; then
-        echo "** ERROR: at least one of the requested docker container is not running"
-        for i in ${ALL_VPN_CONTAINERS[@]}
-        do
-            status=$(docker ps | grep fedbiomed/vpn-$i)
-            if [ -z "$status" ]; then
-                echo "- container $i is NOT running"
-            else
-                echo "- container $i is running"
-                RUNNING_CONTAINERS+=("$i")
-            fi
-        done
-    fi
+    for i in ${ONLY_CONTAINERS[@]}
+    do
+        status=$(docker ps | grep fedbiomed/vpn-$i)
+        if [ -z "$status" ]; then
+            echo "- container $i is NOT running"
+        else
+            echo "- container $i is running"
+            RUNNING_CONTAINERS+=("$i")
+        fi
+    done
 
     # ping inside the wg vpn
     for i in ${RUNNING_CONTAINERS[@]}
@@ -498,7 +484,11 @@ run() {
 
 # detect top directory
 basedir=$(cd $(dirname $0)/.. || exit ; pwd)
-cd $basedir || exit
+cd "$basedir/envs/vpn/docker" 2> /dev/null || {
+    echo "** error: cannot go to the source directory. Verify the git status"
+    echo "($basedir/envs/vpn/docker)"
+    exit 1
+}
 
 #
 CLEAN=0
@@ -597,6 +587,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
+                    vpnserver|mqtt|restful|researcher|node|gui) add_container $1;;
                     -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
