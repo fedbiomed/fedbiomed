@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# wrapper to all vpn containers commands
+# wrapper to all vpn container(s) commands
 #
 #
 
@@ -40,32 +40,32 @@ Usage: ${0##*/} clean
        ${0##*/} node *
        ${0##*/} researcher *
 
-manage (local) docker containers with Wireguard VPN support
+manage (local) docker container(s) with Wireguard VPN support
 (cannot use build/clean/configure/start/status/stop on the same commannd line)
 
-Optional CONTAINER names may be added to the build/configure/start/stop/status
-commands to manage a subset of dockers containers.
+Optional CONTAINER name(s) may be added to the build/configure/start/stop/status
+commands to manage a subset of docker container(s).
 The CONTAINER list may contain: vpnserver mqtt restful researcher node gui
 
-Be aware that stopping/building/starting the network containers
-(vpnserver, mqtt, restful) when node/researcher containers are running may
-have unpredicatble consequences. It is strongly adviced do restartfrom
+Be aware that stopping/building/starting the network container(s)
+(vpnserver, mqtt, restful) when node/researcher container(s) are running may
+have unpredicatble consequences. It is strongly adviced do restart from
 scratch in this case (clean, build, configure, start)
 
 clean          clean everything
 
-build          build containers
+build          build container(s)
 
 configure      generate/modify configuration files
                (wireguard keys and refresh @IP addresses)
 
-start          start containers
+start          start container(s)
 
   Optional with start:
   -g|--gpu     GPU support option (used for node container)
-  -s|--status  give information on running containers after the start
+  -s|--status  give information on running container(s) after the start
 
-status         give information on running containers
+status         give information on running container(s)
 
 stop                   stop  all containers
 
@@ -194,7 +194,7 @@ add_container() {
 
 
 containers_stop() {
-    echo "** Stopping docker VPN components"
+    echo "** Stopping docker VPN container(s):" ${ONLY_CONTAINERS[@]}
     cd "$basedir/envs/vpn/docker"
     for i in ${ONLY_CONTAINERS[@]}
     do
@@ -203,7 +203,7 @@ containers_stop() {
 }
 
 containers_clean() {
-    echo "** Cleaning all"
+    echo "** Cleaning docker container(s):" ${ALL_VPN_CONTAINERS[@]}
 
     cd "$basedir/envs/vpn/docker"
 
@@ -238,6 +238,7 @@ containers_clean() {
     for i in ${ALL_VPN_CONTAINERS[@]}
     do
         docker-compose rm -sf $i >/dev/null
+        [[ "$i" = "gui" ]] && { continue ; } # gui container does not use wireguard
         /bin/rm -rf ./$i/run_mounts/config/wireguard 2> /dev/null
     done
 
@@ -279,13 +280,13 @@ containers_status() {
     done
 
     if [ $ERROR -eq 1 ]; then
-        echo "** ERROR: cannot ping using VPN addresses inside some docker containers"
+        echo "** ERROR: cannot ping using VPN addresses inside some docker container(s)"
         echo "          You must check what is going on."
     fi
 }
 
 containers_build() {
-    echo "** Building docker VPN images"
+    echo "** Building docker VPN container(s):" ${ONLY_CONTAINERS[@]}
     cd "$basedir/envs/vpn/docker"
 
     BUILD_BASE=0
@@ -299,11 +300,11 @@ containers_build() {
     done
 
     if [ $BUILD_BASE -eq 1 ]; then
-        echo "- building 'base' component"
+        echo "- building 'base' container"
         CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build base
     fi
     if [ $BUILD_NODEBASE -eq 1 ]; then
-        echo "- building 'nodebase' component"
+        echo "- building 'nodebase' container"
         CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode
     fi
 
@@ -339,7 +340,7 @@ single_container_configure() {
 
 
 containers_configure() {
-    echo "** Generating VPN/Wireguards keys"
+    echo "** Generating VPN/Wireguards keys:" ${ONLY_CONTAINERS[@]}
     cd "$basedir/envs/vpn/docker"
 
     containers_stop
@@ -368,7 +369,7 @@ containers_configure() {
 }
 
 containers_start() {
-    echo "** Starting docker VPN components"
+    echo "** Starting docker VPN container(s):" ${ONLY_CONTAINERS[@]}
 
     cd "$basedir/envs/vpn/docker"
 
@@ -384,7 +385,7 @@ containers_start() {
     fi
 
 
-    # Use CONTAINER_UID variable again then starting containers because
+    # Use CONTAINER_UID variable again then starting container(s) because
     # if image is not build `docker-compose up ` will automatically build it
 
     # start vpnserver first
@@ -395,7 +396,7 @@ containers_start() {
         CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d vpnserver
     done
 
-    # start other containers
+    # start other container(s)
     for i in ${ONLY_CONTAINERS[@]}
     do
         [[ $i = "vpnserver" ]] && { continue; }
@@ -440,11 +441,11 @@ containers_start() {
 }
 
 run() {
-    component=$1
+    container=$1
 
-    echo "** Run command inside $component VPN container"
+    echo "** Run command inside $container VPN container"
 
-    [[ -z "$RUN_ARGS" ]] && { usage "fedbiomed run $component needs extra arguments";  }
+    [[ -z "$RUN_ARGS" ]] && { usage "fedbiomed run $container needs extra arguments";  }
     cd "$basedir/envs/vpn/docker"
 
     # find @IP of mqtt and restful inside the VPN
@@ -457,7 +458,7 @@ run() {
     echo "- restful IP is: $restful_IP"
     [[ -z "$restful_IP" ]] && {
         echo "** ERROR: cannot find IP adress of restful server" ;
-        echo "- verify that docker containers are configured"
+        echo "- verify that docker container(s) are configured"
         exit 1
     }
 
@@ -471,12 +472,12 @@ run() {
     echo "- mqtt    IP is: $mqtt_IP"
     [[ -z "$mqtt_IP" ]] && {
         echo "** ERROR: cannot find IP adress of mqtt server" ;
-        echo "- verify that docker containers are configured"
+        echo "- verify that docker container(s) are configured"
         exit 1
     }
 
-    CMD="export MQTT_BROKER=$mqtt_IP && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ && export UPLOADS_IP=${restful_IP} && export FEDBIOMED_NO_RESET=1 && /fedbiomed/scripts/fedbiomed_run $component ${RUN_ARGS}"
-    docker-compose exec -u $(id -u) $component bash -c "$CMD"
+    CMD="export MQTT_BROKER=$mqtt_IP && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ && export UPLOADS_IP=${restful_IP} && export FEDBIOMED_NO_RESET=1 && /fedbiomed/scripts/fedbiomed_run $container ${RUN_ARGS}"
+    docker-compose exec -u $(id -u) $container bash -c "$CMD"
 }
 
 # main
@@ -641,7 +642,7 @@ fi
 [[ $RUN_NODE -eq 1 ]]       && { run node; }
 [[ $RUN_RESEARCHER -eq 1 ]] && { run researcher; }
 
-# must be the last
+# at the end because of the --status option
 [[ $STATUS -eq 1 ]]         && { containers_status; }
 
 exit 0
