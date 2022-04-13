@@ -2,6 +2,8 @@
 Definition of messages exchanged by the researcher and the nodes
 '''
 
+import sys
+
 from dataclasses import dataclass
 from typing import Dict, Any, Union
 
@@ -10,48 +12,53 @@ from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger     import logger
 
 
-def catch_dataclass_exception(initial_class):
+def catch_dataclass_exception(cls):
     """
-    Decorator: it encapsulate the __init__() method of dataclass
-    in order to transform the exceptions sent by the dataclass
-    into oour own exception (FedbiomedMessageError)
+    Decorator: it encapsulates the __init__() method of dataclass
+    in order to transform the exceptions sent by the dataclass (TypeError)
+    into our own exception (FedbiomedMessageError)
     """
-    class NewCls():
+
+    def __cde_init__(self,*args, **kwargs):
+        '''
+        This is the __init__() replacement. Its purpose is to catch
+        the TypeError created by the __init__ method of the
+        @dataclass decorator and replace this exception by
+        FedbiomedMessageError
+
+        Raises:
+          FedbiomedMessageError if number/type of arguments is wrong
+        '''
+
+        try:
+            self.__class__.__dict__['__initial_init__'](self,*args, **kwargs)
+
+        except TypeError as e:
+            # this is the error raised by dataclass if number of parameter is wrong
+            _msg = ErrorNumbers.FB601.value + ": bad number of parameters: " + str(e)
+            logger.error(_msg)
+            raise FedbiomedMessageError(_msg)
+
+    def wrap(cls):
         """
-        Class container to wrap the old class into a decorated class
+        Wrapper to the class given as parameter
+
+        class wrapping should keep some attributes (__doc__, etc)
+        of the initial class or the API documentiol tools
+        will be mistaken
         """
-        def __init__(self, *args, **kwargs):
-            #
-            try:
-                self.initial_instance = initial_class(*args, **kwargs)
-            except TypeError as e:
-                # this is the error raised by dataclass if number of parameter is wrong
-                _msg = ErrorNumbers.FB601.value + ": bad number of parameters: " + str(e)
-                logger.error(_msg)
-                raise FedbiomedMessageError(_msg)
+        cls.__initial_init__ = cls.__init__
+        setattr(cls, "__init__", __cde_init__)
 
-        def __getattribute__(self, s):
-            """
-            this is called whenever any attribute of a NewCls object is accessed.
-            This function first tries to get the attribute of NewCls and run it
+        return cls
 
-            if it fails, it then call the attributes of the initial class
-            """
-            try:
-                _x = super().__getattribute__(s)
-            except AttributeError:
-                _x = self.initial_instance.__getattribute__(s)
-                return _x
-            else:
-                return _x
-
-    return NewCls
+    return wrap(cls)
 
 
 class Message(object):
     """
     This class is a top class for all fedbiomed messages providing all methods
-    to access the messaeges
+    to access the messages
 
     The subclasses of this class will be pure data containers (no provided functions)
     """
