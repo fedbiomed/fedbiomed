@@ -351,7 +351,7 @@ containers_configure() {
 
     #git checkout $CONFIG
     cp -f $CONFIG.sample $CONFIG
-    sed -i -XXX "s:replace_with.myserver.mydomain:$IP:" $CONFIG && /bin/rm ${CONFIG}-XXX
+    sed -i-XXX "s:replace_with.myserver.mydomain:$IP:" $CONFIG && /bin/rm ${CONFIG}-XXX
 
     # start vpn server to generate config files
     docker-compose up -d vpnserver
