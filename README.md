@@ -214,7 +214,7 @@ The **envs/vpn** directory contains all material for VPN support.
 A full technical description is provided in **envs/vpn/README_tempo.md**
 
 The **./scripts/fedbiomed_vpn** script is provided to ease the deployment of
-a set of docker containers with VPN support. The provided containers are:
+a set of docker container(s) with VPN support. The provided containers are:
 
 - fedbiomed/vpn-vpnserver: WireGuard server
 - fedbiomed/vpn-restful: HTTP REST communication server
@@ -225,9 +225,9 @@ a set of docker containers with VPN support. The provided containers are:
 
 All these containers are communicating through the Wireguard VPN server.
 
-### Setup
+### Setup and run all the docker containers
 
-To setup all these components, you should:
+To setup **all** these components, you should:
 
 - clean all containers and files
 
@@ -265,9 +265,10 @@ To setup all these components, you should:
 ./scripts/fedbiomed_vpn run node list
 ```
 
-- manage data inside the node on http://127.0.0.1:8484
+- connect to the researcher jupyter at http://127.0.0.1:8888
+(Remark: the *researcher** docker automatically starts a jupyter notebook inside the container)
 
-- connect to the researcher jupyter on http://127.0.0.1:8888
+- manage data inside the node at http://127.0.0.1:8484
 
 - stop the containers:
 
@@ -277,7 +278,8 @@ To setup all these components, you should:
 
 ### managing individual containers
 
-You can manage individually the containers for the build/stop/start phases.
+You can manage individually the containers for the build/stop/start phases,
+by passing the name of the container(s) on the command line.
 
 For example, to build only the node, you can use:
 
@@ -285,7 +287,7 @@ For example, to build only the node, you can use:
 ./scripts/fedbiomed_vpn build node
 ```
 
-You can build/stop/started more than one component at a time. Example:
+You can build/configure/stop/start/check more than one component at a time. Example:
 ```
 ./scripts/fedbiomed_vpn build gui node
 ```
@@ -303,8 +305,10 @@ The list of the container names is:
 
 **Remarks**:
 - the configuration files are keeped then rebuilding individual containers
-- restarting network component (vpnserver, restful, mqqt) may lead to unpredictable
-behavior
+- to remove the ald config files, you should do a **clean**
+- restarting only network component (vpnserver, restful, mqqt) then others are running
+may lead to unpredictable behavior. In this case, it is adviced to restart from scratch
+(clean/build/configure/start)
 
 
 
