@@ -1,7 +1,6 @@
 #
 # Fed-BioMed environment 
 #
-[ -f /config/config.env ] && source /config/config.env
 
 # needed to assign here `CONTAINER_{USER,GROUP,UID,GID}` values to handle the case where
 # - container is launched with `docker-compose up` (no value passed as in
