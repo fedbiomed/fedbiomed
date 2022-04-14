@@ -58,7 +58,7 @@ def validator_decorator(func):
         if status:
             return status, None
         else:
-            return status, str(error)
+            return status, error
     return wrapper
 
 
@@ -102,8 +102,11 @@ class SchemeValidator(object):
         """
         validate a value against the scheme passed at creation time
         """
+
+        # TODO: raises error messages
+        # or store error string in self._error and provide a error() method
         if not self.is_valid():
-            return "scheme is not valid"
+            return False
 
         # check the value against the scheme
         for k, v in self._scheme.items():

@@ -300,6 +300,7 @@ class TestValidator(unittest.TestCase):
 
 
 
+
 class TestSchemeValidator(unittest.TestCase):
 
     """
@@ -311,13 +312,18 @@ class TestSchemeValidator(unittest.TestCase):
     def always_true_hook(value):
         return True
 
-    def test_validator_01_validate_the_validator(self):
+    def test_scheme_validator_01_validate_the_validator(self):
         """
         test SchemeValidator constructor
         """
 
         # empty scheme forbidden
         self.assertFalse( SchemeValidator( {} ) .is_valid())
+
+        # same and try to use it anyway
+        v = SchemeValidator( {} )
+        self.assertFalse( v.is_valid())
+        self.assertFalse( v.validate( {}))
 
         # data should be properly defined
         self.assertFalse( SchemeValidator( { "data": [] } ) .is_valid())
@@ -352,6 +358,47 @@ class TestSchemeValidator(unittest.TestCase):
         }
         self.assertTrue( SchemeValidator( training_args_scheme ).is_valid())
 
+    @staticmethod
+    @validator_decorator
+    def positive_integer(value):
+        return isinstance(value, int) and value > 0
+
+    def test_scheme_validator_01_validate_the_validator(self):
+        """
+        a more complicated scheme
+        """
+
+        training_args_scheme = {
+            'lr' : { 'rules': [ float, self.always_true_hook],
+                     'required': True,
+                    },
+            'round_limit' : { 'rules': [ self.positive_integer ],
+                              'required': True,
+                             },
+            'batch_size' : { 'rules': [ self.positive_integer ],
+                             'required': True,
+                            },
+            'epoch' : { 'rules': [ self.positive_integer ],
+                        'required': True,
+                       },
+            'dry_run' : { 'rules': [ bool ],
+                          'required': True,
+                         },
+            'batch_max_num' : { 'rules': [ self.positive_integer ],
+                                'required': True,
+                               },
+        }
+        v = SchemeValidator( training_args_scheme )
+        self.assertTrue( v.is_valid() )
+
+        training_args = {
+            'batch_size': 20,
+            'lr': 1e-5,
+            'epochs': 1,
+            'dry_run': False,
+            'batch_maxnum':250
+        }
+        self.assertTrue( v.validate( training_args ))
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
