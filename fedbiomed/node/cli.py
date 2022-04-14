@@ -15,7 +15,7 @@ import tkinter.messagebox
 from tkinter import _tkinter
 
 from fedbiomed.common.constants  import ModelTypes, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.environ import environ
@@ -220,7 +220,7 @@ def add_database(interactive=True,
                                   data_type=data_type,
                                   description=description,
                                   path=path)
-    except AssertionError as e:
+    except (AssertionError, FedbiomedDatasetManagerError) as e:
         if interactive is True:
             try:
                 tkinter.messagebox.showwarning(title='Warning', message=str(e))

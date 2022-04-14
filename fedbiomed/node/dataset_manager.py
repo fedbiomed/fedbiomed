@@ -21,6 +21,11 @@ from torchvision import transforms
 
 from fedbiomed.node.environ import environ
 
+from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
+from fedbiomed.common.constants  import ErrorNumbers
+
+from fedbiomed.common.logger import logger
+
 
 class DatasetManager:
     """
@@ -171,7 +176,7 @@ class DatasetManager:
             Defaults to False.
 
         Raises:
-            NotImplementedError: triggered if tarfile cannot be downloaded or the downloaded tarfile cannot be extracted
+            FedbiomedDatasetManagerError: triggered if tarfile cannot be downloaded or the downloaded tarfile cannot be extracted or the MedNIST path is empty or one of the classes path is empty.
 
         Returns:
             [type]: depending on the value of the parameter `as_dataset`. If
@@ -188,12 +193,33 @@ class DatasetManager:
                 with tarfile.open(filepath) as tar_file:
                     tar_file.extractall(path)
                 os.remove(filepath)
+
             except (URLError, HTTPError, ContentTooShortError, OSError, tarfile.TarError) as e:
-                raise e
+                _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while downloading MedNIST dataset from the MONAI repo:  " \
+                       + str(e)
+                logger.error(_msg)
+                raise FedbiomedDatasetManagerError(_msg)
 
-        return self.load_images_dataset(download_path, as_dataset)
+        try:
+            dataset = datasets.ImageFolder(download_path,
+                                       transform=transforms.ToTensor())
 
+        except (FileNotFoundError,RuntimeError) as e:
+            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading MedNIST dataset from the selected path:  " \
+                   + str(e) + "\nPlease make sure that the selected MedNIST folder is not empty \
+                   or delete the MedNIST folder so the dataset will be re-downloaded."
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
 
+        except Exception as e:
+            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading MedNIST dataset" + str(e)
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+
+        if as_dataset:
+            return dataset
+        else:
+            return self.get_torch_dataset_shape(dataset)
 
     def load_images_dataset(self,
                             folder_path: str,
@@ -209,9 +235,16 @@ class DatasetManager:
         Returns:
             [type]: [description]
         """
-
-        dataset = datasets.ImageFolder(folder_path,
+        try:
+            dataset = datasets.ImageFolder(folder_path,
                                        transform=transforms.ToTensor())
+        except Exception as e:
+            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading dataset from the selected path:  " \
+                   + str(e) + "\nPlease make sure that the selected folder is not empty \
+                   and doesn't have any empty class folder"
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+
         if as_dataset:
             return dataset
         else:
