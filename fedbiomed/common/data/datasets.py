@@ -47,19 +47,13 @@ class NIFTIFolderDataset(Dataset, ABC):
 
     def __init__(self, root: Union[str, PathLike, Path],
                  transform: Transform = None,
-                 target_transform: Transform = None,
-                 split: bool = False,
-                 train: bool = True,
-                 test_size: float = 0.25):
+                 target_transform: Transform = None
+                 ):
         """
         Args:
             - root (str, PathLike): folder where the data is located.
             - transform (Transform): transforms to be applied on data.
             - target_transform (Transform): transforms to be applied on target.
-            - split (bool): Whether to randomly split data or not.
-            - train (bool): If `split` is `True`, whether to return the training set (`train=True`)
-                            or testing set (`train=`False`)
-            - test_size (float): Proportion of the dataset to be used as testing (between 0 and 1).
         """
         self.root_dir = Path(root).expanduser()
         self.transform = transform
