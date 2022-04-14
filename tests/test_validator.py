@@ -56,6 +56,7 @@ class TestValidator(unittest.TestCase):
         """
 
         # all type checking
+        self.assertTrue(Validator._is_hook_type_valid( bool ))
         self.assertTrue(Validator._is_hook_type_valid( int ))
         self.assertTrue(Validator._is_hook_type_valid( float ))
         self.assertTrue(Validator._is_hook_type_valid( str ))
@@ -83,13 +84,13 @@ class TestValidator(unittest.TestCase):
         """
         simple and direct type checking tests
         """
+        self.assertTrue( Validator().validate(True, bool))
         self.assertTrue( Validator().validate(1, int))
         self.assertTrue( Validator().validate(1.0, float))
         self.assertTrue( Validator().validate( {} , dict ))
         self.assertTrue( Validator().validate( { "un": 1 } , dict ))
-        self.assertTrue( Validator().validate(1, int))
-
-        self.assertFalse( Validator().validate(1, str))
+        self.assertTrue( Validator().validate( [], list))
+        self.assertTrue( Validator().validate( "one", str))
 
     def test_validator_02_use_function_directly(self):
         self.assertTrue( Validator().validate(1, self.hook_01_positive_integer_check))
@@ -100,7 +101,7 @@ class TestValidator(unittest.TestCase):
 
         v = Validator()
 
-        rule_name = 'rule_01'
+        rule_name = 'rule_positive_integer'
 
         # rule is unknown
         self.assertFalse( v.is_known_rule(rule_name) )
@@ -116,6 +117,7 @@ class TestValidator(unittest.TestCase):
 
         # use the registered hook
         self.assertTrue( Validator().validate(1, rule_name))
+        #import pdb; pdb.set_trace()
         self.assertFalse( Validator().validate(-1, rule_name))
         self.assertFalse( Validator().validate(1.0, rule_name))
 
@@ -259,26 +261,43 @@ class TestValidator(unittest.TestCase):
 
         v = Validator()
 
-        training_args_scheme = {
+        training_args_ok = {
             'lr' : { 'rules': [ float, self.loss_rate_validation_hook] ,
                      'default': 1.0
                     },
         }
 
-        self.assertTrue(v.register_rule( "tr_01", training_args_scheme))
+        self.assertTrue(v.register_rule( "tr_01", training_args_ok))
 
-        training_arg_scheme = {
+        # and use it with it's name
+        self.assertTrue( Validator().validate(
+            { 'lr' : 0.4 } ,
+            "tr_01"))
+
+        # or directly
+        self.assertTrue( Validator().validate(
+            { 'lr' : 0.4 } ,
+            training_args_ok ) )
+
+        self.assertFalse( Validator().validate(
+            { 'lr' : 'toto' } ,
+            training_args_ok ) )
+
+        self.assertFalse( Validator().validate(
+            { 'lr' : 'toto' } ,
+            training_args_ok ) )
+
+
+        training_args_ko = {
             'lr' : { 'rules': [ self.loss_rate_validation_hook ] ,
                      'required': True,
                      'unallowed_key': False
                     },
         }
 
-        # should be False !
-        self.assertTrue(v.register_rule( "tr_02", training_args_scheme))
-        self.assertTrue( Validator().validate(
-            { 'lr' : 0.4 } ,
-            training_args_scheme ) )
+        # register the new rule
+        self.assertFalse(v.register_rule( "tr_02", training_args_ko))
+
 
 
 class TestSchemeValidator(unittest.TestCase):
