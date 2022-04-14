@@ -2,6 +2,8 @@
 Definition of messages exchanged by the researcher and the nodes
 '''
 
+import sys
+
 from dataclasses import dataclass
 from typing import Dict, Any, Union
 
@@ -10,48 +12,53 @@ from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger     import logger
 
 
-def catch_dataclass_exception(initial_class):
+def catch_dataclass_exception(cls):
     """
-    Decorator: it encapsulate the __init__() method of dataclass
-    in order to transform the exceptions sent by the dataclass
-    into oour own exception (FedbiomedMessageError)
+    Decorator: it encapsulates the __init__() method of dataclass
+    in order to transform the exceptions sent by the dataclass (TypeError)
+    into our own exception (FedbiomedMessageError)
     """
-    class NewCls():
+
+    def __cde_init__(self,*args, **kwargs):
+        '''
+        This is the __init__() replacement. Its purpose is to catch
+        the TypeError created by the __init__ method of the
+        @dataclass decorator and replace this exception by
+        FedbiomedMessageError
+
+        Raises:
+          FedbiomedMessageError if number/type of arguments is wrong
+        '''
+
+        try:
+            self.__class__.__dict__['__initial_init__'](self,*args, **kwargs)
+
+        except TypeError as e:
+            # this is the error raised by dataclass if number of parameter is wrong
+            _msg = ErrorNumbers.FB601.value + ": bad number of parameters: " + str(e)
+            logger.error(_msg)
+            raise FedbiomedMessageError(_msg)
+
+    def wrap(cls):
         """
-        Class container to wrap the old class into a decorated class
+        Wrapper to the class given as parameter
+
+        class wrapping should keep some attributes (__doc__, etc)
+        of the initial class or the API documentiol tools
+        will be mistaken
         """
-        def __init__(self, *args, **kwargs):
-            #
-            try:
-                self.initial_instance = initial_class(*args, **kwargs)
-            except TypeError as e:
-                # this is the error raised by dataclass if number of parameter is wrong
-                _msg = ErrorNumbers.FB601.value + ": bad number of parameters: " + str(e)
-                logger.error(_msg)
-                raise FedbiomedMessageError(_msg)
+        cls.__initial_init__ = cls.__init__
+        setattr(cls, "__init__", __cde_init__)
 
-        def __getattribute__(self, s):
-            """
-            this is called whenever any attribute of a NewCls object is accessed.
-            This function first tries to get the attribute of NewCls and run it
+        return cls
 
-            if it fails, it then call the attributes of the initial class
-            """
-            try:
-                _x = super().__getattribute__(s)
-            except AttributeError:
-                _x = self.initial_instance.__getattribute__(s)
-                return _x
-            else:
-                return _x
-
-    return NewCls
+    return wrap(cls)
 
 
 class Message(object):
     """
     This class is a top class for all fedbiomed messages providing all methods
-    to access the messaeges
+    to access the messages
 
     The subclasses of this class will be pure data containers (no provided functions)
     """
@@ -61,6 +68,7 @@ class Message(object):
         raise FedbiomedMessageError (FB601 error) if parameters of bad type
         remark: this is not check by @dataclass
         """
+
         if not self.__validate(self.__dataclass_fields__.items()):
             _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()
             logger.critical(_msg)
@@ -72,14 +80,14 @@ class Message(object):
         Args:
             param (str): name of the param
         """
-        return(getattr(self, param))
+        return getattr(self, param)
 
     def get_dict(self) -> Dict[str, Any]:
         """Returns pairs (Message class attributes name, attributes values)
         into a dictionary
 
         """
-        return(self.__dict__)
+        return self.__dict__
 
     def __validate(self, fields: Dict[str, Any]) -> bool:
         """checks whether incoming field types match with attributes
@@ -94,9 +102,9 @@ class Message(object):
         """
         ret = True
         for field_name, field_def in fields:
-            actual_type = type(getattr(self, field_name))
-            if actual_type != field_def.type:
-                logger.critical(f"{field_name}: '{actual_type}' instead of '{field_def.type}'")
+            value = getattr(self, field_name)
+            if not isinstance(value, field_def.type):
+                logger.critical(f"{field_name}: '{value}' instead of '{field_def.type}'")
                 ret = False
         return ret
 
@@ -230,12 +238,17 @@ class AddScalarReply(Message):
     researcher_id: str
     node_id: str
     job_id: str
-    key: str
-    value: float
-    epoch: int
+    train: bool
+    test: bool
+    test_on_local_updates: bool
+    test_on_global_updates: bool
+    metric: dict
+    epoch: (int, type(None))
+    total_samples: int
+    batch_samples: int
+    num_batches: int
     iteration: int
     command: str
-
 
 
 @catch_dataclass_exception

@@ -1,12 +1,14 @@
 import os
 import sys
 import unittest
-import fedbiomed.common.training_plans._base_training_plan
+import torch
+import numpy as np
+import fedbiomed.common.training_plans._base_training_plan # noqa
 
 from unittest.mock import patch, MagicMock
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.constants import ProcessTypes
-from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
+from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan  # noqa
 
 
 class TestBaseTrainingPlan(unittest.TestCase):
@@ -80,7 +82,6 @@ class TestBaseTrainingPlan(unittest.TestCase):
                 path, _ = self.tp.save_code(expected_filepath)
 
     def test_base_training_plan_04_add_preprocess(self):
-
         def method(args):
             pass
 
@@ -95,6 +96,94 @@ class TestBaseTrainingPlan(unittest.TestCase):
         # Test proper scenario
         self.tp.add_preprocess(method, ProcessTypes.DATA_LOADER)
         self.assertTrue('method' in self.tp.pre_processes, 'add_preprocess could not add process properly')
+
+    def test_base_training_plan_05_set_data_loaders(self):
+        test_data_loader = [1, 2, 3]
+        train_data_loader = [1, 2, 3]
+
+        self.tp.set_data_loaders(train_data_loader, test_data_loader)
+        self.assertListEqual(self.tp.training_data_loader, train_data_loader)
+        self.assertListEqual(self.tp.testing_data_loader, test_data_loader)
+
+    def test_base_training_plan_06__create_metric_result(self):
+        """
+        Testing private method create metric result dict
+
+        This test function also tests the method _check_metric_types_is_int_or_float
+        as implicitly
+        """
+
+        metric = 14
+        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        self.assertDictEqual(result, {'Custom': 14})
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            metric = True
+            result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+            print(result)
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            metric = 'True'
+            BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+
+        metric = [14, 14, 14.5]
+        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        self.assertDictEqual(result, {'Custom_1': 14, 'Custom_2': 14, 'Custom_3': 14.5})
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            metric = ['14', '14', '14']
+            result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+
+        metric = {'my_metric': 12, 'other_metric': 14.15}
+        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        self.assertDictEqual(result, metric)
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            metric = {'my_metric': 'True', 'other_metric': 14.15}
+            result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+
+        # Testing torch.tensor
+        metric = torch.tensor(14)
+        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        self.assertDictEqual(result, {'Custom': 14})
+
+        metric = [torch.tensor(14), torch.tensor(14), torch.tensor(14)]
+        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        self.assertDictEqual(result, {'Custom_1': 14, 'Custom_2': 14, 'Custom_3': 14})
+
+        metric = {"m1": torch.tensor(14), "m2": torch.tensor(14)}
+        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        self.assertDictEqual(result, {'m1': 14, 'm2': 14})
+
+        metric = {"m1": torch.tensor(14.5), "m2": torch.tensor(14.5)}
+        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        self.assertDictEqual(result, {'m1': 14.5, 'm2': 14.5})
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            metric = {"m1": torch.tensor([14.5, 14.5]), "m2": torch.tensor([14.5,14.5])}
+            BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+
+        # Testing numpy arrays
+        metric = np.array([14, 14, 14])
+        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        self.assertDictEqual(result, {'Custom_1': 14, 'Custom_2': 14, 'Custom_3': 14})
+
+        metric = np.array([14.5, 14.5, 14.5])
+        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        self.assertDictEqual(result, {'Custom_1': 14.5, 'Custom_2': 14.5, 'Custom_3': 14.5})
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            metric = {"m1": np.array([14.5, 14.5]), "m2": np.array([14.5, 14.5])}
+            BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+
+    def test_base_training_plan_07_training_data(self):
+        """ Test training_data method whether raises error """
+
+        # The method training data should be defined by user, that's why
+        # training_data in BaseTrainingPLan has been configured for raising error
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            self.tp.training_data()
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

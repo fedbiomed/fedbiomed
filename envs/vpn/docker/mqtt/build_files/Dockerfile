@@ -47,11 +47,11 @@ RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
         -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER || :
 
 
-RUN apk update && apk add iptables bash vim net-tools procps alpine-sdk linux-headers kmod
+RUN apk update && apk add iptables bash runuser vim net-tools procps alpine-sdk linux-headers kmod
 
 # get wireguard from builder image
 COPY --from=builder /root/.cargo/bin/boringtun /usr/bin/
 COPY --from=builder /usr/bin/wg* /usr/bin/
 
-COPY ./entrypoint.sh /
-ENTRYPOINT ["/entrypoint.sh"]
+COPY ./entrypoint*.bash /
+ENTRYPOINT ["/entrypoint.bash"]

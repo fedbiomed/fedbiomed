@@ -409,6 +409,7 @@ class TestNode(unittest.TestCase):
         dict_msg_2_datasets = {
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
+            'training': True,
             'model_url': 'https://link.to.somewhere.where.my.model',
             'model_class': 'my_test_training_plan',
             'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
@@ -433,6 +434,7 @@ class TestNode(unittest.TestCase):
 
         round_patch.assert_called_with(dict_msg_2_datasets['model_args'],
                                        dict_msg_2_datasets['training_args'],
+                                       True,
                                        self.database_id,
                                        dict_msg_2_datasets['model_url'],
                                        dict_msg_2_datasets['model_class'],
@@ -440,8 +442,8 @@ class TestNode(unittest.TestCase):
                                        dict_msg_2_datasets['job_id'],
                                        dict_msg_2_datasets['researcher_id'],
                                        unittest.mock.ANY,
-                                       None
-                                       )
+                                       None)
+
         # check if object `Round()` has been called twice
         self.assertEqual(round_patch.call_count, 2)
         self.assertEqual(len(self.n2.rounds), 2)
@@ -538,6 +540,7 @@ class TestNode(unittest.TestCase):
         # checks
         round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
                                             dict_msg_1_dataset['training_args'],
+                                            True,
                                             self.database_id,
                                             dict_msg_1_dataset['model_url'],
                                             dict_msg_1_dataset['model_class'],
@@ -584,6 +587,7 @@ class TestNode(unittest.TestCase):
         # checks
         round_patch.assert_called_once_with(dict_msg_1_dataset['model_args'],
                                             dict_msg_1_dataset['training_args'],
+                                            True,
                                             self.database_id,
                                             dict_msg_1_dataset['model_url'],
                                             dict_msg_1_dataset['model_class'],
@@ -591,8 +595,7 @@ class TestNode(unittest.TestCase):
                                             dict_msg_1_dataset['job_id'],
                                             dict_msg_1_dataset['researcher_id'],
                                             unittest.mock.ANY,  # FIXME: should be an history_monitor object
-                                            None
-                                            )
+                                            None)
 
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
     @patch('fedbiomed.common.message.NodeMessages.request_create')

@@ -1,7 +1,11 @@
 import sys
 import inspect
-from typing import Callable
+from collections.abc import Iterable
+from typing import Callable, Iterator, List, Union
 from IPython.core.magics.code import extract_symbols
+
+import torch
+import numpy as np
 from fedbiomed.common.exceptions import FedbiomedError
 
 
@@ -101,3 +105,41 @@ def get_method_spec(method: Callable):
         }
 
     return method_spec
+
+
+def convert_to_python_float(value: Union[torch.Tensor, np.integer, float, int]) -> float:
+    """"""
+
+    if not isinstance(value, (torch.Tensor, np.integer, float, int)):
+        raise FedbiomedError(f"Converting {type(value)} to python to float is not supported.")
+
+    # if the result is a tensor, convert it back to numpy
+    if isinstance(value, torch.Tensor):
+        value = value.numpy()
+
+    if isinstance(value, Iterable) and value.size > 1:
+        raise FedbiomedError("Can not convert array-type objects to float.")
+
+    # if value is a numpy integer (not recognized as an int by python)
+    if isinstance(value, np.integer):
+        # convert numpy integer to a plain python integer
+        value = int(value)
+
+    return float(value)
+
+
+def convert_iterator_to_list_of_python_floats(iterator: Iterator) -> List[float]:
+    """"""
+
+    if not isinstance(iterator, Iterable):
+        raise FedbiomedError(f"object {type(iterator)} is not iterable")
+
+    list_of_floats = []
+    if isinstance(iterator, dict):
+        # specific processing for dictionaries
+        for val in iterator.values():
+            list_of_floats.append(convert_to_python_float(val))
+    else:
+        for it in iterator:
+            list_of_floats.append(convert_to_python_float(it))
+    return list_of_floats

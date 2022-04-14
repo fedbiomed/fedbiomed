@@ -88,8 +88,8 @@ class DataManager(object):
                     self._data_manager_instance = torch_data_manager.to_sklearn()
                 except Exception as e:
                     raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: PyTorch based `Dataset` object "
-                                                    f"has been instantiated with DataManager. An error occurred while"
-                                                    f"trying to convert torch.utils.data.Dataset to numpy based "
+                                                    "has been instantiated with DataManager. An error occurred while"
+                                                    "trying to convert torch.utils.data.Dataset to numpy based "
                                                     f"dataset: {str(e)}")
 
             # For scikit-learn based training plans, the arguments `dataset` and `target` should be an instance
