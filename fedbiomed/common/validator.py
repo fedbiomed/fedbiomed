@@ -49,6 +49,159 @@ def validator_decorator(func):
     return wrapper
 
 
+class SchemeValidator(object):
+    """
+    validation class for scheme (grammar) which describes json data
+
+    this class uses Validator base functions
+    """
+
+    # necessary keys and key types
+    _necessary = { 'rules': list }  # list of callable, str, class
+
+    # optionnal keys (no type associated to default)
+    # even if the default may be checked againt the list of the rules
+    _optionnal = { 'default': None, 'required': bool }
+
+
+    def __init__(self, scheme):
+        """
+        validate a scheme describing a json data
+        against SchemeValidator rules
+
+        Args:
+            scheme     scheme to validate
+        """
+
+        status = self.__validate_scheme(scheme)
+
+        if isinstance(status, bool) and status:
+            self._scheme = scheme
+            self._is_valid = True
+
+        else:
+            self._scheme = None
+            self._is_valid = False
+            logger.error("scheme is not valid: " + status)
+
+
+    def validate(self, value):
+        """
+        validate a value against the scheme passed at creation time
+        """
+
+        if not self.is_valid():
+            return "scheme is not conform"
+
+        # check the value against the scheme
+        for k, v in self._scheme.items():
+            if 'required' in v and v['required'] is True and k not in value:
+                return False, str(k) + " value is required"
+
+        for k in value:
+            if k not in self._scheme and strict:
+                return False, "undefined key (" + str(k) + ") in scheme"
+
+            for hook in self._scheme[k]['rules']:
+                if not self.validate(value[k], hook, strict):
+                    return False, "invalid value (" + str(value[k]) + ") for key: " + str(k)
+
+        return True
+
+
+
+    def __validate_scheme(self, scheme):
+        """
+        scheme validator function (internal)
+
+        Args:
+            scheme    JSON describing a scheme
+
+        Returns:
+            True      (bool) if everything is OK
+            error_msg (str)  in case of error
+        """
+
+        if not isinstance(scheme, dict) or len(scheme) == 0:
+            return("validator scheme must be a non empty dict")
+
+        for n in self._necessary:
+            for key in scheme:
+
+                if not isinstance( scheme[key], dict) or len(scheme[key]) == 0 :
+                    return("validator rule of (" + \
+                           str(key) + \
+                           ") scheme must be a non empty dict")
+
+                if n not in scheme[key]:
+                    return("required subkey (" + \
+                           str(n) + \
+                           ") is missing for key: " + \
+                           str(key)
+                        )
+
+                value_in_scheme = scheme[key][n]
+                requested_type  = self._necessary[n]
+                if requested_type is not None and \
+                   not isinstance(value_in_scheme, requested_type):
+
+                    return("bad type for subkey (" + \
+                           str(n) + \
+                           ") for key: " + \
+                           str(key)
+                           )
+
+                # special case for 'rules'
+                if not n == 'rules':
+                    continue
+
+                # check that rules contains valid keys for Validator
+                for element in scheme[key][n]:
+
+                    if isinstance(element, str) and not self.is_known_rule(element):
+                        return("rule (" + \
+                               str(element) + \
+                               ") for key: " + \
+                               str(key) + \
+                               " is not defined"
+                               )
+
+                    if not inspect.isclass(element) and \
+                       not inspect.isfunction(element) and \
+                       not isinstance(element, str):
+                        return("bad content for subkey (" + \
+                               str(n) + \
+                               ") for key: " + \
+                               str(key)
+                               )
+
+        # check that all provided keys of scheme are accepted
+        for key in scheme:
+            for subkey in scheme[key]:
+                if subkey not in self._necessary and subkey not in self._optionnal:
+                    return ("unknown subkey (" + \
+                            str(subkey) + \
+                            ") provided for key: " + \
+                            str(key)
+                            )
+
+        # scheme is validated
+        return True
+
+
+    def is_valid(self):
+        """
+        status of the scheme passed at creation time
+        """
+        return ( self._scheme is not None ) or self._is_valid
+
+    def scheme(self):
+        """
+        return the (current) scheme
+        """
+        return self._scheme or None
+
+
 class Validator(object):
     """
     container class for validation functions
@@ -67,8 +220,11 @@ class Validator(object):
 
     def validate(self, value, rule, strict = True):
         '''
-        check value against a (registered) rule, or a provided function,
-        or a simple type checking
+        check value against a:
+        - (registered) rule
+        - a provided function,
+        - a simple type checking
+        - a SchemeValidator
         '''
 
         # rule is a dict -> scheme validation
@@ -118,6 +274,50 @@ class Validator(object):
         return True
 
 
+    def _execute_rule(self, value, rule):
+        """
+        execute the rule registered in the rulebook.
+        The way is is executed depends on what is registered
+
+        Args:
+            value  value to test
+            rule   name of the rule (str)
+        """
+
+        if rule not in self._validation_rulebook:
+            return False
+
+        action = self._validation_rulebook[rule]
+
+
+    @staticmethod
+    def _is_hook_type_valid(hook):
+        """
+        verify that the hook type associated to a rule is valid
+
+        it does not validate the hook for function and SchemeValidator,
+        it only verifies that the hook can be registered for later use
+        """
+
+        if isinstance(hook, SchemeValidator):
+            # SchemeValidator
+            return True
+
+        if isinstance(hook, dict):
+            # SchemeValidator
+            return True
+
+        if isinstance(hook, type):
+            # TypeChecking
+            return True
+
+        if callable(hook):
+            # function"
+            return True
+
+        # not valid
+        return False
+
     def rule(self, rule):
         '''
         return validator for the rule (if registered)
@@ -127,7 +327,7 @@ class Validator(object):
         else:
             return None
 
-    def knows_rule(self, rule):
+    def is_known_rule(self, rule):
         '''
         return True if the rule is registered
         '''
@@ -142,11 +342,24 @@ class Validator(object):
             return False
 
         if not override and rule in self._validation_rulebook:
-            logger.warning("validator already register for " + rule)
+            logger.warning("validator already register for rule: " + rule)
             return False
-        else:
-            self._validation_rulebook[rule] = hook
-            return True
+
+        if not Validator._is_hook_type_valid(hook):
+            logger.error("action associated to the rule is unallowed")
+            return False
+
+
+        # hook is a dict, we transform it to a SchemeValidator
+        if isinstance(hook, dict):
+            sv = SchemeValidator( hook )
+            if not sv.is_valid():
+                return False
+            else:
+                hook = sv
+
+        self._validation_rulebook[rule] = hook
+        return True
 
     def delete_rule(self, rule):
         '''
@@ -200,7 +413,7 @@ class Validator(object):
                 # check that rules contains valid keys for Validator
                 for element in scheme[key][n]:
 
-                    if isinstance(element, str) and not self.knows_rule(element):
+                    if isinstance(element, str) and not self.is_known_rule(element):
                         return False, "rule (" + \
                             str(element) + \
                             ") for key: " + \

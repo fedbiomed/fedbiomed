@@ -1,5 +1,5 @@
 import unittest
-from fedbiomed.common.validator import Validator, validator_decorator
+from fedbiomed.common.validator import Validator, SchemeValidator, validator_decorator
 
 
 class TestValidator(unittest.TestCase):
@@ -49,6 +49,36 @@ class TestValidator(unittest.TestCase):
             return False, "float between [ 0.0, 1.0 ] expected"
         return True
 
+
+    def test_validator_00_allowed_hook_types(self):
+        """
+        check all authorized hook types
+        """
+
+        # all type checking
+        self.assertTrue(Validator._is_hook_type_valid( int ))
+        self.assertTrue(Validator._is_hook_type_valid( float ))
+        self.assertTrue(Validator._is_hook_type_valid( str ))
+        self.assertTrue(Validator._is_hook_type_valid( list ))
+        self.assertTrue(Validator._is_hook_type_valid( dict ))
+
+        # function
+        self.assertTrue(Validator._is_hook_type_valid( self.hook_probability_check ))
+
+        # scheme
+        self.assertTrue(Validator._is_hook_type_valid( {} ))
+        scheme = {
+            'a' : { 'rules': [ float ] }
+        }
+        sc = SchemeValidator(scheme)
+        self.assertTrue(Validator._is_hook_type_valid( sc ))
+
+        # unallowed
+        self.assertFalse(Validator._is_hook_type_valid( [] ))
+        self.assertFalse(Validator._is_hook_type_valid( 3.14 ))
+        self.assertFalse(Validator._is_hook_type_valid( "bad_entry" ))
+
+
     def test_validator_01_typechecking(self):
         """
         simple and direct type checking tests
@@ -73,7 +103,7 @@ class TestValidator(unittest.TestCase):
         rule_name = 'rule_01'
 
         # rule is unknown
-        self.assertFalse( v.knows_rule(rule_name) )
+        self.assertFalse( v.is_known_rule(rule_name) )
 
         # must be None
         self.assertTrue( v.rule(rule_name) is None)
@@ -82,7 +112,7 @@ class TestValidator(unittest.TestCase):
         self.assertTrue(v.register_rule( rule_name, self.hook_01_positive_integer_check))
 
         # must be known
-        self.assertTrue( v.knows_rule(rule_name) )
+        self.assertTrue( v.is_known_rule(rule_name) )
 
         # use the registered hook
         self.assertTrue( Validator().validate(1, rule_name))
@@ -95,7 +125,7 @@ class TestValidator(unittest.TestCase):
 
         # unregister
         v.delete_rule(rule_name)
-        self.assertFalse( v.knows_rule(rule_name) )
+        self.assertFalse( v.is_known_rule(rule_name) )
 
         # register several time the same rule
         self.assertTrue(v.register_rule( rule_name, self.hook_01_positive_integer_check))
@@ -147,7 +177,7 @@ class TestValidator(unittest.TestCase):
 
         rule_name = 'this_rule_is_unknown'
 
-        self.assertFalse( v.knows_rule(rule_name) )
+        self.assertFalse( v.is_known_rule(rule_name) )
         self.assertFalse( v.validate( 0, rule_name))
         self.assertTrue( v.validate( 0, rule_name, strict = False))
 
@@ -249,6 +279,59 @@ class TestValidator(unittest.TestCase):
         self.assertTrue( Validator().validate(
             { 'lr' : 0.4 } ,
             training_args_scheme ) )
+
+
+class TestSchemeValidator(unittest.TestCase):
+
+    """
+    unitests for SchemeValidator class
+    """
+
+    @staticmethod
+    @validator_decorator
+    def always_true_hook(value):
+        return True
+
+    def test_validator_01_validate_the_validator(self):
+        """
+        test SchemeValidator constructor
+        """
+
+        # empty scheme forbidden
+        self.assertFalse( SchemeValidator( {} ) .is_valid())
+
+        # data should be properly defined
+        self.assertFalse( SchemeValidator( { "data": [] } ) .is_valid())
+        self.assertFalse( SchemeValidator( { "data": int } ) .is_valid())
+
+        # grammar associated to data must be a non empty dict
+        self.assertFalse( SchemeValidator( { "data": {} } ) .is_valid())
+
+        # grammar associated to data must be a non empty dict containing
+        # valid subkeys
+        self.assertFalse( SchemeValidator( { "data": { "a": "b" } } ) .is_valid())
+
+        # and the rules subkey must also be an array
+        self.assertFalse( SchemeValidator( { "data": { "rules": "b" } } ) .is_valid())
+        self.assertFalse( SchemeValidator( { "data": { "rules": 1.0 } } ) .is_valid())
+
+        # empty array for rules is OK
+        self.assertTrue( SchemeValidator( { "data": { "rules": [] } } ) .is_valid())
+
+        training_args_scheme = {
+            'lr' : { 'rules': [ float, self.always_true_hook] ,
+                     'default': 1.0
+                    },
+        }
+        self.assertTrue( SchemeValidator( training_args_scheme ).is_valid())
+
+        training_arg_scheme = {
+            'lr' : { 'rules': [ self.always_true_hook],
+                     'required': True,
+                     'unallowed_key': False
+                    },
+        }
+        self.assertTrue( SchemeValidator( training_args_scheme ).is_valid())
 
 
 if __name__ == '__main__':  # pragma: no cover
