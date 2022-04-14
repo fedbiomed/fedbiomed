@@ -59,6 +59,7 @@ class TestValidator(unittest.TestCase):
         self.assertTrue( Validator().validate( { "un": 1 } , dict ))
         self.assertTrue( Validator().validate(1, int))
 
+        self.assertFalse( Validator().validate(1, str))
 
     def test_validator_02_use_function_directly(self):
         self.assertTrue( Validator().validate(1, self.hook_01_positive_integer_check))
@@ -102,6 +103,10 @@ class TestValidator(unittest.TestCase):
         self.assertTrue(v.register_rule( rule_name,
                          self.hook_01_positive_integer_check,
                          override = True))
+
+        # rule must be as string
+        self.assertFalse(v.register_rule( 3.14, int))
+
 
     def test_validator_04_another_one(self):
 
@@ -222,13 +227,14 @@ class TestValidator(unittest.TestCase):
 
     def test_validator_08_validate_the_validator(self):
 
+        v = Validator()
+
         training_args_scheme = {
             'lr' : { 'rules': [ float, self.loss_rate_validation_hook] ,
                      'default': 1.0
                     },
         }
 
-        v = Validator()
         self.assertTrue(v.register_rule( "tr_01", training_args_scheme))
 
         training_arg_scheme = {
