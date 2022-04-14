@@ -3,8 +3,7 @@ Datasets submodule for Fed-BioMed
 ---------------------------------
 
 This submodule provides the dataset classes for common cases of use in healthcare:
-- NIFTI: For NIFTI medial images
-- CSV: For plain data
+- NIFTI: For NIFTI medical images
 """
 from abc import ABC
 from os import PathLike
