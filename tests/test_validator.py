@@ -139,6 +139,11 @@ class TestValidator(unittest.TestCase):
         # rule must be as string
         self.assertFalse(v.register_rule( 3.14, int))
 
+        # rule must have a know type
+        self.assertFalse(v.register_rule( "pi", 3.14 ))
+
+        # register an unallowed dict rule
+        self.assertFalse(v.register_rule( "pi", {} ))
 
     def test_validator_04_another_one(self):
 
