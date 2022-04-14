@@ -2,7 +2,7 @@ import os
 import requests  # Python built-in library
 
 from json import JSONDecodeError
-from typing import Callable, Dict, Any, Tuple, Text, Union
+from typing import Callable, Dict, Any, Tuple, Text, Union, Optional
 
 from fedbiomed.common.exceptions import FedbiomedRepositoryError
 from fedbiomed.common.constants import ErrorNumbers
@@ -10,13 +10,13 @@ from fedbiomed.common.logger import logger
 
 
 class Repository:
-    """
-    HTTP file repository from which to upload and download files.
-    Files are uploaded from/downloaded to a temporary file (`temp_fir`)
+    """HTTP file repository from which to upload and download files.
+        Files are uploaded from/downloaded to a temporary file (`temp_fir`)
+
     Data uploaded should be:
-    - python code (*.py file) that describes model +
-    data handling/preprocessing
-    - model params (under *.pt format)
+        python code (*.py file) that describes model +
+            data handling/preprocessing
+        model params (under *.pt format)
     """
     def __init__(self,
                  uploads_url: Union[Text, bytes],
@@ -28,20 +28,21 @@ class Repository:
         self.cache_dir = cache_dir  # unused
 
     def upload_file(self, filename: str) -> Dict[str, Any]:
-        """
-        uploads a file to an HTTP file repository (through an
-        HTTP POST request).
+        """Uploads a file to an HTTP file repository (through an HTTP POST request).
+
         Args:
-            filename (str): name/path of the file to upload.
+            filename: name/path of the file to upload.
+
         Returns:
-            res (Dict[str, Any]): the result of the request under JSON
-            format.
+            res: the result of the request under JSON
+                format.
+
         Raises:
             FedbiomedRepositoryError: when unable to read the file 'filename'
             FedbiomedRepositoryError: when POST HTTP request fails or returns
-            a HTTP status 4xx (bad request) or 500 (internal server error)
+                a HTTP status 4xx (bad request) or 500 (internal server error)
             FedbiomedRepositoryError: when unable to deserialize JSON from
-            the request
+                the request
         """
         # first, we are trying to open the file `filename` and catch
         # any known exceptions related top `open` builtin function
@@ -80,18 +81,17 @@ class Repository:
         return json_res
 
     def download_file(self, url: str, filename: str) -> Tuple[int, str]:
-        """
-        downloads a file from a HTTP file repository (
+        """Downloads a file from a HTTP file repository (
             through an HTTP GET request)
 
         Args:
-            url (str): url from which to download file
-            filename (str): name of the temporary file
+            url: url from which to download file
+            filename: name of the temporary file
 
         Returns:
-            status (int): HTTP status code
-            filepath (str): the complete pathfile under
-            which the temporary file is saved
+            status: HTTP status code
+            filepath: the complete pathfile under
+                which the temporary file is saved
         """
 
         res = self._request_handler(requests.get, url, filename)
@@ -121,19 +121,18 @@ class Repository:
         return res.status_code, filepath
 
     def _raise_for_status_handler(self, response: requests, filename: str = ''):
-        """
-        Handler that deals with exceptions and raises the appropriate
-        exception if the HTTP request has failed with a code error (e.g. 4xx or 500)
+        """Handler that deals with exceptions and raises the appropriate
+            exception if the HTTP request has failed with a code error (e.g. 4xx or 500)
 
         Args:
-            response (requests): the HTTP request's response (eg `requests.post` result).
-            filename (str, optional): the name of the file that is uploaded/downloaded,
-            (regarding the HTTP request issued).
-            Defaults to ''.
+            response: the HTTP request's response (eg `requests.post` result).
+            filename: the name of the file that is uploaded/downloaded,
+                (regarding the HTTP request issued).
+                Defaults to ''.
 
         Raises:
             FedbiomedRepositoryError: if request has failed, raises an FedBioMedError
-            with the appropriate code error/ message
+                with the appropriate code error/ message
         """
         _method_msg = Repository._get_method_request_msg(response.request.method)
         try:
@@ -158,16 +157,15 @@ class Repository:
 
     @staticmethod
     def _get_method_request_msg(req_type: str) -> str:
-        """
-        Returns the appropriate message whether the HTTP request is GET (downloading)
-        or POST (uploading)
+        """Returns the appropriate message whether the HTTP request is GET (downloading)
+            or POST (uploading)
 
         Args:
-            req_type (str): the request type ('GET', 'POST')
+            req_type: the request type ('GET', 'POST')
 
         Returns:
             str: the appropriate message (that will be used for the error message
-            description if any error has been found)
+                description if any error has been found)
         """
         # FIXME: this method only provide messages for the HTTP request 'POST' and
         # 'GET'. It should be completed as long other methods based on other requests
@@ -184,25 +182,25 @@ class Repository:
                          http_request: Callable,
                          url: str,
                          filename: str,
-                         *args,
-                         **kwargs) -> requests:
-        """
-        Handles error that can trigger if the HTTP request fails (e.g.
-        if request exceeded timeout, ...)
+                         *args: Optional[Any],
+                         **kwargs: Optional[Any]) -> requests:
+        """Handles error that can trigger if the HTTP request fails (e.g.
+            if request exceeded timeout, ...)
 
         Args:
-            callable_method (Callable): the requests HTTP method (callable)
-            url (str): the url method to which to connect to
-            filename (str): the name of the file to upload / download
-            *args, **kwargs: argument to be passed to the callable method.
+            http_request: the requests HTTP method (callable)
+            url: the url method to which to connect to
+            filename: the name of the file to upload / download
+            *args: argument to be passed to the callable method.
+            **kwargs: argument to be passed to the callable method.
 
         Raises:
             FedbiomedRepositoryError: Triggers if the Timeout has exceeded.
             FedbiomedRepositoryError: Triggers if the request has faced too many redirect.
             FedbiomedRepositoryError: Triggers if URL is badly written, or missing some
-            parts (eg: missing scheme).
+                parts (eg: missing scheme).
             FedbiomedRepositoryError: Triggers if the connection was unsuccessful, when the service
-            to connect is unknown.
+                to connect is unknown.
             FedbiomedRepositoryError: Catches other exceptions coming from requests package
 
         Returns:
