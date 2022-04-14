@@ -325,10 +325,15 @@ class TestSchemeValidator(unittest.TestCase):
         # empty scheme forbidden
         self.assertFalse( SchemeValidator( {} ) .is_valid())
 
-        # same and try to use it anyway
-        v = SchemeValidator( {} )
+        # but try to use it anyway
+        v = SchemeValidator({})
+        self.assertFalse( v.validate( {} ) )
+        self.assertTrue( v.scheme() is None)
+
+        # create abad validator, but stil use it
+        v = SchemeValidator( { "toto": 1 } )
         self.assertFalse( v.is_valid())
-        self.assertFalse( v.validate( {}))
+        self.assertFalse( v.validate( {"toto": 1} ))
 
         # data should be properly defined
         self.assertFalse( SchemeValidator( { "data": [] } ) .is_valid())
@@ -341,12 +346,19 @@ class TestSchemeValidator(unittest.TestCase):
         # valid subkeys
         self.assertFalse( SchemeValidator( { "data": { "a": "b" } } ) .is_valid())
 
-        # and the rules subkey must also be an array
+        # and the rules subkey must also be a non empty array
+        self.assertFalse( SchemeValidator( { "data": { "rules": {}  } } ) .is_valid())
         self.assertFalse( SchemeValidator( { "data": { "rules": "b" } } ) .is_valid())
         self.assertFalse( SchemeValidator( { "data": { "rules": 1.0 } } ) .is_valid())
 
         # empty array for rules is OK
         self.assertTrue( SchemeValidator( { "data": { "rules": [] } } ) .is_valid())
+
+        # verify scheme() again
+        grammar = { "data": { "rules": [] } }
+        v = SchemeValidator( grammar )
+        self.assertTrue( v.is_valid() )
+        self.assertEqual( v.scheme(), grammar)
 
         training_args_scheme = {
             'lr' : { 'rules': [ float, self.always_true_hook] ,
@@ -363,12 +375,40 @@ class TestSchemeValidator(unittest.TestCase):
         }
         self.assertTrue( SchemeValidator( training_args_scheme ).is_valid())
 
+
+    def test_scheme_validator_02_validate_internal_hook_functions(self):
+        """
+        internal helpr function tests
+        """
+
+        #  check hook_type_validation
+        self.assertTrue( Validator._is_hook_type_valid( float ))
+        self.assertTrue( Validator._is_hook_type_valid( SchemeValidator ))
+        self.assertTrue( Validator._is_hook_type_valid( {} ))
+        self.assertTrue( Validator._is_hook_type_valid( self.always_true_hook ))
+
+        self.assertFalse( Validator._is_hook_type_valid( 3.14 ))
+
+        # check direct hook call
+        self.assertTrue( Validator._hook_execute( 1.0, float ))
+        status, error = Validator._hook_execute( "toto" , float )
+        self.assertFalse(status)
+
+        status, error = Validator._hook_execute( 1.0, "prout" )
+        self.assertFalse(status)
+
+        status, error = Validator._hook_execute( 1.0, SchemeValidator( {} ) )
+        self.assertFalse(status)
+
+        status, error = Validator._hook_execute( 1.0, {} )
+        self.assertFalse(status)
+
     @staticmethod
     @validator_decorator
     def positive_integer(value):
         return isinstance(value, int) and value > 0
 
-    def test_scheme_validator_01_validate_the_validator(self):
+    def test_scheme_validator_03_validate_the_validator(self):
         """
         a more complicated scheme
         """
