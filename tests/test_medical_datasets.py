@@ -1,7 +1,6 @@
-import os
-import unittest
 import logging
 import tempfile
+import unittest
 
 log = logging.getLogger(__name__)
 
