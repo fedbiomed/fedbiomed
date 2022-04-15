@@ -14,6 +14,12 @@ Which machine to use ?
 
 ## requirements
 
+Supported operating systems for using containers :
+  - tested on **Fedora 35**, should work for recent RedHat based Linux
+  - tested on **Ubuntu 20.04**, should work for recent Debian based Linux
+  - tested on recent **MacOS X**
+  - tested on **Windows 10** 21H2 with WSL2 using a Ubuntu-20.04 distribution, should work with most Windows 10/11 and other recent Linux distributions
+
 Pre-requisites for using containers :
 
 * **`docker >= 20.10.0`** is needed to build mqtt, see [there](https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2). With older docker version it fails with a `make: sh: Operation not permitted`
@@ -22,6 +28,13 @@ Pre-requisites for using containers :
   - Type `docker-compose --version` to check installed version.
   - You can use your usual package manager to  install up-to-date version (eg: `sudo apt-get update && sudo apt-get install docker-compose` for apt, `sudo dnf clean metadata && sudo dnf update docker-compose` for dnf).
   - If no suitable package exist for your system, you can use [`docker-compose` install page](https://docs.docker.com/compose/install/).
+
+Installation notes :
+* on Windows 10 with WSL2 Ubuntu-20.04: build of containers `mqtt` `restful` may fail in `cargo install` step with error `spurious network error [...] Timeout was reached`. This is due to bad name resolution of `crates.io` package respository with default WSL2 DNS configuration. If this happens connect to wsl (`wsl` from Windows command line tool), get admin privileges (`sudo bash`) and create a [`/etc/wsl.conf`](https://docs.microsoft.com/fr-fr/windows/wsl/wsl-config) file containing:
+```bash
+[network]
+generateResolvConf = false
+```
 
 
 ## setup VPN and fedbiomed
