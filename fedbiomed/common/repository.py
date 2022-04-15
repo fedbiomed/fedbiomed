@@ -12,12 +12,16 @@ from fedbiomed.common.logger import logger
 class Repository:
     """HTTP file repository from which to upload and download files.
 
-    Files are uploaded from/downloaded to a temporary file (`temp_fir`)
-
+    Files are uploaded from/downloaded to a temporary file (`temp_fir`).
     Data uploaded should be:
         python code (*.py file) that describes model +
             data handling/preprocessing
         model params (under *.pt format)
+
+    Attributes:
+        uploads_url: The URL where we upload files
+        tmp_dir: A directory for temporary files
+        cache_dir: Currently unused
     """
     def __init__(self,
                  uploads_url: Union[Text, bytes],
@@ -32,17 +36,17 @@ class Repository:
         """Uploads a file to an HTTP file repository (through an HTTP POST request).
 
         Args:
-            filename: name/path of the file to upload.
+            filename: A name/path of the file to upload.
 
         Returns:
-            res: the result of the request under JSON
+            res: The result of the request under JSON
                 format.
 
         Raises:
-            FedbiomedRepositoryError: when unable to read the file 'filename'
-            FedbiomedRepositoryError: when POST HTTP request fails or returns
+            FedbiomedRepositoryError: When unable to read the file 'filename'
+            FedbiomedRepositoryError: When POST HTTP request fails or returns
                 a HTTP status 4xx (bad request) or 500 (internal server error)
-            FedbiomedRepositoryError: when unable to deserialize JSON from
+            FedbiomedRepositoryError: When unable to deserialize JSON from
                 the request
         """
         # first, we are trying to open the file `filename` and catch
@@ -85,12 +89,12 @@ class Repository:
         """Downloads a file from a HTTP file repository (through an HTTP GET request).
 
         Args:
-            url: url from which to download file
-            filename: name of the temporary file
+            url: An url from which to download file
+            filename: The name of the temporary file
 
         Returns:
-            status: HTTP status code
-            filepath: the complete pathfile under
+            status: The HTTP status code
+            filepath: The complete pathfile under
                 which the temporary file is saved
         """
 
@@ -127,13 +131,13 @@ class Repository:
         exception if the HTTP request has failed with a code error (e.g. 4xx or 500)
 
         Args:
-            response: the HTTP request's response (eg `requests.post` result).
-            filename: the name of the file that is uploaded/downloaded,
+            response: The HTTP request's response (eg `requests.post` result).
+            filename: The name of the file that is uploaded/downloaded,
                 (regarding the HTTP request issued).
                 Defaults to ''.
 
         Raises:
-            FedbiomedRepositoryError: if request has failed, raises an FedBioMedError
+            FedbiomedRepositoryError: i\If request has failed, raises an FedBioMedError
                 with the appropriate code error/ message
         """
         _method_msg = Repository._get_method_request_msg(response.request.method)
@@ -163,10 +167,10 @@ class Repository:
             or POST (uploading).
 
         Args:
-            req_type: the request type ('GET', 'POST')
+            req_type: The request type ('GET', 'POST')
 
         Returns:
-            str: the appropriate message (that will be used for the error message
+            str: The appropriate message (that will be used for the error message
                 description if any error has been found)
         """
         # FIXME: this method only provide messages for the HTTP request 'POST' and
@@ -190,11 +194,11 @@ class Repository:
             if request exceeded timeout, ...).
 
         Args:
-            http_request: the requests HTTP method (callable)
-            url: the url method to which to connect to
-            filename: the name of the file to upload / download
-            *args: argument to be passed to the callable method.
-            **kwargs: argument to be passed to the callable method.
+            http_request: The requests HTTP method (callable)
+            url: The url method to which to connect to
+            filename: The name of the file to upload / download
+            *args: The positional arguments to be passed to the callable method.
+            **kwargs: The named arguments to be passed to the callable method.
 
         Raises:
             FedbiomedRepositoryError: Triggers if the Timeout has exceeded.
@@ -206,7 +210,7 @@ class Repository:
             FedbiomedRepositoryError: Catches other exceptions coming from requests package
 
         Returns:
-            requests: the result of the request if request is successful
+            requests: The result of the request if request is successful
         """
         req_method = getattr(http_request, '__name__')
         req_method = req_method.upper()
