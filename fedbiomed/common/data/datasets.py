@@ -39,7 +39,7 @@ class NIFTIFolderDataset(Dataset, ABC):
     ```
     """
 
-    ALLOWED_EXTENSIONS = ['.nii', '.nii.gz', '.jpeg']
+    ALLOWED_EXTENSIONS = ['.nii', '.nii.gz']
     files = []
     class_names = []
     targets = []
