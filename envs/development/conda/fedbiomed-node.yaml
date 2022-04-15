@@ -29,6 +29,7 @@ dependencies:
   - nbstripout
   - joblib >=1.0.1
   - scikit-learn <= 0.24.2
+  - itk
   # nn
   - pip:
       - opacus

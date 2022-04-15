@@ -14,6 +14,12 @@ Which machine to use ?
 
 ## requirements
 
+Supported operating systems for using containers :
+  - tested on **Fedora 35**, should work for recent RedHat based Linux
+  - tested on **Ubuntu 20.04**, should work for recent Debian based Linux
+  - tested on recent **MacOS X**
+  - tested on **Windows 10** 21H2 with WSL2 using a Ubuntu-20.04 distribution, should work with most Windows 10/11 and other recent Linux distributions
+
 Pre-requisites for using containers :
 
 * **`docker >= 20.10.0`** is needed to build mqtt, see [there](https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2). With older docker version it fails with a `make: sh: Operation not permitted`
@@ -22,6 +28,14 @@ Pre-requisites for using containers :
   - Type `docker-compose --version` to check installed version.
   - You can use your usual package manager to  install up-to-date version (eg: `sudo apt-get update && sudo apt-get install docker-compose` for apt, `sudo dnf clean metadata && sudo dnf update docker-compose` for dnf).
   - If no suitable package exist for your system, you can use [`docker-compose` install page](https://docs.docker.com/compose/install/).
+
+Installation notes for Windows 10 with WSL2 Ubuntu-20.04:
+* build of containers `mqtt` `restful` may fail in `cargo install` step with error `spurious network error [...] Timeout was reached`. This is due to bad name resolution of `crates.io` package respository with default WSL2 DNS configuration. If this happens connect to wsl (`wsl` from Windows command line tool), get admin privileges (`sudo bash`) and create a [`/etc/wsl.conf`](https://docs.microsoft.com/fr-fr/windows/wsl/wsl-config) file containing:
+```bash
+[network]
+generateResolvConf = false
+```
+* if deploying containers on multiple machines you probably need to [make some ports available](https://docs.microsoft.com/en-us/windows/wsl/networking) on the network (eg: Wireguard server)
 
 
 ## setup VPN and fedbiomed
@@ -184,7 +198,7 @@ Run this only at first launch of container or after cleaning :
 ```
   Alternative: build an (thiner) image without GPU support if you will never use it 
 ```bash
-[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode-nogpu
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode-no-gpu
 [user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
 ```
 
@@ -206,16 +220,17 @@ Run this only at first launch of container or after cleaning
 
 On the build machine
 
-* for building use the `CONTAINER_UID` and `CONTAINER_GID` that will be used on the node machine for running the node (they may differ from the ids on the build machine)
+* `CONTAINER_UID` and `CONTAINER_GID` used at build time do not need to exist on the build machine, and do not need to be the one used on the node machine for running the node. When launching the container, build-time id is the default id but it may be overloaded. This is useful when building a node image for multiple node machines that don't use the same `CONTAINER_UID` and `CONTAINER_GID`.
+* in this example, we build the container with user `fedbiomed` (id `1234`) and group `fedbiomed` (id `1234`). Account name and id used on the node machine may differ (see below).
 * build container
 ```bash
-[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode
-[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
+[user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker-compose build basenode
+[user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker-compose build node
 ```
   Alternative: build an (thiner) image without GPU support if you will never use it 
 ```bash
-[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode-nogpu
-[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
+[user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker-compose build basenode-no-gpu
+[user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker-compose build node
 ```
 * save image for container
 ```bash
@@ -271,13 +286,15 @@ Run this only at first launch of container or after cleaning :
 * launch container
 ```bash
 [user@node $] NODE=node
-[user@node $] docker-compose up -d $NODE
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d $NODE
 ```
 Alternative: launch container with Nvidia GPU support activated. Before launching, install [all the pre-requisites for GPU support](#gpu-support-in-container).
 ```bash
 [user@node $] NODE=node-gpu
-[user@node $] docker-compose up -d $NODE
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d $NODE
 ```
+  * note : `CONTAINER_{UID,GID,USER,GROUP}` are not necessary if using the same identity as in for the build, but they need to have a read/write access to the directories mounted from the host machine's filesystem.
+  * note : when using a different identity than at build time, `docker-compose up` may take up to a few dozen seconds to complete and node be ready for using. This is the time for re-assigning some installed resources in the container to the new account.
 * retrieve the *publickey*
 ```bash
 [user@node $] docker-compose exec $NODE wg show wg0 public-key
@@ -297,7 +314,8 @@ Run this for all launches of the container :
 
 * launch container
 ```bash
-[user@node $] docker-compose up -d $NODE
+# `CONTAINER_{UID,GID,USER,GROUP}` are not needed if they are the same as used for build
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d $NODE
 ```
 * TODO: better package/scripting needed
   Connect again to the node and launch manually, now that the VPN is established
@@ -385,10 +403,11 @@ Run this only at first launch of container or after cleaning
 
 On the build machine
 
-* for building use the `CONTAINER_UID` and `CONTAINER_GID` that will be used on the node machine for running the gui (they may differ from the ids on the build machine)
+* `CONTAINER_UID` and `CONTAINER_GID` used at build time do not need to exist on the build machine, and do not need to be the one used on the node machine for running the gui. When launching the container, build-time id is the default id but it may be overloaded. This is useful when building a gui image for multiple node machines that don't use the same `CONTAINER_UID` and `CONTAINER_GID`.
+* in this example, we build the container with user `fedbiomed` (id `1234`) and group `fedbiomed` (id `1234`). Account name and id used on the node machine may differ (see below).
 * build container
 ```bash
-[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build gui
+[user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker-compose build gui
 ```
 * save image for container
 ```bash
@@ -417,8 +436,11 @@ Run this for all launches of the container :
 
 * launch container
 ```bash
-[user@node $] docker-compose up -d gui
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d gui
 ```
+  * note : `CONTAINER_{UID,GID,USER,GROUP}` are not necessary if using the same identity as in for the build, but they need to have a read/write access to the directories mounted from the node machine's filesystem.
+  * note : when using a different identity than at build time, `docker-compose up` may take up to a few dozen seconds to complete and node be ready for using. This is the time for re-assigning some installed resources in the container to the new account.
+
 
 #### using the gui
 
@@ -663,7 +685,8 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 
 # level 2 : configuration
 [user@network $] rm -rf ./restful/run_mounts/config/{config.env,wireguard}
-
+[user@network $] rm -rf ./restful/run_mounts/app/data/media/{persistent,uploads}
+[user@network $] rm -rf ./restful/run_mounts/app/data/static
 [user@network $] rm -f ./restful/run_mounts/app/db.sqlite3
 # also clean saved files ? (same for env/developement)
 
@@ -735,7 +758,7 @@ Same as node
 * wireguard vs openvpn : https://restoreprivacy.com/vpn/wireguard-vs-openvpn/
 
 
-## Managing peers in vpnserver
+## managing peers in vpnserver
 
 Peers in VPN server can be listed or removed through `configure_peer.py`. 
 
@@ -796,4 +819,16 @@ Config files of peers can be removed with the `removeconf` flag.
 type        id       prefix         peers
 ----------  -------  -------------  -----------------------------------------------
 management  restful  10.220.0.3/32  ['2OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
+```
+
+## using different identity for build and run
+
+We already documented the use of different values of `CONTAINER_{UID,GID,USER,GROUP}` at build time and at runtime for the `node` and `gui` containers. The build time identity is the default identity at runtime but it can be overloaded when launching the container. This is useful when building a `node` or `gui` image that is used on several node machines that don't use the same identity for running it.
+
+Different values at build time and runtime is also supported by `vpnserver` `mqtt` `restful` and `researcher` containers. Usage is the same as for `node` and `gui`.
+
+Example : build a researcher container with a default user/group `fedbiomed` (id `1234`), run it with the same account as the account on the researcher machine.
+```bash
+[user@researcher $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker-compose build researcher
+[user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d researcher
 ```
