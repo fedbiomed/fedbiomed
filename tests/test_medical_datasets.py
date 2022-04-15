@@ -55,6 +55,11 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         self.assertEqual(len(targets), batch_size)
         self.assertEqual(len(img_batch), batch_size)
 
+    def test_empty_folder_raises_error(self):
+        with self.assertRaises(FileNotFoundError):
+            temp = tempfile.mkdtemp()
+            NIFTIFolderDataset(temp)
+
     def tearDown(self) -> None:
         import shutil
         shutil.rmtree(self.root)

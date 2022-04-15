@@ -77,6 +77,10 @@ class NIFTIFolderDataset(Dataset, ABC):
         # Assign numerical value to target 0...n_classes
         self.targets = torch.tensor([self.class_names.index(p.parent.name) for p in self.files]).long()
 
+        # Raise error if empty dataset
+        if len(self.files) == 0 or len(self.targets) == 0:
+            raise FileNotFoundError(f"Not compatible files were found in the {self.root_dir}.")
+
     def __getitem__(self, item) -> Tuple[Tensor, Tensor]:
         img = self.reader(self.files[item])
         target = self.targets[item]
