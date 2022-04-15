@@ -230,6 +230,45 @@ class SchemeValidator(object):
         return True
 
 
+    def populate_with_defaults( self, value):
+        """
+        Parse the given json value and add default value is key was required
+        but not provided.
+        Of course, the default value must be provided in the scheme.
+
+        Warning: this does not parse the result agains the scheme. It has
+        to be done by the user.
+
+        Args:
+            value:   a json data to verify/populate
+
+        Return:
+            json:    a json populated with default values,
+                     returns an empty dict if something is wrong
+        """
+
+        if not self.is_valid():
+            return {}
+
+        # check the value against the scheme
+        result = value
+        for k, v in self._scheme.items():
+            if 'required' in v and v['required'] is True:
+
+                if k in value:
+                    result[k] = value[k]
+                else:
+                    if 'default' in v:
+                        result[k] = v['default']
+                    else:
+                        logger.error("no default value for required key: "+str(k))
+                        return {}
+
+        return result
+
+
+
+
     def __validate_scheme(self, scheme):
         """
         Scheme validation function (internal).
@@ -301,7 +340,6 @@ class SchemeValidator(object):
                 # if default value passed, it must respect the rules
                 if subkey == "default":
                     def_value = scheme[key][subkey]
-                    print("===", def_value)
 
                     for rule in scheme[key]["rules"]:
                         if not Validator().validate(def_value, rule):

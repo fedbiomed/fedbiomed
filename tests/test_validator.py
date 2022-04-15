@@ -477,6 +477,7 @@ class TestSchemeValidator(unittest.TestCase):
         status, error = Validator._hook_execute( 1.0, {} )
         self.assertFalse(status)
 
+
     @staticmethod
     @validator_decorator
     def positive_integer(value):
@@ -486,6 +487,7 @@ class TestSchemeValidator(unittest.TestCase):
         """
         a more complicated scheme
         """
+
 
         training_args_scheme = {
             'lr' : { 'rules': [ float, lambda a: (a > 0) ],
@@ -528,6 +530,55 @@ class TestSchemeValidator(unittest.TestCase):
             'round_limit': 10
         }
         self.assertFalse( v.validate( training_args ))
+
+
+    def test_scheme_validator_04_default_value_injection(self):
+        """
+        check default field
+        """
+
+        # add default values to an invalid json
+        sc = SchemeValidator( { "a": { "rules": [ float ],
+                                       "required": True,
+                                       "default": 1.0 },
+                                "b": { "rules": [ int ],
+                                       "required": True,
+                                       "default": 666 },
+                                "c": { "rules": [ str ],
+                                       "default": "stupid because unused" }
+                               }
+                             )
+        self.assertTrue( sc.is_valid())
+
+        bad = { "a": 1.0 }
+        self.assertFalse( sc.validate(bad))
+
+        good = sc.populate_with_defaults( bad )
+        self.assertTrue( sc.validate(good))
+
+        # be carefull that this is not idiot proof....
+        bad = { "a": "string instead a float" }
+        self.assertFalse( sc.validate(bad))
+
+        still_bad = sc.populate_with_defaults( bad )
+        self.assertFalse( sc.validate(still_bad))
+
+        # the 100% coverage on populate_with_defaults ?
+        sc = SchemeValidator( "not a grammar" )
+        self.assertFalse( sc.is_valid())
+
+        good = { "a": 1.0, "b": 777 }
+        populated = sc.populate_with_defaults( good )
+        self.assertEqual( populated, {} )
+
+        # no default for required scheme
+        sc = SchemeValidator( { "a": { "rules": [ float ], "required": True} } )
+
+        bad = { }
+        self.assertFalse( sc.validate(bad))
+
+        still_bad = sc.populate_with_defaults( bad )
+        self.assertFalse( sc.validate(still_bad))
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
