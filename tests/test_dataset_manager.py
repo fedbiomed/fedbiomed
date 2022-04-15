@@ -266,9 +266,9 @@ class TestDatasetManager(unittest.TestCase):
         self.assertEqual(res_dataset, self.fake_dataset)
         # Below, we are not testing that MNIST patch has been calling
         # with the good argument for 'transform``
-        dataset_mnist_patch.assett_called_once_with(root=database_path,
+        dataset_mnist_patch.assert_called_once_with(root=database_path,
                                                     download=True,
-                                                    transform=torchvision_tensor_patch)
+                                                    transform=mock.ANY)
 
 
     @patch('fedbiomed.node.dataset_manager.DatasetManager.get_torch_dataset_shape')
