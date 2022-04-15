@@ -207,7 +207,7 @@ def add_database(interactive=True,
         description = str(description)
 
         data_type = str(data_type).lower()
-        if data_type not in [ 'csv', 'default','mednist', 'images' ]:
+        if data_type not in [ 'csv', 'default', 'mednist', 'images' ]:
             data_type = 'default'
 
         if not os.path.exists(path):
@@ -216,16 +216,16 @@ def add_database(interactive=True,
     # Add database
     try:
         dataset_manager.add_database(name=name,
-                                  tags=tags,
-                                  data_type=data_type,
-                                  description=description,
-                                  path=path)
+                                     tags=tags,
+                                     data_type=data_type,
+                                     description=description,
+                                     path=path)
     except (AssertionError, FedbiomedDatasetManagerError) as e:
         if interactive is True:
             try:
                 tkinter.messagebox.showwarning(title='Warning', message=str(e))
             except ModuleNotFoundError:
-                warnings.warn('[ERROR]: {e}')
+                warnings.warn(f'[ERROR]: {e}')
         else:
             warnings.warn(f'[ERROR]: {e}')
         exit(1)
