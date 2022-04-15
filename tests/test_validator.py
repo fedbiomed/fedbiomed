@@ -1,5 +1,5 @@
 import unittest
-from fedbiomed.common.validator import Validator, SchemeValidator, validator_decorator
+from fedbiomed.common.validator import Validator, SchemeValidator, validator_decorator, _ValidatorHookType
 
 
 class TestValidator(unittest.TestCase):
@@ -304,10 +304,57 @@ class TestValidator(unittest.TestCase):
         self.assertFalse(v.register_rule( "tr_02", training_args_ko))
 
 
+    def test_validator_09_lambda(self):
+        """
+        check against a lambda expression
+        """
+        my_lambda = lambda a: isinstance(a, bool)
 
+        v = Validator()
+        self.assertTrue( v.validate( True, my_lambda) )
+        self.assertTrue( v.validate( True, my_lambda) )
+        self.assertFalse( v.validate( 3.14 , my_lambda) )
+
+    def test_validator_10_validator_hook_type(self):
+        """
+        check _ValidatorHootType internal function
+        """
+
+        # invalid Type
+        self.assertEqual( Validator()._hook_type( 3.14 ),
+                         _ValidatorHookType.INVALID)
+
+        self.assertEqual( Validator()._hook_type( None ),
+                         _ValidatorHookType.INVALID)
+
+        # builtin classes
+        self.assertEqual( Validator()._hook_type( int ),
+                         _ValidatorHookType.TYPECHECK)
+
+        self.assertEqual( Validator()._hook_type( float ),
+                         _ValidatorHookType.TYPECHECK)
+
+        # non builtin classes
+        self.assertEqual( Validator()._hook_type( Validator ),
+                         _ValidatorHookType.TYPECHECK)
+
+        # scheme validators
+        v = SchemeValidator( {} )
+        self.assertEqual( Validator()._hook_type( v ),
+                         _ValidatorHookType.SCHEME_VALIDATOR)
+
+        self.assertEqual( Validator()._hook_type( {} ),
+                         _ValidatorHookType.SCHEME_AS_A_DICT)
+
+        # functions
+        self.assertEqual( Validator()._hook_type( self ),
+                          _ValidatorHookType.FUNCTION)
+
+        my_lambda = lambda : True
+        self.assertEqual( Validator()._hook_type( my_lambda ),
+                          _ValidatorHookType.LAMBDA)
 
 class TestSchemeValidator(unittest.TestCase):
-
     """
     unitests for SchemeValidator class
     """
@@ -350,6 +397,8 @@ class TestSchemeValidator(unittest.TestCase):
         self.assertFalse( SchemeValidator( { "data": { "rules": {}  } } ) .is_valid())
         self.assertFalse( SchemeValidator( { "data": { "rules": "b" } } ) .is_valid())
         self.assertFalse( SchemeValidator( { "data": { "rules": 1.0 } } ) .is_valid())
+        # bad rules
+        self.assertFalse( SchemeValidator( { "data": { "rules": [ 1.0 ] } } ) .is_valid())
 
         # empty array for rules is OK
         self.assertTrue( SchemeValidator( { "data": { "rules": [] } } ) .is_valid())
@@ -444,6 +493,8 @@ class TestSchemeValidator(unittest.TestCase):
             'batch_maxnum':250
         }
         self.assertTrue( v.validate( training_args ))
+
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
