@@ -1,5 +1,4 @@
-'''
-send information from node to researcher during the training
+'''Send information from node to researcher during the training
 '''
 
 
@@ -11,12 +10,18 @@ from fedbiomed.node.environ import environ
 
 
 class HistoryMonitor:
+    """Send information from node to researcher during the training
+
+    Attributes:
+        job_id: TODO
+        researcher_id: TODO
+        client: TODO
+    """
     def __init__(self,
                  job_id: str,
                  researcher_id: str,
                  client: Messaging):
-        """
-        simple constructor
+        """Simple constructor
         """
         self.job_id = job_id
         self.researcher_id = researcher_id
@@ -34,19 +39,20 @@ class HistoryMonitor:
                    test_on_global_updates: bool = False,
                    test_on_local_updates: bool = False):
 
-        """
-        Adds a scalar value to the monitor, and sends an 'AddScalarReply'
-        response to researcher
+        """Adds a scalar value to the monitor, and sends an 'AddScalarReply'
+            response to researcher.
 
         Args:
-            metric (Dict[str, Union[int, float]]):  recorded value
-            iteration (int): current epoch iteration.
-            epoch (int): current epoch
-            total_samples (int):
-            batch_samples (int):
-            num_batches (int):
-            train (bool):
-            before_training (bool):
+            metric:  recorded value
+            iteration: current epoch iteration.
+            epoch: current epoch
+            total_samples: TODO
+            batch_samples: TODO
+            num_batches: TODO
+            train: TODO
+            test: TODO
+            test_on_global_updates: TODO
+
         """
 
         self.messaging.send_message(NodeMessages.reply_create({
