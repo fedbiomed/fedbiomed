@@ -43,7 +43,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
         self.assertEqual(n_samples, sum(self.n_samples))
         self.assertEqual(len(dataset.targets), n_samples)
-        self.assertEqual(len(dataset.targets), n_samples)
+        self.assertEqual(len(dataset.files), n_samples)
 
     def test_dataloader(self):
         from torch.utils.data import DataLoader

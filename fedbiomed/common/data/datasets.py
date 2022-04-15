@@ -27,7 +27,7 @@ class NIFTIFolderDataset(Dataset, ABC):
     Images must be contained by folders that describe the group/class they belong to.
 
     ```
-    bifti_dataset_root_folder
+    nifti_dataset_root_folder
     ├── control_group
     │   ├── subject_1.nii
     │   └── subject_2.nii
