@@ -29,12 +29,13 @@ Pre-requisites for using containers :
   - You can use your usual package manager to  install up-to-date version (eg: `sudo apt-get update && sudo apt-get install docker-compose` for apt, `sudo dnf clean metadata && sudo dnf update docker-compose` for dnf).
   - If no suitable package exist for your system, you can use [`docker-compose` install page](https://docs.docker.com/compose/install/).
 
-Installation notes :
-* on Windows 10 with WSL2 Ubuntu-20.04: build of containers `mqtt` `restful` may fail in `cargo install` step with error `spurious network error [...] Timeout was reached`. This is due to bad name resolution of `crates.io` package respository with default WSL2 DNS configuration. If this happens connect to wsl (`wsl` from Windows command line tool), get admin privileges (`sudo bash`) and create a [`/etc/wsl.conf`](https://docs.microsoft.com/fr-fr/windows/wsl/wsl-config) file containing:
+Installation notes for Windows 10 with WSL2 Ubuntu-20.04:
+* build of containers `mqtt` `restful` may fail in `cargo install` step with error `spurious network error [...] Timeout was reached`. This is due to bad name resolution of `crates.io` package respository with default WSL2 DNS configuration. If this happens connect to wsl (`wsl` from Windows command line tool), get admin privileges (`sudo bash`) and create a [`/etc/wsl.conf`](https://docs.microsoft.com/fr-fr/windows/wsl/wsl-config) file containing:
 ```bash
 [network]
 generateResolvConf = false
 ```
+* if deploying containers on multiple machines you probably need to [make some ports available](https://docs.microsoft.com/en-us/windows/wsl/networking) on the network (eg: Wireguard server)
 
 
 ## setup VPN and fedbiomed
