@@ -184,7 +184,7 @@ Run this only at first launch of container or after cleaning :
 ```
   Alternative: build an (thiner) image without GPU support if you will never use it 
 ```bash
-[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode-nogpu
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build basenode-no-gpu
 [user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose build node
 ```
 
@@ -215,7 +215,7 @@ On the build machine
 ```
   Alternative: build an (thiner) image without GPU support if you will never use it 
 ```bash
-[user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker-compose build basenode-nogpu
+[user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker-compose build basenode-no-gpu
 [user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker-compose build node
 ```
 * save image for container
