@@ -7,10 +7,12 @@ from ._data_manager import DataManager
 from ._torch_data_manager import TorchDataManager
 from ._sklearn_data_manager import SkLearnDataManager
 from ._torch_tabular_dataset import TorchTabularDataset
+from .datasets import NIFTIFolderDataset
 
 __all__ = [
     "DataManager",
     "TorchDataManager",
     "SkLearnDataManager",
-    "TorchTabularDataset"
+    "TorchTabularDataset",
+    "NIFTIFolderDataset"
 ]
