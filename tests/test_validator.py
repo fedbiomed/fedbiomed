@@ -315,6 +315,7 @@ class TestValidator(unittest.TestCase):
         self.assertTrue( v.validate( True, my_lambda) )
         self.assertFalse( v.validate( 3.14 , my_lambda) )
 
+
     def test_validator_10_validator_hook_type(self):
         """
         check _ValidatorHootType internal function
@@ -353,6 +354,26 @@ class TestValidator(unittest.TestCase):
         my_lambda = lambda : True
         self.assertEqual( Validator()._hook_type( my_lambda ),
                           _ValidatorHookType.LAMBDA)
+
+    def test_validator_11_default_value(self):
+        """
+        check default field
+        """
+
+        # check that default value is conform to the rules
+        sc = SchemeValidator( { "a": { "rules": [ str ],
+                                       "default": "default_value"}
+                               }
+                             )
+        self.assertTrue( sc.is_valid() )
+
+        # this one is bad
+        sc = SchemeValidator( { "a": { "rules": [ str ],
+                                       "default": 1.0 }
+                               }
+                             )
+        self.assertFalse( sc.is_valid() )
+
 
 class TestSchemeValidator(unittest.TestCase):
     """
@@ -408,6 +429,10 @@ class TestSchemeValidator(unittest.TestCase):
         v = SchemeValidator( grammar )
         self.assertTrue( v.is_valid() )
         self.assertEqual( v.scheme(), grammar)
+        self.assertFalse( v.validate( "not a dict" ) )
+        self.assertFalse( v.validate( False ) )
+        self.assertFalse( v.validate( None ) )
+        self.assertFalse( v.validate( "data" ) )
 
         training_args_scheme = {
             'lr' : { 'rules': [ float, self.always_true_hook] ,
@@ -463,7 +488,7 @@ class TestSchemeValidator(unittest.TestCase):
         """
 
         training_args_scheme = {
-            'lr' : { 'rules': [ float, self.always_true_hook],
+            'lr' : { 'rules': [ float, lambda a: (a > 0) ],
                      'required': True,
                     },
             'round_limit' : { 'rules': [ self.positive_integer ],
@@ -490,11 +515,19 @@ class TestSchemeValidator(unittest.TestCase):
             'lr': 1e-5,
             'epochs': 1,
             'dry_run': False,
-            'batch_maxnum':250
+            'batch_maxnum': 250
         }
-        self.assertTrue( v.validate( training_args ))
+        self.assertFalse( v.validate( training_args ))
 
-
+        training_args = {
+            'batch_size': 20,
+            'lr': 1e-5,
+            'epochs': 1,
+            'dry_run': False,
+            'batch_maxnum': 250,
+            'round_limit': 10
+        }
+        self.assertFalse( v.validate( training_args ))
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

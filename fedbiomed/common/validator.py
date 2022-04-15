@@ -38,9 +38,9 @@ SchemeValidator:
 
   The scheme need to follow a specific format, which describe each
   allowed fields and their characteristics:
-  - a list of associated validators (aka Validator instances)
-  - is the field required/optionnal
-  - a default value
+  - a list of associated validators to check against (aka Validator instances)
+  - the field requierement (rquired on not)
+  - a default value (which will be used if the field is required but not provided)
 
   A SchemeValidator is accepted byt the Validator class.
 
@@ -195,8 +195,10 @@ class SchemeValidator(object):
         Validate a value against the scheme passed at creation time.
 
         Args:
-             value:   value (json) to validate against the scheme passed
+             value:  value (json) to validate against the scheme passed
                      at __init__
+        Returns:
+            bool:    result of the validation test
         """
 
         # TODO: raises error messages
@@ -204,18 +206,26 @@ class SchemeValidator(object):
         if not self.is_valid():
             return False
 
+        if not isinstance(value, dict):
+            logger.error("value is not a dict")
+            return False
+
+
         # check the value against the scheme
         for k, v in self._scheme.items():
             if 'required' in v and v['required'] is True and k not in value:
-                return False, str(k) + " value is required"
+                logger.error(str(k) + " value is required")
+                return False
 
         for k in value:
             if k not in self._scheme:
-                return False, "undefined key (" + str(k) + ") in scheme"
+                logger.error("undefined key (" + str(k) + ") in scheme")
+                return False
 
             for hook in self._scheme[k]['rules']:
                 if not Validator().validate(value[k], hook):
-                    return False, "invalid value (" + str(value[k]) + ") for key: " + str(k)
+                    logger.error("invalid value (" + str(value[k]) + ") for key: " + str(k))
+                    return False
 
         return True
 
@@ -288,6 +298,19 @@ class SchemeValidator(object):
                             ") provided for key: " + \
                             str(key)
                             )
+                # if default value passed, it must respect the rules
+                if subkey == "default":
+                    def_value = scheme[key][subkey]
+                    print("===", def_value)
+
+                    for rule in scheme[key]["rules"]:
+                        if not Validator().validate(def_value, rule):
+                            return("default value for key (" + \
+                                   str(key) + \
+                                   ") does not respect its own specification (" + \
+                                   str(def_value) + \
+                                   ")"
+                                   )
 
         # scheme is validated
         return True
