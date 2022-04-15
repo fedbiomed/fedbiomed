@@ -1,5 +1,4 @@
-"""
-Model manager
+"""Model manager
 """
 
 
@@ -36,14 +35,15 @@ HASH_FUNCTIONS = {
 
 
 class ModelManager:
-    """
-    ModelManager stores models as objects
+    """ModelManager stores models as objects.
+
+    Attributes:
     """
     def __init__(self):
-        """
-        Class constructor for ModelManager. It creates a DB object \
-        for the table named as `Models` and builds a query object to query
-        the database.
+        """Class constructor for ModelManager.
+
+        It creates a DB object for the table named as `Models` and builds a query object to query
+            the database.
         """
         self._tinydb = TinyDB(environ["DB_PATH"])
         self._db = self._tinydb.table('Models')
@@ -51,16 +51,15 @@ class ModelManager:
         self._repo = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
 
     def _create_hash(self, path: str):
-        """
-        Method for creating hash with given model file
+        """Method for creating hash with given model file
 
         Args:
-            path (str): Model file path
+            path: Model file path
 
-        Raises FedBiomedModelManagerError:
-            - if file cannot be open
-            - if file cannot be minified
-            - if Hashing agorithm does not exist in HASH_FUNCTION table
+        Raises:
+            FedBiomedModelManagerError: if file cannot be open
+            FedBiomedModelManagerError: if file cannot be minified
+            FedBiomedModelManagerError: if Hashing agorithm does not exist in HASH_FUNCTION table
         """
         hash_algo = environ['HASHING_ALGORITHM']
 
@@ -108,19 +107,18 @@ class ModelManager:
                        model_type: str = 'registered',
                        model_id: str = None
                        ) -> True:
-        """
-        This method approves/registers model file thourgh CLI.
+        """This method approves/registers model file thourgh CLI.
 
         Args:
-            name        (str): Model file name. The name should be unique. Otherwise methods
-                               throws an Exception FedbiomedModelManagerError
-            description  (str): Description fro model file.
-            path        (str): Exact path for the model that will be registered
-            model_type  (str): Default is `registered`. It means that model has been registered
-                               by a user/hospital. Other value can be `default` which indicates
-                               that model is default (models for tutorials/examples)
-            model_id    (str): Pre-defined id for model. Default is None. When it is Nonde method
-                               creates unique id for the model.
+            name: Model file name. The name should be unique. Otherwise methods
+                throws an Exception FedbiomedModelManagerError
+            description: Description fro model file.
+            path: Exact path for the model that will be registered
+            model_type: Default is `registered`. It means that model has been registered
+                by a user/hospital. Other value can be `default` which indicates
+                that model is default (models for tutorials/examples)
+            model_id: Pre-defined id for model. Default is None. When it is Nonde method
+                creates unique id for the model.
 
         Raises:
             FedbiomedModelManagerError: raised if `model_type` is not `registered` or `default`
@@ -170,10 +168,10 @@ class ModelManager:
             return True
 
     def check_hashes_for_registered_models(self):
-        """
-        This method checks registered models to make sure model files are existed
-        and hashing algorithm is matched with specified algorithm in the config
-        file
+        """This method checks registered models.
+
+        It makes sure model files exist and hashing algorithm is matched with specified
+            algorithm in the config file.
         """
 
         self._db.clear_cache()
@@ -206,20 +204,22 @@ class ModelManager:
                                                          f"{str(err)}")
 
     def check_is_model_approved(self, path) -> Tuple[bool, Dict[str, Any]]:
-        """
-        This method checks whether model is approved by the node. It sends a query to
-        database to search for hash of requested model. If it is the hash matches with one of the
-        models hashes in the DB, it approves requested model.
+        """This method checks whether model is approved by the node.
+
+        It sends a query to database to search for hash of requested model.
+            If it is the hash matches with one of the
+            models hashes in the DB, it approves requested model.
 
         Args:
-            path (str): The path of requested model file by researcher after downloading
-                        model file from file repository.
+            path: The path of requested model file by researcher after downloading
+                model file from file repository.
 
         Returns:
-            approved (bool): Whether model has been approved or not
-            approved_model (Dict[str, Any]): dictionary containing fields
-            related to the model. If database search request failed,
-            returns None instead.
+            A tuple (approved, approved_model) where
+                approved: Whether model has been approved or not
+                approved_model: dictionary containing fields
+                    related to the model. If database search request failed,
+                    returns None instead.
         """
 
         # Create hash for requested model
@@ -245,17 +245,14 @@ class ModelManager:
         return approved, approved_model
 
     def reply_model_status_request(self, msg: dict, messaging: Messaging):
-        """
-        This method is called directly from Node.py when
-        it receives ModelStatusRequest. It checks requested model file
-        whether it is approved or not and sends ModelStatusReply to
-        researcher.
+        """Checks whether requested model file is approved or not and sends ModelStatusReply to
+            researcher.
+
+        This method is called directly from Node.py when it receives ModelStatusRequest.
 
         Args:
-
-        msg         (dict): Message that is received from researcher.
-                            Formatted as ModelStatusRequest
-        messaging   (MQTT): MQTT client to send reply  to researcher
+            msg: Message that is received from researcher. Formatted as ModelStatusRequest
+            messaging: MQTT client to send reply  to researcher
         """
 
         # Main header for the model status request
@@ -330,15 +327,14 @@ class ModelManager:
         return
 
     def register_update_default_models(self):
-        """
-        This method registers or updated default methods. When the is started
-        through CLI if environ['ALLOW_DEFAULT_MODELS'] is enabled. It will check the
-        files saved into `default_models` directory and update/register them based
-        on following conditions.
+        """This method registers or updated default methods.
 
-        - Registers: If there is a new model-file which isn't saved into db
-        - Updates: if model is modified
-        - Updates: if hashing algorithm has changed in config file.
+        When the is started through CLI if environ['ALLOW_DEFAULT_MODELS'] is enabled.
+            It checks the files saved into `default_models` directory and update/register them based
+            on following conditions.
+                Registers: If there is a new model-file which isn't saved into db
+                Updates: if model is modified
+                Updates: if hashing algorithm has changed in config file.
         """
         self._db.clear_cache()
 
@@ -406,18 +402,18 @@ class ModelManager:
                                                  f"{str(err)}")
 
     def update_model(self, model_id: str, path: str) -> True:
-        """
-        Method for updating model files. Update models hash value with provided
-        model file. It also updates `data_modified`, `date_created` and
-        `model_path` in case of provided different model file than the other one.
+        """Method for updating model files.
+
+        Update models hash value with provided model file. It also updates
+            `data_modified`, `date_created` and
+            `model_path` in case of provided different model file than the other one.
 
         Args:
-
-            model_id (str): Id of the model
-            path     (str): The path where model file is stored
+            model_id: Id of the model
+            path: The path where model file is stored
 
         Returns:
-            True when method has been run
+            True: always
 
         Raises:
             FedbiomedModelManagerError: triggered if a default model is being registered
@@ -454,16 +450,18 @@ class ModelManager:
         return True
 
     def delete_model(self, model_id: str) -> True:
-        """
-        Remove model file from database. This model does not delete
-        any registered model file, and it only removes `registered` type of models.
-        Default models should be removed from the directory
+        """Remove model file from database.
+
+        This model does not delete
+            any registered model file, and it only removes `registered` type of models.
+            Default models should be removed from the directory
 
         Args:
+            model_id: The id of the registered model
 
-            model_id  (str): The id of the registered model
         Returns:
-            True: if method has been run without encountering error
+            True: always
+
         Raises:
             FedBiomedModelManagerError: triggered if the model is a model registered as 'default`
         """
@@ -484,17 +482,17 @@ class ModelManager:
         return True
 
     def list_approved_models(self, verbose: bool = True) -> List:
-        """
-        Method for listing approved model files
+        """Method for listing approved model files
 
         Args:
-            verbose (bool): Default is True. When it is True, print
-                                list of model in tabular format.
+            verbose: Default is True. When it is True, print
+                list of model in tabular format.
+
         Returns:
-           models (List[Dict[str, Any]]): a list of models that have
-           been found has "registered". Each model is in fact a dictionary
-           containing fields (note that following fields are removed :'model_path',
-          'hash', dates due to privacy reasons).
+            models: a list of models that have
+                been found has "registered". Each model is in fact a dictionary
+                containing fields (note that following fields are removed :'model_path',
+                'hash', dates due to privacy reasons).
         """
 
         self._db.clear_cache()
