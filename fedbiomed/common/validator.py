@@ -1,4 +1,4 @@
-'''
+"""
 Provide Validator ans SchemeValidator classes for validating parameters against a set of validation rules.
 
 This module provides two classes:
@@ -66,7 +66,7 @@ SchemeValidator:
   v.register( "message_a", SchemeValidator( scheme) )
   v.register( "message_a", scheme )
 
-'''
+"""
 
 
 import functools
@@ -79,8 +79,9 @@ from fedbiomed.common.logger import logger
 
 class _ValidatorHookType(Enum):
     """
-    List of all method available to execute a validation hook
+    List of all method available to execute a validation hook.
     """
+
     INVALID = 1
     TYPECHECK = 2
     FUNCTION = 3
@@ -90,9 +91,8 @@ class _ValidatorHookType(Enum):
 
 
 def validator_decorator(func):
-    '''
-    function decorator for simplifying the writing of validator hook
-    (aka a validation function)
+    """
+    Function decorator for simplifying the writing of validator hooks.
 
     The decorator catches the output of the validator hook and build
     a tuple (boolean, string) as expected by the Validator class:
@@ -105,7 +105,7 @@ def validator_decorator(func):
 
     Returns:
        decorated function
-    '''
+    """
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
 
@@ -127,8 +127,7 @@ def validator_decorator(func):
 
 class SchemeValidator(object):
     """
-    validation class for scheme (grammar) which describes
-    a json content
+    Validation class for scheme (grammar) which describes a json content.
 
     this class uses Validator's class base functions
     """
@@ -143,7 +142,7 @@ class SchemeValidator(object):
 
     def __init__(self, scheme):
         """
-        constructor of the class
+        Constructor of the class.
 
         it requires a json grammar as argument and validate
         its again the requested json description scheme
@@ -193,7 +192,7 @@ class SchemeValidator(object):
 
     def validate(self, value):
         """
-        validate a value against the scheme passed at creation time
+        Validate a value against the scheme passed at creation time.
 
         Args:
              value:   value (json) to validate against the scheme passed
@@ -223,7 +222,8 @@ class SchemeValidator(object):
 
     def __validate_scheme(self, scheme):
         """
-        scheme validation function (internal)
+        Scheme validation function (internal).
+
         the scheme passed at __init__ is checked with this method
 
         Args:
@@ -263,11 +263,11 @@ class SchemeValidator(object):
                            str(key)
                            )
 
-                # keep this comment, since it may change in the future
                 # special case for 'rules'
-                # always false since _necessary has only the 'rules' key
-                # if not n == 'rules':
-                #    continue
+                # always False since _necessary has only the 'rules' key
+                # test keeped because this may change in the future
+                if not n == 'rules':  # pragma: no cover
+                    continue
 
                 # check that rules contains valid keys for Validator
                 for element in scheme[key][n]:
@@ -295,7 +295,7 @@ class SchemeValidator(object):
 
     def is_valid(self):
         """
-        status of the scheme passed at creation time
+        Status of the scheme passed at creation time.
 
         Returns:
             bool  True if scheme is valid
@@ -305,7 +305,7 @@ class SchemeValidator(object):
 
     def scheme(self):
         """
-        scheme getter
+        Scheme getter.
 
         Returns:
             scheme   scheme passed at __init__ if valid, None instead
@@ -315,7 +315,7 @@ class SchemeValidator(object):
 
 class Validator(object):
     """
-    container class for validation functions accesible via their names
+    Container class for validation functions accesible via their names.
 
     this class:
     - manages a catalog of tuples  ( "name", validation_hook )
@@ -329,19 +329,21 @@ class Validator(object):
 
     _validation_rulebook = {}
     """
-    (internal) storage for tuples ("name", validation_hook)
+    Internal storage for tuples ("name", validation_hook).
     """
 
     def __init__(self):
         """
-        Constructor, does nothing !
+        Constructor, does nothing !.
         """
         pass
 
 
     def validate(self, value, rule, strict = True):
-        '''
-        check value against a:
+        """
+        Validate a value against a validation rule.
+
+        The rule may be one of:
         - (registered) rule
         - a provided function,
         - a simple type checking
@@ -353,7 +355,7 @@ class Validator(object):
 
         Returns:
             bool    True if rule exists and value is compliant, False instead
-        '''
+        """
 
         # rule is in the rulebook -> execute the rule associated function
         if isinstance(rule, str) and rule in self._validation_rulebook:
@@ -384,7 +386,7 @@ class Validator(object):
     @staticmethod
     def _hook_type(hook):
         """
-        Return the hook type as an enum value in _ValidatorHookType
+        Detect the hook type agains permitter values descibred in _ValidatorHookType.
 
         Args:
             hook:   a hook to validate
@@ -417,7 +419,7 @@ class Validator(object):
     @staticmethod
     def _is_hook_type_valid(hook):
         """
-        verify that the hook type associated to a rule is valid
+        Verify that the hook type associated to a rule is valid.
 
         it does not validate the hook for function and SchemeValidator,
         it only verifies that the hook can be registered for later use
@@ -441,7 +443,8 @@ class Validator(object):
     @validator_decorator
     def _hook_execute(value, hook):
         """
-        execute the test associated with the hook on the value
+        Execute the test associated with the hook on the value.
+
         the way the test is performed depends of the hook type
 
         Args:
@@ -483,15 +486,15 @@ class Validator(object):
 
 
     def rule(self, rule):
-        '''
-        return validator for the rule (if registered)
+        """
+        Getter for the stored rule (if registered).
 
         Args:
             rule:   name (string) of a possibly registered hook
 
         Returns:
             hook:   the registered hook, None if not registered
-        '''
+        """
         if rule in self._validation_rulebook:
             return self._validation_rulebook[rule]
         else:
@@ -499,21 +502,21 @@ class Validator(object):
 
 
     def is_known_rule(self, rule):
-        '''
-        information on rule registration
+        """
+        Information about rule registration.
 
         Args:
             rule:   name (string) of a possibly registered hook
 
         Returns:
             bool   True if rule is registered, False instead
-        '''
+        """
         return (rule in self._validation_rulebook)
 
 
-    def register_rule(self, rule, hook, override = False):
-        '''
-        add a rule/validation_function to the rulebook
+    def register(self, rule, hook, override = False):
+        """
+        Add a rule/validation_function to the rulebook.
 
         if the rule (entry of the catalog) was already registered,
         it will be rejected, except if ovverride is True
@@ -526,7 +529,7 @@ class Validator(object):
 
         Returns:
             bool   True if rule is accepted, False instead
-        '''
+        """
         if not isinstance(rule, str):
             logger.error("rule name must be a string")
             return False
@@ -551,12 +554,12 @@ class Validator(object):
         return True
 
 
-    def delete_rule(self, rule):
-        '''
-        delete a rule from the rulebook
+    def delete(self, rule):
+        """
+        Delete a rule from the rulebook.
 
         Args:
             rule:   name (string) of a possibly registered hook
-        '''
+        """
         if rule in self._validation_rulebook:
             del self._validation_rulebook[rule]

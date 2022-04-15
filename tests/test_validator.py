@@ -110,7 +110,7 @@ class TestValidator(unittest.TestCase):
         self.assertTrue( v.rule(rule_name) is None)
 
         # register the rule
-        self.assertTrue(v.register_rule( rule_name, self.hook_01_positive_integer_check))
+        self.assertTrue(v.register( rule_name, self.hook_01_positive_integer_check))
 
         # must be known
         self.assertTrue( v.is_known_rule(rule_name) )
@@ -126,29 +126,29 @@ class TestValidator(unittest.TestCase):
         self.assertEqual(rule.__name__, self.hook_01_positive_integer_check.__name__ )
 
         # unregister
-        v.delete_rule(rule_name)
+        v.delete(rule_name)
         self.assertFalse( v.is_known_rule(rule_name) )
 
         # register several time the same rule
-        self.assertTrue(v.register_rule( rule_name, self.hook_01_positive_integer_check))
-        self.assertFalse(v.register_rule( rule_name, self.hook_01_positive_integer_check))
-        self.assertTrue(v.register_rule( rule_name,
+        self.assertTrue(v.register( rule_name, self.hook_01_positive_integer_check))
+        self.assertFalse(v.register( rule_name, self.hook_01_positive_integer_check))
+        self.assertTrue(v.register( rule_name,
                          self.hook_01_positive_integer_check,
                          override = True))
 
         # rule must be as string
-        self.assertFalse(v.register_rule( 3.14, int))
+        self.assertFalse(v.register( 3.14, int))
 
         # rule must have a know type
-        self.assertFalse(v.register_rule( "pi", 3.14 ))
+        self.assertFalse(v.register( "pi", 3.14 ))
 
         # register an unallowed dict rule
-        self.assertFalse(v.register_rule( "pi", {} ))
+        self.assertFalse(v.register( "pi", {} ))
 
     def test_validator_04_another_one(self):
 
         v = Validator()
-        self.assertTrue(v.register_rule( 'probability', self.hook_probability_check))
+        self.assertTrue(v.register( 'probability', self.hook_probability_check))
 
         self.assertFalse( v.validate( "un quart", 'probability' ) )
 
@@ -170,7 +170,7 @@ class TestValidator(unittest.TestCase):
         rule_name = 'rule_02'
 
         # register the rule
-        self.assertTrue(v.register_rule( rule_name, self.hook_02_positive_integer_check))
+        self.assertTrue(v.register( rule_name, self.hook_02_positive_integer_check))
 
         # checks
         self.assertTrue( Validator().validate(1, rule_name))
@@ -272,7 +272,7 @@ class TestValidator(unittest.TestCase):
                     },
         }
 
-        self.assertTrue(v.register_rule( "tr_01", training_args_ok))
+        self.assertTrue(v.register( "tr_01", training_args_ok))
 
         # and use it with it's name
         self.assertTrue( Validator().validate(
@@ -301,7 +301,7 @@ class TestValidator(unittest.TestCase):
         }
 
         # register the new rule
-        self.assertFalse(v.register_rule( "tr_02", training_args_ko))
+        self.assertFalse(v.register( "tr_02", training_args_ko))
 
 
     def test_validator_09_lambda(self):
