@@ -11,7 +11,8 @@ from fedbiomed.common.logger import logger
 
 class Repository:
     """HTTP file repository from which to upload and download files.
-        Files are uploaded from/downloaded to a temporary file (`temp_fir`)
+
+    Files are uploaded from/downloaded to a temporary file (`temp_fir`)
 
     Data uploaded should be:
         python code (*.py file) that describes model +
@@ -81,8 +82,7 @@ class Repository:
         return json_res
 
     def download_file(self, url: str, filename: str) -> Tuple[int, str]:
-        """Downloads a file from a HTTP file repository (
-            through an HTTP GET request)
+        """Downloads a file from a HTTP file repository (through an HTTP GET request).
 
         Args:
             url: url from which to download file
@@ -121,8 +121,10 @@ class Repository:
         return res.status_code, filepath
 
     def _raise_for_status_handler(self, response: requests, filename: str = ''):
-        """Handler that deals with exceptions and raises the appropriate
-            exception if the HTTP request has failed with a code error (e.g. 4xx or 500)
+        """Handler that deals with exceptions.
+
+        Also raises the appropriate
+        exception if the HTTP request has failed with a code error (e.g. 4xx or 500)
 
         Args:
             response: the HTTP request's response (eg `requests.post` result).
@@ -158,7 +160,7 @@ class Repository:
     @staticmethod
     def _get_method_request_msg(req_type: str) -> str:
         """Returns the appropriate message whether the HTTP request is GET (downloading)
-            or POST (uploading)
+            or POST (uploading).
 
         Args:
             req_type: the request type ('GET', 'POST')
@@ -185,7 +187,7 @@ class Repository:
                          *args: Optional[Any],
                          **kwargs: Optional[Any]) -> requests:
         """Handles error that can trigger if the HTTP request fails (e.g.
-            if request exceeded timeout, ...)
+            if request exceeded timeout, ...).
 
         Args:
             http_request: the requests HTTP method (callable)
