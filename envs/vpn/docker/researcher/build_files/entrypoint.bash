@@ -12,6 +12,7 @@ source ~/bashrc_entrypoint
 
 check_vpn_environ
 init_misc_environ
+change_path_owner "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
 start_wireguard
 configure_wireguard
 

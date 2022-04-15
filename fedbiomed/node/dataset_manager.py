@@ -176,7 +176,8 @@ class DatasetManager:
             Defaults to False.
 
         Raises:
-            FedbiomedDatasetManagerError: triggered if tarfile cannot be downloaded or the downloaded tarfile cannot be extracted or the MedNIST path is empty or one of the classes path is empty.
+            FedbiomedDatasetManagerError: triggered if tarfile cannot be downloaded or the downloaded tarfile cannot
+            be extracted or the MedNIST path is empty or one of the classes path is empty.
 
         Returns:
             [type]: depending on the value of the parameter `as_dataset`. If
@@ -187,26 +188,29 @@ class DatasetManager:
         download_path = os.path.join(path, 'MedNIST')
         if not os.path.isdir(download_path):
             url = "https://github.com/Project-MONAI/MONAI-extra-test-data/releases/download/0.8.1/MedNIST.tar.gz"
-            filepath = os.path.join(path,'MedNIST.tar.gz')
+            filepath = os.path.join(path, 'MedNIST.tar.gz')
             try:
+                print("Now downloading MEDNIST...")
                 urlretrieve(url, filepath)
                 with tarfile.open(filepath) as tar_file:
+                    print("Now extracting MEDNIST...")
                     tar_file.extractall(path)
                 os.remove(filepath)
 
-            except (URLError, HTTPError, ContentTooShortError, OSError, tarfile.TarError) as e:
-                _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while downloading MedNIST dataset from the MONAI repo:  " \
-                       + str(e)
+            except (URLError, HTTPError, ContentTooShortError, OSError, tarfile.TarError,
+                    PermissionError, MemoryError) as e:
+                _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while downloading MedNIST dataset"\
+                    + "from the MONAI repo:  " + str(e)
                 logger.error(_msg)
                 raise FedbiomedDatasetManagerError(_msg)
 
         try:
             dataset = datasets.ImageFolder(download_path,
-                                       transform=transforms.ToTensor())
+                                           transform=transforms.ToTensor())
 
-        except (FileNotFoundError,RuntimeError) as e:
-            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading MedNIST dataset from the selected path:  " \
-                   + str(e) + "\nPlease make sure that the selected MedNIST folder is not empty \
+        except (FileNotFoundError, RuntimeError) as e:
+            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading MedNIST dataset from"\
+                "the selected path:  " + str(e) + "\nPlease make sure that the selected MedNIST folder is not empty \
                    or delete the MedNIST folder so the dataset will be re-downloaded."
             logger.error(_msg)
             raise FedbiomedDatasetManagerError(_msg)
@@ -237,10 +241,10 @@ class DatasetManager:
         """
         try:
             dataset = datasets.ImageFolder(folder_path,
-                                       transform=transforms.ToTensor())
+                                           transform=transforms.ToTensor())
         except Exception as e:
-            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading dataset from the selected path:  " \
-                   + str(e) + "\nPlease make sure that the selected folder is not empty \
+            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading dataset from the selected" \
+                " path:  " + str(e) + "\nPlease make sure that the selected folder is not empty \
                    and doesn't have any empty class folder"
             logger.error(_msg)
             raise FedbiomedDatasetManagerError(_msg)
@@ -291,7 +295,7 @@ class DatasetManager:
         assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
 
         dtypes = []  # empty list for Image datasets
-        data_types = ['csv', 'default','mednist', 'images']
+        data_types = ['csv', 'default', 'mednist', 'images']
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
                                       ' a compatible data type. '

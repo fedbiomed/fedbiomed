@@ -239,12 +239,9 @@ class TestDatasetManager(unittest.TestCase):
         # checks
         self.assertListEqual(data_types, ['int64', 'float64', 'object', 'bool'])
 
-
-    @patch('torchvision.transforms.ToTensor', spec=True)
     @patch('torchvision.datasets.MNIST')
     def test_dataset_manager_09_load_default_database_as_dataset(self,
-                                                              dataset_mnist_patch,
-                                                              torchvision_tensor_patch):
+                                                                 dataset_mnist_patch):
         """
         Tests if `load_default_dataset` is loading the default dataset and
         returns it (arg `as_dataset` set to True)
@@ -266,10 +263,9 @@ class TestDatasetManager(unittest.TestCase):
         self.assertEqual(res_dataset, self.fake_dataset)
         # Below, we are not testing that MNIST patch has been calling
         # with the good argument for 'transform``
-        dataset_mnist_patch.assett_called_once_with(root=database_path,
+        dataset_mnist_patch.assert_called_once_with(root=database_path,
                                                     download=True,
-                                                    transform=torchvision_tensor_patch)
-
+                                                    transform=mock.ANY)
 
     @patch('fedbiomed.node.dataset_manager.DatasetManager.get_torch_dataset_shape')
     @patch('torchvision.datasets.MNIST')
@@ -366,7 +362,7 @@ class TestDatasetManager(unittest.TestCase):
         read_csv_patch.return_value = dummy_data
 
         # arguments
-        database_path = '/path/to/MNIST/dataset'
+        database_path = '/path/to/csv/dataset'
 
         # action
         data = self.dataset_manager.load_csv_dataset(database_path)
