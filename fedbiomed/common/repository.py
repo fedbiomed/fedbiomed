@@ -93,9 +93,10 @@ class Repository:
             filename: The name of the temporary file
 
         Returns:
-            status: The HTTP status code
-            filepath: The complete pathfile under
-                which the temporary file is saved
+            A tuple (status, filepath) where
+                status: The HTTP status code
+                filepath: The complete pathfile under
+                    which the temporary file is saved
         """
 
         res = self._request_handler(requests.get, url, filename)
