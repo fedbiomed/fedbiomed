@@ -12,8 +12,8 @@ ARG CONTAINER_USER
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
 # + make it persistent at runtime (pass this variable to container)
-ENV CONTAINER_UID=${CONTAINER_UID:-root}
-ENV CONTAINER_GID=${CONTAINER_GID:-root}
+ENV CONTAINER_UID=${CONTAINER_UID:-0}
+ENV CONTAINER_GID=${CONTAINER_GID:-0}
 # alpine does not accept users/groups with numerical names
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
@@ -32,5 +32,11 @@ RUN pip install -qq tabulate
 
 COPY ./vpn vpn/
 COPY ./entrypoint*.bash /
+
+# transmit build-time values to running container
+ENV CONTAINER_BUILD_USER=${CONTAINER_USER}
+ENV CONTAINER_BUILD_GROUP=${CONTAINER_GROUP}
+ENV CONTAINER_BUILD_UID=${CONTAINER_UID}
+ENV CONTAINER_BUILD_GID=${CONTAINER_GID}
 
 ENTRYPOINT ["/entrypoint.bash"]
