@@ -185,8 +185,8 @@ class DatasetManager:
             if set to False, returns the size of the dataset stored inside
             a list (type: List[int])
         """
-        download_path = os.path.join(path, 'MedNIST')
-        if not os.path.isdir(download_path):
+        download_path = os.path.join(path,'MedNIST')
+        if not os.path.isdir(path):
             url = "https://github.com/Project-MONAI/MONAI-extra-test-data/releases/download/0.8.1/MedNIST.tar.gz"
             filepath = os.path.join(path, 'MedNIST.tar.gz')
             try:
@@ -309,6 +309,7 @@ class DatasetManager:
         elif data_type == 'mednist':
             assert os.path.isdir(path), f'Folder {path} for MedNIST Dataset does not exist.'
             shape = self.load_mednist_database(path)
+            path = os.path.join(path, 'MedNIST')
 
         elif data_type == 'csv':
             assert os.path.isfile(path), f'Path provided ({path}) does not correspond to a CSV file.'
