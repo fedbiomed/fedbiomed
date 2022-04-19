@@ -1,9 +1,10 @@
 from .aggregator import Aggregator
-from fedavg import FedAverage
-import functional
+from .fedavg import FedAverage
+from .functional import *
 
 __all__ = [
     "Aggregator",
     "FedAverage",
-    "functional"
+    "initialize",
+    "federated_averaging"
 ]
