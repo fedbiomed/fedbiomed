@@ -186,14 +186,14 @@ class DatasetManager:
             a list (type: List[int])
         """
         download_path = os.path.join(path,'MedNIST')
-        if not os.path.isdir(path):
+        if not os.path.isdir(download_path):
             url = "https://github.com/Project-MONAI/MONAI-extra-test-data/releases/download/0.8.1/MedNIST.tar.gz"
             filepath = os.path.join(path, 'MedNIST.tar.gz')
             try:
-                print("Now downloading MEDNIST...")
+                logger.info("Now downloading MEDNIST...")
                 urlretrieve(url, filepath)
                 with tarfile.open(filepath) as tar_file:
-                    print("Now extracting MEDNIST...")
+                    logger.info("Now extracting MEDNIST...")
                     tar_file.extractall(path)
                 os.remove(filepath)
 

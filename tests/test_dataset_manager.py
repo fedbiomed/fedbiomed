@@ -9,7 +9,7 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 import torch
 from torch.utils.data import Dataset
-
+import tempfile
 
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
@@ -18,6 +18,7 @@ from testsupport.fake_uuid import FakeUuid
 from fedbiomed.node.environ import environ
 from fedbiomed.node.dataset_manager import DatasetManager
 
+from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
 
 class TestDatasetManager(unittest.TestCase):
     """
@@ -94,6 +95,7 @@ class TestDatasetManager(unittest.TestCase):
                            'booleans': [True, False, True, False, True] * 2
                            }
 
+        self.tempdir = tempfile.mkdtemp()  # Creates and returns tempdir to save temp images
 
     def tearDown(self):
         """
@@ -857,6 +859,68 @@ class TestDatasetManager(unittest.TestCase):
         # action and check
         with self.assertRaises(NotImplementedError):
             self.dataset_manager.load_data(tags, mode='unknown_mode')
+
+    def test_dataset_manager_27_load_mednist_dataset(self):
+        """
+        Tests case where one is loading mednist dataset without downloading it
+        """
+        from PIL import Image
+        from torchvision import datasets, transforms
+
+        def _create_fake_mednist_dataset():
+            '''
+            Create fake mednist dataset and save the images in tempdir
+            '''
+
+            mednist_path = os.path.join(self.tempdir, 'MedNIST')
+            os.makedirs(mednist_path)
+
+            fake_img_data = np.random.rand(64, 64)
+            img = Image.fromarray(fake_img_data, 'L')
+            n_classes = 6
+
+            #one image per class
+            for class_i in range(n_classes):
+                class_path = os.path.join(mednist_path, f'class_{class_i}')
+                os.makedirs(class_path)
+                img_path = os.path.join(class_path, 'image_0.jpeg')
+                img.save(img_path)
+
+            return datasets.ImageFolder(mednist_path, transform=transforms.ToTensor())
+
+
+        fake_dataset = _create_fake_mednist_dataset()
+
+        # action
+        #Test the load mednist with input as_dataset False
+        res_dataset_shape = self.dataset_manager.load_mednist_database(self.tempdir,
+                                                                  as_dataset=False)
+
+        # checks
+        self.assertListEqual(res_dataset_shape, [6, 3, 64, 64])
+
+
+        #Test the load mednist with input as_dataset True
+        res_dataset = self.dataset_manager.load_mednist_database(self.tempdir,
+                                                                  as_dataset=True)
+
+        for i in range(len(fake_dataset)):
+            with self.subTest(i=i):
+                self.assertTrue(torch.equal(res_dataset[i][0], fake_dataset[i][0]))
+                self.assertEqual(res_dataset[i][1], fake_dataset[i][1])
+
+    def test_dataset_manager_28_load_mednist_database_exception(self):
+        """
+        Tests if exception `FedbiomedDatasetManagerError` is triggered
+        when mednist dataset folder is empty
+        """
+        mednist_path = os.path.join(self.tempdir, 'MedNIST')
+        os.makedirs(mednist_path)
+
+        with self.assertRaises(FedbiomedDatasetManagerError):
+            # action: we are here passing an empty directory
+            # and checking if method raises FedbiomedDatasetManagerError
+            self.dataset_manager.load_mednist_database(self.tempdir)
 
 
 if __name__ == '__main__':  # pragma: no cover
