@@ -105,6 +105,7 @@ class ErrorNumbers(_BaseEnum):
     FB312 = "FB312: Node stopped in SIGTERM signal handler"
     FB313 = "FB313: no dataset matching request"
     FB314 = "FB314: Node round error"
+    FB315 = "FB315: Error while loading the data "
 
     # application error on researcher
 
