@@ -931,9 +931,9 @@ class TestDatasetManager(unittest.TestCase):
         Tests the correct process of data download and extraction
         in order to make MedNIST dataset (retrieved from url limnk)
         """
-        path_test_file = os.path.dirname(os.path.realpath(__file__))
-        ARCHIVE_PATH = os.path.join(path_test_file, "test-data/images/MedNIST_test.tar.gz")
-        
+
+        ARCHIVE_PATH = os.path.join(self.testdir, "images/MedNIST_test.tar.gz")
+
         def urlretieve_side_effect(url, path):
             """Mimics download of dataset by coping & pasting
             dataset archive in the good directory
@@ -955,11 +955,16 @@ class TestDatasetManager(unittest.TestCase):
         urlretrieve_patch.assert_called_once()
         self.assertListEqual(res_dataset.classes,
                              ['AbdomenCT', 'BreastMRI', 'CXR', 'ChestCT', 'Hand', 'HeadCT'])
+        label = 0
         for i in range(12):
             with self.subTest(i=i):
                 # check each image has the correct extension 'jpeg'
                 self.assertEqual(pathlib.Path(res_dataset.imgs[i][0]).suffix, '.jpeg')
-
+                # NB: this test assumes that each images are sorted from label 0 to label 6
+                # it may be wrong in future pytorch releases
+                self.assertEqual(res_dataset.imgs[i][1], label)
+                if i % 2 != 0:
+                    label += 1
 
     def test_dataset_manager_29_load_mednist_database_exception(self):
         """
