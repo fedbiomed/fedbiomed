@@ -3,6 +3,7 @@ import inspect
 import numpy as np
 import os
 import pandas as pd
+import shutil
 from typing import List
 import unittest
 from unittest import mock
@@ -15,7 +16,6 @@ import pathlib
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 from testsupport.fake_uuid import FakeUuid
 
-import fedbiomed.node.dataset_manager
 from fedbiomed.node.environ import environ
 from fedbiomed.node.dataset_manager import DatasetManager
 
@@ -929,35 +929,36 @@ class TestDatasetManager(unittest.TestCase):
                                                         urlretrieve_patch):
         """
         Tests the correct process of data download and extraction
-        in order to make MedNIST dataset
+        in order to make MedNIST dataset (retrieved from url limnk)
         """
-        import shutil
+        path_test_file = os.path.dirname(os.path.realpath(__file__))
+        ARCHIVE_PATH = os.path.join(path_test_file, "test-data/images/MedNIST_test.tar.gz")
+        
+        def urlretieve_side_effect(url, path):
+            """Mimics download of dataset by coping & pasting
+            dataset archive in the good directory
+            """
+            # copying & loading archive into temporary file
+            path = pathlib.Path(path).parent.absolute()
+            shutil.copy2(ARCHIVE_PATH, path)
+            os.rename(os.path.join(path, "MedNIST_test.tar.gz"),
+                      os.path.join(path, "MedNIST.tar.gz"))
         # configuring patchers
-        urlretrieve_patch.return_value = None
-
-        # copying & loading archive into temprary file
-        shutil.copy2("test-data/images/MedNIST_test.tar.gz", self.tempdir)
-        os.rename(os.path.join(self.tempdir, "MedNIST_test.tar.gz"),
-                  os.path.join(self.tempdir, "MedNIST.tar.gz"))
-
+        urlretrieve_patch.side_effect = urlretieve_side_effect
 
         with patch.object(os, 'remove') as os_remove_patch:
             os_remove_patch.return_value = None
-            # urlretrieve_patch.return_value = None
-            # urlretrieve_patch.side_effect = None
-
-            # [download_path,
-            #                                'test-data/images/MedNIST_test.tar.gz']
+            # action
             res_dataset = self.dataset_manager.load_mednist_database(self.tempdir,
                                                                      as_dataset=True)
-            
-            urlretrieve_patch.assert_called_once()
-            self.assertListEqual(res_dataset.classes,
-                                 ['AbdomenCT', 'BreastMRI', 'CXR', 'ChestCT', 'Hand', 'HeadCT'])
-            for i in range(12):
-                with self.subTest(i=i):
-                    # check each image has the correct extensin 'jpeg'
-                    self.assertEqual(pathlib.Path(res_dataset.imgs[i][0]).suffix, '.jpeg')
+        # Tests
+        urlretrieve_patch.assert_called_once()
+        self.assertListEqual(res_dataset.classes,
+                             ['AbdomenCT', 'BreastMRI', 'CXR', 'ChestCT', 'Hand', 'HeadCT'])
+        for i in range(12):
+            with self.subTest(i=i):
+                # check each image has the correct extension 'jpeg'
+                self.assertEqual(pathlib.Path(res_dataset.imgs[i][0]).suffix, '.jpeg')
 
 
     def test_dataset_manager_29_load_mednist_database_exception(self):
