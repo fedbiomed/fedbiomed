@@ -875,7 +875,7 @@ class TestDatasetManager(unittest.TestCase):
             mednist_path = os.path.join(self.tempdir, 'MedNIST')
             os.makedirs(mednist_path)
 
-            fake_img_data = np.random.rand(64, 64)
+            fake_img_data = np.random.randint(0,255,(64, 64))
             img = Image.fromarray(fake_img_data, 'L')
             n_classes = 6
 
