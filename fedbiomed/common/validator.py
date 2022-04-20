@@ -139,6 +139,7 @@ def validator_decorator(func):
 
         # we expect a tuple [ bolean, str] as output of func()
         # but we try to be resilient to function that simply return boolean
+        # and create the tuple in case that it is not provided
         error = "validation error then calling: " + func.__name__
         if isinstance(status, tuple):
             status, *error = status
@@ -146,7 +147,9 @@ def validator_decorator(func):
         if status:
             return status, None
         else:
+            error = ''.join(error)
             return status, error
+
     return wrapper
 
 
@@ -228,7 +231,7 @@ class SchemeValidator(object):
 
         # TODO: raises error messages
         # or store error string in self._error and provide a error() method
-        if not self.is_valid():
+        if not self.is_valid():  # pragma: no cover
             return False
 
         if not isinstance(value, dict):
@@ -267,7 +270,7 @@ class SchemeValidator(object):
                      returns an empty dict if something is wrong
         """
 
-        if not self.is_valid():
+        if not self.is_valid():  # pragma: no cover
             return {}
 
         # check the value against the scheme
@@ -624,12 +627,13 @@ class Validator(object):
 
         # hook is a dict, we transform it to a SchemeValidator
         if isinstance(hook, dict):
-            sv = SchemeValidator( hook )
-            if not sv.is_valid():
-                return False
-            else:
-                hook = sv
+            try:
+                sv = SchemeValidator( hook )
+            except RuleError as e:
+                raise RuleError("validator is an invalid dict: " + str(e))
+            hook = sv
 
+        # rule description is valid -> register it
         self._validation_rulebook[rule] = hook
         return True
 

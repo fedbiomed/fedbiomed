@@ -486,15 +486,22 @@ class TestSchemeValidator(unittest.TestCase):
                      'default': 1.0
                     },
         }
-        self.assertTrue( SchemeValidator( training_args_scheme ).is_valid())
+        v = SchemeValidator( training_args_scheme )
+        self.assertTrue( v.is_valid())
+        self.assertTrue( v.validate( { 'lr': 1.0}) )
 
-        training_arg_scheme = {
-            'lr' : { 'rules': [ self.always_true_hook],
+        with self.assertRaises(ValidateError):
+            v.validate( { 'lr': 'this is not a float'} )
+
+        training_args_scheme = {
+            'lr' : { 'rules': [ float ],
                      'required': True,
                      'unallowed_key': False
                     },
         }
-        self.assertTrue( SchemeValidator( training_args_scheme ).is_valid())
+        with self.assertRaises(RuleError):
+            v = SchemeValidator( training_args_scheme )
+
 
 
     def test_scheme_validator_02_validate_internal_hook_functions(self):
