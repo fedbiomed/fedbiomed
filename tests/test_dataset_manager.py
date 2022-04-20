@@ -19,6 +19,9 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.dataset_manager import DatasetManager
 
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
+from PIL import Image
+from torchvision import transforms, datasets
+
 
 class TestDatasetManager(unittest.TestCase):
     """
@@ -860,16 +863,25 @@ class TestDatasetManager(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             self.dataset_manager.load_data(tags, mode='unknown_mode')
 
-    def test_dataset_manager_27_load_mednist_dataset(self):
+    def test_dataset_manager_27_load_existing_mednist_dataset(self):
         """
         Tests case where one is loading mednist dataset without downloading it
         """
-        from PIL import Image
-        from torchvision import datasets, transforms
 
-        def _create_fake_mednist_dataset():
+        def _create_fake_mednist_dataset(self):
             '''
             Create fake mednist dataset and save the images in tempdir
+
+            Dataset folders structure:
+
+            |- class_0 
+            |   |- image_0.jpeg
+            |- class_1 
+            |   |- image_0.jpeg
+            ...
+            |_ class_n
+                |- image_0.jpeg
+
             '''
 
             mednist_path = os.path.join(self.tempdir, 'MedNIST')
@@ -879,7 +891,7 @@ class TestDatasetManager(unittest.TestCase):
             img = Image.fromarray(fake_img_data, 'L')
             n_classes = 6
 
-            #one image per class
+            # one image per class
             for class_i in range(n_classes):
                 class_path = os.path.join(mednist_path, f'class_{class_i}')
                 os.makedirs(class_path)
@@ -889,12 +901,12 @@ class TestDatasetManager(unittest.TestCase):
             return datasets.ImageFolder(mednist_path, transform=transforms.ToTensor())
 
 
-        fake_dataset = _create_fake_mednist_dataset()
+        fake_dataset = _create_fake_mednist_dataset(self)
 
         # action
         #Test the load mednist with input as_dataset False
         res_dataset_shape = self.dataset_manager.load_mednist_database(self.tempdir,
-                                                                  as_dataset=False)
+                                                                       as_dataset=False)
 
         # checks
         self.assertListEqual(res_dataset_shape, [6, 3, 64, 64])
@@ -902,12 +914,15 @@ class TestDatasetManager(unittest.TestCase):
 
         #Test the load mednist with input as_dataset True
         res_dataset = self.dataset_manager.load_mednist_database(self.tempdir,
-                                                                  as_dataset=True)
+                                                                 as_dataset=True)
 
         for i in range(len(fake_dataset)):
             with self.subTest(i=i):
                 self.assertTrue(torch.equal(res_dataset[i][0], fake_dataset[i][0]))
                 self.assertEqual(res_dataset[i][1], fake_dataset[i][1])
+
+    def test_dataset_manager_28_download_mednist(self):
+        pass
 
     def test_dataset_manager_28_load_mednist_database_exception(self):
         """

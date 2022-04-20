@@ -211,7 +211,7 @@ class DatasetManager:
         except (FileNotFoundError, RuntimeError) as e:
             _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading MedNIST dataset from"\
                 "the selected path:  " + str(e) + "\nPlease make sure that the selected MedNIST folder is not empty \
-                   or delete the MedNIST folder so the dataset will be re-downloaded."
+                   or create another MedNIST folder so the dataset will be re-downloaded."
             logger.error(_msg)
             raise FedbiomedDatasetManagerError(_msg)
 
