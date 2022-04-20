@@ -10,11 +10,12 @@ from unittest.mock import MagicMock, patch
 import torch
 from torch.utils.data import Dataset
 import tempfile
-
+import pathlib
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 from testsupport.fake_uuid import FakeUuid
 
+import fedbiomed.node.dataset_manager
 from fedbiomed.node.environ import environ
 from fedbiomed.node.dataset_manager import DatasetManager
 
@@ -904,7 +905,7 @@ class TestDatasetManager(unittest.TestCase):
         fake_dataset = _create_fake_mednist_dataset(self)
 
         # action
-        #Test the load mednist with input as_dataset False
+        # Test the load mednist method with input as_dataset False
         res_dataset_shape = self.dataset_manager.load_mednist_database(self.tempdir,
                                                                        as_dataset=False)
 
@@ -912,23 +913,60 @@ class TestDatasetManager(unittest.TestCase):
         self.assertListEqual(res_dataset_shape, [6, 3, 64, 64])
 
 
-        #Test the load mednist with input as_dataset True
+        # Test the load mednist method with input as_dataset True
         res_dataset = self.dataset_manager.load_mednist_database(self.tempdir,
                                                                  as_dataset=True)
 
         for i in range(len(fake_dataset)):
             with self.subTest(i=i):
                 self.assertTrue(torch.equal(res_dataset[i][0], fake_dataset[i][0]))
+                # check that assigned classes are correct
                 self.assertEqual(res_dataset[i][1], fake_dataset[i][1])
 
-    def test_dataset_manager_28_download_mednist(self):
-        pass
 
-    def test_dataset_manager_28_load_mednist_database_exception(self):
+    @patch('fedbiomed.node.dataset_manager.urlretrieve')
+    def test_dataset_manager_28_download_extrat_mednist(self,
+                                                        urlretrieve_patch):
+        """
+        Tests the correct process of data download and extraction
+        in order to make MedNIST dataset
+        """
+        import shutil
+        # configuring patchers
+        urlretrieve_patch.return_value = None
+
+        # copying & loading archive into temprary file
+        shutil.copy2("test-data/images/MedNIST_test.tar.gz", self.tempdir)
+        os.rename(os.path.join(self.tempdir, "MedNIST_test.tar.gz"),
+                  os.path.join(self.tempdir, "MedNIST.tar.gz"))
+
+
+        with patch.object(os, 'remove') as os_remove_patch:
+            os_remove_patch.return_value = None
+            # urlretrieve_patch.return_value = None
+            # urlretrieve_patch.side_effect = None
+
+            # [download_path,
+            #                                'test-data/images/MedNIST_test.tar.gz']
+            res_dataset = self.dataset_manager.load_mednist_database(self.tempdir,
+                                                                     as_dataset=True)
+            
+            urlretrieve_patch.assert_called_once()
+            self.assertListEqual(res_dataset.classes,
+                                 ['AbdomenCT', 'BreastMRI', 'CXR', 'ChestCT', 'Hand', 'HeadCT'])
+            for i in range(12):
+                with self.subTest(i=i):
+                    # check each image has the correct extensin 'jpeg'
+                    self.assertEqual(pathlib.Path(res_dataset.imgs[i][0]).suffix, '.jpeg')
+
+
+    def test_dataset_manager_29_load_mednist_database_exception(self):
         """
         Tests if exception `FedbiomedDatasetManagerError` is triggered
         when mednist dataset folder is empty
         """
+        
+        # case where Mednist folder is already existing
         mednist_path = os.path.join(self.tempdir, 'MedNIST')
         os.makedirs(mednist_path)
 
