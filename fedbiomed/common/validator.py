@@ -125,6 +125,10 @@ def validator_decorator(func):
     It creates an error message if not provided by the decorated function
     The error message is forced to if the decorated function returns True
 
+    If the validator is not used to decorate a validation function/hook,
+    then the user feedback will be less precie or the end-user but this
+    will not change the accuracy (True/False) os the feedback.
+
     Args:
        func:  function to decorate
 
