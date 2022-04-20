@@ -185,7 +185,7 @@ class DatasetManager:
             if set to False, returns the size of the dataset stored inside
             a list (type: List[int])
         """
-        download_path = os.path.join(path,'MedNIST')
+        download_path = os.path.join(path, 'MedNIST')
         if not os.path.isdir(download_path):
             url = "https://github.com/Project-MONAI/MONAI-extra-test-data/releases/download/0.8.1/MedNIST.tar.gz"
             filepath = os.path.join(path, 'MedNIST.tar.gz')
@@ -198,7 +198,7 @@ class DatasetManager:
                 os.remove(filepath)
 
             except (URLError, HTTPError, ContentTooShortError, OSError, tarfile.TarError,
-                    PermissionError, MemoryError) as e:
+                    MemoryError) as e:
                 _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while downloading MedNIST dataset"\
                     + "from the MONAI repo:  " + str(e)
                 logger.error(_msg)
@@ -211,7 +211,7 @@ class DatasetManager:
         except (FileNotFoundError, RuntimeError) as e:
             _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading MedNIST dataset from"\
                 "the selected path:  " + str(e) + "\nPlease make sure that the selected MedNIST folder is not empty \
-                   or create another MedNIST folder so the dataset will be re-downloaded."
+                   or choose another path."
             logger.error(_msg)
             raise FedbiomedDatasetManagerError(_msg)
 
