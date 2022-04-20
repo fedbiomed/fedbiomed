@@ -198,7 +198,7 @@ class DatasetManager:
                 os.remove(filepath)
 
             except (URLError, HTTPError, ContentTooShortError, OSError, tarfile.TarError,
-                    PermissionError, MemoryError) as e:
+                     MemoryError) as e:
                 _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while downloading MedNIST dataset"\
                     + "from the MONAI repo:  " + str(e)
                 logger.error(_msg)
