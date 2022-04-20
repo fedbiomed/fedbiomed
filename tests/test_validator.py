@@ -1,5 +1,7 @@
 import unittest
-from fedbiomed.common.validator import Validator, SchemeValidator, validator_decorator, _ValidatorHookType
+from fedbiomed.common.validator import Validator, SchemeValidator, \
+    validator_decorator, _ValidatorHookType
+from fedbiomed.common.validator import ValidateError, RuleError
 
 
 class TestValidator(unittest.TestCase):
@@ -92,10 +94,15 @@ class TestValidator(unittest.TestCase):
         self.assertTrue( Validator().validate( [], list))
         self.assertTrue( Validator().validate( "one", str))
 
+
     def test_validator_02_use_function_directly(self):
         self.assertTrue( Validator().validate(1, self.hook_01_positive_integer_check))
-        self.assertFalse( Validator().validate(-1, self.hook_01_positive_integer_check))
-        self.assertFalse( Validator().validate(1.0, self.hook_01_positive_integer_check))
+        with self.assertRaises(ValidateError):
+             Validator().validate(-1, self.hook_01_positive_integer_check)
+
+        with self.assertRaises(ValidateError):
+             Validator().validate(1.0, self.hook_01_positive_integer_check)
+
 
     def test_validator_03_registration(self):
 
@@ -117,9 +124,12 @@ class TestValidator(unittest.TestCase):
 
         # use the registered hook
         self.assertTrue( Validator().validate(1, rule_name))
-        #import pdb; pdb.set_trace()
-        self.assertFalse( Validator().validate(-1, rule_name))
-        self.assertFalse( Validator().validate(1.0, rule_name))
+
+        with self.assertRaises(ValidateError):
+            Validator().validate(-1, rule_name)
+
+        with self.assertRaises(ValidateError):
+            Validator().validate(1.0, rule_name)
 
         # must be the registered function
         rule = v.rule( rule_name)
@@ -137,31 +147,40 @@ class TestValidator(unittest.TestCase):
                          override = True))
 
         # rule must be as string
-        self.assertFalse(v.register( 3.14, int))
+        with self.assertRaises(RuleError):
+            v.register( 3.14, int)
 
         # rule must have a know type
-        self.assertFalse(v.register( "pi", 3.14 ))
+        with self.assertRaises(RuleError):
+            v.register( "pi", 3.14 )
 
         # register an unallowed dict rule
-        self.assertFalse(v.register( "pi", {} ))
+        with self.assertRaises(RuleError):
+            v.register( "pi", {} )
+
 
     def test_validator_04_another_one(self):
 
         v = Validator()
         self.assertTrue(v.register( 'probability', self.hook_probability_check))
 
-        self.assertFalse( v.validate( "un quart", 'probability' ) )
+        with self.assertRaises(ValidateError):
+            v.validate( "un quart", 'probability' )
 
-        self.assertFalse( v.validate( -1.0, 'probability' ) )
-        self.assertFalse( v.validate( -0.00001, 'probability' ) )
+        with self.assertRaises(ValidateError):
+            v.validate( -1.0, 'probability' )
+        with self.assertRaises(ValidateError):
+            v.validate( -0.00001, 'probability' )
 
         self.assertTrue( v.validate( 0.0, 'probability' ) )
         self.assertTrue( v.validate( 0.25, 'probability' ) )
         self.assertTrue( v.validate( 0.75, 'probability' ) )
         self.assertTrue( v.validate( 1.0, 'probability' ) )
 
-        self.assertFalse( v.validate( 1.00001, 'probability' ) )
-        self.assertFalse( v.validate( 7.0, 'probability' ) )
+        with self.assertRaises(ValidateError):
+            v.validate( 1.00001, 'probability' )
+        with self.assertRaises(ValidateError):
+            v.validate( 7.0, 'probability' )
 
 
     def test_validator_05_without_decorator(self):
@@ -174,8 +193,11 @@ class TestValidator(unittest.TestCase):
 
         # checks
         self.assertTrue( Validator().validate(1, rule_name))
-        self.assertFalse( Validator().validate(-1, rule_name))
-        self.assertFalse( Validator().validate(1.0, rule_name))
+
+        with self.assertRaises(ValidateError):
+            Validator().validate(-1, rule_name)
+        with self.assertRaises(ValidateError):
+            Validator().validate(1.0, rule_name)
 
 
     def test_validator_06_strict_or_not(self):
@@ -185,7 +207,8 @@ class TestValidator(unittest.TestCase):
         rule_name = 'this_rule_is_unknown'
 
         self.assertFalse( v.is_known_rule(rule_name) )
-        self.assertFalse( v.validate( 0, rule_name))
+        with self.assertRaises(ValidateError):
+            self.assertFalse( v.validate( 0, rule_name))
         self.assertTrue( v.validate( 0, rule_name, strict = False))
 
 
@@ -211,17 +234,17 @@ class TestValidator(unittest.TestCase):
                     },
         }
 
-        self.assertFalse( Validator().validate(
-            {} ,
-            training_args_scheme ) )
+        with self.assertRaises(ValidateError):
+            Validator().validate( {} , training_args_scheme )
 
         self.assertTrue( Validator().validate(
             { 'lr' : 0.4 } ,
             training_args_scheme ) )
 
-        self.assertFalse( Validator().validate(
-            { 'lr' : 0.4 , 'extra': "extra field"} ,
-            training_args_scheme ) )
+        with self.assertRaises(ValidateError):
+            Validator().validate(
+                { 'lr' : 0.4 , 'extra': "extra field"} ,
+                training_args_scheme )
 
         # same, but lr is not required
         training_args_scheme = {
@@ -238,9 +261,10 @@ class TestValidator(unittest.TestCase):
             { 'lr' : 0.4 } ,
             training_args_scheme ) )
 
-        self.assertFalse( Validator().validate(
-            { 'lr' : 0.4 , 'extra': "extra field"} ,
-            training_args_scheme ) )
+        with self.assertRaises(ValidateError):
+            Validator().validate(
+                { 'lr' : 0.4 , 'extra': "extra field"} ,
+                training_args_scheme )
 
         # same again
         training_args_scheme = {
@@ -258,9 +282,11 @@ class TestValidator(unittest.TestCase):
             { 'lr' : 0.4 } ,
             training_args_scheme ) )
 
-        self.assertFalse( Validator().validate(
-            { 'lr' : 0.4 , 'extra': "extra field"} ,
-            training_args_scheme ) )
+        with self.assertRaises(ValidateError):
+            Validator().validate(
+                { 'lr' : 0.4 , 'extra': "extra field"} ,
+                training_args_scheme )
+
 
     def test_validator_08_validate_the_validator(self):
 
@@ -284,13 +310,15 @@ class TestValidator(unittest.TestCase):
             { 'lr' : 0.4 } ,
             training_args_ok ) )
 
-        self.assertFalse( Validator().validate(
-            { 'lr' : 'toto' } ,
-            training_args_ok ) )
+        with self.assertRaises(ValidateError):
+            Validator().validate(
+                { 'lr' : 'toto' } ,
+                training_args_ok )
 
-        self.assertFalse( Validator().validate(
-            { 'lr' : 'toto' } ,
-            training_args_ok ) )
+        with self.assertRaises(ValidateError):
+            Validator().validate(
+                { 'lr' : 'toto' } ,
+                training_args_ok )
 
 
         training_args_ko = {
@@ -301,7 +329,8 @@ class TestValidator(unittest.TestCase):
         }
 
         # register the new rule
-        self.assertFalse(v.register( "tr_02", training_args_ko))
+        with self.assertRaises(RuleError):
+            v.register( "tr_02", training_args_ko)
 
 
     def test_validator_09_lambda(self):
@@ -313,7 +342,9 @@ class TestValidator(unittest.TestCase):
         v = Validator()
         self.assertTrue( v.validate( True, my_lambda) )
         self.assertTrue( v.validate( True, my_lambda) )
-        self.assertFalse( v.validate( 3.14 , my_lambda) )
+
+        with self.assertRaises(ValidateError):
+            v.validate( 3.14 , my_lambda)
 
 
     def test_validator_10_validator_hook_type(self):
@@ -340,9 +371,19 @@ class TestValidator(unittest.TestCase):
                          _ValidatorHookType.TYPECHECK)
 
         # scheme validators
-        v = SchemeValidator( {} )
+        with self.assertRaises(RuleError):
+            v = SchemeValidator( {} )
+
+        with self.assertRaises(RuleError):
+            v = SchemeValidator( { "lr": int } )
+
+        # valid SchemeValidator
+        v = SchemeValidator( { "lr": { "rules": [ float ] } } )
         self.assertEqual( Validator()._hook_type( v ),
                          _ValidatorHookType.SCHEME_VALIDATOR)
+
+        self.assertEqual( Validator()._hook_type( SchemeValidator ),
+                         _ValidatorHookType.TYPECHECK)
 
         self.assertEqual( Validator()._hook_type( {} ),
                          _ValidatorHookType.SCHEME_AS_A_DICT)
@@ -354,6 +395,7 @@ class TestValidator(unittest.TestCase):
         my_lambda = lambda : True
         self.assertEqual( Validator()._hook_type( my_lambda ),
                           _ValidatorHookType.LAMBDA)
+
 
     def test_validator_11_default_value(self):
         """
@@ -368,11 +410,11 @@ class TestValidator(unittest.TestCase):
         self.assertTrue( sc.is_valid() )
 
         # this one is bad
-        sc = SchemeValidator( { "a": { "rules": [ str ],
-                                       "default": 1.0 }
-                               }
-                             )
-        self.assertFalse( sc.is_valid() )
+        with self.assertRaises(RuleError):
+            sc = SchemeValidator( { "a": { "rules": [ str ],
+                                           "default": 1.0 }
+                                   }
+                                 )
 
 
 class TestSchemeValidator(unittest.TestCase):
@@ -391,35 +433,35 @@ class TestSchemeValidator(unittest.TestCase):
         """
 
         # empty scheme forbidden
-        self.assertFalse( SchemeValidator( {} ) .is_valid())
+        with self.assertRaises(RuleError):
+            v = SchemeValidator( {} )
 
-        # but try to use it anyway
-        v = SchemeValidator({})
-        self.assertFalse( v.validate( {} ) )
-        self.assertTrue( v.scheme() is None)
+        # create a collection f bad validators
+        with self.assertRaises(RuleError):
+            v = SchemeValidator( { "toto": 1 } )
 
-        # create abad validator, but stil use it
-        v = SchemeValidator( { "toto": 1 } )
-        self.assertFalse( v.is_valid())
-        self.assertFalse( v.validate( {"toto": 1} ))
+        with self.assertRaises(RuleError):
+            v = SchemeValidator( { "data": [] } )
+        with self.assertRaises(RuleError):
+            v = SchemeValidator( { "data": int } )
 
-        # data should be properly defined
-        self.assertFalse( SchemeValidator( { "data": [] } ) .is_valid())
-        self.assertFalse( SchemeValidator( { "data": int } ) .is_valid())
+        with self.assertRaises(RuleError):
+            v = SchemeValidator( { "data": {} } )
 
-        # grammar associated to data must be a non empty dict
-        self.assertFalse( SchemeValidator( { "data": {} } ) .is_valid())
 
-        # grammar associated to data must be a non empty dict containing
-        # valid subkeys
-        self.assertFalse( SchemeValidator( { "data": { "a": "b" } } ) .is_valid())
+        with self.assertRaises(RuleError):
+            v = SchemeValidator( { "data": { "a": "b" } } )
 
         # and the rules subkey must also be a non empty array
-        self.assertFalse( SchemeValidator( { "data": { "rules": {}  } } ) .is_valid())
-        self.assertFalse( SchemeValidator( { "data": { "rules": "b" } } ) .is_valid())
-        self.assertFalse( SchemeValidator( { "data": { "rules": 1.0 } } ) .is_valid())
+        with self.assertRaises(RuleError):
+            v = SchemeValidator( { "data": { "rules": {}  } } )
+        with self.assertRaises(RuleError):
+            v = SchemeValidator( { "data": { "rules": "b" } } )
+        with self.assertRaises(RuleError):
+            v = SchemeValidator( { "data": { "rules": 1.0 } } )
         # bad rules
-        self.assertFalse( SchemeValidator( { "data": { "rules": [ 1.0 ] } } ) .is_valid())
+        with self.assertRaises(RuleError):
+            v = SchemeValidator( { "data": { "rules": [ 1.0 ] } } )
 
         # empty array for rules is OK
         self.assertTrue( SchemeValidator( { "data": { "rules": [] } } ) .is_valid())
@@ -429,10 +471,15 @@ class TestSchemeValidator(unittest.TestCase):
         v = SchemeValidator( grammar )
         self.assertTrue( v.is_valid() )
         self.assertEqual( v.scheme(), grammar)
-        self.assertFalse( v.validate( "not a dict" ) )
-        self.assertFalse( v.validate( False ) )
-        self.assertFalse( v.validate( None ) )
-        self.assertFalse( v.validate( "data" ) )
+
+        with self.assertRaises(ValidateError):
+            v.validate( "not a dict" )
+        with self.assertRaises(ValidateError):
+            v.validate( False )
+        with self.assertRaises(ValidateError):
+            v.validate( None )
+        with self.assertRaises(ValidateError):
+            v.validate( "data" )
 
         training_args_scheme = {
             'lr' : { 'rules': [ float, self.always_true_hook] ,
@@ -465,18 +512,6 @@ class TestSchemeValidator(unittest.TestCase):
 
         # check direct hook call
         self.assertTrue( Validator._hook_execute( 1.0, float ))
-        status, error = Validator._hook_execute( "toto" , float )
-        self.assertFalse(status)
-
-        status, error = Validator._hook_execute( 1.0, "prout" )
-        self.assertFalse(status)
-
-        status, error = Validator._hook_execute( 1.0, SchemeValidator( {} ) )
-        self.assertFalse(status)
-
-        status, error = Validator._hook_execute( 1.0, {} )
-        self.assertFalse(status)
-
 
     @staticmethod
     @validator_decorator
@@ -519,7 +554,8 @@ class TestSchemeValidator(unittest.TestCase):
             'dry_run': False,
             'batch_maxnum': 250
         }
-        self.assertFalse( v.validate( training_args ))
+        with self.assertRaises(ValidateError):
+            v.validate( training_args )
 
         training_args = {
             'batch_size': 20,
@@ -529,7 +565,8 @@ class TestSchemeValidator(unittest.TestCase):
             'batch_maxnum': 250,
             'round_limit': 10
         }
-        self.assertFalse( v.validate( training_args ))
+        with self.assertRaises(ValidateError):
+            v.validate( training_args )
 
 
     def test_scheme_validator_04_default_value_injection(self):
@@ -551,34 +588,32 @@ class TestSchemeValidator(unittest.TestCase):
         self.assertTrue( sc.is_valid())
 
         bad = { "a": 1.0 }
-        self.assertFalse( sc.validate(bad))
+        with self.assertRaises(ValidateError):
+            sc.validate(bad)
 
         good = sc.populate_with_defaults( bad )
         self.assertTrue( sc.validate(good))
 
         # be carefull that this is not idiot proof....
         bad = { "a": "string instead a float" }
-        self.assertFalse( sc.validate(bad))
+        with self.assertRaises(ValidateError):
+            sc.validate(bad)
 
         still_bad = sc.populate_with_defaults( bad )
-        self.assertFalse( sc.validate(still_bad))
-
-        # the 100% coverage on populate_with_defaults ?
-        sc = SchemeValidator( "not a grammar" )
-        self.assertFalse( sc.is_valid())
-
-        good = { "a": 1.0, "b": 777 }
-        populated = sc.populate_with_defaults( good )
-        self.assertEqual( populated, {} )
+        with self.assertRaises(ValidateError):
+            sc.validate(still_bad)
 
         # no default for required scheme
         sc = SchemeValidator( { "a": { "rules": [ float ], "required": True} } )
 
         bad = { }
-        self.assertFalse( sc.validate(bad))
+        with self.assertRaises(ValidateError):
+            sc.validate(bad)
 
-        still_bad = sc.populate_with_defaults( bad )
-        self.assertFalse( sc.validate(still_bad))
+        with self.assertRaises(RuleError):
+            # no default value for required field a
+            still_bad = sc.populate_with_defaults( bad )
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

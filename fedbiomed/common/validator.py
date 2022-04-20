@@ -71,10 +71,35 @@ SchemeValidator:
 
 import functools
 import inspect
+import sys
 
 from enum import Enum
 
-from fedbiomed.common.logger import logger
+
+class ValidatorError(Exception):
+    """
+    Top class of all Validator/SchemaValidator exception
+    """
+
+    # as Validator can be used in other project than Fed-BioMed we
+    # define our own exception, which is not a subclass of FedbiomedError
+    pass
+
+
+class ValidateError(ValidatorError):
+    """
+    Error raised then validating a value against a rule
+    """
+
+    pass
+
+
+class RuleError(ValidatorError):
+    """
+    Error raised then the rule is badly defined
+    """
+
+    pass
 
 
 class _ValidatorHookType(Enum):
@@ -187,7 +212,7 @@ class SchemeValidator(object):
         else:
             self._scheme = None
             self._is_valid = False
-            logger.error("scheme is not valid: " + status)
+            raise RuleError("scheme is not valid: " + status)
 
 
     def validate(self, value):
@@ -207,25 +232,20 @@ class SchemeValidator(object):
             return False
 
         if not isinstance(value, dict):
-            logger.error("value is not a dict")
-            return False
-
+            raise ValidateError("value is not a dict")
 
         # check the value against the scheme
         for k, v in self._scheme.items():
             if 'required' in v and v['required'] is True and k not in value:
-                logger.error(str(k) + " value is required")
-                return False
+                raise ValidateError(str(k) + " value is required")
 
         for k in value:
             if k not in self._scheme:
-                logger.error("undefined key (" + str(k) + ") in scheme")
-                return False
+                raise ValidateError("undefined key (" + str(k) + ") in scheme")
 
             for hook in self._scheme[k]['rules']:
                 if not Validator().validate(value[k], hook):
-                    logger.error("invalid value (" + str(value[k]) + ") for key: " + str(k))
-                    return False
+                    raise ValidateError("invalid value (" + str(value[k]) + ") for key: " + str(k))
 
         return True
 
@@ -261,8 +281,7 @@ class SchemeValidator(object):
                     if 'default' in v:
                         result[k] = v['default']
                     else:
-                        logger.error("no default value for required key: "+str(k))
-                        return {}
+                        raise RuleError("no default value for required key: "+str(k))
 
         return result
 
@@ -342,13 +361,15 @@ class SchemeValidator(object):
                     def_value = scheme[key][subkey]
 
                     for rule in scheme[key]["rules"]:
-                        if not Validator().validate(def_value, rule):
-                            return("default value for key (" + \
-                                   str(key) + \
-                                   ") does not respect its own specification (" + \
-                                   str(def_value) + \
-                                   ")"
-                                   )
+                        try:
+                            Validator().validate(def_value, rule)
+                        except ValidateError:
+                            raise RuleError("default value for key (" + \
+                                            str(key) + \
+                                            ") does not respect its own specification (" + \
+                                            str(def_value) + \
+                                            ")"
+                                            )
 
         # scheme is validated
         return True
@@ -424,23 +445,24 @@ class Validator(object):
             status, error = Validator._hook_execute(value,
                                                     self._validation_rulebook[rule])
             if not status:
-                logger.error(error)
+                raise ValidateError(error)
+
             return status
 
         # rule is an unknown string
         if isinstance(rule, str):
             if strict:
-                logger.error("unknown rule: " + str(rule))
-                return False
+                raise ValidateError("unknown rule: " + str(rule))
             else:
-                logger.warning("unknown rule: " + str(rule))
+                sys.stdout.write("unknown rule: " + str(rule) + "\n")
                 return True
 
         # consider the rule as a direct rule definition
         status, error = Validator._hook_execute(value, rule)
 
         if not status:
-            logger.error(error)
+            raise ValidateError(error)
+
         return status
 
 
@@ -542,7 +564,6 @@ class Validator(object):
             sc = SchemeValidator( hook )
             if not sc.is_valid():
                 return False, "scheme is not valid"
-
             return sc.validate(value)
 
 
@@ -592,16 +613,14 @@ class Validator(object):
             bool   True if rule is accepted, False instead
         """
         if not isinstance(rule, str):
-            logger.error("rule name must be a string")
-            return False
+            raise RuleError("rule name must be a string")
 
         if not override and rule in self._validation_rulebook:
-            logger.warning("validator already register for rule: " + rule)
+            sys.stdout.write("validator already register for rule: " + rule + "\n")
             return False
 
         if not Validator._is_hook_type_valid(hook):
-            logger.error("action associated to the rule is unallowed")
-            return False
+            raise RuleError("action associated to the rule is unallowed")
 
         # hook is a dict, we transform it to a SchemeValidator
         if isinstance(hook, dict):
