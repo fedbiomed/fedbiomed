@@ -47,11 +47,11 @@ environment_info() {
 
 development_env() {
     export FEDBIOMED_DIR=$basedir
-    export MQTT_BROKER=${1:-localhost}
-    export MQTT_BROKER_PORT=1883
     export IP_ADDRESS=${1:-localhost}
     # use the (if provided) UPLOADS_URL var env
     [[ -z "$UPLOADS_URL" ]] && { export UPLOADS_URL="http://${IP_ADDRESS}:8844/upload/" ; }
+    [[ -z "$MQTT_BROKER" ]] && { export MQTT_BROKER="localhost" ; }
+    [[ -z "$MQTT_BROKER_PORT" ]] && { export MQTT_BROKER_PORT=1883 ;}
 }
 
 environment_reset() {
