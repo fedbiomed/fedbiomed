@@ -472,9 +472,8 @@ run() {
         echo "- verify that docker container(s) are configured"
         exit 1
     }
-
-    CMD="export MQTT_BROKER=${mqtt_IP} && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ &&
-    export UPLOADS_IP=${restful_IP} && export FEDBIOMED_NO_RESET=1 &&./scripts/fedbiomed_run $container ${RUN_ARGS}"
+    CMD="source /miniconda/bin/activate && conda activate fedbiomed-node &&
+         PYTHONPATH=/fedbiomed MQTT_BROKER=${mqtt_IP} MQTT_BROKER_PORT=1883 UPLOADS_URL=http://${restful_IP}:8000/upload/ UPLOADS_IP=${restful_IP} python -m fedbiomed.node.cli ${RUN_ARGS}"
 
     docker-compose exec -u $(id -u) $container bash -c "$CMD"
 }
