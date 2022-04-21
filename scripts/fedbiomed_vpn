@@ -472,10 +472,19 @@ run() {
         echo "- verify that docker container(s) are configured"
         exit 1
     }
-    CMD="source /miniconda/bin/activate && conda activate fedbiomed-node &&
-         PYTHONPATH=/fedbiomed MQTT_BROKER=${mqtt_IP} MQTT_BROKER_PORT=1883 UPLOADS_URL=http://${restful_IP}:8000/upload/ UPLOADS_IP=${restful_IP} python -m fedbiomed.node.cli ${RUN_ARGS}"
 
-    docker-compose exec -u $(id -u) $container bash -c "$CMD"
+    if [ "$container" = "researcher" ]; then
+      echo "WARNING: Researcher run commands are not implemented"
+    elif [ "$container" = "node" ]; then
+      CMD="source /miniconda/bin/activate && conda activate fedbiomed-node &&
+      PYTHONPATH=/fedbiomed MQTT_BROKER=${mqtt_IP} MQTT_BROKER_PORT=1883 UPLOADS_URL=http://${restful_IP}:8000/upload/ UPLOADS_IP=${restful_IP} python -m fedbiomed.node.cli ${RUN_ARGS}"
+      docker-compose exec -u $(id -u) node bash -c "$CMD"
+    else
+      echo "ERROR: Unsupported run for container $container"
+    fi
+
+
+
 }
 
 # main
