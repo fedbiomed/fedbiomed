@@ -389,12 +389,7 @@ containers_start() {
     # if image is not build `docker-compose up ` will automatically build it
 
     # start vpnserver first
-    for i in ${ONLY_CONTAINERS[@]}
-    do
-        [[ $i = "vpnserver" ]] || { continue; }
-        echo "- starting vpnserver container"
-        CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d vpnserver
-    done
+    CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d vpnserver
 
     # start other container(s)
     for i in ${ONLY_CONTAINERS[@]}
@@ -416,20 +411,22 @@ containers_start() {
         CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) docker-compose up -d $CONTAINER
 
         case $i in
-            mqtt)
-                pubkey=$(docker-compose exec mqtt wg show wg0 public-key | tr -d '\r')
-                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add management mqtt $pubkey
-                ;;
-            resful)
-                pubkey=$(docker-compose exec restful wg show wg0 public-key | tr -d '\r')
-                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add management restful $pubkey
+            mqtt|restful)
+                pubkey=$(docker-compose exec "$i" wg show wg0 public-key | tr -d '\r')
+                # Remove key to avoid protocol error if keys are same
+                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py remove management "$i"
+                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add management "$i" "$pubkey"
                 ;;
             researcher)
                 pubkey=$(docker-compose exec researcher wg show wg0 public-key | tr -d '\r')
+                # Remove key to avoid protocol error if keys are same
+                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py remove researcher researcher1
                 docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add researcher researcher1 $pubkey
                 ;;
             node)
                 pubkey=$(docker-compose exec node wg show wg0 public-key | tr -d '\r')
+                # Remove key to avoid protocol error if keys are same
+                docker-compose exec vpnserver python ./vpn/bin/configure_peer.py remove node node1
                 docker-compose exec vpnserver python ./vpn/bin/configure_peer.py add node node1 $pubkey
                 ;;
             *)
@@ -457,7 +454,7 @@ run() {
     restful_IP=$(docker-compose exec restful ip route | tr -d '\r' | grep ^10.220 | awk '{print $NF}')
     echo "- restful IP is: $restful_IP"
     [[ -z "$restful_IP" ]] && {
-        echo "** ERROR: cannot find IP adress of restful server" ;
+        echo "** ERROR: cannot find IP address of restful server" ;
         echo "- verify that docker container(s) are configured"
         exit 1
     }
@@ -471,12 +468,14 @@ run() {
     mqtt_IP=$(docker-compose exec mqtt ip route | tr -d '\r' | grep ^10.220 | awk '{print $NF}')
     echo "- mqtt    IP is: $mqtt_IP"
     [[ -z "$mqtt_IP" ]] && {
-        echo "** ERROR: cannot find IP adress of mqtt server" ;
+        echo "** ERROR: cannot find IP address of mqtt server" ;
         echo "- verify that docker container(s) are configured"
         exit 1
     }
 
-    CMD="export MQTT_BROKER=$mqtt_IP && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ && export UPLOADS_IP=${restful_IP} && export FEDBIOMED_NO_RESET=1 && /fedbiomed/scripts/fedbiomed_run $container ${RUN_ARGS}"
+    CMD="export MQTT_BROKER=${mqtt_IP} && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ &&
+    export UPLOADS_IP=${restful_IP} && export FEDBIOMED_NO_RESET=1 &&./scripts/fedbiomed_run $container ${RUN_ARGS}"
+
     docker-compose exec -u $(id -u) $container bash -c "$CMD"
 }
 
