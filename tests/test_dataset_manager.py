@@ -3,20 +3,25 @@ import inspect
 import numpy as np
 import os
 import pandas as pd
+import shutil
 from typing import List
 import unittest
 from unittest import mock
 from unittest.mock import MagicMock, patch
 import torch
 from torch.utils.data import Dataset
-
-
+import tempfile
+import pathlib
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 from testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.dataset_manager import DatasetManager
+
+from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
+from PIL import Image
+from torchvision import transforms, datasets
 
 
 class TestDatasetManager(unittest.TestCase):
@@ -94,6 +99,7 @@ class TestDatasetManager(unittest.TestCase):
                            'booleans': [True, False, True, False, True] * 2
                            }
 
+        self.tempdir = tempfile.mkdtemp()  # Creates and returns tempdir to save temp images
 
     def tearDown(self):
         """
@@ -239,12 +245,9 @@ class TestDatasetManager(unittest.TestCase):
         # checks
         self.assertListEqual(data_types, ['int64', 'float64', 'object', 'bool'])
 
-
-    @patch('torchvision.transforms.ToTensor', spec=True)
     @patch('torchvision.datasets.MNIST')
     def test_dataset_manager_09_load_default_database_as_dataset(self,
-                                                              dataset_mnist_patch,
-                                                              torchvision_tensor_patch):
+                                                                 dataset_mnist_patch):
         """
         Tests if `load_default_dataset` is loading the default dataset and
         returns it (arg `as_dataset` set to True)
@@ -266,10 +269,9 @@ class TestDatasetManager(unittest.TestCase):
         self.assertEqual(res_dataset, self.fake_dataset)
         # Below, we are not testing that MNIST patch has been calling
         # with the good argument for 'transform``
-        dataset_mnist_patch.assett_called_once_with(root=database_path,
+        dataset_mnist_patch.assert_called_once_with(root=database_path,
                                                     download=True,
-                                                    transform=torchvision_tensor_patch)
-
+                                                    transform=mock.ANY)
 
     @patch('fedbiomed.node.dataset_manager.DatasetManager.get_torch_dataset_shape')
     @patch('torchvision.datasets.MNIST')
@@ -366,7 +368,7 @@ class TestDatasetManager(unittest.TestCase):
         read_csv_patch.return_value = dummy_data
 
         # arguments
-        database_path = '/path/to/MNIST/dataset'
+        database_path = '/path/to/csv/dataset'
 
         # action
         data = self.dataset_manager.load_csv_dataset(database_path)
@@ -861,6 +863,123 @@ class TestDatasetManager(unittest.TestCase):
         # action and check
         with self.assertRaises(NotImplementedError):
             self.dataset_manager.load_data(tags, mode='unknown_mode')
+
+    def test_dataset_manager_27_load_existing_mednist_dataset(self):
+        """
+        Tests case where one is loading mednist dataset without downloading it
+        """
+
+        def _create_fake_mednist_dataset(self):
+            '''
+            Create fake mednist dataset and save the images in tempdir
+
+            Dataset folders structure:
+
+            |- class_0 
+            |   |- image_0.jpeg
+            |- class_1 
+            |   |- image_0.jpeg
+            ...
+            |_ class_n
+                |- image_0.jpeg
+
+            '''
+
+            mednist_path = os.path.join(self.tempdir, 'MedNIST')
+            os.makedirs(mednist_path)
+
+            fake_img_data = np.random.randint(0,255,(64, 64))
+            img = Image.fromarray(fake_img_data, 'L')
+            n_classes = 6
+
+            # one image per class
+            for class_i in range(n_classes):
+                class_path = os.path.join(mednist_path, f'class_{class_i}')
+                os.makedirs(class_path)
+                img_path = os.path.join(class_path, 'image_0.jpeg')
+                img.save(img_path)
+
+            return datasets.ImageFolder(mednist_path, transform=transforms.ToTensor())
+
+
+        fake_dataset = _create_fake_mednist_dataset(self)
+
+        # action
+        # Test the load mednist method with input as_dataset False
+        res_dataset_shape = self.dataset_manager.load_mednist_database(self.tempdir,
+                                                                       as_dataset=False)
+
+        # checks
+        self.assertListEqual(res_dataset_shape, [6, 3, 64, 64])
+
+
+        # Test the load mednist method with input as_dataset True
+        res_dataset = self.dataset_manager.load_mednist_database(self.tempdir,
+                                                                 as_dataset=True)
+
+        for i in range(len(fake_dataset)):
+            with self.subTest(i=i):
+                self.assertTrue(torch.equal(res_dataset[i][0], fake_dataset[i][0]))
+                # check that assigned classes are correct
+                self.assertEqual(res_dataset[i][1], fake_dataset[i][1])
+
+
+    @patch('fedbiomed.node.dataset_manager.urlretrieve')
+    def test_dataset_manager_28_download_extrat_mednist(self,
+                                                        urlretrieve_patch):
+        """
+        Tests the correct process of data download and extraction
+        in order to make MedNIST dataset (retrieved from url limnk)
+        """
+
+        ARCHIVE_PATH = os.path.join(self.testdir, "images/MedNIST_test.tar.gz")
+
+        def urlretieve_side_effect(url, path):
+            """Mimics download of dataset by coping & pasting
+            dataset archive in the good directory
+            """
+            # copying & loading archive into temporary file
+            path = pathlib.Path(path).parent.absolute()
+            shutil.copy2(ARCHIVE_PATH, path)
+            os.rename(os.path.join(path, "MedNIST_test.tar.gz"),
+                      os.path.join(path, "MedNIST.tar.gz"))
+        # configuring patchers
+        urlretrieve_patch.side_effect = urlretieve_side_effect
+
+        with patch.object(os, 'remove') as os_remove_patch:
+            os_remove_patch.return_value = None
+            # action
+            res_dataset = self.dataset_manager.load_mednist_database(self.tempdir,
+                                                                     as_dataset=True)
+        # Tests
+        urlretrieve_patch.assert_called_once()
+        self.assertListEqual(res_dataset.classes,
+                             ['AbdomenCT', 'BreastMRI', 'CXR', 'ChestCT', 'Hand', 'HeadCT'])
+        label = 0
+        for i in range(12):
+            with self.subTest(i=i):
+                # check each image has the correct extension 'jpeg'
+                self.assertEqual(pathlib.Path(res_dataset.imgs[i][0]).suffix, '.jpeg')
+                # NB: this test assumes that each images are sorted from label 0 to label 6
+                # it may be wrong in future pytorch releases
+                self.assertEqual(res_dataset.imgs[i][1], label)
+                if i % 2 != 0:
+                    label += 1
+
+    def test_dataset_manager_29_load_mednist_database_exception(self):
+        """
+        Tests if exception `FedbiomedDatasetManagerError` is triggered
+        when mednist dataset folder is empty
+        """
+        
+        # case where Mednist folder is already existing
+        mednist_path = os.path.join(self.tempdir, 'MedNIST')
+        os.makedirs(mednist_path)
+
+        with self.assertRaises(FedbiomedDatasetManagerError):
+            # action: we are here passing an empty directory
+            # and checking if method raises FedbiomedDatasetManagerError
+            self.dataset_manager.load_mednist_database(self.tempdir)
 
 
 if __name__ == '__main__':  # pragma: no cover

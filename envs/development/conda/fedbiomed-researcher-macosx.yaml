@@ -43,6 +43,7 @@ dependencies:
       - persist-queue >=0.5.1,<0.6.0
       - pandas >=1.2.3,<2.0.0
       - scikit-learn <= 0.24.2
+      - itk
       - python-minifier ==2.5.0
       - tensorboard
       # for nbconvert

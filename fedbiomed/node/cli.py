@@ -15,7 +15,7 @@ import tkinter.messagebox
 from tkinter import _tkinter
 
 from fedbiomed.common.constants  import ModelTypes, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.environ import environ
@@ -50,7 +50,7 @@ readline.parse_and_bind("tab: complete")
 
 
 def validated_data_type_input():
-    valid_options = ['csv', 'default', 'images']
+    valid_options = ['csv', 'default','mednist', 'images']
     valid_options = {i: val for i, val in enumerate(valid_options, 1)}
 
     msg = "Please select the data type that you're configuring:\n"
@@ -177,6 +177,14 @@ def add_database(interactive=True,
             name = 'MNIST'
             description = 'MNIST database'
 
+        elif data_type == 'mednist':
+            tags = ['#MEDNIST', "#dataset"]
+            if interactive is True:
+                while input(f'MEDNIST will be added with tags {tags} [y/N]').lower() != 'y':
+                    pass
+                path = validated_path_input(data_type)
+            name = 'MEDNIST'
+            description = 'MEDNIST dataset'
         else:
 
             name = input('Name of the database: ')
@@ -199,7 +207,7 @@ def add_database(interactive=True,
         description = str(description)
 
         data_type = str(data_type).lower()
-        if data_type not in [ 'csv', 'default', 'images' ]:
+        if data_type not in [ 'csv', 'default', 'mednist', 'images' ]:
             data_type = 'default'
 
         if not os.path.exists(path):
@@ -208,16 +216,16 @@ def add_database(interactive=True,
     # Add database
     try:
         dataset_manager.add_database(name=name,
-                                  tags=tags,
-                                  data_type=data_type,
-                                  description=description,
-                                  path=path)
-    except AssertionError as e:
+                                     tags=tags,
+                                     data_type=data_type,
+                                     description=description,
+                                     path=path)
+    except (AssertionError, FedbiomedDatasetManagerError) as e:
         if interactive is True:
             try:
                 tkinter.messagebox.showwarning(title='Warning', message=str(e))
             except ModuleNotFoundError:
-                warnings.warn('[ERROR]: {e}')
+                warnings.warn(f'[ERROR]: {e}')
         else:
             warnings.warn(f'[ERROR]: {e}')
         exit(1)

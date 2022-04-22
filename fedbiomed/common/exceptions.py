@@ -157,3 +157,9 @@ class FedbiomedRoundError(FedbiomedError):
     Exceptions specific for the class node round class
     """
     pass
+
+class FedbiomedDatasetManagerError(FedbiomedError):
+    """
+    Exceptions specific for the class DatasetManager.
+    """
+    pass
