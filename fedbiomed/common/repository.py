@@ -1,3 +1,5 @@
+"""HTTP file repository from which to upload and download files."""
+
 import os
 import requests  # Python built-in library
 
@@ -12,11 +14,12 @@ from fedbiomed.common.logger import logger
 class Repository:
     """HTTP file repository from which to upload and download files.
 
-    Files are uploaded from/downloaded to a temporary file (`temp_fir`).
+    Files are uploaded from/downloaded to a temporary file (`tmp_dir`).
     Data uploaded should be:
-        python code (*.py file) that describes model +
-            data handling/preprocessing
-        model params (under *.pt format)
+
+    - python code (*.py file) that describes model +
+        data handling/preprocessing
+    - model params (under *.pt format)
 
     Attributes:
         uploads_url: The URL where we upload files
@@ -39,14 +42,13 @@ class Repository:
             filename: A name/path of the file to upload.
 
         Returns:
-            res: The result of the request under JSON
-                format.
+            The result of the request under JSON format.
 
         Raises:
-            FedbiomedRepositoryError: When unable to read the file 'filename'
-            FedbiomedRepositoryError: When POST HTTP request fails or returns
+            FedbiomedRepositoryError: unable to read the file 'filename'
+            FedbiomedRepositoryError: POST HTTP request fails or returns
                 a HTTP status 4xx (bad request) or 500 (internal server error)
-            FedbiomedRepositoryError: When unable to deserialize JSON from
+            FedbiomedRepositoryError: unable to deserialize JSON from
                 the request
         """
         # first, we are trying to open the file `filename` and catch
@@ -138,7 +140,7 @@ class Repository:
                 Defaults to ''.
 
         Raises:
-            FedbiomedRepositoryError: i\If request has failed, raises an FedBioMedError
+            FedbiomedRepositoryError: if request fails, raises an FedBioMedError
                 with the appropriate code error/ message
         """
         _method_msg = Repository._get_method_request_msg(response.request.method)
@@ -202,11 +204,11 @@ class Repository:
             **kwargs: The named arguments to be passed to the callable method.
 
         Raises:
-            FedbiomedRepositoryError: Triggers if the Timeout has exceeded.
-            FedbiomedRepositoryError: Triggers if the request has faced too many redirect.
-            FedbiomedRepositoryError: Triggers if URL is badly written, or missing some
+            FedbiomedRepositoryError: Timeout exceeded.
+            FedbiomedRepositoryError: Too many redirects.
+            FedbiomedRepositoryError: URL is badly written, or missing some
                 parts (eg: missing scheme).
-            FedbiomedRepositoryError: Triggers if the connection was unsuccessful, when the service
+            FedbiomedRepositoryError: The connection is unsuccessful, when the service
                 to connect is unknown.
             FedbiomedRepositoryError: Catches other exceptions coming from requests package
 

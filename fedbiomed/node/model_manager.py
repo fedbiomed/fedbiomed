@@ -41,7 +41,7 @@ class ModelManager:
         """Class constructor for ModelManager.
 
         Creates a DB object for the table named as `Models` and builds a query object to query
-            the database.
+        the database.
         """
         self._tinydb = TinyDB(environ["DB_PATH"])
         self._db = self._tinydb.table('Models')
@@ -172,7 +172,7 @@ class ModelManager:
         """Checks registered models.
 
         Makes sure model files exists and hashing algorithm is matched with specified
-            algorithm in the config file.
+        algorithm in the config file.
 
         Raises:
             FedbiomedModelManagerError: cannot update model list in database
@@ -211,8 +211,8 @@ class ModelManager:
         """Checks whether model is approved by the node.
 
         Sends a query to database to search for hash of requested model.
-            If it is the hash matches with one of the
-            models hashes in the DB, it approves requested model.
+        If it is the hash matches with one of the
+        models hashes in the DB, it approves requested model.
 
         Args:
             path: The path of requested model file by researcher after downloading
@@ -220,8 +220,9 @@ class ModelManager:
 
         Returns:
             A tuple (approved, approved_model) where
-                approved: Whether model has been approved or not
-                approved_model: Dictionary containing fields
+
+                - approved: Whether model has been approved or not
+                - approved_model: Dictionary containing fields
                     related to the model. If database search request failed,
                     returns None instead.
         """
@@ -334,11 +335,10 @@ class ModelManager:
         """Registers or updates default models.
 
         Launched when the node is started through CLI, if environ['ALLOW_DEFAULT_MODELS'] is enabled.
-            Checks the files saved into `default_models` directory and update/register them based
-            on following conditions.
-                - Registers: If there is a new model-file which isn't saved into db
-                - Updates: if model is modified
-                - Updates: if hashing algorithm has changed in config file.
+        Checks the files saved into `default_models` directory and update/register them based on following conditions:
+
+        - Registers if there is a new model-file which isn't saved into db.
+        - Updates if model is modified or if hashing algorithm has changed in config file.
 
         Raises:
             FedbiomedModelManagerError: cannot read or update model database
@@ -412,8 +412,8 @@ class ModelManager:
         """Updates model file entry in model database.
 
         Updates model hash value for provided model file. It also updates
-            `data_modified`, `date_created` and
-            `model_path` in case the provided model file is different from the currently registered one.
+        `data_modified`, `date_created` and
+        `model_path` in case the provided model file is different from the currently registered one.
 
         Args:
             model_id: Id of the model
@@ -460,8 +460,8 @@ class ModelManager:
         """Removes model file from database.
 
         Only removes `registered` type of models from the database.
-            Does not remove the corresponding model file from the disk.
-            Default models should be removed from the directory
+        Does not remove the corresponding model file from the disk.
+        Default models should be removed from the directory
 
         Args:
             model_id: The id of the registered model
