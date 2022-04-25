@@ -238,12 +238,17 @@ class TestValidator(unittest.TestCase):
             Validator().validate( {} , training_args_scheme )
 
         self.assertTrue( Validator().validate(
-            { 'lr' : 0.4 } ,
+            { 'lr' : 0.1 } ,
             training_args_scheme ) )
 
         with self.assertRaises(ValidateError):
             Validator().validate(
-                { 'lr' : 0.4 , 'extra': "extra field"} ,
+                { 'lr' : 0.2 , 'extra': "extra field"} ,
+                training_args_scheme )
+
+        with self.assertRaises(ValidateError):
+            Validator().validate(
+                { 'lr' : 2.2 },
                 training_args_scheme )
 
         # same, but lr is not required
@@ -258,12 +263,17 @@ class TestValidator(unittest.TestCase):
             training_args_scheme ) )
 
         self.assertTrue( Validator().validate(
-            { 'lr' : 0.4 } ,
+            { 'lr' : 0.3 } ,
             training_args_scheme ) )
 
         with self.assertRaises(ValidateError):
             Validator().validate(
                 { 'lr' : 0.4 , 'extra': "extra field"} ,
+                training_args_scheme )
+
+        with self.assertRaises(ValidateError):
+            Validator().validate(
+                { 'lr' : 1.4 },
                 training_args_scheme )
 
         # same again
@@ -279,12 +289,12 @@ class TestValidator(unittest.TestCase):
             training_args_scheme ) )
 
         self.assertTrue( Validator().validate(
-            { 'lr' : 0.4 } ,
+            { 'lr' : 0.5 } ,
             training_args_scheme ) )
 
         with self.assertRaises(ValidateError):
             Validator().validate(
-                { 'lr' : 0.4 , 'extra': "extra field"} ,
+                { 'lr' : 0.6 , 'extra': "extra field"} ,
                 training_args_scheme )
 
 
@@ -302,17 +312,17 @@ class TestValidator(unittest.TestCase):
 
         # and use it with it's name
         self.assertTrue( Validator().validate(
-            { 'lr' : 0.4 } ,
+            { 'lr' : 0.7 } ,
             "tr_01"))
 
         # or directly
         self.assertTrue( Validator().validate(
-            { 'lr' : 0.4 } ,
+            { 'lr' : 0.8 } ,
             training_args_ok ) )
 
         with self.assertRaises(ValidateError):
             Validator().validate(
-                { 'lr' : 'toto' } ,
+                { 'lr' : 2.71281 } ,
                 training_args_ok )
 
         with self.assertRaises(ValidateError):
@@ -482,22 +492,26 @@ class TestSchemeValidator(unittest.TestCase):
             v.validate( "data" )
 
         training_args_scheme = {
-            'lr' : { 'rules': [ float, self.always_true_hook] ,
-                     'default': 1.0
-                    },
+            'loss' : { 'rules': [ float, self.always_true_hook] ,
+                       'default': 1.0
+                      },
         }
         v = SchemeValidator( training_args_scheme )
         self.assertTrue( v.is_valid())
-        self.assertTrue( v.validate( { 'lr': 1.0}) )
+        self.assertTrue( v.validate( { 'loss': 0.9}) )
 
         with self.assertRaises(ValidateError):
-            v.validate( { 'lr': 'this is not a float'} )
+            v.validate( { 'loss': 'this is not a float'} )
+
+        with self.assertRaises(ValidateError):
+            v.validate( { 'loss': 0.99, 'extra_key': 1.1 } )
+
 
         training_args_scheme = {
-            'lr' : { 'rules': [ float ],
-                     'required': True,
-                     'unallowed_key': False
-                    },
+            'loss' : { 'rules': [ float ],
+                       'required': True,
+                       'unallowed_key': False
+                      },
         }
         with self.assertRaises(RuleError):
             v = SchemeValidator( training_args_scheme )
@@ -506,7 +520,7 @@ class TestSchemeValidator(unittest.TestCase):
 
     def test_scheme_validator_02_validate_internal_hook_functions(self):
         """
-        internal helpr function tests
+        internal helper function tests
         """
 
         #  check hook_type_validation
@@ -519,6 +533,15 @@ class TestSchemeValidator(unittest.TestCase):
 
         # check direct hook call
         self.assertTrue( Validator._hook_execute( 1.0, float ))
+        self.assertTrue( Validator._hook_execute( "toto", str ))
+        self.assertTrue( Validator._hook_execute( 1, int ))
+        self.assertTrue( Validator._hook_execute( True, bool ))
+        self.assertTrue( Validator._hook_execute( {} , dict ))
+
+        self.assertFalse( Validator._hook_execute( 3.14, 3.14 )[0])
+        self.assertFalse( Validator._hook_execute( {} , {} )[0])
+
+
 
     @staticmethod
     @validator_decorator
@@ -620,6 +643,40 @@ class TestSchemeValidator(unittest.TestCase):
         with self.assertRaises(RuleError):
             # no default value for required field a
             still_bad = sc.populate_with_defaults( bad )
+
+
+    @staticmethod
+    @validator_decorator
+    def loss_rate_validation_hook(value):
+        """
+        float between 0.0 and 1.0
+        """
+        if not isinstance(value, float) or value < 0.0 or value > 1.0:
+            return False, "float between [ 0.0, 1.0 ] expected"
+        return True
+
+
+    def test_scheme_validator_05_validate(self):
+        """
+        test the validate() of SchemeValidator
+        """
+
+        training_args_ok = {
+            'lr' : { 'rules': [ float, self.loss_rate_validation_hook] ,
+                     'default': 1.0
+                    },
+        }
+
+        sv = SchemeValidator(training_args_ok)
+
+        self.assertTrue( sv.validate( { 'lr' : 0.88 } ) )
+
+        with self.assertRaises(ValidateError):
+            sv.validate( { 'lr' : 3.14159265359 } )
+
+        with self.assertRaises(ValidateError):
+            sv.validate( { 'lr' : 'toto' } )
+
 
 
 if __name__ == '__main__':  # pragma: no cover

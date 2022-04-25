@@ -252,7 +252,8 @@ class SchemeValidator(object):
 
             for hook in self._scheme[k]['rules']:
                 if not Validator().validate(value[k], hook):
-                    raise ValidateError("invalid value (" + str(value[k]) + ") for key: " + str(k))
+                    # this should already have raises an error
+                    raise ValidateError("invalid value (" + str(value[k]) + ") for key: " + str(k))  # pragma: nocover
 
         return True
 
@@ -371,12 +372,13 @@ class SchemeValidator(object):
                         try:
                             Validator().validate(def_value, rule)
                         except ValidateError:
-                            raise RuleError("default value for key (" + \
-                                            str(key) + \
-                                            ") does not respect its own specification (" + \
-                                            str(def_value) + \
-                                            ")"
-                                            )
+                            # this func should not raise an Error
+                            return ("default value for key (" + \
+                                    str(key) + \
+                                    ") does not respect its own specification (" + \
+                                    str(def_value) + \
+                                    ")"
+                                    )
 
         # scheme is validated
         return True
@@ -461,7 +463,7 @@ class Validator(object):
             if strict:
                 raise ValidateError("unknown rule: " + str(rule))
             else:
-                sys.stdout.write("unknown rule: " + str(rule) + "\n")
+                sys.stdout.write("WARNING - Validator(): unknown rule: " + str(rule) + "\n")
                 return True
 
         # consider the rule as a direct rule definition
@@ -568,8 +570,10 @@ class Validator(object):
             return hook.validate(value)
 
         if hook_type is _ValidatorHookType.SCHEME_AS_A_DICT:
-            sc = SchemeValidator( hook )
-            if not sc.is_valid():
+            try:
+                sc = SchemeValidator( hook )
+            except RuleError:
+                # this func should not raise an error
                 return False, "scheme is not valid"
             return sc.validate(value)
 
@@ -623,7 +627,7 @@ class Validator(object):
             raise RuleError("rule name must be a string")
 
         if not override and rule in self._validation_rulebook:
-            sys.stdout.write("validator already register for rule: " + rule + "\n")
+            sys.stdout.write("WARNING - Validator: rule is already registered: " + rule + "\n")
             return False
 
         if not Validator._is_hook_type_valid(hook):
