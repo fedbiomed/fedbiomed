@@ -91,3 +91,20 @@ except SomeError as e:
     - ex: debugging fedbiomed itself
 
     - it should be already a backtrace on the reasearcher/node console
+
+## Docstrings writing rules
+
+- use [google style docstrings](https://github.com/google/styleguide/blob/gh-pages/pyguide.md#38-comments-and-docstrings)
+- optional extensions you can use:
+  - info captions
+```bash
+!!! info "Some info title"
+
+  Some more text for the caption with indent
+
+Not part of the caption anymore etc.
+```
+  - links to classes in docstrings
+```bash
+[\`Experiment\`][fedbiomed.researcher.experiment]
+```
