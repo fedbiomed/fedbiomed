@@ -29,17 +29,19 @@ class Node:
     with the researcher through the `Messaging`, parsing messages from the researcher,
     etiher treating them instantly or queuing them,
     executing tasks requested by researcher stored in the queue.
-
-    Attributes:
-        dataset_manager: `DatasetManager` object for managing the node's datasets.
-        model_manager: `ModelManager` object managing the node's models.
-        node_args: Command line arguments for node.
     """
 
     def __init__(self,
                  dataset_manager: DatasetManager,
                  model_manager: ModelManager,
                  node_args: Union[dict, None] = None):
+        """Constructor of the class.
+
+        Attributes:
+            dataset_manager: `DatasetManager` object for managing the node's datasets.
+            model_manager: `ModelManager` object managing the node's models.
+            node_args: Command line arguments for node.
+        """
 
         self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
         self.messaging = Messaging(self.on_message, ComponentType.NODE,

@@ -23,30 +23,6 @@ from fedbiomed.node.model_manager import ModelManager
 
 class Round:
     """Represents the training part executed by a node in a given round.
-
-    Attributes:
-        model_kwargs: Contains model args
-        training_kwargs: Contains model characteristics,
-            especially input  dimension (key: 'in_features')
-            and output dimension (key: 'out_features')
-        dataset: Dataset details to use in this round.
-            It contains the dataset name, dataset's id,
-            data path, its shape, its
-            description...
-        model_url: URL from which to download model
-        model_class: Name of the training plan
-            (eg 'MyTrainingPlan')
-        params_url: URL from which to upload/dowload model params
-        job_id: Job id
-        researcher_id: Researcher id
-        history_monitor: a `HistoryMonitor` object
-        node_args: Command line arguments for node. Can include:
-
-            * gpu (bool): propose use a GPU device if any is available.
-            * gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
-                GPU device if this GPU device is available.
-            * gpu_only (bool): force use of a GPU device if any available, even if researcher
-                doesnt request for using a GPU.
     """
 
     def __init__(self,
@@ -63,6 +39,30 @@ class Round:
                  node_args: Union[dict, None] = None):
 
         """Constructor of the Round class
+
+        Args:
+            model_kwargs: Contains model args
+            training_kwargs: Contains model characteristics,
+                especially input  dimension (key: 'in_features')
+                and output dimension (key: 'out_features')
+            dataset: Dataset details to use in this round.
+                It contains the dataset name, dataset's id,
+                data path, its shape, its
+                description...
+            model_url: URL from which to download model
+            model_class: Name of the training plan
+                (eg 'MyTrainingPlan')
+            params_url: URL from which to upload/dowload model params
+            job_id: Job id
+            researcher_id: Researcher id
+            history_monitor: a `HistoryMonitor` object
+            node_args: Command line arguments for node. Can include:
+
+                * gpu (bool): propose use a GPU device if any is available.
+                * gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
+                    GPU device if this GPU device is available.
+                * gpu_only (bool): force use of a GPU device if any available, even if researcher
+                    doesnt request for using a GPU.
         """
         testing_args_keys = ('test_ratio', 'test_on_local_updates',
                              'test_on_global_updates', 'test_metric',
@@ -95,7 +95,7 @@ class Round:
 
     def run_model_training(self) -> TrainReply:
         """Does a training and testing round as requested by a researcher in a `TrainRequest`
-        
+
         Downloads model file, then runs the training and testing of the model
         uploads new model params, replies to the researcher,
 

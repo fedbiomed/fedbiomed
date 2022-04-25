@@ -11,17 +11,17 @@ from fedbiomed.node.environ import environ
 
 class HistoryMonitor:
     """Send information from node to researcher during the training
-
-    Attributes:
-        job_id: TODO
-        researcher_id: TODO
-        client: TODO
     """
     def __init__(self,
                  job_id: str,
                  researcher_id: str,
                  client: Messaging):
-        """Simple constructor
+        """Simple constructor for the class.
+
+        Args:
+            job_id: TODO
+            researcher_id: TODO
+            client: TODO
         """
         self.job_id = job_id
         self.researcher_id = researcher_id
