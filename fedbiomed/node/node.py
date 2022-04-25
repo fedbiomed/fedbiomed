@@ -1,5 +1,5 @@
 '''
-core code of the node component
+Core code of the node component.
 '''
 
 from json import decoder
@@ -23,10 +23,17 @@ import validators
 
 
 class Node:
-    """
+    """Core code of the node component.
+
     Defines the behaviour of the node, while communicating
-    with researcher through Messager, and executing / parsing task
-    requested by researcher stored in a queue.
+    with the researcher through the `Messaging`, parsing messages from the researcher,
+    etiher treating them instantly or queuing them,
+    executing tasks requested by researcher stored in the queue.
+
+    Attributes:
+        dataset_manager: `DatasetManager` object for managing the node's datasets.
+        model_manager: `ModelManager` object managing the node's models.
+        node_args: Command line arguments for node.
     """
 
     def __init__(self,
@@ -44,30 +51,31 @@ class Node:
         self.node_args = node_args
 
     def add_task(self, task: dict):
-        """This method adds a task to the queue
+        """Adds a task to the pending tasks queue.
 
         Args:
-            task (dict): is a Message object describing a training task
+            task: A `Message` object describing a training task
         """
         self.tasks_queue.add(task)
 
-    def on_message(self, msg, topic=None):
-        """Handler to be used with `Messaging` class (ie with messager).
-        It is called when a  messsage arrive through the messager
-        It reads and triggers instruction received by node from Researcher,
+    def on_message(self, msg: dict, topic:str = None):
+        """Handler to be used with `Messaging` class (ie the messager).
+
+        Called when a  message arrives through the `Messaging`.
+        It reads and triggers instructions received by node from Researcher,
         mainly:
         - ping requests,
-        - train requests (then a new task will be added on node 's task queue),
+        - train requests (then a new task will be added on node's task queue),
         - search requests (for searching data in node's database).
 
         Args:
-            msg (Dict[str, Any]): incoming message from Researcher.
-            Must contain key named `command`, describing the nature
-            of the command (ping requests, train requests,
-            or search requests).
-
-            topic(str): topic name, decision (specially on researcher) may
-            be done regarding of the topic.
+            msg: Incoming message from Researcher.
+                Must contain key named `command`, describing the nature
+                of the command (ping requests, train requests,
+                or search requests).
+                Should be formatted as a `Message`.
+            topic: Messaging topic name, decision (specially on researcher) may
+                be done regarding of the topic. Currently unused.
         """
         # TODO: describe all exceptions defined in this method
         logger.debug('Message received: ' + str(msg))
@@ -153,11 +161,10 @@ class Node:
                             researcher_id=resid)
 
     def parser_task(self, msg: Union[bytes, str, Dict[str, Any]]):
-        """ This method parses a given task message to create a round instance
+        """Parses a given task message to create a round instance
 
         Args:
-            msg (Union[bytes, str, Dict[str, Any]]): serialized Message object
-            to parse (or that have been parsed)
+            msg: serialized `Message` object to parse (or that have been parsed)
         """
         if isinstance(msg, str) or isinstance(msg, bytes):
             msg = json.deserialize_msg(msg)
@@ -221,7 +228,7 @@ class Node:
                                              self.node_args))
 
     def task_manager(self):
-        """ This method manages training tasks in the queue
+        """Manages training tasks in the queue.
         """
 
         while True:
@@ -255,18 +262,22 @@ class Node:
                 )
 
     def start_messaging(self, block: Optional[bool] = False):
-        """This method calls the start method of messaging class
+        """Calls the start method of messaging class.
 
         Args:
-            block (bool, optional): Defaults to False.
+            block: Whether messager is blocking (or not). Defaults to False.
         """
         self.messaging.start(block)
 
     def send_error(self, errnum: ErrorNumbers, extra_msg: str = "", researcher_id: str = "<unknown>"):
-        """
-        send an error message through MQTT
+        """Sends an error message.
 
-        (it is a wrapper of Messaging.send_error() )
+        It is a wrapper of `Messaging.send_error()`.
+
+        Args:
+            errnum: Code of the error.
+            extra_msg: Additional human readable error message.
+            researcher_id: Destination researcher.
         """
 
         #
