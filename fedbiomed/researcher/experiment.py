@@ -411,7 +411,7 @@ class Experiment(object):
     def model_args(self) -> dict:
         """Retrieves model arguments.
 
-        Please see also [`set_model_args`][fedbiomed.researcher.experiment.set_model_args]
+        Please see also [`set_model_args`][fedbiomed.researcher.experiment.Experiment.set_model_args]
 
         Returns:
             The arguments that are going to be passed to [`training_plans`][fedbiomed.common.training_plans]
@@ -423,7 +423,7 @@ class Experiment(object):
     def training_args(self) -> dict:
         """Retrieves training arguments.
 
-        Please see also [`set_training_args`][fedbiomed.researcher.experiment.set_training_args]
+        Please see also [`set_training_args`][fedbiomed.researcher.experiment.Experiment.set_training_args]
 
         Returns:
             The arguments that are going to be passed to `training_routine` of [`training_plans`]
@@ -438,7 +438,7 @@ class Experiment(object):
     def test_ratio(self) -> float:
         """Retrieves the ratio for test partition of entire dataset.
 
-        Please see also [`set_test_ratio`][fedbiomed.researcher.experiment.set_test_ratio] to change/set `test_ratio`
+        Please see also [`set_test_ratio`][fedbiomed.researcher.experiment.Experiment.set_test_ratio] to change/set `test_ratio`
 
         Returns:
             The ratio for testing part, `1 - test_ratio` is ratio for training set.
@@ -450,7 +450,7 @@ class Experiment(object):
     def test_metric(self) -> Union[MetricTypes, str, None]:
         """Retrieves the metric for testing routine.
 
-        Please see also [`set_test_metric`][fedbiomed.researcher.experiment.set_test_metric] to change/set `test_metric`
+        Please see also [`set_test_metric`][fedbiomed.researcher.experiment.Experiment.set_test_metric] to change/set `test_metric`
 
         Returns:
             A class as an instance of [`MetricTypes`][fedbiomed.common.metrics.MetricTypes]. [`str`][str] for referring
@@ -464,12 +464,12 @@ class Experiment(object):
     def test_metric_args(self) -> Dict[str, Any]:
         """Retrieves the metric argument for the metric function that is going to be used.
 
-        Please see also [`set_test_metric`][fedbiomed.researcher.experiment.set_test_metric] to change/set
+        Please see also [`set_test_metric`][fedbiomed.researcher.experiment.Experiment.set_test_metric] to change/set
         `test_metric` and get more information on the arguments can be used.
 
         Returns:
             A dictionary that contains arguments for metric function. See [`set_test_metric`]
-                [fedbiomed.researcher.experiment.set_test_metric]
+                [fedbiomed.researcher.experiment.Experiment.set_test_metric]
         """
         return self._training_args.get('test_metric_args')
 
@@ -478,7 +478,7 @@ class Experiment(object):
         """Retrieves the status of whether testing will be performed on locally updated parameters by
         the nodes at the end of each round.
 
-        Please see also [`set_test_on_local_updates`][fedbiomed.researcher.experiment.set_test_on_local_updates].
+        Please see also [`set_test_on_local_updates`][fedbiomed.researcher.experiment.Experiment.set_test_on_local_updates].
 
         Returns:
             True, if testing is active on locally updated parameters. False for vice versa.
@@ -491,7 +491,8 @@ class Experiment(object):
         """ Retrieves the status of whether testing will be performed on globally updated (aggregated)
         parameters by the nodes at the beginning of each round.
 
-        Please see also [`set_test_on_global_updates`][fedbiomed.researcher.experiment.set_test_on_global_updates].
+        Please see also [`set_test_on_global_updates`]
+        [fedbiomed.researcher.experiment.Experiment.set_test_on_global_updates].
 
         Returns:
             True, if testing is active on globally updated (aggregated) parameters. False for vice versa.
@@ -504,7 +505,7 @@ class Experiment(object):
 
         Returns:
             Initialized `Job` object. None, if it isn't declared yet or not information to set to job. Please see
-                [`set_job`][fedbiomed.researcher.experiment.set_job].
+                [`set_job`][fedbiomed.researcher.experiment.Experiment.set_job].
         """
 
         return self._job
@@ -1302,7 +1303,7 @@ class Experiment(object):
             metric: A class as an instance of [`MetricTypes`][fedbiomed.common.metrics.MetricTypes]. [`str`][str] for
                 referring one of  metric which provided as attributes in [`MetricTypes`]
                 [fedbiomed.common.metrics.MetricTypes]. None, if it isn't declared yet.
-            metric_args (Dict[str, Any], optional): A dictionary that contains arguments for metric function. Arguments
+            **metric_args: A dictionary that contains arguments for metric function. Arguments
                 should be compatible with corresponding metrics in [`sklearn.metrics`][sklearn.metrics].
 
         Raises:
@@ -1342,8 +1343,7 @@ class Experiment(object):
         node side where model parameters are updated locally after training in each node.
 
         Args:
-            flag (bool, optional): whether to perform model evaluation on local updates.
-              Defaults to True.
+            flag (bool, optional): whether to perform model evaluation on local updates. Defaults to True.
 
         Raises:
             FedbiomedExperimentError: bad flag type
@@ -1603,8 +1603,7 @@ class Experiment(object):
                 - if `increase` is False, run (`round_limit` - `round_current`)
                   rounds, don't modify the maximum `round_limit` of the experiment
                   and issue a warning.
-              Defaults to None
-            increase (bool, optional) : automatically increase the `round_limit`
+            increase: automatically increase the `round_limit`
                 of the experiment for executing the specified number of `rounds`.
                 Does nothing if `round_limit` is `None` or `rounds` is None.
                 Defaults to False
