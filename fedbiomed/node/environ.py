@@ -1,5 +1,5 @@
 '''
-create the environ singleton fot the node component
+Create the environ singleton fot the node component.
 '''
 
 
