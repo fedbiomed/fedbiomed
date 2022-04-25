@@ -12,22 +12,23 @@ from fedbiomed.researcher.environ import environ
 
 
 def create_exp_folder(experimentation_folder: str = None) -> str:
-    """
-    Creates a folder for the current experiment (ie the current run of the model).
-    Experiment files to keep are stored here: model file, all versions of node parameters,
-    all versions of aggregated parameters, breakpoints.
+    """ Creates a folder for the current experiment (ie the current run of the model). Experiment files to keep
+    are stored here: model file, all versions of node parameters, all versions of aggregated parameters, breakpoints.
     The created folder is a subdirectory of environ[EXPERIMENTS_DIR]
+
     Args:
-        - experimentation_folder (str, optional): optionaly provide an experimentation
+        experimentation_folder (str, optional): optionaly provide an experimentation
             folder name. This should just contain the name of the folder not a path.
-            Default: if no folder name is given, generate a `Experiment_x` name where `x-1`
+            default; if no folder name is given, generate a `Experiment_x` name where `x-1`
             is the number of experiments already run (`x`=0 for the first experiment)
+
     Raises:
-        - PermissionError: cannot create experimentation folder
-        - OSError: cannot create experimentation folder
-        - ValueError: bad `experimentation_folder` argument
+        PermissionError: cannot create experimentation folder
+        OSError: cannot create experimentation folder
+        ValueError: bad `experimentation_folder` argument
+
     Returns:
-        - str: experimentation folder
+        Experimentation folder
     """
     if not os.path.isdir(environ['EXPERIMENTS_DIR']):
         try:
@@ -59,26 +60,26 @@ def create_exp_folder(experimentation_folder: str = None) -> str:
     return experimentation_folder
 
 
-def choose_bkpt_file(
-        experimentation_folder: str,
-        round: int = 0) -> Tuple[str, str]:
+def choose_bkpt_file(experimentation_folder: str, round_: int = 0) -> Tuple[str, str]:
     """
     It creates a breakpoint folder and chooses a breakpoint file name for each round.
+
     Args:
-        - round (int, optional): the current number of already run rounds minus one.
-            Starts from 0. Defaults to 0.
-        - experimentation_folder (str): indicates the experimentation folder name.
-            This should just contain the name of the folder not a full path.
+        experimentation_folder (str): indicates the experimentation folder name. This should just contain the name
+            of the folder not a full path.
+        round_: the current number of already run rounds minus one. Starts from 0. Defaults to 0.
+
     Raises:
-        - PermissionError: cannot create experimentation folder
-        - OSError: cannot create experimentation folder
+        PermissionError: cannot create experimentation folder
+        OSError: cannot create experimentation folder
+
     Returns:
-        - breakpoint_folder_path (str): name of the created folder that
-          will contain all data for the current round
-        - breakpoint_file (str): name of the file that will
-          contain the state of an experiment.
+        A tuple that contains following instacens
+            breakpoint_folder_path: name of the created folder that will contain all data for the current round
+            breakpoint_file: name of the file that will contain the state of an experiment.
     """
-    breakpoint_folder = "breakpoint_" + str("{:04d}".format(round))
+
+    breakpoint_folder = "breakpoint_" + str("{:04d}".format(round_))
     breakpoint_folder_path = os.path.join(environ['EXPERIMENTS_DIR'],
                                           experimentation_folder,
                                           breakpoint_folder)
@@ -94,34 +95,34 @@ def choose_bkpt_file(
     return breakpoint_folder_path, breakpoint_file
 
 
-def create_unique_link(
-        breakpoint_folder_path: str,
-        link_src_prefix: str,
-        link_src_postfix: str,
-        link_target_path: str) -> str:
-    """
-    Find a non existing name in `breakpoint_folder_path` and create
-    a symbolic link to a given target name.
-    Raises:
-        - PermissionError: cannot create symlink
-        - OSError: cannot create symlink
-        - FileExistsError: cannot create symlink
-        - FileNotFoundError : non existent directory
+def create_unique_link(breakpoint_folder_path: str,
+                       link_src_prefix: str,
+                       link_src_postfix: str,
+                       link_target_path: str) -> str:
+    """ Find a non-existing name in `breakpoint_folder_path` and create a symbolic link to a given target name.
 
     Args:
-        - breakpoint_folder_path (str): directory for the source link
-        - link_src_prefix (str): beginning of the name for the source link (before unique id)
-        - link_src_postfix (str): end of the name for the source link (after unique id)
-        - link_target_path (str): target for the symbolic link
+        breakpoint_folder_path: directory for the source link
+        link_src_prefix: beginning of the name for the source link (before unique id)
+        link_src_postfix: end of the name for the source link (after unique id)
+        link_target_path: target for the symbolic link
+
+    Raises:
+        PermissionError: cannot create symlink
+        OSError: cannot create symlink
+        FileExistsError: cannot create symlink
+        FileNotFoundError : non-existent directory
+
     Returns:
-        - str: path of the created link
+        Path of the created link
+
     """
     stub = 0
     link_src_path = os.path.join(breakpoint_folder_path,
                                  link_src_prefix + link_src_postfix)
 
-    # Need to ensure unique name for link (eg when replaying from non-last breakpoint)
-    while(os.path.exists(link_src_path) or os.path.islink(link_src_path)):
+    # Need to ensure unique name for link (e.g. when replaying from non-last breakpoint)
+    while os.path.exists(link_src_path) or os.path.islink(link_src_path):
         stub += 1
         link_src_path = os.path.join(breakpoint_folder_path,
                                      link_src_prefix + '_' + str("{:02}".format(stub)) + link_src_postfix)
@@ -137,16 +138,18 @@ def create_unique_link(
 
 def create_unique_file_link(breakpoint_folder_path: str, file_path: str) -> str:
     """
-    Create a symbolic link in `breakpoint_folder_path` with a non existing name
-    derived from basename of `file_path`. The symbolic link points to the real file
-    targeted by `file_path`
+    Create a symbolic link in `breakpoint_folder_path` with a non-existing name derived from basename of
+    `file_path`. The symbolic link points to the real file targeted by `file_path`
+
     Args:
-        - breakpoint_folder_path (str): directory for the source link
-        - file_path (str): path to the target of the link
+        breakpoint_folder_path: directory for the source link
+        file_path: path to the target of the link
+
     Raises:
-        - ValueError: bad name for link source or destination
+        ValueError: bad name for link source or destination
+
     Returns:
-        - str: path of the created link
+        Path of the created link
     """
 
     try:
@@ -185,29 +188,25 @@ def create_unique_file_link(breakpoint_folder_path: str, file_path: str) -> str:
                               link_target)
 
 
-def _get_latest_file(
-        pathfile: str,
-        list_name_file: List[str],
-        only_folder: bool = False) -> str:
+def _get_latest_file(pathfile: str,
+                     list_name_file: List[str],
+                     only_folder: bool = False) -> str:
     """
-    Gets latest file from folder specified in `list_name_file`
-    from the following convention:
-    the more recent folder is the file written as `myfile_xx`
-    where `xx` is the higher integer amongst files in `list_name_file`
+    Gets the latest file from folder specified in `list_name_file` from the following convention: the more recent folder is
+    the file written as `myfile_xx` where `xx` is the higher integer amongst files in `list_name_file`
+
     Args:
-        - pathfile (str): path towards folder on system
-        - list_name_file (List[str]): a list containing files
-        - only_folder (bool, optional): whether to consider only
-          folder names or to consider both  file and folder names.
-          Defaults to False.
+        pathfile: path towards folder on system
+        list_name_file: a list containing files
+        only_folder: whether to consider only folder names or to consider both  file and folder names.
 
     Raises:
-        - FileNotFoundError: triggered if none of the names
-          in folder does not match with naming convention.
+        FileNotFoundError: triggered if none of the names in folder does not match with naming convention.
 
     Returns:
-        - str: More recent file name given naming convention.
+        More recent file name given naming convention.
     """
+
     latest_nb = 0
     latest_folder = None
 
@@ -238,21 +237,21 @@ def _get_latest_file(
 
 
 def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
-    """
-    Finds breakpoint folder path and file, depending if
-    user specifies a specific breakpoint path (unchanged in this case) or not
-    (try to guess the latest breakpoint).
+    """ Finds breakpoint folder path and file, depending on if user specifies a specific breakpoint path (unchanged in
+    this case) or not (try to guess the latest breakpoint).
+
     Args:
-        - breakpoint_folder_path (str, optional): path towards breakpoint. If None,
-          (default), consider latest breakpoint saved on default path
-          (provided at least one breakpoint exists). Defaults to None.
+        breakpoint_folder_path: path towards breakpoint. If None, (default), consider the latest breakpoint saved on
+            default path (provided at least one breakpoint exists). Defaults to None.
+
     Raises:
-        - FileNotFoundError: triggered either if breakpoint cannot be found,
-          folder is empty or file cannot be parsed
+        FileNotFoundError: triggered either if breakpoint cannot be found, folder is empty or file cannot be parsed
+
     Returns:
-        - str: path to breakpoint folder (unchanged if
-          specified by user)
-        - str: breakpoint file.
+        With length of two that represents respectively:
+
+            - path to breakpoint folder (unchanged if specified by user)
+            - breakpoint file.
     """
 
     # First, let's test if folder is a real folder path

@@ -276,8 +276,9 @@ class Experiment(object):
 
     @exp_exceptions
     def tags(self) -> Union[List[str], None]:
-        """ Function for retrieving tags from the experiment object. Please see
-        [`set_tags`][fedbiomed.researcher.experiment.Experiment.set_tags] to set tags.
+        """Retrieves the tags from the experiment object.
+
+        Please see [`set_tags`][fedbiomed.researcher.experiment.Experiment.set_tags] to set tags.
 
         Returns:
             List of tags that has been set. `None` if it isn't declare yet.
@@ -286,8 +287,9 @@ class Experiment(object):
 
     @exp_exceptions
     def nodes(self) -> Union[List[str], None]:
-        """ Function for retrieving `nodes` that are chosen for federated training. Please see
-        [`set_nodes`][fedbiomed.researcher.experiment.Experiment.set_nodes] to set tags.
+        """Retrieves the `nodes` that are chosen for federated training.
+
+        Please see [`set_nodes`][fedbiomed.researcher.experiment.Experiment.set_nodes] to set `nodes`.
 
         Returns:
             Object that contains meta-data for the datasets of each node. `None` if nodes are not set.
@@ -296,10 +298,11 @@ class Experiment(object):
 
     @exp_exceptions
     def training_data(self) -> Union[FederatedDataSet, None]:
-        """ Function for retrieving training data which is an instance of
-        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet] that stores dataset meta-data for each
-        node that are chosen for federated training. Please see [`set_training_data`]
-        [fedbiomed.researcher.experiment.Experiment.set_training_data] to set or update training data.
+        """Retrieves the training data which is an instance of [`FederatedDataset`]
+        [fedbiomed.researcher.datasets.FederatedDataSet]
+
+        Please see [`set_training_data`][fedbiomed.researcher.experiment.Experiment.set_training_data] to set or
+        update training data.
 
         Returns:
             Object that contains meta-data for the datasets of each node. `None` if it isn't set yet.
@@ -308,8 +311,9 @@ class Experiment(object):
 
     @exp_exceptions
     def aggregator(self) -> Aggregator:
-        """ Function for retrieving aggregator class that will be used for aggregating model parameters.  To set or
-        update aggregator: [`set_aggregator`][fedbiomed.researcher.experiment.Experiment.set_aggregator].
+        """ Retrieves aggregator class that will be used for aggregating model parameters.
+
+        To set or update aggregator: [`set_aggregator`][fedbiomed.researcher.experiment.Experiment.set_aggregator].
 
         Returns:
             A class or an object that is an instance of [Aggregator][fedbiomed.researcher.aggregators.Aggregator]
@@ -319,9 +323,10 @@ class Experiment(object):
 
     @exp_exceptions
     def strategy(self) -> Union[Strategy, None]:
-        """ Function for retrieving the class that represents the node selection strategy. Please see also
-        [`set_strategy`][fedbiomed.researcher.experiment.Experiment.set_strategy] to set or update node selection
-        strategy.
+        """Retrieves the class that represents the node selection strategy.
+
+        Please see also [`set_strategy`][fedbiomed.researcher.experiment.Experiment.set_strategy] to set or update
+        node selection strategy.
 
         Returns:
             A class or object as an instance of [`Strategy`][fedbiomed.researcher.strategies.Strategy]. `None` if
@@ -332,8 +337,10 @@ class Experiment(object):
 
     @exp_exceptions
     def round_limit(self) -> Union[int, None]:
-        """ Function for retrieving round limit from the experiment object. Please see  also [`set_round_limit`]
-        [fedbiomed.researcher.experiment.Experiment.set_training_data] to change or set round limit.
+        """Retrieves the round limit from the experiment object.
+
+        Please see  also [`set_round_limit`][fedbiomed.researcher.experiment.Experiment.set_training_data] to change
+        or set round limit.
 
         Returns:
             Round limit that shows maximum number of rounds that can be performed. `None` if it isn't declared yet.
@@ -342,7 +349,7 @@ class Experiment(object):
 
     @exp_exceptions
     def round_current(self) -> int:
-        """ Function for retrieving the round where the experiment is at.
+        """Retrieves the round where the experiment is at.
 
         Returns:
             Indicates the round number that the experiment will perform next.
@@ -351,8 +358,10 @@ class Experiment(object):
 
     @exp_exceptions
     def experimentation_folder(self) -> str:
-        """ Function for retrieving the folder name where experiment data/result are saved. Please see also
-        [`set_experimentation_folder`][fedbiomed.researcher.experiment.Experiment.set_experimentation_folder]
+        """Retrieves the folder name where experiment data/result are saved.
+
+        Please see also[`set_experimentation_folder`]
+        [fedbiomed.researcher.experiment.Experiment.set_experimentation_folder]
 
         Returns:
             File name where experiment related files are saved
@@ -363,8 +372,7 @@ class Experiment(object):
     # derivative from experimentation_folder
     @exp_exceptions
     def experimentation_path(self) -> str:
-        """ Function for retrieving the file path where experimentation folder is located and experiment related
-        files are saved.
+        """Retrieves the file path where experimentation folder is located and experiment related files are saved.
 
         Returns:
             Experiment directory where all experiment related files are saved
@@ -374,8 +382,9 @@ class Experiment(object):
 
     @exp_exceptions
     def model_class(self) -> Union[Type_TrainingPlan, str, None]:
-        """ Function for retrieving model training (training plan class) that created for training. Please see also
-        [`set_model_class`][fedbiomed.researcher.experiment.Experiment.set_model_class].
+        """Retrieves the model (training plan class) that is created for training.
+
+        Please see also [`set_model_class`][fedbiomed.researcher.experiment.Experiment.set_model_class].
 
         Returns:
             Training plan class as one of [`Type_TrainingPlan`][fedbiomed.researcher.experiment.Type_TrainingPlan]. None
@@ -388,8 +397,9 @@ class Experiment(object):
 
     @exp_exceptions
     def model_path(self) -> Union[str, None]:
-        """ Function for retrieving model path where model class is saved as python script externally. Please see also
-        [`set_model_path`][fedbiomed.researcher.experiment.Experiment.set_model_path].
+        """Retrieves model path where model class is saved as python script externally.
+
+        Please see also [`set_model_path`][fedbiomed.researcher.experiment.Experiment.set_model_path].
 
         Returns:
             Path to python script (`.py`) where model class (training plan) is created. None if it isn't declared yet.
@@ -399,8 +409,9 @@ class Experiment(object):
 
     @exp_exceptions
     def model_args(self) -> dict:
-        """ Function for retrieving model arguments.  Please see also [`set_model_args`]
-        [fedbiomed.researcher.experiment.set_model_args]
+        """Retrieves model arguments.
+
+        Please see also [`set_model_args`][fedbiomed.researcher.experiment.set_model_args]
 
         Returns:
             The arguments that are going to be passed to [`training_plans`][fedbiomed.common.training_plans]
@@ -410,8 +421,9 @@ class Experiment(object):
 
     @exp_exceptions
     def training_args(self) -> dict:
-        """ Function for retrieving training arguments.  Please see also [`set_training_args`]
-        [fedbiomed.researcher.experiment.set_training_args]
+        """Retrieves training arguments.
+
+        Please see also [`set_training_args`][fedbiomed.researcher.experiment.set_training_args]
 
         Returns:
             The arguments that are going to be passed to `training_routine` of [`training_plans`]
@@ -424,8 +436,9 @@ class Experiment(object):
 
     @exp_exceptions
     def test_ratio(self) -> float:
-        """ Function for retrieving the ratio for test partition of entire dataset. Please see also [`set_test_ratio`]
-        [fedbiomed.researcher.experiment.set_test_ratio] to change/set `test_ratio`
+        """Retrieves the ratio for test partition of entire dataset.
+
+        Please see also [`set_test_ratio`][fedbiomed.researcher.experiment.set_test_ratio] to change/set `test_ratio`
 
         Returns:
             The ratio for testing part, `1 - test_ratio` is ratio for training set.
@@ -435,8 +448,9 @@ class Experiment(object):
 
     @exp_exceptions
     def test_metric(self) -> Union[MetricTypes, str, None]:
-        """ Function for retrieving the metric for testing routine. Please see also [`set_test_metric`]
-        [fedbiomed.researcher.experiment.set_test_metric] to change/set `test_metric`
+        """Retrieves the metric for testing routine.
+
+        Please see also [`set_test_metric`][fedbiomed.researcher.experiment.set_test_metric] to change/set `test_metric`
 
         Returns:
             A class as an instance of [`MetricTypes`][fedbiomed.common.metrics.MetricTypes]. [`str`][str] for referring
@@ -448,8 +462,9 @@ class Experiment(object):
 
     @exp_exceptions
     def test_metric_args(self) -> Dict[str, Any]:
-        """ Function for retrieving the metric argument for the metric function that is going to be used. Please see
-        also [`set_test_metric`][fedbiomed.researcher.experiment.set_test_metric] to change/set
+        """Retrieves the metric argument for the metric function that is going to be used.
+
+        Please see also [`set_test_metric`][fedbiomed.researcher.experiment.set_test_metric] to change/set
         `test_metric` and get more information on the arguments can be used.
 
         Returns:
@@ -460,9 +475,10 @@ class Experiment(object):
 
     @exp_exceptions
     def test_on_local_updates(self) -> bool:
-        """ Function for retrieving the status of whether testing will be performed on locally updated parameters by
-        the nodes at the end of each round. Please see also [`set_test_on_local_updates`]
-        [fedbiomed.researcher.experiment.set_test_on_local_updates].
+        """Retrieves the status of whether testing will be performed on locally updated parameters by
+        the nodes at the end of each round.
+
+        Please see also [`set_test_on_local_updates`][fedbiomed.researcher.experiment.set_test_on_local_updates].
 
         Returns:
             True, if testing is active on locally updated parameters. False for vice versa.
@@ -472,9 +488,10 @@ class Experiment(object):
 
     @exp_exceptions
     def test_on_global_updates(self) -> bool:
-        """ Function for retrieving the status of whether testing will be performed on globally updated (aggregated)
-        parameters by the nodes at the beginning of each round. Please see also [`set_test_on_global_updates`]
-        [fedbiomed.researcher.experiment.set_test_on_global_updates].
+        """ Retrieves the status of whether testing will be performed on globally updated (aggregated)
+        parameters by the nodes at the beginning of each round.
+
+        Please see also [`set_test_on_global_updates`][fedbiomed.researcher.experiment.set_test_on_global_updates].
 
         Returns:
             True, if testing is active on globally updated (aggregated) parameters. False for vice versa.
@@ -483,7 +500,7 @@ class Experiment(object):
 
     @exp_exceptions
     def job(self) -> Union[Job, None]:
-        """ Function for retrieving the [`Job`][fedbiomed.researcher.job] that manages training rounds.
+        """Retrieves the [`Job`][fedbiomed.researcher.job] that manages training rounds.
 
         Returns:
             Initialized `Job` object. None, if it isn't declared yet or not information to set to job. Please see
@@ -494,7 +511,7 @@ class Experiment(object):
 
     @exp_exceptions
     def save_breakpoints(self) -> bool:
-        """ Function for retrieving the status of saving breakpoint after each round of training.
+        """Retrieves the status of saving breakpoint after each round of training.
 
         Returns:
             `True`, If saving breakpoint is active. `False`, vice versa.
@@ -504,9 +521,10 @@ class Experiment(object):
 
     @exp_exceptions
     def monitor(self) -> Monitor:
-        """ Function for retrieving the monitor object  that is responsible for receiving and parsing real-time
-        training and testing feed-back from each node participate to federated training. See [`Monitor`]
-        [fedbiomed.researcher.monitor.Monitor]
+        """Retrieves the monitor object
+
+        Monitor is responsible for receiving and parsing real-time training and testing feed-back from each node
+        participate to federated training. See [`Monitor`][fedbiomed.researcher.monitor.Monitor]
 
         Returns:
             Monitor object that will always exist with experiment to retrieve feed-back from the nodes.
@@ -517,7 +535,7 @@ class Experiment(object):
 
     @exp_exceptions
     def aggregated_params(self) -> dict:
-        """ Function for retrieving all aggregated parameters of each round of training
+        """Retrieves all aggregated parameters of each round of training
 
         Returns:
             Dictionary of aggregated parameters keys stand for each round of training
@@ -527,8 +545,9 @@ class Experiment(object):
 
     @exp_exceptions
     def training_replies(self) -> Union[dict, None]:
-        """ Function for retrieving training replies of each round of training that contains timing statistics and
-        the files parth/URLs that has been received after each round.
+        """Retrieves training replies of each round of training.
+
+        Training replies contains timing statistics and the files parth/URLs that has been received after each round.
 
         Returns:
             Dictionary of training replies keys stand for each round of training. None, if
@@ -545,7 +564,7 @@ class Experiment(object):
     # TODO: better checking of model object type in Job() to guarantee it is a TrainingPlan
     @exp_exceptions
     def model_instance(self) -> Union[TrainingPlan, None]:
-        """ Function for retrieving model instance that has been built and send the nodes through HTTP restfull service
+        """ Retrieves model instance that has been built and send the nodes through HTTP restfull service
         for each round of training.
 
 
@@ -572,8 +591,9 @@ class Experiment(object):
     # a specific getter-like
     @exp_exceptions
     def info(self) -> None:
-        """ Prints out the information about the current status of the experiment. Lists  all the parameters/arguments
-        of the experiment and informs whether the experiment can be run.
+        """Prints out the information about the current status of the experiment.
+
+        Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
 
         Raises:
             FedbiomedExperimentError: Inconsistent experiment due to missing variables
@@ -652,7 +672,7 @@ class Experiment(object):
 
     @exp_exceptions
     def set_tags(self, tags: Union[List[str], str, None]) -> Union[List[str], None]:
-        """ Setter for tags + verifications on argument type
+        """Sets tags + verifications on argument type
 
         Args:
             tags: List of string with data tags or string with one data tag. Empty list
@@ -690,7 +710,7 @@ class Experiment(object):
 
     @exp_exceptions
     def set_nodes(self, nodes: Union[List[str], None]) -> Union[List[str], None]:
-        """ Setter for nodes + verifications on argument type
+        """Sets for nodes + verifications on argument type
 
         Args:
             nodes: List of node_ids to filter the nodes to be involved in the experiment.
@@ -728,7 +748,7 @@ class Experiment(object):
             training_data: Union[FederatedDataSet, dict, None],
             from_tags: bool = False) -> \
             Union[FederatedDataSet, None]:
-        """ Setter for training data for federated training + verification on arguments type
+        """Sets training data for federated training + verification on arguments type
 
         Args:
             training_data:
@@ -793,7 +813,7 @@ class Experiment(object):
     @exp_exceptions
     def set_aggregator(self, aggregator: Union[Aggregator, Type[Aggregator], None]) -> \
             Aggregator:
-        """ Setter for aggregator + verification on arguments type
+        """Sets aggregator + verification on arguments type
 
         Args:
             aggregator: Object or class defining the method for aggregating local updates. Default to None
@@ -833,7 +853,7 @@ class Experiment(object):
     @exp_exceptions
     def set_strategy(self, node_selection_strategy: Union[Strategy, Type[Strategy], None]) -> \
             Union[Strategy, None]:
-        """ Setter for `node_selection_strategy` + verification on arguments type
+        """Sets for `node_selection_strategy` + verification on arguments type
 
         Args:
             node_selection_strategy: object or class defining how nodes are sampled at each round for training, and
@@ -881,7 +901,7 @@ class Experiment(object):
 
     @exp_exceptions
     def set_round_limit(self, round_limit: Union[int, None]) -> Union[int, None]:
-        """Setter for `round_limit` + verification on arguments type
+        """Sets `round_limit` + verification on arguments type
 
         Args:
             round_limit: the maximum number of training rounds (nodes <-> central server) that should be executed
@@ -970,7 +990,7 @@ class Experiment(object):
 
     @exp_exceptions
     def set_experimentation_folder(self, experimentation_folder: Union[str, None]) -> str:
-        """Setter for `experimentation_folder` the folder name where experiment data/result are saved.
+        """Sets `experimentation_folder`, the folder name where experiment data/result are saved.
 
         Args:
             experimentation_folder: File name where experiment related files are saved
@@ -1006,15 +1026,15 @@ class Experiment(object):
     @exp_exceptions
     def set_model_class(self, model_class: Union[Type_TrainingPlan, str, None]) -> \
             Union[Type_TrainingPlan, str, None]:
-        """Setter for `model_class` + verification on arguments type
+        """Sets  `model_class` + verification on arguments type
 
         Args:
-        model_class: name of the model class (`str`) or model class as one of [`TrainingPlans`]
-            [fedbiomed.common.training_plans] to use for training. For experiment to be properly and fully defined
-            `model_class` needs to be:
-                - a `str` when `model_path` is not None (model class comes from a file).
-                - a `Type_TrainingPlan` when `model_path` is None (model class passed
-                as argument).
+            model_class: name of the model class (`str`) or model class as one of [`TrainingPlans`]
+                [fedbiomed.common.training_plans] to use for training. For experiment to be properly and fully defined
+                `model_class` needs to be:
+                    - a `str` when `model_path` is not None (model class comes from a file).
+                    - a `Type_TrainingPlan` when `model_path` is None (model class passed
+                    as argument).
 
         Raise:
             FedbiomedExperimentError : bad model_class type
@@ -1069,8 +1089,9 @@ class Experiment(object):
 
     @exp_exceptions
     def set_model_path(self, model_path: Union[str, None]) -> Union[str, None]:
-        """Setter for `model_path` + verification on arguments type. This is the path where model class is saved as
-        python script/module externally.
+        """Sets `model_path` + verification on arguments type.
+
+        Model path is the path where model class is saved as python script/module externally.
 
         Args:
             model_path (Union[str, None]) : path to a file containing  model code (`str`) or None (no file containing
@@ -1122,7 +1143,7 @@ class Experiment(object):
     # (using a training plan method ?)
     @exp_exceptions
     def set_model_args(self, model_args: dict) -> dict:
-        """Setter for `model_args` + verification on arguments type
+        """Sets `model_args` + verification on arguments type
 
         Args:
             model_args (dict): contains model arguments passed to the constructor
@@ -1152,7 +1173,7 @@ class Experiment(object):
     # (using a training plan method ? changing `training_routine` prototype ?)
     @exp_exceptions
     def set_training_args(self, training_args: dict, reset: bool = True) -> dict:
-        """ Setter for `training_args` + verification on arguments type
+        """ Sets `training_args` + verification on arguments type
 
         Args:
             training_args (dict): contains training arguments passed to the `training_routine` of the
@@ -1234,10 +1255,11 @@ class Experiment(object):
 
     @exp_exceptions
     def set_test_ratio(self, ratio: float) -> float:
-        """ Sets testing ratio for model evaluation. When setting test_ratio, nodes will allocate
-        (1 - `test_ratio`) fraction of data for training and the remaining for testing model.
-        This could be useful for evaluating the model, once every round, as well as controlling
-        overfitting, doing early stopping, ....
+        """ Sets testing ratio for model evaluation.
+
+        When setting test_ratio, nodes will allocate (1 - `test_ratio`) fraction of data for training and the
+        remaining for testing model. This could be useful for evaluating the model, once every round, as well as
+        controlling overfitting, doing early stopping, ....
 
         Args:
             ratio: testing ratio. Must be within interval [0,1].
@@ -1274,8 +1296,7 @@ class Experiment(object):
     @exp_exceptions
     def set_test_metric(self, metric: Union[MetricTypes, str, None], **metric_args) -> \
             Tuple[Union[str, None], Dict[str, Any]]:
-        """
-        Sets a metric for federated model evaluation
+        """ Sets a metric for federated model evaluation
 
         Args:
             metric: A class as an instance of [`MetricTypes`][fedbiomed.common.metrics.MetricTypes]. [`str`][str] for
