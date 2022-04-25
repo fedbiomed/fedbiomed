@@ -7,6 +7,10 @@ import os.path
 from typing import Union, List
 import uuid
 
+from urllib.request import urlretrieve
+from urllib.error import ContentTooShortError, HTTPError, URLError
+import tarfile
+
 from tinydb import TinyDB, Query
 import pandas as pd
 from tabulate import tabulate  # only used for printing
@@ -16,6 +20,11 @@ from torchvision import datasets
 from torchvision import transforms
 
 from fedbiomed.node.environ import environ
+
+from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
+from fedbiomed.common.constants  import ErrorNumbers
+
+from fedbiomed.common.logger import logger
 
 
 class DatasetManager:
@@ -153,6 +162,69 @@ class DatasetManager:
         else:
             return self.get_torch_dataset_shape(dataset)
 
+    def load_mednist_database(self,
+                              path: str,
+                              as_dataset: bool = False) -> Union[List[int],
+                                                                 torch.utils.data.Dataset]:
+        """
+        Loads the mednist dataset.
+
+        Args:
+            path (str): pathfile to save the MedNist dataset.
+            as_dataset (bool, optional): whether to return
+            the complete dataset (True) or dataset dimensions (False).
+            Defaults to False.
+
+        Raises:
+            FedbiomedDatasetManagerError: triggered if tarfile cannot be downloaded or the downloaded tarfile cannot
+            be extracted or the MedNIST path is empty or one of the classes path is empty.
+
+        Returns:
+            [type]: depending on the value of the parameter `as_dataset`. If
+            set to True,  returns dataset (type: torch.utils.data.Dataset),
+            if set to False, returns the size of the dataset stored inside
+            a list (type: List[int])
+        """
+        download_path = os.path.join(path, 'MedNIST')
+        if not os.path.isdir(download_path):
+            url = "https://github.com/Project-MONAI/MONAI-extra-test-data/releases/download/0.8.1/MedNIST.tar.gz"
+            filepath = os.path.join(path, 'MedNIST.tar.gz')
+            try:
+                logger.info("Now downloading MEDNIST...")
+                urlretrieve(url, filepath)
+                with tarfile.open(filepath) as tar_file:
+                    logger.info("Now extracting MEDNIST...")
+                    tar_file.extractall(path)
+                os.remove(filepath)
+
+            except (URLError, HTTPError, ContentTooShortError, OSError, tarfile.TarError,
+                    MemoryError) as e:
+                _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while downloading MedNIST dataset"\
+                    + "from the MONAI repo:  " + str(e)
+                logger.error(_msg)
+                raise FedbiomedDatasetManagerError(_msg)
+
+        try:
+            dataset = datasets.ImageFolder(download_path,
+                                           transform=transforms.ToTensor())
+
+        except (FileNotFoundError, RuntimeError) as e:
+            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading MedNIST dataset from"\
+                "the selected path:  " + str(e) + "\nPlease make sure that the selected MedNIST folder is not empty \
+                   or choose another path."
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+
+        except Exception as e:
+            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading MedNIST dataset" + str(e)
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+
+        if as_dataset:
+            return dataset
+        else:
+            return self.get_torch_dataset_shape(dataset)
+
     def load_images_dataset(self,
                             folder_path: str,
                             as_dataset: bool = False) -> Union[List[int],
@@ -167,9 +239,16 @@ class DatasetManager:
         Returns:
             [type]: [description]
         """
+        try:
+            dataset = datasets.ImageFolder(folder_path,
+                                           transform=transforms.ToTensor())
+        except Exception as e:
+            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading dataset from the selected" \
+                " path:  " + str(e) + "\nPlease make sure that the selected folder is not empty \
+                   and doesn't have any empty class folder"
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
 
-        dataset = datasets.ImageFolder(folder_path,
-                                       transform=transforms.ToTensor())
         if as_dataset:
             return dataset
         else:
@@ -216,7 +295,7 @@ class DatasetManager:
         assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
 
         dtypes = []  # empty list for Image datasets
-        data_types = ['csv', 'default', 'images']
+        data_types = ['csv', 'default', 'mednist', 'images']
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
                                       ' a compatible data type. '
@@ -226,11 +305,18 @@ class DatasetManager:
         if data_type == 'default':
             assert os.path.isdir(path), f'Folder {path} for Default Dataset does not exist.'
             shape = self.load_default_database(name, path)
+
+        elif data_type == 'mednist':
+            assert os.path.isdir(path), f'Folder {path} for MedNIST Dataset does not exist.'
+            shape = self.load_mednist_database(path)
+            path = os.path.join(path, 'MedNIST')
+
         elif data_type == 'csv':
             assert os.path.isfile(path), f'Path provided ({path}) does not correspond to a CSV file.'
             dataset = self.load_csv_dataset(path)
             shape = dataset.shape
             dtypes = self.get_csv_data_types(dataset)
+
         elif data_type == 'images':
             assert os.path.isdir(path), f'Folder {path} for Images Dataset does not exist.'
             shape = self.load_images_dataset(path)
