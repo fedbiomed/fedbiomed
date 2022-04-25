@@ -1,19 +1,19 @@
 '''
-implementation of Round class of the node component
+Represents the training part executed by a node in a given round.
 '''
 
 import os
 import sys
 import time
 import inspect
-from typing import Union, Any
+from typing import Union, Any, Tuple
 import uuid
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.data import DataManager
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.message import NodeMessages, TrainReply
 from fedbiomed.common.repository import Repository
 
 from fedbiomed.node.environ import environ
@@ -22,8 +22,7 @@ from fedbiomed.node.model_manager import ModelManager
 
 
 class Round:
-    """
-    This class repesents the training part execute by a node in a given round
+    """Represents the training part executed by a node in a given round.
     """
 
     def __init__(self,
@@ -39,29 +38,30 @@ class Round:
                  history_monitor: HistoryMonitor = None,
                  node_args: Union[dict, None] = None):
 
-        """Constructor of the class
+        """Constructor of the Round class
 
         Args:
-            - model_kwargs (dict): contains model args
-            - training_kwargs (dict): contains model characteristics,
+            model_kwargs: Contains model args
+            training_kwargs: Contains model characteristics,
                 especially input  dimension (key: 'in_features')
                 and output dimension (key: 'out_features')
-            - dataset ([dict]): dataset details to use in this round.
+            dataset: Dataset details to use in this round.
                 It contains the dataset name, dataset's id,
                 data path, its shape, its
                 description...
-            - model_url (str): url from which to download model
-            - model_class (str): name of the training plan
+            model_url: URL from which to download model
+            model_class: Name of the training plan
                 (eg 'MyTrainingPlan')
-            - params_url (str): url from which to upload/dowload model params
-            - job_id (str): job id
-            - researcher_id (str): researcher id
-            - history_monitor (HistoryMonitor)
-            - node_args (Union[dict, None]): command line arguments for node. Can include:
-                - gpu (bool): propose use a GPU device if any is available.
-                - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
+            params_url: URL from which to upload/dowload model params
+            job_id: Job id
+            researcher_id: Researcher id
+            history_monitor: a `HistoryMonitor` object
+            node_args: Command line arguments for node. Can include:
+
+                * gpu (bool): propose use a GPU device if any is available.
+                * gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
                     GPU device if this GPU device is available.
-                - gpu_only (bool): force use of a GPU device if any available, even if researcher
+                * gpu_only (bool): force use of a GPU device if any available, even if researcher
                     doesnt request for using a GPU.
         """
         testing_args_keys = ('test_ratio', 'test_on_local_updates',
@@ -93,13 +93,14 @@ class Round:
         self.training = training
         self._default_batch_size = 48  # default bath size
 
-    def run_model_training(self) -> dict[str, Any]:
-        """This method downloads model file; then runs the training of a model
-        and finally uploads model params
+    def run_model_training(self) -> TrainReply:
+        """Does a training and testing round as requested by a researcher in a `TrainRequest`
+
+        Downloads model file, then runs the training and testing of the model
+        uploads new model params, replies to the researcher,
 
         Returns:
-            [NodeMessages]: returns the corresponding node message,
-            trainReply instance
+            A `TrainReply` message object, containing answer to be sent to the researcher.
         """
         is_failed = False
         error_message = ''
@@ -288,16 +289,20 @@ class Round:
                           message: str = '',
                           success: bool = False,
                           params_url: Union[str, None] = '',
-                          timing: dict = {}):
-        """
-        Private method for sending reply to researcher after training/testing. Message content changes
-        based on success status.
+                          timing: dict = {}) -> TrainReply:
+        """Creates a message object with answer from a training round.
+
+        This answer is for sending reply to researcher after training/testing.
+        Message content changes based on success status.
 
         Args:
-            message (str):
-            success (bool):
-            params_url (str):
-            timing (dict):
+            message: Text message for the researcher.
+            success: Status of the training round.
+            params_url: URL of the new computed model parameters.
+            timing: Duration of the round computation.
+
+        Returns:
+            A `TrainReply` message object, containing answer to be sent to the researcher.
         """
 
         # If round is not successful log error message
@@ -315,9 +320,8 @@ class Round:
                                           'timing': timing}).get_dict()
 
     def _set_training_testing_data_loaders(self):
-        """
-        Method for setting training and testing data loaders based on the training and testing
-        arguments.
+        """Sets training and testing data loaders based on the training and testing
+            arguments.
         """
 
         # Set requested data path for model training and testing
@@ -344,23 +348,30 @@ class Round:
         self.model.set_data_loaders(train_data_loader=training_data_loader,
                                     test_data_loader=testing_data_loader)
 
-    def _split_train_and_test_data(self, test_ratio: float = 0):
-        """
-        Method for splitting training and testing data based on training plan type. It sets
-        `dataset_path` for model and calls `training_data` method of training plan.
+    def _split_train_and_test_data(self, test_ratio: float = 0) -> Tuple[Any, Any]:
+        """Splits training and testing data based on training plan type.
+
+        It sets `dataset_path` for model and calls `training_data` method of training plan.
 
         Args:
-            test_ratio (float) : The ratio that represent test partition. Default is 0, means that
-                            all the samples will be used for training.
+            test_ratio: The ratio between 0 and 1
+                that represents test partition. Default is 0, means that
+                all the samples will be used for training.
+
+        Returns:
+            A tuple (`train_loader`, `test_loader`) of 2 data loaders respectively
+                for the training data and the testing data. Type of the loader depends on
+                the training plan.
 
         Raises:
+            FedbiomedRoundError: Fails with one of the following :
 
-            FedbiomedRoundError: - When the method `training_data` of training plan
-                                    has unsupported arguments.
-                                 - Error while calling `training_data` method
-                                 - If the return value of `training_data` is not an instance of
-                                   `fedbiomed.common.data.DataManager`.
-                                 - If `load` method of DataManager returns an error
+                - Method `training_data` of training plan
+                    has unsupported arguments.
+                - Error while calling `training_data` method
+                - Return value of `training_data` is not an instance of
+                    `fedbiomed.common.data.DataManager`.
+                - `load` method of DataManager returns an error
         """
 
         # Get batch size from training argument if it is not exist use default batch size

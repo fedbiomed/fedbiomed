@@ -20,16 +20,18 @@ class Repository:
     - python code (*.py file) that describes model +
         data handling/preprocessing
     - model params (under *.pt format)
-
-    Attributes:
-        uploads_url: The URL where we upload files
-        tmp_dir: A directory for temporary files
-        cache_dir: Currently unused
     """
     def __init__(self,
                  uploads_url: Union[Text, bytes],
                  tmp_dir: str,
                  cache_dir: str):
+        """Constructor of the class.
+
+        Args:
+            uploads_url: The URL where we upload files
+            tmp_dir: A directory for temporary files
+            cache_dir: Currently unused
+        """
 
         self.uploads_url = uploads_url
         self.tmp_dir = tmp_dir
