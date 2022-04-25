@@ -36,8 +36,6 @@ HASH_FUNCTIONS = {
 
 class ModelManager:
     """Manages model approval for a node.
-
-    Attributes:
     """
     def __init__(self):
         """Class constructor for ModelManager.
@@ -209,7 +207,7 @@ class ModelManager:
                                                          "database remove operation failed, with following error: ",
                                                          f"{str(err)}")
 
-    def check_is_model_approved(self, path) -> Tuple[bool, Dict[str, Any]]:
+    def check_is_model_approved(self, path: str) -> Tuple[bool, Dict[str, Any]]:
         """Checks whether model is approved by the node.
 
         Sends a query to database to search for hash of requested model.
