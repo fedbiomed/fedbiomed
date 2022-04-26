@@ -1,0 +1,18 @@
+site_name: Test Fed-BioMed Doc Strings
+site_url: https://fedbiomed.gitlabpages.inria.fr/
+
+theme:
+  name: mkdocs
+
+nav:
+  - Home: './docs/index.md'
+  - API: './docs/api/'
+
+plugins:
+  - gen-files:
+        scripts:
+        - ./docs/gen_ref_pages.py
+  - literate-nav:
+          nav_file: SUMMARY.md
+  - mkdocstrings:
+      default_handler: python

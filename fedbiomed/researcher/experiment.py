@@ -1,6 +1,5 @@
-'''
-Code of the researcher. Implements the experiment orchestration
-'''
+"""Code of the researcher. Implements the experiment orchestration"""
+
 
 import functools
 import os
@@ -131,7 +130,7 @@ class Experiment(object):
                  experimentation_folder: Union[str, None] = None
                  ):
 
-        """ Constructor of the class.
+        """Constructor of the class.
 
         Args:
             tags: list of string with data tags or string with one data tag. Empty list of tags ([]) means any dataset
@@ -1981,9 +1980,9 @@ class Experiment(object):
     @staticmethod
     @exp_exceptions
     def _save_aggregated_params(aggregated_params_init: dict, breakpoint_path: str) -> Dict[int, dict]:
-        """Extracts and format fields from aggregated_params that need
-        to be saved in breakpoint. Creates link to the params file from the `breakpoint_path`
-        and use them to reference the params files.
+        """Extract and format fields from aggregated_params that need to be saved in breakpoint.
+
+        Creates link to the params file from the `breakpoint_path` and use them to reference the params files.
 
         Args:
             breakpoint_path: path to the directory where breakpoints files and links will be saved
@@ -2024,10 +2023,11 @@ class Experiment(object):
     @exp_exceptions
     def _load_aggregated_params(aggregated_params: Dict[str, dict], func_load_params: Callable
                                 ) -> Dict[int, dict]:
-        """Reconstruct experiment results aggregated params structure from a breakpoint so that it is identical
-        to a classical `_aggregated_params`
+        """Reconstruct experiment's aggregated params.
 
-        Args:
+        Aggregated parameters structure from a breakpoint. It is identical to a classical `_aggregated_params`.
+
+        Args
             aggregated_params: JSON formatted aggregated_params extract from a breakpoint
             func_load_params: function for loading parameters from file to aggregated params data structure
 

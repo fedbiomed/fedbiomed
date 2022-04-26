@@ -22,17 +22,16 @@ from fedbiomed.researcher.responses import Responses
 
 class Requests(metaclass=SingletonMeta):
     """
-    This class represents the requests addressed from Researcher to nodes.
-    It creates a task queue storing reply to each incoming message.
+    Represents the requests addressed from Researcher to nodes. It creates a task queue storing reply to each
+    incoming message. Starts a message queue and reconfigures  message to be sent into a `Messaging` object.
     """
 
     def __init__(self, mess: Any = None):
         """
-        Starts a message queue and reconfigures  message to be sent
-        into a `Messaging` object.
+        Constructor of the class
 
         Args:
-            mess (Any, optional): message to be sent. Defaults to None.
+            mess: message to be sent by default.
         """
         # Need to ensure unique per researcher instance message queue to avoid conflicts
         # in case several instances of researcher (with same researcher_id ?) are active,
@@ -55,29 +54,30 @@ class Requests(metaclass=SingletonMeta):
         self._monitor_message_callback = None
 
     def get_messaging(self) -> Messaging:
+        """Retrieves Messaging object
+
+        Returns:
+            Messaging object
         """
-        returns the messaging object
-        """
-        return (self.messaging)
+        return self.messaging
 
     def on_message(self, msg: Dict[str, Any], topic: str):
-        """
-        This handler is called by the Messaging class (Messager),
-        when a message is received on researcher side.
+        """ Handler called by the [`Messaging`][fedbiomed.common.messaging] class,  when a message is received on
+        researcher side.
 
         It is run in the communication process and must ba as quick as possible:
         - it deals with quick messages (eg: ping/pong)
-        - it store the replies of the nodes to the task queue, the message will bee
+        - it stores the replies of the nodes to the task queue, the message will bee
         treated by the main (computing) thread.
 
         Args:
-            msg (Dict[str, Any]): de-serialized msg
-            topic (str)         : topic name (eg MQTT channel)
+            msg: de-serialized msg
+            topic: topic to publish message (MQTT channel)
         """
 
         if topic == "general/logger":
             #
-            # forward the teatment to node_log_handling() (same thread)
+            # forward the treatment to node_log_handling() (same thread)
             self.print_node_log_message(ResearcherMessages.reply_create(msg).get_dict())
         elif topic == "general/researcher":
             #
@@ -96,8 +96,7 @@ class Requests(metaclass=SingletonMeta):
 
     @staticmethod
     def print_node_log_message(log: Dict[str, Any]):
-        """
-        print logger messages coming from the node
+        """Prints logger messages coming from the node
 
         It is run on the communication process and must be as quick as possible:
         - all logs (coming from the nodes) are forwarded to the researcher logger
@@ -124,30 +123,22 @@ class Requests(metaclass=SingletonMeta):
         deduced from the message content)
 
         Args:
-            msg (dict): the message to send to nodes
-            node ([str], optional): defines the channel to which the
-                                message will be sent.
-                                Defaults to None(all nodes)
+            msg: the message to send to nodes
+            client: defines the channel to which the message will be sent. Defaults to None (all nodes)
         """
         logger.debug(str(environ['RESEARCHER_ID']))
         self.messaging.send_message(msg, client=client)
 
     def get_messages(self, commands: list = [], time: float = .0) -> Responses:
-        """
-        This method goes through the queue and gets messages with the
-        specific command
+        """Goes through the queue and gets messages with the specific command
 
         Args:
-            command (list of str, optional): checks if message is containing the
-            expecting command (the message  is discarded if it doesnot).
-            Defaults to None (no command message checking, meaning all
-            incoming messages are considered).
-            time (float, optional): time to sleep in seconds before considering
-            incoming messages. Defaults to .0.
+            commands: Checks if message is containing the expecting command (the message  is discarded if it doesn't).
+                Defaults to None (no command message checking, meaning all incoming messages are considered).
+            time: Time to sleep in seconds before considering incoming messages. Defaults to .0.
 
-        returns Reponses : `Responses` object containing the corresponding
-        answers
-
+        Returns:
+            Contains the corresponding answers
         """
         sleep(time)
 
@@ -175,20 +166,14 @@ class Requests(metaclass=SingletonMeta):
                       look_for_commands: list,
                       timeout: float = None,
                       only_successful: bool = True) -> Responses:
-        """
-        waits for all nodes' answers, regarding a specific command
-        returns the list of all nodes answers
+        """Waits for all nodes' answers, regarding a specific command returns the list of all nodes answers
 
         Args:
-            look_for_commands (list): instruction that has been sent to
-            node. Can be either ping, search or train.
-            timeout (float, optional): wait for a specific duration
-                before collecting nodes messages. Defaults to None.
-                If set to None; uses value in global variable TIMEOUT
-                instead.
-            only_successful (bool, optional): deal only with messages
-                that have been tagged as successful (ie with field
-                `success=True`). Defaults to True.
+            look_for_commands: instruction that has been sent to node. Can be either ping, search or train.
+            timeout: wait for a specific duration before collecting nodes messages. Defaults to None. If set to None;
+                uses value in global variable TIMEOUT instead.
+            only_successful: deal only with messages that have been tagged as successful (ie with field `success=True`).
+                Defaults to True.
         """
         timeout = timeout or environ['TIMEOUT']
         responses = []
@@ -215,9 +200,10 @@ class Requests(metaclass=SingletonMeta):
         return Responses(responses)
 
     def ping_nodes(self) -> list:
-        """
-        Pings online nodes
-        :return: list of node_id
+        """ Pings online nodes
+
+        Returns:
+            List ids of up and running nodes
         """
         self.messaging.send_message(ResearcherMessages.request_create(
             {'researcher_id': environ['RESEARCHER_ID'],
@@ -230,14 +216,14 @@ class Requests(metaclass=SingletonMeta):
         return nodes_online
 
     def search(self, tags: tuple, nodes: list = None) -> dict:
-        """
-        Searches available data by tags
-        :param tags: Tuple containing tags associated to the data researcher
-        is looking for.
-        :nodes: optionally filter nodes with this list.
-        Default : no filter, consider all nodes
-        :return: a dict with node_id as keys, and list of dicts describing
-        available data as values
+        """ Searches available data by tags
+
+        Args:
+            tags: Tuple containing tags associated to the data researcher is looking for.
+            nodes: optionally filter nodes with this list. Default is no filtering, consider all nodes
+
+        Returns:
+            A dict with node_id as keys, and list of dicts describing available data as values
         """
 
         # Search datasets based on node specifications
@@ -273,13 +259,11 @@ class Requests(metaclass=SingletonMeta):
         return data_found
 
     def list(self, nodes: list = None, verbose: bool = False) -> dict:
-        """
-        Lists available data in each node
+        """Lists available data in each node
 
         Args:
-            nodes (str): Listings datasets by given node ids
-                            Default is none.
-            verbose (bool): If it is true it prints datasets in readable format
+            nodes: Listings datasets by given node ids. Default is None.
+            verbose: If it is true it prints datasets in readable format
         """
 
         # If nodes list is provided
@@ -320,23 +304,15 @@ class Requests(metaclass=SingletonMeta):
         return data_found
 
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
-        """
-        Add callback function for monitor messages
+        """ Adds callback function for monitor messages
 
         Args:
-            callback (Callable): Callback function for handling monitor messages
-                                 that comes through 'general/monitoring' channel
+            callback: Callback function for handling monitor messages that come due 'general/monitoring' channel
         """
 
         self._monitor_message_callback = callback
 
     def remove_monitor_callback(self):
-        """
-        Remove callback function for Monitor class. This method is called
-        for canceling monitoring.  Currently it is used in Experiment when the
-        tensorboard state is `False`. Since the request class is singleton there
-        might be callback function already registered before (while running
-        experiment on Notebook).
-        """
+        """ Removes callback function for Monitor class. """
 
         self._monitor_message_callback = None

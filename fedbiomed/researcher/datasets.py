@@ -1,20 +1,18 @@
-"""
-Module includes the classes that allow researcher to interact with remote datasets (federated datasets)
-"""
+"""Module includes the classes that allow researcher to interact with remote datasets (federated datasets)."""
 
 from typing import List, Dict
 import uuid
 
 
 class FederatedDataSet:
-    """
-    A class that allows researcher to interact with remote datasets (federated datasets). It contains details about
-    remote datasets, such as client ids, data size that can be useful for aggregating or sampling strategies on
-    researcher's side
+    """A class that allows researcher to interact with remote datasets (federated datasets).
+
+    It contains details about remote datasets, such as client ids, data size that can be useful for aggregating
+    or sampling strategies on researcher's side
     """
 
     def __init__(self, data: Dict):
-        """Constructor of FederatedDataSet
+        """Construct FederatedDataSet object.
 
         Args:
             data: Dictionary of datasets. Each key represents single node, keys as node ids.
@@ -22,31 +20,28 @@ class FederatedDataSet:
         self._data = data
 
     def data(self) -> Dict:
-        """Retrieves FederatedDataset as [`dict`][dict]
+        """Retrieve FederatedDataset as [`dict`][dict].
 
         Returns:
            Federated datasets, keys as node ids
         """
-
         return self._data
 
     def node_ids(self) -> List[uuid.UUID]:
-        """Retrieves Node ids from `FederatedDataSet`
+        """Retrieve Node ids from `FederatedDataSet`.
 
         Returns:
             List of node ids
         """
-
         return list(self._data.keys())
 
     def sample_sizes(self) -> List[int]:
-        """Retrieves list of sample sizes of node's dataset
+        """Retrieve list of sample sizes of node's dataset.
 
         Returns:
             List of sample sizes in federated datasets in the same order with
                 [node_ids][fedbiomed.researcher.datasets.FederatedDataSet.node_ids]
         """
-
         sample_sizes = []
         for (key, val) in self._data.items():
             sample_sizes.append(val[0]["shape"][0])
@@ -54,12 +49,11 @@ class FederatedDataSet:
         return sample_sizes
 
     def shapes(self) -> Dict[uuid.UUID, int]:
-        """Gets shapes of FederatedDatasets by node ids
+        """Get shape of FederatedDatasets by node ids.
 
         Returns:
             Includes [`sample_sizes`][fedbiomed.researcher.datasets.FederatedDataSet.sample_sizes] by node_ids.
         """
-
         shapes_dict = {}
         for node_id, node_data_size in zip(self.node_ids(),
                                            self.sample_sizes()):

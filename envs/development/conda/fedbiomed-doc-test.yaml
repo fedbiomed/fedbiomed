@@ -1,0 +1,18 @@
+#
+# environment for fedbiomed-doc
+#
+name: fedbiomed-doc-test
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python==3.8
+  - pip
+  - pip:
+      - Cython ==0.29.14
+      - mkdocs >=1.1.2
+      - mkdocs-gen-files
+      - mkdocs-section-index
+      - mkdocs-literate-nav
+      - mkdocstrings[python]
