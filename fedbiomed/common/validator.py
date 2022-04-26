@@ -223,7 +223,7 @@ class SchemeValidator(object):
             raise RuleError("scheme is not valid: " + str(status))
 
 
-    def validate(self, value: Any) -> bool:
+    def validate(self, value: Dict) -> bool:
         """
         Validate a value against the scheme passed at creation time.
 
@@ -579,7 +579,7 @@ class Validator(object):
             return sc.validate(value)
 
 
-    def rule(self, rule: str) -> Any:
+    def rule(self, rule: str) -> Union[ str, None]:
         """
         Getter for the stored rule (if registered).
 
