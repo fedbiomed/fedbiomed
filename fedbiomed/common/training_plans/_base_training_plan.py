@@ -1,7 +1,4 @@
-"""
-A Base class that includes common methods that are used for
-all training plans
-"""
+""" Module contains Base class that includes common methods that are used for all training plans"""
 
 
 import numpy as np
@@ -20,15 +17,18 @@ from fedbiomed.common.utils import get_class_source
 
 
 class BaseTrainingPlan(object):
-    def __init__(self):
-        """
-        Base constructor
+    """Base training plan that should be inhereted by all other training plan classes
 
-        Attrs:
-            dependencies (list): All the dependencies that are need to be imported to create TrainingPlan as module.
-                                 Dependencies are `import` statements as string. e.g. `"import numpy as np"`
-            dataset_path (string): The path that indicates where dataset has been stored
-        """
+    Attrs:
+        dependencies: All the dependencies that are need to be imported to create TrainingPlan as module.
+            Dependencies are `import` statements as string. e.g. `"import numpy as np"`
+        dataset_path: The path that indicates where dataset has been stored
+        pre_process: Preprocess method that will be applied before training loop
+        training_data_loader: Data loader for training routine/loop
+        testing_data_loader: Data loader for testing routine
+    """
+    def __init__(self):
+        """Construct base training plan"""
 
         super().__init__()
         self.dependencies = []
@@ -38,25 +38,22 @@ class BaseTrainingPlan(object):
         self.testing_data_loader = None
 
     def add_dependency(self, dep: List[str]):
-        """
-        Adds new dependency to the TrainingPlan class. These dependencies are used
-        while creating a python module.
+        """ Adds new dependency to the TrainingPlan class.
+
+        These dependencies are used while creating a python module.
 
         Args:
-           dep (List[string]): Dependency to add. Dependencies should be indicated as import string
-                                e.g. `from torch import nn`
+           dep: Dependency to add. Dependencies should be indicated as import string. e.g. `from torch import nn`
         """
 
         self.dependencies.extend(dep)
 
     def set_dataset_path(self, dataset_path):
-        """
-        Dataset path setter for TrainingPlan
+        """Dataset path setter for TrainingPlan
 
         Args:
-            dataset_path (str): The path where data is saved on the node. This method is called by
-                                the node who will execute the training.
-
+            dataset_path (str): The path where data is saved on the node. This method is called by the node
+                who will execute the training.
         """
         self.dataset_path = dataset_path
         logger.debug('Dataset path has been set as' + self.dataset_path)
@@ -64,31 +61,25 @@ class BaseTrainingPlan(object):
     def set_data_loaders(self,
                          train_data_loader: Union[DataLoader, Tuple[np.ndarray, np.ndarray], None],
                          test_data_loader: Union[DataLoader, Tuple[np.ndarray, np.ndarray], None]):
+        """Sets data loaders
 
-        """
         Args:
-            train_data_loader,
-            test_data_loader,
+            train_data_loader: Data loader for training routine/loop
+            test_data_loader: Data loader for testing routine
         """
         self.training_data_loader = train_data_loader
         self.testing_data_loader = test_data_loader
 
     def save_code(self, filepath: str):
-        """
-        Saves the class source/codes of the training plan class that is created by
-        user.
+        """Saves the class source/codes of the training plan class that is created byuser.
 
         Args:
             filepath (string): path to the destination file
 
-        Returns:
-            None
-
-        Exceptions:
+        Raises:
             FedBioMedTrainingPlanError: raised when source of the model class cannot be assessed
             FedBioMedTrainingPlanError: raised when model file cannot be created/opened/edited
         """
-
         try:
             class_source = get_class_source(self.__class__)
         except FedbiomedError as e:
@@ -130,22 +121,22 @@ class BaseTrainingPlan(object):
         return filepath, content
 
     def training_data(self):
-        """
-        all subclasses must provide a training_data routine
-        the purpose of this actual code is to detect that it has been provided
+        """All subclasses must provide a training_data routine the purpose of this actual code is to detect
+        that it has been provided
 
-        :raise FedbiomedTrainingPlanError if called and not inherited
+        Raises:
+            FedbiomedTrainingPlanError: if called and not inherited
         """
         msg = ErrorNumbers.FB303.value + ": training_data must be implemented"
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
     def add_preprocess(self, method: Callable, process_type: ProcessTypes):
-        """
-        Method adding preprocesses
+        """Adds preprocesses
 
         Args:
-            method (Callable): preprocess method to be run before training
+            method: preprocess method to be run before training
+            process_type: Type of the process that will be run
         """
         if not isinstance(method, Callable):
             msg = ErrorNumbers.FB605.value + \
@@ -170,24 +161,22 @@ class BaseTrainingPlan(object):
     @staticmethod
     def _create_metric_result_dict(metric: Union[dict, list, int, float, np.ndarray, torch.Tensor, List[torch.Tensor]],
                                    metric_name: str = 'Custom') -> Dict[str, float]:
-        """
-        Base function to create metric dictionary.
+        """Create metric result dictionary.
 
         Args:
-            metric (dict, list, int, float): Array-like metric values or dictionary
-            metric_name (str): Name of the metric. If `metric` is of type list, metric names will be in format of
+            metric: Array-like metric values or dictionary
+            metric_name: Name of the metric. If `metric` is of type list, metric names will be in format of
                 (`metric_name_1`, ..., `metric_name_n`), where `n` is the size of the list.
                 If the `metric` argument is  provided as dict the argument `metric_name` will be ignored and
                 metric names will be keys of the dict.
 
         Returns:
-            Dict[str, float]: dictionary mapping <metric_name>:<metric values>, where <metric values>
-                are floats provided by `metric` argument. If `metric` argument is a dict, then returns
-                <keys of metric>: <metric values>
+            Dictionary mapping <metric_name>:<metric values>, where <metric values> are floats provided by `metric`
+                argument. If `metric` argument is a dict, then returns <keys of metric>: <metric values>
 
         Raises:
             FedbiomedTrainingPlanError: triggered if metric is not of type dict, list, int, float, torch.Tensor,
-            or np.ndarray.
+                or np.ndarray.
         """
         if isinstance(metric, torch.Tensor):
             metric = metric.numpy()

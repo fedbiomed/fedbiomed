@@ -14,9 +14,7 @@ import numpy as np
 
 
 def initialize(val):
-    """
-    ???
-    """
+    """Initialize tensor or array vector. """
 
     if isinstance(val, torch.Tensor):
         return ('tensor' , torch.zeros_like(val).float())
@@ -26,21 +24,16 @@ def initialize(val):
 
 def federated_averaging(model_params: List[Dict[str, torch.Tensor]],
                         weights: List[float]) -> Dict[str, torch.Tensor]:
-    """
-    Defines Federated Averaging (FedAvg) strategy for model
-    aggregation.
+    """Defines Federated Averaging (FedAvg) strategy for model aggregation.
 
     Args:
-        model_params (List[Dict[str, torch.Tensor]]): list that contains nodes'
-        model parameters: each model is stored as an OrderedDict
-        (maps model layer name to the model weights)
-        weights (List[float]): weights for performing weighted sum
-        in FedAvg strategy (depneding on the dataset size of each node).
-        Items in the list must always sum up to 1
+        model_params: list that contains nodes' model parameters; each model is stored as an OrderedDict (maps
+            model layer name to the model weights)
+        weights: weights for performing weighted sum in FedAvg strategy (depending on the dataset size of each node).
+            Items in the list must always sum up to 1
 
     Returns:
-        Dict[str, torch.Tensor]: final model with aggregated layers,
-        as an OrderedDict object.
+        Final model with aggregated layers, as an OrderedDict object.
     """
     assert len(model_params) > 0, 'An empty list of models was passed.'
     assert len(weights) == len(model_params), 'List with number of observations must have ' \

@@ -68,12 +68,11 @@ def validated_data_type_input():
     return valid_options[t]
 
 
-def pick_with_tkinter(mode='file'):
-    """
-    Opens a tkinter graphical user interface to select dataset
+def pick_with_tkinter(mode: str='file'):
+    """ Opens a tkinter graphical user interface to select dataset
 
     Args:
-        mode (str, optional)
+        mode: Mode for tkinter file picker
     """
     try:
         # root = TK()
@@ -254,11 +253,10 @@ def node_signal_handler(signum, frame):
 
 def manage_node(node_args: Union[dict, None] = None):
     """
-    Instantiates a node and data manager objects. Then, node starts
-    messaging with the Network
+    Instantiates a node and data manager objects. Then, node starts messaging with the Network
 
     Args:
-        - node_args (Union[dict, None]): command line arguments for node
+        node_args: command line arguments for node
             Detail of dict described in Round()
     """
 
@@ -319,7 +317,7 @@ def launch_node(node_args: Union[dict, None] = None):
     a KeyboardInterrupt exception (CTRL+C).
 
     Args:
-        - node_args (Union[dict, None]): command line arguments for node
+        node_args: command line arguments for node
             Detail of dict described in Round()
     """
 

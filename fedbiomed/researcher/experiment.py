@@ -1294,7 +1294,7 @@ class Experiment(object):
         return ratio
 
     @exp_exceptions
-    def set_test_metric(self, metric: Union[MetricTypes, str, None], **metric_args) -> \
+    def set_test_metric(self, metric: Union[MetricTypes, str, None], **metric_args: dict) -> \
             Tuple[Union[str, None], Dict[str, Any]]:
         """ Sets a metric for federated model evaluation
 
@@ -2068,14 +2068,14 @@ class Experiment(object):
     # TODO: factorize code with Job and node
     @staticmethod
     @exp_exceptions
-    def _create_object(args: Dict[str, Any], **object_kwargs) -> Any:
+    def _create_object(args: Dict[str, Any], **object_kwargs: dict) -> Any:
         """
         Instantiate a class object from breakpoint arguments.
 
         Args:
-            args (Dict[str, Any]) : breakpoint definition of a class with `class` (classname),
-              `module` (module path) and optional additional parameters containing object state
-            **object_kwargs : optional named arguments for object constructor
+            args: breakpoint definition of a class with `class` (classname),
+                `module` (module path) and optional additional parameters containing object state
+            **object_kwargs: optional named arguments for object constructor
 
         Raises:
             FedbiomedExperimentError: bad object definition

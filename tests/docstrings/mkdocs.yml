@@ -16,3 +16,26 @@ plugins:
           nav_file: SUMMARY.md
   - mkdocstrings:
       default_handler: python
+      handlers:
+        python:
+          import:
+            - https://docs.python-requests.org/en/master/objects.inv
+            - https://numpy.org/doc/stable/objects.inv
+            - https://docs.python.org/3/objects.inv
+            - https://scikit-learn.org/stable/objects.inv
+          selection:
+            docstring_style: google
+
+          docstring_options:
+            ignore_init_summary: yes
+            rendering:
+              merge_init_into_class: true
+              show_source: true
+              show_submodules: false
+              show_if_no_docstring: true
+              separate_signature: true
+              separate_signature_for_function: false
+              show_category_heading: true
+              show_root_toc_entry: false
+      watch:
+         - ../../fedbiomed

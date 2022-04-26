@@ -411,7 +411,7 @@ class Job:
             sys.exit(-1)
         return self._model_params_file
 
-    def save_state(self, breakpoint_path: str):
+    def save_state(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint. Includes creating links to files included
         in the job state.
 

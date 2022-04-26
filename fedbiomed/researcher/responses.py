@@ -23,7 +23,7 @@ class Responses:
                 if d not in self._data:
                     self._data.append(d)
 
-    def __getitem__(self, item: int):
+    def __getitem__(self, item: int) -> list:
         """ Magic method to get item by index
 
         Args:
@@ -82,7 +82,7 @@ class Responses:
         """ This method converts the list that includes responses to pandas dataframe
 
         Returns:
-             Pandas DataFrame includes node responses. Each row of dataframe represent single response that comes
+            Pandas DataFrame includes node responses. Each row of dataframe represent single response that comes
                 from a node.
         """
 

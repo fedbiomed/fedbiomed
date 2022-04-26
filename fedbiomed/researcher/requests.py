@@ -117,7 +117,7 @@ class Requests(metaclass=SingletonMeta):
                                 original_msg["message"],
                                 5 * "-------------"))
 
-    def send_message(self, msg: dict, client=None):
+    def send_message(self, msg: dict, client: str = None):
         """
         Ask the messaging class to send a new message (receivers are
         deduced from the message content)
