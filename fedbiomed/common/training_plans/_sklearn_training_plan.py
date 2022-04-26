@@ -70,7 +70,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                         'SGDRegressor',
                         'PassiveAggressiveRegressor']
 
-    def __init__(self, sklearn_model,training_routine_hook, model_args: dict = {}, verbose: bool = False):
+    def __init__(self, sklearn_model,training_routine_hook, model_args: dict = {}, verbose_possibility: bool = False):
         """
         Class initializer.
 
@@ -81,7 +81,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
 
 
         if not isinstance(model_args, dict):
-            msg = ErrorNumbers.FB303.value + ": SKLEARN model_args is not a dict")
+            msg = ErrorNumbers.FB303.value + ": SKLEARN model_args is not a dict"
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
@@ -90,8 +90,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         try:
             self.model = sklearn_model()
         except:
-            raise("it is not a klearn model")
-
+            msg = str(sklearn_model) + ": is not a SKLEARN model"
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
         self.params_sgd = self.model.get_params()
         self.params_sgd.update({key: model_args[key] for key in model_args if key in self.params_sgd})
@@ -103,47 +104,33 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         self._is_clustering = False
         self._is_binary_classification = False
 
-        if 'verbose' not in model_args and verbose:
+        if 'verbose' not in model_args and verbose_possibility:
             model_args['verbose'] = 1
 
-        elif not verbose:
+        elif not verbose_possibility:
             logger.error("[TENSORBOARD ERROR]: cannot compute loss for " +
-                         self.model + ": it needs to be implemeted")
-
-
-
-
-        # Add verbosity in model_args if not and model is in verbose capturer
-        # TODO: check this - verbose doesn't seem to be used ?
-        if 'verbose' not in model_args and model_args['model'] in self._verbose_capture:
-            model_args['verbose'] = 1
-
-        elif model_args['model'] not in self._verbose_capture:
-            logger.error("[TENSORBOARD ERROR]: cannot compute loss for " +
-                         model_args['model'] + ": it needs to be implemeted")
+                         self.model + ": it needs to be implemented")
 
         # Instantiate the model
         self.set_init_params(model_args)
 
-        def training_routine(epochs=1,
+    def training_routine(self,epochs=1,
                              history_monitor=None,
                              node_args: Union[dict, None] = None):
 
-            # Run preprocesses
-            self.__preprocess()
+        # Run preprocesses
+        self.__preprocess()
 
-            if node_args is not None and node_args.get('gpu_only', False):
-                logger.warning('Node would like to force GPU usage, but sklearn training plan ' +
-                               'does not support it. Training on CPU.')
+        if node_args is not None and node_args.get('gpu_only', False):
+            logger.warning('Node would like to force GPU usage, but sklearn training plan ' +
+                           'does not support it. Training on CPU.')
 
-    ):
-    try:
-        self._training_routine_core_loop(self,
-                                         self._training_routine_hook,
-                                         epochs,
-                                         history_monitor)
-    except:
-        Raise("")
+        try:
+            self._training_routine_core_loop(self._training_routine_hook,
+                                             epochs,
+                                             history_monitor)
+        except FedbiomedTrainingPlanError as e:
+            raise e
 
     def _training_routine_core_loop(self,
                                     model_hook,
@@ -165,7 +152,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             # Logging training training outputs
             if history_monitor is not None:
                 _loss_collector = []
-                Q
 
             if self._verbose_capture_option:
                 for line in output:
@@ -311,4 +297,20 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                                        total_samples=tot_samples,
                                        batch_samples=len(target),
                                        num_batches=1)
+
+    def __classes_from_concatenated_train_test(self) -> np.ndarray:
+        """
+        Method for getting all classes from test and target dataset. This action is required
+        in case of some class only exist in training subset or testing subset
+
+        Returns:
+            np.ndarray: numpy array containing unique values from the whole dataset (training + testing dataset)
+        """
+
+        target_test = self.testing_data_loader[1] if self.testing_data_loader is not None else np.array([])
+        target_train = self.training_data_loader[1] if self.training_data_loader is not None else np.array([])
+
+        target_test_train = np.concatenate((target_test, target_train))
+
+        return np.unique(target_test_train)
 
