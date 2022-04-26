@@ -459,7 +459,9 @@ def delete_all_database():
 
 
 def register_model():
-    """Registers model files interactively through the CLI.
+    """Registers an authorized model in the database interactively through the CLI.
+
+    Does not modify model file.
     """
 
     print('Welcome to the Fedbiomed CLI data manager')
@@ -487,7 +489,9 @@ def register_model():
 
 
 def update_model():
-    """Updates model files interactively through the CLI..
+    """Updates an authorized model in the database interactively through the CLI.
+
+    Does not modify model file.
 
     User can either choose different model file (different path)
     to update model or same model file.
@@ -534,9 +538,12 @@ def update_model():
 
 
 def delete_model():
+    """Deletes an authorized model in the database interactively from the CLI.
 
-    """ Deletes only registered models, for default models
-    should be removed directly from the file system
+    Does not modify or delete model file.
+
+    Deletes only registered models. For default models, files
+    should be removed directly from the file system.
     """
 
     models = model_manager.list_approved_models(verbose=False)
@@ -572,6 +579,8 @@ def delete_model():
 
 
 def launch_cli():
+    """Parses command line input for the node component and launches node accordingly.
+    """
 
     parser = argparse.ArgumentParser(description=f'{__intro__}:A CLI app for fedbiomed researchers.',
                                      formatter_class=argparse.RawTextHelpFormatter)
@@ -714,6 +723,8 @@ def launch_cli():
 
 
 def main():
+    """Entry point for the node.
+    """
     try:
         launch_cli()
     except KeyboardInterrupt:
