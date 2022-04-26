@@ -74,7 +74,7 @@ import inspect
 import sys
 
 from enum import Enum
-
+from typing import Any, Callable, Dict, Union
 
 class ValidatorError(Exception):
     """
@@ -115,7 +115,7 @@ class _ValidatorHookType(Enum):
     SCHEME_AS_A_DICT = 6
 
 
-def validator_decorator(func):
+def validator_decorator(func: Callable) -> Callable:
     """
     Function decorator for simplifying the writing of validator hooks.
 
@@ -172,7 +172,7 @@ class SchemeValidator(object):
     _optionnal = { 'default': None, 'required': bool }
 
 
-    def __init__(self, scheme):
+    def __init__(self, scheme: Dict[ str, Dict ]):
         """
         Constructor of the class.
 
@@ -217,12 +217,12 @@ class SchemeValidator(object):
             self._is_valid = True
 
         else:
-            self._scheme = None
+            self._scheme = None   # type: ignore
             self._is_valid = False
-            raise RuleError("scheme is not valid: " + status)
+            raise RuleError("scheme is not valid: " + str(status))
 
 
-    def validate(self, value):
+    def validate(self, value: Any) -> bool:
         """
         Validate a value against the scheme passed at creation time.
 
@@ -258,7 +258,7 @@ class SchemeValidator(object):
         return True
 
 
-    def populate_with_defaults( self, value):
+    def populate_with_defaults( self, value: Dict) -> Dict:
         """
         Parse the given json value and add default value is key was required
         but not provided.
@@ -296,7 +296,7 @@ class SchemeValidator(object):
 
 
 
-    def __validate_scheme(self, scheme):
+    def __validate_scheme(self, scheme: Dict[ str, Dict]) -> Union[ bool, str]:
         """
         Scheme validation function (internal).
 
@@ -384,7 +384,7 @@ class SchemeValidator(object):
         return True
 
 
-    def is_valid(self):
+    def is_valid(self) -> bool:
         """
         Status of the scheme passed at creation time.
 
@@ -394,14 +394,14 @@ class SchemeValidator(object):
         return ( self._scheme is not None ) or self._is_valid
 
 
-    def scheme(self):
+    def scheme(self) -> Dict[ str, Dict]:
         """
         Scheme getter.
 
         Returns:
             scheme   scheme passed at __init__ if valid, None instead
         """
-        return self._scheme or None
+        return self._scheme
 
 
 class Validator(object):
@@ -418,7 +418,7 @@ class Validator(object):
         - typechecking
     """
 
-    _validation_rulebook = {}
+    _validation_rulebook = {} # type: Dict[ str, Any ]
     """
     Internal storage for tuples ("name", validation_hook).
     """
@@ -430,7 +430,7 @@ class Validator(object):
         pass
 
 
-    def validate(self, value, rule, strict = True):
+    def validate(self, value: Any , rule: Any, strict: bool = True) -> bool:
         """
         Validate a value against a validation rule.
 
@@ -476,7 +476,7 @@ class Validator(object):
 
 
     @staticmethod
-    def _hook_type(hook):
+    def _hook_type(hook: Any) -> _ValidatorHookType:
         """
         Detect the hook type agains permitter values descibred in _ValidatorHookType.
 
@@ -509,7 +509,7 @@ class Validator(object):
 
 
     @staticmethod
-    def _is_hook_type_valid(hook):
+    def _is_hook_type_valid(hook: Any) -> bool:
         """
         Verify that the hook type associated to a rule is valid.
 
@@ -533,7 +533,7 @@ class Validator(object):
 
     @staticmethod
     @validator_decorator
-    def _hook_execute(value, hook):
+    def _hook_execute(value: Any, hook: Any) -> Union[ bool, tuple[bool, str] ]:
         """
         Execute the test associated with the hook on the value.
 
@@ -578,7 +578,7 @@ class Validator(object):
             return sc.validate(value)
 
 
-    def rule(self, rule):
+    def rule(self, rule: str) -> Any:
         """
         Getter for the stored rule (if registered).
 
@@ -594,7 +594,7 @@ class Validator(object):
             return None
 
 
-    def is_known_rule(self, rule):
+    def is_known_rule(self, rule: str) -> bool:
         """
         Information about rule registration.
 
@@ -607,7 +607,7 @@ class Validator(object):
         return (rule in self._validation_rulebook)
 
 
-    def register(self, rule, hook, override = False):
+    def register(self, rule: str, hook: Any, override:bool = False) -> bool:
         """
         Add a rule/validation_function to the rulebook.
 
@@ -646,7 +646,7 @@ class Validator(object):
         return True
 
 
-    def delete(self, rule):
+    def delete(self, rule: str) -> None:
         """
         Delete a rule from the rulebook.
 
