@@ -1,3 +1,7 @@
+"""
+Command line user interface for the node component
+"""
+
 import json
 import os
 import signal
@@ -5,6 +9,7 @@ import sys
 import time
 from multiprocessing import Process
 from typing import Union
+from types import FrameType
 
 import warnings
 import readline
@@ -49,8 +54,14 @@ model_manager = ModelManager()
 readline.parse_and_bind("tab: complete")
 
 
-def validated_data_type_input():
-    valid_options = ['csv', 'default','mednist', 'images']
+def validated_data_type_input() -> str:
+    """Picks data type to use from user input on command line.
+
+    Returns:
+        A string keyword for one of the possible data type
+            ('csv', 'default', 'mednist', 'images').
+    """
+    valid_options = ['csv', 'default', 'mednist', 'images']
     valid_options = {i: val for i, val in enumerate(valid_options, 1)}
 
     msg = "Please select the data type that you're configuring:\n"
@@ -68,12 +79,16 @@ def validated_data_type_input():
     return valid_options[t]
 
 
-def pick_with_tkinter(mode='file'):
-    """
-    Opens a tkinter graphical user interface to select dataset
+def pick_with_tkinter(mode: str = 'file') -> str:
+    """Opens a tkinter graphical user interface to select dataset.
 
     Args:
-        mode (str, optional)
+        mode: type of file to select. Can be `txt` (for .txt files)
+            or `file` (for .csv files)
+            Defaults to `file`.
+
+    Returns:
+        The selected path.
     """
     try:
         # root = TK()
@@ -105,14 +120,22 @@ def pick_with_tkinter(mode='file'):
             return input('Insert the path of the folder: ')
 
 
-def validated_path_input(type):
+def validated_path_input(type: str) -> str:
+    """Picks path to use from user input in GUI or command line.
+
+    Args:
+        type: keyword for the kind of object pointed by the path.
+
+    Returns:
+        The selected path.
+    """
     while True:
         try:
             if type == 'csv':
                 path = pick_with_tkinter(mode='file')
                 logger.debug(path)
                 if not path:
-                    # node is not in computation mode, MQQT message cannot be sent
+                    # node is not in computation mode, MQTT message cannot be sent
                     logger.critical('No file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
@@ -121,7 +144,7 @@ def validated_path_input(type):
                 path = pick_with_tkinter(mode='txt')
                 logger.debug(path)
                 if not path:
-                    # node is not in computation mode, MQQT message cannot be sent
+                    # node is not in computation mode, MQTT message cannot be sent
                     logger.critical('No python file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
@@ -129,7 +152,7 @@ def validated_path_input(type):
                 path = pick_with_tkinter(mode='dir')
                 logger.debug(path)
                 if not path:
-                    # node is not in computation mode, MQQT message cannot be sent
+                    # node is not in computation mode, MQTT message cannot be sent
                     logger.critical('No directory was selected. Exiting')
                     exit(1)
                 assert os.path.isdir(path)
@@ -144,12 +167,26 @@ def validated_path_input(type):
     return path
 
 
-def add_database(interactive=True,
-                 path=None,
-                 name=None,
-                 tags=None,
-                 description=None,
-                 data_type=None):
+def add_database(interactive: bool = True,
+                 path: str = None,
+                 name: str = None,
+                 tags: str = None,
+                 description: str = None,
+                 data_type: str = None):
+    """Adds a dataset to the node database.
+
+    Also queries interactively the user on the command line (and file browser)
+    for dataset parameters if needed.
+
+    Args:
+        interactive: Whether to query interactively for dataset parameters
+            even if they are all passed as arguments. Defaults to `True`.
+        path: Path to the dataset.
+        name: Keyword for the dataset.
+        tags: Comma separated list of tags for the dataset.
+        description: Human readable description of the dataset.
+        data_type: Keyword for the data type of the dataset.
+    """
 
     # if all args are provided, just try to load the data
     # if not, ask the user more informations
@@ -234,10 +271,15 @@ def add_database(interactive=True,
     dataset_manager.list_my_data(verbose=True)
 
 
-def node_signal_handler(signum, frame):
-    """
-    Catch the temination signal then user stops the process
-    and send SystemExit(0) to be trapped later
+def node_signal_handler(signum: int, frame: Union[FrameType, None]):
+    """Signal handler that terminates the process.
+
+    Args:
+        signum: Signal number received.
+        frame: Frame object received. Currently unused
+
+    Raises:
+       SystemExit: Always raised.
     """
 
     # get the (running) Node object
@@ -253,13 +295,16 @@ def node_signal_handler(signum, frame):
 
 
 def manage_node(node_args: Union[dict, None] = None):
-    """
-    Instantiates a node and data manager objects. Then, node starts
-    messaging with the Network
+    """Runs the node component and blocks until the node terminates.
+
+    Intended to be launched by the node in a separate process/thread.
+
+    Instantiates `Node` and `DatasetManager` object, start exchaning 
+    messages with the researcher via the `Node`, passes control to the `Node`.
 
     Args:
-        - node_args (Union[dict, None]): command line arguments for node
-            Detail of dict described in Round()
+        node_args: command line arguments for node.
+            See `Round()` for details.
     """
 
     global node
@@ -314,13 +359,13 @@ def manage_node(node_args: Union[dict, None] = None):
     #     time.sleep(1)
 
 def launch_node(node_args: Union[dict, None] = None):
-    """
-    Launches node in a process. Process ends when user triggers
-    a KeyboardInterrupt exception (CTRL+C).
+    """Launches a node in a separate process.
+
+    Process ends when user triggers a KeyboardInterrupt exception (CTRL+C).
 
     Args:
-        - node_args (Union[dict, None]): command line arguments for node
-            Detail of dict described in Round()
+        node_args: Command line arguments for node
+            See `Round()` for details.
     """
 
     p = Process(target=manage_node, name='node-' + environ['NODE_ID'], args=(node_args,))
@@ -347,6 +392,17 @@ def launch_node(node_args: Union[dict, None] = None):
 
 
 def delete_database(interactive: bool = True):
+    """Removes one or more dataset from the node's database.
+
+    Does not modify the dataset's files.
+
+    Args:
+        interactive:
+
+            - if `True` interactively queries (repeatedly) from the command line
+                for a dataset to delete
+            - if `False` delete MNIST dataset if it exists in the database 
+    """
     my_data = dataset_manager.list_my_data(verbose=False)
     if not my_data:
         logger.warning('No dataset to delete')
@@ -384,6 +440,10 @@ def delete_database(interactive: bool = True):
 
 
 def delete_all_database():
+    """Deletes all datasets from the node's database.
+
+    Does not modify the dataset's files.
+    """
     my_data = dataset_manager.list_my_data(verbose=False)
 
     if not my_data:
@@ -398,9 +458,9 @@ def delete_all_database():
     return
 
 
-def register_model(interactive: bool = True):
-
-    """ Method for registring model files through CLI """
+def register_model():
+    """Registers model files interactively through the CLI.
+    """
 
     print('Welcome to the Fedbiomed CLI data manager')
     name = input('Please enter a model name: ')
@@ -409,20 +469,17 @@ def register_model(interactive: bool = True):
     # Allow files saved as txt
     path = validated_path_input(type = "txt")
 
-    # Regsiter model
+    # Register model
     try:
         model_manager.register_model(name = name,
                                      description = description,
                                      path = path)
 
     except AssertionError as e:
-        if interactive is True:
-            try:
-                tkinter.messagebox.showwarning(title='Warning', message=str(e))
-            except ModuleNotFoundError:
-                warnings.warn('[ERROR]: {e}')
-        else:
-            warnings.warn(f'[ERROR]: {e}')
+        try:
+            tkinter.messagebox.showwarning(title='Warning', message=str(e))
+        except ModuleNotFoundError:
+            warnings.warn('[ERROR]: {e}')
         exit(1)
 
     print('\nGreat! Take a look at your data:')
@@ -430,9 +487,10 @@ def register_model(interactive: bool = True):
 
 
 def update_model():
+    """Updates model files interactively through the CLI..
 
-    """ Method for updating model files. User can either different
-        model file (different path) to update model or same model file
+    User can either different
+    model file (different path) to update model or same model file
     """
     models = model_manager.list_approved_models(verbose=False)
 
