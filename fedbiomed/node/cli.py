@@ -489,8 +489,8 @@ def register_model():
 def update_model():
     """Updates model files interactively through the CLI..
 
-    User can either different
-    model file (different path) to update model or same model file
+    User can either choose different model file (different path)
+    to update model or same model file.
     """
     models = model_manager.list_approved_models(verbose=False)
 

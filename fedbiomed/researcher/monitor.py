@@ -146,7 +146,7 @@ class MetricStore(dict):
         else:
             return False  # No duplication
 
-    def _register_node(self, node):
+    def _register_node(self, node: str):
         """ Registers node for the first time (first iteration) by initializing basic information on metrics
 
         Adds the following fields to node entry:
@@ -164,7 +164,7 @@ class MetricStore(dict):
             "testing_local_updates": {}  # Testing after training
         }
 
-    def _register_metric(self, node, for_, metric_name):
+    def _register_metric(self, node: str, for_: str, metric_name: str):
         """Registers metric for the given node. It creates stating point for the metric from round 0.
 
         Args:
@@ -178,7 +178,7 @@ class MetricStore(dict):
         self[node][for_].update({metric_name: {1: {'iterations': [], 'values': []}}})
 
     @staticmethod
-    def _cumulative_iteration(rounds) -> int:
+    def _cumulative_iteration(rounds: dict) -> int:
         """Calculates cumulative iteration for the received metric value. Cumulative iteration
         should be calculated for each metric value received during training/testing to add it as next `step`
         in the tensorboard SummaryWriter. Please see Monitor._summary_writer.
