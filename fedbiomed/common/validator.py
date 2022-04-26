@@ -76,6 +76,7 @@ import sys
 from enum import Enum
 from typing import Any, Callable, Dict, Union
 
+
 class ValidatorError(Exception):
     """
     Top class of all Validator/SchemaValidator exception
@@ -289,7 +290,7 @@ class SchemeValidator(object):
                     if 'default' in v:
                         result[k] = v['default']
                     else:
-                        raise RuleError("no default value for required key: "+str(k))
+                        raise RuleError("no default value for required key: " + str(k))
 
         return result
 
@@ -317,25 +318,25 @@ class SchemeValidator(object):
             for key in scheme:
 
                 if not isinstance( scheme[key], dict) or len(scheme[key]) == 0 :
-                    return("validator rule of (" + \
-                           str(key) + \
+                    return("validator rule of (" +
+                           str(key) +
                            ") scheme must be a non empty dict")
 
                 if n not in scheme[key]:
-                    return("required subkey (" + \
-                           str(n) + \
-                           ") is missing for key: " + \
+                    return("required subkey (" +
+                           str(n) +
+                           ") is missing for key: " +
                            str(key)
-                        )
+                           )
 
                 value_in_scheme = scheme[key][n]
                 requested_type  = self._necessary[n]
                 if requested_type is not None and \
                    not isinstance(value_in_scheme, requested_type):
 
-                    return("bad type for subkey (" + \
-                           str(n) + \
-                           ") for key: " + \
+                    return("bad type for subkey (" +
+                           str(n) +
+                           ") for key: " +
                            str(key)
                            )
 
@@ -349,9 +350,9 @@ class SchemeValidator(object):
                 for element in scheme[key][n]:
 
                     if not Validator._is_hook_type_valid(element):
-                        return("bad content for subkey (" + \
-                               str(n) + \
-                               ") for key: " + \
+                        return("bad content for subkey (" +
+                               str(n) +
+                               ") for key: " +
                                str(key)
                                )
 
@@ -359,9 +360,9 @@ class SchemeValidator(object):
         for key in scheme:
             for subkey in scheme[key]:
                 if subkey not in self._necessary and subkey not in self._optionnal:
-                    return ("unknown subkey (" + \
-                            str(subkey) + \
-                            ") provided for key: " + \
+                    return ("unknown subkey (" +
+                            str(subkey) +
+                            ") provided for key: " +
                             str(key)
                             )
                 # if default value passed, it must respect the rules
@@ -373,10 +374,10 @@ class SchemeValidator(object):
                             Validator().validate(def_value, rule)
                         except ValidateError:
                             # this func should not raise an Error
-                            return ("default value for key (" + \
-                                    str(key) + \
-                                    ") does not respect its own specification (" + \
-                                    str(def_value) + \
+                            return ("default value for key (" +
+                                    str(key) +
+                                    ") does not respect its own specification (" +
+                                    str(def_value) +
                                     ")"
                                     )
 
@@ -418,7 +419,7 @@ class Validator(object):
         - typechecking
     """
 
-    _validation_rulebook = {} # type: Dict[ str, Any ]
+    _validation_rulebook = {}  # type: Dict[ str, Any ]
     """
     Internal storage for tuples ("name", validation_hook).
     """
@@ -497,7 +498,7 @@ class Validator(object):
         if inspect.isclass(hook):
             return _ValidatorHookType.TYPECHECK
 
-        _l = lambda:0
+        _l = lambda: 0
         if isinstance(hook, type(_l)) and hook.__name__ == _l.__name__:
             return _ValidatorHookType.LAMBDA
 
@@ -607,7 +608,7 @@ class Validator(object):
         return (rule in self._validation_rulebook)
 
 
-    def register(self, rule: str, hook: Any, override:bool = False) -> bool:
+    def register(self, rule: str, hook: Any, override: bool = False) -> bool:
         """
         Add a rule/validation_function to the rulebook.
 
