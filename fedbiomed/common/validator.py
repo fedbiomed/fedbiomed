@@ -81,7 +81,6 @@ class ValidatorError(Exception):
     """
     Top class of all Validator/SchemaValidator exception.
     """
-
     # as Validator can be used in other project than Fed-BioMed we
     # define our own exception, which is not a subclass of FedbiomedError
     pass
@@ -91,7 +90,6 @@ class ValidateError(ValidatorError):
     """
     Error raised then validating a value against a rule.
     """
-
     pass
 
 
@@ -99,7 +97,6 @@ class RuleError(ValidatorError):
     """
     Error raised then the rule is badly defined.
     """
-
     pass
 
 
@@ -107,7 +104,6 @@ class _ValidatorHookType(Enum):
     """
     List of all method available to execute a validation hook.
     """
-
     INVALID = 1
     TYPECHECK = 2
     FUNCTION = 3
@@ -537,7 +533,6 @@ class Validator(object):
         Args:
             value:   to test
             hook:    to tests against
-            strict:  boolen to decide is the test is strcit or not
 
         Returns:
             (boolean, string)  result of the test and optionnal error message
