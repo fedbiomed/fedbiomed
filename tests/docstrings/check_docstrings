@@ -26,7 +26,7 @@ if [ -z "$CONDA_ENV" ]; then
     conda env update -f $BASE_DIR/envs/development/conda/fedbiomed-doc-test.yaml
 fi
 
-echp $PWD
+echo $PWD
 conda activate fedbiomed-doc-test
 export PYTHONPATH="$BASE_DIR"
 cd $BASE_DIR/tests/docstrings/
