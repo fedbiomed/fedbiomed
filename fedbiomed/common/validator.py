@@ -1,7 +1,7 @@
 """
 Provide Validator ans SchemeValidator classes for validating parameters against a set of validation rules.
 
-This module provides two classes:
+This module provides two "validation" classes and two Error classes (exceptions):
 
 Validator:
 
@@ -46,7 +46,7 @@ SchemeValidator:
 
   Typical example:
 
-  # direct use
+  * direct use
   scheme = { "a" : { "rules" : [float], "required": True } }
 
   sc = SchemeValidator(scheme)
@@ -55,17 +55,25 @@ SchemeValidator:
   sc.validate(value)
 
 
-  # use also the Validator class
+  * use also the Validator class
   v = Validator()
 
   v.register( "message_a", sc )
   v.validate( value, "message_a" )
 
-  # remark: all these lines are equivalent
+  * remark: all these lines are equivalent
   v.register( "message_a", sc )
   v.register( "message_a", SchemeValidator( scheme) )
   v.register( "message_a", scheme )
 
+
+RuleError:
+
+  This error is raised then the provided value is badly specified.
+
+ValidateError:
+
+  This error is raised then a value does not comply to defined rule(s)
 """
 
 
@@ -171,7 +179,7 @@ class SchemeValidator(object):
 
     def __init__(self, scheme: Dict[ str, Dict ]):
         """
-        Create a SchemeValidator instance, and validate its input.
+        Create a SchemeValidator instance, and validate the scheme passed as input.
 
         it requires a json grammar as argument and validate
         its again the requested json description scheme
