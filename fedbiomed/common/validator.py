@@ -79,7 +79,7 @@ from typing import Any, Callable, Dict, Union
 
 class ValidatorError(Exception):
     """
-    Top class of all Validator/SchemaValidator exception
+    Top class of all Validator/SchemaValidator exception.
     """
 
     # as Validator can be used in other project than Fed-BioMed we
@@ -89,7 +89,7 @@ class ValidatorError(Exception):
 
 class ValidateError(ValidatorError):
     """
-    Error raised then validating a value against a rule
+    Error raised then validating a value against a rule.
     """
 
     pass
@@ -97,7 +97,7 @@ class ValidateError(ValidatorError):
 
 class RuleError(ValidatorError):
     """
-    Error raised then the rule is badly defined
+    Error raised then the rule is badly defined.
     """
 
     pass
@@ -118,7 +118,7 @@ class _ValidatorHookType(Enum):
 
 def validator_decorator(func: Callable) -> Callable:
     """
-    Function decorator for simplifying the writing of validator hooks.
+    Ease the writing of validation function/hooks.
 
     The decorator catches the output of the validator hook and build
     a tuple (boolean, string) as expected by the Validator class:
@@ -175,7 +175,7 @@ class SchemeValidator(object):
 
     def __init__(self, scheme: Dict[ str, Dict ]):
         """
-        Constructor of the class.
+        Create a SchemeValidator instance, and validate its input.
 
         it requires a json grammar as argument and validate
         its again the requested json description scheme
@@ -196,7 +196,6 @@ class SchemeValidator(object):
         "default" and "required" fields are optionnal.
 
         Example:
-
         This is a valid scheme:
         { "a" : { "rules" : [float], "required": True } }
 
@@ -210,7 +209,6 @@ class SchemeValidator(object):
         Args:
             scheme:     scheme to validate
         """
-
         status = self.__validate_scheme(scheme)
 
         if isinstance(status, bool) and status:
@@ -233,7 +231,6 @@ class SchemeValidator(object):
         Returns:
             bool:    result of the validation test
         """
-
         # TODO: raises error messages
         # or store error string in self._error and provide a error() method
         if not self.is_valid():  # pragma: no cover
@@ -261,6 +258,8 @@ class SchemeValidator(object):
 
     def populate_with_defaults( self, value: Dict) -> Dict:
         """
+        Inject default values defined in the rule to a given dictionnary.
+
         Parse the given json value and add default value is key was required
         but not provided.
         Of course, the default value must be provided in the scheme.
@@ -275,7 +274,6 @@ class SchemeValidator(object):
             json:    a json populated with default values,
                      returns an empty dict if something is wrong
         """
-
         if not self.is_valid():  # pragma: no cover
             return {}
 
@@ -310,7 +308,6 @@ class SchemeValidator(object):
             True      (bool) if everything is OK
             error_msg (str)  in case of error
         """
-
         if not isinstance(scheme, dict) or len(scheme) == 0:
             return("validator scheme must be a non empty dict")
 
@@ -426,7 +423,7 @@ class Validator(object):
 
     def __init__(self):
         """
-        Constructor, does nothing !.
+        Create an instance of Validator. For now, nothing to do.
         """
         pass
 
@@ -448,7 +445,6 @@ class Validator(object):
         Returns:
             bool    True if rule exists and value is compliant, False instead
         """
-
         # rule is in the rulebook -> execute the rule associated function
         if isinstance(rule, str) and rule in self._validation_rulebook:
 
@@ -487,7 +483,6 @@ class Validator(object):
         Returns:
             enum   return the method associated with this hook
         """
-
         # warning: order matters !
         if isinstance(hook, SchemeValidator):
             return _ValidatorHookType.SCHEME_VALIDATOR
@@ -523,7 +518,6 @@ class Validator(object):
         Returns:
             enum   return the method associated with this hook
         """
-
         hook_type = Validator._hook_type(hook)
 
         if hook_type == _ValidatorHookType.INVALID:
@@ -581,7 +575,7 @@ class Validator(object):
 
     def rule(self, rule: str) -> Union[ str, None]:
         """
-        Getter for the stored rule (if registered).
+        Return a presumably stored rule.
 
         Args:
             rule:   name (string) of a possibly registered hook
