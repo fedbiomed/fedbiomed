@@ -1,9 +1,3 @@
-'''
-wrapper around the mqtt broket
-
-This allows to replace mqqt library without changing the API of Messaging
-'''
-
 import socket
 from typing import Any, Callable, Union
 
@@ -17,8 +11,11 @@ from fedbiomed.common.logger import logger
 
 
 class Messaging:
-    """ This class represents the messager,
-    (MQTT messaging facility)."""
+    """Represents the messanger, (MQTT messaging facility).
+
+    Creates an instance of MQTT Client, and MQTT message handler. Creates topics on which to send messages
+    through Messanger. Topics in MQTT work as a channel allowing to filter shared information between connected clients
+    """
 
     def __init__(self,
                  on_message: Callable[[dict], None],
@@ -27,21 +24,14 @@ class Messaging:
                  mqtt_broker: str = 'localhost',
                  mqtt_broker_port: int = 1883):
         """ Constructor of the messaging class.
-        Creates an instance of MQTT Client, and MQTT message handler.
-        Creates topics on which to send messages through Messager.
-        Topics in MQTT work as a channel allowing to filter shared information
-        between connected clients
+
 
         Args:
-            on_message (Callable): function that should be executed when
-            a message is received
-            messaging_type (ComponentType): describes incoming message sender.
-            1 for researcher, 2 for node
-            messaging_id ([int]): messaging id
-            mqtt_broker (str, optional): IP address / URL. Defaults to
-            "localhost".
-            mqtt_broker_port (int, optional): Defaults to 80 (http
-            default port).
+            on_message: Function that should be executed when a message is received
+            messaging_type: Describes incoming message sender. 1 for researcher, 2 for node
+            messaging_id: messaging id
+            mqtt_broker: IP address / URL. Defaults to "localhost".
+            mqtt_broker_port: Defaults to 80 (http default port).
         """
         self._messaging_type = messaging_type
         self._messaging_id = str(messaging_id)
@@ -84,13 +74,13 @@ class Messaging:
                    client: mqtt.Client,
                    userdata: Any,
                    msg: Union[str, bytes]):
-        """callback called when a new MQTT message is received
-        the msg is processed and forwarded to the node/researcher
-        to be treated/stored/whatever
+        """Callback called when a new MQTT message is received.\
+
+        The message is processed and forwarded to the node/researcher to be treated/stored/whatever
 
         Args:
-            client (mqtt.Client): mqtt on_message arg, client instance (unused)
-            userdata (Any): mqtt on_message arg (unused)
+            client: mqtt on_message arg, client instance (unused)
+            userdata: mqtt on_message arg (unused)
             msg: mqtt on_message arg
         """
 
@@ -105,14 +95,13 @@ class Messaging:
                    userdata: Any,
                    flags: dict,
                    rc: int):
-        """callback for when the client receives a CONNACK response from the server.
+        """Callback for when the client receives a CONNECT response from the server.
 
         Args:
-            client (mqtt.Client): mqtt on_message arg (unused)
+            client: mqtt on_message arg (unused)
             userdata: mqtt on_message arg, private user data (unused)
-            flags (dict): mqtt on_message arg, response flag sent by the
-            broker (unused)
-            rc (int): mqtt on_message arg, connection result
+            flags: mqtt on_message arg, response flag sent by the broker (unused)
+            rc: mqtt on_message arg, connection result
         """
 
         if rc == 0:
@@ -164,7 +153,14 @@ class Messaging:
 
         self._is_connected = True
 
-    def on_disconnect(self, client, userdata, rc):
+    def on_disconnect(self, client: mqtt.client, userdata: Any, rc: int):
+        """Calls-back on client is disconnected
+
+        Args:
+            client:  MQTT Client
+            userdata: -
+            rc: Response code
+        """
         self._is_connected = False
 
         if rc == 0:
@@ -181,22 +177,16 @@ class Messaging:
             # quit messaging to avoid connect/disconnect storm in case multiple nodes with same id
             raise SystemExit
 
-    def start(self, block=False):
-        """ this method calls the loop function of mqtt.
-        Starts message handling by the library.
+    def start(self, block: bool = False):
+        """Calls the loop function of mqtt. Starts message handling by the library.
 
         Args:
-            block (bool, optional): if True: calls the loop_forever method in
-                MQTT (blocking loop)
-                else, calls the loop_start method
-                (non blocking loop).
-                `loop_start` calls a background thread
-                for messaging.
-                See Paho MQTT documentation
-                (https://github.com/eclipse/paho.mqtt.python)
-                for further information. Defaults to False.
+            block: if True; calls the loop_forever method in MQTT (blocking loop) else, calls the loop_start method
+                (non-blocking loop). `loop_start` calls a background thread for messaging.
+
+                See Paho MQTT documentation(https://github.com/eclipse/paho.mqtt.python) for further information.
         """
-        # will try a connect even if is_failed or is_connected, to give a chance to resolve problems
+        # will try to connect even if is_failed or is_connected, to give a chance to resolve problems
 
         try:
             self._mqtt.connect(self._mqtt_broker, self._mqtt_broker_port, keepalive=60)
@@ -218,10 +208,10 @@ class Messaging:
                 pass
 
     def stop(self):
-        """
-        This method stops the loop started using `loop_start` method -
-        ie the non-blocking loop triggered with `Messaging.start(block=True)`
-        only. It stops the background thread for messaging.
+        """stops the loop started using `loop_start` method.
+
+        The non-blocking loop triggered with `Messaging.start(block=True)` only. It stops the background
+        thread for messaging.
         """
         # will try a stop even if is_failed or not is_connected, to give a chance to clean state
         self._mqtt.loop_stop()
@@ -230,10 +220,8 @@ class Messaging:
         """This method sends a message to a given client
 
         Args:
-            msg (dict): the content of a message
-            client ([str], optional): defines the channel to which the
-                                message will be sent. Defaults to None(all
-                                clients)
+            msg: the content of a message
+            client: defines the channel to which the message will be sent. Defaults to None (all clients)
         """
         if self._is_failed:
             logger.error('Messaging has failed, will not try to send message')
@@ -262,11 +250,14 @@ class Messaging:
             logger.warning("send_message: channel must be specific (None at the moment)")
 
     def send_error(self, errnum: ErrorNumbers, extra_msg: str = "", researcher_id: str = "<unknown>"):
-        """
-        node sends error through mqtt
+        """Sends error through mqtt
 
-        remark: difference with send_message() is that we do extra tests
-        before sending the message
+        Difference with send_message() is that we do extra tests before sending the message
+
+        Args:
+            errnum: Error number
+            extra_msg: Extra error message
+            researcher_id: ID of the researcher that the message will be sent to
         """
 
         if self._messaging_type != ComponentType.NODE:
@@ -298,20 +289,26 @@ class Messaging:
         _ = message.NodeMessages.reply_create(msg)
         self._mqtt.publish("general/researcher", json.serialize_msg(msg))
 
-    def is_failed(self):
-        '''
-        getter for the is_failed status flag
-        '''
+    def is_failed(self) -> bool:
+        """Gets the is_failed status flag
+
+        Returns:
+            Connection failure status
+        """
         return self._is_failed
 
-    def is_connected(self):
-        '''
-        getter for the is_connected status flag
-        '''
+    def is_connected(self) -> bool:
+        """Gets the is_connected status flag
+
+        Returns:
+            Connection status
+        """
         return self._is_connected
 
-    def default_send_topic(self):
-        '''
-        getter for default_send_topic
-        '''
+    def default_send_topic(self) -> str:
+        """Gets for default_send_topic
+
+        Returns:
+            Default topic
+        """
         return self._default_send_topic

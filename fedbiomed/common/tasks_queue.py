@@ -1,7 +1,7 @@
 """ Queue module that contains task queue class that is a wrapper to the persistqueue python library."""
 
 import persistqueue
-from typing import Optional
+from typing import Optional, Any
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError
@@ -64,7 +64,7 @@ class TasksQueue:
         # - persist queue does also raise ValueError then timeout < 0,
         #   but we do not use timeout yet
 
-    def qsize(self):
+    def qsize(self) -> int:
         """Retrieve the size of the queue
 
         Returns:
@@ -72,7 +72,7 @@ class TasksQueue:
         """
         return self.queue.qsize()
 
-    def task_done(self):
+    def task_done(self) -> Any:
         """Indicate whether a formerly enqueued task is complete
 
         Returns:
