@@ -34,13 +34,16 @@ from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
+
 _E = TypeVar("Experiment")  # only for typing
 
 # for checking class passed to experiment
 # TODO : should we move this to common/constants.py ?
+
 training_plans = (TorchTrainingPlan, SGDSkLearnModel)
-# for typing only
+
 TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SGDSkLearnModel)
+
 Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SGDSkLearnModel])
 
 

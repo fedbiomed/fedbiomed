@@ -277,10 +277,10 @@ class Job:
         """ Verifies if all nodes involved in the job are present and Responding
 
         Args:
-            responses (Responses): contains message answers
+            responses: contains message answers
 
         Returns:
-            bool: False if all nodes are present in the Responses object. True if waiting for at least one node.
+            False if all nodes are present in the Responses object. True if waiting for at least one node.
         """
         try:
             nodes_done = set(responses.dataframe()['node_id'])
@@ -295,7 +295,7 @@ class Job:
         Args:
             round: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
-            do_training: if False, skip training in this round (do only testing/evaluation). Defaults to True.
+            do_training: if False, skip training in this round (do only test/evaluation). Defaults to True.
         """
         headers = {'researcher_id': self._researcher_id,
                    'job_id': self._id,

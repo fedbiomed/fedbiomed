@@ -19,24 +19,21 @@ from ._torch_tabular_dataset import TorchTabularDataset
 
 
 class DataManager(object):
-
+    """Factory class that build different data loader/datasets based on the type of `dataset`.
+    The argument `dataset` should be provided as `torch.utils.data.Dataset` object for to be used in
+    PyTorch training.
+    """
     def __init__(self,
                  dataset: Union[np.ndarray, pd.DataFrame, pd.Series, Dataset],
                  target: Union[np.ndarray, pd.DataFrame, pd.Series] = None,
-                 **kwargs) -> None:
+                 **kwargs: dict) -> None:
 
-        """
-        Constructor of DataManager, it is factory class that build different data loader/datasets
-        based on the type of `dataset`. The argument `dataset` should be provided as `torch.utils.data.Dataset`
-        object for to be used in PyTorch training. Otherwise,
+        """Constructor of DataManager,
 
         Args:
-            - dataset (MonaiDataset, Tuple, Dataset): Dataset object. It can be an instance,
-            PyTorch Dataset or Tuple.
-
-            - **kwargs: Additional parameters that are going to be used for data loader
-
-
+            dataset: Dataset object. It can be an instance, PyTorch Dataset or Tuple.
+            target: Target variable or variables.
+            **kwargs: Additional parameters that are going to be used for data loader
         """
 
         # TODO: Improve datamanager for auto loading by given dataset_path and other information
@@ -48,18 +45,14 @@ class DataManager(object):
         self._data_manager_instance = None
 
     def load(self, tp_type: TrainingPlans):
-        """
-        Method for loading proper DataManager based on given TrainingPlan and
+        """Loads proper DataManager based on given TrainingPlan and
         `dataset`, `target` attributes.
 
         Args:
-            tp_type (TrainingPlans): Enumeration instance of TrainingPlans that stands for
-                                     type of training plan.
+            tp_type: Enumeration instance of TrainingPlans that stands for type of training plan.
 
         Raises:
-
-        - FedbiomedDataManagerError: - If requested DataManager does not match with given
-                                        arguments.
+            FedbiomedDataManagerError: If requested DataManager does not match with given arguments.
 
         """
 
@@ -105,10 +98,9 @@ class DataManager(object):
         else:
             raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Undefined training plan")
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str):
 
-        """
-        Wrap all functions/attributes of factory class members.
+        """Wraps all functions/attributes of factory class members.
 
         Args:
              item: Requested item from class

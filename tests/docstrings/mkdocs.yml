@@ -16,6 +16,7 @@ plugins:
           nav_file: SUMMARY.md
   - mkdocstrings:
       default_handler: python
+      template: material
       handlers:
         python:
           import:
@@ -32,7 +33,7 @@ plugins:
               merge_init_into_class: true
               show_source: true
               show_submodules: false
-              show_if_no_docstring: true
+              show_if_no_docstring: yes
               separate_signature: true
               separate_signature_for_function: false
               show_category_heading: true

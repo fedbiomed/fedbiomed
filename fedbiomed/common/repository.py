@@ -49,7 +49,7 @@ class Repository:
         Raises:
             FedbiomedRepositoryError: unable to read the file 'filename'
             FedbiomedRepositoryError: POST HTTP request fails or returns
-                a HTTP status 4xx (bad request) or 500 (internal server error)
+                an HTTP status 4xx (bad request) or 500 (internal server error)
             FedbiomedRepositoryError: unable to deserialize JSON from
                 the request
         """
@@ -97,10 +97,8 @@ class Repository:
             filename: The name of the temporary file
 
         Returns:
-            A tuple (status, filepath) where
-                status: The HTTP status code
-                filepath: The complete pathfile under
-                    which the temporary file is saved
+            status: The HTTP status code
+            filepath: The complete pathfile under which the temporary file is saved
         """
 
         res = self._request_handler(requests.get, url, filename)
@@ -168,15 +166,13 @@ class Repository:
 
     @staticmethod
     def _get_method_request_msg(req_type: str) -> str:
-        """Returns the appropriate message whether the HTTP request is GET (downloading)
-            or POST (uploading).
+        """Returns the appropriate message whether the HTTP request is GET (downloading) or POST (uploading).
 
         Args:
             req_type: The request type ('GET', 'POST')
 
         Returns:
-            str: The appropriate message (that will be used for the error message
-                description if any error has been found)
+            The appropriate message (that will be used for the error message description if any error has been found)
         """
         # FIXME: this method only provide messages for the HTTP request 'POST' and
         # 'GET'. It should be completed as long other methods based on other requests
@@ -195,8 +191,7 @@ class Repository:
                          filename: str,
                          *args: Optional[Any],
                          **kwargs: Optional[Any]) -> requests:
-        """Handles error that can trigger if the HTTP request fails (e.g.
-            if request exceeded timeout, ...).
+        """Handles error that can trigger if the HTTP request fails (e.g. if request exceeded timeout, ...).
 
         Args:
             http_request: The requests HTTP method (callable)
@@ -206,16 +201,14 @@ class Repository:
             **kwargs: The named arguments to be passed to the callable method.
 
         Raises:
-            FedbiomedRepositoryError: Timeout exceeded.
-            FedbiomedRepositoryError: Too many redirects.
-            FedbiomedRepositoryError: URL is badly written, or missing some
-                parts (eg: missing scheme).
-            FedbiomedRepositoryError: The connection is unsuccessful, when the service
-                to connect is unknown.
-            FedbiomedRepositoryError: Catches other exceptions coming from requests package
+            FedbiomedRepositoryError: - Timeout exceeded.
+                - Too many redirects.
+                - URL is badly written, or missing some parts (eg: missing scheme).
+                - The connection is unsuccessful, when the service to connect is unknown.
+                - Catches other exceptions coming from requests package
 
         Returns:
-            requests: The result of the request if request is successful
+           The result of the request if request is successful
         """
         req_method = getattr(http_request, '__name__')
         req_method = req_method.upper()

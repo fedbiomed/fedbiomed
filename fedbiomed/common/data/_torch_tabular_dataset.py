@@ -2,12 +2,12 @@
 Torch tabulated data manager
 """
 
-from typing import Union
+from typing import Union, Tuple
 
 import numpy as np
 import pandas as pd
 
-from torch import from_numpy
+from torch import from_numpy, Tensor
 from torch.utils.data import Dataset
 
 from fedbiomed.common.exceptions import FedbiomedTorchTabularDatasetError
@@ -15,22 +15,21 @@ from fedbiomed.common.constants import ErrorNumbers
 
 
 class TorchTabularDataset(Dataset):
-
+    """Torch based Dataset object to create torch Dataset from given numpy or dataframe
+    type of input and target variables
+    """
     def __init__(self,
                  inputs: Union[np.ndarray, pd.DataFrame, pd.Series],
                  target: Union[np.ndarray, pd.DataFrame, pd.Series]):
-        """
-        Torch based Dataset object to create torch Dataset from given numpy or dataframe
-        type of input and target variables
+        """Constructs PyTorch dataset object
 
         Args:
-
-            inputs (np.ndarray, pd.DataFrame, pd.Series): Input variables that will be passed to network
-            target (np.ndarray, pd.DataFrame, pd.Series): Target variable for output layer
+            inputs: Input variables that will be passed to network
+            target: Target variable for output layer
 
         Raises:
             FedbiomedTorchDatasetError: If input variables and target variable does not have
-                                        equal length/size
+                equal length/size
         """
 
         # Inputs and target variable should be converted to the torch tensors
@@ -65,16 +64,26 @@ class TorchTabularDataset(Dataset):
         self.inputs = from_numpy(self.inputs).float()
         self.target = from_numpy(self.target).float()
 
-    def __len__(self):
-        """
+    def __len__(self) -> int:
+        """Gets sample size of dataset.
+
         Mandatory method for pytorch Dataset. It is used for pytorch DataLoader and Fed-BioMed
         DataManager to find out number of samples and doing train/test split
+
+        Returns:
+            Total number of samples
         """
         return len(self.inputs)
 
-    def __getitem__(self, item):
-        """
-        Mandatory method for pytorch Dataset to get input and target instance by
+    def __getitem__(self, item: int) -> Tuple[Tensor, Tensor]:
+        """ Mandatory method for pytorch Dataset to get input and target instance by
         given index. Used by DataLoader in training_routine to load samples by index.
+
+        Args:
+            item: Index to select single sample from dataset
+
+        Returns:
+            inputs: Input sample
+            target: Target sample
         """
         return self.inputs[item], self.target[item]

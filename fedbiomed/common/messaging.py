@@ -153,7 +153,7 @@ class Messaging:
 
         self._is_connected = True
 
-    def on_disconnect(self, client: mqtt.client, userdata: Any, rc: int):
+    def on_disconnect(self, client: mqtt.Client, userdata: Any, rc: int):
         """Calls-back on client is disconnected
 
         Args:
