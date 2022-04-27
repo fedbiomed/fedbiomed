@@ -479,7 +479,7 @@ run() {
     CMD="export MQTT_BROKER=$mqtt_IP && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ &&
     export UPLOADS_IP=${restful_IP} && export FEDBIOMED_NO_RESET=1 && ./scripts/fedbiomed_run $container ${RUN_ARGS}"
 
-    docker-compose exec -u $(id -u) node bash -c "$CMD"
+    docker-compose exec -u $(id -u) $container bash -c "$CMD"
 
 
 
