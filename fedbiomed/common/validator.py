@@ -3,15 +3,16 @@ Provide Validator ans SchemeValidator classes for validating parameters against 
 
 This module provides two "validation" classes and two Error classes (exceptions):
 
-Validator:
+**Validator:**
 
-  This class manage a rulebook of rules which can afterwards be accessed
-  by their (registered) name.
+This class manage a rulebook of rules which can afterwards be accessed
+by their (registered) name.
 
-  Values can be checked against the rules.
+Values can be checked against the rules.
 
-  Typical example:
+**Typical example:**
 
+```
   def my_validation_funct( value ):
       if some_python_code:
           return False
@@ -29,24 +30,25 @@ Validator:
 
   v.validate( "{ 'a': 1 }", dict)
   ...
+```
 
+**SchemeValidator:**
 
-SchemeValidator:
+This class provides json validation againt a scheme describing the
+expected json content.
 
-  This class provides json validation againt a scheme describing the
-  expected json content.
+The scheme need to follow a specific format, which describe each
+allowed fields and their characteristics:
+- a list of associated validators to check against (aka Validator instances)
+- the field requierement (rquired on not)
+- a default value (which will be used if the field is required but not provided)
 
-  The scheme need to follow a specific format, which describe each
-  allowed fields and their characteristics:
-  - a list of associated validators to check against (aka Validator instances)
-  - the field requierement (rquired on not)
-  - a default value (which will be used if the field is required but not provided)
+A SchemeValidator is accepted byt the Validator class.
 
-  A SchemeValidator is accepted byt the Validator class.
+**Typical example:**
 
-  Typical example:
-
-  * direct use
+```
+  # direct use
   scheme = { "a" : { "rules" : [float], "required": True } }
 
   sc = SchemeValidator(scheme)
@@ -55,25 +57,25 @@ SchemeValidator:
   sc.validate(value)
 
 
-  * use also the Validator class
+  # use also the Validator class
   v = Validator()
 
   v.register( "message_a", sc )
   v.validate( value, "message_a" )
 
-  * remark: all these lines are equivalent
+  # remark: all these lines are equivalent
   v.register( "message_a", sc )
   v.register( "message_a", SchemeValidator( scheme) )
   v.register( "message_a", scheme )
+```
 
+**RuleError:**
 
-RuleError:
+This error is raised then the provided value is badly specified.
 
-  This error is raised then the provided value is badly specified.
+**ValidateError:**
 
-ValidateError:
-
-  This error is raised then a value does not comply to defined rule(s)
+This error is raised then a value does not comply to defined rule(s)
 """
 
 
@@ -124,15 +126,16 @@ def validator_decorator(func: Callable) -> Callable:
     """
     Ease the writing of validation function/hooks.
 
-    The decorator catches the output of the validator hook and build
-    a tuple (boolean, string) as expected by the Validator class:
+    The decorator catches the output of the validator hook and replace
+    it with a tuple tuple ([`bool`][bool], [`str`][str]) as expected by
+    the Validator class.
 
-    It creates an error message if not provided by the decorated function
+    It creates an error message if not provided by the decorated function.
     The error message is forced to if the decorated function returns True
 
     If the validator is not used to decorate a validation function/hook,
-    then the user feedback will be less precie or the end-user but this
-    will not change the accuracy (True/False) os the feedback.
+    then the user feedback will be less precise for the end-user but this
+    will not change the accuracy (True/False) of the feedback.
 
     Args:
        func:  function to decorate
@@ -187,6 +190,7 @@ class SchemeValidator(object):
         A valid json description is also a dictionnary
         with the following grammar:
 
+        ```
         {
           "var_name": {
                         "rules": [ validator1, vlidator2, ...] ,
@@ -195,23 +199,34 @@ class SchemeValidator(object):
                       },
           ...
         }
+        ```
 
         the "rules" field is mandatory
         "default" and "required" fields are optionnal.
 
         Example:
+
         This is a valid scheme:
+        ```
         { "a" : { "rules" : [float], "required": True } }
+        ```
 
         The following json complies to this scheme:
+        ```
         { "a": 3.14 }
+        ```
 
-        The following do not:
+        The following does not:
+        ```
         { "a": True }
         { "b": 3.14 }
+        ```
 
         Args:
             scheme:     scheme to validate
+
+        Raises:
+            RuleError: if provided scheme is invalid
         """
         status = self.__validate_scheme(scheme)
 
@@ -233,7 +248,10 @@ class SchemeValidator(object):
              value:  value (json) to validate against the scheme passed
                      at __init__
         Returns:
-            bool:    result of the validation test
+            True if value is valid
+
+        Raises:
+            ValidateError: if provided value is invalid
         """
         # TODO: raises error messages
         # or store error string in self._error and provide a error() method
@@ -275,8 +293,11 @@ class SchemeValidator(object):
             value:   a json data to verify/populate
 
         Return:
-            json:    a json populated with default values,
-                     returns an empty dict if something is wrong
+            a json populated with default values, returns an empty dict if something is wrong
+
+        Raises:
+            RuleError: if scheme provided at init contains a required rules without default value
+
         """
         if not self.is_valid():  # pragma: no cover
             return {}
@@ -306,11 +327,10 @@ class SchemeValidator(object):
         the scheme passed at __init__ is checked with this method
 
         Args:
-            scheme:    scheme (json) to validate
+            scheme:    scheme to validate
 
         Returns:
-            True      (bool) if everything is OK
-            error_msg (str)  in case of error
+            True ([`bool`][bool]) if everything is OK, error_msg ([`str`][str]) in case of error
         """
         if not isinstance(scheme, dict) or len(scheme) == 0:
             return("validator scheme must be a non empty dict")
@@ -391,7 +411,7 @@ class SchemeValidator(object):
         Status of the scheme passed at creation time.
 
         Returns:
-            bool  True if scheme is valid
+            True if scheme is valid, False instead
         """
         return ( self._scheme is not None ) or self._is_valid
 
@@ -401,7 +421,7 @@ class SchemeValidator(object):
         Scheme getter.
 
         Returns:
-            scheme   scheme passed at __init__ if valid, None instead
+            scheme passed at __init__ if valid, None instead
         """
         return self._scheme
 
@@ -447,7 +467,10 @@ class Validator(object):
             rule:    validation hook (registered name, typecheck, direct hook,..)
 
         Returns:
-            bool    True if rule exists and value is compliant, False instead
+            True if rule exists and value is compliant.
+
+        Raises:
+            ValidateError: if provided value does not com[ly to the rule
         """
         # rule is in the rulebook -> execute the rule associated function
         if isinstance(rule, str) and rule in self._validation_rulebook:
@@ -479,13 +502,13 @@ class Validator(object):
     @staticmethod
     def _hook_type(hook: Any) -> _ValidatorHookType:
         """
-        Detect the hook type agains permitter values descibred in _ValidatorHookType.
+        Detect the hook validation method, as describred in _ValidatorHookType.
 
         Args:
             hook:   a hook to validate
 
         Returns:
-            enum   return the method associated with this hook
+            return the validation method associated with this hook
         """
         # warning: order matters !
         if isinstance(hook, SchemeValidator):
@@ -520,7 +543,7 @@ class Validator(object):
             hook:   a hook to validate
 
         Returns:
-            enum   return the method associated with this hook
+            return True if hook is valid, False instead
         """
         hook_type = Validator._hook_type(hook)
 
@@ -539,12 +562,11 @@ class Validator(object):
         the way the test is performed depends of the hook type
 
         Args:
-            value:   to test
-            hook:    to tests against
+            value:   value to test
+            hook:    hook to test the value against
 
         Returns:
-            (boolean, string)  result of the test and optionnal error message
-
+            result ([`bool`][bool]) of the test `hook(value)` and optionnal error message ([`str`][str])
         """
         hook_type = Validator._hook_type(hook)
 
@@ -581,10 +603,10 @@ class Validator(object):
         Return a presumably stored rule.
 
         Args:
-            rule:   name (string) of a possibly registered hook
+            rule:   name ([`str`][str]) of a possibly registered hook
 
         Returns:
-            hook:   the registered hook, None if not registered
+            the hook associated to the rule name if registered, None if not registered
         """
         if rule in self._validation_rulebook:
             return self._validation_rulebook[rule]
@@ -597,10 +619,10 @@ class Validator(object):
         Information about rule registration.
 
         Args:
-            rule:   name (string) of a possibly registered hook
+            rule:   name [`str`][str] of a possibly registered hook
 
         Returns:
-            bool   True if rule is registered, False instead
+            True if rule is registered, False instead
         """
         return (rule in self._validation_rulebook)
 
@@ -619,7 +641,11 @@ class Validator(object):
             override:  if True, still register the rule even if it existed
 
         Returns:
-            bool   True if rule is accepted, False instead
+            True if rule is accepted, False instead if rule exists and overrride is False
+
+        Raises:
+            RuleError: if provided rule name or hook is invalid
+
         """
         if not isinstance(rule, str):
             raise RuleError("rule name must be a string")
