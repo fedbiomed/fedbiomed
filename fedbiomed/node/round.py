@@ -76,6 +76,10 @@ class Round:
             self.testing_arguments[arg] = training_kwargs.get(arg, None)
             training_kwargs.pop(arg, None)
 
+        # Set batch size for data loaders
+        self.batch_size = training_kwargs.get('batch_size', 48)
+        training_kwargs.pop('batch_size', None)
+
         # Set training arguments after removing testing arguments
         self.training_kwargs = training_kwargs
 
@@ -91,7 +95,6 @@ class Round:
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
         self.model = None
         self.training = training
-        self._default_batch_size = 48  # default bath size
 
     def run_model_training(self) -> TrainReply:
         """Does a training and testing round as requested by a researcher in a `TrainRequest`
@@ -373,10 +376,6 @@ class Round:
                     `fedbiomed.common.data.DataManager`.
                 - `load` method of DataManager returns an error
         """
-
-        # Get batch size from training argument if it is not exist use default batch size
-        batch_size = self.training_kwargs.get('batch_size', self._default_batch_size)
-
         training_plan_type = self.model.type()
 
         # Inspect the arguments of the method `training_data`, because this
@@ -394,7 +393,7 @@ class Round:
         # sklearn, it will raise argument error
         try:
             if 'batch_size' in args:
-                data_manager = self.model.training_data(batch_size=batch_size)
+                data_manager = self.model.training_data(batch_size=self.batch_size)
             else:
                 data_manager = self.model.training_data()
         except Exception as e:
