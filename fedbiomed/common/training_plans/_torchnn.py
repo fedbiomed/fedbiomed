@@ -218,10 +218,12 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+        else:
+            self.make_optimizer(lr)
 
         if self.DP:
-            # Add preprocess 
-            self.__preprocess_ldp()
+            # Add __preprocess_ldp as preprocess 
+            self.add_preprocess(method=self.__preprocess_ldp, process_type=ProcessTypes.DATA_LOADER)
 
         # Run preprocess when everything is ready before the training
         self.__preprocess()
@@ -271,7 +273,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 if self.DP:
                     # To be used by the nodes to assess budget locally
-                    eps, alpha = self.privacy_engine.accountant.get_privacy_spent(delta=.1/len(self.__training_data_loader))
+                    eps, alpha = self.privacy_engine.accountant.get_privacy_spent(delta=.1/len(self.training_data_loader))
 
                 # do not take into account more than batch_maxnum
                 # batches from the dataset
@@ -540,7 +542,15 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 params[newkey] = params.pop(key)
 
         return params
-         
+    
+    def make_optimizer(self,lr):
+        """
+        Method for providing the required optimizer as `self.optimizer`: 
+        to be defined by user. 
+        Args:
+            learning rate
+        """
+        pass
 
     def __norm_l2(self) -> float:
         """
@@ -569,7 +579,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 logger.error(f"Process `{process_type}` is not implemented for `TorchTrainingPlan`. Preprocess will "
                              f"be ignored")
 
-    def __preprocess_ldp(self):
+    def __preprocess_ldp(self, data_loader):
         """
             This is a method that is going to be executed just before the training loop. This method
             should be registered in the `__init__` of training plan with `self.add_preprocess()` 
@@ -578,12 +588,13 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         # enter PrivacyEngine
         self.privacy_engine = PrivacyEngine()
-        self.model, self.optimizer, self.__training_data_loader = self.privacy_engine.make_private(module=self.model,
+        self.model, self.optimizer, data_loader = self.privacy_engine.make_private(module=self.model,
                                                                               optimizer=self.optimizer,
-                                                                              data_loader = self.__training_data_loader,
+                                                                              data_loader = data_loader,
                                                                               noise_multiplier=self.DP['sigma'],
                                                                               max_grad_norm=self.DP['clip'],
                                                                     )
+        return data_loader
 
 
     def __process_data_loader(self, method: Callable):
