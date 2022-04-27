@@ -1,6 +1,8 @@
-# WIP notes for Fed-BioMed VPN'ization
+# Notes for Fed-BioMed with VPN
 
-**TODO** : convert to gitlabpages documentation + additions to install scripts
+This file explains how to deploy and use Fed-BioMed with VPN encapsulation. Each component is running inside a `docker` container, all communications between Fed-BioMed components pass through the VPN.
+
+## context
 
 Which identity to use ?
 

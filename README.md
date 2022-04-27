@@ -211,7 +211,7 @@ source ./scripts/fedbiomed_environment clean
 ### Files
 
 The **envs/vpn** directory contains all material for VPN support.
-A full technical description is provided in **envs/vpn/README_tempo.md**
+A full technical description is provided in **envs/vpn/README.md**
 
 The **./scripts/fedbiomed_vpn** script is provided to ease the deployment of
 a set of docker container(s) with VPN support. The provided containers are:
