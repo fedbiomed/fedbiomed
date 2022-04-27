@@ -1,6 +1,8 @@
-# WIP notes for Fed-BioMed VPN'ization
+# Notes for Fed-BioMed with VPN
 
-**TODO** : convert to gitlabpages documentation + additions to install scripts
+This file explains how to deploy and use Fed-BioMed with VPN encapsulation. Each component is running inside a `docker` container, all communications between Fed-BioMed components pass through the VPN.
+
+## context
 
 Which identity to use ?
 
@@ -41,12 +43,14 @@ generateResolvConf = false
 ## setup VPN and fedbiomed
 
 Tip: build images from a clean file tree (avoid copying modified/config/temporary files to images) :
-- method 1 : use a fresh `git clone git@gitlab.inria.fr:fedbiomed/fedbiomed.git` tree
+- method 1 : use a fresh `git clone https://gitlab.inria.fr/fedbiomed/fedbiomed.git` tree
 - method 2 : clean your existing file tree
   * general cleaning
-``` bash
-[user@laptop $] source ./scripts/fedbiomed_environment clean
-```
+
+  ``` bash
+  [user@laptop $] source ./scripts/fedbiomed_environment clean
+  ```
+
   * specific [cleaning](#cleaning) for containers
 
 
