@@ -40,36 +40,6 @@ class _Capturer(list):
 
 
 class SKLearnTrainingPlan(BaseTrainingPlan):
-    #
-    # mapping between model name and model class
-    model_map = {
-        "SGDRegressor": SGDRegressor,
-        "SGDClassifier": SGDClassifier,
-        "Perceptron": Perceptron,
-        "BernoulliNB": BernoulliNB,
-        "GaussianNB": GaussianNB,
-
-        # Not implemented
-        # 'MultinomialNB': MultinomialNB,
-        # 'PassiveAggressiveClassifier': PassiveAggressiveClassifier,
-        # 'PassiveAggressiveRegressor': PassiveAggressiveRegressor,
-        # 'MiniBatchKMeans': MiniBatchKMeans,
-        # 'MiniBatchDictionaryLearning': MiniBatchDictionaryLearning,
-    }
-
-    # Learning Algorithms
-    CLUSTERING_MODELS = ('MiniBatchKMeans', 'MiniBatchDictionaryLearning')
-    CLASSIFICATION_MODELS = ('MultinomialNB', 'BernoulliNB', 'Perceptron', 'SGDClassifier',
-                             'PassiveAggressiveClassifier')
-    REGRESSION_MODELS = ('SGDRegressor', 'PassiveAggressiveRegressor')
-
-    # SKLEARN method that can return loss value
-    _verbose_capture = ['Perceptron',
-                        'SGDClassifier',
-                        'PassiveAggressiveClassifier',
-                        'SGDRegressor',
-                        'PassiveAggressiveRegressor']
-
     def __init__(self, sklearn_model,training_routine_hook, model_args: dict = {}, verbose_possibility: bool = False):
         """
         Class initializer.
@@ -78,7 +48,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         - model_args (dict, optional): model arguments. Defaults to {}.
         """
         super().__init__()
-
 
         if not isinstance(model_args, dict):
             msg = ErrorNumbers.FB303.value + ": SKLEARN model_args is not a dict"
@@ -103,13 +72,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         self._is_regression = False
         self._is_clustering = False
         self._is_binary_classification = False
-
-        if 'verbose' not in model_args and verbose_possibility:
-            model_args['verbose'] = 1
-
-        elif not verbose_possibility:
-            logger.error("[TENSORBOARD ERROR]: cannot compute loss for " +
-                         self.model + ": it needs to be implemented")
+        self._verbose_capture_option = False
 
         # Instantiate the model
         self.set_init_params(model_args)
@@ -151,47 +114,41 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
 
             # Logging training training outputs
             if history_monitor is not None:
-                _loss_collector = []
+                if self._verbose_capture_option:
 
-            if self._verbose_capture_option:
-                for line in output:
-                    if len(line.split("loss: ")) == 1:
-                        continue
-                    try:
-                        loss = line.split("loss: ")[-1]
-                        _loss_collector.append(float(loss))
+                    loss = self.__evaluate_loss(output, epoch)
 
-                        # Logging loss values with global logger
-                        logger.debug('Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}'.format(epoch, float(loss)))
-                    except ValueError as e:
-                        logger.error("Value error during monitoring:" + str(e))
-                    except Exception as e:
-                        logger.error("Error during monitoring:" + str(e))
+                    loss_function = 'Loss ' + self.model.loss if hasattr(self.model, 'loss') else 'Loss'
+                    # TODO: This part should be changed after mini-batch implementation is completed
+                    history_monitor.add_scalar(metric={loss_function: float(loss)},
+                                                   iteration=1,
+                                                   epoch=epoch,
+                                                   train=True,
+                                                   num_batches=1,
+                                                   total_samples=len(self.data),
+                                                   batch_samples=len(self.data))
+                else:
+                    # TODO: For clustering; passes inertia value as scalar. It should be implemented when
+                    #  KMeans implementation is ready history_monitor.add_scalar('Inertia',
+                    #  self.model.inertia_, -1 , epoch) Need to find a way for Bayesian approaches
+                    pass
 
-            if self._is_classification and not self._is_binary_classification:
-                # WARNING: only for plain SGD models in scikit learn
-                # if other models are implemented, should be updated
-                support = self._compute_support(target)
-                loss = np.average(_loss_collector, weights=support)  # perform a weighted average
+    def __evaluate_loss_core(self,output,epoch):
+        _loss_collector = []
+        for line in output:
+            if len(line.split("loss: ")) == 1:
+                continue
+            try:
+                loss = line.split("loss: ")[-1]
+                _loss_collector.append(float(loss))
 
-                logger.warning("Loss plot displayed on Tensorboard may be inaccurate (due to some plain" + \
-                               " SGD scikit learn limitations)")
-
-                loss_function = 'Loss ' + self.model.loss if hasattr(self.model, 'loss') else 'Loss'
-                # TODO: This part should be changed after mini-batch implementation is completed
-                history_monitor.add_scalar(metric={loss_function: float(loss)},
-                                           iteration=1,
-                                           epoch=epoch,
-                                           train=True,
-                                           num_batches=1,
-                                           total_samples=len(data),
-                                           batch_samples=len(data))
-            else:
-                # TODO: For clustering; passes inertia value as scalar. It should be implemented when
-                #  KMeans implementation is ready history_monitor.add_scalar('Inertia',
-                #  self.model.inertia_, -1 , epoch) Need to find a way for Bayesian approaches
-                pass
-
+                # Logging loss values with global logger
+                logger.debug('Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}'.format(epoch, float(loss)))
+            except ValueError as e:
+                logger.error("Value error during monitoring:" + str(e))
+            except Exception as e:
+                logger.error("Error during monitoring:" + str(e))
+        return loss, _loss_collector
 
 
     def testing_routine(self,
@@ -313,4 +270,169 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         target_test_train = np.concatenate((target_test, target_train))
 
         return np.unique(target_test_train)
+
+    def __preprocess(self):
+        """
+        Method for executing registered preprocess that are defined by user.
+        """
+
+        for (name, process) in self.pre_processes.items():
+            method = process['method']
+            process_type = process['process_type']
+
+            if process_type == ProcessTypes.DATA_LOADER:
+                self.__process_data_loader(method=method)
+            else:
+                logger.error(f"Process `{process_type}` is not implemented for the training plan SGBSkLearnModel. "
+                             f"Preprocess will be ignored")
+
+    def __process_data_loader(self, method: Callable):
+
+        """
+        Process handler for data loader kind processes.
+
+        Args:
+          method (Callable) : Process method that is going to be executed
+
+        Raises FedbiomedTrainingPlanError:
+          - raised when method doesnot have 2 positional arguments
+          - Raised if running method fails
+          - if dataloader returned by method is not of type: Tuple[np.ndarray, np.ndarray]
+          - if dataloaders contained in method output don't contain the same number of samples
+       """
+
+        argspec = get_method_spec(method)
+        if len(argspec) != 2:
+            msg = ErrorNumbers.FB605.value + \
+                ": process for type `PreprocessType.DATA_LOADER`" + \
+                " should have two argument/parameter as inputs/data" + \
+                " and target sets that will be used for training. "
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
+
+        try:
+            data_loader = method(self.training_data_loader[0], self.training_data_loader[1])
+        except Exception as e:
+            msg = ErrorNumbers.FB605.value + \
+                ": error while running process method -> " + \
+                method.__name__ + \
+                str(e)
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
+
+        # Debug after running preprocess
+        logger.debug(f'The process `{method.__name__}` has been successfully executed.')
+
+        if isinstance(data_loader, tuple) \
+                and len(data_loader) == 2 \
+                and isinstance(data_loader[0], np.ndarray) \
+                and isinstance(data_loader[1], np.ndarray):
+
+            if len(data_loader[0]) == len(data_loader[1]):
+                self.training_data_loader = data_loader
+                logger.debug(f"Inputs/data and target sets for training routine has been updated by the process "
+                             f"`{method.__name__}` ")
+            else:
+                msg = ErrorNumbers.FB605.value + \
+                    ": process error " + \
+                    method.__name__ + \
+                    " : number of samples of inputs and target sets should be equal "
+                logger.critical(msg)
+                raise FedbiomedTrainingPlanError(msg)
+
+        else:
+            msg = ErrorNumbers.FB605.value + \
+                ": process method " + \
+                method.__name__ + \
+                " should return tuple length of two as dataset and" + \
+                " target and both should be and instance of np.ndarray."
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
+
+
+    def _compute_support(self, targets: np.ndarray) -> np.ndarray:
+        """
+        Computes support, i.e. the number of items per
+        classes. It is designed from the way scikit learn linear model
+        `fit_binary` and `_prepare_fit_binary` have been implemented.
+
+        Args:
+            targets (np.ndarray): targets that contains labels
+            used for training models
+
+        Returns:
+            np.ndarray: support
+        """
+        support = np.zeros((len(self.model.classes_),))
+
+        # to see how multi classification is done in sklearn, please visit:
+        # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324   # noqa
+        # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L738   # noqa
+
+        for i, aclass in enumerate(self.model.classes_):
+            # in sklearn code, in `fit_binary1`, `i`` seems to be
+            # iterated over model.classes_
+            # (https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L774)
+            # We cannot directly know for each loss that has been logged from scikit learn
+            #  which labels it corresponds to. This is our best guest
+            idx = targets == aclass
+            support[i] = np.sum(targets[targets[idx]])
+
+        return support
+
+    def save(self, filename, params: dict = None):
+        """
+        Save method for parameter communication, internally is used
+        dump and load joblib library methods.
+        :param filename (string)
+        :param params (dictionary) model parameters to save
+
+        Save can be called from Job or Round.
+            From round is always called with params.
+            From job is called with no params in constructor and
+            with params in update_parameters.
+
+            Torch state_dict has a model_params object. model_params tag
+            is used in the code. This is why this tag is
+            used in sklearn case.
+        """
+        file = open(filename, "wb")
+        if params is None:
+            dump(self.model, file)
+        else:
+            if params.get('model_params') is not None:  # called in the Round
+                for p in params['model_params'].keys():
+                    setattr(self.model, p, params['model_params'][p])
+            else:
+                for p in params.keys():
+                    setattr(self.model, p, params[p])
+            dump(self.model, file)
+        file.close()
+
+    def load(self, filename, to_params: bool = False) -> Dict:
+        """
+        Method to load the updated parameters of a scikit model
+        Load can be called from Job or Round.
+        From round is called with no params
+        From job is called with  params
+        :param filename (string)
+        :param to_params (boolean) to differentiate a pytorch from a sklearn
+        :return dictionary with the loaded parameters.
+        """
+        di_ret = {}
+        file = open(filename, "rb")
+        if not to_params:
+            self.model = load(file)
+            di_ret = self.model
+        else:
+            self.model = load(file)
+            di_ret['model_params'] = {key: getattr(self.model, key) for key in self.param_list}
+        file.close()
+        return di_ret
+
+    def get_model(self):
+        """
+            :return the scikit model object (sklearn.base.BaseEstimator)
+        """
+        return self.model
 
