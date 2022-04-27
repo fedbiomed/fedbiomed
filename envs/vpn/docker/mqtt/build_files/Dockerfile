@@ -35,17 +35,30 @@ ENV CONTAINER_GID=${CONTAINER_GID:-0}
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
+# read config.env in interactive shells & setup for reading it in entrypoint
+COPY ./bashrc_append /tmp
+RUN mkdir /etc/skel
+RUN cat /tmp/bashrc_append | tee -a /root/.bashrc /root/bashrc_entrypoint \
+        /etc/skel/.bashrc /etc/skel/bashrc_entrypoint >/dev/null
+
 RUN apk update && apk add shadow bash
 RUN [ "$CONTAINER_GROUP" != 'root' ] && groupadd -g $CONTAINER_GID $CONTAINER_GROUP || :
 RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
         -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER || :
 
 
-RUN apk update && apk add iptables bash vim net-tools procps alpine-sdk linux-headers kmod
+RUN apk update && apk add iptables bash runuser vim net-tools procps alpine-sdk linux-headers kmod
 
 # get wireguard from builder image
 COPY --from=builder /root/.cargo/bin/boringtun /usr/bin/
 COPY --from=builder /usr/bin/wg* /usr/bin/
 
-COPY ./entrypoint.sh /
-ENTRYPOINT ["/entrypoint.sh"]
+COPY ./entrypoint*.bash /
+
+# transmit build-time values to running container
+ENV CONTAINER_BUILD_USER=${CONTAINER_USER}
+ENV CONTAINER_BUILD_GROUP=${CONTAINER_GROUP}
+ENV CONTAINER_BUILD_UID=${CONTAINER_UID}
+ENV CONTAINER_BUILD_GID=${CONTAINER_GID}
+
+ENTRYPOINT ["/entrypoint.bash"]

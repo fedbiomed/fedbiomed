@@ -47,10 +47,11 @@ environment_info() {
 
 development_env() {
     export FEDBIOMED_DIR=$basedir
-    export MQTT_BROKER=${1:-localhost}
-    export MQTT_BROKER_PORT=1883
     export IP_ADDRESS=${1:-localhost}
-    export UPLOADS_URL="http://${IP_ADDRESS}:8844/upload/"
+    # use the (if provided) UPLOADS_URL var env
+    [[ -z "$UPLOADS_URL" ]] && { export UPLOADS_URL="http://${IP_ADDRESS}:8844/upload/" ; }
+    [[ -z "$MQTT_BROKER" ]] && { export MQTT_BROKER="localhost" ; }
+    [[ -z "$MQTT_BROKER_PORT" ]] && { export MQTT_BROKER_PORT=1883 ;}
 }
 
 environment_reset() {
@@ -117,6 +118,18 @@ case $1 in
         # docker containers
         (cd ${basedir}/envs/development/docker/ && docker-compose rm -sf &&  echo " * Docker cleaning" )
 
+        # network cleaner
+        echo " * Network cleaning"
+        restful_mount='envs/development/docker/restful/run_mounts'
+        net_temp_paths="${restful_mount}/app/db.sqlite3 ${restful_mount}/app/data/static"
+        net_temp_paths+=" ${restful_mount}/app/data/media/uploads ${restful_mount}/app/data/media/persistent/*"
+        for p in $net_temp_paths ; do
+            if [ -e "${basedir}/$p" ] ; then
+                echo "[INFO] Removing directory ${basedir}/$p"
+                rm -rf ${basedir}/$p
+            fi
+        done
+
         # node/researcher cleaners
         environment_reset
         activate_node
@@ -167,21 +180,21 @@ case $1 in
 
     node)
         conda deactivate
-        environment_reset
+        [[ -z "$FEDBIOMED_NO_RESET" ]] && { environment_reset ; }
         development_env $2
         activate_node verbose
         ;;
 
     researcher)
         conda deactivate
-        environment_reset
+        [[ -z "$FEDBIOMED_NO_RESET" ]] && { environment_reset ; }
         development_env $2
         activate_researcher verbose
         ;;
 
     gui)
         conda deactivate
-        environment_reset
+        [[ -z "$FEDBIOMED_NO_RESET" ]] && { environment_reset ; }
         development_env $2
         activate_gui verbose
         ;;

@@ -74,10 +74,10 @@ class TestJob(unittest.TestCase):
                               return_value=(True, environ['TMP_DIR']))
         self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.request_create')
 
-        self.mock_reqeust = self.patcher1.start()
+        self.mock_request = self.patcher1.start()
         self.mock_upload_file = self.patcher2.start()
         self.mock_download_file = self.patcher3.start()
-        self.mock_reqeust_create = self.patcher4.start()
+        self.mock_request_create = self.patcher4.start()
 
         # Globally create mock for Model and FederatedDataset
         self.model = MagicMock(return_value=None)
@@ -87,7 +87,7 @@ class TestJob(unittest.TestCase):
         self.fds = MagicMock()
 
         self.fds.data = MagicMock(return_value={})
-        self.mock_reqeust_create.side_effect = TestJob.msg_side_effect
+        self.mock_request_create.side_effect = TestJob.msg_side_effect
 
         # Build Global Job that will be used in most of the tests
         self.job = Job(model=self.model,
@@ -128,7 +128,7 @@ class TestJob(unittest.TestCase):
         # Check keep files dir properly set
         self.assertEqual(j._keep_files_dir, environ['TMP_DIR'], 'keep_files_dir does not matched given path')
 
-    def test_job_03_init_provide_reqeust(self):
+    def test_job_03_init_provide_request(self):
         """ Testing initialization of Job by providing Request object """
 
         reqs = Requests()
@@ -136,7 +136,7 @@ class TestJob(unittest.TestCase):
                 data=self.fds,
                 reqs=reqs)
 
-        self.assertEqual(j._reqs, reqs, 'Job did not initialize provided Reqeust object')
+        self.assertEqual(j._reqs, reqs, 'Job did not initialize provided Request object')
 
     def test_job_02_init_building_model_from_path(self):
         """ Test model is passed as static python file with model_path """

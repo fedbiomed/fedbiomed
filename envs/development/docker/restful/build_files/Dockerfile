@@ -1,6 +1,8 @@
 FROM python:3.9-alpine
 ENV PYTHONUNBUFFERED 1
 
+# http restful server, expected on port 8844 by fedbiomed
+EXPOSE 8000
 
 ARG CONTAINER_GID
 ARG CONTAINER_UID
@@ -33,9 +35,9 @@ RUN apk add --no-cache --virtual .build-deps \
 RUN mkdir /app
 WORKDIR /app
 
-COPY ./entrypoint.sh /
+COPY ./entrypoint.bash /
 
 # Expose ports
 EXPOSE 8000
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.bash"]

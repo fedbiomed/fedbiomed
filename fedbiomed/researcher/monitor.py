@@ -6,7 +6,8 @@ sned it to tensordboard
 
 import os
 import shutil
-from typing import Dict, Any
+import collections
+from typing import Dict, Union, Any
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -14,7 +15,199 @@ from fedbiomed.common.logger import logger
 from fedbiomed.researcher.environ import environ
 
 
-class Monitor():
+class _MetricStore(dict):
+    """
+    Storage facility, used for storing training loss and testing metric values, in order to
+    display them on Tensorboard.
+    Inheriting from a dictionary, providing methods to simplify queries and saving metric values.
+
+    Storage architecture:
+        {<node>:
+            {<for_>:
+                {<metric_name>:
+                    {<round_>: { <iterations/values>: List[float] }
+                    }
+                }
+            }
+        }
+        where:
+        node: node id
+        for_: either testing_global_updates, testing_local_updates, or training
+        metric_name: metric 's name. Custom or Custom_xxx if testing_step has been defined
+        in TrainingPlan (custom metric)
+        round_: round number
+        iterations: index of iterations stored
+        values: metric value
+    """
+    def add_iteration(self,
+                      node: str,
+                      train: bool,
+                      test_on_global_updates: bool,
+                      round_: int,
+                      metric: dict,
+                      iter_: int) -> list[int]:
+        """
+        Method adding iteration to MetricStore based on node, training/testing, round and metric.
+
+        Args:
+            node (str): The node id that metric value received from
+            train (bool): Training status, If true metric value is for training, Otherwise for testing
+            test_on_global_updates (bool): If True metric value is for testing on global updates. Otherwise,
+                for testing on local updates
+            round_ (int): The round that metric value has received at
+            metric (dict): Dictionary that contains metric names and their values e.g {'<metric-name>':<value>}
+            iter_ (int): Iteration number for testing/training.
+
+        Returns
+             list[int]: List of cumulative iteration for each metric/evaluation result
+        """
+
+        if node not in self:
+            self._register_node(node=node)
+
+        cum_iter = []
+        for metric_name, metric_value in metric.items():
+
+            for_ = 'training' if train is True else 'testing_global_updates' \
+                if test_on_global_updates is True else 'testing_local_updates'
+
+            if metric_name not in self[node][for_]:
+                self._register_metric(node=node, for_=for_, metric_name=metric_name)
+
+            # FIXME: for now, if testing is done on global updates (before model local update)
+            # last testing metric value computed on global updates at last round is overwritten
+            # by the first one computed at first round
+            if round_ in self[node][for_][metric_name]:
+
+                # Each duplication means a new epoch for training, and it is not expected for
+                # testing part. Especially for `testing_on_global_updates`. If there is a duplication
+                # last value should overwrite
+                duplicate = self._iter_duplication_status(round_=self[node][for_][metric_name][round_],
+                                                          next_iter=iter_)
+                if duplicate and test_on_global_updates:
+                    self._add_new_iteration(node, for_, metric_name, round_, iter_, metric_value, True)
+                else:
+                    self._add_new_iteration(node, for_, metric_name, round_, iter_, metric_value)
+            else:
+                self._add_new_iteration(node, for_, metric_name, round_, iter_, metric_value, True)
+
+            cum_iter.append(self._cumulative_iteration(self[node][for_][metric_name]))
+        return cum_iter
+
+    def _add_new_iteration(self,
+                           node: str,
+                           for_: str,
+                           metric_name: str,
+                           round_: int,
+                           iter_: int,
+                           metric_value: Union[int, float],
+                           new_round: bool = False):
+        """
+        Method for adding new iteration based on `new_round` status. If the round is new
+        for the metric it registers key round key and assigns iteration and metric value. Otherwise,
+        appends iteration and metric value to the existing round,
+
+        Args:
+            node (str): The node id that metric value received from
+            for_ (str): One of (training, testing_global_updates, testing_local_updates). To indicate metric
+                value belongs to which phase
+            metric_name (str): Name of the metric to use as a key in MetricStore dict
+            round_ (int): The round that metric value has received at
+            iter_ (int): Iteration number
+            metric_value (int, float): Value of the metric
+            new_round (bool): To indicate whether round should be created or new metric should append to the
+                existing one. This is also enables overwriting round values when needed.
+        """
+        if new_round:
+            self[node][for_][metric_name].update({round_: {'iterations': [iter_],
+                                                           'values': [metric_value]}
+                                                  })
+        else:
+            self[node][for_][metric_name][round_]['iterations'].append(iter_)
+            self[node][for_][metric_name][round_]['values'].append(metric_value)
+
+    @staticmethod
+    def _iter_duplication_status(round_: dict, next_iter: int) -> bool:
+        """
+        This method is required to find out is there iteration duplication in rounds for the
+        testing metrics.
+
+        Args:
+            round_ (dict) : Dictionary that includes iteration numbers and values for single metric results
+                belongs to a node and a phase (training/testing_global_update or testing_local_updates)
+            next_iter (int): An integer indicates the iteration number for the next iteration that is going to be
+                stored on the MetricStore
+
+        Returns:
+            bool: Indicates whether is there a duplication in the round iterations
+        """
+
+        iterations = round_['iterations']
+        if iterations:
+            first_val = iterations[0]
+            return True if next_iter == first_val else False
+        else:
+            return False  # No duplication
+
+    def _register_node(self, node):
+        """
+        Register node for the first time (first iteration) by initializing basic information on metrics
+        Add the following fields to node entry:
+        - training: loss values from training
+        - testing_global_updates: metric values and names from testing on global updates
+        - testing_local_updates: metric values and names from testing on local updates
+
+        Args:
+            node (str): Node id
+        """
+        self[node] = {
+            "training": {},
+
+            "testing_global_updates": {},  # Testing before training
+            "testing_local_updates": {}  # Testing after training
+        }
+
+    def _register_metric(self, node, for_, metric_name):
+        """
+        Method for registering metric for the given node. It creates stating point
+        for the metric from round 0.
+
+        Args:
+            node (str): The node id that metric value received from
+            for_ (str): One of (training, testing_global_updates, testing_local_updates). To indicate metric
+                value belongs to which phase
+            metric_name (str): Name of the metric to use as a key in MetricStore dict
+        """
+
+        # Round should start from 1 to match experiment's starting round
+        self[node][for_].update({metric_name: {1: {'iterations': [], 'values': []}}})
+
+    @staticmethod
+    def _cumulative_iteration(rounds) -> int:
+        """
+        Method for calculation of cumulative iteration for the received metric value. Cumulative iteration
+        should be calculated for each metric value received during training/testing to add it as next `step`
+        in the tensorboard SummaryWriter. Please see Monitor._summary_writer.
+
+        Args:
+            rounds : The dictionary that includes all the rounds for a metric, node and the phase
+
+        Returns:
+            int: cumulative iteration for the metric/evaluation result
+        """
+
+        cum_iteration = 0
+        for val in rounds.values():
+            if len(val['iterations']):
+                iter_frequencies = collections.Counter(val['iterations'])
+                last_iteration = val['iterations'][-1]
+                max_iter_value = max(val['iterations'])
+                cum_iteration += (max_iter_value * (iter_frequencies[last_iteration] - 1)) + last_iteration
+
+        return cum_iteration
+
+
+class Monitor:
     """
     This is the class that subscribes monitor channel and logs scalar values
     using `logger`. It also writes scalar values to tensorboard log files.
@@ -22,19 +215,34 @@ class Monitor():
 
     def __init__(self):
         """
-        Constructor of the class. Intialize empty event writers object and
+        Constructor of the class. Initializes empty event writers object and
         logs directory. Removes tensorboard logs from previous experiments.
         """
 
         self._log_dir = environ['TENSORBOARD_RESULTS_DIR']
+        self._round = 1
+        self._metric_store = _MetricStore()
         self._event_writers = {}
         self._round_state = 0
         self._tensorboard = False
 
         if os.listdir(self._log_dir):
             logger.info('Removing tensorboard logs from previous experiment')
-            # Clear logs directory from the files from other experiments.
+            # Clear logs' directory from the files from other experiments.
             self._remove_logs()
+
+    def set_round(self, round_: int) -> int:
+        """
+        Setting round number that metric results will be received for. By default, at the beginning
+        round is equal to 1 which stands for the first round. This method should be called by
+        experiment `run_once` after each round completed, and round should be set to current round + 1.
+        This will inform monitor about the current round where the metric values are getting received.
+        Args:
+            round_ (int): The round that metric value will be saved at they are received
+        """
+        self._round = round_
+
+        return self._round
 
     def on_message_handler(self, msg: Dict[str, Any]):
         """
@@ -49,29 +257,17 @@ class Monitor():
 
         # For now monitor can only handle add_scalar messages
         if msg['command'] == 'add_scalar':
+            # Save iteration value
+            cumulative_iter, *_ = self._metric_store.add_iteration(
+                node=msg['node_id'],
+                train=msg['train'],
+                test_on_global_updates=msg['test_on_global_updates'],
+                metric=msg['metric'],
+                round_=self._round,
+                iter_=msg['iteration'])
 
-            if self._tensorboard:
-                # transfert data to tensorboard
-                self._summary_writer(msg['node_id'],
-                                     msg['key'],
-                                     msg['iteration'],
-                                     msg['value'],
-                                     msg['epoch'] )
-
-            else:
-                # log on console
-                msg = "Monitor: node_id=" + \
-                    msg['node_id'] + \
-                    " epoch=" + \
-                    str(msg['epoch']) + \
-                    " iteration=" + \
-                    str(msg['iteration']) + \
-                    " " + \
-                    msg['key'] + \
-                    ":" + \
-                    str(msg['value'])
-                logger.info(msg)
-
+            # Log metric result
+            self._log_metric_result(message=msg, cum_iter=cumulative_iter)
 
     def set_tensorboard(self, tensorboard: bool):
         """
@@ -89,86 +285,84 @@ class Monitor():
             logger.error("tensorboard should be a boolean")
             self._tensorboard = False
 
-
-    def _summary_writer(self, node: str, key: str, global_step: int, scalar: float, epoch: int ):
-        """
-        This method is for writing scalar values using torch SummaryWriter
-        It creates new summary file for each node.
-
-        Args:
-            node (str): node id that sends
-            key (str): Name of the scalar value it can be e.g. loss, accuracy
-            global_step (int): The index of the current batch proccess during epoch.
-                               Batch is all samples if it is -1.
-            scalar (float): The value that be writen into tensorboard logs: loss, accuracy etc.
-            epoch (int): Number of epoch achieved during training routine
-        """
-
-        # Initialize event SummaryWriters
-        if node not in self._event_writers:
-            self._event_writers[node] = {
-                'writer' : SummaryWriter(
-                    log_dir = os.path.join(self._log_dir, node)
-                ),
-                'stepper': 1,
-                'step_state': 0,
-                'step': 0
-            }
-
-        if global_step == -1:
-            # Means that batch is equal to all samples, use epoch as global step
-            global_step = epoch
-
-        # Operations for finding iteration log interval for the training
-        #
-        # stepper    : interval for each batch of points between 2 rounds or epochs
-        #            : (should be equals to 1 when passing from one epoch to another
-        #               or a round to another, otherwise 0 for batch of points
-        #               within the same epoch)
-        # global step: index of the batch size/batch_size (for the current round)
-        # step_state : number of previous steps that compose the previous rounds
-        #            : Ex:
-        # step       : index for loss / metric values that will be used when displaying on
-        #              tensorboard. It represents number of batches processed for
-        #              training model
-        if global_step != 0 and self._event_writers[node]['stepper'] < 2:
-            self._event_writers[node]['stepper'] = 0
-
-        elif global_step == 0:
-            self._event_writers[node]['stepper'] = 1
-
-        # In every epoch first iteration (global step) will be zero so
-        # we need to update step_state so we do not overwrite steps of
-        # the previous  epochs
-        if global_step == 0:
-            self._event_writers[node]['step_state'] = self._event_writers[node]['step'] + \
-                self._event_writers[node]['stepper']
-
-        # Increase step by adding global_step to step_state
-        self._event_writers[node]['step'] = self._event_writers[node]['step_state'] + global_step
-
-        self._event_writers[node]['writer'].add_scalar('Metric[{}]'.format(key),
-                                                       scalar,
-                                                       self._event_writers[node]['step'])
-
     def close_writer(self):
         """
         Closes `SummaryWriter` for each node
         """
         # Close each open SummaryWriter
         for node in self._event_writers:
-            self._event_writers[node]['writer'].close()
+            self._event_writers[node].close()
 
     def _remove_logs(self):
         """
-        This is private method for removing logs files from
-        tensorboard logs dir.
+        Private method for removing logs files from tensorboard logs dir.
         """
 
         for file in os.listdir(self._log_dir):
-            if not file.startswith('.'): # dont want to remove dotfiles
+            if not file.startswith('.'):  # do not want to remove dotfiles
                 rf = os.path.join(self._log_dir, file)
                 if os.path.isdir(rf):
                     shutil.rmtree(rf)
                 elif os.path.isfile(rf):
                     os.remove(rf)
+
+    def _log_metric_result(self, message: Dict, cum_iter: int = 0):
+        """
+        Method for loging metric result that comes from nodes, and store them
+        into tensorboard (through summary writer) if Tensorboard has been activted
+        """
+
+        if message['train'] is True:
+            header = 'Training'
+        else:
+            header = 'Testing On Global Updates' if message['test_on_global_updates'] else 'Testing On Local ' \
+                                                                                           'Updates'
+
+        metric_dict = message['metric']
+        metric_result = ''
+        for key, val in metric_dict.items():
+            metric_result += "\t\t\t\t\t {}: \033[1m{:.6f}\033[0m \n".format(key, val)
+
+        # Loging fancy feedback for training
+        logger.info("\033[1m{}\033[0m \n"
+                    "\t\t\t\t\t NODE_ID: {} \n"
+                    "\t\t\t\t\t{} Completed: {}/{} ({:.0f}%) \n {}"
+                    "\t\t\t\t\t ---------".format(header.upper(),
+                                                  message['node_id'],
+                                                  '' if message['epoch'] is None else f" Epoch: {message['epoch']} |",
+                                                  message['iteration'] * message['batch_samples'],
+                                                  message['total_samples'],
+                                                  100 * message['iteration'] / message['num_batches'],
+                                                  metric_result))
+
+        if self._tensorboard:
+            # transfer data to tensorboard
+            self._summary_writer(header=header.upper(),
+                                 node=message['node_id'],
+                                 metric=message['metric'],
+                                 cum_iter=cum_iter)
+
+    def _summary_writer(self,
+                        header: str,
+                        node: str,
+                        metric: dict,
+                        cum_iter: int):
+        """
+        This method is for writing scalar values using torch SummaryWriter
+        It creates new summary file for each node.
+
+        Args:
+            header (str): The header/title for the plot that is going to be displayed on the tensorboard
+            node (str): Node id
+            metric (dict): Metric values
+            cum_iter (int): Iteration number for the metric that is going to be added as scalar
+        """
+
+        # Initialize event SummaryWriters
+        if node not in self._event_writers:
+            self._event_writers[node] = SummaryWriter(log_dir=os.path.join(self._log_dir, node))
+
+        for metric, value in metric.items():
+            self._event_writers[node].add_scalar('{}/{}'.format(header.upper(), metric),
+                                                 value,
+                                                 cum_iter)

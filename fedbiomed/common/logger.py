@@ -409,10 +409,10 @@ class _FedLogger(metaclass=SingletonMeta):
 
         level = self._internalLevelTranslator(level)
 
-        # store this level (for future handler adding)
-        self._logger.setLevel( level )
-
         if htype is None:
+            # store this level (for future handler adding)
+            self._logger.setLevel(level)
+
             for h in self._handlers:
                 self._handlers[h].setLevel(level)
             return
