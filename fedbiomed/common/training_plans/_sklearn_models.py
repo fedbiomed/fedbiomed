@@ -59,16 +59,13 @@ class FedPerceptron(SKLearnTrainingPlan):
             setattr(self.model, p, self.params_sgd[p])
 
     def __evaluate_loss(self,output,epoch):
-        logger.warning("Loss plot displayed on Tensorboard may be inaccurate (due to some plain" + \
-                       " SGD scikit learn limitations)")
         loss, _loss_collector = self.__evaluate_loss_core(output,epoch)
         if not self._is_binary_classification:
             support = self._compute_support(self.target)
             loss = np.average(_loss_collector, weights=support)  # perform a weighted average
+            logger.warning("Loss plot displayed on Tensorboard may be inaccurate (due to some plain" + \
+                           " SGD scikit learn limitations)")
         return loss
-
-
-
 
 
 #======

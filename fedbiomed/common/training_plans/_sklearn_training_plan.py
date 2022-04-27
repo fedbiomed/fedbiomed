@@ -77,6 +77,15 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         # Instantiate the model
         self.set_init_params(model_args)
 
+        self.add_dependency(["import inspect",
+                         "import numpy as np",
+                         "import pandas as pd",
+                         "from fedbiomed.common.training_plans import SGDSkLearnModel",
+                         "from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron ",
+                         "from sklearn.naive_bayes  import BernoulliNB, GaussianNB",
+                         "from fedbiomed.common.data import DataManager",
+                         ])
+
     def training_routine(self,epochs=1,
                              history_monitor=None,
                              node_args: Union[dict, None] = None):
