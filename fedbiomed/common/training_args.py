@@ -21,25 +21,29 @@ class TrainingArgs():
 
     More to come...
     """
-    def __init__(self, ta: Dict, grammar: Dict = None):
+    def __init__(self, ta: Dict, scheme: Dict = None):
         """
         Create a TrainingArgs from a Dict with input validation.
 
         Args:
-            ta:      dictionnary describing the TrainingArgs grammar.
-            grammar: user provided grammar instead of default grammar
+            ta:      dictionnary describing the TrainingArgs scheme.
+            scheme: user provided scheme instead of default scheme
 
         Raises:
             ValidateError: if ta is not valid
         """
         self._ta = ta
-        self._init_grammar_(grammar)
+
+        if scheme is None:
+            self._scheme = TrainingArgs.default_scheme()
+        else:
+            self.scheme = scheme
 
         try:
-            self._sc = SchemeValidator(self._grammar)
+            self._sc = SchemeValidator(self._scheme)
         except RuleError:
             #
-            # internal error (invalid grammar)
+            # internal error (invalid scheme)
             raise
 
         # check user input
@@ -80,18 +84,15 @@ class TrainingArgs():
         return v >= 0
 
 
-    # grammar definition of trainnig args
-    def _init_grammar_(self, grammar: Dict):
+    @classmethod
+    def default_scheme(cls) -> Dict:
         """
+        Returns the default scheme
         """
-        if grammar is not None:
-            self._grammar = grammar
-            return
-
-        self._grammar = {
+        return  {
             # loss rate
             "lr": {
-                "rules": [ float, self._positive_hook ],
+                "rules": [ float, cls._positive_hook ],
                 "required": False,
                 "default": 0.01
             },
@@ -147,7 +148,7 @@ class TrainingArgs():
 
             # test_metric
             "test_metric": {
-                "rules": [ self._metric_validation_hook ],
+                "rules": [ cls._metric_validation_hook ],
                 "required": False
             },
 
@@ -203,3 +204,12 @@ class TrainingArgs():
             self.__setitem__(k, values[k])
 
         return self
+
+
+    def scheme(self) -> Dict:
+        """
+        Returns the scheme of a TrainingArgs instance.
+
+        The scheme is not necessarly the [`default_scheme`][default_scheme]
+        """
+        return self._scheme
