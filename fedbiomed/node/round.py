@@ -42,27 +42,23 @@ class Round:
         """Constructor of the class
 
         Args:
-            - model_kwargs (dict): contains model args
-            - training_kwargs (dict): contains model characteristics,
-                especially input  dimension (key: 'in_features')
+            model_kwargs: contains model args
+            training_kwargs: contains model characteristics, especially input  dimension (key: 'in_features')
                 and output dimension (key: 'out_features')
-            - dataset ([dict]): dataset details to use in this round.
-                It contains the dataset name, dataset's id,
-                data path, its shape, its
-                description...
-            - model_url (str): url from which to download model
-            - model_class (str): name of the training plan
-                (eg 'MyTrainingPlan')
-            - params_url (str): url from which to upload/dowload model params
-            - job_id (str): job id
-            - researcher_id (str): researcher id
-            - history_monitor (HistoryMonitor)
-            - node_args (Union[dict, None]): command line arguments for node. Can include:
-                - gpu (bool): propose use a GPU device if any is available.
-                - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
+            dataset: dataset details to use in this round. It contains the dataset name, dataset's id,
+                data path, its shape, its description...
+            model_url: url from which to download model
+            model_class: name of the training plan (eg 'MyTrainingPlan')
+            params_url: url from which to upload/download model params
+            job_id: job id
+            researcher_id: researcher id
+            history_monitor: Sends real-time feed-back to end-user during training
+            node_args: command line arguments for node. Can include:
+                - `gpu (bool)`: propose use a GPU device if any is available.
+                - `gpu_num (Union[int, None])`: if not None, use the specified GPU device instead of default
                     GPU device if this GPU device is available.
-                - gpu_only (bool): force use of a GPU device if any available, even if researcher
-                    doesnt request for using a GPU.
+                - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
+                    doesn't request for using a GPU.
         """
         testing_args_keys = ('test_ratio', 'test_on_local_updates',
                              'test_on_global_updates', 'test_metric',
@@ -98,8 +94,7 @@ class Round:
         and finally uploads model params
 
         Returns:
-            [NodeMessages]: returns the corresponding node message,
-            trainReply instance
+            Returns the corresponding node message, training reply instance
         """
         is_failed = False
         error_message = ''
@@ -294,10 +289,10 @@ class Round:
         based on success status.
 
         Args:
-            message (str):
-            success (bool):
-            params_url (str):
-            timing (dict):
+            message: Message regarding the process.
+            success: Declares whether training/testing is successful
+            params_url: URL where parameters are uploaded
+            timing: Timing statistics
         """
 
         # If round is not successful log error message
@@ -350,7 +345,7 @@ class Round:
         `dataset_path` for model and calls `training_data` method of training plan.
 
         Args:
-            test_ratio (float) : The ratio that represent test partition. Default is 0, means that
+            test_ratio: The ratio that represent test partition. Default is 0, means that
                             all the samples will be used for training.
 
         Raises:
