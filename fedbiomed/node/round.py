@@ -72,6 +72,9 @@ class Round:
             self.testing_arguments[arg] = training_kwargs.get(arg, None)
             training_kwargs.pop(arg, None)
 
+        self.batch_size = training_kwargs.get('batch_size' , 48)
+        training_kwargs.pop('batch_size', None)
+
         # Set training arguments after removing testing arguments
         self.training_kwargs = training_kwargs
 
@@ -87,7 +90,6 @@ class Round:
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
         self.model = None
         self.training = training
-        self._default_batch_size = 48  # default bath size
 
     def run_model_training(self) -> dict[str, Any]:
         """This method downloads model file; then runs the training of a model
@@ -359,7 +361,7 @@ class Round:
         """
 
         # Get batch size from training argument if it is not exist use default batch size
-        batch_size = self.training_kwargs.get('batch_size', self._default_batch_size)
+        batch_size = self.training_kwargs.get('batch_size', self.batch_size)
 
         training_plan_type = self.model.type()
 
