@@ -8,7 +8,7 @@ from typing import Any, Dict, TypeVar
 from fedbiomed.common.validator import SchemeValidator, ValidateError, RuleError
 
 
-_E = TypeVar("Experiment")  # only for typing
+_MyOwnType = TypeVar("TrainingArgs")  # only for typing
 
 
 class TrainingArgs():
@@ -88,7 +88,7 @@ class TrainingArgs():
         return self._ta[key]
 
 
-    def modify(self, values: Dict) -> _E:
+    def modify(self, values: Dict) -> _MyOwnType:
         """
         Modify multiple keys of the trainig arguments.
         """
