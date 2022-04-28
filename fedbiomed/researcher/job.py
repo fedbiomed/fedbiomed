@@ -61,6 +61,8 @@ class Job:
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
                 of the job. Defaults to None, files are not kept after the end of the job.
 
+        Raises:
+            NameError: If model is not defined or if the class can not to be inspected
         """
 
         self._id = str(uuid.uuid4())  # creating a unique job id
@@ -394,6 +396,9 @@ class Job:
 
         Returns:
             Name of the parameter file
+
+        Raises:
+            ValueError: Bad arguments
         """
         try:
             if not filename:

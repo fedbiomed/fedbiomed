@@ -18,11 +18,11 @@ def get_class_source(cls: Callable) -> str:
     Args:
         cls: The class to extract the source code from
 
-    Raises:
-        FedbiomedError: if argument is not a class
-
     Return:
         str: Source code of the given class
+
+    Raises:
+        FedbiomedError: if argument is not a class
     """
 
     if not inspect.isclass(cls):

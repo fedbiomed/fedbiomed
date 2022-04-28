@@ -29,7 +29,6 @@ def catch_dataclass_exception(cls: Callable):
 
         Raises:
           FedbiomedMessageError if number/type of arguments is wrong
-
         """
 
         try:

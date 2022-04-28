@@ -159,7 +159,6 @@ class MetricStore(dict):
         """
         self[node] = {
             "training": {},
-
             "testing_global_updates": {},  # Testing before training
             "testing_local_updates": {}  # Testing after training
         }

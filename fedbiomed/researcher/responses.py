@@ -63,11 +63,11 @@ class Responses:
         Args:
             data: List of responses as python dictionary
 
-        Raises:
-            FedbiomedResponsesError: When `data` argument is not in valid type
-
         Returns:
             List of responses as Dict
+
+        Raises:
+            FedbiomedResponsesError: When `data` argument is not in valid type
         """
 
         # TODO: Check elements of list are Dict
@@ -93,11 +93,12 @@ class Responses:
 
         Args:
             response: List of response as dict or single response as dict that will be appended
-        Raises:
-            FedbiomedResponsesError: When `response` argument is not in valid type
 
         Returns:
             List of dict as responses
+
+        Raises:
+            FedbiomedResponsesError: When `response` argument is not in valid type
         """
         if isinstance(response, List):
             self._data = self._data + response

@@ -86,11 +86,11 @@ class Metrics(object):
             metric: An instance of MetricTypes to chose metric that will be used for evaluation
             **kwargs: The arguments specifics to each type of metrics.
 
-        Raises:
-            FedbiomedMetricError: in case of invalid metric, y_true and y_pred types
-
         Returns:
             Result of the evaluation function
+
+        Raises:
+            FedbiomedMetricError: in case of invalid metric, y_true and y_pred types
         """
         if not isinstance(metric, MetricTypes):
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Metric should instance of `MetricTypes`")
@@ -121,11 +121,11 @@ class Metrics(object):
             y_pred: Predicted values
             **kwargs: Extra arguments from [`sklearn.metrics.accuracy_score`][sklearn.metrics.accuracy_score]
 
-        Raises:
-            FedbiomedMetricError: raised if above sklearn method raises
-
         Returns:
             Accuracy score
+
+        Raises:
+            FedbiomedMetricError: raised if above sklearn method raises
         """
 
         try:
@@ -148,11 +148,11 @@ class Metrics(object):
             y_pred: Predicted values
             **kwargs: Extra arguments from [`sklearn.metrics.precision_score`][sklearn.metrics.precision_score]
 
-        Raises:
-            FedbiomedMetricError: raised if above sklearn method for computing precision raises
-
         Returns:
             precision (float, or array of float of shape (n_unique_labels,))
+
+        Raises:
+            FedbiomedMetricError: raised if above sklearn method for computing precision raises
         """
         # Get average and pob_label argument based on multiclass status
         y_true, y_pred, average, pos_label = Metrics._configure_multiclass_parameters(y_true,
@@ -181,12 +181,11 @@ class Metrics(object):
             y_pred: Predicted values
             **kwargs: Extra arguments from [`sklearn.metrics.recall_score`][sklearn.metrics.recall_score]
 
-        Raises:
-            FedbiomedMetricError: raised if above sklearn method for computing precision raises
-
         Returns:
             recall (float (if average is not None) or array of float of shape (n_unique_labels,))
 
+        Raises:
+            FedbiomedMetricError: raised if above sklearn method for computing precision raises
         """
 
         # Get average and pob_label argument based on multiclass status
@@ -214,11 +213,11 @@ class Metrics(object):
             y_pred: Predicted values
             **kwargs: Extra arguments from [`sklearn.metrics.f1_score`][sklearn.metrics.f1_score]
 
-        Raises:
-            FedbiomedMetricError: raised if above sklearn method for computing precision raises
-
         Returns:
             f1_score (float or array of float, shape = [n_unique_labels])
+
+        Raises:
+            FedbiomedMetricError: raised if above sklearn method for computing precision raises
         """
 
         # Get average and pob_label argument based on multiclass status
@@ -248,11 +247,11 @@ class Metrics(object):
             y_pred: Predicted values
             **kwargs: Extra arguments from [`sklearn.metrics.mean_squared_error`][sklearn.metrics.mean_squared_error]
 
-        Raises:
-            FedbiomedMetricError: raised if above sklearn method for computing precision raises
-
         Returns:
             MSE score (float or ndarray of floats)
+
+        Raises:
+            FedbiomedMetricError: raised if above sklearn method for computing precision raises
         """
 
         # Set multiouput as raw_values is it is not defined by researcher
@@ -282,11 +281,11 @@ class Metrics(object):
             y_pred: Predicted values
             **kwargs: Extra arguments from [`sklearn.metrics.mean_absolute_error`][sklearn.metrics.mean_absolute_error]
 
-        Raises:
-            FedbiomedMetricError: raised if above sklearn method for computing precision raises
-
         Returns:
             MAE score (float or ndarray of floats)
+
+        Raises:
+            FedbiomedMetricError: raised if above sklearn method for computing precision raises
         """
         # Set multiouput as raw_values is it is not defined by researcher
         if len(y_true.shape) > 1:
@@ -316,11 +315,11 @@ class Metrics(object):
             **kwargs: Extra arguments from [`sklearn.metrics.explained_variance_score`]
                 [sklearn.metrics.explained_variance_score]
 
-        Raises:
-            FedbiomedMetricError: raised if above sklearn method for computing precision raises
-
         Returns:
             EV score (float or ndarray of floats)
+
+        Raises:
+            FedbiomedMetricError: raised if above sklearn method for computing precision raises
         """
 
         # Set multiouput as raw_values is it is not defined by researcher
@@ -354,6 +353,9 @@ class Metrics(object):
             Tuple of y_true and y_pred as;
                 - y_true: updated labels of dataset
                 - y_pred: updated prediction values
+
+        Raises:
+            FedbiomedMetricError: Invalid shape of `y_true` or `y_pred`
         """
 
         # Squeeze array [[1],[2],[3]] to [1,2,3]

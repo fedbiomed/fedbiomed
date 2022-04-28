@@ -200,15 +200,15 @@ class Repository:
             *args: The positional arguments to be passed to the callable method.
             **kwargs: The named arguments to be passed to the callable method.
 
+        Returns:
+           The result of the request if request is successful
+
         Raises:
             FedbiomedRepositoryError: - Timeout exceeded.
                 - Too many redirects.
                 - URL is badly written, or missing some parts (eg: missing scheme).
                 - The connection is unsuccessful, when the service to connect is unknown.
                 - Catches other exceptions coming from requests package
-
-        Returns:
-           The result of the request if request is successful
         """
         req_method = getattr(http_request, '__name__')
         req_method = req_method.upper()

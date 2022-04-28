@@ -682,11 +682,11 @@ class Experiment(object):
                 of tags ([]) means any dataset is accepted, it is different from None (tags not set, cannot search
                 for training_data yet).
 
-        Raises:
-            FedbiomedExperimentError : Bad tags type
-
         Returns:
             List of tags that are set. None, if the argument `tags` is None.
+
+        Raises:
+            FedbiomedExperimentError : Bad tags type
         """
 
         if isinstance(tags, list):
@@ -718,11 +718,11 @@ class Experiment(object):
         Args:
             nodes: List of node_ids to filter the nodes to be involved in the experiment.
 
-        Raises:
-            FedbiomedExperimentError : Bad nodes type
-
         Returns:
             List of tags that are set. None, if the argument `nodes` is None.
+
+        Raises:
+            FedbiomedExperimentError : Bad nodes type
         """
 
         if isinstance(nodes, list):
@@ -771,11 +771,11 @@ class Experiment(object):
             If `training_data` object does contain `test_ratio`, training_args will update its value by the
             value set in the `training_data` argument.
 
-        Raises:
-            - FedbiomedExperimentError : bad training_data type
-
         Returns:
-            - nodes (Union[FederatedDataSet, None])
+            Nodes and dataset with meta-data
+
+        Raises:
+            FedbiomedExperimentError : bad training_data type
         """
         # we can trust _reqs _tags _nodes are existing and properly typed/formatted
 
@@ -822,11 +822,11 @@ class Experiment(object):
             aggregator: Object or class defining the method for aggregating local updates. Default to None
                 (use `FedAverage` for aggregation)
 
-        Raises:
-            FedbiomedExperimentError : bad aggregator type
-
         Returns:
             aggregator (Aggregator)
+
+        Raises:
+            FedbiomedExperimentError : bad aggregator type
         """
 
         if aggregator is None:
@@ -865,11 +865,11 @@ class Experiment(object):
                 - else strategy is None (cannot be initialized), experiment cannot
                   be launched yet
 
-        Raises:
-            FedbiomedExperimentError : bad strategy type
-
         Returns:
             node selection strategy class
+
+        Raises:
+            FedbiomedExperimentError : bad strategy type
         """
         if self._fds is not None:
             if node_selection_strategy is None:
@@ -910,11 +910,11 @@ class Experiment(object):
             round_limit: the maximum number of training rounds (nodes <-> central server) that should be executed
                 for the experiment. `None` means that no limit is defined.
 
-        Raise:
-            FedbiomedExperimentError : bad rounds type or value
-
         Returns:
             Round limit for experiment of federated learning
+
+        Raises:
+            FedbiomedExperimentError : bad rounds type or value
         """
         # at this point round_current exists and is an int >= 0
 
@@ -960,11 +960,11 @@ class Experiment(object):
         Args:
             round_current: the number of already completed training rounds in the experiment.
 
-        Raise:
-            FedbiomedExperimentError : bad round_current type or value
-
         Returns:
             Current round that experiment will run as next round
+
+        Raises:
+            FedbiomedExperimentError : bad round_current type or value
         """
         if not isinstance(round_current, int):
             msg = ErrorNumbers.FB410.value + f' `round_current` : {type(round_current)}'
@@ -998,11 +998,11 @@ class Experiment(object):
         Args:
             experimentation_folder: File name where experiment related files are saved
 
-        Raise:
-            FedbiomedExperimentError : bad `experimentation_folder` type
-
         Returns:
             experimentation_folder (str)
+
+        Raises:
+            FedbiomedExperimentError : bad `experimentation_folder` type
         """
         if experimentation_folder is None:
             self._experimentation_folder = create_exp_folder()
@@ -1039,11 +1039,11 @@ class Experiment(object):
                     - a `Type_TrainingPlan` when `model_path` is None (model class passed
                     as argument).
 
-        Raise:
-            FedbiomedExperimentError : bad model_class type
-
         Returns:
             `model_class` that is set for experiment
+
+        Raises:
+            FedbiomedExperimentError : bad model_class type
         """
         if model_class is None:
             self._model_class = None
@@ -1101,11 +1101,11 @@ class Experiment(object):
                 model code, `model_class` needs to be a class matching one of [`training_plans`]
                 [fedbiomed.common.training_plans]
 
-        Raise:
-            FedbiomedExperimentError : bad model_path type
-
         Returns:
             The path that is set for retrieving module where model class is defined
+
+        Raises:
+            FedbiomedExperimentError : bad model_path type
         """
         # self._model_class and self._model_is_defined already exist when entering this function
 
@@ -1153,11 +1153,11 @@ class Experiment(object):
                 of the training plan when instantiating it : output and input feature
                 dimension, etc.
 
-        Raise:
-            FedbiomedExperimentError : bad model_args type
-
         Returns:
             Model arguments that have been set.
+
+        Raises:
+            FedbiomedExperimentError : bad model_args type
         """
         if isinstance(model_args, dict):
             self._model_args = model_args
@@ -1185,11 +1185,11 @@ class Experiment(object):
             reset (bool, optional): whether to reset the training_args (if previous training_args has already been
                 set), or to update them with training_args. Defaults to True.
 
-        Raise:
-            FedbiomedExperimentError : bad training_args type
-
         Returns:
             Training arguments
+
+        Raises:
+            FedbiomedExperimentError : bad training_args type
         """
         if isinstance(training_args, dict):
             if reset or self._training_args is None:
@@ -1267,12 +1267,12 @@ class Experiment(object):
         Args:
             ratio: testing ratio. Must be within interval [0,1].
 
+        Returns:
+            Test ratio that is set
+
         Raises:
             FedbiomedExperimentError: bad data type
             FedbiomedExperimentError: ratio is not within interval [0, 1]
-
-        Returns:
-            Test ratio that is set
         """
         # data type checks
         if not isinstance(ratio, (int, float)):
@@ -1308,11 +1308,11 @@ class Experiment(object):
             **metric_args: A dictionary that contains arguments for metric function. Arguments
                 should be compatible with corresponding metrics in [`sklearn.metrics`][sklearn.metrics].
 
-        Raises:
-            FedbiomedExperimentError: Invalid type for `metric` argument
-
         Returns:
             Metric and  metric args as tuple
+
+        Raises:
+            FedbiomedExperimentError: Invalid type for `metric` argument
         """
         if not (metric is None or isinstance(metric, str) or isinstance(metric, MetricTypes)):
             _msg = ErrorNumbers.FB410.value + ": incorrect argument metric, got type " + \
@@ -1347,11 +1347,11 @@ class Experiment(object):
         Args:
             flag (bool, optional): whether to perform model evaluation on local updates. Defaults to True.
 
-        Raises:
-            FedbiomedExperimentError: bad flag type
-
         Returns:
             value of the flag `test_on_local_updates`
+
+        Raises:
+            FedbiomedExperimentError: bad flag type
         """
         if not isinstance(flag, bool):
             msg = ErrorNumbers.FB410.value + f' `flag` : got {type(flag)} but expected a boolean'
@@ -1376,11 +1376,11 @@ class Experiment(object):
         Args:
             flag (bool, optional): whether to perform model evaluation on global updates. Defaults to True.
 
-        Raises:
-            FedbiomedExperimentError : bad flag type
-
         Returns:
             Value of the flag `test_on_global_updates`.
+
+        Raises:
+            FedbiomedExperimentError : bad flag type
         """
         if not isinstance(flag, bool):
             msg = ErrorNumbers.FB410.value + f' `flag` : got {type(flag)} but expected a boolean'
@@ -1451,11 +1451,11 @@ class Experiment(object):
                 not after each training round. Breakpoints can be used for resuming
                 a crashed experiment.
 
-        Raises:
-            FedbiomedExperimentError: bad save_breakpoints type
-
         Returns:
             Status of saving breakpoints
+
+        Raises:
+            FedbiomedExperimentError: bad save_breakpoints type
         """
         if isinstance(save_breakpoints, bool):
             self._save_breakpoints = save_breakpoints
@@ -1507,12 +1507,11 @@ class Experiment(object):
             test_after: if True, do a second request to the nodes after the round, only for testing on aggregated
                 params. Intended to be used after the last training round of an experiment. Defaults to False.
 
-        Raises:
-            FedbiomedExperimentError: bad argument type or value
-
         Returns:
             Number of rounds really run
 
+        Raises:
+            FedbiomedExperimentError: bad argument type or value
         """
         # check increase is a boolean
         if not isinstance(increase, bool):
@@ -1610,12 +1609,11 @@ class Experiment(object):
                 Does nothing if `round_limit` is `None` or `rounds` is None.
                 Defaults to False
 
-        Raises:
-            FedbiomedExperimentError: bad argument type or value
-
         Returns:
             Number of rounds have been run
 
+        Raises:
+            FedbiomedExperimentError: bad argument type or value
         """
         # check rounds is a >=1 integer or None
         if rounds is None:
@@ -1713,11 +1711,11 @@ class Experiment(object):
         Args:
             display: If `True`, prints content of the model file. Default is `True`
 
-        Raises:
-            FedbiomedExperimentError: bad argument type, or cannot read model file content
-
         Returns:
             Path to model file
+
+        Raises:
+            FedbiomedExperimentError: bad argument type, or cannot read model file content
         """
         if not isinstance(display, bool):
             # bad type
@@ -1758,11 +1756,11 @@ class Experiment(object):
     def check_model_status(self) -> Responses:
         """ Method for checking model status, ie whether it is approved or not by the nodes
 
-        Raises:
-            FedbiomedExperimentError: bad argument type
-
         Returns:
             Model status for answering nodes
+
+        Raises:
+            FedbiomedExperimentError: bad argument type
         """
         # at this point, self._job exists (initialized in constructor)
         if self._job is None:
@@ -1891,13 +1889,13 @@ class Experiment(object):
             "var/experiments/Experiment_xxxx/breakpoints_xxxx". If None, loads latest breakpoint of the latest
             experiment. Defaults to None.
 
-        Raises:
-            FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
-                content (corrupted)
-
         Returns:
             Reinitialized experiment object. With given object, user can then use `.run()` method to pursue model
                 training.
+
+        Raises:
+            FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
+                content (corrupted)
         """
         # check parameters type
         if not isinstance(breakpoint_folder_path, str) and breakpoint_folder_path is not None:
@@ -1990,11 +1988,11 @@ class Experiment(object):
         Args:
             breakpoint_path: path to the directory where breakpoints files and links will be saved
 
-        Raises:
-            FedbiomedExperimentError: bad arguments type
-
         Returns:
             Extract from `aggregated_params`
+
+        Raises:
+            FedbiomedExperimentError: bad arguments type
         """
         # check arguments type, though is should have been done before
         if not isinstance(aggregated_params_init, dict):
@@ -2036,6 +2034,9 @@ class Experiment(object):
 
         Returns:
             Reconstructed aggregated params from breakpoint
+
+        Raises:
+            FedbiomedExperimentError: bad arguments type
         """
         # check arguments type
         if not isinstance(aggregated_params, dict):
@@ -2080,11 +2081,11 @@ class Experiment(object):
                 `module` (module path) and optional additional parameters containing object state
             **object_kwargs: optional named arguments for object constructor
 
-        Raises:
-            FedbiomedExperimentError: bad object definition
-
         Returns:
             Instance of the class defined by `args` with state restored from breakpoint
+
+        Raises:
+            FedbiomedExperimentError: bad object definition
         """
         # check `args` type
         if not isinstance(args, dict):

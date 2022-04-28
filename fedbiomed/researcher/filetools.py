@@ -22,13 +22,13 @@ def create_exp_folder(experimentation_folder: str = None) -> str:
             default; if no folder name is given, generate a `Experiment_x` name where `x-1`
             is the number of experiments already run (`x`=0 for the first experiment)
 
+    Returns:
+        Experimentation folder
+
     Raises:
         PermissionError: cannot create experimentation folder
         OSError: cannot create experimentation folder
         ValueError: bad `experimentation_folder` argument
-
-    Returns:
-        Experimentation folder
     """
     if not os.path.isdir(environ['EXPERIMENTS_DIR']):
         try:
@@ -107,15 +107,14 @@ def create_unique_link(breakpoint_folder_path: str,
         link_src_postfix: end of the name for the source link (after unique id)
         link_target_path: target for the symbolic link
 
+    Returns:
+        Path of the created link
+
     Raises:
         PermissionError: cannot create symlink
         OSError: cannot create symlink
         FileExistsError: cannot create symlink
         FileNotFoundError : non-existent directory
-
-    Returns:
-        Path of the created link
-
     """
     stub = 0
     link_src_path = os.path.join(breakpoint_folder_path,
@@ -145,11 +144,11 @@ def create_unique_file_link(breakpoint_folder_path: str, file_path: str) -> str:
         breakpoint_folder_path: directory for the source link
         file_path: path to the target of the link
 
-    Raises:
-        ValueError: bad name for link source or destination
-
     Returns:
         Path of the created link
+
+    Raises:
+        ValueError: bad name for link source or destination
     """
 
     try:
@@ -244,14 +243,14 @@ def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
         breakpoint_folder_path: path towards breakpoint. If None, (default), consider the latest breakpoint saved on
             default path (provided at least one breakpoint exists). Defaults to None.
 
-    Raises:
-        FileNotFoundError: triggered either if breakpoint cannot be found, folder is empty or file cannot be parsed
-
     Returns:
         With length of two that represents respectively:
 
             - path to breakpoint folder (unchanged if specified by user)
             - breakpoint file.
+
+    Raises:
+        FileNotFoundError: triggered either if breakpoint cannot be found, folder is empty or file cannot be parsed
     """
 
     # First, let's test if folder is a real folder path

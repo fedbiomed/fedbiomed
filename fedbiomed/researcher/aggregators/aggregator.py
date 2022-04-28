@@ -39,6 +39,13 @@ class Aggregator:
     def aggregate(self, model_params: list, weights: list) -> Dict:
         """
         Strategy to aggregate models
+
+        Args:
+            model_params: List of model parameters received from each node
+            weights: Weight for each node-model-parameter set
+
+        Raises:
+            FedbiomedAggregatorError: If the method is not defined by inheritor
         """
         msg = ErrorNumbers.FB401.value + \
             ": aggreate method should be overloaded by the choosen strategy"

@@ -102,6 +102,9 @@ class Messaging:
             userdata: mqtt on_message arg, private user data (unused)
             flags: mqtt on_message arg, response flag sent by the broker (unused)
             rc: mqtt on_message arg, connection result
+
+        Raises:
+            FedbiomedMessagingError: If connection is not successful
         """
 
         if rc == 0:
@@ -160,6 +163,9 @@ class Messaging:
             client:  MQTT Client
             userdata: -
             rc: Response code
+
+        Raises:
+            SystemExit: If disconnection status is not 0
         """
         self._is_connected = False
 
@@ -185,6 +191,8 @@ class Messaging:
                 (non-blocking loop). `loop_start` calls a background thread for messaging.
 
                 See Paho MQTT documentation(https://github.com/eclipse/paho.mqtt.python) for further information.
+        Raises:
+            FedbiomedMessagingError: If it can not connect MQTT broker
         """
         # will try to connect even if is_failed or is_connected, to give a chance to resolve problems
 
@@ -258,6 +266,9 @@ class Messaging:
             errnum: Error number
             extra_msg: Extra error message
             researcher_id: ID of the researcher that the message will be sent to
+
+        Raises:
+            FedbiomedMessagingError: If client is not connected
         """
 
         if self._messaging_type != ComponentType.NODE:
@@ -285,7 +296,7 @@ class Messaging:
             researcher_id=researcher_id
         )
 
-        # just check the syntax bfore sendind
+        # just check the syntax before sending
         _ = message.NodeMessages.reply_create(msg)
         self._mqtt.publish("general/researcher", json.serialize_msg(msg))
 

@@ -52,6 +52,9 @@ class TasksQueue:
 
         Returns:
             Dictionary object stored in queue
+
+        Raises:
+            FedbiomedTaskQueueError: If queue is empty
         """
         try:
             return self.queue.get(block)

@@ -72,6 +72,10 @@ class DefaultStrategy(Strategy):
                     respect to the whole,
                 model_params:  list containing dictionaries with list of weight matrices of
                     every node : [{"n1":{"layer1":m1,"layer2":m2},{"layer3":"m3"}},{"n2": ...}]
+
+        Raises:
+            FedbiomedStrategyError: - Miss-matched in answered nodes and existing nodes
+                - If not all nodes successfully completes training
         """
         models_params = []
         weights = []
