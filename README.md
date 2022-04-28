@@ -59,7 +59,7 @@ $ ./scripts/configure_conda
 
 * there is one specific environment for each component:
 
-  * fedbiomed-network.yaml    : environment for HTTP upload/download server and MQQT daemon (network component)
+  * fedbiomed-network.yaml    : environment for HTTP upload/download server and MQTT daemon (network component)
   * fedbiomed-node.yaml       : environment for the node part
   * fedbiomed-researcher.yaml : environment for the researcher part
   * fedbiomed-gui.yaml        : environment for the data management gui on the node
@@ -307,8 +307,8 @@ The list of the container names is:
 
 **Remarks**:
 - the configuration files are keeped then rebuilding individual containers
-- to remove the ald config files, you should do a **clean**
-- restarting only network component (vpnserver, restful, mqqt) then others are running
+- to remove the old config files, you should do a **clean**
+- restarting only network component (vpnserver, restful, mqtt) then others are running
 may lead to unpredictable behavior. In this case, it is adviced to restart from scratch
 (clean/build/configure/start)
 
