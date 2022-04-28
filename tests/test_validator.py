@@ -94,6 +94,26 @@ class TestValidator(unittest.TestCase):
         self.assertTrue( Validator().validate( [], list))
         self.assertTrue( Validator().validate( "one", str))
 
+        # bool is also an int, according to python
+        self.assertTrue( Validator().validate( True, int));
+        self.assertTrue( Validator().validate( False, int));
+
+        # bad stuff
+        with self.assertRaises(ValidateError):
+            Validator().validate(1.0, bool)
+        with self.assertRaises(ValidateError):
+            Validator().validate(1.0, int)
+        with self.assertRaises(ValidateError):
+            Validator().validate(True, float)
+        with self.assertRaises(ValidateError):
+            Validator().validate( [] , dict )
+        with self.assertRaises(ValidateError):
+            Validator().validate( 1 , dict )
+        with self.assertRaises(ValidateError):
+            Validator().validate( {} , list)
+        with self.assertRaises(ValidateError):
+            Validator().validate( { "one": "two"}, str)
+
 
     def test_validator_02_use_function_directly(self):
         self.assertTrue( Validator().validate(1, self.hook_01_positive_integer_check))
