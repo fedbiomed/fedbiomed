@@ -74,22 +74,29 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         self._is_binary_classification = False
         self._verbose_capture_option = False
 
-        # Instantiate the model
-        self.set_init_params(model_args)
-
         self.add_dependency(["import inspect",
                          "import numpy as np",
                          "import pandas as pd",
-                         "from fedbiomed.common.training_plans import SGDSkLearnModel",
-                         "from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron ",
-                         "from sklearn.naive_bayes  import BernoulliNB, GaussianNB",
+                         "from fedbiomed.common.training_plans import SKLearnTrainingPlan",
                          "from fedbiomed.common.data import DataManager",
                          ])
 
     def training_routine(self,epochs=1,
                              history_monitor=None,
                              node_args: Union[dict, None] = None):
+        """
+        Method training_routine called in Round, to change only if you know what you are doing.
 
+        Args:
+        - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
+        - history_monitor ([type], optional): [description]. Defaults to None.
+        - node_args (Union[dict, None]): command line arguments for node. Can include:
+            - gpu (bool): propose use a GPU device if any is available. Default False.
+            - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
+              GPU device if this GPU device is available. Default None.
+            - gpu_only (bool): force use of a GPU device if any available, even if researcher
+              doesnt request for using a GPU. Default False.
+                """
         # Run preprocesses
         self.__preprocess()
 
@@ -108,7 +115,13 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                                     model_hook,
                                     epochs=1,
                                     history_monitor=None):
-
+        '''
+        Training routine core
+        Args:
+        - model_hook: training_routine_hook of child class {FedSGDClassifier, FedBernoulliNB, FedGaussianNB, FedSGDRegressor, FedPerceptron}
+        - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
+        - history_monitor ([type], optional): [description]. Defaults to None.
+        '''
         for epoch in range(epochs):
             with _Capturer() as output:
                 # Fit model based on model type
@@ -142,7 +155,14 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                     #  self.model.inertia_, -1 , epoch) Need to find a way for Bayesian approaches
                     pass
 
-    def __evaluate_loss_core(self,output,epoch):
+    def __evaluate_loss_core(self,output,epoch) -> list[float]:
+        '''
+        Evaluate the loss when verbose option _verbose_capture_option is set to True.
+        Args:
+        - output: output of the scikit-learn models during training
+        - epoch: epoch number
+        Returns: list[float]: list of loss captured in the output
+        '''
         _loss_collector = []
         for line in output:
             if len(line.split("loss: ")) == 1:
@@ -157,7 +177,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                 logger.error("Value error during monitoring:" + str(e))
             except Exception as e:
                 logger.error("Error during monitoring:" + str(e))
-        return loss, _loss_collector
+        return _loss_collector
 
 
     def testing_routine(self,
