@@ -2,10 +2,9 @@ site_name: Test Fed-BioMed Doc Strings
 site_url: https://fedbiomed.gitlabpages.inria.fr/
 
 theme:
-  name: mkdocs
+  name: material
 
 nav:
-  - Home: './docs/index.md'
   - API: './docs/api/'
 
 plugins:
@@ -16,7 +15,6 @@ plugins:
           nav_file: SUMMARY.md
   - mkdocstrings:
       default_handler: python
-      template: material
       handlers:
         python:
           import:
@@ -26,17 +24,17 @@ plugins:
             - https://scikit-learn.org/stable/objects.inv
           selection:
             docstring_style: google
-
           docstring_options:
             ignore_init_summary: yes
             rendering:
               merge_init_into_class: true
               show_source: true
-              show_submodules: false
-              show_if_no_docstring: yes
+              show_submodules: true
+              show_if_no_docstring: true
               separate_signature: true
-              separate_signature_for_function: false
               show_category_heading: true
               show_root_toc_entry: false
+              docstring_section_style: 'table'
+              show_root_heading: true
       watch:
          - ../../fedbiomed
