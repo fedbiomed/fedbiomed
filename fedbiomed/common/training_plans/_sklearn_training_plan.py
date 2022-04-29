@@ -68,6 +68,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         self.param_list = []
         self.dataset_path = None
 
+        self.__type = TrainingPlans.SkLearnTrainingPlan
+
         self._is_classification = False
         self._is_regression = False
         self._is_clustering = False
@@ -122,6 +124,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
         - history_monitor ([type], optional): [description]. Defaults to None.
         '''
+        print(model_hook)
         for epoch in range(epochs):
             with _Capturer() as output:
                 # Fit model based on model type
@@ -464,4 +467,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             :return the scikit model object (sklearn.base.BaseEstimator)
         """
         return self.model
+
+    def type(self):
+        """Getter for training plan type """
+        return self.__type
 

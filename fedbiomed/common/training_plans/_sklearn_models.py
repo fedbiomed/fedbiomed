@@ -18,8 +18,8 @@ class FedPerceptron(SKLearnTrainingPlan):
         - model_args: (dict, optional): model arguments. Defaults to {}
         """
         super().__init__(Perceptron,
-                         model_args,
                          self.training_routine_hook,
+                         model_args,
                          verbose_possibility = True)
 
         # specific for Perceptron
@@ -91,8 +91,8 @@ class FedSGDRegressor(SKLearnTrainingPlan):
         - model_args: (dict, optional): model arguments. Defaults to {}
         """
         super().__init__(SGDRegressor,
-                         model_args,
                          self.training_routine_hook,
+                         model_args,
                          verbose_possibility = True)
 
         # specific for SGDRegressor
@@ -152,8 +152,8 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         """
 
         super().__init__(SGDClassifier,
-                         model_args,
                          self.training_routine_hook,
+                         model_args,
                          verbose_possibility = True)
 
         self.is_classification = True
@@ -165,7 +165,7 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         # Instantiate the model
         self.set_init_params()
 
-        self.add_dependency([
+        self.add_dependency(["from fedbiomed.common.training_plans import FedPerceptron"
                              "from sklearn.linear_model import SGDClassifier "
                              ])
 
@@ -226,8 +226,8 @@ class FedBernoulliNB(SKLearnTrainingPlan):
         - model_args: (dict, optional): model arguments. Defaults to {}
         """
         super().__init__(BernoulliNB,
-                         model_args,
                          self.training_routine_hook,
+                         model_args,
                          verbose_possibility = False)
 
         self.is_classification = True
@@ -258,8 +258,8 @@ class FedGaussianNB(SKLearnTrainingPlan):
         - model_args: (dict, optional): model arguments. Defaults to {}
         """
         super().__init__(GaussianNB,
-                         model_args,
                          self.training_routine_hook,
+                         model_args,
                          verbose_possibility = False)
         self.is_classification = True
         if 'verbose' in model_args:
