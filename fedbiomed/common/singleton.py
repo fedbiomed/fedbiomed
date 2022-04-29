@@ -1,26 +1,21 @@
-'''
-singleton metaclass. used to easily create thread safe singleton classes
+"""Singleton metaclass. used to easily create thread safe singleton classes"""
 
 
-=======================================================================
-WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
-
- do not import *ANY* fedbiomed module here, to avoid dependancy loops!
-
-WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
-=======================================================================
-'''
+# =======================================================================
+# WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+#
+#  do not import *ANY* fedbiomed module here, to avoid dependency loops!
+#
+# WARNING WARNING WARNING WARNING WARNING
+# =======================================================================
 
 
 import threading
 
 
 class SingletonMeta(type):
-    """
-    This (meta) class is a thread safe singleton implementation.
-    It should be used as a metaclass of a new class (NC), which will
-    then provide a singleton-like class (i.e an instance of the
-    class NC will be a singleton)
+    """This (meta) class is a thread safe singleton implementation. It should be used as a metaclass of a new class
+    (NC), which will then provide a singleton-like class (i.e. an instance of the class NC will be a singleton)
 
     This metaclass is used in several fedbiomed classes
     (Request, FedLogger,...)
@@ -30,10 +25,7 @@ class SingletonMeta(type):
     _lock_instantiation = threading.Lock()
 
     def __call__(cls, *args, **kwargs):
-        """
-        Replace default class creation for classes using this metaclass,
-        executed before the constructor
-        """
+        """Replace default class creation for classes using this metaclass, executed before the constructor"""
 
         with cls._lock_instantiation:
             if cls not in cls._objects:

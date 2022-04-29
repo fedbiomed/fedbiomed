@@ -324,6 +324,7 @@ usage:  lqueue directory
    or
         lqueue dir1 dir2 dir3 ...
 
+
 ### scripts/run\_integration\_test
 
 Run a full (integration) test by launching:
@@ -332,9 +333,26 @@ Run a full (integration) test by launching:
 - several nodes, providing data
 - the network component.
 
-Usefull for continous integration tests and notebook debugging.
+Usefully for continuous integration tests and notebook debugging.
 Full documentation in tests/README.md file.
 
+### Testing Doc Strings 
+
+Fed-BioMed documentation has been configured to genereate API documentation by parsing doc strings
+that provided in classes and methods. Therefore, before creating a merge request please check 
+whether doc strings are valid for the fedbiomed documentation built. You can use following command
+to check WARNING and ERROR messages that comes from API docs. 
+
+Following command will serve only API docs on the port `:8000`. The site will be different from 
+actual documentation page of Fed-BioMed. This is because the script has been configure as minimal as possible 
+to check only WARNING and ERROR messages. Please check major ERRORs and WARNING massages and to fix them 
+without paying action on visual of the site. 
+
+```python
+./tests/docstrings/check_docstrings
+```
+
+Developer should do the last test on gitlabpages.
 
 ## Using Tensorboard
 
