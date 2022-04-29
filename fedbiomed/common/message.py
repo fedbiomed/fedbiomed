@@ -3,35 +3,36 @@ Definition of messages exchanged by the researcher and the nodes
 '''
 
 import sys
+import functools
 
 from dataclasses import dataclass
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, Callable
 
-from fedbiomed.common.constants  import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError
-from fedbiomed.common.logger     import logger
+from fedbiomed.common.logger import logger
 
 
-def catch_dataclass_exception(cls):
+def catch_dataclass_exception(cls: Callable):
+    """Encapsulates the __init__() method of dataclass in order to transform the exceptions sent
+    by the dataclass (TypeError) into our own exception (FedbiomedMessageError)
+
+    Args:
+        cls: Dataclass to validate
     """
-    Decorator: it encapsulates the __init__() method of dataclass
-    in order to transform the exceptions sent by the dataclass (TypeError)
-    into our own exception (FedbiomedMessageError)
-    """
 
-    def __cde_init__(self,*args, **kwargs):
-        '''
-        This is the __init__() replacement. Its purpose is to catch
-        the TypeError created by the __init__ method of the
-        @dataclass decorator and replace this exception by
-        FedbiomedMessageError
+    def __cde_init__(self: Any, *args: list, **kwargs: dict):
+        """This is the __init__() replacement.
+
+        Its purpose is to catch the TypeError created by the __init__
+        method of the @dataclass decorator and replace this exception by  FedbiomedMessageError
 
         Raises:
           FedbiomedMessageError if number/type of arguments is wrong
-        '''
+        """
 
         try:
-            self.__class__.__dict__['__initial_init__'](self,*args, **kwargs)
+            self.__class__.__dict__['__initial_init__'](self, *args, **kwargs)
 
         except TypeError as e:
             # this is the error raised by dataclass if number of parameter is wrong
@@ -39,13 +40,13 @@ def catch_dataclass_exception(cls):
             logger.error(_msg)
             raise FedbiomedMessageError(_msg)
 
-    def wrap(cls):
-        """
-        Wrapper to the class given as parameter
+    @functools.wraps(cls)
+    def wrap(cls: Callable):
+        """ Wrapper to the class given as parameter
 
-        class wrapping should keep some attributes (__doc__, etc)
-        of the initial class or the API documentiol tools
+        Class wrapping should keep some attributes (__doc__, etc) of the initial class or the API documentation tools
         will be mistaken
+
         """
         cls.__initial_init__ = cls.__init__
         setattr(cls, "__init__", __cde_init__)
@@ -56,17 +57,20 @@ def catch_dataclass_exception(cls):
 
 
 class Message(object):
-    """
-    This class is a top class for all fedbiomed messages providing all methods
+    """Base class for all fedbiomed messages providing all methods
     to access the messages
 
     The subclasses of this class will be pure data containers (no provided functions)
     """
 
     def __post_init__(self):
-        """
-        raise FedbiomedMessageError (FB601 error) if parameters of bad type
-        remark: this is not check by @dataclass
+        """ Post init of dataclass
+
+        - remark: this is not check by @dataclass
+
+        Raises:
+            FedbiomedMessageError: (FB601 error) if parameters of bad type
+
         """
 
         if not self.__validate(self.__dataclass_fields__.items()):
@@ -75,30 +79,29 @@ class Message(object):
             raise FedbiomedMessageError(_msg)
 
     def get_param(self, param: str):
-        """This method allows to get the value of a given param
+        """Get the value of a given param
 
         Args:
-            param (str): name of the param
+            param: name of the param
         """
         return getattr(self, param)
 
     def get_dict(self) -> Dict[str, Any]:
-        """Returns pairs (Message class attributes name, attributes values)
-        into a dictionary
+        """Returns pairs (Message class attributes name, attributes values) into a dictionary
 
+        Returns:
+            Message as dictionary
         """
         return self.__dict__
 
     def __validate(self, fields: Dict[str, Any]) -> bool:
-        """checks whether incoming field types match with attributes
-            class type.
+        """Checks whether incoming field types match with attributes class type.
 
         Args:
-            fields (Dict[str, Any]): incoming fields
+            fields: incoming fields
 
         Returns:
-            bool: If validated, ie everything matches,
-            returns True, else returns False.
+            If validated, ie everything matches, returns True, else returns False.
         """
         ret = True
         for field_name, field_def in fields:
@@ -112,36 +115,31 @@ class Message(object):
 @catch_dataclass_exception
 @dataclass
 class ModelStatusReply(Message):
-
-    """This class describes a model approve status check message sent
-       by the node
-
-    Args:
-        Message ([type]): Parent class allows to get and set message params
+    """Describes a model approve status check message sent by the node
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
 
-    Keys:
-        researcher_id       : Id of the researcher that sends the request
-        node_id             : Node id that replys the request
-        job_id              : job id related to the experiment
-        succes              : True if the node process the request as expected, false
-                              if any execption occurs
+    Attributes:
+        researcher_id: Id of the researcher that sends the request
+        node_id: Node id that replys the request
+        job_id: job id related to the experiment
+        succes: True if the node process the request as expected, false
+            if any execption occurs
         approval_obligation : Approval mode for node. True, if model approval is enabled/required
-                              in the node for training.
-        is_approved         : True, if the requested model is one of the approved model by the node
-        msg                 : Message from node based on state of the reply
-        model_url           : The model that has been checked for approval
-        command             : Reply command
+            in the node for training.
+        is_approved: True, if the requested model is one of the approved model by the node
+        msg: Message from node based on state of the reply
+        model_url: The model that has been checked for approval
+        command: Reply command
     """
 
     researcher_id: str
     node_id: str
     job_id: str
-    success : bool
-    approval_obligation : bool
-    is_approved : bool
+    success: bool
+    approval_obligation: bool
+    is_approved: bool
     msg: str
     model_url: str
     command: str
@@ -150,10 +148,15 @@ class ModelStatusReply(Message):
 @catch_dataclass_exception
 @dataclass
 class SearchReply(Message):
-    """This class describes a search message sent by the node
+    """Describes a search message sent by the node
 
-    Args:
-        Message ([type]): Parent class allows to get and set message params
+    Attributes:
+        researcher_id: Id of the researcher that sends the request
+        succes: True if the node process the request as expected, false if any exception occurs
+        databases: List of datasets
+        node_id: Node id that replys the request
+        count: Number of datasets
+        command: Reply command
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -161,21 +164,24 @@ class SearchReply(Message):
     researcher_id: str
     success: bool
     databases: list
-    count: int
     node_id: str
+    count: int
     command: str
 
 
 @catch_dataclass_exception
 @dataclass
 class ListReply(Message):
+    """This class describes a list reply message sent by the node that includes list of datasets. It is a
+    reply for ListRequest message from the researcher.
 
-    """This class describes a list reply message sent by the node that includes
-    list of datasets. It is a reply for ListRequest messsage from the researcher.
-
-    Args:
-        Message ([type]): Parent class allows to get and set message params
-
+    Attributes:
+        researcher_id: Id of the researcher that sends the request
+        succes: True if the node process the request as expected, false if any exception occurs
+        databases: List of datasets
+        node_id: Node id that replys the request
+        count: Number of datasets
+        command: Reply command
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
@@ -184,16 +190,22 @@ class ListReply(Message):
     success: bool
     databases: list
     node_id: str
-    command: str
     count: int
-
+    command: str
 
 
 @catch_dataclass_exception
 @dataclass
 class PingReply(Message):
     """
-    This class describes a ping message sent by the node
+    This class describes a ping message sent by the node.
+
+    Attributes:
+        researcher_id: Id of the researcher that will receive the reply
+        node_id: Node id that replys the request
+        succes: True if the node process the request as expected, false if any exception occurs
+        sequence: Ping sequence
+        command: Reply command
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -205,12 +217,21 @@ class PingReply(Message):
     command: str
 
 
-
 @catch_dataclass_exception
 @dataclass
 class TrainReply(Message):
-    """
-    This class describes a train message sent by the node
+    """Describes a train message sent by the node.
+
+    Attributes:
+        researcher_id: Id of the researcher that receives the reply
+        job_id: Id of the Job that is sent by researcher
+        success: True if the node process the request as expected, false if any exception occurs
+        node_id: Node id that replys the request
+        dataset_id: id of the dataset that is used for training
+        params_url: URL of parameters uploaded by node
+        tming: Timing statistics
+        msg: Custom message\
+        command: Reply command
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -229,11 +250,26 @@ class TrainReply(Message):
 @catch_dataclass_exception
 @dataclass
 class AddScalarReply(Message):
-    """
-    This class describes a add_scalar message sent by the node
+    """Describes a add_scalar message sent by the node.
+
+    Attributes:
+        researcher_id: ID of the researcher that receives the reply
+        job_id: ID of the Job that is sent by researcher
+        train: Declares whether scalar value is for training
+        test: Declares whether scalar value is for testing
+        test_on_local_updates: Declares whether testing is performed over locally updated parameters
+        test_on_global_updates: Declares whether testing is performed over aggregated parameters
+        metric: Evaluation metroc
+        epoch: Scalar is received at
+        total_samples: Number of all samples in dataset
+        batch_samples: Number of samples in batch
+        num_batches: Number of batches in single epoch
+        iteration: Scalar is received at
+        command: Reply command
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
+
     """
     researcher_id: str
     node_id: str
@@ -254,8 +290,14 @@ class AddScalarReply(Message):
 @catch_dataclass_exception
 @dataclass
 class LogMessage(Message):
-    """
-    This class describes a log message sent by the node
+    """Describes a log message sent by the node.
+
+    Attributes:
+        researcher_id: ID of the researcher that will receive the log message
+        node_id: ID of the node that sends log message
+        level: Log level
+        msg: Log message
+        command: Reply command
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -270,8 +312,14 @@ class LogMessage(Message):
 @catch_dataclass_exception
 @dataclass
 class ErrorMessage(Message):
-    """
-    This class describes an error message sent by the node
+    """Describes an error message sent by the node.
+
+    Attributes:
+        researcher_id: ID of the researcher that receives the error message
+        node_id: ID of the node that sends error message
+        errnum: Error ID/Number
+        extra_msg: Additional message regarding the error
+        command: Reply command
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -283,26 +331,19 @@ class ErrorMessage(Message):
     command: str
 
 
-
 @catch_dataclass_exception
 @dataclass
 class ModelStatusRequest(Message):
-
-    """This class describes a model approve status check message sent
-       by the researcher
-
-    Args:
-        Message ([type]): Parent class allows to get and set message params
+    """Describes a model approve status check message sent by the researcher.
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
 
-
-    Keys:
-        researcher_id   : Id of the researcher that sends the request
-        job_id          : job id related to the experiment.
-        model_url       : The model that is going to be checked for approval
-        command         : Request command
+    Attributes:
+        researcher_id: Id of the researcher that sends the request
+        job_id: Job id related to the experiment.
+        model_url: The model that is going to be checked for approval
+        command: Request command
     """
 
     researcher_id: str
@@ -311,12 +352,15 @@ class ModelStatusRequest(Message):
     command: str
 
 
-
 @catch_dataclass_exception
 @dataclass
 class SearchRequest(Message):
-    """
-    This class describes a search message sent by the researcher
+    """Describes a search message sent by the researcher.
+
+    Attributes:
+        researcher_id: ID of the researcher that sends the request
+        tags: Tags for search request
+        command: Request command
 
     Raises:
        FedbiomedMessageError: triggered if message's fields validation failed
@@ -326,13 +370,15 @@ class SearchRequest(Message):
     command: str
 
 
-
 @catch_dataclass_exception
 @dataclass
 class ListRequest(Message):
-    """
-    This class describes a list request message sent by the researcher to nodes in order to list
-    datasets belonging to each node.
+    """Describes a list request message sent by the researcher to nodes in order to list datasets belonging to
+    each node.
+
+    Attributes:
+        researcher_id: Id of the researcher that sends the request
+        command: Request command
 
     Raises:
        FedbiomedMessageError: triggered if message's fields validation failed
@@ -345,8 +391,12 @@ class ListRequest(Message):
 @catch_dataclass_exception
 @dataclass
 class PingRequest(Message):
-    """
-    This class describes a ping message sent by the researcher
+    """Describes a ping message sent by the researcher
+
+    Attributes:
+        researcher_id: Id of the researcher that send ping reqeust
+        sequence: Ping sequence
+        command: Request command
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -356,12 +406,22 @@ class PingRequest(Message):
     command: str
 
 
-
 @catch_dataclass_exception
 @dataclass
 class TrainRequest(Message):
-    """
-    This class describes a train message sent by the researcher
+    """Describes a train message sent by the researcher
+
+    Attributes:
+        researcher_id: ID of the researcher that requests training
+        job_id: Id of the Job that is sent by researcher
+        params_url: URL where model parameters are uploaded
+        training_args: Arguments for training routine
+        training_data: Dataset meta-data for training
+        training: Declares whether training will be performed
+        model_args: Arguments to initialize training plan class
+        model_url: URL where model is uploaded
+        model_class: Class name of the training plan
+        command: Reply command
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -378,11 +438,9 @@ class TrainRequest(Message):
     command: str
 
 
-
 class ResearcherMessages():
-    """This class allows to create the corresponding class instance from
-    a received/ sent message by the researcher
-    """
+    """Allows to create the corresponding class instance from a received/ sent message by the researcher"""
+
     @classmethod
     def reply_create(cls, params: Dict[str, Any]) -> Union[TrainReply,
                                                            SearchReply,
@@ -392,22 +450,21 @@ class ResearcherMessages():
                                                            ListReply,
                                                            AddScalarReply,
                                                            ModelStatusReply]:
-        """this method is used on message reception (as a mean to reply to
-        node requests, such as a Ping request).
-        it creates the adequate message, it maps an instruction
-        (given the key "command" in the input dictionary `params`)
-        to a Message object
+        """Message reception (as a mean to reply to node requests, such as a Ping request).
+
+        It creates the adequate message, it maps an instruction (given the key "command" in the input dictionary
+        `params`) to a Message object
+
         It validates:
         - the legacy of the message
         - the structure of the received message
 
         Raises:
-        FedbiomedMessageError: triggered if the message is not allowed to
-        be received by the researcher
-        KeyError: triggered if 'command' field is not present in `params`
+            FedbiomedMessageError: triggered if the message is not allowed to be received by the researcher
+            KeyError: triggered if 'command' field is not present in `params`
 
         Returns:
-        An instance of the corresponding Message class
+            An instance of the corresponding Message class
         """
         try:
             message_type = params['command']
@@ -432,7 +489,6 @@ class ResearcherMessages():
             raise FedbiomedMessageError(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
-
     @classmethod
     def request_create(cls, params: Dict[str, Any]) -> Union[TrainRequest,
                                                              SearchRequest,
@@ -440,20 +496,21 @@ class ResearcherMessages():
                                                              ListRequest,
                                                              ModelStatusRequest]:
 
-        """This method creates the adequate message/request,
-        it maps an instruction (given the key "command" in
-        the input dictionary `params`) to a Message object
+        """Creates the adequate message/request,
+
+        It maps an instruction (given the key "command" in the input dictionary `params`) to a Message object
 
         It validates:
-        - the legagy of the message
+        - the legacy of the message
         - the structure of the created message
 
         Args:
-        params (dict): dictionary containing the message.
+            params: dictionary containing the message.
 
         Raises:
             FedbiomedMessageError: if the message is not allowed to be sent by the researcher
-            KeyError ?
+            KeyError: Missing key ub the reqeust
+
         Returns:
             An instance of the corresponding Message class
         """
@@ -480,32 +537,27 @@ class ResearcherMessages():
 
 
 class NodeMessages():
-    """This class allows to create the corresponding class instance from
-    a received/sent message by the Node
-    """
+    """Allows to create the corresponding class instance from a received/sent message by the Node"""
+
     @classmethod
     def request_create(cls, params: dict) -> Union[TrainRequest,
                                                    SearchRequest,
                                                    PingRequest,
                                                    ListRequest,
                                                    ModelStatusRequest]:
-        """
-        This method creates the adequate message/ request to send
-        to researcher, it maps an instruction (given the key "command" in the
-        input dictionary `params`) to a Message object
+        """Creates the adequate message/ request to send to researcher, it maps an instruction (given the key
+        "command" in the input dictionary `params`) to a Message object
 
         It validates:
-        - the legagy of the message
+        - the legacy of the message
         - the structure of the created message
 
         Raises:
-            FedbiomedMessageError: triggered if the message is not allowed te be sent
-            by the node (ie if message `command` field is not either a
-            train request, search request or a ping request)
+            FedbiomedMessageError: triggered if the message is not allowed te be sent by the node (ie if message
+                `command` field is not either a train request, search request or a ping request)
 
         Returns:
-            An instance of the corresponding class (TrainRequest,
-            SearchRequest, PingRequest)
+            An instance of the corresponding class (TrainRequest,SearchRequest, PingRequest)
         """
         try:
             message_type = params['command']
@@ -528,7 +580,6 @@ class NodeMessages():
             raise FedbiomedMessageError(_msg)
         return MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
-
     @classmethod
     def reply_create(cls, params: dict) -> Union[TrainReply,
                                                  SearchReply,
@@ -538,19 +589,19 @@ class NodeMessages():
                                                  AddScalarReply,
                                                  ListReply,
                                                  ModelStatusReply]:
-        """this method is used on message reception.
-        It creates the adequate message reply to send to the researcher,
-        it maps an instruction (given the key "command" in the
-        input dictionary `params`) to a Message object
+        """Message reception.
+
+        It creates the adequate message reply to send to the researcher, it maps an instruction (given the key
+        "command" in the input dictionary `params`) to a Message object
+
         It validates:
         - the legacy of the message
         - the structure of the received message
 
         Raises:
-            FedbiomedMessageError: if the message is not allowed te be received by
-            the node (ie if message `command` field is not either a
-            train request, search request, a ping request, add scalar
-            request, or error message)
+            FedbiomedMessageError: if the message is not allowed te be received by the node (ie if message `command`
+                field is not either a train request, search request, a ping request, add scalar request, or
+                error message)
 
         Returns:
             An instance of the corresponding class

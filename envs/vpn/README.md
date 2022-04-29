@@ -43,12 +43,14 @@ generateResolvConf = false
 ## setup VPN and fedbiomed
 
 Tip: build images from a clean file tree (avoid copying modified/config/temporary files to images) :
-- method 1 : use a fresh `git clone git@gitlab.inria.fr:fedbiomed/fedbiomed.git` tree
+- method 1 : use a fresh `git clone https://gitlab.inria.fr/fedbiomed/fedbiomed.git` tree
 - method 2 : clean your existing file tree
   * general cleaning
-``` bash
-[user@laptop $] source ./scripts/fedbiomed_environment clean
-```
+
+  ``` bash
+  [user@laptop $] source ./scripts/fedbiomed_environment clean
+  ```
+
   * specific [cleaning](#cleaning) for containers
 
 
@@ -652,9 +654,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 [user@network $] docker-compose rm -sf vpnserver
 
 # level 2 : configuration
-# currently as root 
-# TODO write config files as CONTAINER_USER
-[root@network #] rm -rf vpnserver/run_mounts/config/{config.env,config_peers,ip_assign,wireguard}
+[user@network #] rm -rf vpnserver/run_mounts/config/{config.env,config_peers,ip_assign,wireguard}
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-vpnserver fedbiomed/vpn-base

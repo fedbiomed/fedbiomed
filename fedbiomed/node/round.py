@@ -23,7 +23,7 @@ from fedbiomed.node.model_manager import ModelManager
 
 class Round:
     """
-    This class repesents the training part execute by a node in a given round
+    This class represents the training part execute by a node in a given round
     """
 
     def __init__(self,
@@ -42,27 +42,23 @@ class Round:
         """Constructor of the class
 
         Args:
-            - model_kwargs (dict): contains model args
-            - training_kwargs (dict): contains model characteristics,
-                especially input  dimension (key: 'in_features')
+            model_kwargs: contains model args
+            training_kwargs: contains model characteristics, especially input  dimension (key: 'in_features')
                 and output dimension (key: 'out_features')
-            - dataset ([dict]): dataset details to use in this round.
-                It contains the dataset name, dataset's id,
-                data path, its shape, its
-                description...
-            - model_url (str): url from which to download model
-            - model_class (str): name of the training plan
-                (eg 'MyTrainingPlan')
-            - params_url (str): url from which to upload/dowload model params
-            - job_id (str): job id
-            - researcher_id (str): researcher id
-            - history_monitor (HistoryMonitor)
-            - node_args (Union[dict, None]): command line arguments for node. Can include:
-                - gpu (bool): propose use a GPU device if any is available.
-                - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
+            dataset: dataset details to use in this round. It contains the dataset name, dataset's id,
+                data path, its shape, its description...
+            model_url: url from which to download model
+            model_class: name of the training plan (eg 'MyTrainingPlan')
+            params_url: url from which to upload/download model params
+            job_id: job id
+            researcher_id: researcher id
+            history_monitor: Sends real-time feed-back to end-user during training
+            node_args: command line arguments for node. Can include:
+                - `gpu (bool)`: propose use a GPU device if any is available.
+                - `gpu_num (Union[int, None])`: if not None, use the specified GPU device instead of default
                     GPU device if this GPU device is available.
-                - gpu_only (bool): force use of a GPU device if any available, even if researcher
-                    doesnt request for using a GPU.
+                - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
+                    doesn't request for using a GPU.
         """
         testing_args_keys = ('test_ratio', 'test_on_local_updates',
                              'test_on_global_updates', 'test_metric',
@@ -75,6 +71,9 @@ class Round:
         for arg in testing_args_keys:
             self.testing_arguments[arg] = training_kwargs.get(arg, None)
             training_kwargs.pop(arg, None)
+
+        self.batch_size = training_kwargs.get('batch_size', 48)
+        training_kwargs.pop('batch_size', None)
 
         # Set training arguments after removing testing arguments
         self.training_kwargs = training_kwargs
@@ -91,15 +90,13 @@ class Round:
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
         self.model = None
         self.training = training
-        self._default_batch_size = 48  # default bath size
 
     def run_model_training(self) -> dict[str, Any]:
         """This method downloads model file; then runs the training of a model
         and finally uploads model params
 
         Returns:
-            [NodeMessages]: returns the corresponding node message,
-            trainReply instance
+            Returns the corresponding node message, training reply instance
         """
         is_failed = False
         error_message = ''
@@ -294,10 +291,10 @@ class Round:
         based on success status.
 
         Args:
-            message (str):
-            success (bool):
-            params_url (str):
-            timing (dict):
+            message: Message regarding the process.
+            success: Declares whether training/testing is successful
+            params_url: URL where parameters are uploaded
+            timing: Timing statistics
         """
 
         # If round is not successful log error message
@@ -350,7 +347,7 @@ class Round:
         `dataset_path` for model and calls `training_data` method of training plan.
 
         Args:
-            test_ratio (float) : The ratio that represent test partition. Default is 0, means that
+            test_ratio: The ratio that represent test partition. Default is 0, means that
                             all the samples will be used for training.
 
         Raises:
@@ -362,9 +359,6 @@ class Round:
                                    `fedbiomed.common.data.DataManager`.
                                  - If `load` method of DataManager returns an error
         """
-
-        # Get batch size from training argument if it is not exist use default batch size
-        batch_size = self.training_kwargs.get('batch_size', self._default_batch_size)
 
         training_plan_type = self.model.type()
 
@@ -383,7 +377,7 @@ class Round:
         # sklearn, it will raise argument error
         try:
             if 'batch_size' in args:
-                data_manager = self.model.training_data(batch_size=batch_size)
+                data_manager = self.model.training_data(batch_size=self.batch_size)
             else:
                 data_manager = self.model.training_data()
         except Exception as e:
