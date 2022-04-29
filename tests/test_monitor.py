@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 import testsupport.mock_researcher_environ  # noqa (remove flake8 false warning)
 
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.monitor import Monitor, _MetricStore  # noqa
+from fedbiomed.researcher.monitor import Monitor, MetricStore  # noqa
 
 
 def create_file(file_name: str):
@@ -214,7 +214,7 @@ class TestMetricStore(unittest.TestCase):
 
     # before the tests
     def setUp(self):
-        self.metric_store = _MetricStore()
+        self.metric_store = MetricStore()
 
     # after the tests
     def tearDown(self):

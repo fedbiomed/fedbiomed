@@ -13,24 +13,22 @@ class FedAverage(Aggregator):
     """
 
     def __init__(self):
-        """
-        constructor
+        """Construct `FedAverage` object as an instance of [`Aggregator`]
+        [fedbiomed.researcher.aggregators.Aggregator].
         """
         super(FedAverage, self).__init__()
         self.aggregator_name = "FedAverage"
 
     def aggregate(self, model_params: list, weights: list) -> Dict:
-        """
-        aggregates  local models sent by participating nodes into
-        a global model, following Federated Averaging strategy.
+        """ Aggregates  local models sent by participating nodes into a global model, following Federated Averaging
+        strategy.
 
         Args:
-            model_params (list): contains each model layers
-            weights (list): contains all weigths of a given
-            layer.
+            model_params: contains each model layers
+            weights: contains all weights of a given layer.
 
         Returns:
-            Dict: [description]
+            Aggregated parameters
         """
         weights = self.normalize_weights(weights)
         return federated_averaging(model_params, weights)
