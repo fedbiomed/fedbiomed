@@ -275,7 +275,7 @@ class SchemeValidator(object):
 
         return True
 
-    def populate_with_defaults(self, value: Dict) -> Dict:
+    def populate_with_defaults(self, value: Dict, only_required = True) -> Dict:
         """
         Inject default values defined in the rule to a given dictionary.
 
@@ -288,6 +288,8 @@ class SchemeValidator(object):
 
         Args:
             value:   a json data to verify/populate
+            only_required: if True, only force required key. If False, update all
+                           keys with default values in the scheme
 
         Return:
             a json populated with default values, returns an empty dict if something is wrong
@@ -311,6 +313,15 @@ class SchemeValidator(object):
                         result[k] = v['default']
                     else:
                         raise RuleError(f"scheme does not define a default value for required key: {k}")
+
+            else:
+                if not only_required:
+                    if k in value:
+                        result[k] = value[k]
+                    else:
+                        if 'default' in v:
+                            result[k] = v['default']
+
 
         return result
 

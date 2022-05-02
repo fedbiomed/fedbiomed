@@ -21,25 +21,30 @@ class TrainingArgs():
 
     More to come...
     """
-    def __init__(self, ta: Dict = None, scheme: Dict = None):
+    def __init__(self, ta: Dict = None, extra_scheme: Dict = None, only_required: bool = True):
         """
         Create a TrainingArgs from a Dict with input validation.
 
         Args:
-            ta:      dictionnary describing the TrainingArgs scheme.
-                     if empty dict or None, a minimal instance of TrainingArgs
-                     will be initialized with default values for required keys
-            scheme: user provided scheme instead of default scheme
+            ta:     dictionnary describing the TrainingArgs scheme.
+                    if empty dict or None, a minimal instance of TrainingArgs
+                    will be initialized with default values for required keys
+            scheme: user provided scheme extension, which add new rules or
+                    modify the scheme of the default training args.
+                    Warning: this is a dangerous featuret, provided to
+                    developpers, to ease the test of future Fed-Biomed features
 
         Raises:
             ValidateError: if ta is not valid
+            RuleError: if extra_scheme is not valid
         """
-        self._ta = ta
+        self._scheme = TrainingArgs.default_scheme()
 
-        if scheme is None or scheme == {} :
-            self._scheme = TrainingArgs.default_scheme()
-        else:
-            self._scheme = scheme
+        if extra_scheme is None:
+            extra_scheme = {}
+
+        for k in extra_scheme:
+            self._scheme[k] = extra_scheme[k]
 
         try:
             self._sc = SchemeValidator(self._scheme)
@@ -49,13 +54,15 @@ class TrainingArgs():
             raise
 
         # scheme is validated from here
-        if ta is None or ta == {}:
-            # initialize with default values of the schemeV
-            try:
-                self._ta = self._sc.populate_with_defaults( {} )
-            except RuleError:
-                # scheme has required keys without defined default value
-                raise
+        if ta is None:
+            ta = {}
+
+        try:
+            self._ta = self._sc.populate_with_defaults( ta,
+                                                        only_required = only_required)
+        except RuleError:
+            # scheme has required keys without defined default value
+            raise
 
         # finaly check user input
         try:
@@ -227,14 +234,8 @@ class TrainingArgs():
             KeyError: if key does not exist and/or no default value
                       was defined in the scheme for this key.
         """
+        return self._ta[key]
 
-        if key in self._ta:
-            return self._ta[key]
-
-        if key in self._sc.scheme() and "default" in self._sc.scheme()[key]:
-            return self._sc.scheme()[key]["default"]
-
-        raise KeyError
 
     def modify(self, values: Dict) -> _MyOwnType:
         """
