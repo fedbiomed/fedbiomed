@@ -3,6 +3,7 @@ Provide a way to easily to manage training arguments.
 """
 
 
+from copy import deepcopy
 from typing import Any, Dict, TypeVar, Union
 
 from fedbiomed.common.metrics import MetricTypes
@@ -30,7 +31,7 @@ class TrainingArgs():
                     if empty dict or None, a minimal instance of TrainingArgs
                     will be initialized with default values for required keys
             scheme: user provided scheme extension, which add new rules or
-                    modify the scheme of the default training args.
+                    update the scheme of the default training args.
                     Warning: this is a dangerous featuret, provided to
                     developpers, to ease the test of future Fed-Biomed features
 
@@ -101,11 +102,18 @@ class TrainingArgs():
         """
         return v >= 0
 
+    @staticmethod
+    @validator_decorator
+    def _always_true_hook( v: Any):
+        """
+        As is says
+        """
+        return True
 
     @classmethod
     def default_scheme(cls) -> Dict:
         """
-        Returns the default scheme
+        Returns the default (base) scheme for TrainingArgs.
         """
         return  {
             # loss rate
@@ -172,7 +180,7 @@ class TrainingArgs():
 
             # test_metric_args (no test)
             "test_metric_args": {
-                "rules": [ lambda a: True ],
+                "rules": [ cls._always_true_hook ],
                 "required": False
             }
 
@@ -181,9 +189,12 @@ class TrainingArgs():
 
 
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Display the Training_Args content.
+
+        Returns:
+            printable version of TrainingArgs
         """
         return str(self._ta)
 
@@ -204,25 +215,20 @@ class TrainingArgs():
         """
 
         try:
-            self._ta[key] = value
-            self._sc.validate(self._ta)
-        except (RuleError, ValidateError):
+            ta = deepcopy(self._ta)
+            ta[key] = value
+            self._sc.validate(ta)
+            self._ta[key] = value  # only update it value is OK
+        except (RuleError, ValidateError) as e:
             #
             # transform to FedbiomedError
-            raise
+            raise e
         return self._ta[key]
 
 
     def __getitem__(self, key: str) -> Any:
         """
         Returns the value associated to a key.
-
-
-        If the value was not passed at initialization:
-        - if a default value was defined in the scheme, this
-          default value is passed
-        - if a default value was not defined in the scheme,
-          a KeyError is returned
 
         Args:
             key:   key
@@ -231,21 +237,45 @@ class TrainingArgs():
             value
 
         Raises:
-            KeyError: if key does not exist and/or no default value
-                      was defined in the scheme for this key.
+            KeyError: if key does not exist
         """
         return self._ta[key]
 
 
-    def modify(self, values: Dict) -> _MyOwnType:
+    def update(self, values: Dict) -> _MyOwnType:
         """
-        Modify multiple keys of the trainig arguments.
-        """
+        Update multiple keys of the trainig arguments.
 
+        Args:
+            values:  a dictionnary of keys to validate/update
+
+        Return:
+            self: the object itself after modification
+
+        Raises:
+            RuleError: if a key in invalid
+            ValidateError: if a value is invalid
+        """
         for k in values:
             self.__setitem__(k, values[k])
-
         return self
+
+
+    def __ixor__(self, other: Dict) -> _MyOwnType:
+        """
+        Syntax sugar for update().
+
+        Args:
+            other:  a dictionnary of keys to validate/update
+
+        Return:
+            self: the object itself after modification
+
+        Raises:
+            RuleError: if a key in invalid
+            ValidateError: if a value is invalid
+        """
+        return self.update(other)
 
 
     def scheme(self) -> Dict:
@@ -253,5 +283,31 @@ class TrainingArgs():
         Returns the scheme of a TrainingArgs instance.
 
         The scheme is not necessarly the [`default_scheme`][default_scheme]
+
+        Returns:
+            scheme:  the current scheme used for validation
         """
         return self._scheme
+
+
+    def default_value(self, key: str) -> Any:
+        """
+        Returns the default value for the key.
+
+        Args:
+            key:  key
+
+        Returns:
+            value: the default value associated to the key
+
+        Raises:
+            KeyError:  if key is not part of the sheme or
+            ValueError: if no default value is defined for the key
+        """
+        if key in self._sc.scheme():
+            if "default" in self._sc.scheme()[key]:
+                return self._sc.scheme()[key]["default"]
+            else:
+                raise ValueError(f"no default value defined for key: {key}")
+        else:
+            raise KeyError(f"no such key: {key}")
