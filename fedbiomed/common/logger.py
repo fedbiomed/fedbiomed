@@ -3,44 +3,41 @@ Global logger for fedbiomed
 
 Written above origin Logger class provided by python
 
-Add the following features:
+Contains following features:
 - provides a file handler
 - provides a JSON/MQTT handler
 - works on python scripts / ipython / notebook
 - manages handlers with a key. Default keys are 'CONSOLE', 'MQTT', 'FILE',
   but any key is allowed (only one handler by key)
-- allow to change log level globally, or on a specific handler (using its key)
+- allow changing log level globally, or on a specific handler (using its key)
 - log levels can be provided as string instead of logging.* levels (no need to
   import logging in caller's code) just as in the initial python logger
 
-be carefull to not create dependancy loop then importing other fedbiomed package
+!!! info "Dependency issue"
+    Please pay attention to not create dependency loop then importing other fedbiomed package
 """
-
 
 import json  # we do not use fedbiomed.common.json to avoid dependancy loops
 
 import logging
 import logging.handlers
 
+from typing import Callable, Any
 # these fedbiomed.* import are OK, they do not introduce dependancy loops
-from fedbiomed.common.constants  import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedLoggerError
-from fedbiomed.common.singleton  import SingletonMeta
+from fedbiomed.common.singleton import SingletonMeta
 
 # default values
-DEFAULT_LOG_FILE   = 'mylog.log'
-DEFAULT_LOG_LEVEL  = logging.WARNING
-DEFAULT_LOG_TOPIC  = 'general/logger'
+DEFAULT_LOG_FILE = 'mylog.log'
+DEFAULT_LOG_LEVEL = logging.WARNING
+DEFAULT_LOG_TOPIC = 'general/logger'
 
 
 class _MqttFormatter(logging.Formatter):
-    '''
+    """Mqtt  formatter """
 
-    (internal) mqtt  formatter
-
-    should not be imported from this module
-
-    '''
+    # ATTENTION: should not be imported from this module
 
     def __init__(self, node_id):
         super().__init__()
@@ -72,14 +69,9 @@ class _MqttFormatter(logging.Formatter):
     # asctime: '2021-09-08 15:36:30796'
 
     def format(self, record):
-
-        json_message = {
-            "asctime"   : record.__dict__["asctime"],
-            "node_id"   : self._node_id
-        }
-        json_message["name"] = record.__dict__["name"]
-        json_message["level"] = record.__dict__["levelname"]
-        json_message["message"] = record.__dict__["message"]
+        json_message = {"asctime": record.__dict__["asctime"], "node_id": self._node_id,
+                        "name": record.__dict__["name"], "level": record.__dict__["levelname"],
+                        "message": record.__dict__["message"]}
 
         record.msg = json.dumps(json_message)
         return super().format(record)
@@ -96,113 +88,96 @@ class _MqttHandler(logging.Handler):
     """
 
     def __init__(self,
-                 mqtt        = None,
-                 node_id     = None,
-                 topic       = DEFAULT_LOG_TOPIC
+                 mqtt: Any = None,
+                 node_id: str = None,
+                 topic: str = DEFAULT_LOG_TOPIC
                  ):
         """
         Constructor
 
-        parameters:
-        mqtt      : opened MQTT object
-        node_id   : unique MQTT client id
-        topic     : topic/channel to publish to (default to logging.WARNING)
+        Args:
+            mqtt: opened MQTT object
+            node_id: unique MQTT client id
+            topic: topic/channel to publish to (default to logging.WARNING)
         """
 
         logging.Handler.__init__(self)
-        self._node_id        = node_id
-        self._mqtt           = mqtt
-        self._topic          = topic
+        self._node_id = node_id
+        self._mqtt = mqtt
+        self._topic = topic
 
-    def emit(self, record):
+    def emit(self, record: Any):
+        """Do the proper job (override the logging.Handler method() )
+
+        Args:
+            record: is automatically passed by the logger class
         """
-        do the proper job (override the logging.Handler method() )
 
-        parameters:
-        record : is automatically passed by the logger class
-        """
-
-        #
         # format a message as expected for LogMessage
-        #
         # TODO:
         # - get the researcher_id from the caller (is it needed ???)
         #   researcher_id is not known then adding the mqtt handler....
-        #
-        msg = dict(
-            command       = 'log',
-            level         = record.__dict__["levelname"],
-            msg           = self.format(record),
-            node_id       = self._node_id,
-            researcher_id = '<unknown>'
-        )
+
+        msg = dict(command='log',
+                   level=record.__dict__["levelname"],
+                   msg=self.format(record),
+                   node_id=self._node_id,
+                   researcher_id='<unknown>')
         try:
-            #
-            # import is done here to avoid circular import
-            # it must also be done each time emit() is called
-            #
+            # import is done here to avoid circular import it must also be done each time emit() is called
             import fedbiomed.common.message as message
 
             # verify the message content with Message validator
-            _ = message.NodeMessages.reply_create( msg )
+            _ = message.NodeMessages.reply_create(msg)
             self._mqtt.publish(self._topic, json.dumps(msg))
-
-        except:  # pragma: no cover
-            #
-            # obviously cannot call logger here... (infinite loop)
-            # cannot also send the message to the researcher
+        except Exception as e:  # pragma: no cover
+            # obviously cannot call logger here... (infinite loop)  cannot also send the message to the researcher
             # (which was the purpose of the try block which failed)
-            #
-            print(
-                record.__dict__["asctime"],
-                record.__dict__["name"],
-                "CRITICAL - badly formatted MQTT log message. Cannot send MQTT message"
-            )
+            print(record.__dict__["asctime"],
+                  record.__dict__["name"],
+                  "CRITICAL - badly formatted MQTT log message. Cannot send MQTT message")
             _msg = ErrorNumbers.FB602.value + ": badly formatted MQTT log message. Cannot send MQTT message"
             raise FedbiomedLoggerError(_msg)
 
 
 class _FedLogger(metaclass=SingletonMeta):
-    """
-    base class for the logger. it uses python logging module by
-    composition (only log() method is overrided)
+    """Base class for the logger. it uses python logging module by composition (only log() method is overwritten)
 
-    all methods from the logging module can be accessed through
-    the _logger member of the class if necessary (instead of overloading all the methods)
-    (ex:  logger._logger.getEffectiveLevel() )
+    All methods from the logging module can be accessed through the _logger member of the class if necessary
+    (instead of overloading all the methods) (ex:  logger._logger.getEffectiveLevel() )
 
-    should not be imported
+    Should not be imported
     """
 
+    def __init__(self, level: str = DEFAULT_LOG_LEVEL):
+        """Constructor of base class
 
-    def __init__(self, level = DEFAULT_LOG_LEVEL ):
-        """
-        constructor of base class
+        An initial console logger is installed (so the logger has at minimum one handler)
 
-        parameter: initial loglevel.
-        This loglevel will be the default for all handlers, if called
-        without the default level
+        Args:
+            level: initial loglevel. This loglevel will be the default for all handlers, if called
+                without the default level
 
-        an initial console logger is installed (so the logger has at minimum one handler)
+
         """
 
         # internal tables
         # transform string to logging.level
         self._nameToLevel = {
-            "DEBUG"          : logging.DEBUG,
-            "INFO"           : logging.INFO,
-            "WARNING"        : logging.WARNING,
-            "ERROR"          : logging.ERROR,
-            "CRITICAL"       : logging.CRITICAL,
+            "DEBUG": logging.DEBUG,
+            "INFO": logging.INFO,
+            "WARNING": logging.WARNING,
+            "ERROR": logging.ERROR,
+            "CRITICAL": logging.CRITICAL,
         }
 
         # transform logging.level to string
         self._levelToName = {
-            logging.DEBUG    : "DEBUG",
-            logging.INFO     : "INFO",
-            logging.WARNING  : "WARNING",
-            logging.ERROR    : "ERROR",
-            logging.CRITICAL : "CRITICAL"
+            logging.DEBUG: "DEBUG",
+            logging.INFO: "INFO",
+            logging.WARNING: "WARNING",
+            logging.ERROR: "ERROR",
+            logging.CRITICAL: "CRITICAL"
         }
 
         # name this logger
@@ -219,17 +194,15 @@ class _FedLogger(metaclass=SingletonMeta):
 
         pass
 
+    def _internalAddHandler(self, output: str, handler: Callable):
+        """Private method
 
-    def _internalAddHandler(self, output , handler):
-        """
-        private method
-
-        add a handler to the logger. only one handler is allowed
+        Add a handler to the logger. only one handler is allowed
         for a given output (type)
 
-        parameters:
-        output  = tag for the logger ("CONSOLE", "FILE"), this is a string used as an hash key
-        handler = proper handler to install. if handler is None, it will remove the previous installed handler
+        Args:
+            output: Tag for the logger ("CONSOLE", "FILE"), this is a string used as a hash key
+            handler: Proper handler to install. if handler is None, it will remove the previous installed handler
         """
         if handler is None:
             if output in self._handlers:
@@ -242,31 +215,25 @@ class _FedLogger(metaclass=SingletonMeta):
             self._logger.debug(" adding handler for: " + output)
             self._handlers[output] = handler
             self._logger.addHandler(handler)
-            self._handlers[output].setLevel( self._default_level)
+            self._handlers[output].setLevel(self._default_level)
         else:
             self._logger.warning(output + " handler already present - ignoring")
 
         pass
 
+    def _internalLevelTranslator(self, level: Any = DEFAULT_LOG_LEVEL) -> Any:
+        """Private method
 
-    def _internalLevelTranslator(self, level = DEFAULT_LOG_LEVEL) :
-        """
-        private method
+        This helper allows to use a string instead of logging.* then using logger levels. This is the opposite
+        of the getLevelName() of logging python module and this is not provided by the logging.Logger class
 
-        this helper allows to use a string instead of logging.* then using logger levels
+        Args:
+            level:  wanted parameter
 
-        parameter:
-        level:  wanted parameter
+        Returns:
+            logging.* form of the level
 
-        output:
-        level:  logging.* form of the level
 
-        ex:
-        _internalLevelTranslator('DEBUG')  returns logging.DEBUG
-
-        remark:
-        this is the opposite of the getLevelName() of logging python module
-        and this is not provided by the logging.Logger class
         """
 
         # logging.*
@@ -289,21 +256,20 @@ class _FedLogger(metaclass=SingletonMeta):
         self._logger.warning("setting " + self._levelToName[DEFAULT_LOG_LEVEL] + " level instead")
         return DEFAULT_LOG_LEVEL
 
-
     def addFileHandler(self,
-                       filename = DEFAULT_LOG_FILE,
-                       format = '%(asctime)s %(name)s %(levelname)s - %(message)s' ,
-                       level = DEFAULT_LOG_LEVEL):
-        """
-        add a file handler
+                       filename: str = DEFAULT_LOG_FILE,
+                       format: str = '%(asctime)s %(name)s %(levelname)s - %(message)s',
+                       level: any = DEFAULT_LOG_LEVEL):
+        """Adds a file handler
 
-        parameters:
-        filename : file to log to
-        level    : initial level of the logger (optionnal)
+        Args:
+            filename: File to log to
+            format: Log format
+            level: Initial level of the logger (optionnal)
         """
 
-        handler  = logging.FileHandler(filename=filename, mode='a')
-        handler.setLevel( self._internalLevelTranslator(level) )
+        handler = logging.FileHandler(filename=filename, mode='a')
+        handler.setLevel(self._internalLevelTranslator(level))
 
         formatter = logging.Formatter(format)
         handler.setFormatter(formatter)
@@ -311,23 +277,20 @@ class _FedLogger(metaclass=SingletonMeta):
         self._internalAddHandler("FILE", handler)
         pass
 
-
     def addConsoleHandler(self,
-                          format = '%(asctime)s %(name)s %(levelname)s - %(message)s' ,
-                          level  = DEFAULT_LOG_LEVEL):
+                          format: str = '%(asctime)s %(name)s %(levelname)s - %(message)s',
+                          level: Any = DEFAULT_LOG_LEVEL):
 
-        """
-        add a console handler
+        """Adds a console handler
 
-        parameters:
-        format : the format string of the logger
-        level  : initial level of the logger for this handler (optionnal)
-                 if not given, the default level is set
+        Args:
+            format: the format string of the logger
+            level: initial level of the logger for this handler (optional) if not given, the default level is set
         """
 
         handler = logging.StreamHandler()
 
-        handler.setLevel( self._internalLevelTranslator(level) )
+        handler.setLevel(self._internalLevelTranslator(level))
 
         formatter = logging.Formatter(format)
         handler.setFormatter(formatter)
@@ -335,51 +298,45 @@ class _FedLogger(metaclass=SingletonMeta):
 
         pass
 
-
     def addMqttHandler(self,
-                       mqtt        = None,
-                       node_id     = None,
-                       topic       = DEFAULT_LOG_TOPIC,
-                       level       = logging.ERROR
+                       mqtt: Any = None,
+                       node_id: str = None,
+                       topic: Any = DEFAULT_LOG_TOPIC,
+                       level: Any = logging.ERROR
                        ):
 
-        """
-        add a mqtt handler, to publish error message on a topic
+        """Adds a mqtt handler, to publish error message on a topic
 
-        parameters:
-        mqtt        : already opened MQTT object
-        node_id     : id of the caller (necessary for msg formatting to the researcher)
-        topic       : topic to publish to    (non mandatory)
-        level       : level of this handler  (non mandatory)
-                      level must be lower than ERROR to insure that the
-                      research get all ERROR/CRITICAL messages
+        Args:
+            mqtt: already opened MQTT object
+            node_id: id of the caller (necessary for msg formatting to the researcher)
+            topic: topic to publish to (non-mandatory)
+            level: level of this handler (non-mandatory) level must be lower than ERROR to ensure that the
+                research get all ERROR/CRITICAL messages
         """
 
         handler = _MqttHandler(
-            mqtt        = mqtt,
-            node_id     = node_id ,
-            topic       = topic
+            mqtt=mqtt,
+            node_id=node_id,
+            topic=topic
         )
 
         # may be not necessary ?
-        handler.setLevel( self._internalLevelTranslator(level) )
+        handler.setLevel(self._internalLevelTranslator(level))
         formatter = _MqttFormatter(node_id)
 
         handler.setFormatter(formatter)
         self._internalAddHandler("MQTT", handler)
 
         # as a side effect this will set the minimal level to ERROR
-        self.setLevel(level , "MQTT")
+        self.setLevel(level, "MQTT")
         pass
 
     def delMqttHandler(self):
         self._internalAddHandler("MQTT", None)
 
-    def log(self, level, msg):
-        """
-        overrides the logging.log() method to allow the use of
-        string instead of a logging.* level
-        """
+    def log(self, level: Any, msg: str):
+        """Overrides the logging.log() method to allow the use of string instead of a logging.* level """
 
         level = logger._internalLevelTranslator(level)
         self._logger.log(
@@ -387,24 +344,25 @@ class _FedLogger(metaclass=SingletonMeta):
             msg
         )
 
+    def setLevel(self, level: Any, htype: Any = None):
+        """Overrides the setLevel method, to deal with level given as a string and to change le level of
+        one or all known handlers
 
-    def setLevel(self, level, htype = None ):
-        """
-        overrides the setLevel method, to deal with level given as a string
-        and to change le level of one or all known handlers
+        This also change the default level for all future handlers.
 
-        this also change the default level for all future handlers.
+        !!! info "Remark"
 
-        parameter:
-        level : level to modify, can be a string or a logging.* level (mandatory)
-        htype : if provided (non madatory), change the level of the given handler.
-                if not  provided (or None), change the level of all known handlers
+            Level should not be lower than CRITICAL (meaning CRITICAL errors are always displayed)
 
-        Remark: level should not be lower than CRITICAL (meaning CRITICAL errors are
-                always displayed
-
-        Ex:
+            Example:
+            ```python
             setLevel( logging.DEBUG, 'FILE')
+            ```
+
+        Args:
+            level : level to modify, can be a string or a logging.* level (mandatory)
+            htype : if provided (non-mandatory), change the level of the given handler. if not  provided (or None),
+                change the level of all known handlers
         """
 
         level = self._internalLevelTranslator(level)
@@ -424,12 +382,9 @@ class _FedLogger(metaclass=SingletonMeta):
         # htype provided but no handler for this type exists
         self._logger.warning(htype + " handler not initialized yet")
 
+    def __getattr__(self, s: Any):
+        """Calls the method from self._logger if not override by this class"""
 
-
-    def __getattr__(self, s):
-        """
-        call the method from self._logger if not overrided by this class
-        """
         try:
             _x = self.__getattribute__(s)
         except AttributeError:
@@ -439,7 +394,5 @@ class _FedLogger(metaclass=SingletonMeta):
             return _x  # pragma: no cover
 
 
-'''
-Instanciation of the logger singleton
-'''
+"""Instantiation of the logger singleton"""
 logger = _FedLogger()

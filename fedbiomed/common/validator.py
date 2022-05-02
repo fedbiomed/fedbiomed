@@ -12,7 +12,7 @@ Values can be checked against the rules.
 
 **Typical example:**
 
-```
+```python
   def my_validation_funct( value ):
       if some_python_code:
           return False
@@ -47,7 +47,7 @@ A SchemeValidator is accepted byt the Validator class.
 
 **Typical example:**
 
-```
+```python
   # direct use
   scheme = { "a" : { "rules" : [float], "required": True } }
 
@@ -189,7 +189,7 @@ class SchemeValidator(object):
         A valid json description is also a dictionary
         with the following grammar:
 
-        ```
+        ```python
         {
           "var_name": {
                         "rules": [ validator1, vlidator2, ...] ,
@@ -206,17 +206,17 @@ class SchemeValidator(object):
         Example:
 
         This is a valid scheme:
-        ```
+        ```python
         { "a" : { "rules" : [float], "required": True } }
         ```
 
         The following json complies to this scheme:
-        ```
+        ```python
         { "a": 3.14 }
         ```
 
         The following does not:
-        ```
+        ```python
         { "a": True }
         { "b": 3.14 }
         ```

@@ -9,17 +9,23 @@ from fedbiomed.common.constants  import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
 from fedbiomed.common.logger     import logger
 
+from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.datasets import FederatedDataSet
 
 
 class Strategy:
     """
-    Default Strategy parent class
+    Default Strategy as Parent class. Custom strategy classes must inherit from this parent class.
 
-    provide node management helpers
     """
 
     def __init__(self, data: FederatedDataSet):
+        """
+
+        Args:
+            data: Object that includes all active nodes and the meta-data of the dataset that is going to be
+                used for federated training.
+        """
         self._fds = data
         self._sampling_node_history = {}
         self._success_node_history = {}
@@ -27,36 +33,46 @@ class Strategy:
 
     def sample_nodes(self, round_i: int):
         """
-        1) returns the id of the sampled nodes
-        2) TODO: creates the nodes weights in case they can all perform their work
-        """
-        return
+        Abstract method that must be implemented by child class
 
-    def refine(self, training_replies, round_i):
+        Args:
+            round_i: Current round of experiment
         """
-        @param training_replies is a list of elements of type
-         Response( { 'success': m['success'],
-                     'msg': m['msg'],
-                     'dataset_id': m['dataset_id'],
-                     'node_id': m['node_id'],
-                     'params_path': params_path,
-                     'params': params } )
+        msg = ErrorNumbers.FB402.value + \
+            ": sample nodes method should be overloaded by the provided strategy"
+        logger.critical(msg)
+        raise FedbiomedStrategyError(msg)
 
-        @return weights : proportions list, each element of this list represent the proportion of
-        lines the node has with respect to the whole.
-        @return model_params : list containing dictionnaries with list of weight matrices of
-        every node : [{"n1":{"layer1":m1,"layer2":m2},{"layer3":"m3"}},{"n2": ...}]
+    def refine(self, training_replies: Responses, round_i: int) -> tuple[list, list]:
+        """
+        Abstract method that must be implemented by child class
+
+        Args:
+            training_replies: is a list of elements of type
+                 Response( { 'success': m['success'],
+                             'msg': m['msg'],
+                             'dataset_id': m['dataset_id'],
+                             'node_id': m['node_id'],
+                             'params_path': params_path,
+                             'params': params } )
+            round_i: Current round of experiment
+
+        Raises:
+            FedbiomedStrategyError: If method is not implemented by child class
         """
         msg = ErrorNumbers.FB402.value + \
             ": refine method should be overloaded by the provided strategy"
         logger.critical(msg)
         raise FedbiomedStrategyError(msg)
 
-
     def save_state(self) -> Dict[str, Any]:
         """
-        used in breakpoint saving
+        Method for saving strategy state for saving breakpoints
+
+        Returns:
+            The state of the strategy
         """
+
         state = {
             "class": type(self).__name__,
             "module": self.__module__,
@@ -67,7 +83,10 @@ class Strategy:
 
     def load_state(self, state: Dict[str, Any] = None):
         """
-        used in breakpoint loading
+        Method for loading strategy state from breakpoint state
+
+        Args:
+            state: The state that will be leaded
         """
         # fds may be modified and diverge from Experiment
         self._fds = FederatedDataSet(state.get('fds'))

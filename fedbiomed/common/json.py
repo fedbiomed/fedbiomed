@@ -1,9 +1,8 @@
 """
-This module defines message serializer and deserializer
-for sending / receiving / parsing messages through Messager.
+This module defines message serializer and deserializer for sending / receiving / parsing messages through Messaging.
 
-compared to the usual json module, it deals with some fedbiomed
-data types which are not serialized by default (eg: enumerations)
+Compared to the usual json module, it deals with some fedbiomed data types which are not serialized by
+default (eg: enumerations)
 """
 
 import json
@@ -15,10 +14,12 @@ from fedbiomed.common.metrics import MetricTypes
 
 
 def deserialize_msg(msg: Union[str, bytes]) -> dict:
-    """
-    Deserializes a JSON string or bytes message as a dictionary.
-    :param msg: message in JSON format but encoded as string or bytes
-    :return: parsed message as python dictionary.
+    """Deserializes a JSON string or bytes message as a dictionary.
+
+    Args:
+        msg: message in JSON format but encoded as string or bytes
+    Return:
+        Parsed message as python dictionary.
     """
     decode = json.loads(msg)
 
@@ -43,13 +44,16 @@ def deserialize_msg(msg: Union[str, bytes]) -> dict:
 
 
 def serialize_msg(msg: dict) -> str:
-    """
-    Serialize an object as a JSON message (applies for dict-like objects)
-    :param msg: dict-like object containing the message to send.
-    :return: JSON parsed message ready to transmit.
+    """Serialize an object as a JSON message (applies for dict-like objects)
+
+    Args:
+        msg: dict-like object containing the message to send.
+
+    Returns:
+        JSON parsed message ready to transmit.
     """
 
-    # errnum is present in ErrorMessage and is an Enum
+    # Errnum is present in ErrorMessage and is an Enum
     # which need to be serialized
 
     # If message is train request

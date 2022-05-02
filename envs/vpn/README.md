@@ -654,9 +654,7 @@ Note : can also use commands in the form, so you don't have to be in the docker-
 [user@network $] docker-compose rm -sf vpnserver
 
 # level 2 : configuration
-# currently as root 
-# TODO write config files as CONTAINER_USER
-[root@network #] rm -rf vpnserver/run_mounts/config/{config.env,config_peers,ip_assign,wireguard}
+[user@network #] rm -rf vpnserver/run_mounts/config/{config.env,config_peers,ip_assign,wireguard}
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-vpnserver fedbiomed/vpn-base
