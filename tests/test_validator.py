@@ -627,12 +627,14 @@ class TestSchemeValidator(unittest.TestCase):
         # add default values to an invalid json
         sc = SchemeValidator( { "a": { "rules": [ float ],
                                        "required": True,
-                                       "default": 1.0 },
+                                       "default": 3.14 },
                                 "b": { "rules": [ int ],
                                        "required": True,
                                        "default": 666 },
                                 "c": { "rules": [ str ],
-                                       "default": "stupid because unused" }
+                                       "default": "stupid because unused" },
+                                "d": { "rules": [ str ]
+                                      }
                                }
                              )
         self.assertTrue( sc.is_valid())
@@ -643,6 +645,14 @@ class TestSchemeValidator(unittest.TestCase):
 
         good = sc.populate_with_defaults( bad )
         self.assertTrue( sc.validate(good))
+        self.assertEqual( good['a'], 1.0)
+        self.assertEqual( good['b'], 666)
+
+        good_again = sc.populate_with_defaults( { "d": "some string"} , only_required = False)
+        self.assertTrue( sc.validate(good_again))
+        self.assertEqual( good_again['a'], 3.14)
+        self.assertEqual( good_again['b'], 666)
+        self.assertEqual( good_again['d'], "some string")
 
         # be carefull that this is not idiot proof....
         bad = { "a": "string instead a float" }
