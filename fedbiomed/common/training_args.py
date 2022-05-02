@@ -21,12 +21,14 @@ class TrainingArgs():
 
     More to come...
     """
-    def __init__(self, ta: Dict, scheme: Dict = None):
+    def __init__(self, ta: Dict = None, scheme: Dict = None):
         """
         Create a TrainingArgs from a Dict with input validation.
 
         Args:
             ta:      dictionnary describing the TrainingArgs scheme.
+                     if empty dict or None, a minimal instance of TrainingArgs
+                     will be initialized with default values for required keys
             scheme: user provided scheme instead of default scheme
 
         Raises:
@@ -34,10 +36,10 @@ class TrainingArgs():
         """
         self._ta = ta
 
-        if scheme is None:
+        if scheme is None or scheme == {} :
             self._scheme = TrainingArgs.default_scheme()
         else:
-            self.scheme = scheme
+            self._scheme = scheme
 
         try:
             self._sc = SchemeValidator(self._scheme)
@@ -46,9 +48,18 @@ class TrainingArgs():
             # internal error (invalid scheme)
             raise
 
-        # check user input
+        # scheme is validated from here
+        if ta is None or ta == {}:
+            # initialize with default values of the schemeV
+            try:
+                self._ta = self._sc.populate_with_defaults( {} )
+            except RuleError:
+                # scheme has required keys without defined default value
+                raise
+
+        # finaly check user input
         try:
-            self._sc.validate(ta)
+            self._sc.validate(self._ta)
         except (ValidateError):
             # transform to a Fed-BioMed error
             raise
@@ -194,6 +205,36 @@ class TrainingArgs():
             raise
         return self._ta[key]
 
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Returns the value associated to a key.
+
+
+        If the value was not passed at initialization:
+        - if a default value was defined in the scheme, this
+          default value is passed
+        - if a default value was not defined in the scheme,
+          a KeyError is returned
+
+        Args:
+            key:   key
+
+        Returns:
+            value
+
+        Raises:
+            KeyError: if key does not exist and/or no default value
+                      was defined in the scheme for this key.
+        """
+
+        if key in self._ta:
+            return self._ta[key]
+
+        if key in self._sc.scheme() and "default" in self._sc.scheme()[key]:
+            return self._sc.scheme()[key]["default"]
+
+        raise KeyError
 
     def modify(self, values: Dict) -> _MyOwnType:
         """
