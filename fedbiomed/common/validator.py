@@ -152,7 +152,7 @@ def validator_decorator(func: Callable) -> Callable:
         # we expect a tuple [boolean, str] as output of func()
         # but we try to be resilient to function that simply return boolean
         # and create the tuple in case that it is not provided
-        error = "validation error then calling: " + func.__name__
+        error = f"validation error then calling: {func.__name__}"
         if isinstance(status, tuple):
             status, *error = status
 

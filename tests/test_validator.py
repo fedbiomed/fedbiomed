@@ -37,7 +37,7 @@ class TestValidator(unittest.TestCase):
         (boolean, error_message_string)
         """
         if not isinstance(value, int) or value < 1:
-            return False, str(value) + " is not a positive integer"
+            return False, f"{value} is not a positive integer"
         return True, None
 
 
