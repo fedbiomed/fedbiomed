@@ -25,7 +25,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
     """Implements  TrainingPlan for torch NN framework
 
     An abstraction over pytorch module to run pytorch models and scripts on node side. Researcher model (resp. params)
-    will be
+    will be:
 
     1. saved  on a '*.py' (resp. '*.pt') files,
     2. uploaded on a HTTP server (network layer),
@@ -44,7 +44,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         """ Construct training plan
 
         Args:
-            model_args: model arguments. Items used in this class build time
+            model_args (dict): model arguments. Items used in this class build time. Defaults to {} (empty
+            dictionary)
         """
 
         super().__init__()
@@ -90,7 +91,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # Empty DP dictionary 
         self.DP = {}
 
-    def type(self):
+    def type(self) -> TrainingPlans.TorchTrainingPlan:
         """ Gets training plan type"""
         return self.__type
 
@@ -159,9 +160,9 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          batch_maxnum: int = 0,
                          dry_run: bool = False,
                          use_gpu: Union[bool, None] = None,
-                         fedprox_mu: float =None,
-                         DP_args: dict = {},
-                         history_monitor: Any =None,
+                         fedprox_mu: float = None,
+                         dp_args: dict = {},
+                         history_monitor: Any = None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
         # FIXME 2: remove parameters specific for testing specified in the
@@ -172,7 +173,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         - a `training_data()` function defining how sampling / handling data in node's dataset is done. It should
             return a generator able to output tuple (batch_idx, (data, targets)) that is iterable for each batch.
-        - a `training_step()` function defining how cost is computed. It should output model error for model backpropagation.
+        - a `training_step()` function defining how cost is computed. It should output model error for model
+        backpropagation.
 
         Args:
             epochs: Number of epochs (complete pass on data).
@@ -194,8 +196,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     doesn't request for using a GPU. Default False.
         """
 
-        if DP_args:
-            self.initialize_dp(DP_args)
+        if dp_args:
+            self.initialize_dp(dp_args)
 
         # set correct type for node args
         if not isinstance(node_args, dict):
@@ -469,9 +471,9 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         return self.state_dict()
 
-    def initialize_dp(self, DP_args):
+    def initialize_dp(self, dp_args):
 
-        self.DP = DP_args
+        self.DP = dp_args
 
         print('############### Initializing DP##################')
 
@@ -488,7 +490,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
         else:
-            self.DP.update(sigma_CDP=DP_args['sigma'])
+            self.DP.update(sigma_CDP=dp_args['sigma'])
             self.DP['sigma'] = 0. 
         try:
             float(self.DP['clip'])
@@ -561,7 +563,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         """
             This is a method that is going to be executed just before the training loop. This method
             should be registered in the `__init__` of training plan with `self.add_preprocess()` 
-            Process type should be declared by the argument `process_type` of `self.add_process`.  
+            Process type should be declared by the argument `process_type` of `self.add_process`.
+            It initializes Differential Privacy objects from Opacus library: private model
         """
 
         # enter PrivacyEngine
@@ -569,9 +572,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         self.model, self.optimizer, data_loader = self.privacy_engine.make_private(module=self.model,
                                                                               optimizer=self.optimizer,
                                                                               data_loader = data_loader,
-                                                                              noise_multiplier=self.DP['sigma'],
-                                                                              max_grad_norm=self.DP['clip'],
+                                                                              noise_multiplier=self.DP.get('sigma'),
+                                                                              max_grad_norm=self.DP.get('clip')
                                                                     )
+        
         return data_loader
 
 
