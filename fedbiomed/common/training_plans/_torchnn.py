@@ -217,8 +217,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             node_args = {}
 
         if self.optimizer is None:
-            self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
-        else:
             self.make_optimizer(lr)
 
         if self.DP:
@@ -467,7 +465,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         - if provided, the function is part of pytorch model defined by the researcher
         - and expect the model parameters as argument
 
-        and returns the (modified) state_dict of the model
+        Returns:
+            dict: the (modified) state_dict of the model
         """
 
         try:
@@ -487,7 +486,13 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         return self.state_dict()
 
-    def initialize_dp(self, DP_args):
+    def initialize_dp(self, DP_args: dict):
+        """Initialize arguments to perform DP training, and check that the user
+        has correctly provided all requested DP parameters in the correct form
+
+        Args:
+            DP_args (dict, optional): DP parameters provided by the user
+        """
 
         self.DP = DP_args
 
@@ -516,7 +521,28 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             raise FedbiomedTrainingPlanError(msg)
 
 
-    def postprocess_dp(self, params):
+    def postprocess_dp(self, params: dict) -> dict:
+        """
+        Postprocess of model's parameters after training with DP.
+
+        Postprocess of DP parameters implies:
+        - If central DP is enabled, model's parameters are perturbed
+             according to the provided DP parameters
+        - When the Opacus `PrivacyEngine` is attached to the model, 
+            parameters' names are modified by the addition of `_module.`. 
+            This modification should be undone before communicating to the master
+            for aggregation. This is needed in order to correctly perform 
+            download/upload of model's parameters in the following rounds
+
+        Args:
+            params (dict): optimized parameters
+
+        Returns:
+            dict containing (postprocessed) parameters
+
+        Exceptions:
+            none
+        """
 
         if self.DP['type'] == 'central':
             delta_params = {}
@@ -543,21 +569,24 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         return params
     
-    def make_optimizer(self,lr):
+    def make_optimizer(self,lr: float):
         """
-        Method for providing the required optimizer as `self.optimizer`: 
-        to be defined by user. 
+        Method to define the desired optimizer as class attribute `self.optimizer`.
+        
+        The default optimizer for torch NN models is `torch.optim.Adam`.
+        The user can overwrite this method to provide a custom optimizer.
+
         Args:
-            learning rate
+            lr (float): learning rate
         """
-        pass
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
     def __norm_l2(self) -> float:
         """
-        used by FedProx optimization
+        Used by FedProx optimization: evaluate L2 norm of model parameters
 
         Returns:
-            norm (float): L2 norm of model parameters (before local training)
+            norm (float): L2 norm of model parameters
         """
         norm = 0
         for key, val in self.state_dict().items():
@@ -581,9 +610,18 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
     def __preprocess_ldp(self, data_loader):
         """
-            This is a method that is going to be executed just before the training loop. This method
-            should be registered in the `__init__` of training plan with `self.add_preprocess()` 
-            Process type should be declared by the argument `process_type` of `self.add_process`.  
+        Method to enable DP training using Opacus.
+        
+        This method is executed before starting the training epochs loop any time
+        the DP training is enabled. DP training is done here by using the `Opacus`
+        `PrivacyEngine`. Further information are available in the 
+        [Opacus webpage](https://opacus.ai/api/privacy_engine.html)
+
+        Args:
+            data_loader
+
+        Returns:
+            data_loader
         """
 
         # enter PrivacyEngine
