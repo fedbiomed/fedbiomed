@@ -30,8 +30,12 @@ from fedbiomed.researcher.responses import Responses
 
 class Job:
     """
-    This class represents the entity that manage the training part at
-    the nodes level
+    Represents the entity that manage the training part at  the nodes level
+
+    Starts a message queue, loads python model file created by researcher (through
+    [`training_plans`][fedbiomed.common.training_plans]) and saves the loaded model in a temporary file
+    (under the filename '<TEMP_DIR>/my_model_<random_id>.py').
+
     """
 
     def __init__(self,
@@ -44,31 +48,23 @@ class Job:
                  data: FederatedDataSet = None,
                  keep_files_dir: str = None):
 
-        """ Constructor of the class.
-
-        Starts a message queue, loads python model file created by researcher
-        (through `TrainingPlan`) and saves the loaded model in a temporary file
-        (under the filename '<TEMP_DIR>/my_model_<random_id>.py').
+        """ Constructor of the class
 
         Args:
-            reqs (Requests, optional): researcher's requests assigned to nodes.
-            Defaults to None.
-            nodes (dict, optional): a dict of node_id containing the
-            nodes used for training
-            model (Union[Type[Callable], str], optional): name of the model class
-            or model class to use for training.
-            model_path (string, optional) : path to file containing model
-            class code
-            training_args (dict, optional): contains training parameters:
-            lr, epochs, batch_size...Defaults to None.
-            model_args (dict, optional): contains output and input feature
-                                        dimension.Defaults to None.
-            data (FederatedDataset, optional): . Defaults to None.
-            keep_files_dir(str, optional): directory for storing files created by the job
-                that we want to keep beyond the execution of the job.
-                Defaults to None, files are not kept after the end of the job.
+            reqs: Researcher's requests assigned to nodes. Defaults to None.
+            nodes: A dict of node_id containing the nodes used for training
+            model: Name of the model class or model class to use for training.
+            model_path: Path to file containing model class code
+            training_args: Contains training parameters; lr, epochs, batch_size.
+            model_args: Contains output and input feature dimension
+            data: Federated datasets
+            keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
+                of the job. Defaults to None, files are not kept after the end of the job.
 
+        Raises:
+            NameError: If model is not defined or if the class can not to be inspected
         """
+
         self._id = str(uuid.uuid4())  # creating a unique job id
         self._researcher_id = environ['RESEARCHER_ID']
         self._repository_args = {}
@@ -176,13 +172,11 @@ class Job:
 
     @staticmethod
     def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
-        """
-        this method validates a given dictionary
+        """ Validates a given dictionary by given mandatory fields.
 
         Args:
-            obj (dict): object to be validated
-            fields (Union[tuple, list]): list of fields that should be present
-            on the obj
+            obj: Object to be validated
+            fields: List of fields that should be present on the obj
         """
         for f in fields:
             assert f in obj.keys(), f'Field {f} is required in object {obj}. Was not found.'
@@ -227,9 +221,11 @@ class Job:
 
     def check_model_is_approved_by_nodes(self):
 
-        """ Method for checking whether model is approved or not.  This method send
-            `model-status` request to the nodes. It should be run before running experiment.
-            So, researchers can find out if their model has been approved
+        """ Checks whether model is approved or not.
+
+        This method sends `model-status` request to the nodes. It should be run before running experiment.
+        So, researchers can find out if their model has been approved
+
         """
 
         message = {
@@ -276,20 +272,17 @@ class Job:
 
         return responses
 
-    """ This method should change in the future or as soon as we implement other
-    kind of strategies different than DefaultStrategy"""
+    # TODO: This method should change in the future or as soon as we implement other of strategies different
+    #   than DefaultStrategy
 
     def waiting_for_nodes(self, responses: Responses) -> bool:
-        """
-        this method verifies if all nodes involved in the job are
-        present and Responding
+        """ Verifies if all nodes involved in the job are present and Responding
 
         Args:
-            responses (Responses): contains message answers
+            responses: contains message answers
 
         Returns:
-            bool: False if all nodes are present in the Responses object.
-            True if waiting for at least one node.
+            False if all nodes are present in the Responses object. True if waiting for at least one node.
         """
         try:
             nodes_done = set(responses.dataframe()['node_id'])
@@ -299,15 +292,12 @@ class Job:
         return not nodes_done == set(self._nodes)
 
     def start_nodes_training_round(self, round: int, do_training: bool = True):
-        """
-        this method sends training task to nodes and waits for the responses
-        Args:
-            - round (int): current number of round the algorithm is performing
-              (a round is considered to be all the
-              training steps of a federated model between 2 aggregations).
-            - do_training (bool, optional): if False, skip training in this round
-              (do only testing/evaluation). Defaults to True.
+        """ Sends training request to nodes and waits for the responses
 
+        Args:
+            round: current number of round the algorithm is performing (a round is considered to be all the
+                training steps of a federated model between 2 aggregations).
+            do_training: if False, skip training in this round (do only test/evaluation). Defaults to True.
         """
         headers = {'researcher_id': self._researcher_id,
                    'job_id': self._id,
@@ -324,12 +314,12 @@ class Job:
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
                             f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final testing on '
-                            f'aggregated parameters \n {5*"-------------"}')
+                            f'aggregated parameters \n {5 * "-------------"}')
             else:
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
                             f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: {str(msg)} '
-                            f'\n {5*"-------------"}')
+                            f'\n {5 * "-------------"}')
 
             time_start[cli] = time.perf_counter()
             self._reqs.send_message(msg, cli)  # send request to node
@@ -396,20 +386,19 @@ class Job:
         return self._nodes
 
     def update_parameters(self, params: dict = {}, filename: str = None) -> str:
-        """
-        Updates global model aggregated parameters in `params`, by saving them
-        to a file `filename` (unless it already exists), then upload file to the repository
-        so that params are ready to be sent to the nodes for the next training round.
-        If a `filename` is given (file exists) it has precedence over `params`.
+        """Updates global model aggregated parameters in `params`, by saving them to a file `filename` (unless it
+        already exists), then upload file to the repository so that params are ready to be sent to the nodes for the
+        next training round. If a `filename` is given (file exists) it has precedence over `params`.
 
         Args:
-            params (dict, optional): data structure containing the
-                new version of the aggregated parameters for this job,
-            filename (str, optional) : path to the file containing the
-                new version of the aggregated parameters for this job,
+            params: data structure containing the new version of the aggregated parameters for this job,
+            filename: path to the file containing the new version of the aggregated parameters for this job,
 
         Returns:
-            str: filename
+            Name of the parameter file
+
+        Raises:
+            ValueError: Bad arguments
         """
         try:
             if not filename:
@@ -427,16 +416,15 @@ class Job:
             sys.exit(-1)
         return self._model_params_file
 
-    def save_state(self, breakpoint_path: str):
-        """
-        Creates current state of the job to be included in a breakpoint.
-        Includes creating links to files included in the job state.
+    def save_state(self, breakpoint_path: str) -> dict:
+        """Creates current state of the job to be included in a breakpoint. Includes creating links to files included
+        in the job state.
 
         Args:
-            breakpoint_path (str): path to the existing breakpoint directory
+            breakpoint_path: path to the existing breakpoint directory
 
         Returns:
-            dict: job current state information for breakpoint
+            Job's current state for breakpoint
         """
 
         # Note: some state is passed to __init__() thus is not managed
@@ -463,11 +451,10 @@ class Job:
         return state
 
     def load_state(self, saved_state: dict = None):
-        """
-        Load breakpoint status for a Job from a saved state
+        """Load breakpoints state for a Job from a saved state
 
         Args:
-            saved_state (dict): breakpoint content
+            saved_state: breakpoint content
         """
         self._id = saved_state.get('job_id')
         self.update_parameters(filename=saved_state.get('model_params_path'))
@@ -479,18 +466,16 @@ class Job:
 
     @staticmethod
     def _save_training_replies(training_replies: Dict[int, Responses]) -> List[List[dict]]:
-        """
-        Extracts a copy of `training_replies` and
-        prepares it for saving in breakpoint
+        """Extracts a copy of `training_replies` and prepares it for saving in breakpoint
+
         - strip unwanted fields
-        - structure as list/dict so it can be saved with JSON
+        - structure as list/dict, so it can be saved with JSON
 
         Args:
-            - training_replies (Dict[int, Responses]) : training replies of
-              already executed rounds of the job
+            training_replies: training replies of already executed rounds of the job
 
         Returns:
-            List[List[dict]] : extract from `training_replies` formatted for breakpoint
+            Extract from `training_replies` formatted for breakpoint
         """
         converted_training_replies = []
 
@@ -504,22 +489,16 @@ class Job:
         return converted_training_replies
 
     @staticmethod
-    def _load_training_replies(
-            bkpt_training_replies: List[List[dict]],
-            func_load_params: Callable
-    ) -> Dict[int, Responses]:
-        """
-        Read training replies from a formatted breakpoint file,
-        and build a job training replies data structure .
+    def _load_training_replies(bkpt_training_replies: List[List[dict]],
+                               func_load_params: Callable) -> Dict[int, Responses]:
+        """Reads training replies from a formatted breakpoint file, and build a job training replies data structure .
 
         Args:
-            - training_replies (List[List[dict]]): extract from
-              training replies saved in breakpoint
-            - func_load_params (Callable) : function for loading parameters
-              from file to training replies data structure
+            bkpt_training_replies: Extract from training replies saved in breakpoint
+            func_load_params: Function for loading parameters from file to training replies data structure
 
         Returns:
-            Dict[int, Responses] : training replies of already executed rounds of the job
+            Training replies of already executed rounds of the job
         """
 
         training_replies = {}
@@ -535,9 +514,8 @@ class Job:
         return training_replies
 
     def check_data_quality(self):
-        """
-        Compare datasets that has been found in different nodes.
-        """
+        """Does quality check by comparing datasets that have been found in different nodes. """
+
         data = self._data.data()
         # If there are more than two nodes ready for the job
         if len(data.keys()) > 1:
@@ -591,13 +569,12 @@ class Job:
 
 
 class localJob:
-    """
-    This class represents the entity that manage the training part.
-    LocalJob is the version of Job but applied locally on a local dataset (thus not involving any network).
-    It is only used to compare results to a Federated approach, using networks.
+    """Represents the entity that manage the training part. LocalJob is the version of Job but applied locally on a
+    local dataset (thus not involving any network). It is only used to compare results to a Federated approach, using
+    networks.
     """
 
-    def __init__(self, dataset_path=None,
+    def __init__(self, dataset_path: str = None,
                  model_class: str = 'MyTrainingPlan',
                  model_path: str = None,
                  training_args: dict = None,
@@ -607,14 +584,11 @@ class localJob:
         Constructor of the class
 
         Args:
-            dataset_path (): . Defaults to None.
-            model_class (string, optional): name of the model class to use for training. Defaults to
-            'MyTrainingPlan'.
-            model_path (string, optional) : path to file containing model code. Defaults to None.
-            training_args (dict, optional): contains training parameters: lr, epochs, batch_size...
-                                            Defaults to None.
-            model_args (dict, optional): contains output and input feature dimension.
-                                            Defaults to None.
+            dataset_path : The path where data is stored on local disk.
+            model_class: Name of the model class to use for training or model class.
+            model_path: path to file containing model code. Defaults to None.
+            training_args: contains training parameters: lr, epochs, batch_size...
+            model_args: contains output and input feature dimension.
         """
 
         self._id = str(uuid.uuid4())
@@ -638,7 +612,7 @@ class localJob:
                 exec('from ' + model_module + ' import ' + model_class)
                 sys.path.pop(0)
                 model_class = eval(model_class)
-            except:
+            except Exception as e:
                 e = sys.exc_info()
                 logger.critical("Cannot import class " + model_class + " from path " +
                                 model_path + " - Error: " + str(e))
@@ -666,12 +640,7 @@ class localJob:
         self._localjob_training_args = training_args
 
     def start_training(self):
-        """
-        this method send training task to nodes and waits for the responses
-        Args:
-            round (int): round of the training
-            initial_params (str): url of the init file params
-        """
+        """Sends training task to nodes and waits for the responses"""
 
         for i in self.model_instance.dependencies:
             exec(i, globals())
@@ -703,12 +672,6 @@ class localJob:
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot write results: " + str(e)
-
-        # end : clean the namespace
-        # try:
-        #    del model  # ???? model does not exist ???? what was the idea here ?
-        # except Exception:
-        #    pass  # specially if we ignore the error....
 
         if error_message != '':
             logger.error(error_message)

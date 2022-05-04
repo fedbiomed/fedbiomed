@@ -85,7 +85,7 @@ class TestFiletools(unittest.TestCase):
 
         breakpoint_folder_name = "breakpoint_"
 
-        bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round=0)
+        bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round_=0)
 
         self.assertEqual(os.path.basename(bkpt_folder),
                          breakpoint_folder_name + str("{:04d}".format(0)))
@@ -93,7 +93,7 @@ class TestFiletools(unittest.TestCase):
                          breakpoint_folder_name + str("{:04d}".format(0)) + ".json")
         self.assertTrue(os.path.isdir(bkpt_folder))
 
-        bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round=2)
+        bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round_=2)
 
         self.assertEqual(os.path.basename(bkpt_folder),
                          breakpoint_folder_name + str("{:04d}".format(2)))
@@ -108,10 +108,10 @@ class TestFiletools(unittest.TestCase):
         mock_mkdir.side_effect = [PermissionError, OSError]
 
         with self.assertRaises(PermissionError):
-            bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round=0)
+            bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round_=0)
 
         with self.assertRaises(OSError):
-            bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round=0)
+            bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round_=0)
 
     def test_filetools_04_create_unique_link(self):
         """

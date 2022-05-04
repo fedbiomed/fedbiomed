@@ -4,16 +4,15 @@ from fedbiomed.common.exceptions import FedbiomedResponsesError
 
 
 class Responses:
-    """Class parsing Nodes' responses.
+    """Class parsing Nodes' responses Reconfigures input data into either a dictionary in a list (List[dict]), or
+    a list with unique values.
     """
 
     def __init__(self, data: Union[list, dict]):
-        """Constructor of `Responses` class. Reconfigures 
-        input data into either a dictionary in a list (List[dict]), or
-        a list with unique values
+        """Constructor of `Responses` class.
 
         Args:
-            data (Union[list, dict]): input data
+            data: input response
         """
         if isinstance(data, dict):
             self._data = [data]
@@ -24,24 +23,23 @@ class Responses:
                 if d not in self._data:
                     self._data.append(d)
 
-    def __getitem__(self, item: int):
+    def __getitem__(self, item: int) -> list:
         """ Magic method to get item by index
 
         Args:
-            item (int): List index
+            item: List index
 
         Returns:
-            Dict: Single response that comes for node
+            Single response that comes for node
         """
 
         return self._data[item]
 
     def __repr__(self) -> str:
-        """Makes Responses object representable
-        (one can use built-in `repr()` function)
+        """Makes Responses object representable (one can use built-in `repr()` function)
 
         Returns:
-            str: the representation of the data
+            The representation of the data
         """
         return repr(self._data)
 
@@ -52,24 +50,24 @@ class Responses:
         return len(self._data)
 
     def data(self) -> list:
-        """ Getter for responses
+        """Gets all responses that are received
 
         Returns:
-            list:  data of the class `Responses`
+            Data of the class `Responses`
         """
         return self._data
 
     def set_data(self, data: List[Dict]) -> List:
-        """ Setter for ._data attribute
+        """Setter for ._data attribute
 
         Args:
-            data (List[Dict]): List of responses as python dictionary
+            data: List of responses as python dictionary
+
+        Returns:
+            List of responses as Dict
 
         Raises:
             FedbiomedResponsesError: When `data` argument is not in valid type
-
-        Returns:
-            List[Dict]: List of responses as Dict
         """
 
         # TODO: Check elements of list are Dict
@@ -81,28 +79,26 @@ class Responses:
         return self._data
 
     def dataframe(self) -> pd.DataFrame:
-        """ This method converts the list that includes responses to
-            pandas dataframe
+        """ This method converts the list that includes responses to pandas dataframe
 
         Returns:
-             pd.DataFrame: Pandas DataFrame includes node responses. Each row
-                           of dataframe represent single response that comes
-                           from a node.
+            Pandas DataFrame includes node responses. Each row of dataframe represent single response that comes
+                from a node.
         """
 
         return pd.DataFrame(self._data)
 
     def append(self, response: Union[List, Dict]) -> list:
-        """  Appends new responses to existing responses
+        """ Appends new responses to existing responses
 
         Args:
-            response (List, Dict): List of response as dict or single response as dict
-                                   that will be appended
-        Raises:
-            FedbiomedResponsesError: When `response` argument is not in valid type
+            response: List of response as dict or single response as dict that will be appended
 
         Returns:
-            list: List of dict as responses
+            List of dict as responses
+
+        Raises:
+            FedbiomedResponsesError: When `response` argument is not in valid type
         """
         if isinstance(response, List):
             self._data = self._data + response
