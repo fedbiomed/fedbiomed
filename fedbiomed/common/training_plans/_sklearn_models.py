@@ -11,36 +11,48 @@ from fedbiomed.common.logger import logger
 from ._sklearn_training_plan import SKLearnTrainingPlan
 
 class FedPerceptron(SKLearnTrainingPlan):
+
+    model = Perceptron()
+
     def __init__(self, model_args: dict = {}):
         """
         Sklearn Perceptron model
         Args:
         - model_args: (dict, optional): model arguments. Defaults to {}
         """
-        super().__init__(Perceptron,
-                         self.training_routine_hook,
-                         model_args,
-                         verbose_possibility = True)
+        # self.
+        self.model_args = model_args
+        if 'verbose' not in model_args:
+            self.model_args['verbose'] = 1
 
-        # specific for Perceptron
-        self.is_classification = True
-        self._verbose_capture_option = True
+        super().__init__(model_args)
+
+        self._is_classification = True
+
+        self._verbose_capture_option = self.model_args['verbose']
+
         # Instantiate the model
         self.set_init_params()
         self.add_dependency([
                              "from sklearn.linear_model import Perceptron "
                              ])
+        print('sklearn models perceptron model get param',self.model.get_params())
+        print('perceptron model id ',id(self.model))
 
     def training_routine_hook(self):
         """
         Training routine of Perceptron
         """
+        print('sklearn models enter training routine hook perceptron')
         (self.data, self.target) = self.training_data_loader
-        classes = self.__classes_from_concatenated_train_test()
+        classes = self._classes_from_concatenated_train_test()
         if classes.shape[0] < 3:
             self._is_binary_classification = True
-
+        print('is binary classificaton',self._is_binary_classification)
+        print('self.model.get params',self.model.get_params())
+        print('self.model',self.model)
         self.model.partial_fit(self.data, self.target, classes=classes)
+        print('partial fit ended')
 
     def set_init_params(self):
         """
@@ -48,21 +60,21 @@ class FedPerceptron(SKLearnTrainingPlan):
         """
         self.param_list = ['intercept_','coef_']
         init_params = {
-            'intercept_': np.array([0.]) if (self._model_args['n_classes'] == 2) else np.array(
-                [0.] * self._model_args['n_classes']),
-            'coef_': np.array([0.] * self._model_args['n_features']).reshape(1, self._model_args['n_features']) if (
-                    self._model_args['n_classes'] == 2) else np.array(
-                [0.] * self._model_args['n_classes'] * self._model_args['n_features']).reshape(self._model_args['n_classes'],
-                                                                                   self._model_args['n_features'])
+            'intercept_': np.array([0.]) if (self.model_args['n_classes'] == 2) else np.array(
+                [0.] * self.model_args['n_classes']),
+            'coef_': np.array([0.] * self.model_args['n_features']).reshape(1, self.model_args['n_features']) if (
+                    self.model_args['n_classes'] == 2) else np.array(
+                [0.] * self.model_args['n_classes'] * self.model_args['n_features']).reshape(self.model_args['n_classes'],
+                                                                                   self.model_args['n_features'])
         }
 
         for p in self.param_list:
             setattr(self.model, p, init_params[p])
 
-        for p in self.params_sgd:
-            setattr(self.model, p, self.params_sgd[p])
+        for p in self.params:
+            setattr(self.model, p, self.params[p])
 
-    def __evaluate_loss(self,output,epoch) -> float:
+    def evaluate_loss(self,output,epoch) -> float:
         '''
         Evaluate the loss.
         Args:
@@ -70,7 +82,8 @@ class FedPerceptron(SKLearnTrainingPlan):
         - epoch: epoch number
         Returns: float: the loss captured in the output of its weighted average in case of mutliclass classification
         '''
-        _loss_collector = self.__evaluate_loss_core(output,epoch)
+        print('sklearn models enter evaluate loss perceptron')
+        _loss_collector = self._evaluate_loss_core(output, epoch)
         if not self._is_binary_classification:
             support = self._compute_support(self.target)
             loss = np.average(_loss_collector, weights=support)  # perform a weighted average
@@ -84,23 +97,23 @@ class FedPerceptron(SKLearnTrainingPlan):
 #======
 
 class FedSGDRegressor(SKLearnTrainingPlan):
-    def __init__(self, model_args):
+
+    model = SGDRegressor()
+
+    def __init__(self, model_args: dict = {}):
         """
         Sklearn SGDRegressor model
         Args:
         - model_args: (dict, optional): model arguments. Defaults to {}
         """
-        super().__init__(SGDRegressor,
-                         self.training_routine_hook,
-                         model_args,
-                         verbose_possibility = True)
+        super().__init__(model_args)
 
         # specific for SGDRegressor
         self._is_regression = True
         self._verbose_capture_option = True
 
         if 'verbose' not in model_args:
-            self._model_args['verbose'] = 1
+            self.model_args['verbose'] = 1
 
         # Instantiate the model
         self.set_init_params()
@@ -122,12 +135,12 @@ class FedSGDRegressor(SKLearnTrainingPlan):
         """
         self.param_list = ['intercept_','coef_']
         init_params = {'intercept_': np.array([0.]),
-                       'coef_': np.array([0.] * self._model_args['n_features'])}
+                       'coef_': np.array([0.] * self.model_args['n_features'])}
         for p in self.param_list:
             setattr(self.model, p, init_params[p])
 
-        for p in self.params_sgd:
-            setattr(self.model, p, self.params_sgd[p])
+        for p in self.params:
+            setattr(self.model, p, self.params[p])
 
     def __evaluate_loss(self,output,epoch) -> float:
         '''
@@ -144,23 +157,23 @@ class FedSGDRegressor(SKLearnTrainingPlan):
 #======
 
 class FedSGDClassifier(SKLearnTrainingPlan):
-    def __init__(self, model_args):
+
+    model = SGDClassifier()
+
+    def __init__(self, model_args : dict = {}):
         """
         Sklearn SGDClassifier model
         Args:
         - model_args: (dict, optional): model arguments. Defaults to {}
         """
 
-        super().__init__(SGDClassifier,
-                         self.training_routine_hook,
-                         model_args,
-                         verbose_possibility = True)
+        super().__init__(model_args)
 
         self.is_classification = True
         self._verbose_capture_option = True
 
         if 'verbose' not in model_args:
-            self._model_args['verbose'] = 1
+            self.model_args['verbose'] = 1
 
         # Instantiate the model
         self.set_init_params()
@@ -186,19 +199,19 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         """
         self.param_list = ['intercept_','coef_']
         init_params = {
-            'intercept_': np.array([0.]) if (self._model_args['n_classes'] == 2) else np.array(
-                [0.] * self._model_args['n_classes']),
-            'coef_': np.array([0.] * self._model_args['n_features']).reshape(1, self._model_args['n_features']) if (
-                    self._model_args['n_classes'] == 2) else np.array(
-                [0.] * self._model_args['n_classes'] * self._model_args['n_features']).reshape(self._model_args['n_classes'],
-                                                                                   self._model_args['n_features'])
+            'intercept_': np.array([0.]) if (self.model_args['n_classes'] == 2) else np.array(
+                [0.] * self.model_args['n_classes']),
+            'coef_': np.array([0.] * self.model_args['n_features']).reshape(1, self.model_args['n_features']) if (
+                    self.model_args['n_classes'] == 2) else np.array(
+                [0.] * self.model_args['n_classes'] * self.model_args['n_features']).reshape(self.model_args['n_classes'],
+                                                                                   self.model_args['n_features'])
         }
 
         for p in self.param_list:
             setattr(self.model, p, init_params[p])
 
-        for p in self.params_sgd:
-            setattr(self.model, p, self.params_sgd[p])
+        for p in self.params:
+            setattr(self.model, p, self.params[p])
 
     def __evaluate_loss(self,output,epoch) -> float:
         '''
@@ -219,21 +232,21 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         return loss
 
 class FedBernoulliNB(SKLearnTrainingPlan):
-    def __init__(self, model_args):
+
+    model = BernoulliNB()
+
+    def __init__(self, model_args: dict ={}):
         """
         Sklearn BernoulliNB model
         Args:
         - model_args: (dict, optional): model arguments. Defaults to {}
         """
-        super().__init__(BernoulliNB,
-                         self.training_routine_hook,
-                         model_args,
-                         verbose_possibility = False)
+        super().__init__(model_args)
 
         self.is_classification = True
         if 'verbose' in model_args:
             logger.error("[TENSORBOARD ERROR]: cannot compute loss for BernoulliNB "
-                         ": it needs to be implemeted")
+                         ": it needs to be implemented")
         self.add_dependency([
                              "from sklearn.naive_bayes  import BernoulliNB"
                              ])
@@ -251,16 +264,15 @@ class FedBernoulliNB(SKLearnTrainingPlan):
 
 
 class FedGaussianNB(SKLearnTrainingPlan):
-    def __init__(self, model_args):
+
+    model = GaussianNB()
+    def __init__(self, model_args: dict ={}):
         """
         Sklearn GaussianNB model
         Args:
         - model_args: (dict, optional): model arguments. Defaults to {}
         """
-        super().__init__(GaussianNB,
-                         self.training_routine_hook,
-                         model_args,
-                         verbose_possibility = False)
+        super().__init__(model_args)
         self.is_classification = True
         if 'verbose' in model_args:
             logger.error("[TENSORBOARD ERROR]: cannot compute loss for GaussianNB "

@@ -9,9 +9,6 @@ from typing import Any, Dict, Union, Callable
 from io import StringIO
 from joblib import dump, load
 
-from sklearn.linear_model import SGDRegressor, SGDClassifier, Perceptron
-from sklearn.naive_bayes import BernoulliNB, GaussianNB
-
 from ._base_training_plan import BaseTrainingPlan
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans, ProcessTypes
@@ -28,6 +25,7 @@ class _Capturer(list):
     """
 
     def __enter__(self):
+        print("enter Capturer")
         sys.stdout.flush()
         self._stdout = sys.stdout
         sys.stdout = self._stringio = StringIO()
@@ -37,36 +35,34 @@ class _Capturer(list):
         self.extend(self._stringio.getvalue().splitlines())
         del self._stringio  # Remove it from memory
         sys.stdout = self._stdout
+        print("exit Capturer")
+
 
 
 class SKLearnTrainingPlan(BaseTrainingPlan):
-    def __init__(self, sklearn_model,training_routine_hook, model_args: dict = {}, verbose_possibility: bool = False):
+    def __init__(self, model_args: dict = {}):
         """
         Class initializer.
 
         Args:
         - model_args (dict, optional): model arguments. Defaults to {}.
-        """
+        """0
         super().__init__()
+
+        print('model id sklearntarining plan',id(self.model))
+        # if getattr(self, 'model') is None:
+        #     msg = ErrorNumbers.FB303.value + ": SKLEARN model is None"
+        #     logger.critical(msg)
+        #     raise FedbiomedTrainingPlanError(msg)
 
         if not isinstance(model_args, dict):
             msg = ErrorNumbers.FB303.value + ": SKLEARN model_args is not a dict"
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
-        self._model_args = model_args
-        self._training_routine_hook = training_routine_hook
-        try:
-            self.model = sklearn_model()
-        except:
-            msg = str(sklearn_model) + ": is not a SKLEARN model"
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
-
-        self.params_sgd = self.model.get_params()
-        self.params_sgd.update({key: model_args[key] for key in model_args if key in self.params_sgd})
+        self.params = self.model.get_params()
+        self.params.update({key: model_args[key] for key in model_args if key in self.params})
         self.param_list = []
-        self.dataset_path = None
 
         self.__type = TrainingPlans.SkLearnTrainingPlan
 
@@ -75,7 +71,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         self._is_clustering = False
         self._is_binary_classification = False
         self._verbose_capture_option = False
-
+        self.dataset_path = None
         self.add_dependency(["import inspect",
                          "import numpy as np",
                          "import pandas as pd",
@@ -99,6 +95,10 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             - gpu_only (bool): force use of a GPU device if any available, even if researcher
               doesnt request for using a GPU. Default False.
                 """
+        print('sklearn training plan enter training routine')
+        if self.model is None:
+            raise FedbiomedTrainingPlanError('model in None')
+
         # Run preprocesses
         self.__preprocess()
 
@@ -107,14 +107,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                            'does not support it. Training on CPU.')
 
         try:
-            self._training_routine_core_loop(self._training_routine_hook,
-                                             epochs,
+            self._training_routine_core_loop(epochs,
                                              history_monitor)
         except FedbiomedTrainingPlanError as e:
             raise e
 
     def _training_routine_core_loop(self,
-                                    model_hook,
                                     epochs=1,
                                     history_monitor=None):
         '''
@@ -124,24 +122,24 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
         - history_monitor ([type], optional): [description]. Defaults to None.
         '''
-        print(model_hook)
+        print('sklearn training plan enter training routine core loop')
         for epoch in range(epochs):
             with _Capturer() as output:
                 # Fit model based on model type
                 try:
-                    model_hook()
+                    self.training_routine_hook()
                 except Exception as e:
                     msg = ErrorNumbers.FB605.value + \
                           ": error while fitting the model - " + \
                           str(e)
                     logger.critical(msg)
                     raise FedbiomedTrainingPlanError(msg)
-
+            print(output)
             # Logging training training outputs
             if history_monitor is not None:
                 if self._verbose_capture_option:
 
-                    loss = self.__evaluate_loss(output, epoch)
+                    loss = self.evaluate_loss(output, epoch)
 
                     loss_function = 'Loss ' + self.model.loss if hasattr(self.model, 'loss') else 'Loss'
                     # TODO: This part should be changed after mini-batch implementation is completed
@@ -158,7 +156,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                     #  self.model.inertia_, -1 , epoch) Need to find a way for Bayesian approaches
                     pass
 
-    def __evaluate_loss_core(self,output,epoch) -> list[float]:
+    def _evaluate_loss_core(self,output,epoch) -> list[float]:
         '''
         Evaluate the loss when verbose option _verbose_capture_option is set to True.
         Args:
@@ -166,6 +164,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         - epoch: epoch number
         Returns: list[float]: list of loss captured in the output
         '''
+        print('sklearn training plan enter evaluate loss core')
         _loss_collector = []
         for line in output:
             if len(line.split("loss: ")) == 1:
@@ -287,7 +286,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                                        batch_samples=len(target),
                                        num_batches=1)
 
-    def __classes_from_concatenated_train_test(self) -> np.ndarray:
+    def _classes_from_concatenated_train_test(self) -> np.ndarray:
         """
         Method for getting all classes from test and target dataset. This action is required
         in case of some class only exist in training subset or testing subset
@@ -395,6 +394,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         Returns:
             np.ndarray: support
         """
+        print('sklearn training plan enter compute-support')
         support = np.zeros((len(self.model.classes_),))
 
         # to see how multi classification is done in sklearn, please visit:
@@ -471,4 +471,13 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
     def type(self):
         """Getter for training plan type """
         return self.__type
+
+    def after_training_params(self) -> Dict:
+        """
+        Provide a dictionary with the federated parameters you need to aggregate, refer to
+        scikit documentation for a detail of parameters
+        :return the federated parameters (dictionary)
+        """
+        return {key: getattr(self.model, key) for key in self.param_list}
+
 

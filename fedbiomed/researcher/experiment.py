@@ -20,7 +20,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.utils import is_ipython
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, \
     FedbiomedSilentTerminationError
-from fedbiomed.common.training_plans import SGDSkLearnModel
+from fedbiomed.common.training_plans import SGDSkLearnModel, SKLearnTrainingPlan
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
@@ -39,10 +39,11 @@ _E = TypeVar("Experiment")  # only for typing
 
 # for checking class passed to experiment
 # TODO : should we move this to common/constants.py ?
-training_plans = (TorchTrainingPlan, SGDSkLearnModel)
+training_plans = (TorchTrainingPlan, SGDSkLearnModel, SKLearnTrainingPlan)
 # for typing only
-TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SGDSkLearnModel)
-Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SGDSkLearnModel])
+TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan,SGDSkLearnModel, SKLearnTrainingPlan)
+Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SGDSkLearnModel], Type[SKLearnTrainingPlan])
+
 
 
 # Exception handling at top lever for researcher
