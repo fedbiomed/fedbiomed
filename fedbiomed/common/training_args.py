@@ -6,6 +6,9 @@ Provide a way to easily to manage training arguments.
 from copy import deepcopy
 from typing import Any, Dict, TypeVar, Union
 
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedUserInputError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.validator import SchemeValidator, ValidateError, \
     RuleError, validator_decorator
@@ -96,11 +99,25 @@ class TrainingArgs():
 
     @staticmethod
     @validator_decorator
-    def _positive_hook( v: Any):
+    def _test_ratio_hook( v: Any):
         """
-        Test if greater than 0
+        Test if in [ 0.0 , 1.0]  interval.
         """
-        return v >= 0
+        if v < 0 or v > 1:
+            return False
+        else:
+            return True
+
+    @staticmethod
+    @validator_decorator
+    def _loss_rate_hook( v: Any):
+        """
+        Test if in [ 0.0 , 1.0]  interval.
+        """
+        if v < 0:
+            return False
+        else:
+            return True
 
     @staticmethod
     @validator_decorator
@@ -118,7 +135,7 @@ class TrainingArgs():
         return  {
             # loss rate
             "lr": {
-                "rules": [ float, cls._positive_hook ],
+                "rules": [ float, cls._loss_rate_hook ],
                 "required": False,
 #                "default": 0.01
             },
@@ -153,7 +170,7 @@ class TrainingArgs():
 
             # test_ratio
             "test_ratio": {
-                "rules": [ float ],
+                "rules": [ float, cls._test_ratio_hook ],
                 "required": False,
                 "default": 0.0
             },
@@ -190,7 +207,6 @@ class TrainingArgs():
 
 
 
-
     def __repr__(self) -> str:
         """
         Display the Training_Args content.
@@ -224,7 +240,10 @@ class TrainingArgs():
         except (RuleError, ValidateError) as e:
             #
             # transform to FedbiomedError
-            raise e
+            msg = ErrorNumbers.FB410.value + \
+                f": {e}"
+            logger.critical(msg)
+            raise FedbiomedUserInputError(msg)
         return self._ta[key]
 
 
