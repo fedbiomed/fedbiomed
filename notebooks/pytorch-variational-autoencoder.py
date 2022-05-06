@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Fedbiomed Researcher to train a variational autoencoder
+# # Fed-BioMed Researcher to train a variational autoencoder
 
 # ## Start the network
 # Before running this notebook, start the network with `./scripts/fedbiomed_run network`

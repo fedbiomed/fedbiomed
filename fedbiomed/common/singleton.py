@@ -61,7 +61,7 @@ class SingletonMeta(type):
                         if not kwargs['component'] == cls._objects[cls]._values['COMPONENT_TYPE'] :
                             print("CRITICAL: environment has already been instanciated as a",
                                   cls._objects[cls]._values['COMPONENT_TYPE'])
-                            print("Fed-Biomed may behave weird !")
+                            print("Fed-BioMed may behave weird !")
                             print("You may:")
                             print("- review/correct the code")
                             print("- or reset the notebook/notelab before executing the cell content")
