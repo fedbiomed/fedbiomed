@@ -117,7 +117,7 @@ class TestRepository(unittest.TestCase):
         3. a OSError due to the unability to read specified file
 
         When those errors are triggered, `upload_file` must catch those errors and trigger instead
-        a FedBimedRepositoryError with the corresponding message wrt the occured error.
+        a FedBiomedRepositoryError with the corresponding message wrt the occured error.
         """
         with self.assertRaises(FedbiomedRepositoryError):
             self.r1.upload_file('/a/file/that/should/not/be/found/on/your/computer')
