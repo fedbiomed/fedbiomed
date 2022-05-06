@@ -19,6 +19,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.utils import is_ipython
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, \
     FedbiomedSilentTerminationError
+from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import SGDSkLearnModel
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -127,7 +128,7 @@ class Experiment(object):
                  model_class: Union[Type_TrainingPlan, str, None] = None,
                  model_path: Union[str, None] = None,
                  model_args: dict = {},
-                 training_args: dict = {},
+                 training_args: Union[TypeVar("TrainingArgs"), dict, None] = None,
                  save_breakpoints: bool = False,
                  tensorboard: bool = False,
                  experimentation_folder: Union[str, None] = None
@@ -446,7 +447,7 @@ class Experiment(object):
             The ratio for testing part, `1 - test_ratio` is ratio for training set.
         """
 
-        return self._training_args.get('test_ratio')
+        return self._training_args['test_ratio']
 
     @exp_exceptions
     def test_metric(self) -> Union[MetricTypes, str, None]:
@@ -460,7 +461,7 @@ class Experiment(object):
                 None, if it isn't declared yet.
         """
 
-        return self._training_args.get('test_metric')
+        return self._training_args['test_metric']
 
     @exp_exceptions
     def test_metric_args(self) -> Dict[str, Any]:
@@ -473,7 +474,7 @@ class Experiment(object):
             A dictionary that contains arguments for metric function. See [`set_test_metric`]
                 [fedbiomed.researcher.experiment.Experiment.set_test_metric]
         """
-        return self._training_args.get('test_metric_args')
+        return self._training_args['test_metric_args']
 
     @exp_exceptions
     def test_on_local_updates(self) -> bool:
@@ -486,7 +487,7 @@ class Experiment(object):
             True, if testing is active on locally updated parameters. False for vice versa.
         """
 
-        return self._training_args.get('test_on_local_updates')
+        return self._training_args['test_on_local_updates']
 
     @exp_exceptions
     def test_on_global_updates(self) -> bool:
@@ -499,7 +500,7 @@ class Experiment(object):
         Returns:
             True, if testing is active on globally updated (aggregated) parameters. False for vice versa.
         """
-        return self._training_args.get('test_on_global_updates')
+        return self._training_args['test_on_global_updates']
 
     @exp_exceptions
     def job(self) -> Union[Job, None]:
@@ -1191,6 +1192,14 @@ class Experiment(object):
         Raises:
             FedbiomedExperimentError : bad training_args type
         """
+
+        if isinstance(training_args, TrainingArgs):
+            self._training_args = training_args
+        else:
+            self._training_args = TrainingArgs(training_args, only_required = False)
+
+        return self._training_args
+
         if isinstance(training_args, dict):
             if reset or self._training_args is None:
                 # (re)start from minimal training arguments
@@ -1274,19 +1283,6 @@ class Experiment(object):
             FedbiomedExperimentError: bad data type
             FedbiomedExperimentError: ratio is not within interval [0, 1]
         """
-        # data type checks
-        if not isinstance(ratio, (int, float)):
-            msg = ErrorNumbers.FB410.value + ": incorrect argument `ratios` type:" + \
-                f" {type(ratio)} expected integer or float"
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        if 0 > ratio or ratio > 1:
-            msg = ErrorNumbers.FB410.value + ": incorrect argument `ratios` value, " + \
-                f"should be between 0 and 1, but got {ratio}"
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
         self._training_args['test_ratio'] = ratio
 
         if self._job is not None:
@@ -1314,18 +1310,6 @@ class Experiment(object):
         Raises:
             FedbiomedExperimentError: Invalid type for `metric` argument
         """
-        if not (metric is None or isinstance(metric, str) or isinstance(metric, MetricTypes)):
-            _msg = ErrorNumbers.FB410.value + ": incorrect argument metric, got type " + \
-                f"{type(metric)}, but expected Callable or str"
-            raise FedbiomedExperimentError(_msg)
-
-        # at this point, metric is a str, MetricTypes or None
-        if isinstance(metric, str):
-            metric = metric.upper()
-            if metric not in MetricTypes.get_all_metrics():
-                raise FedbiomedExperimentError(f"Metric {metric} is not a default Metric Type supprted by Fedbiomed."
-                                               f" Please use {MetricTypes.get_all_metrics()} or define your"
-                                               " `testing_step` method in the TrainingPlan")
         self._training_args['test_metric'] = metric
 
         # using **metric_args, we know `test_metric_args` is a Dict[str, Any]
@@ -1353,11 +1337,6 @@ class Experiment(object):
         Raises:
             FedbiomedExperimentError: bad flag type
         """
-        if not isinstance(flag, bool):
-            msg = ErrorNumbers.FB410.value + f' `flag` : got {type(flag)} but expected a boolean'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
         self._training_args['test_on_local_updates'] = flag
 
         if self._job is not None:
@@ -1382,11 +1361,6 @@ class Experiment(object):
         Raises:
             FedbiomedExperimentError : bad flag type
         """
-        if not isinstance(flag, bool):
-            msg = ErrorNumbers.FB410.value + f' `flag` : got {type(flag)} but expected a boolean'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
         self._training_args['test_on_global_updates'] = flag
 
         if self._job is not None:
