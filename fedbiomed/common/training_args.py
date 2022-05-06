@@ -120,35 +120,35 @@ class TrainingArgs():
             "lr": {
                 "rules": [ float, cls._positive_hook ],
                 "required": False,
-                "default": 0.01
+#                "default": 0.01
             },
 
             # batch_size
             "batch_size": {
                 "rules": [ int ],
                 "required": False,
-                "default": 48
+#                "default": 48
             },
 
             # epochs
             "epochs": {
                 "rules": [ int ],
-                "required": True,
-                "default": 1
+                "required": False,
+#                "default": 1
             },
 
             # dry_run
             "dry_run": {
                 "rules": [ bool ],
                 "required": False,
-                "default": False
+#                "default": False
             },
 
             # batch_maxnum
             "batch_maxnum": {
                 "rules": [ int ],
                 "required": False,
-                "default": 100
+#                "default": 100
             },
 
             # test_ratio
@@ -166,7 +166,7 @@ class TrainingArgs():
             },
 
             # tests_on_globals_updates
-            "test_on_globals_updates": {
+            "test_on_global_updates": {
                 "rules": [ bool ],
                 "required": False,
                 "default": False
@@ -175,13 +175,15 @@ class TrainingArgs():
             # test_metric
             "test_metric": {
                 "rules": [ cls._metric_validation_hook ],
-                "required": False
+                "required": False,
+                "default": None
             },
 
             # test_metric_args (no test)
             "test_metric_args": {
-                "rules": [ cls._always_true_hook ],
-                "required": False
+                "rules": [ dict ],
+                "required": False,
+                "default": {}
             }
 
         }
@@ -311,3 +313,8 @@ class TrainingArgs():
                 raise ValueError(f"no default value defined for key: {key}")
         else:
             raise KeyError(f"no such key: {key}")
+
+
+    def dict(self):
+        """Returns the training_args as a dictionnary."""
+        return self._ta
