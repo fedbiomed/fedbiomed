@@ -220,8 +220,12 @@ class SGDSkLearnModel(BaseTrainingPlan):
             # (https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L774)
             # We cannot directly know for each loss that has been logged from scikit learn
             #  which labels it corresponds to. This is our best guest
+            print('aclass',aclass)
+            print('i',i)
             idx = targets == aclass
-            support[i] = np.sum(targets[targets[idx]])
+            print('idx',idx)
+            print('target[idx]',targets[idx])
+            support[i] = np.sum(targets[targets.astype(int)[idx]])
 
         return support
 
@@ -264,6 +268,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
                 if self._is_classification:
                     classes = self.__classes_from_concatenated_train_test()
                     try:
+                        print('self model',self.model)
                         self.model.partial_fit(data, target, classes=classes)
                     except Exception as e:
                         msg = ErrorNumbers.FB605.value + \
@@ -276,7 +281,8 @@ class SGDSkLearnModel(BaseTrainingPlan):
 
                 elif self._is_clustering:
                     self.model.partial_fit(data)
-
+            print('model get params',self.model.get_params())
+            print('output capturer',output)
             # Logging training training outputs
             if history_monitor is not None:
                 _loss_collector = []
@@ -304,6 +310,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
                     if self._is_classification and not self._is_binary_classification:
                         # WARNING: only for plain SGD models in scikit learn
                         # if other models are implemented, should be updated
+                        print('target', target)
                         support = self._compute_support(target)
                         loss = np.average(_loss_collector, weights=support)  # perform a weighted average
 

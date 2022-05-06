@@ -46,14 +46,15 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
 
         Args:
         - model_args (dict, optional): model arguments. Defaults to {}.
-        """0
+        """
         super().__init__()
 
         print('model id sklearntarining plan',id(self.model))
-        # if getattr(self, 'model') is None:
-        #     msg = ErrorNumbers.FB303.value + ": SKLEARN model is None"
-        #     logger.critical(msg)
-        #     raise FedbiomedTrainingPlanError(msg)
+
+        if getattr(self, 'model') is None:
+            msg = ErrorNumbers.FB303.value + ": SKLEARN model is None"
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
         if not isinstance(model_args, dict):
             msg = ErrorNumbers.FB303.value + ": SKLEARN model_args is not a dict"
@@ -62,6 +63,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
 
         self.params = self.model.get_params()
         self.params.update({key: model_args[key] for key in model_args if key in self.params})
+
+        self.model_args = model_args
+
         self.param_list = []
 
         self.__type = TrainingPlans.SkLearnTrainingPlan
@@ -400,7 +404,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         # to see how multi classification is done in sklearn, please visit:
         # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324   # noqa
         # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L738   # noqa
-
+        print('sklearn training plan, model.classes_ = ',self.model.classes_)
+        print('sklearn training plan, support = ',support)
+        print('target:',targets)
         for i, aclass in enumerate(self.model.classes_):
             # in sklearn code, in `fit_binary1`, `i`` seems to be
             # iterated over model.classes_
@@ -408,7 +414,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             # We cannot directly know for each loss that has been logged from scikit learn
             #  which labels it corresponds to. This is our best guest
             idx = targets == aclass
-            support[i] = np.sum(targets[targets[idx]])
+            support[i] = np.sum(targets[targets.astype(int)[idx]])
 
         return support
 
