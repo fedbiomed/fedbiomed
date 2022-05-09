@@ -1,5 +1,9 @@
 # Fed-BioMed changelog
 
+## 2022-xx-xx version 3.6 or 4.0
+
+- xxx
+
 ## 2022-05-09 version 3.5
 
 - add FedProx optimization scheme support for PyTorch in training plan
