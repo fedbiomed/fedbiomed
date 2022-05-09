@@ -124,14 +124,6 @@ class TrainingArgs():
         else:
             return True
 
-    @staticmethod
-    @validator_decorator
-    def _always_true_hook( v: Any):
-        """
-        As is says
-        """
-        return True
-
     @classmethod
     def default_scheme(cls) -> Dict:
         """
