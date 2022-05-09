@@ -36,7 +36,7 @@ Nodes Global Variables:
 Common Global Variables:
     COMPONENT_TYPE          : Node or Researcher
     CONFIG_DIR              : Configuration file path
-    VAR_DIR                 : Var directory of Fed-Biomed
+    VAR_DIR                 : Var directory of Fed-BioMed
     CACHE_DIR               : Cache directory of Fed-BioMed
     TMP_DIR                 : Temporary directory
     MQTT_BROKER             : MQTT broker IP address

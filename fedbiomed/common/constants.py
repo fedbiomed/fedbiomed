@@ -1,4 +1,4 @@
-"""Fedbiomed constants/enums"""
+"""Fed-BioMed constants/enums"""
 
 from enum import Enum
 

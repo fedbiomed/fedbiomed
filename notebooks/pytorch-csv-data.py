@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Fedbiomed Researcher to train a model on a CSV dataset
+# # Fed-BioMed Researcher to train a model on a CSV dataset
 
 # This example shows how to use a CSV format file as a node dataset. The example CSV
 # file is synthetic data with a format inspired from ADNI dataset.

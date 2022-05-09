@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Fedbiomed Researcher base example
+# # Fed-BioMed Researcher base example
 
 # ## Start the network
 # Before running this notebook, start the network with `./scripts/fedbiomed_run network`

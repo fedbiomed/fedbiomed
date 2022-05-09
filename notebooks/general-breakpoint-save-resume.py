@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Fedbiomed Researcher
+# # Fed-BioMed Researcher
 
 # Use for developing (autoreloads changes made across packages)
 

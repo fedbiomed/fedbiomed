@@ -198,7 +198,7 @@ def add_database(interactive: bool = True,
        data_type is None :
 
 
-        print('Welcome to the Fedbiomed CLI data manager')
+        print('Welcome to the Fed-BioMed CLI data manager')
 
         if interactive is True:
             data_type = validated_data_type_input()
@@ -464,7 +464,7 @@ def register_model():
     Does not modify model file.
     """
 
-    print('Welcome to the Fedbiomed CLI data manager')
+    print('Welcome to the Fed-BioMed CLI data manager')
     name = input('Please enter a model name: ')
     description = input('Please enter a description for the model: ')
 

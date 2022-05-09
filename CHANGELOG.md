@@ -1,14 +1,26 @@
 # Fed-BioMed changelog
 
-## 2022-XX-YY version 3.5 or 4.0
+## 2022-xx-xx version 3.6 or 4.0
 
-- update vpn configuration files
+- xxx
+
+## 2022-05-09 version 3.5
+
+- add FedProx optimization scheme support for PyTorch in training plan
+- data manager to provide robust solution on managing node datasets before training on the node side
+- model evaluation/testing on the node side over locally updated and aggregated model parameters
+- add NIFTI folder dataset type
+- add option to load MedNIST dataset in node
+- update docstrings for API documentation support
+- node container support for GPU with PyTorch, tested on Fedora 35
+- debug and robustify VPN/containers environment, test on Ubuntu 20 and Windows 10 + WSL2
+- VPN/containers environment scripts for simpler management of containers and peers
 - refactor training\_plans/\_fedbiosklearn.py to get rid off eval()
 - change training\_plans file organisation
 - create a top class for training\_plans
 - removed the magic %writefile use in notebooks to save the user's defined model
 - more unittests and flake8 parsing
-- Update docstrings for API Documentation
+- add validation class for checking user input
 
 ## 2022-02-25 version 3.4
 

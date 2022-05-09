@@ -768,10 +768,6 @@ class Experiment(object):
             from_tags: Specificities; If True, query nodes for datasets when no `training_data` is provided.
                 Not used when `training_data` is provided.
 
-        !!! info "Info"
-            If `training_data` object does contain `test_ratio`, training_args will update its value by the
-            value set in the `training_data` argument.
-
         Returns:
             Nodes and dataset with meta-data
 
