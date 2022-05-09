@@ -5,6 +5,9 @@
 - add FedProx optimization scheme support for PyTorch in training plan
 - data manager to provide robust solution on managing node datasets before training on the node side
 - model evaluation/testing on the node side over locally updated and aggregated model parameters
+- add NIFTI folder dataset type
+- add option to load MedNIST dataset in node
+- update docstrings for API documentation support
 - node container support for GPU with PyTorch, tested on Fedora 35
 - debug and robustify VPN/containers environment, test on Ubuntu 20 and Windows 10 + WSL2
 - VPN/containers environment scripts for simpler management of containers and peers
@@ -14,8 +17,6 @@
 - removed the magic %writefile use in notebooks to save the user's defined model
 - more unittests and flake8 parsing
 - add validation class for checking user input
-- update docstrings for API documentation support
-- add NIFTI folder dataset type
 
 ## 2022-02-25 version 3.4
 
