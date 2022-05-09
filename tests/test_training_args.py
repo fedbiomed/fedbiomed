@@ -5,9 +5,9 @@ Test module for TrainingArgs
 
 import unittest
 
+from fedbiomed.common.exceptions import FedbiomedUserInputError
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.validator import ValidateError, RuleError
 
 
 class TestTrainingArgs(unittest.TestCase):
@@ -34,9 +34,13 @@ class TestTrainingArgs(unittest.TestCase):
             print( t['dry_run'] )
 
         t = TrainingArgs( only_required = False )
-        self.assertEqual( t['lr'], t.default_value('lr'))
-        self.assertEqual( t['epochs'], t.default_value('epochs'))
-        self.assertEqual( t['dry_run'], t.default_value('dry_run'))
+
+        # lr has no default value
+        with self.assertRaises(KeyError):
+            self.assertEqual( t['lr'], t.default_value('lr'))
+
+        # and test_ratio has
+        self.assertEqual( t['test_ratio'], t.default_value('test_ratio'))
 
 
     def test_training_args_02_scheme(self):
@@ -60,8 +64,6 @@ class TestTrainingArgs(unittest.TestCase):
         test TrainingArgs setters
         """
         t = TrainingArgs( only_required = False )
-        self.assertEqual( t['lr'], t.default_value('lr'))
-        self.assertEqual( t['epochs'], t.default_value('epochs'))
 
         t ^= { "lr": 3.14 }
         self.assertEqual( t['lr'], 3.14)
@@ -83,17 +85,16 @@ class TestTrainingArgs(unittest.TestCase):
         t ^= { "test_metric": MetricTypes.ACCURACY }
         self.assertEqual( t['test_metric'], MetricTypes.ACCURACY)
 
-        with self.assertRaises(ValidateError):
+        with self.assertRaises(FedbiomedUserInputError):
             t ^= { "test_metric": "RULE_OF_THUMB" }
         # t was not changed by previous line
         self.assertEqual( t['test_metric'], MetricTypes.ACCURACY)
 
         # test_metric_args key
-        t ^= { "test_metric_args" : "can be whatever" }
-        t ^= { "test_metric_args" : True }
-        t ^= { "test_metric_args" : 3.14 }
-        t ^= { "test_metric_args" : { "also": True} }
+        t ^= { "test_metric_args" : { "must_be_a_dict": True} }
 
+        with self.assertRaises(FedbiomedUserInputError):
+            t ^= { "test_metric_args": "not a dict" }
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

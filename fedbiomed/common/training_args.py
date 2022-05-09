@@ -39,8 +39,7 @@ class TrainingArgs():
                     developpers, to ease the test of future Fed-Biomed features
 
         Raises:
-            ValidateError: if ta is not valid
-            RuleError: if extra_scheme is not valid
+            FedbiomedUserInputError: in case of bad value or bad extra_scheme
         """
         self._scheme = TrainingArgs.default_scheme()
 
@@ -52,10 +51,12 @@ class TrainingArgs():
 
         try:
             self._sc = SchemeValidator(self._scheme)
-        except RuleError:
+        except RuleError as e:
             #
             # internal error (invalid scheme)
-            raise
+            msg = ErrorNumbers.FB410.value + f": {e}"
+            logger.critical(msg)
+            raise FedbiomedUserInputError(msg)
 
         # scheme is validated from here
         if ta is None:
@@ -66,14 +67,18 @@ class TrainingArgs():
                                                         only_required = only_required)
         except RuleError:
             # scheme has required keys without defined default value
-            raise
+            msg = ErrorNumbers.FB410.value + f": {e}"
+            logger.critical(msg)
+            raise FedbiomedUserInputError(msg)
 
         # finaly check user input
         try:
             self._sc.validate(self._ta)
         except (ValidateError):
             # transform to a Fed-BioMed error
-            raise
+            msg = ErrorNumbers.FB410.value + f": {e}"
+            logger.critical(msg)
+            raise FedbiomedUserInputError(msg)
 
 
     # validators
@@ -229,7 +234,7 @@ class TrainingArgs():
             validated keys
 
         Raises:
-            ValidateError: in case of problem (invalid key or value)
+            FedbiomedUserInputError: in case of problem (invalid key or value)
         """
 
         try:
@@ -240,8 +245,7 @@ class TrainingArgs():
         except (RuleError, ValidateError) as e:
             #
             # transform to FedbiomedError
-            msg = ErrorNumbers.FB410.value + \
-                f": {e}"
+            msg = ErrorNumbers.FB410.value + f": {e}"
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
         return self._ta[key]
@@ -258,9 +262,17 @@ class TrainingArgs():
             value
 
         Raises:
-            KeyError: if key does not exist
+            FedbiomedUserInputError: in case of bad key
         """
-        return self._ta[key]
+        try:
+            ret = self._ta[key]
+            return ret
+        except (RuleError, ValidateError) as e:
+            #
+            # transform to FedbiomedError
+            msg = ErrorNumbers.FB410.value + f": {e}"
+            logger.critical(msg)
+            raise FedbiomedUserInputError(msg)
 
 
     def update(self, values: Dict) -> _MyOwnType:
@@ -274,12 +286,18 @@ class TrainingArgs():
             self: the object itself after modification
 
         Raises:
-            RuleError: if a key in invalid
-            ValidateError: if a value is invalid
+            FedbiomedUserInputError: in case of bad key or value in values
         """
-        for k in values:
-            self.__setitem__(k, values[k])
-        return self
+        try:
+            for k in values:
+                self.__setitem__(k, values[k])
+            return self
+        except (RuleError, ValidateError) as e:
+            #
+            # transform to FedbiomedError
+            msg = ErrorNumbers.FB410.value + f": {e}"
+            logger.critical(msg)
+            raise FedbiomedUserInputError(msg)
 
 
     def __ixor__(self, other: Dict) -> _MyOwnType:
@@ -293,8 +311,7 @@ class TrainingArgs():
             self: the object itself after modification
 
         Raises:
-            RuleError: if a key in invalid
-            ValidateError: if a value is invalid
+            FedbiomedUserInputError: in case of bad key or value in values
         """
         return self.update(other)
 
@@ -322,16 +339,21 @@ class TrainingArgs():
             value: the default value associated to the key
 
         Raises:
-            KeyError:  if key is not part of the sheme or
-            ValueError: if no default value is defined for the key
+            FedbiomedUserInputError: in case of problem (invalid key or value)
         """
         if key in self._sc.scheme():
             if "default" in self._sc.scheme()[key]:
                 return self._sc.scheme()[key]["default"]
             else:
-                raise ValueError(f"no default value defined for key: {key}")
+                msg = ErrorNumbers.FB410.value + \
+                    f"no default value defined for key: {key}"
+                logger.critical(msg)
+                raise FedbiomedUserInputError(msg)
         else:
-            raise KeyError(f"no such key: {key}")
+            msg = ErrorNumbers.FB410.value + \
+                f"no such key: {key}"
+            logger.critical(msg)
+            raise FedbiomedUserInputError(msg)
 
 
     def dict(self):
