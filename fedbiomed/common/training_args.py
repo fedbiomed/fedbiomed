@@ -65,7 +65,7 @@ class TrainingArgs():
         try:
             self._ta = self._sc.populate_with_defaults( ta,
                                                         only_required = only_required)
-        except RuleError:
+        except RuleError as e:
             # scheme has required keys without defined default value
             msg = ErrorNumbers.FB410.value + f": {e}"
             logger.critical(msg)
@@ -74,7 +74,7 @@ class TrainingArgs():
         # finaly check user input
         try:
             self._sc.validate(self._ta)
-        except (ValidateError):
+        except (ValidateError) as e:
             # transform to a Fed-BioMed error
             msg = ErrorNumbers.FB410.value + f": {e}"
             logger.critical(msg)
@@ -117,7 +117,7 @@ class TrainingArgs():
     @validator_decorator
     def _loss_rate_hook( v: Any):
         """
-        Test if in [ 0.0 , 1.0]  interval.
+        Test if lr is greater than 0.
         """
         if v < 0:
             return False
@@ -259,7 +259,7 @@ class TrainingArgs():
         try:
             ret = self._ta[key]
             return ret
-        except (RuleError, ValidateError) as e:
+        except (KeyError) as e:
             #
             # transform to FedbiomedError
             msg = ErrorNumbers.FB410.value + f": {e}"
@@ -280,16 +280,9 @@ class TrainingArgs():
         Raises:
             FedbiomedUserInputError: in case of bad key or value in values
         """
-        try:
-            for k in values:
-                self.__setitem__(k, values[k])
-            return self
-        except (RuleError, ValidateError) as e:
-            #
-            # transform to FedbiomedError
-            msg = ErrorNumbers.FB410.value + f": {e}"
-            logger.critical(msg)
-            raise FedbiomedUserInputError(msg)
+        for k in values:
+            self.__setitem__(k, values[k])
+        return self
 
 
     def __ixor__(self, other: Dict) -> _MyOwnType:
@@ -357,5 +350,5 @@ class TrainingArgs():
         """Mimics the get() method of dict, provided for backward compatibility."""
         try:
             return self._ta[key]
-        except FedbiomedUserInputError:
+        except KeyError:
             return default
