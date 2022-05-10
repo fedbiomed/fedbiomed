@@ -469,12 +469,12 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         return self.state_dict()
 
-    def initialize_dp(self, DP_args: dict):
+    def initialize_dp(self, dp_args: dict):
         """Initialize arguments to perform DP training, and check that the user
         has correctly provided all requested DP parameters in the correct form
 
         Args:
-            DP_args (dict, optional): DP parameters provided by the user
+            dp_args (dict, optional): DP parameters provided by the user
         """
 
         self.DP = dp_args
