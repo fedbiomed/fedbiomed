@@ -59,6 +59,13 @@ class TestTrainingArgs(unittest.TestCase):
         }
         t = TrainingArgs( extra_scheme = my_added_rule)
 
+        my_wrong_added_rule = {
+            'wrong': {
+            }
+        }
+        with self.assertRaises(FedbiomedUserInputError):
+            t = TrainingArgs( extra_scheme = my_wrong_added_rule)
+
     def test_training_args_03_setters(self):
         """
         test TrainingArgs setters
