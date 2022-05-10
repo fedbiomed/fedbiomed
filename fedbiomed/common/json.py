@@ -5,12 +5,14 @@ Compared to the usual json module, it deals with some fedbiomed data types which
 default (eg: enumerations)
 """
 
+
 import json
 
 from typing import Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.training_args import TrainingArgs
 
 
 def deserialize_msg(msg: Union[str, bytes]) -> dict:
@@ -73,7 +75,8 @@ def _deserialize_training_args(msg):
 def _serialize_training_args(msg):
     """TrainingArgs is a class and must be specifically serialized"""
     if msg.get('training_args', False):
-        msg['training_args'] = msg['training_args'].dict()
+        if isinstance(msg['training_args'], TrainingArgs):
+            msg['training_args'] = msg['training_args'].dict()
     return msg
 
 
@@ -81,7 +84,6 @@ def _deserialize_test_metric(msg):
     """MetricTypes is an enum and must be specifically deserialized."""
     if msg.get('training_args', False):
         metric = msg['training_args'].get('test_metric', False)
-        print("******** METRIC:", metric)
         if metric:
             msg['training_args']['test_metric'] = MetricTypes.get_metric_type_by_name(metric)
     return msg
