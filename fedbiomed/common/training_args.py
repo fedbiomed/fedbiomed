@@ -351,3 +351,11 @@ class TrainingArgs():
     def dict(self):
         """Returns the training_args as a dictionnary."""
         return self._ta
+
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Mimics the get() method of dict, provided for backward compatibility."""
+        try:
+            return self._ta[key]
+        except FedbiomedUserInputError:
+            return default
