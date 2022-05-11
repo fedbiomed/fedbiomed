@@ -25,7 +25,7 @@ def deserialize_msg(msg: Union[str, bytes]) -> dict:
     """
     decode = json.loads(msg)
 
-    # If message is train request
+    # deserialize our own types/classes
     decode = _deserialize_test_metric(decode)
 
     # errnum is present in ErrorMessage and is an Enum
@@ -55,7 +55,7 @@ def serialize_msg(msg: dict) -> str:
         JSON parsed message ready to transmit.
     """
 
-    # If message is train request
+    # serialize our own types/classes
     msg = _serialize_training_args(msg)
     msg = _serialize_test_metric(msg)
 
@@ -74,7 +74,7 @@ def _deserialize_training_args(msg):
 
 def _serialize_training_args(msg):
     """TrainingArgs is a class and must be specifically serialized"""
-    if msg.get('training_args', False):
+    if 'training_args' in msg:
         if isinstance(msg['training_args'], TrainingArgs):
             msg['training_args'] = msg['training_args'].dict()
     return msg
@@ -82,7 +82,7 @@ def _serialize_training_args(msg):
 
 def _deserialize_test_metric(msg):
     """MetricTypes is an enum and must be specifically deserialized."""
-    if msg.get('training_args', False):
+    if 'training_args' in msg:
         metric = msg['training_args'].get('test_metric', False)
         if metric:
             msg['training_args']['test_metric'] = MetricTypes.get_metric_type_by_name(metric)
@@ -91,7 +91,7 @@ def _deserialize_test_metric(msg):
 
 def _serialize_test_metric(msg):
     """MetricTypes is an enum and must be specifically serialized."""
-    if msg.get('training_args', False):
+    if 'training_args' in msg:
         metric = msg['training_args'].get('test_metric', False)
         if metric and isinstance(metric, MetricTypes):
             msg['training_args']['test_metric'] = metric.name
