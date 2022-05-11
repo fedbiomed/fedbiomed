@@ -343,6 +343,14 @@ class TrainingArgs():
 
     def dict(self):
         """Returns the training_args as a dictionnary."""
+
+        if 'test_metric' in self._ta and \
+           isinstance(self._ta['test_metric'], MetricTypes):
+            # replace MetricType value by a string
+            ta = deepcopy(self._ta)
+            ta['test_metric'] = self._ta['test_metric'].name
+            return ta
+
         return self._ta
 
 

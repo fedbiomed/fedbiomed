@@ -1802,7 +1802,7 @@ class Experiment(object):
 
         state = {
             'training_data': self._fds.data(),
-            'training_args': self._training_args,
+            'training_args': self._training_args.dict(),
             'model_args': self._model_args,
             'model_path': self._job.model_file,  # only in Job we always model saved to a file
             # with current version
