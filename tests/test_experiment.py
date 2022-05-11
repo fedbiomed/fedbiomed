@@ -13,6 +13,7 @@ from testsupport.fake_dataset import FederatedDataSetMock
 from testsupport.fake_experiment import ExperimentMock
 from testsupport.fake_training_plan import FakeModel
 
+from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.exceptions import FedbiomedSilentTerminationError
 
@@ -147,13 +148,6 @@ class TestExperiment(unittest.TestCase):
         self.tags = ['some_tag', 'more_tag']
         self.nodes = ['node-1', 'node-2']
 
-        self.default_training_args = {
-            'test_ratio': .0,
-            'test_on_local_updates': False,
-            'test_on_global_updates': False,
-            'test_metric': None,
-            'test_metric_args': {}
-        }
         # useful for all tests, except load_breakpoint
         self.test_exp = Experiment(
             nodes=['node-1', 'node-2'],
@@ -161,7 +155,6 @@ class TestExperiment(unittest.TestCase):
             round_limit=self.round_limit,
             tensorboard=True,
             save_breakpoints=True)
-
 
     def tearDown(self) -> None:
 
@@ -268,11 +261,6 @@ class TestExperiment(unittest.TestCase):
         # Test getter for model arguments
         model_args = self.test_exp.model_args()
         self.assertDictEqual(model_args, {}, 'Getter for model_args did not return expected value')
-
-        # Test getter for training arguments
-        training_args = self.test_exp.training_args().dict()
-        self.assertDictEqual(training_args, self.default_training_args,
-                             'Getter for model_class did not return expected value')
 
         # Test getter fpr Job instance
         job = self.test_exp.job()
@@ -1306,7 +1294,7 @@ class TestExperiment(unittest.TestCase):
         training_data = {'node1': [{'name': 'dataset1', 'test_ratio': .0}],
                          'node2': [{'name': 'dataset2', 'test_ratio': .0}]}
         # we want to test with non null values
-        training_args = {'trarg1': 'my_string', 'trarg2': 444, 'trarg3': True}
+        training_args = TrainingArgs( only_required = False )
         self.test_exp._training_args = training_args
         model_args = {'modelarg1': 'value1', 'modelarg2': 234, 'modelarg3': False}
         self.test_exp._model_args = model_args
@@ -1394,7 +1382,7 @@ class TestExperiment(unittest.TestCase):
             final_state = json.load(f)
 
         self.assertEqual(final_state['training_data'], training_data)
-        self.assertEqual(final_state['training_args'], training_args)
+        self.assertEqual(final_state['training_args'], training_args.dict())
         self.assertEqual(final_state['model_args'], model_args)
         self.assertEqual(final_state['model_path'], final_model_path)
         self.assertEqual(final_state['model_class'], model_class)
@@ -1447,7 +1435,8 @@ class TestExperiment(unittest.TestCase):
         bkpt_file = 'file_4_breakpoint'
 
         training_data = {'train_node1': [{'name': 'my_first_dataset', 2: 243}]}
-        training_args = {1: 'my_first arg', 'training_arg2': 123.45}
+        #training_args = {1: 'my_first arg', 'training_arg2': 123.45}
+        training_args = TrainingArgs( only_required = False )
         model_args = {'modarg1': True, 'modarg2': 7.12, 'modarg3': 'model_param_foo'}
         model_path = '/path/to/breakpoint_model_file.py'
         model_class = 'ThisIsTheTrainingPlan'
@@ -1464,7 +1453,7 @@ class TestExperiment(unittest.TestCase):
         # breakpoint structure
         state = {
             'training_data': training_data,
-            'training_args': training_args,
+            'training_args': training_args.dict(),
             'model_args': model_args,
             'model_path': model_path,
             'model_class': model_class,
@@ -1499,7 +1488,8 @@ class TestExperiment(unittest.TestCase):
         final_experimentation_folder = experimentation_folder
         final_training_data = {'train_node1': [{'name': 'my_first_dataset',
                                                 '2': 243}]}
-        final_training_args = {'1': 'my_first arg', 'training_arg2': 123.45}
+        #training_args = {1: 'my_first arg', 'training_arg2': 123.45}
+        final_training_args = TrainingArgs( only_required = False)
         final_aggregator = {'aggreg1': False, 'aggreg2': 'dummy_agg_param', '18': 'agg_param18'}
         final_strategy = {'strat1': 'test_strat_param', 'strat2': 421, '3': 'strat_param3'}
         final_job = {'1': 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
@@ -1572,7 +1562,7 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(loaded_exp._model_class, model_class)
         self.assertEqual(loaded_exp._model_path, model_path)
         self.assertEqual(loaded_exp._model_args, model_args)
-        self.assertEqual(loaded_exp._training_args, final_training_args)
+        self.assertDictEqual(loaded_exp._training_args.dict(), final_training_args.dict())
         self.assertEqual(loaded_exp._job._saved_state, final_job)
         self.assertEqual(loaded_exp._aggregated_params, final_aggregated_params)
         self.assertTrue(loaded_exp._save_breakpoints)
