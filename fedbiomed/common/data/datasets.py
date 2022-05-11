@@ -22,7 +22,7 @@ class NIFTIFolderDataset(Dataset, ABC):
     """A Generic class for loading NIFTI Images using the folder structure as the target labels.
 
     Supported formats:
-        * NIFTI and compressed NIFTI files: `.nii`, `.nii.gz`
+    - NIFTI and compressed NIFTI files: `.nii`, `.nii.gz`
 
     This is a Dataset useful in classification tasks. Its usage is quite simple.
     Images must be contained by folders that describe the group/class they belong to.
@@ -51,9 +51,9 @@ class NIFTIFolderDataset(Dataset, ABC):
                  ):
         """
         Args:
-            - root (str, PathLike): folder where the data is located.
-            - transform (Transform): transforms to be applied on data.
-            - target_transform (Transform): transforms to be applied on target.
+            root: folder where the data is located.
+            transform: transforms to be applied on data.
+            target_transform: transforms to be applied on target.
         """
         self.root_dir = Path(root).expanduser()
         self.transform = transform
@@ -83,7 +83,16 @@ class NIFTIFolderDataset(Dataset, ABC):
         if len(self.files) == 0 or len(self.targets) == 0:
             raise FileNotFoundError(f"Not compatible files were found in the {self.root_dir}.")
 
-    def __getitem__(self, item) -> Tuple[Tensor, Tensor]:
+    def __getitem__(self, item: int) -> Tuple[Tensor, Tensor]:
+        """ Gets item from dataset
+
+        Args:
+            item: Key/index to select single sample from dataset
+
+        Returns:
+            inputs: Input sample
+            target: Target sample
+        """
         img = self.reader(self.files[item])
         target = self.targets[item]
 

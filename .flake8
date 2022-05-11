@@ -26,6 +26,9 @@ ignore =
     # do not use bare 'except'
     E722,
 
+    # Do not assign a lambda expression, use a def
+    E731,
+
     # trailing whitespace
     W291,
 

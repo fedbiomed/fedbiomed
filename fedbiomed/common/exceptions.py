@@ -1,13 +1,11 @@
-'''
-all the fedbiomed errors
+""" All the fedbiomed errors/Exceptions """
 
-do not import other fedbiomed package here to avoid dependancy loop
-'''
 
+# Do not import other fedbiomed package here to avoid dependency loop
 
 class FedbiomedError(Exception):
     """
-    top class of all our exceptions
+    Top class of all our exceptions
 
     this allows to catch every Fedbiomed*Errors in a single except block
     """
@@ -155,5 +153,12 @@ class FedbiomedTorchTabularDatasetError(FedbiomedError):
 class FedbiomedRoundError(FedbiomedError):
     """
     Exceptions specific for the class node round class
+    """
+    pass
+
+
+class FedbiomedDatasetManagerError(FedbiomedError):
+    """
+    Exceptions specific for the class DatasetManager.
     """
     pass

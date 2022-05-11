@@ -1,7 +1,7 @@
 import sys
 import inspect
 from collections.abc import Iterable
-from typing import Callable, Iterator, List, Union
+from typing import Callable, Iterator, List, Union, Optional
 from IPython.core.magics.code import extract_symbols
 
 import torch
@@ -9,18 +9,20 @@ import numpy as np
 from fedbiomed.common.exceptions import FedbiomedError
 
 
-def get_class_source(cls) -> str:
-    """
-    Function for getting source of the class. It uses different methods for getting the class source based on
-    shell type; IPython,Notebook shells or Python shell
+def get_class_source(cls: Callable) -> str:
+    """Get source of the class.
+
+    It uses different methods for getting the class source based on shell type; IPython,Notebook
+    shells or Python shell
 
     Args:
-        cls: Class whose source code will be extracted
+        cls: The class to extract the source code from
 
-    Raises:
-        FedbiomedError if arguemnt is not a class
     Return:
         str: Source code of the given class
+
+    Raises:
+        FedbiomedError: if argument is not a class
     """
 
     if not inspect.isclass(cls):
@@ -42,14 +44,8 @@ def is_ipython() -> bool:
     """
     Function that checks whether the codes (function itself) is executed in ipython kernel or not
 
-    Args:
-        (None)
-
-    Raises:
-        (None)
-
     Returns:
-        bool: If True python interpreter is IPython
+        True, if python interpreter is IPython
     """
 
     ipython_shells = ['ZMQInteractiveShell', 'TerminalInteractiveShell']
@@ -63,16 +59,14 @@ def is_ipython() -> bool:
         return False
 
 
-def _get_ipython_class_file(cls) -> str:
-    """
-    Function that gets source file/cell-id of the class which is defined in ZMQInteractiveShell or
-    TerminalInteractiveShell
+def _get_ipython_class_file(cls: Callable) -> str:
+    """Get source file/cell-id of the class which is defined in ZMQInteractiveShell or TerminalInteractiveShell
 
     Args:
-        cls (python class): Python class object defined on the IPython kernel
+        cls: Python class defined on the IPython kernel
 
     Returns:
-        str: Returns file path of Jupyter cell. On IPython's interactive shell, it returns cell ID
+        File path or id of Jupyter cell. On IPython's interactive shell, it returns cell ID
     """
 
     # Lookup by parent module
@@ -90,9 +84,14 @@ def _get_ipython_class_file(cls) -> str:
         raise FedbiomedError(f'{cls} has no attribute `__module__`, source is not found.')
 
 
-def get_method_spec(method: Callable):
-    """
-    Helper to get argument specification
+def get_method_spec(method: Callable) -> dict:
+    """ Helper to get argument specification
+
+    Args:
+        method: The function/method to extract argument specification from
+
+    Returns:
+         Specification of the method
     """
 
     method_spec = {}
@@ -108,7 +107,14 @@ def get_method_spec(method: Callable):
 
 
 def convert_to_python_float(value: Union[torch.Tensor, np.integer, float, int]) -> float:
-    """"""
+    """ Convert numeric types to float
+
+    Args:
+        value: value to convert python type float
+
+    Returns:
+        Python float
+    """
 
     if not isinstance(value, (torch.Tensor, np.integer, float, int)):
         raise FedbiomedError(f"Converting {type(value)} to python to float is not supported.")
@@ -129,7 +135,14 @@ def convert_to_python_float(value: Union[torch.Tensor, np.integer, float, int]) 
 
 
 def convert_iterator_to_list_of_python_floats(iterator: Iterator) -> List[float]:
-    """"""
+    """Converts numerical values of array-like object to float
+
+    Args:
+        iterator: Array-like numeric object to convert numerics to float
+
+    Returns:
+        Numerical elements as converted to List of floats
+    """
 
     if not isinstance(iterator, Iterable):
         raise FedbiomedError(f"object {type(iterator)} is not iterable")
