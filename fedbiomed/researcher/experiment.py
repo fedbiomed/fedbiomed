@@ -83,7 +83,7 @@ def exp_exceptions(function):
                 '--------------------',
                 sep=os.linesep)
             # redundant, should be already logged when raising exception
-            logger.critical(f'Fed-BioMed researcher stopped due to exception:\n{str(e)}')
+            #logger.critical(f'Fed-BioMed researcher stopped due to exception:\n{str(e)}')
         except BaseException as e:
             code = 3
             print(

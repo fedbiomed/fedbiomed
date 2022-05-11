@@ -114,8 +114,7 @@ class FedbiomedSilentTerminationError(FedbiomedError):
     Exception for silently terminating the researcher from a notebook.
     """
     def _render_traceback_(self):
-        pass
-
+        return []
 
 class FedbiomedSkLearnDataManagerError(FedbiomedError):
     """
