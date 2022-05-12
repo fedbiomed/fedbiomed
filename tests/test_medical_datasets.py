@@ -82,5 +82,14 @@ class TestNIFTIFolderDataset(unittest.TestCase):
                 itk.imwrite(img, img_path)
 
 
+class TestBIDSDataset(unittest.TestCase):
+    def setUp(self) -> None:
+        self.root = '/Users/ssilvari/Downloads/IXI_sample'
+
+    def test_instantiating_dataset(self):
+        from fedbiomed.common.data import BIDSDataset
+        dataset = BIDSDataset(self.root)
+
+
 if __name__ == '__main__':
     unittest.main()

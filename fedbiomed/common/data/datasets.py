@@ -129,10 +129,11 @@ class BIDSDataset(Dataset):
         * `label` which contains segmentation masks
     """
     ALLOWED_MODALITIES = ['T1', 'T2', 'LABEL']
+    ALLOWED_EXTENSIONS = ['.nii', '.nii.gz']
 
     def __init__(self,
-                 root: Union[PathLike, Path],
-                 transform: Dict[str, Transform],
+                 root: Union[str, PathLike, Path],
+                 transform: Dict[str, Transform] = None,
                  data_modalities: Optional[Union[str, Iterable[str]]] = 'T1',
                  target_modalities: Optional[Union[str, Iterable[str]]] = 'label'
                  ):
@@ -149,19 +150,45 @@ class BIDSDataset(Dataset):
         self.data_modalities = [data_modalities] if isinstance(data_modalities, str) else data_modalities
         self.target_modalities = [target_modalities] if isinstance(data_modalities, str) else target_modalities
 
-    @cached
+        # Image loader
+        self.reader = Compose([
+            LoadImage(ITKReader(), image_only=True),
+            ToTensor()
+        ])
+
     @property
-    def subject_list(self) -> List[Path]:
+    def subject_folders(self) -> List[Path]:
         """Loads a subject list by iterating over the root directory of the dataset."""
-        # TODO: Iter over folders and get a list of subjects (verify for non-empty directories)
-        subject_folders = self.root_folder.iterdir()
+        subject_folders = list(self.root_folder.iterdir())
+        return subject_folders
+
+    def load_images(self, subject_folder: Path, modalities: list, as_dict=True):
+        files = {} if as_dict else []
+
+        for modality in modalities:
+            image_folder = subject_folder.joinpath(modality)
+            nii_files = [p.resolve() for p in image_folder.glob("**/*")
+                         if ''.join(p.suffixes) in self.ALLOWED_EXTENSIONS]
+
+            # Load the first, we assume there is going to be a single image per modality for now.
+            img_path = nii_files[0]
+            img = self.reader(img_path)
+            if as_dict:
+                files[modality] = img
+            else:
+                files.append(img)
+        return files
 
     def _load_modality(self):
         """Loads data from a particular modality."""
         pass
 
     def __getitem__(self, item):
-        pass
+        subject_folder = self.subject_folders[item]
+        data = self.load_images(subject_folder, modalities=self.data_modalities)
+        targets = self.load_images(subject_folder, modalities=self.target_modalities)
+
+        return data, targets
 
     def __len__(self):
         pass
