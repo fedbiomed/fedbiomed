@@ -275,7 +275,7 @@ class SchemeValidator(object):
 
         return True
 
-    def populate_with_defaults(self, value: Dict, only_required = True) -> Dict:
+    def populate_with_defaults(self, value: Dict, only_required: bool = True) -> Dict:
         """
         Inject default values defined in the rule to a given dictionary.
 

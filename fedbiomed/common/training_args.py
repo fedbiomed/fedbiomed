@@ -33,7 +33,7 @@ class TrainingArgs():
             ta:     dictionnary describing the TrainingArgs scheme.
                     if empty dict or None, a minimal instance of TrainingArgs
                     will be initialized with default values for required keys
-            scheme: user provided scheme extension, which add new rules or
+            extra_scheme: user provided scheme extension, which add new rules or
                     update the scheme of the default training args.
                     Warning: this is a dangerous featuret, provided to
                     developpers, to ease the test of future Fed-Biomed features
@@ -71,7 +71,7 @@ class TrainingArgs():
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
-        # finaly check user input
+        # finally check user input
         try:
             self._sc.validate(self._ta)
         except (ValidateError) as e:
@@ -305,7 +305,7 @@ class TrainingArgs():
         """
         Returns the scheme of a TrainingArgs instance.
 
-        The scheme is not necessarly the [`default_scheme`][default_scheme]
+        The scheme is not necessarily the default_scheme (returned by TrainingArgs.default_scheme().
 
         Returns:
             scheme:  the current scheme used for validation
