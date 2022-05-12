@@ -31,7 +31,7 @@ All methods of the original python logger are provided. To name a few:
 - logger.error()
 - logger.critical()
 
-Contrary to over fedbiomed classes, the API of FedLogger is compliant with the coding conventions used for logger (lowerCameCase)
+Contrary to other Fed-Biomed classes, the API of FedLogger is compliant with the coding conventions used for logger (lowerCameCase)
 
 !!! info "Dependency issue"
     Please pay attention to not create dependency loop then importing other fedbiomed package
