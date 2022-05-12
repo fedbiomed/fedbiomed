@@ -1,6 +1,18 @@
-'''
-Create the environ singleton fot the node component.
-'''
+"""
+Module that initialize singleton environ object for the node component
+
+[`Environ`][fedbiomed.common.environ] will be initialized after the object `environ`
+is imported from `fedbiomed.node.environ`
+
+**Typical use:**
+
+```
+from fedbiomed.node.environ import environ
+
+print(environ['NODE_ID'])
+```
+
+"""
 
 
 from fedbiomed.common.constants import ComponentType
