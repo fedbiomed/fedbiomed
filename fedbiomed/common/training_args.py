@@ -14,11 +14,6 @@ from fedbiomed.common.validator import SchemeValidator, ValidateError, \
     RuleError, validator_decorator
 
 
-_MyOwnType = TypeVar("TrainingArgs")
-"""
-Used for type checking
-"""
-
 class TrainingArgs():
     """
     Provide a container to deal with training arguments.
@@ -267,15 +262,15 @@ class TrainingArgs():
             raise FedbiomedUserInputError(msg)
 
 
-    def update(self, values: Dict) -> _MyOwnType:
+    def update(self, values: Dict) -> TypeVar("TrainingArgs"):
         """
         Update multiple keys of the trainig arguments.
 
         Args:
             values:  a dictionnary of keys to validate/update
 
-        Return:
-            self: the object itself after modification
+        Returns:
+            the object itself after modification
 
         Raises:
             FedbiomedUserInputError: in case of bad key or value in values
@@ -285,15 +280,20 @@ class TrainingArgs():
         return self
 
 
-    def __ixor__(self, other: Dict) -> _MyOwnType:
+    def __ixor__(self, other: Dict) -> TypeVar("TrainingArgs"):
         """
         Syntax sugar for update().
 
+        **Usage:**
+        ```python
+        t = TrainingArgs()
+        t ^= { 'epochs': 2 , 'lr': 0.01 }
+        ```
         Args:
             other:  a dictionnary of keys to validate/update
 
         Return:
-            self: the object itself after modification
+            the object itself after modification
 
         Raises:
             FedbiomedUserInputError: in case of bad key or value in values
