@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""RDP analysis of the Sampled Gaussian Mechanism.
+"""
+RDP analysis of the Sampled Gaussian Mechanism.
+
 Functionality for computing Renyi differential privacy (RDP) of an additive
 Sampled Gaussian Mechanism (SGM). Its public interface consists of two methods:
   compute_rdp(q, noise_multiplier, T, orders) computes RDP for SGM iterated
@@ -45,7 +47,16 @@ from scipy import special
 
 
 def _log_add(logx, logy):
-  """Add two numbers in the log space."""
+  """
+  Add two numbers in the log space.
+  
+  Args:
+    logx (float)
+    logy (float)
+
+  Returns:
+    float: sum of logx and logy in the log space
+  """
   a, b = min(logx, logy), max(logx, logy)
   if a == -np.inf:  # adding 0
     return b
@@ -54,7 +65,16 @@ def _log_add(logx, logy):
 
 
 def _log_sub(logx, logy):
-  """Subtract two numbers in the log space. Answer must be non-negative."""
+  """
+  Subtract two numbers in the log space. Answer must be non-negative.
+  
+  Args:
+    logx (float)
+    logy (float)
+
+  Returns:
+    float: difference of logx and logy in the log space
+  """
   if logx < logy:
     raise ValueError("The result of subtraction must be non-negative.")
   if logy == -np.inf:  # subtracting 0
@@ -70,7 +90,17 @@ def _log_sub(logx, logy):
 
 
 def _log_sub_sign(logx, logy):
-  """Returns log(exp(logx)-exp(logy)) and its sign."""
+  """
+  Returns log(exp(logx)-exp(logy)) and its sign.
+  
+  Args:
+    logx (float)
+    logy (float)
+
+  Returns:
+    s (boolean): True if log(exp(logx)-exp(logy)) is positive, False otherwise
+    mag (float): log(exp(logx)-exp(logy))
+  """
   if logx > logy:
     s = True
     mag = logx + np.log(1 - np.exp(logy - logx))
@@ -84,21 +114,41 @@ def _log_sub_sign(logx, logy):
   return s, mag
 
 
-def _log_print(logx):
-  """Pretty print."""
-  if logx < math.log(sys.float_info.max):
-    return "{}".format(math.exp(logx))
-  else:
-    return "exp({})".format(logx)
+# def _log_print(logx):
+#   """Pretty print."""
+#   if logx < math.log(sys.float_info.max):
+#     return "{}".format(math.exp(logx))
+#   else:
+#     return "exp({})".format(logx)
 
 
 def _log_comb(n, k):
+  """
+  Evaluate the log of the binomial coefficient (n k)
+
+  Args:
+    n (int)
+    k (int)
+
+  Returns:
+    float: log(n choose k)
+  """
   return (special.gammaln(n + 1) - special.gammaln(k + 1) -
           special.gammaln(n - k + 1))
 
 
 def _compute_log_a_int(q, sigma, alpha):
-  """Compute log(A_alpha) for integer alpha. 0 < q < 1."""
+  """
+  Compute log(A_alpha) for integer alpha. 0 < q < 1.
+
+  Args:
+    q (float)
+    sigma (float)
+    alpha (int)
+
+  Returns:
+    float
+  """
   assert isinstance(alpha, int)
 
   # Initialize with 0 in the log space.
@@ -115,7 +165,18 @@ def _compute_log_a_int(q, sigma, alpha):
 
 
 def _compute_log_a_frac(q, sigma, alpha):
-  """Compute log(A_alpha) for fractional alpha. 0 < q < 1."""
+  """
+  Compute log(A_alpha) for fractional alpha. 0 < q < 1.
+
+  Args:
+    q (float)
+    sigma (float)
+    alpha (float)
+
+  Returns:
+    float
+  """
+
   # The two parts of A_alpha, integrals over (-inf,z0] and [z0, +inf), are
   # initialized to 0 in the log space:
   log_a0, log_a1 = -np.inf, -np.inf
@@ -152,7 +213,17 @@ def _compute_log_a_frac(q, sigma, alpha):
 
 
 def _compute_log_a(q, sigma, alpha):
-  """Compute log(A_alpha) for any positive finite alpha."""
+  """
+  Compute log(A_alpha) for any positive finite alpha.
+
+  Args:
+    q (float)
+    sigma (float)
+    alpha (int or float)
+
+  Returns:
+    float
+  """
   if float(alpha).is_integer():
     return _compute_log_a_int(q, sigma, int(alpha))
   else:
@@ -160,7 +231,15 @@ def _compute_log_a(q, sigma, alpha):
 
 
 def _log_erfc(x):
-  """Compute log(erfc(x)) with high accuracy for large x."""
+  """
+  Compute log(erfc(x)) with high accuracy for large x.
+
+  Args:
+    x (float)
+
+  Returns:
+    float
+  """
   try:
     return math.log(2) + special.log_ndtr(-x * 2**.5)
   except NameError:
@@ -178,13 +257,17 @@ def _log_erfc(x):
 
 
 def _compute_delta(orders, rdp, eps):
-  """Compute delta given a list of RDP values and target epsilon.
+  """
+  Compute delta given a list of RDP values and target epsilon.
+
   Args:
     orders: An array (or a scalar) of orders.
     rdp: A list (or a scalar) of RDP guarantees.
     eps: The target epsilon.
+
   Returns:
     Pair of (delta, optimal_order).
+
   Raises:
     ValueError: If input is malformed.
   """
@@ -224,13 +307,17 @@ def _compute_delta(orders, rdp, eps):
 
 
 def _compute_eps(orders, rdp, delta):
-  """Compute epsilon given a list of RDP values and target delta.
+  """
+  Compute epsilon given a list of RDP values and target delta.
+
   Args:
     orders: An array (or a scalar) of orders.
     rdp: A list (or a scalar) of RDP guarantees.
     delta: The target delta.
+
   Returns:
     Pair of (eps, optimal_order).
+
   Raises:
     ValueError: If input is malformed.
   """
@@ -273,7 +360,9 @@ def _compute_eps(orders, rdp, delta):
 
 
 def _stable_inplace_diff_in_log(vec, signs, n=-1):
-  """Replaces the first n-1 dims of vec with the log of abs difference operator.
+  """
+  Replaces the first n-1 dims of vec with the log of abs difference operator.
+
   Args:
     vec: numpy array of floats with size larger than 'n'
     signs: Optional numpy array of bools with the same size as vec in case one
@@ -281,9 +370,11 @@ def _stable_inplace_diff_in_log(vec, signs, n=-1):
       vector of real numbers' sign and abs in log scale.
     n: Optonal upper bound on number of differences to compute. If negative, all
       differences are computed.
+
   Returns:
     The first n-1 dimension of vec and signs will store the log-abs and sign of
     the difference.
+
   Raises:
     ValueError: If input is malformed.
   """
@@ -306,11 +397,14 @@ def _stable_inplace_diff_in_log(vec, signs, n=-1):
 
 
 def _get_forward_diffs(fun, n):
-  """Computes up to nth order forward difference evaluated at 0.
+  """
+  Computes up to nth order forward difference evaluated at 0.
   See Theorem 27 of https://arxiv.org/pdf/1808.00087.pdf
+
   Args:
     fun: Function to compute forward differences of.
     n: Number of differences to compute.
+
   Returns:
     Pair (deltas, signs_deltas) of the log deltas and their signs.
   """
@@ -331,11 +425,14 @@ def _get_forward_diffs(fun, n):
 
 
 def _compute_rdp(q, sigma, alpha):
-  """Compute RDP of the Sampled Gaussian mechanism at order alpha.
+  """
+  Compute RDP of the Sampled Gaussian mechanism at order alpha.
+
   Args:
     q: The sampling rate.
     sigma: The std of the additive Gaussian noise.
     alpha: The order at which RDP is computed.
+
   Returns:
     RDP at alpha, can be np.inf.
   """
@@ -353,12 +450,14 @@ def _compute_rdp(q, sigma, alpha):
 
 def compute_rdp(q, noise_multiplier, steps, orders):
   """Computes RDP of the Sampled Gaussian Mechanism.
+
   Args:
     q: The sampling rate.
     noise_multiplier: The ratio of the standard deviation of the Gaussian noise
       to the l2-sensitivity of the function to which it is added.
     steps: The number of steps.
     orders: An array (or a scalar) of RDP orders.
+
   Returns:
     The RDPs at all orders. Can be `np.inf`.
   """
@@ -372,7 +471,9 @@ def compute_rdp(q, noise_multiplier, steps, orders):
 
 
 def compute_rdp_sample_without_replacement(q, noise_multiplier, steps, orders):
-  """Compute RDP of Gaussian Mechanism using sampling without replacement.
+  """
+  Compute RDP of Gaussian Mechanism using sampling without replacement.
+
   This function applies to the following schemes:
   1. Sampling w/o replacement: Sample a uniformly random subset of size m = q*n.
   2. ``Replace one data point'' version of differential privacy, i.e., n is
@@ -381,12 +482,14 @@ def compute_rdp_sample_without_replacement(q, noise_multiplier, steps, orders):
   version applies subsampled-Gaussian mechanism)
   - Wang, Balle, Kasiviswanathan. "Subsampled Renyi Differential Privacy and
   Analytical Moments Accountant." AISTATS'2019.
+
   Args:
     q: The sampling proportion =  m / n.  Assume m is an integer <= n.
     noise_multiplier: The ratio of the standard deviation of the Gaussian noise
       to the l2-sensitivity of the function to which it is added.
     steps: The number of steps.
     orders: An array (or a scalar) of RDP orders.
+
   Returns:
     The RDPs at all orders, can be np.inf.
   """
@@ -404,11 +507,14 @@ def compute_rdp_sample_without_replacement(q, noise_multiplier, steps, orders):
 
 
 def _compute_rdp_sample_without_replacement_scalar(q, sigma, alpha):
-  """Compute RDP of the Sampled Gaussian mechanism at order alpha.
+  """
+  Compute RDP of the Sampled Gaussian mechanism at order alpha.
+
   Args:
     q: The sampling proportion =  m / n.  Assume m is an integer <= n.
     sigma: The std of the additive Gaussian noise.
     alpha: The order at which RDP is computed.
+
   Returns:
     RDP at alpha, can be np.inf.
   """
@@ -440,13 +546,17 @@ def _compute_rdp_sample_without_replacement_scalar(q, sigma, alpha):
 
 
 def _compute_rdp_sample_without_replacement_int(q, sigma, alpha):
-  """Compute log(A_alpha) for integer alpha, subsampling without replacement.
+  """
+  Compute log(A_alpha) for integer alpha, subsampling without replacement.
+
   When alpha is smaller than max_alpha, compute the bound Theorem 27 exactly,
     otherwise compute the bound with Stirling approximation.
+
   Args:
     q: The sampling proportion = m / n.  Assume m is an integer <= n.
     sigma: The std of the additive Gaussian noise.
     alpha: The order at which RDP is computed.
+
   Returns:
     RDP at alpha, can be np.inf.
   """
@@ -507,7 +617,9 @@ def _compute_rdp_sample_without_replacement_int(q, sigma, alpha):
 
 def compute_heterogeneous_rdp(sampling_probabilities, noise_multipliers,
                               steps_list, orders):
-  """Computes RDP of Heteregoneous Applications of Sampled Gaussian Mechanisms.
+  """
+  Computes RDP of Heteregoneous Applications of Sampled Gaussian Mechanisms.
+
   Args:
     sampling_probabilities: A list containing the sampling rates.
     noise_multipliers: A list containing the noise multipliers: the ratio of the
@@ -516,6 +628,7 @@ def compute_heterogeneous_rdp(sampling_probabilities, noise_multipliers,
     steps_list: A list containing the number of steps at each
       `sampling_probability` and `noise_multiplier`.
     orders: An array (or a scalar) of RDP orders.
+
   Returns:
     The RDPs at all orders. Can be `np.inf`.
   """
@@ -530,7 +643,9 @@ def compute_heterogeneous_rdp(sampling_probabilities, noise_multipliers,
 
 
 def get_privacy_spent(orders, rdp, target_eps=None, target_delta=None):
-  """Computes delta (or eps) for given eps (or delta) from RDP values.
+  """
+  Computes delta (or eps) for given eps (or delta) from RDP values.
+
   Args:
     orders: An array (or a scalar) of RDP orders.
     rdp: An array of RDP values. Must be of the same length as the orders list.
@@ -539,8 +654,10 @@ def get_privacy_spent(orders, rdp, target_eps=None, target_delta=None):
     target_delta: If not `None`, the delta for which we compute the
       corresponding epsilon. Exactly one of `target_eps` and `target_delta` must
       be `None`.
+
   Returns:
     A tuple of epsilon, delta, and the optimal order.
+
   Raises:
     ValueError: If target_eps and target_delta are messed up.
   """
@@ -561,7 +678,9 @@ def get_privacy_spent(orders, rdp, target_eps=None, target_delta=None):
 
 
 def get_iterations(target_delta, sigma, q, max_epsilon, max_N):
-    """Compputes max number of iterations given budget parameters
+    """
+    Compputes max number of iterations given budget parameters
+
     Args:
       target_delta: If not `None`, the delta for which we compute the
          corresponding epsilon.
@@ -572,6 +691,7 @@ def get_iterations(target_delta, sigma, q, max_epsilon, max_N):
       
     Returns:
       An integer number of iterations, and the evolution of the budget
+
     Raises:
       ValueError: If target_eps and target_delta are messed up.
     """

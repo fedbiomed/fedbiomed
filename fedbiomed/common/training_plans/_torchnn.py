@@ -535,14 +535,23 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 ###
                 ### Extracting the update
                 ###
-                delta_theta = params[name] - self.init_params[name]
+                delta_theta = param - self.init_params[name]
                 delta_params[name] = delta_theta
 
-                for key in delta_params.keys():
-                    delta_theta_tilde = delta_params[key] \
-                            + torch.sqrt(torch.tensor([2]))*self.DP['sigma_CDP']*self.DP['clip'] * torch.randn_like(delta_params[key])
-                    perturbed_params[key]=self.init_params[key] + delta_theta_tilde
-            params = perturbed_params 
+            for key, delta_param in delta_params.items():
+                delta_theta_tilde = deepcopy(delta_param)
+                #size = delta_theta_tilde.size()
+                #print('SIZE1=',size)
+                #perturb = torch.distributions.multivariate_normal.MultivariateNormal(torch.zeros(size), self.DP['sigma_CDP']*self.DP['clip']*torch.eye(size))
+                #delta_theta_tilde += torch.normal(mean=0, std=self.DP['sigma_CDP']*self.DP['clip'])
+                #delta_theta_tilde += perturb
+                #print('SIZE2=',delta_theta_tilde.size())
+
+
+                delta_theta_tilde += self.DP['sigma_CDP']*self.DP['clip'] * torch.randn_like(delta_param)
+                perturbed_params[key]=self.init_params[key] + delta_theta_tilde
+            
+            params = deepcopy(perturbed_params )
 
         params_keys = list(params.keys())
         for key in params_keys:
