@@ -1,12 +1,12 @@
 import React from 'react';
 import {connect} from "react-redux"
 import {Link} from "react-router-dom"
-import { listDatasets,  removeDataset, addDefaultDataset, searchDataset } from '../store/actions/datasetsActions';
-import {ReactComponent as GarbageLogo} from '../assets/img/garbage.svg'
-import {ReactComponent as LaunchIcon} from '../assets/img/launch.svg'
-import Modal from '../components/Modal';
-import Button from '../components/Button'
-import {Text} from '../components/Inputs'
+import { listDatasets,  removeDataset, addDefaultDataset, searchDataset } from '../../store/actions/datasetsActions';
+import {ReactComponent as GarbageLogo} from '../../assets/img/garbage.svg'
+import {ReactComponent as LaunchIcon} from '../../assets/img/launch.svg'
+import Modal from '../common/Modal';
+import Button from '../common/Button'
+import {Text} from '../common/Inputs'
 
 
 export const Datasets = (props) => {

@@ -1,12 +1,12 @@
 
 import React from 'react';
-import logo from "../assets/img/fedbiomed-logo-small.png"
+import logo from "../../assets/img/fedbiomed-logo-small.png"
 import NavItem from './NavItem';
-import {ReactComponent as ConfIcon}  from '../assets/img/configuration.svg' 
-import {ReactComponent as DataIcon}  from '../assets/img/database.svg' 
-import {ReactComponent as FolderIcon}  from '../assets/img/folder.svg' 
-import {ReactComponent as HomeIcon}  from '../assets/img/home.svg' 
-import {ReactComponent as PlusIcon}  from '../assets/img/plus.svg'
+import {ReactComponent as ConfIcon}  from '../../assets/img/configuration.svg'
+import {ReactComponent as DataIcon}  from '../../assets/img/database.svg'
+import {ReactComponent as FolderIcon}  from '../../assets/img/folder.svg'
+import {ReactComponent as HomeIcon}  from '../../assets/img/home.svg'
+import {ReactComponent as PlusIcon}  from '../../assets/img/plus.svg'
 import {useLocation} from "react-router-dom";
 
 

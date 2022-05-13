@@ -1,16 +1,16 @@
 import React from 'react';
 import {connect, useDispatch} from 'react-redux'
-import { getFilesFromRepository } from '../store/actions/repositoryActions';
-import RepositoryItem from '../components/RepositoryItem';
-import RepositoryBar from '../components/RepositoryBar';
-import Button, {ButtonsWrapper} from "../components/Button"
+import { getFilesFromRepository } from '../../store/actions/repositoryActions';
+import RepositoryItem from '../repository/RepositoryItem';
+import RepositoryBar from '../repository/RepositoryBar';
+import Button, {ButtonsWrapper} from "../common/Button"
 import {useNavigate} from "react-router-dom";
-import RepositoryListRow from "../components/RepositoryListRow";
-import {ReactComponent as ColumnIcon} from "../assets/img/column-view.svg";
-import {ReactComponent as ListIcon} from "../assets/img/list-view.svg";
-import { ReactComponent as HomeIcon} from '../assets/img/home.svg';
-import { ReactComponent as BackIcon} from "../assets/img/back.svg";
-import { ReactComponent as RefreshIcon} from "../assets/img/refresh.svg";
+import RepositoryListRow from "../repository/RepositoryListRow";
+import {ReactComponent as ColumnIcon} from "../../assets/img/column-view.svg";
+import {ReactComponent as ListIcon} from "../../assets/img/list-view.svg";
+import { ReactComponent as HomeIcon} from '../../assets/img/home.svg';
+import { ReactComponent as BackIcon} from "../../assets/img/back.svg";
+import { ReactComponent as RefreshIcon} from "../../assets/img/refresh.svg";
 
 
 const Repository = (props) => {

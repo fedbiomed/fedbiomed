@@ -6,17 +6,17 @@ import {
   Route
 } from "react-router-dom";
 
-import Home from './pages/Home' 
-import Configuration from './pages/Configuration';
-import Repository from './pages/Repository';
-import Header from './components/Header';
-import SideNav from './components/SideNav';
-import Datasets from './pages/Datasets';
-import AddDataset from './pages/AddDataset';
-import DatasetPreview from './pages/DatasetPreview';
-import Modal from "./components/Modal"
+import Home from './components/pages/Home'
+import Configuration from './components/pages/Configuration';
+import Repository from './components/pages/Repository';
+import Header from './components/layout/Header';
+import SideNav from './components/layout/SideNav';
+import Datasets from './components/pages/Datasets';
+import AddDataset from './components/pages/AddDataset';
+import DatasetPreview from './components/pages/DatasetPreview';
+import Modal from "./components/common/Modal"
 import {connect, useDispatch} from 'react-redux'
-import Button, {ButtonsWrapper} from "./components/Button";
+import Button, {ButtonsWrapper} from "./components/common/Button";
 
 function App(props) {
 

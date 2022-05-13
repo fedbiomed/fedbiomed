@@ -1,9 +1,9 @@
 import React from 'react';
-import {TableData, TableInfo} from "../components/Tables"
+import {TableData, TableInfo} from "../common/Tables"
 import { useParams} from 'react-router-dom';
-import {EP_DATASET_PREVIEW, DATA_NOTFOUND, EP_DATASET_UPDATE} from '../constants'
-import {Text, Tag, TextArea} from '../components/Inputs'
-import {Button, ButtonsWrapper} from '../components/Button'
+import {EP_DATASET_PREVIEW, DATA_NOTFOUND, EP_DATASET_UPDATE} from '../../constants'
+import {Text, Tag, TextArea} from '../common/Inputs'
+import {Button, ButtonsWrapper} from '../common/Button'
 import axios from 'axios';
 import Repository from "./Repository";
 

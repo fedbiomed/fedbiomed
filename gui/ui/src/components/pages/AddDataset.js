@@ -1,12 +1,12 @@
 import React from 'react';
-import {Label, Text, Tag, TextArea, Select} from '../components/Inputs'
-import Modal from '../components/Modal'
-import Button, {ButtonsWrapper} from '../components/Button'
+import {Label, Text, Tag, TextArea, Select} from '../common/Inputs'
+import Modal from '../common/Modal'
+import Button, {ButtonsWrapper} from '../common/Button'
 import {connect, useDispatch} from 'react-redux'
-import Repository from "../pages/Repository"
-import {addNewDataset, addDefaultDataset} from "../store/actions/datasetsActions";
+import Repository from "./Repository"
+import {addNewDataset, addDefaultDataset} from "../../store/actions/datasetsActions";
 import {useNavigate} from "react-router-dom";
-import {ADD_DATASET_ERROR_MESSAGES} from "../constants";
+import {ADD_DATASET_ERROR_MESSAGES} from "../../constants";
 
 export const AddDataset = (props) => {
 
