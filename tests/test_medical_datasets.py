@@ -42,8 +42,26 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         n_samples = len(dataset)
 
         self.assertEqual(n_samples, sum(self.n_samples))
-        self.assertEqual(len(dataset.targets), n_samples)
-        self.assertEqual(len(dataset.files), n_samples)
+
+    def test_getitem(self):
+
+        dataset = NIFTIFolderDataset(self.root)
+        for index, [input, target] in enumerate(dataset):
+            # test return types
+            self.assertTrue(isinstance(input, torch.Tensor))
+            self.assertTrue(isinstance(target, torch.Tensor))
+
+            ## we should also test data is the same as synthetic dataset
+            ## but cannot do that with the current class methods
+            #
+            ## tensors are the same, with no transforms/target_transforms
+            #self.assertEqual(len(input), len(synt_input))
+            #self.assertTrue(torch.all(torch.eq(input, synth_input)))
+            #
+            # same for target
+
+        # check we read all the samples
+        self.assertEqual(index + 1, sum(self.n_samples))
 
     def test_dataloader(self):
         dataset = NIFTIFolderDataset(self.root)

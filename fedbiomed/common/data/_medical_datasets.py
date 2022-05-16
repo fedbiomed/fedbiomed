@@ -26,6 +26,7 @@ class NIFTIFolderDataset(Dataset):
 
     This is a Dataset useful in classification tasks. Its usage is quite simple.
     Images must be contained by folders that describe the group/class they belong to.
+    Behaves much like torchvision.datasets.ImageFolder
 
     ```
     nifti_dataset_root_folder
@@ -40,10 +41,8 @@ class NIFTIFolderDataset(Dataset):
     ```
     """
 
-    ALLOWED_EXTENSIONS = ['.nii', '.nii.gz']
-    files = []
-    class_names = []
-    targets = []
+    # constant, thus can be a class variable
+    _ALLOWED_EXTENSIONS = ['.nii', '.nii.gz']
 
     def __init__(self, root: Union[str, PathLike, Path],
                  transform: Transform = None,
@@ -55,10 +54,14 @@ class NIFTIFolderDataset(Dataset):
             transform: transforms to be applied on data.
             target_transform: transforms to be applied on target.
         """
-        self.root_dir = Path(root).expanduser()
-        self.transform = transform
-        self.target_transform = target_transform
-        self.reader = Compose([
+        self._files = []
+        self._class_names = []
+        self._targets = []
+
+        self._root_dir = Path(root).expanduser()
+        self._transform = transform
+        self._target_transform = target_transform
+        self._reader = Compose([
             LoadImage(ITKReader(), image_only=True),
             ToTensor()
         ])
@@ -67,22 +70,23 @@ class NIFTIFolderDataset(Dataset):
 
     def _explore_root_folder(self) -> None:
         """Lists all files found in folder"""
+
         # Search files that correspond to the following criteria:
         # 1. Extension in ALLOWED extensions
         # 2. File folder's parent must be root (inspects folder only one level of depth)
-        self.files = [p.resolve() for p in self.root_dir.glob("**/*") if ''.join(p.suffixes) in self.ALLOWED_EXTENSIONS and p.parent.parent == self.root_dir]
+        self._files = [p.resolve() for p in self._root_dir.glob("**/*") if ''.join(p.suffixes) in self._ALLOWED_EXTENSIONS and p.parent.parent == self._root_dir]
 
         # Create class names dictionary
-        self.class_names = tuple(set([p.parent.name for p in self.files]))
+        self._class_names = tuple(set([p.parent.name for p in self._files]))
 
         # Assign numerical value to target 0...n_classes
-        self.targets = torch.tensor([self.class_names.index(p.parent.name) for p in self.files]).long()
+        self._targets = torch.tensor([self._class_names.index(p.parent.name) for p in self._files]).long()
 
         # Raise error if empty dataset
-        if len(self.files) == 0 or len(self.targets) == 0:
+        if len(self._files) == 0 or len(self._targets) == 0:
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB612.value}: Cannot create dataset because no compatible files found"
-                f" in the {self.root_dir}.")
+                f" in the {self._root_dir}.")
 
     def __getitem__(self, item: int) -> Tuple[Tensor, Tensor]:
         """ Gets item from dataset
@@ -91,18 +95,19 @@ class NIFTIFolderDataset(Dataset):
             item: Key/index to select single sample from dataset
 
         Returns:
-            inputs: Input sample
+            input: Input sample
             target: Target sample
         """
-        img = self.reader(self.files[item])
-        target = self.targets[item]
+        img = self._reader(self._files[item])
+        target = self._targets[item]
 
-        if self.transform:
-            img = self.transform(img)
+        # TODO better check callable
+        if self._transform:
+            img = self._transform(img)
+        if self._target_transform:
+            target = self._target_transform(target)
 
-        if self.target_transform:
-            target = self.target_transform(img)
         return img, target
 
     def __len__(self):
-        return len(self.files)
+        return len(self._files)
