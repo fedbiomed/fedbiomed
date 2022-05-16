@@ -180,7 +180,9 @@ class TestValidator(unittest.TestCase):
 
 
     def test_validator_04_another_one(self):
-
+        """
+        provide my own hook
+        """
         v = Validator()
         self.assertTrue(v.register( 'probability', self.hook_probability_check))
 
@@ -204,6 +206,9 @@ class TestValidator(unittest.TestCase):
 
 
     def test_validator_05_without_decorator(self):
+        """
+        provide a hook without using the @validator_decorator
+        """
         v = Validator()
 
         rule_name = 'rule_02'
@@ -221,7 +226,9 @@ class TestValidator(unittest.TestCase):
 
 
     def test_validator_06_strict_or_not(self):
-
+        """
+        test the script flag
+        """
         v = Validator()
 
         rule_name = 'this_rule_is_unknown'

@@ -83,6 +83,7 @@ import functools
 import inspect
 import sys
 
+from copy import deepcopy
 from enum import Enum
 from typing import Any, Callable, Dict, Union
 
@@ -243,7 +244,7 @@ class SchemeValidator(object):
         Validate a value against the scheme passed at creation time.
 
         Args:
-             value:  value (json) to validate against the scheme passed
+             value:  value (dict) to validate against the scheme passed
                      at __init__
         Returns:
             True if value is valid
@@ -296,13 +297,18 @@ class SchemeValidator(object):
 
         Raises:
             RuleError: if scheme provided at init contains a required rules without default value
-
+            ValidatorError: if input value was not a dict
         """
         if not self.is_valid():  # pragma: no cover
             return {}
 
         # check the value against the scheme
-        result = value
+        if isinstance(value, dict):
+            result = deepcopy(value)
+        else:
+            raise ValidatorError("input value is not a dict")
+
+
         for k, v in self._scheme.items():
             if 'required' in v and v['required'] is True:
 
