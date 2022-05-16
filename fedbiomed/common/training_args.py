@@ -30,7 +30,7 @@ class TrainingArgs():
                     will be initialized with default values for required keys
             extra_scheme: user provided scheme extension, which add new rules or
                     update the scheme of the default training args.
-                    Warning: this is a dangerous featuret, provided to
+                    Warning: this is a dangerous feature, provided to
                     developpers, to ease the test of future Fed-Biomed features
             only_required: if True, the object is initialized only with required
                     values defined in the default_scheme (+ extra_scheme).
@@ -367,7 +367,12 @@ class TrainingArgs():
 
 
     def get(self, key: str, default: Any = None) -> Any:
-        """Mimics the get() method of dict, provided for backward compatibility."""
+        """Mimics the get() method of dict, provided for backward compatibility.
+
+        Args:
+            key (str): a key for retrieving data fro the dictionary
+            default (Any): default value to return if key does not belong to dictionary
+        """
         try:
             return self._ta[key]
         except KeyError:
