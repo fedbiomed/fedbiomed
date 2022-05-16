@@ -17,6 +17,7 @@ from torch.utils.data import Dataset
 from fedbiomed.common.exceptions import FedbiomedDatasetError
 from fedbiomed.common.constants import ErrorNumbers
 
+
 class NIFTIFolderDataset(Dataset):
     """A Generic class for loading NIFTI Images using the folder structure as the target labels.
 

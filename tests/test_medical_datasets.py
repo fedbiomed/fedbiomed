@@ -1,33 +1,33 @@
-import logging
-import tempfile
 import unittest
+import os
+import tempfile
+import random
+import shutil
 
-log = logging.getLogger(__name__)
+import itk
+import numpy as np
+import torch
+from torch.utils.data import DataLoader
 
 from fedbiomed.common.data import NIFTIFolderDataset
 from fedbiomed.common.exceptions import FedbiomedDatasetError
 
+
 class TestNIFTIFolderDataset(unittest.TestCase):
     def setUp(self) -> None:
-        # Set-up logger for debugging
-        logging.basicConfig(level=logging.DEBUG)
-
         # Create fake dataset
-        import random
+
         self.n_classes = 3
         self.n_samples = [random.randint(2, 6) for _ in range(self.n_classes)]
 
         self.root = tempfile.mkdtemp()  # Creates and returns tempdir
-        log.debug(f'Dataset folder located in: {self.root}')
         self._create_synthetic_dataset()
 
     def test_instantiation(self):
         _ = NIFTIFolderDataset(self.root)
 
     def test_indexation(self):
-        import torch
         dataset = NIFTIFolderDataset(self.root)
-        logging.debug(dataset.files)
 
         img, target = dataset[0]
 
@@ -46,7 +46,6 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         self.assertEqual(len(dataset.files), n_samples)
 
     def test_dataloader(self):
-        from torch.utils.data import DataLoader
         dataset = NIFTIFolderDataset(self.root)
         batch_size = len(dataset) // 2
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -61,14 +60,9 @@ class TestNIFTIFolderDataset(unittest.TestCase):
             NIFTIFolderDataset(temp)
 
     def tearDown(self) -> None:
-        import shutil
         shutil.rmtree(self.root)
 
     def _create_synthetic_dataset(self):
-        import itk
-        import os
-        import numpy as np
-
         fake_img_data = np.random.rand(10, 10, 10)
         img = itk.image_from_array(fake_img_data)
 
