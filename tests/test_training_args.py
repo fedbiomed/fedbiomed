@@ -37,7 +37,7 @@ class TestTrainingArgs(unittest.TestCase):
 
         # lr has no default value
         with self.assertRaises(FedbiomedUserInputError):
-            self.assertEqual( t['lr'], t.default_value('lr'))
+            t.default_value('lr')
 
         # and test_ratio has
         self.assertEqual( t['test_ratio'], t.default_value('test_ratio'))

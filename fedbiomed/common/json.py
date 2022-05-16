@@ -67,10 +67,6 @@ def serialize_msg(msg: dict) -> str:
     return json.dumps(msg)
 
 
-def _deserialize_training_args(msg):
-    """TrainingArgs is a class and must be specifically deserialized"""
-    pass
-
 
 def _serialize_training_args(msg):
     """TrainingArgs is a class and must be specifically serialized"""

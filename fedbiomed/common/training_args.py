@@ -10,8 +10,8 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.validator import SchemeValidator, ValidateError, \
-    RuleError, validator_decorator
+from fedbiomed.common.validator import SchemeValidator, ValidatorError, \
+    ValidateError, RuleError, validator_decorator
 
 
 class TrainingArgs():
@@ -32,13 +32,17 @@ class TrainingArgs():
                     update the scheme of the default training args.
                     Warning: this is a dangerous featuret, provided to
                     developpers, to ease the test of future Fed-Biomed features
+            only_required: if True, the object is initialized only with required
+                    values defined in the default_scheme (+ extra_scheme).
+                    If False, then all default values will also be returned
+                    (not only the required key/value pairs).
 
         Raises:
             FedbiomedUserInputError: in case of bad value or bad extra_scheme
         """
         self._scheme = TrainingArgs.default_scheme()
 
-        if extra_scheme is None:
+        if not isinstance(extra_scheme, dict):
             extra_scheme = {}
 
         for k in extra_scheme:
@@ -60,7 +64,7 @@ class TrainingArgs():
         try:
             self._ta = self._sc.populate_with_defaults( ta,
                                                         only_required = only_required)
-        except RuleError as e:
+        except ValidatorError as e:
             # scheme has required keys without defined default value
             msg = ErrorNumbers.FB410.value + f": {e}"
             logger.critical(msg)
@@ -110,7 +114,7 @@ class TrainingArgs():
 
     @staticmethod
     @validator_decorator
-    def _loss_rate_hook( v: Any) -> bool:
+    def _lr_hook( v: Any):
         """
         Test if lr is greater than 0.
         """
@@ -125,9 +129,9 @@ class TrainingArgs():
         Returns the default (base) scheme for TrainingArgs.
         """
         return  {
-            # loss rate
+            # lr
             "lr": {
-                "rules": [ float, cls._loss_rate_hook ],
+                "rules": [ float, cls._lr_hook ],
                 "required": False,
 #                "default": 0.01
             },
@@ -341,17 +345,15 @@ class TrainingArgs():
             raise FedbiomedUserInputError(msg)
 
 
-    def dict(self) -> Dict:
-        """Returns the training_args as a dictionnary."""
+    def dict(self):
+        """Returns a copy of the training_args as a dictionary."""
 
-        if 'test_metric' in self._ta and \
-           isinstance(self._ta['test_metric'], MetricTypes):
+        ta = deepcopy(self._ta)
+        if 'test_metric' in ta and \
+           isinstance(ta['test_metric'], MetricTypes):
             # replace MetricType value by a string
-            ta = deepcopy(self._ta)
-            ta['test_metric'] = self._ta['test_metric'].name
-            return ta
-
-        return self._ta
+            ta['test_metric'] = ta['test_metric'].name
+        return ta
 
 
     def get(self, key: str, default: Any = None) -> Any:

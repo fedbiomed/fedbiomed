@@ -754,9 +754,8 @@ class TestExperiment(unittest.TestCase):
         # test update of testing_args with argument `reset` set to False
         ma_expected_2 = {'lr': 0.2}
         train_args_2 = self.test_exp.set_training_args(ma_expected_2, reset=False).dict()
-        ma_expected_2.update(ma_expected)
+        ma_expected_2.update(ma_expected_2)
         self.assertSubDictInDict(ma_expected_2, train_args_2)
-        self.assertSubDictInDict(ma_expected, train_args_2)
 
         # test update of testing_args with argument `reset` set to True
         ma_expected_3 = {'lr': 1e-4}
