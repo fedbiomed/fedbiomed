@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 from fedbiomed.common.data import TorchTabularDataset
-from fedbiomed.common.exceptions import FedbiomedTorchTabularDatasetError
+from fedbiomed.common.exceptions import FedbiomedDatasetError
 
 
 class TestTorchTabularDataset(unittest.TestCase):
@@ -20,11 +20,11 @@ class TestTorchTabularDataset(unittest.TestCase):
         """ Testing TorchTabularDataset initialization scenarios"""
 
         # Test if inputs is not in proper type
-        with self.assertRaises(FedbiomedTorchTabularDatasetError):
+        with self.assertRaises(FedbiomedDatasetError):
             TorchTabularDataset(inputs=[1, 2, 3], target=pd.Series([1, 2]))
 
         # Test if target argument is not in proper type
-        with self.assertRaises(FedbiomedTorchTabularDatasetError):
+        with self.assertRaises(FedbiomedDatasetError):
             TorchTabularDataset(inputs=pd.Series([1, 2]), target='toto')
 
         # Test if input and target pd.DataFrame o
@@ -51,7 +51,7 @@ class TestTorchTabularDataset(unittest.TestCase):
         self.assertIsInstance(dataset.target, torch.Tensor)
 
         # Test the scenario where number of samples do not match
-        with self.assertRaises(FedbiomedTorchTabularDatasetError):
+        with self.assertRaises(FedbiomedDatasetError):
             TorchTabularDataset(inputs=inputs, target=pd.Series([1, 2]))
 
     def test_torch_data_manager_02_magic_len(self):

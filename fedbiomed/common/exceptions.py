@@ -151,13 +151,6 @@ class FedbiomedTorchDataManagerError(FedbiomedError):
     pass
 
 
-class FedbiomedTorchTabularDatasetError(FedbiomedError):
-    """
-    Exceptions specific for the class fedbiomed.common.data.TorchTabularDataset.
-    """
-    pass
-
-
 class FedbiomedTrainingError(FedbiomedError):
     """
     Exception raised then training fails.

@@ -80,7 +80,7 @@ class NIFTIFolderDataset(Dataset):
         # Raise error if empty dataset
         if len(self.files) == 0 or len(self.targets) == 0:
             raise FedbiomedDatasetError(
-                f"{ErrorNumbers.FB610.value}: No compatible files were found"
+                f"{ErrorNumbers.FB612.value}: Cannot create dataset because no compatible files found"
                 f" in the {self.root_dir}.")
 
     def __getitem__(self, item: int) -> Tuple[Tensor, Tensor]:
