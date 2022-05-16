@@ -203,14 +203,24 @@ class TrainingArgs():
 
 
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         """
-        Display the Training_Args content.
+        Display the Training_Args values as a string.
 
         Returns:
-            printable version of TrainingArgs
+            printable version of TrainingArgs value
         """
         return str(self._ta)
+
+
+    def __repr__(self) -> str:
+        """
+        Display the Training_Args full content for debugging purpose.
+
+        Returns:
+            printable version of TrainingArgs (scheme and value)
+        """
+        return f"scheme:\n{self._scheme}\nvalue:\n{self._ta}"
 
 
     def __setitem__(self, key: str, value: Any) -> Any:
