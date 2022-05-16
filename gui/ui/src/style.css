@@ -2,6 +2,7 @@
   --error-color : #f44949;
   --primary-color: #003366;
   --secondary-color:#0099cc;
+
 }
 
 
@@ -221,7 +222,7 @@ hr {
   display: flex;
   width: 100%;
   align-items: center;
-  background: #003366;
+  background: var(--button-color);
 }
 
 .side-nav .brand img {

@@ -1,14 +1,14 @@
 import React from 'react';
-import {Label, Text, Tag, TextArea, Select} from '../common/Inputs'
-import Modal from '../common/Modal'
-import Button, {ButtonsWrapper} from '../common/Button'
+import {Label, Text, Tag, TextArea, Select} from '../../components/common/Inputs'
+import Modal from '../../components/common/Modal'
+import Button, {ButtonsWrapper} from '../../components/common/Button'
 import {connect, useDispatch} from 'react-redux'
-import Repository from "./Repository"
+import Repository from "../repository"
 import {addNewDataset, addDefaultDataset} from "../../store/actions/datasetsActions";
 import {useNavigate} from "react-router-dom";
 import {ADD_DATASET_ERROR_MESSAGES} from "../../constants";
 
-export const AddDataset = (props) => {
+export const CommonStandards = (props) => {
 
 
     const [repoModal, setRepoModal] = React.useState(false)
@@ -42,7 +42,7 @@ export const AddDataset = (props) => {
     ])
 
     /**
-     * Open modal window to select data folder 
+     * Open modal window to select data folder
      * or data  file
      */
     const openRepositoryModal = () => {
@@ -55,7 +55,7 @@ export const AddDataset = (props) => {
 
     /**
      * Selected file from repository, can be folder too
-     * @param {string} file 
+     * @param {string} file
      */
     const onItemAddClick = ( item) => {
         dispatch({type : 'NEW_DATASET_TO_ADD' ,
@@ -165,7 +165,7 @@ export const AddDataset = (props) => {
                         </div>
                     </div>
                     <div className="form-control">
-                        <Label>Please select data type</Label>
+                  ~      <Label>Please select data type</Label>
                         <Select name="type" onChange={onDataTypeChange}>
                             {
                                 props.new_dataset.extension === ".csv" ?
@@ -257,4 +257,4 @@ const mapDispatchToProps = (dispatch) => {
     }
 }
 
-export default connect(mapStateToProps , mapDispatchToProps)(AddDataset);
+export default connect(mapStateToProps , mapDispatchToProps)(CommonStandards);

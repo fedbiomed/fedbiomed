@@ -1,0 +1,36 @@
+
+
+@import "../../assets/var.css";
+
+.tab {
+    width: 100%;
+    display: flex;
+    margin-top: 10px;
+
+}
+
+.tab-inner {
+
+}
+
+.singleTab {
+    flex-grow: 1;
+    flex-basis: 0;
+    min-width: 0;
+    text-align: center;
+    text-decoration:none;
+    padding: 15px;
+    color:var(--header-font-color);
+    font-weight:var(--bold-font-weight);
+    border-radius: 10px 10px 0px 0px;
+    border-bottom: 1px solid var(--button-color);
+}
+
+.singleTab.active {
+    color: var(--hover-font-color);
+    background: var(--button-color);
+    border-top: 1px solid var(--button-color);
+    border-left: 1px solid var(--button-color);
+    border-right: 1px solid var(--button-color);
+    border-bottom:1px solid transparent;
+}

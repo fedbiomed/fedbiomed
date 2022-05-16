@@ -1,11 +1,11 @@
 import React from 'react';
 import {connect, useDispatch} from 'react-redux'
 import { getFilesFromRepository } from '../../store/actions/repositoryActions';
-import RepositoryItem from '../repository/RepositoryItem';
-import RepositoryBar from '../repository/RepositoryBar';
-import Button, {ButtonsWrapper} from "../common/Button"
+import RepositoryItem from './RepositoryItem';
+import RepositoryBar from './RepositoryBar';
+import Button, {ButtonsWrapper} from "../../components/common/Button"
 import {useNavigate} from "react-router-dom";
-import RepositoryListRow from "../repository/RepositoryListRow";
+import RepositoryListRow from "./RepositoryListRow";
 import {ReactComponent as ColumnIcon} from "../../assets/img/column-view.svg";
 import {ReactComponent as ListIcon} from "../../assets/img/list-view.svg";
 import { ReactComponent as HomeIcon} from '../../assets/img/home.svg';
@@ -13,7 +13,7 @@ import { ReactComponent as BackIcon} from "../../assets/img/back.svg";
 import { ReactComponent as RefreshIcon} from "../../assets/img/refresh.svg";
 
 
-const Repository = (props) => {
+const Index = (props) => {
 
     const [selected, setSelected] = React.useState(null)
     const [path] = React.useState(props.path)
@@ -315,7 +315,7 @@ const Repository = (props) => {
 }
 
 // Default props
-Repository.defaultProps = {
+Index.defaultProps = {
     after : 0,
     path  : null,
     mode  : null,
@@ -335,4 +335,4 @@ const mapDispatchToProps = (dispatch) => {
     }
 }
 
-export default connect(mapStateToProps, mapDispatchToProps)(Repository);
+export default connect(mapStateToProps, mapDispatchToProps)(Index);

@@ -6,17 +6,19 @@ import {
   Route
 } from "react-router-dom";
 
-import Home from './components/pages/Home'
-import Configuration from './components/pages/Configuration';
-import Repository from './components/pages/Repository';
+import Home from './pages/Home'
+import Configuration from './pages/Configuration';
+import Repository from './pages/repository';
 import Header from './components/layout/Header';
 import SideNav from './components/layout/SideNav';
-import Datasets from './components/pages/Datasets';
-import AddDataset from './components/pages/AddDataset';
-import DatasetPreview from './components/pages/DatasetPreview';
+import Datasets from './pages/datasets';
+import AddDataset from "./pages/datasets/AddDataset"
+import DatasetPreview from './pages/datasets/DatasetPreview';
 import Modal from "./components/common/Modal"
 import {connect, useDispatch} from 'react-redux'
 import Button, {ButtonsWrapper} from "./components/common/Button";
+import CommonStandards from "./pages/datasets/CommonStandards";
+import BidsStandard from "./pages/datasets/BidsStandard";
 
 function App(props) {
 
@@ -50,10 +52,13 @@ function App(props) {
                 <div className="inner"> 
                   <Routes>
                     <Route exact path="/" element={<Home/>} />
-                    <Route path="/configuration" element={<Configuration/>} />
-                    <Route path="/repository" element={<Repository/>} />
-                    <Route path="/datasets" element={<Datasets/>} />
-                    <Route path="/datasets/add-dataset" element={<AddDataset/>} />
+                    <Route path="/configuration/" element={<Configuration/>} />
+                    <Route path="/repository/" element={<Repository/>} />
+                    <Route path="/datasets/" element={<Datasets/>} />
+                    <Route path="/datasets/add-dataset/" element={<AddDataset/>} >
+                        <Route index element={<CommonStandards/>} />
+                        <Route path="bids" element={<BidsStandard/>} />
+                    </Route>
                     <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview setHeader={setHeader}/>} />
                   </Routes>
                   <div className={`loader-frame ${props.result.loading ?  'active' : ''}`}>
