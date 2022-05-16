@@ -16,9 +16,14 @@ from fedbiomed.common.validator import SchemeValidator, ValidatorError, \
 
 class TrainingArgs():
     """
-    Provide a container to deal with training arguments.
+    Provide a container to manage training arguments.
 
-    More to come...
+    This class uses the Validator and SchemeValidator classes
+    and provides a default scheme, which describes the arguments
+    necessary to train/test a TrainingPlan.
+
+    It also permits to extend the TrainingArgs then testing new features
+    by supplying an extra_scheme at TraininfArgs instanciation.
     """
     def __init__(self, ta: Dict = None, extra_scheme: Dict = None, only_required: bool = True):
         """
