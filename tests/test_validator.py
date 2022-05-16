@@ -1,3 +1,4 @@
+from typing import Tuple
 import unittest
 from fedbiomed.common.validator import Validator, SchemeValidator, \
     validator_decorator, _ValidatorHookType
@@ -20,7 +21,7 @@ class TestValidator(unittest.TestCase):
     # define some validation hooks to add to the validator
     @staticmethod
     @validator_decorator
-    def hook_01_positive_integer_check(value):
+    def hook_01_positive_integer_check(value) -> bool:
         """
         value must be a positive integer
         """
@@ -29,7 +30,7 @@ class TestValidator(unittest.TestCase):
         return True
 
     @staticmethod
-    def hook_02_positive_integer_check(value):
+    def hook_02_positive_integer_check(value) -> Tuple[bool, str]:
         """
         value must be a positive integer
 

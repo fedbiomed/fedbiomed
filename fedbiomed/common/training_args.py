@@ -79,7 +79,7 @@ class TrainingArgs():
     # validators
     @staticmethod
     @validator_decorator
-    def _metric_validation_hook( metric: Union[MetricTypes, str, None] ):
+    def _metric_validation_hook( metric: Union[MetricTypes, str, None] ) -> Union[bool, str]:
         """
         Validate the metric argument of test_metric.
         """
@@ -99,7 +99,7 @@ class TrainingArgs():
 
     @staticmethod
     @validator_decorator
-    def _test_ratio_hook( v: Any):
+    def _test_ratio_hook( v: Any) -> bool:
         """
         Test if in [ 0.0 , 1.0]  interval.
         """
@@ -110,7 +110,7 @@ class TrainingArgs():
 
     @staticmethod
     @validator_decorator
-    def _loss_rate_hook( v: Any):
+    def _loss_rate_hook( v: Any) -> bool:
         """
         Test if lr is greater than 0.
         """
@@ -264,7 +264,7 @@ class TrainingArgs():
 
     def update(self, values: Dict) -> TypeVar("TrainingArgs"):
         """
-        Update multiple keys of the trainig arguments.
+        Update multiple keys of the training arguments.
 
         Args:
             values:  a dictionnary of keys to validate/update
@@ -290,9 +290,9 @@ class TrainingArgs():
         t ^= { 'epochs': 2 , 'lr': 0.01 }
         ```
         Args:
-            other:  a dictionnary of keys to validate/update
+            other (Dict):  a dictionnary of keys to validate/update
 
-        Return:
+        Returns:
             the object itself after modification
 
         Raises:
@@ -318,7 +318,7 @@ class TrainingArgs():
         Returns the default value for the key.
 
         Args:
-            key:  key
+            key (str):  key
 
         Returns:
             value: the default value associated to the key
@@ -341,7 +341,7 @@ class TrainingArgs():
             raise FedbiomedUserInputError(msg)
 
 
-    def dict(self):
+    def dict(self) -> Dict:
         """Returns the training_args as a dictionnary."""
 
         if 'test_metric' in self._ta and \

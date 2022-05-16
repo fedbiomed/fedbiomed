@@ -37,13 +37,13 @@ Values can be checked against the rules.
 This class provides json validation against a scheme describing the
 expected json content.
 
-The scheme need to follow a specific format, which describe each
+The scheme needs to follow a specific format, which describes each
 allowed fields and their characteristics:
 - a list of associated validators to check against (aka Validator instances)
 - the field requirement (required on not)
 - a default value (which will be used if the field is required but not provided)
 
-A SchemeValidator is accepted byt the Validator class.
+A SchemeValidator is accepted by the Validator class.
 
 **Typical example:**
 
@@ -243,7 +243,7 @@ class SchemeValidator(object):
         Validate a value against the scheme passed at creation time.
 
         Args:
-             value:  value (json) to validate against the scheme passed
+             value (dict):  value (json) to validate against the scheme passed
                      at __init__
         Returns:
             True if value is valid
@@ -279,20 +279,20 @@ class SchemeValidator(object):
         """
         Inject default values defined in the rule to a given dictionary.
 
-        Parse the given json value and add default value is key was required
+        Parse the given json value and add default value if key was required
         but not provided.
-        Of course, the default value must be provided in the scheme.
+        Of course, the default values must be provided in the scheme.
 
         Warning: this does not parse the result against the scheme. It has
         to be done by the user.
 
         Args:
-            value:   a json data to verify/populate
-            only_required: if True, only force required key. If False, update all
-                           keys with default values in the scheme
+            value (dict):   a json data to verify/populate
+            only_required (bool): if True, only force required key. If False, update all
+                           keys with default values in the scheme. Defaults to True.
 
         Return:
-            a json populated with default values, returns an empty dict if something is wrong
+            (dict) a json populated with default values, returns an empty dict if something is wrong
 
         Raises:
             RuleError: if scheme provided at init contains a required rules without default value
@@ -449,7 +449,7 @@ class Validator(object):
             True if rule exists and value is compliant.
 
         Raises:
-            ValidateError: if provided value does not com[ly to the rule
+            ValidateError: if provided value does not comply to the rule
         """
         # rule is in the rulebook -> execute the rule associated function
         if isinstance(rule, str) and rule in self._validation_rulebook:
@@ -605,13 +605,13 @@ class Validator(object):
         Add a rule/validation_function to the rulebook.
 
         if the rule (entry of the catalog) was already registered,
-        it will be rejected, except if ovverride is True
+        it will be rejected, except if override is True
 
         Args:
             rule:      registration name (string)
             hook:      validation hook to register (the hook is checked against
                        the accepted hook types)
-            override:  if True, still register the rule even if it existed
+            override:  if True, still register the rule even if it existed. Defaults to False.
 
         Returns:
             True if rule is accepted, False instead if rule exists and overrride is False
