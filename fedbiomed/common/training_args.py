@@ -329,7 +329,7 @@ class TrainingArgs():
         Returns:
             scheme:  the current scheme used for validation
         """
-        return self._scheme
+        return deepcopy(self._scheme)
 
 
     def default_value(self, key: str) -> Any:
