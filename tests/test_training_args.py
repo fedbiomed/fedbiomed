@@ -119,8 +119,12 @@ class TestTrainingArgs(unittest.TestCase):
         self.assertEqual( t.get('this_one_is_stupid'), None)
         self.assertEqual( t.get('should_we_keep_the_get_method_?', False), False)
 
-        # how to test __repr__ ?
+        # how to properly test __repr__ and __str__ ?
         t_to_string = str(t)
+        for s in [ '{', '}', 'test_ratio', 'lr']:
+            self.assertIn( s, t_to_string)
+
+        t_to_string = t.__repr__()
         for s in [ '{', '}', 'test_ratio', 'lr']:
             self.assertIn( s, t_to_string)
 
@@ -139,6 +143,9 @@ class TestTrainingArgs(unittest.TestCase):
 
         t ^= { "test_metric": MetricTypes.ACCURACY }
         self.assertEqual( t['test_metric'], MetricTypes.ACCURACY)
+
+        dico = t.dict()
+        self.assertEqual( dico['test_metric'], "ACCURACY")
 
         with self.assertRaises(FedbiomedUserInputError):
             t ^= { "test_metric": "RULE_OF_THUMB" }
