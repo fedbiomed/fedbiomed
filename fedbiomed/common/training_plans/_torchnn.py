@@ -87,6 +87,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # Aggregated model parameters
         self.init_params = None
 
+        # Displacement of global model
+        self.disp_global = None
+        self.fedcos_mu = None
+
     def type(self):
         """ Getter for training plan type """
 
@@ -160,6 +164,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          dry_run: bool = False,
                          use_gpu: Union[bool, None] = None,
                          fedprox_mu=None,
+                         fedcos_mu=None,
                          history_monitor=None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
@@ -194,6 +199,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 Defaults to None (dont overload the object default value)
             - fedprox_mu (float or None): mu parameter in case of FredProx
               computing. Default is None, which means that FredProx is not triggered
+            - fedcos_mu (float or None): mu parameter in case of FredCos
+              computing. Default is None, which means that FredCos is not triggered
             - history_monitor ([type], optional): [description]. Defaults to None.
             - node_args (Union[dict, None]): command line arguments for node. Can include:
                 - gpu (bool): propose use a GPU device if any is available. Default False.
@@ -203,6 +210,14 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     doesnt request for using a GPU. Default False.
         """
         self.train()  # pytorch switch for training
+
+        if fedprox_mu is not None:
+            assert fedcos_mu == None, 'At least one among fedprox_mu and fedcos_mu should be None'
+            print('####### FedProx Optimization #######')
+        elif fedcos_mu is not None: 
+            assert fedprox_mu == None, 'At least one among fedprox_mu and fedcos_mu should be None'
+            print('####### FedCos Optimization #######')
+            self.fedcos_mu = fedcos_mu
 
         # set correct type for node args
         if not isinstance(node_args, dict):
@@ -250,6 +265,18 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         raise FedbiomedTrainingPlanError(msg)
 
                     res += _mu / 2 * self.__norm_l2()
+
+                # If FedCos is enabled: use regularized loss function
+                elif fedcos_mu is not None:
+                    try:
+                        _mu = float(fedcos_mu)
+                    except ValueError:
+                        msg = ErrorNumbers.FB605.value + ": fedcos_mu parameter requested is not a float"
+                        logger.critical(msg)
+                        raise FedbiomedTrainingPlanError(msg)
+                    
+                    res += _mu * (1-self.__cos_angle_disp())
+
 
                 res.backward()
 
@@ -432,6 +459,11 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         """
 
         params = torch.load(filename)
+
+        if 'disp_global' in params:
+            self.disp_global = params['disp_global']
+            del params['disp_global']
+
         if to_params is False:
             self.load_state_dict(params)
         return params
@@ -453,10 +485,17 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         try:
             # Check whether postprocess method exists, and use it
             logger.debug("running model.postprocess() method")
-            return self.postprocess(self.state_dict())  # Post process
+            post_params = self.postprocess(self.state_dict())  # Post process
+            if self.fedcos_mu is not None:
+                print('################ FEDCOS POSTPROCESS ################')
+                return self.postprocess_fedcos(post_params) 
+            return post_params
         except AttributeError:
             # Method does not exist; skip
             logger.debug("model.postprocess() method not provided")
+            if self.fedcos_mu is not None:
+                print('################ FEDCOS POSTPROCESS ################')
+                return self.postprocess_fedcos(self.state_dict()) 
             pass
 
         return self.state_dict()
@@ -472,6 +511,33 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         for key, val in self.state_dict().items():
             norm += ((val - self.init_params[key]) ** 2).sum()
         return norm
+
+    def __cos_angle_disp(self) -> float:
+        """
+        used by FedCos optimization
+
+        Returns:
+            cos_angle (float): cosin penalty term
+        """
+        norm_disp_global = 0.
+        if self.disp_global is not None:
+            for key, val in self.disp_global.items():
+                norm_disp_global += (val ** 2).sum()
+        norm = self.__norm_l2()
+
+        if ((norm_disp_global == 0) or (norm == 0)):
+            cos_angle = torch.tensor(1.)
+        else:
+            # Exctract a vector of parameters
+            x_i = torch.hstack([param.flatten() for _, param in self.state_dict().items()])
+            x_r = torch.hstack([param.flatten() for _, param in self.init_params.items()])
+            d_r = torch.hstack([param.flatten() for _, param in self.disp_global.items()])
+
+            # Evaluate the cosinus of the angle between (x_i - x_r) and d_r
+            cos = torch.nn.CosineSimilarity(dim=0)
+            cos_angle = cos(x_i - x_r, d_r)
+
+        return cos_angle
 
     def __preprocess(self):
         """
@@ -532,3 +598,21 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 type(data_loader)
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
+
+    def postprocess_fedcos(self, params: dict) -> dict:
+        """
+        Postprocess of model's parameters after training with fedcos.
+
+        Args:
+            params (dict): optimized parameters
+
+        Returns:
+            dict containing current parameters and a dictionary containing
+                the previous global model to be passed to the aggregator 
+
+        Exceptions:
+            none
+        """
+        params.update(global_r_1=self.init_params)
+
+        return params
