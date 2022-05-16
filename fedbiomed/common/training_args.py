@@ -254,7 +254,7 @@ class TrainingArgs():
             msg = ErrorNumbers.FB410.value + f": {e}"
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
-        return self._ta[key]
+        return deepcopy(self._ta[key])
 
 
     def __getitem__(self, key: str) -> Any:
@@ -347,7 +347,7 @@ class TrainingArgs():
         """
         if key in self._sc.scheme():
             if "default" in self._sc.scheme()[key]:
-                return self._sc.scheme()[key]["default"]
+                return deepcopy(self._sc.scheme()[key]["default"])
             else:
                 msg = ErrorNumbers.FB410.value + \
                     f"no default value defined for key: {key}"
@@ -379,6 +379,6 @@ class TrainingArgs():
             default (Any): default value to return if key does not belong to dictionary
         """
         try:
-            return self._ta[key]
+            return deepcopy(self._ta[key])
         except KeyError:
             return default
