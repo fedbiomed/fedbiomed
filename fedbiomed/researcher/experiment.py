@@ -8,6 +8,7 @@ import json
 import inspect
 import traceback
 
+from copy import deepcopy
 from re import findall
 from tabulate import tabulate
 from typing import Callable, Tuple, Union, Dict, Any, TypeVar, Type, List
@@ -1190,7 +1191,7 @@ class Experiment(object):
         """
 
         if isinstance(training_args, TrainingArgs):
-            self._training_args = training_args
+            self._training_args = deepcopy(training_args)
         else:
             self._training_args = TrainingArgs(training_args, only_required = False)
 
