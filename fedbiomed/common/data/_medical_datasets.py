@@ -1,11 +1,9 @@
 """
-Datasets submodule for Fed-BioMed
----------------------------------
+Common healthcare data manager
 
-This submodule provides the dataset classes for common cases of use in healthcare:
+Provides classes managing dataset for common cases of use in healthcare:
 - NIFTI: For NIFTI medical images
 """
-from abc import ABC
 from os import PathLike
 from pathlib import Path
 from typing import Union, Tuple
@@ -16,8 +14,10 @@ from monai.transforms import Transform, LoadImage, ToTensor, Compose
 from torch import Tensor
 from torch.utils.data import Dataset
 
+from fedbiomed.common.exceptions import FedbiomedDatasetError
+from fedbiomed.common.constants import ErrorNumbers
 
-class NIFTIFolderDataset(Dataset, ABC):
+class NIFTIFolderDataset(Dataset):
     """A Generic class for loading NIFTI Images using the folder structure as the target labels.
 
     Supported formats:
@@ -79,7 +79,9 @@ class NIFTIFolderDataset(Dataset, ABC):
 
         # Raise error if empty dataset
         if len(self.files) == 0 or len(self.targets) == 0:
-            raise FileNotFoundError(f"Not compatible files were found in the {self.root_dir}.")
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB610.value}: No compatible files were found"
+                f" in the {self.root_dir}.")
 
     def __getitem__(self, item: int) -> Tuple[Tensor, Tensor]:
         """ Gets item from dataset

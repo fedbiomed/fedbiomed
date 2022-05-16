@@ -5,7 +5,7 @@ import unittest
 log = logging.getLogger(__name__)
 
 from fedbiomed.common.data import NIFTIFolderDataset
-
+from fedbiomed.common.exceptions import FedbiomedDatasetError
 
 class TestNIFTIFolderDataset(unittest.TestCase):
     def setUp(self) -> None:
@@ -56,7 +56,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         self.assertEqual(len(img_batch), batch_size)
 
     def test_empty_folder_raises_error(self):
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(FedbiomedDatasetError):
             temp = tempfile.mkdtemp()
             NIFTIFolderDataset(temp)
 

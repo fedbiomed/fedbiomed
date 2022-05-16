@@ -21,6 +21,13 @@ class FedbiomedAggregatorError(FedbiomedError):
     pass
 
 
+class FedbiomedDatasetError(FedbiomedError):
+    """
+    Exceptions specific for the class fedbiomed.common.data.NIFTIFolderDataset.
+    """
+    pass
+
+
 class FedbiomedDataManagerError(FedbiomedError):
     """
     Exception for DataManager errors.
