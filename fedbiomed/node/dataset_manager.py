@@ -1,11 +1,16 @@
 '''
+Interfaces with the node component database.
 '''
 
 
 import csv
 import os.path
-from typing import Union, List
+from typing import Union, List, Any
 import uuid
+
+from urllib.request import urlretrieve
+from urllib.error import ContentTooShortError, HTTPError, URLError
+import tarfile
 
 from tinydb import TinyDB, Query
 import pandas as pd
@@ -17,31 +22,34 @@ from torchvision import transforms
 
 from fedbiomed.node.environ import environ
 
+from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
+from fedbiomed.common.constants  import ErrorNumbers
+
+from fedbiomed.common.logger import logger
+
 
 class DatasetManager:
-    """
-    Interface over TinyDB database.
-    Facility fot storing, retrieving data and get data info
-    on the data stored into TinyDB database.
+    """Interfaces with the node component database.
+
+    Facility for storing data, retrieving data and getting data info
+    for the node. Currently uses TinyDB.
     """
     def __init__(self):
-        """
-        The constructor of the class
+        """Constructor of the class.
         """
         self.db = TinyDB(environ['DB_PATH'])
         self.database = Query()
 
     def get_by_id(self, dataset_id: str) -> List[dict]:
-        """
-        This method searches for data with given dataset_id
+        """Searches for data with given dataset_id.
 
         Args:
-            dataset_id (str):  dataset id
+            dataset_id:  A dataset id
 
         Returns:
-            [List[dict]]: list of dict of matching datasets, each dict
-            containing all the fields describing the matching datasets
-            stored in Tiny database.
+            A list of dict of matching datasets, each dict
+                containing all the fields describing the matching datasets
+                stored in Tiny database.
         """
         self.db.clear_cache()
         result = self.db.get(self.database.dataset_id == dataset_id)
@@ -49,30 +57,30 @@ class DatasetManager:
         return result
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
-        """
-        This method searches for data with given tags
+        """Searches for data with given tags.
 
         Args:
-            tags (Union[tuple, list]):  list of tags
+            tags:  List of tags
 
         Returns:
-            [list]: list of matching datasets
+            The list of matching datasets
         """
         self.db.clear_cache()
         return self.db.search(self.database.tags.all(tags))
 
-    def read_csv(self, csv_file: str, index_col: Union[int, None] = None ) -> pd.DataFrame:
-        """
-        Reads a *.csv file and ouptuts its data into a pandas DataFrame.
-        Finds automatically the csv delimiter by parsing the first line.
+    def read_csv(self, csv_file: str, index_col: Union[int, None] = None) -> pd.DataFrame:
+        """Gets content of a CSV file.
+
+        Reads a *.csv file and outputs its data into a pandas DataFrame.
+        Finds automatically the CSV delimiter by parsing the first line.
 
         Args:
-            csv_file (str): file name / path
-            index_col (int, optional): column that contains csv file index.
-            Set to None if not present. Defaults to 0.
+            csv_file: File name / path
+            index_col: Column that contains CSV file index.
+                Defaults to None.
 
         Returns:
-            pd.DataFrame: data contained in csv file.
+            Pandas DataFrame with data contained in CSV file.
         """
 
         # Automatically identify separator and header
@@ -84,31 +92,28 @@ class DatasetManager:
 
         return pd.read_csv(csv_file, index_col=index_col, sep=delimiter, header=header)
 
-    def get_torch_dataset_shape(self,
-                                dataset: torch.utils.data.Dataset) -> List[int]:
-        """
-        Gets info about dataset shape.
+    def get_torch_dataset_shape(self, dataset: torch.utils.data.Dataset) -> List[int]:
+        """Gets info about dataset shape.
 
         Args:
-            dataset (torch.utils.data.Dataset): a Pytorch dataset
+            dataset: A Pytorch dataset
 
         Returns:
-            List[int]: returns a list containing:
-            [<nb_of_data>, <dimension_of_first_input_data>].
-            Example for MNIST: [60000, 1, 28, 28], where <nb_of_data>=60000
-            and <dimension_of_first_input_data>=1, 28, 28
+            A list of int containing
+                [<nb_of_data>, <dimension_of_first_input_data>].
+                Example for MNIST: [60000, 1, 28, 28], where <nb_of_data>=60000
+                and <dimension_of_first_input_data>=1, 28, 28
         """
         return [len(dataset)] + list(dataset[0][0].shape)
 
     def get_csv_data_types(self, dataset: pd.DataFrame) -> List[str]:
-        """
-        Gets data types of each variable in dataset.
+        """Gets data types of each variable in dataset.
 
         Args:
-            dataset (pd.DataFrame): a Pandas dataset
+            dataset: A Pandas dataset.
 
         Returns:
-            List[int]: returns a list containing data types
+            A list of strings containing data types.
         """
         types = [str(t) for t in dataset.dtypes]
 
@@ -119,27 +124,27 @@ class DatasetManager:
                               path: str,
                               as_dataset: bool = False) -> Union[List[int],
                                                                  torch.utils.data.Dataset]:
-        """
-        Loads a default dataset. Currently, only MNIST dataset
-        is used as the default dataset.
+        """Loads a default dataset.
+
+        Currently, only MNIST dataset is used as the default dataset.
 
         Args:
-            name (str): name of the default dataset. Currently,
-            only MNIST is accepted.
-            path (str): pathfile to MNIST dataset.
-            as_dataset (bool, optional): whether to return
-            the complete dataset (True) or dataset dimensions (False).
-            Defaults to False.
+            name: Name of the default dataset. Currently,
+                only MNIST is accepted.
+            path: Pathfile to MNIST dataset.
+            as_dataset: Whether to return
+                the complete dataset (True) or dataset dimensions (False).
+                Defaults to False.
 
         Raises:
-            NotImplementedError: triggered if name is not matching with
-            the name of a default dataset.
+            NotImplementedError: Name is not matching with
+                the name of a default dataset.
 
         Returns:
-            [type]: depending on the value of the parameter `as_dataset`. If
-            set to True,  returns dataset (type: torch.utils.data.Dataset),
-            if set to False, returns the size of the dataset stored inside
-            a list (type: List[int])
+            Depends on the value of the parameter `as_dataset`: If
+            set to True,  returns dataset (type: torch.utils.data.Dataset).
+            If set to False, returns the size of the dataset stored inside
+            a list (type: List[int]).
         """
         kwargs = dict(root=path, download=True, transform=transforms.ToTensor())
 
@@ -153,37 +158,114 @@ class DatasetManager:
         else:
             return self.get_torch_dataset_shape(dataset)
 
-    def load_images_dataset(self,
-                            folder_path: str,
-                            as_dataset: bool = False) -> Union[List[int],
-                                                               torch.utils.data.Dataset]:
-        """
-        load an image dataset
+    def load_mednist_database(self,
+                              path: str,
+                              as_dataset: bool = False) -> Union[List[int],
+                                                                 torch.utils.data.Dataset]:
+        """Loads the MedNist dataset.
 
         Args:
-            folder_path ([type]): [description]
-            as_dataset (bool, optional): [description]. Defaults to False.
+            path: Pathfile to save a local copy of the MedNist dataset.
+            as_dataset: Whether to return
+                the complete dataset (True) or dataset dimensions (False).
+                Defaults to False.
+
+        Raises:
+            FedbiomedDatasetManagerError: One of the following cases:
+
+                - tarfile cannot be downloaded
+                - downloaded tarfile cannot
+                    be extracted
+                - MedNIST path is empty
+                - one of the classes path is empty
 
         Returns:
-            [type]: [description]
+            Depends on the value of the parameter `as_dataset`: If
+            set to True,  returns dataset (type: torch.utils.data.Dataset).
+            If set to False, returns the size of the dataset stored inside
+            a list (type: List[int])
         """
+        download_path = os.path.join(path, 'MedNIST')
+        if not os.path.isdir(download_path):
+            url = "https://github.com/Project-MONAI/MONAI-extra-test-data/releases/download/0.8.1/MedNIST.tar.gz"
+            filepath = os.path.join(path, 'MedNIST.tar.gz')
+            try:
+                logger.info("Now downloading MEDNIST...")
+                urlretrieve(url, filepath)
+                with tarfile.open(filepath) as tar_file:
+                    logger.info("Now extracting MEDNIST...")
+                    tar_file.extractall(path)
+                os.remove(filepath)
 
-        dataset = datasets.ImageFolder(folder_path,
-                                       transform=transforms.ToTensor())
+            except (URLError, HTTPError, ContentTooShortError, OSError, tarfile.TarError,
+                    MemoryError) as e:
+                _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while downloading MedNIST dataset"\
+                    + "from the MONAI repo:  " + str(e)
+                logger.error(_msg)
+                raise FedbiomedDatasetManagerError(_msg)
+
+        try:
+            dataset = datasets.ImageFolder(download_path,
+                                           transform=transforms.ToTensor())
+
+        except (FileNotFoundError, RuntimeError) as e:
+            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading MedNIST dataset from"\
+                "the selected path:  " + str(e) + "\nPlease make sure that the selected MedNIST folder is not empty \
+                   or choose another path."
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+
+        except Exception as e:
+            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading MedNIST dataset" + str(e)
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+
         if as_dataset:
             return dataset
         else:
             return self.get_torch_dataset_shape(dataset)
 
-    def load_csv_dataset(self, path) -> pd.DataFrame:
-        """
-        load a cvs dataset
+    def load_images_dataset(self,
+                            folder_path: str,
+                            as_dataset: bool = False) -> Union[List[int],
+                                                               torch.utils.data.Dataset]:
+        """Loads an image dataset.
 
         Args:
-            path (str): CSV path
+            folder_path: Path to the directory containing the images.
+            as_dataset: Whether to return
+                the complete dataset (True) or dataset dimensions (False).
+                Defaults to False.
 
         Returns:
-            [pd.DataFrame]: Returns pandas DataFrame
+            Depends on the value of the parameter `as_dataset`: If
+            set to True,  returns dataset (type: torch.utils.data.Dataset).
+            If set to False, returns the size of the dataset stored inside
+            a list (type: List[int])
+        """
+        try:
+            dataset = datasets.ImageFolder(folder_path,
+                                           transform=transforms.ToTensor())
+        except Exception as e:
+            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading dataset from the selected" \
+                " path:  " + str(e) + "\nPlease make sure that the selected folder is not empty \
+                   and doesn't have any empty class folder"
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+
+        if as_dataset:
+            return dataset
+        else:
+            return self.get_torch_dataset_shape(dataset)
+
+    def load_csv_dataset(self, path: str) -> pd.DataFrame:
+        """Loads a CSV dataset.
+
+        Args:
+            path: Path to the CSV file.
+
+        Returns:
+            Pandas DataFrame with the content of the file.
         """
         return self.read_csv(path)
 
@@ -194,20 +276,19 @@ class DatasetManager:
                      description: str,
                      path: str,
                      dataset_id: str = None):
-        """
-        Adds a new dataset contained in a file to node
+        """Adds a new dataset contained in a file to node's database.
 
         Args:
-            name (str): [description]
-            data_type (str): file extension/format of the
-            dataset (*.csv, images, ...)
-            tags (Union[tuple, list]): [description]
-            description (str): [description]
-            path (str): [description]
-            dataset_id (str, optional): [description]. Defaults to None.
+            name: Name of the dataset
+            data_type: File extension/format of the
+                dataset (*.csv, images, ...)
+            tags: Tags of the dataset.
+            description: Human readable description of the dataset.
+            path: Path to the dataset.
+            dataset_id: Id of the dataset. Defaults to None.
 
         Raises:
-            NotImplementedError: [description]
+            NotImplementedError: `data_type` is not supported.
         """
         # Accept tilde as home folder
         path = os.path.expanduser(path)
@@ -216,7 +297,7 @@ class DatasetManager:
         assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
 
         dtypes = []  # empty list for Image datasets
-        data_types = ['csv', 'default', 'images']
+        data_types = ['csv', 'default', 'mednist', 'images']
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
                                       ' a compatible data type. '
@@ -226,11 +307,18 @@ class DatasetManager:
         if data_type == 'default':
             assert os.path.isdir(path), f'Folder {path} for Default Dataset does not exist.'
             shape = self.load_default_database(name, path)
+
+        elif data_type == 'mednist':
+            assert os.path.isdir(path), f'Folder {path} for MedNIST Dataset does not exist.'
+            shape = self.load_mednist_database(path)
+            path = os.path.join(path, 'MedNIST')
+
         elif data_type == 'csv':
             assert os.path.isfile(path), f'Path provided ({path}) does not correspond to a CSV file.'
             dataset = self.load_csv_dataset(path)
             shape = dataset.shape
             dtypes = self.get_csv_data_types(dataset)
+
         elif data_type == 'images':
             assert os.path.isdir(path), f'Folder {path} for Images Dataset does not exist.'
             shape = self.load_images_dataset(path)
@@ -246,8 +334,12 @@ class DatasetManager:
         return dataset_id
 
     def remove_database(self, tags: Union[tuple, list]):
-        """
-        ???
+        """Removes datasets from database.
+
+        Only datasets matching the `tags` should be removed.
+
+        Args:
+            tags: Dataset description tags.
         """
         doc_ids = [doc.doc_id for doc in self.search_by_tags(tags)]
         self.db.remove(doc_ids=doc_ids)
@@ -255,20 +347,22 @@ class DatasetManager:
     def modify_database_info(self,
                              tags: Union[tuple, list],
                              modified_dataset: dict):
-        """
-        ???
+        """Modifies a dataset in the database.
+
+        Args:
+            tags: Tags describing the dataset to modify.
+            modified_dataset: New dataset description to replace the existing one.
         """
         self.db.update(modified_dataset, self.database.tags.all(tags))
 
-    def list_my_data(self, verbose: bool = True):
-        """
-        list all datasets of the node
+    def list_my_data(self, verbose: bool = True) -> List[dict]:
+        """Lists all datasets on the node.
 
         Args:
-            verbose (bool, optional): [description]. Defaults to True.
+            verbose: Give verbose output. Defaults to True.
 
         Returns:
-            [type]: [description]
+            All datasets in the node's database.
         """
         self.db.clear_cache()
         my_data = self.db.all()
@@ -282,15 +376,14 @@ class DatasetManager:
 
         return my_data
 
-    def load_as_dataloader(self, dataset):
-        """
-        ???
+    def load_as_dataloader(self, dataset: dict) -> torch.utils.data.Dataset:
+        """Loads content of an image dataset.
 
         Args:
-            dataset ([type]): [description]
+            dataset: Description of the dataset.
 
         Returns:
-            [type]: [description]
+            Content of the dataset.
         """
         name = dataset['data_type']
         if name == 'default':
@@ -301,23 +394,19 @@ class DatasetManager:
             return self.load_images_dataset(folder_path=dataset['path'],
                                             as_dataset=True)
 
-    def load_data(self, tags: Union[tuple, list], mode: str):    # `load_data` seems unused
-        """
-        ???
+    # TODO: `load_data` seems unused, prune in next refactor ?
+    def load_data(self, tags: Union[tuple, list], mode: str) -> Any:
+        """Loads content of a dataset.
 
         Args:
-            tags (Union[tuple, list]): [description]
-            mode (str): [description]
+            tags: Tags describing the dataset to load.
+            mode: Return format for the dataset content.
 
         Raises:
-            NotImplementedError: if mode is not in ['pandas', 'torch_dataset',
-            'torch_tensor', 'numpy']
-            NotImplementedError: [description]
-            NotImplementedError: [description]
-            NotImplementedError: [description]
+            NotImplementedError: `mode` is not implemented yet.
 
         Returns:
-            [type]: [description]
+            Content of the dataset. Its type depends on the `mode` and dataset.
         """
 
         # Verify is mode is available

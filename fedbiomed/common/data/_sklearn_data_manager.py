@@ -17,30 +17,22 @@ from fedbiomed.common.constants import ErrorNumbers
 
 
 class SkLearnDataManager(object):
+    """Wrapper for `pd.DataFrame`, `pd.Series` and `np.ndarray` datasets.
 
+    Manages datasets for scikit-learn based model training. Responsible for managing inputs, and target
+    variables that have been provided in `training_data` of scikit-learn based training plans.
+    """
     def __init__(self,
                  inputs: Union[np.ndarray, pd.DataFrame, pd.Series],
                  target: Union[np.ndarray, pd.DataFrame, pd.Series],
-                 **kwargs):
+                 **kwargs: dict):
 
-        """
-        Wrapper for `pd.DataFrame`, `pd.Series` and `np.ndarray` datasets that is going to  be
-        used for scikit-learn based model training. This class is responsible for managing inputs, and
-        target variables that have been provided in `training_data` of scikit-learn based training
-        plans.
+        """ Constructor of the class
 
         Args:
-            inputs (np.ndarray, pd.DataFrame, pd.Series): Independent variables (inputs, features) for model training
-            target (np.ndarray, pd.DataFrame, pd.Series): Dependent variable/s (target) for model training and
-                                                            evaluation
-
-        Attr:
-            _loader_arguments: The arguments that are going to be passed to torch.utils.data.DataLoader
-            _subset_test: Test subset of dataset
-            _subset_train: Train subset of dataset
-
-        Raises:
-            none
+            inputs: Independent variables (inputs, features) for model training
+            target: Dependent variable/s (target) for model training and evaluation
+            **kwargs: Loader arguments
         """
 
         # Convert pd.DataFrame or pd.Series to np.ndarray for `inputs`
@@ -64,11 +56,13 @@ class SkLearnDataManager(object):
 
     def dataset(self) -> Tuple[Union[ndarray, DataFrame, Series],
                                Union[ndarray, DataFrame, Series]]:
-        """
-        Getter for dataset. This returns whole dataset as it is without any split.
+        """Gets the entire registered dataset.
+
+        This method returns whole dataset as it is without any split.
 
         Returns:
-             Tuple[Union[ndarray, DataFrame, Series], Union[ndarray, DataFrame, Series]]
+             inputs: Input variables for model training
+             targets: Target variable for model training
         """
 
         # TODO: When a proper DataLoader is develop for SkLearn framework, this method should
@@ -78,52 +72,47 @@ class SkLearnDataManager(object):
         return self._inputs, self._target
 
     def subset_test(self) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Getter for Subset of dataset for test partition.
-
-        Raises:
-            none
+        """Gets Subset of dataset for test partition.
 
         Returns:
-            torch.utils.data.Subset | None
+            test_inputs: Input variables of testing subset for model testing
+            test_target: Target variable of testing subset for model testing
         """
-
         return self._subset_test
 
     def subset_train(self) -> Tuple[np.ndarray, np.ndarray]:
 
-        """
-        Getter for Subset for train partition.
-
-        Raises:
-            none
+        """Gets Subset for train partition.
 
         Returns:
-            torch.utils.data.Subset | None
+            test_inputs: Input variables of training subset for model training
+            test_target: Target variable of training subset for model training
         """
 
         return self._subset_train
 
     def load_all_samples(self) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Method for loading all samples as Numpy ndarray without splitting
-        """
+        """Loads all samples as Numpy ndarray without splitting
 
+        Returns:
+             inputs: Loader of input variables for model training
+             targets: Loader of target variable for model training
+        """
         # TODO: Return batch iterator
         return self._inputs, self._target
 
     def split(self, test_ratio: float) -> Tuple[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]:
-        """
-        Method for splitting np.ndarray dataset into train and test.
+        """Splits `np.ndarray` dataset into train and test.
 
         Args:
-             test_ratio (float): Ratio for testing set partition. Rest of the samples
-                            will be used for training
+             test_ratio: Ratio for testing set partition. Rest of the samples will be used for training
+
         Raises:
-            FedbiomedSkLearnDataManagerError
+            FedbiomedSkLearnDataManagerError: If the `test_ratio` is not between 0 and 1
 
         Returns:
-             none
+             train_loader: Loader of input variables for model training
+             test_loader: Loader of target variable for model training
         """
 
         # Check the argument `ratio` is of type `float`
@@ -153,12 +142,19 @@ class SkLearnDataManager(object):
 
     @staticmethod
     def _subset_loader(subset: Tuple[np.ndarray, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Method for loading subset partition for SkLearn based training plans.
+        """Loads subset partition for SkLearn based training plans.
 
-        TODO: Currently this method just returns subset. When SkLearn based batch
-        iterator is created, it should return BatchIterator
+        Raises:
+            FedbiomedSkLearnDataManagerError: If subset is not well formatted
+
+        Returns:
+            inputs: Loader for input variables
+            target: Loader for target variables
         """
+
+        # TODO: Currently this method just returns subset. When SkLearn based batch iterator is created,
+        #  it should return BatchIterator
+
         if not isinstance(subset, Tuple) \
                 or len(subset) != 2 \
                 or not isinstance(subset[0], np.ndarray) \

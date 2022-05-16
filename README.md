@@ -35,7 +35,7 @@ To ensure fedbiomed will work fine, you need to install before :
 
 ### clone repo
 
-Clone the FedBiomed repository for running the software :
+Clone the Fed-BioMed repository for running the software :
 
 ```
 git clone https://gitlab.inria.fr/fedbiomed/fedbiomed.git
@@ -59,7 +59,7 @@ $ ./scripts/configure_conda
 
 * there is one specific environment for each component:
 
-  * fedbiomed-network.yaml    : environment for HTTP upload/download server and MQQT daemon (network component)
+  * fedbiomed-network.yaml    : environment for HTTP upload/download server and MQTT daemon (network component)
   * fedbiomed-node.yaml       : environment for the node part
   * fedbiomed-researcher.yaml : environment for the researcher part
   * fedbiomed-gui.yaml        : environment for the data management gui on the node
@@ -206,6 +206,112 @@ De-configure environments, remove all configuration files and caches
 source ./scripts/fedbiomed_environment clean
 ```
 
+## Install and run in vpn+development environment
+
+### Files
+
+The **envs/vpn** directory contains all material for VPN support.
+A full technical description is provided in **envs/vpn/README.md**
+
+The **./scripts/fedbiomed_vpn** script is provided to ease the deployment of
+a set of docker container(s) with VPN support. The provided containers are:
+
+- fedbiomed/vpn-vpnserver: WireGuard server
+- fedbiomed/vpn-restful: HTTP REST communication server
+- fedbiomed/vpn-mqtt: MQTT message broker server
+- fedbiomed/vpn-researcher: a researcher jupyter notebooks
+- fedbiomed/vpn-node: a node component
+- fedbiomed/vpn-gui: a GUI for managing node component data
+
+All these containers are communicating through the Wireguard VPN server.
+
+### Setup and run all the docker containers
+
+To setup **all** these components, you should:
+
+- clean all containers and files
+
+```
+./scripts/fedbiomed_vpn clean
+```
+
+- build all the docker containers
+
+```
+./scripts/fedbiomed_vpn build
+```
+
+- configure the wireguard encryption keys of all containers
+
+```
+./scripts/fedbiomed_vpn configure
+```
+
+- start the containers
+
+```
+./scripts/fedbiomed_vpn start
+```
+
+- check the containers status (presence and Wireguard configuration)
+
+```
+./scripts/fedbiomed_vpn status
+```
+
+- run a **fedbiomed_run** command inside the node component. Eg:
+
+```
+./scripts/fedbiomed_vpn node --add-mnist /data
+./scripts/fedbiomed_vpn node list
+./scripts/fedbiomed_vpn node start
+```
+
+- connect to the researcher jupyter at http://127.0.0.1:8888
+(Remark: the *researcher** docker automatically starts a jupyter notebook inside the container)
+
+- manage data inside the node at http://127.0.0.1:8484
+
+- stop the containers:
+
+```
+./scripts/fedbiomed_vpn stop
+```
+
+### managing individual containers
+
+You can manage individually the containers for the build/stop/start phases,
+by passing the name of the container(s) on the command line.
+
+For example, to build only the node, you can use:
+
+```
+./scripts/fedbiomed_vpn build node
+```
+
+You can build/configure/stop/start/check more than one component at a time. Example:
+```
+./scripts/fedbiomed_vpn build gui node
+```
+
+This will stop and build the node container.
+
+The list of the container names is:
+
+- vpnserver
+- mqtt
+- restful
+- researcher
+- node
+- gui
+
+**Remarks**:
+- the configuration files are keeped then rebuilding individual containers
+- to remove the old config files, you should do a **clean**
+- restarting only network component (vpnserver, restful, mqtt) then others are running
+may lead to unpredictable behavior. In this case, it is adviced to restart from scratch
+(clean/build/configure/start)
+
 
 
 ## Misc developper tools to help debugging
@@ -218,6 +324,7 @@ usage:  lqueue directory
    or
         lqueue dir1 dir2 dir3 ...
 
+
 ### scripts/run\_integration\_test
 
 Run a full (integration) test by launching:
@@ -226,9 +333,26 @@ Run a full (integration) test by launching:
 - several nodes, providing data
 - the network component.
 
-Usefull for continous integration tests and notebook debugging.
+Usefully for continuous integration tests and notebook debugging.
 Full documentation in tests/README.md file.
 
+### Testing Doc Strings 
+
+Fed-BioMed documentation has been configured to genereate API documentation by parsing doc strings
+that provided in classes and methods. Therefore, before creating a merge request please check 
+whether doc strings are valid for the fedbiomed documentation built. You can use following command
+to check WARNING and ERROR messages that comes from API docs. 
+
+Following command will serve only API docs on the port `:8000`. The site will be different from 
+actual documentation page of Fed-BioMed. This is because the script has been configure as minimal as possible 
+to check only WARNING and ERROR messages. Please check major ERRORs and WARNING massages and to fix them 
+without paying action on visual of the site. 
+
+```python
+./tests/docstrings/check_docstrings
+```
+
+Developer should do the last test on gitlabpages.
 
 ## Using Tensorboard
 

@@ -331,7 +331,7 @@ $ ./scripts/run_integration_test -s ./notebooks/101_getting-started.py \
                                  -d ./tests/datasets/mnist.json
 ```
 
-This will run the first tutorial of fed-biomed with one calculation node.
+This will run the first tutorial of Fed-BioMed with one calculation node.
 
 
 #### monai notebook tutorial with 3 nodes

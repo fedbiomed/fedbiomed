@@ -19,32 +19,29 @@ from ._base_training_plan import BaseTrainingPlan
 
 
 class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
-    """
-    Implementation of TraingPlan for torch NN framework
+    """Implements  TrainingPlan for torch NN framework
+
+    An abstraction over pytorch module to run pytorch models and scripts on node side. Researcher model (resp. params)
+    will be
+
+    1. saved  on a '*.py' (resp. '*.pt') files,
+    2. uploaded on a HTTP server (network layer),
+    3. then Downloaded from the HTTP server on node side,
+    4. finally, read and executed on node side.
+
+
+    Researcher must define/override:
+    - a `training_data()` function
+    - a `training_step()` function
+
+    Researcher may have to add extra dependencies/python imports, by using `add_dependencies` method.
     """
 
     def __init__(self, model_args: dict = {}):
-        """
-        An abstraction over pytorch module to run
-        pytorch models and scripts on node side.
-
-        Researcher model (resp. params) will be 1) saved  on a '*.py'
-        (resp. '*.pt') files, 2) uploaded on a HTTP server (network layer),
-         3) then Downloaded from the HTTP server on node side,
-         and 4) finally read and executed on node side.
-
-
-        Researcher must define/override:
-        - a `training_data()` function
-        - a `training_step()` function
-
-        Researcher may have to add extra dependancies/ python imports,
-        by using `add_dependencies` method.
+        """ Construct training plan
 
         Args:
-          - model_args (dict, optional): model arguments. Items used in this class:
-            - use_gpu (bool, optional) : researcher requests to use GPU (or not) for training
-                if available on node and proposed by node. Defaults to False.
+            model_args: model arguments. Items used in this class build time
         """
 
         super().__init__()
@@ -92,17 +89,15 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         self.fedcos_mu = None
 
     def type(self):
-        """ Getter for training plan type """
-
+        """ Gets training plan type"""
         return self.__type
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
-        """
-        Set device (CPU, GPU) that will be used for training, based on `node_args`
+        """Set device (CPU, GPU) that will be used for training, based on `node_args`
 
         Args:
-          - use_gpu (Union[bool, None]) : researcher requests to use GPU (or not)
-          - node_args (dict): command line arguments for node
+            use_gpu: researcher requests to use GPU (or not)
+            node_args: command line arguments for node
         """
 
         # set default values for node args
@@ -145,11 +140,11 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                      f"use_gpu={use_gpu}, gpu_num={node_args['gpu_num']})")
 
     def training_step(self):
-        """
-        all subclasses must provide a training_steproutine
-        the purpose of this actual code is to detect that it has been provided
+        """All subclasses must provide a training_step the purpose of this actual code is to detect that it
+        has been provided
 
-        :raise FedbiomedTrainingPlanError if called
+        Raises:
+             FedbiomedTrainingPlanError: if called and not inherited
         """
         msg = ErrorNumbers.FB303.value + ": training_step must be implemented"
         logger.critical(msg)
@@ -159,55 +154,44 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          epochs: int = 2,
                          log_interval: int = 10,
                          lr: Union[int, float] = 1e-3,
-                         batch_size: int = 48,
                          batch_maxnum: int = 0,
                          dry_run: bool = False,
                          use_gpu: Union[bool, None] = None,
                          fedprox_mu=None,
                          fedcos_mu=None,
-                         history_monitor=None,
+                         history_monitor: Any =None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
         # FIXME 2: remove parameters specific for testing specified in the
         # training routine
-        """
-        Training routine procedure.
+        """Training routine procedure.
 
-        Researcher should defined :
-        - a `training_data()` function defining
-        how sampling / handling data in node's dataset is done.
-        It should return a generator able to ouput tuple
-        (batch_idx, (data, targets)) that is iterable for each batch.
-        - a `training_step()` function defining how cost is computed. It should
-        output model error for model backpropagation.
+        End-user should define;
+
+        - a `training_data()` function defining how sampling / handling data in node's dataset is done. It should
+            return a generator able to output tuple (batch_idx, (data, targets)) that is iterable for each batch.
+        - a `training_step()` function defining how cost is computed. It should output model error for model backpropagation.
 
         Args:
-            - epochs (int, optional): number of epochs (complete pass on data).
-                Defaults to 2.
-            - log_interval (int, optional): frequency of logging. Defaults to 10.
-                lr (Union[int, float], optional): learning rate. Defaults to 1e-3.
-            - batch_size (int, optional): size of batch. Defaults to 48.
-            - batch_maxnum (int, optional): equals number of data devided
-                by batch_size,
-                and taking the closest lower integer. Defaults to 0.
-            - dry_run (bool, optional): whether to stop once the first
-            - batch size of the first epoch of the first round is completed.
-                Defaults to False.
-            - use_gpu (Union[bool, None], optional) : researcher requests to use GPU (or not)
-                for training during this round (ie overload the object default use_gpu value)
-                if available on node and proposed by node
-                Defaults to None (dont overload the object default value)
-            - fedprox_mu (float or None): mu parameter in case of FredProx
-              computing. Default is None, which means that FredProx is not triggered
-            - fedcos_mu (float or None): mu parameter in case of FredCos
+            epochs: Number of epochs (complete pass on data).
+            log_interval: Frequency of logging loss values during training.
+            lr: Learning rate.
+            batch_maxnum: Equals number of data devided by batch_size, and taking the closest lower integer.
+            dry_run: Whether to stop once the first batch size of the first epoch of the first round is completed.
+            use_gpu: researcher requests to use GPU (or not) for training during this round (ie overload the object
+                default use_gpu value) if available on node and proposed by node Defaults to None (don't overload the
+                object default value)
+            fedprox_mu: mu parameter in case of FredProx computing. Default is None, which means that
+                FredProx is not triggered
+            fedcos_mu (float or None): mu parameter in case of FredCos
               computing. Default is None, which means that FredCos is not triggered
-            - history_monitor ([type], optional): [description]. Defaults to None.
-            - node_args (Union[dict, None]): command line arguments for node. Can include:
-                - gpu (bool): propose use a GPU device if any is available. Default False.
-                - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
+            history_monitor: Monitor handler for real-time feed. Defined by the Node and can't be overwritten
+            node_args: command line arguments for node. Can include:
+                - `gpu (bool)`: propose use a GPU device if any is available. Default False.
+                - `gpu_num (Union[int, None])`: if not None, use the specified GPU device instead of default
                     GPU device if this GPU device is available. Default None.
-                - gpu_only (bool): force use of a GPU device if any available, even if researcher
-                    doesnt request for using a GPU. Default False.
+                - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
+                    doesn't request for using a GPU. Default False.
         """
         self.train()  # pytorch switch for training
 
@@ -321,9 +305,24 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
     def testing_routine(self,
                         metric: Union[MetricTypes, None],
                         metric_args: Dict[str, Any],
-                        history_monitor,
+                        history_monitor: Any,
                         before_train: Union[bool, None] = None):
+        """Performs testing routine on testing partition of the dataset
 
+        Testing routine can be run any time after train and test split is done. Method sends testing result
+        back to researcher component as real-time.
+
+        Args:
+            metric: Metric that will be used for evaluation
+            metric_args: The arguments for corresponding metric function.
+                Please see [`sklearn.metrics`][sklearn.metrics]
+            history_monitor: Real-time feed-back handler for evaluation results
+            before_train: Declares whether is performed before training model or not.
+
+        Raises:
+            FedbiomedTrainingPlanError: if the training is failed by any reason
+
+        """
         # TODO: Add preprocess option for testing_data_loader
 
         if self.testing_data_loader is None:
@@ -419,20 +418,13 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         del metric_controller
 
     # provided by fedbiomed
-    def save(self, filename, params: dict = None) -> None:
-        """Save the torch training parameters from this training plan or
-        from given `params` to a file
+    def save(self, filename: str, params: dict = None) -> None:
+        """Save the torch training parameters from this training plan or from given `params` to a file
 
         Args:
-            filename (string): path to the destination file
-            params (dict, optional): parameters to save to a file, should
-            be structured as a torch state_dict()
+            filename: Path to the destination file
+            params: Parameters to save to a file, should be structured as a torch state_dict()
 
-        Returns:
-            pytorch.save() returns None
-
-        Exceptions:
-            none
         """
         if params is not None:
             return torch.save(params, filename)
@@ -441,23 +433,15 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
     # provided by fedbiomed
     def load(self, filename: str, to_params: bool = False) -> dict:
-        """
-        Load the torch training parameters to this training plan or
-        to a data structure from a file
+        """Load the torch training parameters to this training plan or to a data structure from a file
 
         Args:
-            filename (string): path to the source file
-            to_params (bool, optional): if False, load params to this
-            pytorch object;
-            if True load params to a data structure
+            filename: path to the source file
+            to_params: if False, load params to this pytorch object; if True load params to a data structure
 
         Returns:
-            dict containing parameters
-
-        Exceptions:
-            none
+            Contains parameters
         """
-
         params = torch.load(filename)
 
         if 'disp_global' in params:
@@ -468,18 +452,15 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             self.load_state_dict(params)
         return params
 
-    # provided by the fedbiomed / can be overloaded // need WORK
-    def logger(self, msg, batch_index, log_interval=10):
-        pass
+    def after_training_params(self) -> dict:
+        """Retrieve parameters after training is done
 
-    def after_training_params(self):
-        """
-        effectively call the user defined postprocess function (if provided)
+        Call the user defined postprocess function:
+            - if provided, the function is part of pytorch model defined by the researcher
+            - and expect the model parameters as argument
 
-        - if provided, the function is part of pytorch model defined by the researcher
-        - and expect the model parameters as argument
-
-        and returns the (modified) state_dict of the model
+        Returns:
+            The state_dict of the model, or modified state_dict if preprocess is present
         """
 
         try:
@@ -501,11 +482,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         return self.state_dict()
 
     def __norm_l2(self) -> float:
-        """
-        used by FedProx optimization
+        """Regularize L2 that is used by FedProx optimization
 
         Returns:
-            norm (float): L2 norm of model parameters (before local training)
+            L2 norm of model parameters (before local training)
         """
         norm = 0
         for key, val in self.state_dict().items():
@@ -540,10 +520,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         return cos_angle
 
     def __preprocess(self):
-        """
-        Method for executing registered preprocess that are defined by user.
-        """
-
+        """Executes registered preprocess that are defined by user."""
         for (name, process) in self.pre_processes.items():
             method = process['method']
             process_type = process['process_type']
@@ -555,17 +532,16 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                              f"be ignored")
 
     def __process_data_loader(self, method: Callable):
-        """
-        Process handler for data loader kind processes.
+        """Process handler for data loader kind processes.
 
         Args:
-            method (Callable) : Process method that is going to be executed
+            method: Process method that is going to be executed
 
         Raises:
-             FedbiomedTrainingPlanError: raised if number of arguments of method is different than 1.
-             FedbiomedTrainingPlanError: triggered if execution of method fails
-             FedbiomedTrainingPlanError: triggered if type of the output of the method is not an instance of
-             `self.training_data_loader`
+             FedbiomedTrainingPlanError: Raised if number of arguments of method is different than 1.
+                    - triggered if execution of method fails
+                    - triggered if type of the output of the method is not an instance of
+                        `self.training_data_loader`
         """
         argspec = get_method_spec(method)
         if len(argspec) != 1:

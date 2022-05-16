@@ -63,12 +63,12 @@ services:
         - CONTAINER_USER # build and use other account than "root"
         - CONTAINER_GROUP # build and use other group than "root"
     image: fedbiomed/vpn-vpnserver
-    #environment:
-    ## not needed, use image settings
-    #  - CONTAINER_UID
-    #  - CONTAINER_GID
-    #  - CONTAINER_USER
-    #  - CONTAINER_GROUP
+    environment:
+    # enable overloading build-time id with a run-time id
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
     cap_add:
       - net_admin # needed to handle wireguard interface
       - sys_module # needed to remove wireguard kernel module
@@ -93,6 +93,12 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-node
+    environment:
+    # enable overloading build-time id with a run-time id
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
     cap_add:
       - net_admin
       - sys_module
@@ -136,6 +142,12 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-gui
+    environment:
+    # enable overloading build-time id with a run-time id
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
     ports:
       - "${GUI_HOST:-127.0.0.1}:8484:8484" # flask server
     volumes:
@@ -157,6 +169,12 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-researcher
+    environment:
+    # enable overloading build-time id with a run-time id
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
     ports:
       - "${RESEARCHER_HOST:-127.0.0.1}:8888:8888" # jupyter notebook
       - "${RESEARCHER_HOST:-127.0.0.1}:6006:6007" # tensorboard via socat proxy
@@ -185,6 +203,12 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
     image: fedbiomed/vpn-mqtt
+    environment:
+    # enable overloading build-time id with a run-time id
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
     # no open ports ! this would backdoor the vpnization
     #ports:
     #  - "1883:1883"
@@ -210,6 +234,11 @@ services:
         - CONTAINER_GROUP
     image: fedbiomed/vpn-restful
     environment:
+    # enable overloading build-time id with a run-time id
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
       - PRODUCTION=1
       - DJANGO_SUPERUSER_USERNAME=admin
       - DJANGO_SUPERUSER_EMAIL=dummy@gitlab.inria.fr
