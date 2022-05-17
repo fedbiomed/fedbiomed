@@ -7,9 +7,10 @@ Following features were added from to the original module:
 
 - provides a logger instance of FedLogger, which is also a singleton, so it can be used "as is"
 - provides a dedicated file handler
-- provides a JSON/MQTT handler: all messages with priority greater than error are sen to the MQQT handler (this permit to send error messages from a node to a researcher)
+- provides a JSON/MQTT handler: all messages with priority greater than error are sent to the MQQT handler
+(this permit to send error messages from a node to a researcher)
 - works on python scripts / ipython / notebook
-- manages a dictionnary of handlers. Default keys are 'CONSOLE', 'MQTT', 'FILE',
+- manages a dictionary of handlers. Default keys are 'CONSOLE', 'MQTT', 'FILE',
   but any key is allowed (only one handler by key)
 - allow changing log level globally, or on a specific handler (using its key)
 - log levels can be provided as string instead of logging.* levels (no need to
@@ -31,12 +32,11 @@ All methods of the original python logger are provided. To name a few:
 - logger.error()
 - logger.critical()
 
-Contrary to other Fed-Biomed classes, the API of FedLogger is compliant with the coding conventions used for logger (lowerCameCase)
+Contrary to other Fed-BioMed classes, the API of FedLogger is compliant with the coding conventions used for logger
+(lowerCameCase)
 
 !!! info "Dependency issue"
     Please pay attention to not create dependency loop then importing other fedbiomed package
-
-
 """
 
 import json  # we do not use fedbiomed.common.json to avoid dependancy loops

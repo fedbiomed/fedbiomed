@@ -1,12 +1,12 @@
 '''
 All environment/configuration variables are provided by the
-**Environ** dictionnary.
+**Environ** dictionary.
 
 **Environ** is a singleton class, meaning that only an instance of Environ is available.
 
 Descriptions of global/environment variables
 
-Resarcher Global Variables:
+Researcher Global Variables:
 
 - RESEARCHER_ID           : id of the researcher
 - ID                      : equals to researcher id
@@ -45,7 +45,6 @@ from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.constants import ComponentType, HashingAlgorithms
-
 
 
 class Environ(metaclass=SingletonMeta):
@@ -130,7 +129,7 @@ class Environ(metaclass=SingletonMeta):
              FedbiomedEnvironError: In case of error (OS errors usually)
         """
 
-        # guess the fedbiomed package topir if no rootdir is given
+        # guess the fedbiomed package top dir if no root dir is given
         if rootdir is None:
             # locate the top dir from the file location (got up twice)
             ROOT_DIR = os.path.abspath(
@@ -396,7 +395,7 @@ class Environ(metaclass=SingletonMeta):
         }
 
         # Security variables
-        # Default hashing algorithim is SHA256
+        # Default hashing algorithm is SHA256
         allow_default_models = os.getenv('ALLOW_DEFAULT_MODELS', True)
         model_approval = os.getenv('ENABLE_MODEL_APPROVAL', False)
 
