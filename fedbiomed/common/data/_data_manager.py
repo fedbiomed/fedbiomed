@@ -15,7 +15,7 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 
 from ._torch_data_manager import TorchDataManager
 from ._sklearn_data_manager import SkLearnDataManager
-from ._torch_tabular_dataset import TorchTabularDataset
+from ._torch_tabular_dataset import TabularDataset
 
 
 class DataManager(object):
@@ -64,8 +64,8 @@ class DataManager(object):
             elif isinstance(self._dataset, (pd.DataFrame, pd.Series, np.ndarray)) and \
                     isinstance(self._target, (pd.DataFrame, pd.Series, np.ndarray)):
                 # If `dataset` and `target` attributes are array-like object
-                # create TorchTabularDataset object to instantiate a TorchDataManager
-                torch_dataset = TorchTabularDataset(inputs=self._dataset, target=self._target)
+                # create TabularDataset object to instantiate a TorchDataManager
+                torch_dataset = TabularDataset(inputs=self._dataset, target=self._target)
                 self._data_manager_instance = TorchDataManager(dataset=torch_dataset, **self._loader_arguments)
             else:
                 raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Invalid arguments for torch based "

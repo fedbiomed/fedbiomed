@@ -14,7 +14,7 @@ from fedbiomed.common.exceptions import FedbiomedDatasetError
 from fedbiomed.common.constants import ErrorNumbers
 
 
-class TorchTabularDataset(Dataset):
+class TabularDataset(Dataset):
     """Torch based Dataset object to create torch Dataset from given numpy or dataframe
     type of input and target variables
     """
