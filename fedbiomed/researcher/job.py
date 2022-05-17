@@ -1,6 +1,4 @@
-'''
-???
-'''
+"""Manage the training part of the experiment."""
 
 import atexit
 import copy

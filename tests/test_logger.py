@@ -115,9 +115,9 @@ class TestLogger(unittest.TestCase):
         test singleton mechanism
         '''
 
-        from fedbiomed.common.logger import _FedLogger
+        from fedbiomed.common.logger import FedLogger
 
-        second_logger = _FedLogger()
+        second_logger = FedLogger()
 
         self.assertEqual( logger, second_logger)
 
