@@ -15,7 +15,7 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 
 from ._torch_data_manager import TorchDataManager
 from ._sklearn_data_manager import SkLearnDataManager
-from ._torch_tabular_dataset import TabularDataset
+from ._tabular_dataset import TabularDataset
 
 
 class DataManager(object):
