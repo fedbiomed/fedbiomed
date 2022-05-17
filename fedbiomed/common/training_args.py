@@ -138,7 +138,7 @@ class TrainingArgs():
             "lr": {
                 "rules": [ float, cls._lr_hook ],
                 "required": False,
-#   "default": 0.01
+#               "default": 0.01
             },
 
             # batch_size
