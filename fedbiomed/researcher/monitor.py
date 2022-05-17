@@ -15,29 +15,30 @@ from fedbiomed.common.logger import logger
 from fedbiomed.researcher.environ import environ
 
 
-class _MetricStore(dict):
+class MetricStore(dict):
     """
     Storage facility, used for storing training loss and testing metric values, in order to
     display them on Tensorboard.
     Inheriting from a dictionary, providing methods to simplify queries and saving metric values.
 
     Storage architecture:
-        {<node>:
-            {<for_>:
-                {<metric_name>:
-                    {<round_>: { <iterations/values>: List[float] }
-                    }
+    ```python
+    {<node>:
+        {<for_>:
+            {<metric_name>:
+                {<round_>: { <iterations/values>: List[float] }
                 }
             }
         }
-        where:
-        node: node id
-        for_: either testing_global_updates, testing_local_updates, or training
-        metric_name: metric 's name. Custom or Custom_xxx if testing_step has been defined
-        in TrainingPlan (custom metric)
-        round_: round number
-        iterations: index of iterations stored
-        values: metric value
+    }
+    ```
+    Where:
+    - `node`: node id
+    - `for_`: either testing_global_updates, testing_local_updates, or training
+    - `metric_name`: metric 's name. Custom or Custom_xxx if testing_step has been defined in TrainingPlan (custom metric)
+    - `round_`: round number
+    - `iterations`: index of iterations stored
+    - `values`: metric value
     """
     def add_iteration(self,
                       node: str,
@@ -50,16 +51,16 @@ class _MetricStore(dict):
         Method adding iteration to MetricStore based on node, training/testing, round and metric.
 
         Args:
-            node (str): The node id that metric value received from
-            train (bool): Training status, If true metric value is for training, Otherwise for testing
-            test_on_global_updates (bool): If True metric value is for testing on global updates. Otherwise,
+            node: The node id that metric value received from
+            train: Training status, If true metric value is for training, Otherwise for testing
+            test_on_global_updates: If True metric value is for testing on global updates. Otherwise,
                 for testing on local updates
-            round_ (int): The round that metric value has received at
-            metric (dict): Dictionary that contains metric names and their values e.g {'<metric-name>':<value>}
-            iter_ (int): Iteration number for testing/training.
+            round_: The round that metric value has received at
+            metric: Dictionary that contains metric names and their values e.g {'<metric-name>':<value>}
+            iter_: Iteration number for testing/training.
 
         Returns
-             list[int]: List of cumulative iteration for each metric/evaluation result
+             List of cumulative iteration for each metric/evaluation result
         """
 
         if node not in self:
@@ -102,20 +103,18 @@ class _MetricStore(dict):
                            iter_: int,
                            metric_value: Union[int, float],
                            new_round: bool = False):
-        """
-        Method for adding new iteration based on `new_round` status. If the round is new
-        for the metric it registers key round key and assigns iteration and metric value. Otherwise,
-        appends iteration and metric value to the existing round,
+        """Adds new iteration based on `new_round` status. If the round is new for the metric it registers key round
+        key and assigns iteration and metric value. Otherwise, appends iteration and metric value to the existing round.
 
         Args:
-            node (str): The node id that metric value received from
-            for_ (str): One of (training, testing_global_updates, testing_local_updates). To indicate metric
+            node: The node id that metric value received from
+            for_: One of (training, testing_global_updates, testing_local_updates). To indicate metric
                 value belongs to which phase
-            metric_name (str): Name of the metric to use as a key in MetricStore dict
-            round_ (int): The round that metric value has received at
-            iter_ (int): Iteration number
-            metric_value (int, float): Value of the metric
-            new_round (bool): To indicate whether round should be created or new metric should append to the
+            metric_name: Name of the metric to use as a key in MetricStore dict
+            round_: The round that metric value has received at
+            iter_: Iteration number
+            metric_value: Value of the metric
+            new_round: To indicate whether round should be created or new metric should append to the
                 existing one. This is also enables overwriting round values when needed.
         """
         if new_round:
@@ -128,18 +127,16 @@ class _MetricStore(dict):
 
     @staticmethod
     def _iter_duplication_status(round_: dict, next_iter: int) -> bool:
-        """
-        This method is required to find out is there iteration duplication in rounds for the
-        testing metrics.
+        """ Finds out is there iteration duplication in rounds for the testing metrics.
 
         Args:
-            round_ (dict) : Dictionary that includes iteration numbers and values for single metric results
+            round_: Dictionary that includes iteration numbers and values for single metric results
                 belongs to a node and a phase (training/testing_global_update or testing_local_updates)
-            next_iter (int): An integer indicates the iteration number for the next iteration that is going to be
+            next_iter: An integer indicates the iteration number for the next iteration that is going to be
                 stored on the MetricStore
 
         Returns:
-            bool: Indicates whether is there a duplication in the round iterations
+            Indicates whether is there a duplication in the round iterations
         """
 
         iterations = round_['iterations']
@@ -149,48 +146,44 @@ class _MetricStore(dict):
         else:
             return False  # No duplication
 
-    def _register_node(self, node):
-        """
-        Register node for the first time (first iteration) by initializing basic information on metrics
-        Add the following fields to node entry:
+    def _register_node(self, node: str):
+        """ Registers node for the first time (first iteration) by initializing basic information on metrics
+
+        Adds the following fields to node entry:
         - training: loss values from training
         - testing_global_updates: metric values and names from testing on global updates
         - testing_local_updates: metric values and names from testing on local updates
 
         Args:
-            node (str): Node id
+            node: Node id to register
         """
         self[node] = {
             "training": {},
-
             "testing_global_updates": {},  # Testing before training
             "testing_local_updates": {}  # Testing after training
         }
 
-    def _register_metric(self, node, for_, metric_name):
-        """
-        Method for registering metric for the given node. It creates stating point
-        for the metric from round 0.
+    def _register_metric(self, node: str, for_: str, metric_name: str):
+        """Registers metric for the given node. It creates stating point for the metric from round 0.
 
         Args:
-            node (str): The node id that metric value received from
-            for_ (str): One of (training, testing_global_updates, testing_local_updates). To indicate metric
-                value belongs to which phase
-            metric_name (str): Name of the metric to use as a key in MetricStore dict
+            node: The node id that metric value received from
+            for_: One of (training, testing_global_updates, testing_local_updates). To indicate metric value belongs
+                to which phase
+            metric_name: Name of the metric to use as a key in MetricStore dict
         """
 
         # Round should start from 1 to match experiment's starting round
         self[node][for_].update({metric_name: {1: {'iterations': [], 'values': []}}})
 
     @staticmethod
-    def _cumulative_iteration(rounds) -> int:
-        """
-        Method for calculation of cumulative iteration for the received metric value. Cumulative iteration
+    def _cumulative_iteration(rounds: dict) -> int:
+        """Calculates cumulative iteration for the received metric value. Cumulative iteration
         should be calculated for each metric value received during training/testing to add it as next `step`
         in the tensorboard SummaryWriter. Please see Monitor._summary_writer.
 
         Args:
-            rounds : The dictionary that includes all the rounds for a metric, node and the phase
+            rounds: The dictionary that includes all the rounds for a metric, node and the phase
 
         Returns:
             int: cumulative iteration for the metric/evaluation result
@@ -208,20 +201,14 @@ class _MetricStore(dict):
 
 
 class Monitor:
-    """
-    This is the class that subscribes monitor channel and logs scalar values
-    using `logger`. It also writes scalar values to tensorboard log files.
-    """
+    """ Monitors nodes scalar feed-backs during training"""
 
     def __init__(self):
-        """
-        Constructor of the class. Initializes empty event writers object and
-        logs directory. Removes tensorboard logs from previous experiments.
-        """
+        """Constructor of the class """
 
         self._log_dir = environ['TENSORBOARD_RESULTS_DIR']
         self._round = 1
-        self._metric_store = _MetricStore()
+        self._metric_store = MetricStore()
         self._event_writers = {}
         self._round_state = 0
         self._tensorboard = False
@@ -232,27 +219,27 @@ class Monitor:
             self._remove_logs()
 
     def set_round(self, round_: int) -> int:
-        """
-        Setting round number that metric results will be received for. By default, at the beginning
-        round is equal to 1 which stands for the first round. This method should be called by
-        experiment `run_once` after each round completed, and round should be set to current round + 1.
-        This will inform monitor about the current round where the metric values are getting received.
+        """ Setts round number that metric results will be received for.
+
+        By default, at the beginning round is equal to 1 which stands for the first round. T
+        his method should be called by experiment `run_once` after each round completed, and round should be set
+        to current round + 1. This will inform monitor about the current round where the metric values are getting
+        received.
+
         Args:
-            round_ (int): The round that metric value will be saved at they are received
+            round_ : The round that metric value will be saved at they are received
         """
         self._round = round_
 
         return self._round
 
     def on_message_handler(self, msg: Dict[str, Any]):
-        """
-        Handler for messages received through general/monitoring channel.
-        This method is used as callback function in Requests class
+        """ Handler for messages received through general/monitoring channel. This method is used as callback function
+        in Requests class
 
         Args:
-            msg (Dict[str, Any]): incoming message from Node.
-            Must contain key named `command`, describing the nature
-            of the command (currently the command is only add_scalar).
+            msg: incoming message from Node. Must contain key named `command`, describing the nature
+                of the command (currently the command is only add_scalar).
         """
 
         # For now monitor can only handle add_scalar messages
@@ -270,13 +257,11 @@ class Monitor:
             self._log_metric_result(message=msg, cum_iter=cumulative_iter)
 
     def set_tensorboard(self, tensorboard: bool):
-        """
-        setter for the tensorboard flag, which is used to decide the behavior
-        of the monitor callback
+        """ Sets tensorboard flag, which is used to decide the behavior of the writing scalar values into
+         tensorboard log files.
 
         Args:
-            tensorboard: if True, data contained in AddScalarReply message
-                         will be passed to tensorboard
+            tensorboard: if True, data contained in AddScalarReply message will be passed to tensorboard
                          if False, fata will only be logged on the console
         """
         if isinstance(tensorboard, bool):
@@ -286,17 +271,13 @@ class Monitor:
             self._tensorboard = False
 
     def close_writer(self):
-        """
-        Closes `SummaryWriter` for each node
-        """
+        """ Closes `SummaryWriter` for each node """
         # Close each open SummaryWriter
         for node in self._event_writers:
             self._event_writers[node].close()
 
     def _remove_logs(self):
-        """
-        Private method for removing logs files from tensorboard logs dir.
-        """
+        """ Private method for removing logs files from tensorboard logs dir. """
 
         for file in os.listdir(self._log_dir):
             if not file.startswith('.'):  # do not want to remove dotfiles
@@ -307,9 +288,12 @@ class Monitor:
                     os.remove(rf)
 
     def _log_metric_result(self, message: Dict, cum_iter: int = 0):
-        """
-        Method for loging metric result that comes from nodes, and store them
-        into tensorboard (through summary writer) if Tensorboard has been activted
+        """ Logs metric/scalar result that comes from nodes, and store them into tensorboard (through summary writer)
+        if Tensorboard has been activated
+
+        Args:
+            message: Scalar message that is received from each node
+            cum_iter: Global step/iteration for writing scalar to tensorboard log files
         """
 
         if message['train'] is True:
@@ -347,15 +331,13 @@ class Monitor:
                         node: str,
                         metric: dict,
                         cum_iter: int):
-        """
-        This method is for writing scalar values using torch SummaryWriter
-        It creates new summary file for each node.
+        """Writes scalar values using torch SummaryWriter. It creates new summary file for each node.
 
         Args:
-            header (str): The header/title for the plot that is going to be displayed on the tensorboard
-            node (str): Node id
-            metric (dict): Metric values
-            cum_iter (int): Iteration number for the metric that is going to be added as scalar
+            header: The header/title for the plot that is going to be displayed on the tensorboard
+            node: Node id to categorize result on the tensorboard by each node
+            metric: Metric values
+            cum_iter: Iteration number for the metric that is going to be added as scalar
         """
 
         # Initialize event SummaryWriters

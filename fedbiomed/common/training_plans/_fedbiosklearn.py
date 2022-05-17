@@ -22,10 +22,7 @@ from fedbiomed.common.utils import get_method_spec
 
 
 class _Capturer(list):
-    """
-    Capturing class for output of the scikit-learn models during training
-    when the verbose is set to true.
-    """
+    """Captures output of the scikit-learn models during training when the verbose is set to true."""
 
     def __enter__(self):
         sys.stdout.flush()
@@ -40,7 +37,8 @@ class _Capturer(list):
 
 
 class SGDSkLearnModel(BaseTrainingPlan):
-    #
+    """Training plan for Scikit-learn SGD based ML method """
+
     # mapping between model name and model class
     model_map = {
         "SGDRegressor": SGDRegressor,
@@ -71,11 +69,10 @@ class SGDSkLearnModel(BaseTrainingPlan):
                         'PassiveAggressiveRegressor']
 
     def __init__(self, model_args: dict = {}):
-        """
-        Class initializer.
+        """Construct class.
 
         Args:
-        - model_args (dict, optional): model arguments. Defaults to {}.
+            model_args: Model arguments to pass sklearn models in built time.
         """
         super().__init__()
 
@@ -147,12 +144,11 @@ class SGDSkLearnModel(BaseTrainingPlan):
         """Getter for training plan type """
         return self.__type
 
-    def set_init_params(self, model_args):
-        """
-        Initialize model parameters
+    def set_init_params(self, model_args: dict):
+        """Initialize model parameters
 
         Args:
-        - model_args (dict) : model parameters
+            model_args: Model parameters
         """
         if self.model_type in ['SGDRegressor']:
             self.param_list = ['intercept_', 'coef_']
@@ -175,38 +171,42 @@ class SGDSkLearnModel(BaseTrainingPlan):
         for p in self.params_sgd:
             setattr(self.model, p, self.params_sgd[p])
 
-    def partial_fit(self, X, y):  # seems unused
+    def partial_fit(self, X: np.ndarray, y: np.ndarray):  # seems unused
         """
         Provide partial fit method of scikit learning model here.
 
-        :param X (ndarray)
-        :param y (vector)
-        :raise FedbiomedTrainingPlanError if not overloaded
+        Args:
+            X: Dataset/Input or features
+            y: target variable/variables
+
+        Raises:
+            FedbiomedTrainingPlanError: if not overloaded
         """
         msg = ErrorNumbers.FB303.value + ": partial_fit must be implemented"
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
     def after_training_params(self) -> Dict:
-        """
-        Provide a dictionary with the federated parameters you need to aggregate, refer to
-        scikit documentation for a detail of parameters
-        :return the federated parameters (dictionary)
+        """Retrieve a dictionary from model parameters.
+
+        The federated parameters that needs to be aggregated, refer to scikit documentation for a detail of parameters
+
+        Returns:
+            Model parameters
         """
         return {key: getattr(self.model, key) for key in self.param_list}
 
     def _compute_support(self, targets: np.ndarray) -> np.ndarray:
-        """
-        Computes support, i.e. the number of items per
-        classes. It is designed from the way scikit learn linear model
-        `fit_binary` and `_prepare_fit_binary` have been implemented.
+        """Compute support.
+
+        The number of items per classes. It is designed from the way scikit learn linear model `fit_binary` and
+        `_prepare_fit_binary` have been implemented.
 
         Args:
-            targets (np.ndarray): targets that contains labels
-            used for training models
+            targets: targets that contain labels used for training models
 
         Returns:
-            np.ndarray: support
+            Support values
         """
         support = np.zeros((len(self.model.classes_),))
 
@@ -230,8 +230,8 @@ class SGDSkLearnModel(BaseTrainingPlan):
         return support
 
     def training_routine(self,
-                         epochs=1,
-                         history_monitor=None,
+                         epochs: int = 1,
+                         history_monitor: Any = None,
                          node_args: Union[dict, None] = None):
         # FIXME: remove parameters specific for testing specified in the
         # training routine
@@ -239,14 +239,14 @@ class SGDSkLearnModel(BaseTrainingPlan):
         Method training_routine called in Round, to change only if you know what you are doing.
 
         Args:
-        - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
-        - history_monitor ([type], optional): [description]. Defaults to None.
-        - node_args (Union[dict, None]): command line arguments for node. Can include:
-            - gpu (bool): propose use a GPU device if any is available. Default False.
-            - gpu_num (Union[int, None]): if not None, use the specified GPU device instead of default
-              GPU device if this GPU device is available. Default None.
-            - gpu_only (bool): force use of a GPU device if any available, even if researcher
-              doesnt request for using a GPU. Default False.
+            epochs: Number of training epochs for this round. Defaults to 1
+            history_monitor: Monitor handler for real-time feed. Defined by the Node and can't be overwritten.
+            node_args: Command line arguments for node. Can include:
+                - `gpu (bool)`: propose use a GPU device if any is available. Default False.
+                - `gpu_num (Union[int, None])`: if not None, use the specified GPU device instead of default
+                        GPU device if this GPU device is available. Default None.
+                - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
+                        doesn't request for using a GPU. Default False.
         """
         # issue warning if GPU usage is forced by node : no GPU support for sklearn training
         # plan currently
@@ -335,7 +335,7 @@ class SGDSkLearnModel(BaseTrainingPlan):
     def testing_routine(self,
                         metric: Union[MetricTypes, None],
                         metric_args: Dict[str, Any],
-                        history_monitor,
+                        history_monitor: Any,
                         before_train: bool):
         """
         Testing routine for SGDSkLearnModel. This method is called by the Round class if testing
@@ -345,13 +345,11 @@ class SGDSkLearnModel(BaseTrainingPlan):
             metric (MetricType, None): The metric that is going to be used for evaluation. Should be
                 an instance of MetricTypes. If it is None and there is no `testing_step` is defined
                 by researcher method will raise an Exception. Defaults to ACCURACY.
-
-            history_monitor (HistoryMonitor): History monitor class of node side to send evaluation results
-                to researcher.
-
+            history_monitor : Real-time feed-back handler for evaluation results
+            metric_args: The arguments for corresponding metric function. Please see
+                [`sklearn.metrics`][sklearn.metrics]
             before_train (bool): If True, this means testing is going to be performed after loading model parameters
-              without training. Otherwise, after training.
-
+                without training. Otherwise, after training.
         """
         # Use accuracy as default metric
         if metric is None:
@@ -436,21 +434,19 @@ class SGDSkLearnModel(BaseTrainingPlan):
                                        batch_samples=len(target),
                                        num_batches=1)
 
-    def save(self, filename, params: dict = None):
-        """
-        Save method for parameter communication, internally is used
-        dump and load joblib library methods.
-        :param filename (string)
-        :param params (dictionary) model parameters to save
+    def save(self, filename: str, params: dict = None):
+        """ Save method for parameter communication, internally is used dump and load joblib library methods.
 
-        Save can be called from Job or Round.
-            From round is always called with params.
-            From job is called with no params in constructor and
-            with params in update_parameters.
+        Save can be called from Job or Round. From round is always called with params. From job is called with no
+        params in constructor and with params in update_parameters. Torch state_dict has a model_params object.
+        model_params tag  is used in the code. This is why this tag is used in sklearn case.
 
-            Torch state_dict has a model_params object. model_params tag
-            is used in the code. This is why this tag is
-            used in sklearn case.
+        Args:
+            filename: Path to the destination file
+            params: Parameters to save to a file, should be structured as a torch state_dict()
+
+
+
         """
         file = open(filename, "wb")
         if params is None:
@@ -465,15 +461,16 @@ class SGDSkLearnModel(BaseTrainingPlan):
             dump(self.model, file)
         file.close()
 
-    def load(self, filename, to_params: bool = False) -> Dict:
-        """
-        Method to load the updated parameters of a scikit model
-        Load can be called from Job or Round.
-        From round is called with no params
-        From job is called with  params
-        :param filename (string)
-        :param to_params (boolean) to differentiate a pytorch from a sklearn
-        :return dictionary with the loaded parameters.
+    def load(self, filename: str, to_params: bool = False) -> Dict:
+        """ Method to load the updated parameters of a scikit model Load can be called from Job or Round.
+        From round is called with no params, and from job is called with params
+
+        Args:
+            filename: path to the source file
+            to_params: if False, load params to this pytorch object; if True load params to a data structure
+
+        Returns:
+            Dictionary with the loaded parameters.
         """
         di_ret = {}
         file = open(filename, "rb")
@@ -486,16 +483,16 @@ class SGDSkLearnModel(BaseTrainingPlan):
         file.close()
         return di_ret
 
-    def get_model(self):
-        """
-            :return the scikit model object (sklearn.base.BaseEstimator)
+    def get_model(self) -> Any:
+        """Retrieve the scikit model object (sklearn.base.BaseEstimator)
+
+        Returns:
+            Sk-Learn Model
         """
         return self.model
 
     def __preprocess(self):
-        """
-        Method for executing registered preprocess that are defined by user.
-        """
+        """Executes registered preprocess that are defined by user."""
 
         for (name, process) in self.pre_processes.items():
             method = process['method']
@@ -508,18 +505,18 @@ class SGDSkLearnModel(BaseTrainingPlan):
                              f"Preprocess will be ignored")
 
     def __process_data_loader(self, method: Callable):
-
-        """
-        Process handler for data loader kind processes.
+        """Process handler for data loader kind processes.
 
         Args:
           method (Callable) : Process method that is going to be executed
 
-        Raises FedbiomedTrainingPlanError:
-          - raised when method doesnot have 2 positional arguments
-          - Raised if running method fails
-          - if dataloader returned by method is not of type: Tuple[np.ndarray, np.ndarray]
-          - if dataloaders contained in method output don't contain the same number of samples
+        Raises:
+            FedbiomedTrainingPlanError: - Raised when method doesn't have 2 positional arguments
+                                        - Raised if running method fails
+                                        - if dataloader returned by method is not of type:
+                                            Tuple[np.ndarray, np.ndarray]
+                                        - if data loaders contained in method output don't contain the same
+                                            number of samples
        """
 
         argspec = get_method_spec(method)
@@ -571,12 +568,12 @@ class SGDSkLearnModel(BaseTrainingPlan):
             raise FedbiomedTrainingPlanError(msg)
 
     def __classes_from_concatenated_train_test(self) -> np.ndarray:
-        """
-        Method for getting all classes from test and target dataset. This action is required
-        in case of some class only exist in training subset or testing subset
+        """Gets all classes from test and target dataset.
+
+        This action is required in case of some class only exist in training subset or testing subset
 
         Returns:
-            np.ndarray: numpy array containing unique values from the whole dataset (training + testing dataset)
+           Contains unique values from the whole dataset (training + testing dataset)
         """
 
         target_test = self.testing_data_loader[1] if self.testing_data_loader is not None else np.array([])

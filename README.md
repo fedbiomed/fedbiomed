@@ -35,7 +35,7 @@ To ensure fedbiomed will work fine, you need to install before :
 
 ### clone repo
 
-Clone the FedBiomed repository for running the software :
+Clone the Fed-BioMed repository for running the software :
 
 ```
 git clone https://gitlab.inria.fr/fedbiomed/fedbiomed.git
@@ -59,7 +59,7 @@ $ ./scripts/configure_conda
 
 * there is one specific environment for each component:
 
-  * fedbiomed-network.yaml    : environment for HTTP upload/download server and MQQT daemon (network component)
+  * fedbiomed-network.yaml    : environment for HTTP upload/download server and MQTT daemon (network component)
   * fedbiomed-node.yaml       : environment for the node part
   * fedbiomed-researcher.yaml : environment for the researcher part
   * fedbiomed-gui.yaml        : environment for the data management gui on the node
@@ -211,7 +211,7 @@ source ./scripts/fedbiomed_environment clean
 ### Files
 
 The **envs/vpn** directory contains all material for VPN support.
-A full technical description is provided in **envs/vpn/README_tempo.md**
+A full technical description is provided in **envs/vpn/README.md**
 
 The **./scripts/fedbiomed_vpn** script is provided to ease the deployment of
 a set of docker container(s) with VPN support. The provided containers are:
@@ -307,8 +307,8 @@ The list of the container names is:
 
 **Remarks**:
 - the configuration files are keeped then rebuilding individual containers
-- to remove the ald config files, you should do a **clean**
-- restarting only network component (vpnserver, restful, mqqt) then others are running
+- to remove the old config files, you should do a **clean**
+- restarting only network component (vpnserver, restful, mqtt) then others are running
 may lead to unpredictable behavior. In this case, it is adviced to restart from scratch
 (clean/build/configure/start)
 
@@ -324,6 +324,7 @@ usage:  lqueue directory
    or
         lqueue dir1 dir2 dir3 ...
 
+
 ### scripts/run\_integration\_test
 
 Run a full (integration) test by launching:
@@ -332,9 +333,26 @@ Run a full (integration) test by launching:
 - several nodes, providing data
 - the network component.
 
-Usefull for continous integration tests and notebook debugging.
+Usefully for continuous integration tests and notebook debugging.
 Full documentation in tests/README.md file.
 
+### Testing Doc Strings 
+
+Fed-BioMed documentation has been configured to genereate API documentation by parsing doc strings
+that provided in classes and methods. Therefore, before creating a merge request please check 
+whether doc strings are valid for the fedbiomed documentation built. You can use following command
+to check WARNING and ERROR messages that comes from API docs. 
+
+Following command will serve only API docs on the port `:8000`. The site will be different from 
+actual documentation page of Fed-BioMed. This is because the script has been configure as minimal as possible 
+to check only WARNING and ERROR messages. Please check major ERRORs and WARNING massages and to fix them 
+without paying action on visual of the site. 
+
+```python
+./tests/docstrings/check_docstrings
+```
+
+Developer should do the last test on gitlabpages.
 
 ## Using Tensorboard
 

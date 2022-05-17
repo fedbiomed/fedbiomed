@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Fedbiomed Researcher
+# # Fed-BioMed Researcher
 
 # This example demonstrates using a convolutional model in PyTorch
 # for recognition of smiling faces, with a CelebA dataset split over 2 nodes.

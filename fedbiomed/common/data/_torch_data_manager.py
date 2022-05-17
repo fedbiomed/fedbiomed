@@ -15,19 +15,14 @@ from ._sklearn_data_manager import SkLearnDataManager
 
 
 class TorchDataManager(object):
+    """Wrapper for PyTorch Dataset to manage loading operations for test and train."""
 
-    def __init__(self, dataset: Union[Dataset], **kwargs):
-        """
-        Wrapper for torch.utils.data.Dataset to manager loading operations for
-        test and train, it is a manager for Torch based Dataset object.
+    def __init__(self, dataset: Dataset, **kwargs: dict):
+        """Construct  of class
 
         Args:
-            dataset (Dataset, MonaiDataset): Dataset object for torch.utils.data.DataLoader
-
-        Attr:
-            _loader_arguments: The arguments that are going to be passed to torch.utils.data.DataLoader
-            _subset_test: Test subset of dataset
-            _subset_train: Train subset of dataset
+            dataset: Dataset object for torch.utils.data.DataLoader
+            **kwargs: Arguments for PyTorch `DataLoader`
 
         Raises:
             FedbiomedTorchDataManagerError: If the argument `dataset` is not an instance of `torch.utils.data.Dataset`
@@ -46,61 +41,50 @@ class TorchDataManager(object):
         self._subset_train: Union[Subset, None] = None
 
     def dataset(self) -> Dataset:
-        """
-        Getter for dataset.
+        """Gets dataset.
 
         Returns:
-            torch.utils.data.Dataset
+            PyTorch dataset instance
         """
         return self._dataset
 
     def subset_test(self) -> Subset:
-        """
-        Getter for Subset of dataset for test partition.
-
-        Raises:
-            none
+        """Gets test subset of the dataset.
 
         Returns:
-            torch.utils.data.Subset | None
+            Test subset
         """
 
         return self._subset_test
 
     def subset_train(self) -> Subset:
-
-        """
-        Getter for Subset for train partition.
-
-        Raises:
-            none
+        """Gets train subset of the dataset.
 
         Returns:
-            torch.utils.data.Subset | None
+            Train subset
         """
-
         return self._subset_train
 
     def load_all_samples(self) -> DataLoader:
-        """
-        Method for loading all samples as PyTorch DataLoader without splitting. If researcher
-        requests training without testing this method can be used
-        """
+        """Loading all samples as PyTorch DataLoader without splitting.
 
+        Returns:
+            Dataloader for entire datasets. `DataLoader` arguments will be retrieved from the `**kwargs` which
+                is defined while initializing the class
+        """
         return self._create_torch_data_loader(self._dataset, **self._loader_arguments)
 
     def split(self, test_ratio: float) -> Tuple[Union[DataLoader, None], Union[DataLoader, None]]:
-        """
-        Method for splitting PyTorch Dataset into train and test.
+        """ Splitting PyTorch Dataset into train and test.
 
         Args:
-             test_ratio (float): Split ratio for testing set ratio. Rest of the samples
-                            will be used for training
+             test_ratio: Split ratio for testing set ratio. Rest of the samples will be used for training
         Raises:
             FedbiomedTorchDataManagerError: If the ratio is not in good format
 
         Returns:
-             none
+             train_loader: DataLoader for training subset. `None` if the `test_ratio` is `1`
+             test_loader: DataLoader for testing subset. `None` if the `test_ratio` is `0`
         """
 
         # Check the argument `ratio` is of type `float`
@@ -141,10 +125,11 @@ class TorchDataManager(object):
 
         return loaders
 
-    def to_sklearn(self):
-        """
-         Method to convert `torch.utils.data.Dataset` dataset to numpy based object
-         and create a SkLearnDataManager to use in SkLearnTraining base training plans
+    def to_sklearn(self) -> SkLearnDataManager:
+        """Converts PyTorch `Dataset` to sklearn data manager of Fed-BioMed.
+
+        Returns:
+            Data manager to use in SkLearn base training plans
         """
 
         loader = self._create_torch_data_loader(self._dataset, batch_size=len(self._dataset))
@@ -154,12 +139,14 @@ class TorchDataManager(object):
 
         return SkLearnDataManager(inputs=inputs, target=target)
 
-    def _subset_loader(self, subset: Subset, **kwargs) -> DataLoader:
-        """
-        Method for loading subset (train/test) partition of as pytorch DataLoader.
+    def _subset_loader(self, subset: Subset, **kwargs) -> Union[DataLoader, None]:
+        """Loads subset (train/test) partition of as pytorch DataLoader.
 
         Args:
-            subset (Subset): Subset as an instance of PyTorch's `Subset`
+            subset: Subset as an instance of PyTorch's `Subset`
+
+        Returns:
+            Data loader for `subset`. `None` if the subset is empty
         """
 
         # Return None if subset has no data
@@ -169,9 +156,18 @@ class TorchDataManager(object):
         return self._create_torch_data_loader(subset, **kwargs)
 
     @staticmethod
-    def _create_torch_data_loader(dataset, **kwargs):
-        """
-        Create python data loader by given dataset object
+    def _create_torch_data_loader(dataset: Dataset, **kwargs: dict) -> DataLoader:
+        """Creates python data loader by given dataset object
+
+        Args:
+            dataset: Dataset to create loader
+            **kwargs: Loader arguments for PyTorch DataLoader
+
+        Raises:
+            FedbiomedTorchDataManagerError: Raises if DataLoader of PyTorch fails
+
+        Returns:
+            Data loader for given dataset
         """
 
         try:

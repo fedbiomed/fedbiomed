@@ -8,7 +8,7 @@ from ._fedbiosklearn import SGDSkLearnModel
 from ._torchnn import TorchTrainingPlan
 from ._sklearn_training_plan import SKLearnTrainingPlan
 from ._sklearn_models import FedPerceptron, FedSGDRegressor, FedSGDClassifier, FedBernoulliNB,FedGaussianNB
-
+from ._base_training_plan import BaseTrainingPlan
 
 __all__ = [
     "SGDSkLearnModel",
@@ -19,4 +19,5 @@ __all__ = [
     'FedSGDClassifier',
     'FedBernoulliNB',
     'FedGaussianNB'
+    "BaseTrainingPlan"
 ]
