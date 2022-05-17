@@ -116,6 +116,7 @@ class FedbiomedSilentTerminationError(FedbiomedError):
     def _render_traceback_(self):
         return []
 
+
 class FedbiomedSkLearnDataManagerError(FedbiomedError):
     """
     Exceptions specific for the class SkLearnDataset.
