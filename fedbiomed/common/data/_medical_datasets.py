@@ -88,7 +88,7 @@ class NIFTIFolderDataset(Dataset):
                 f"{ErrorNumbers.FB612.value}: Cannot create dataset because no compatible files found"
                 f" in the {self._root_dir}.")
 
-    def __getitem__(self, item: int) -> Tuple[Tensor, Tensor]:
+    def __getitem__(self, item: int) -> Tuple[Tensor, int]:
         """ Gets item from dataset
 
         Args:
@@ -96,16 +96,15 @@ class NIFTIFolderDataset(Dataset):
 
         Returns:
             input: Input sample
-            target: Target sample
+            target: Target sample index
         """
         img = self._reader(self._files[item])
-        target = self._targets[item]
+        target = int(self._targets[item])
 
-        # TODO better check callable
-        if self._transform:
+        if callable(self._transform):
             img = self._transform(img)
-        if self._target_transform:
-            target = self._target_transform(target)
+        if callable(self._target_transform):
+            target = int(self._target_transform(target))
 
         return img, target
 

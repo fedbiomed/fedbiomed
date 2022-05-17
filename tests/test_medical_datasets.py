@@ -32,10 +32,9 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         img, target = dataset[0]
 
         self.assertTrue(torch.is_tensor(img))
-        self.assertTrue(torch.is_tensor(target))
-
         self.assertEqual(img.dtype, torch.float32)
-        self.assertTrue(target.dtype, torch.long)
+
+        self.assertTrue(isinstance(target, int))
 
     def test_len(self):
         dataset = NIFTIFolderDataset(self.root)
@@ -49,7 +48,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         for index, [input, target] in enumerate(dataset):
             # test return types
             self.assertTrue(isinstance(input, torch.Tensor))
-            self.assertTrue(isinstance(target, torch.Tensor))
+            self.assertTrue(isinstance(target, int))
 
             ## we should also test data is the same as synthetic dataset
             ## but cannot do that with the current class methods
