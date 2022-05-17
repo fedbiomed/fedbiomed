@@ -1,3 +1,7 @@
+"""
+This module is a wrapper to the message bus used by Fed-BioMed.
+"""
+
 import socket
 from typing import Any, Callable, Union
 
@@ -11,7 +15,7 @@ from fedbiomed.common.logger import logger
 
 
 class Messaging:
-    """Represents the messanger, (MQTT messaging facility).
+    """Represents the messenger, (MQTT messaging facility).
 
     Creates an instance of MQTT Client, and MQTT message handler. Creates topics on which to send messages
     through Messanger. Topics in MQTT work as a channel allowing to filter shared information between connected clients
