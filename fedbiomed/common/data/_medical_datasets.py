@@ -77,7 +77,7 @@ class NIFTIFolderDataset(Dataset):
         self._files = [p.resolve() for p in self._root_dir.glob("**/*") if ''.join(p.suffixes) in self._ALLOWED_EXTENSIONS and p.parent.parent == self._root_dir]
 
         # Create class labels dictionary
-        self._class_labels = tuple(set([p.parent.name for p in self._files]))
+        self._class_labels = list(set([p.parent.name for p in self._files]))
 
         # Assign numerical value to target 0...n_classes
         self._targets = torch.tensor([self._class_labels.index(p.parent.name) for p in self._files]).long()

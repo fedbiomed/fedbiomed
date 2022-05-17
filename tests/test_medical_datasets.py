@@ -24,6 +24,9 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         self.root = tempfile.mkdtemp()  # Creates and returns tempdir
         self._create_synthetic_dataset()
 
+    def tearDown(self) -> None:
+        shutil.rmtree(self.root)
+
     def test_instantiation(self):
         _ = NIFTIFolderDataset(self.root)
 
@@ -43,6 +46,17 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
         self.assertEqual(n_samples, sum(self.n_samples))
 
+    def test_labels(self):
+        dataset = NIFTIFolderDataset(self.root)
+
+        # verify type of returned labels
+        labels = dataset.labels()
+        self.assertTrue(isinstance(labels, list))
+        for label in labels:
+            self.assertTrue(isinstance(label, str))
+
+        # TODO : compare label list
+
     def test_getitem(self):
 
         def ident_int(i: int):
@@ -56,7 +70,6 @@ class TestNIFTIFolderDataset(unittest.TestCase):
             [None, ident_int],
             [Identity(), ident_int]
         ]
-
 
         for transform, target_transform in transformation:
             dataset = NIFTIFolderDataset(self.root, transform, target_transform)
@@ -91,21 +104,28 @@ class TestNIFTIFolderDataset(unittest.TestCase):
             temp = tempfile.mkdtemp()
             NIFTIFolderDataset(temp)
 
-    def tearDown(self) -> None:
-        shutil.rmtree(self.root)
-
     def _create_synthetic_dataset(self):
-        fake_img_data = np.random.rand(10, 10, 10)
-        img = itk.image_from_array(fake_img_data)
+        self.class_names = []
+        self.sample_paths = []
+        self.sample_class = []
 
         for class_i, n_samples in enumerate(self.n_samples):
-            class_path = os.path.join(self.root, f'class_{class_i}')
+            class_name = f'class_{class_i}'
+            if class_name not in self.class_names:
+                self.class_names.append(class_name)
+            class_path = os.path.join(self.root, class_name)
             os.makedirs(class_path)
 
             # Create class folder
             for subject_i in range(n_samples):
                 img_path = os.path.join(class_path, f'subject_{subject_i}.nii.gz')
+
+                fake_img_data = np.random.rand(10, 10, 10)
+                img = itk.image_from_array(fake_img_data)
                 itk.imwrite(img, img_path)
+
+                self.sample_paths.append(img_path)
+                self.sample_class.append(self.class_names.index(class_name))
 
 
 if __name__ == '__main__':
