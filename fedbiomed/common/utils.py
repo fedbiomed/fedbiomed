@@ -106,7 +106,7 @@ def get_method_spec(method: Callable) -> dict:
     return method_spec
 
 
-def convert_to_python_float(value: Union[torch.Tensor, np.integer, float, int]) -> float:
+def convert_to_python_float(value: Union[torch.Tensor, np.integer, np.floating, float, int]) -> float:
     """ Convert numeric types to float
 
     Args:
@@ -116,7 +116,7 @@ def convert_to_python_float(value: Union[torch.Tensor, np.integer, float, int]) 
         Python float
     """
 
-    if not isinstance(value, (torch.Tensor, np.integer, float, int)):
+    if not isinstance(value, (torch.Tensor, np.floating, np.integer, float, int)):
         raise FedbiomedError(f"Converting {type(value)} to python to float is not supported.")
 
     # if the result is a tensor, convert it back to numpy
@@ -125,11 +125,6 @@ def convert_to_python_float(value: Union[torch.Tensor, np.integer, float, int]) 
 
     if isinstance(value, Iterable) and value.size > 1:
         raise FedbiomedError("Can not convert array-type objects to float.")
-
-    # if value is a numpy integer (not recognized as an int by python)
-    if isinstance(value, np.integer):
-        # convert numpy integer to a plain python integer
-        value = int(value)
 
     return float(value)
 
