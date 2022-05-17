@@ -133,12 +133,12 @@ class TrainingArgs():
         """
         Returns the default (base) scheme for TrainingArgs.
         """
-        return  {
+        return {
             # lr
             "lr": {
                 "rules": [ float, cls._lr_hook ],
                 "required": False,
-#                "default": 0.01
+#   "default": 0.01
             },
 
             # batch_size

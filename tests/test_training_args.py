@@ -158,5 +158,6 @@ class TestTrainingArgs(unittest.TestCase):
         with self.assertRaises(FedbiomedUserInputError):
             t ^= { "test_metric_args": "not a dict" }
 
+
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
