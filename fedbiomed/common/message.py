@@ -2,7 +2,6 @@
 Definition of messages exchanged by the researcher and the nodes
 '''
 
-import sys
 import functools
 
 from dataclasses import dataclass
@@ -114,11 +113,11 @@ class Message(object):
 
 #
 # messages definition, sorted by
-# - Request/Reply order
-# - alphabetic oder
+# - alphabetic order
+# - Request/Reply regroupemnt
 #
 
-# AddScalar
+# AddScalar message
 
 @catch_dataclass_exception
 @dataclass
@@ -138,7 +137,7 @@ class AddScalarReply(Message):
         batch_samples: Number of samples in batch
         num_batches: Number of batches in single epoch
         iteration: Scalar is received at
-        command: Reply command
+        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -160,7 +159,54 @@ class AddScalarReply(Message):
     command: str
 
 
-# Error
+# Approval messages
+
+
+@catch_dataclass_exception
+@dataclass
+class ApprovalRequest(Message):
+    """Describes the TrainingPlan approval request from researcher to node.
+
+    Attributes:
+        researcher_id: id of the researcher that sends the request
+        description: description of the model
+        sequence: (unique) sequence number which identifies the message
+        model_url: URL where model (TrainingPlan) is available
+        command: request command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    description: str
+    sequence: int
+    model_url: str
+    command: str
+
+
+@catch_dataclass_exception
+@dataclass
+class ApprovalReply(Message):
+    """Describes the TrainingPlan approval reply (acknoledge) from node to researcher.
+
+    Attributes:
+        researcher_id: Id of the researcher that will receive the reply
+        node_id: Node id that replys the request
+        sequence: sequence number of the corresponding request
+        status: status code received after uploading the model (usually HTTP status)
+        command: Reply command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    node_id: str
+    sequence: int
+    status: int
+    command: str
+
+
+# Error message
 
 @catch_dataclass_exception
 @dataclass
@@ -172,7 +218,7 @@ class ErrorMessage(Message):
         node_id: ID of the node that sends error message
         errnum: Error ID/Number
         extra_msg: Additional message regarding the error
-        command: Reply command
+        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -184,7 +230,7 @@ class ErrorMessage(Message):
     command: str
 
 
-# List
+# List messages
 
 @catch_dataclass_exception
 @dataclass
@@ -194,7 +240,7 @@ class ListRequest(Message):
 
     Attributes:
         researcher_id: Id of the researcher that sends the request
-        command: Request command
+        command: Request command string
 
     Raises:
        FedbiomedMessageError: triggered if message's fields validation failed
@@ -216,7 +262,8 @@ class ListReply(Message):
         databases: List of datasets
         node_id: Node id that replys the request
         count: Number of datasets
-        command: Reply command
+        command: Reply command string
+
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
@@ -229,7 +276,7 @@ class ListReply(Message):
     command: str
 
 
-# Log
+# Log message
 
 @catch_dataclass_exception
 @dataclass
@@ -241,7 +288,7 @@ class LogMessage(Message):
         node_id: ID of the node that sends log message
         level: Log level
         msg: Log message
-        command: Reply command
+        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -253,22 +300,22 @@ class LogMessage(Message):
     command: str
 
 
-# ModelStatus
+# ModelStatus messages
 
 @catch_dataclass_exception
 @dataclass
 class ModelStatusRequest(Message):
     """Describes a model approve status check message sent by the researcher.
 
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-
     Attributes:
         researcher_id: Id of the researcher that sends the request
         job_id: Job id related to the experiment.
         model_url: The model that is going to be checked for approval
-        command: Request command
-    """
+        command: Request command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+   """
 
     researcher_id: str
     job_id: str
@@ -281,9 +328,6 @@ class ModelStatusRequest(Message):
 class ModelStatusReply(Message):
     """Describes a model approve status check message sent by the node
 
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-
     Attributes:
         researcher_id: Id of the researcher that sends the request
         node_id: Node id that replys the request
@@ -295,7 +339,11 @@ class ModelStatusReply(Message):
         is_approved: True, if the requested model is one of the approved model by the node
         msg: Message from node based on state of the reply
         model_url: The model that has been checked for approval
-        command: Reply command
+        command: Reply command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+
     """
 
     researcher_id: str
@@ -309,7 +357,7 @@ class ModelStatusReply(Message):
     command: str
 
 
-# Ping
+# Ping messages
 
 @catch_dataclass_exception
 @dataclass
@@ -319,7 +367,7 @@ class PingRequest(Message):
     Attributes:
         researcher_id: Id of the researcher that send ping reqeust
         sequence: Ping sequence
-        command: Request command
+        command: Request command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -340,7 +388,7 @@ class PingReply(Message):
         node_id: Node id that replys the request
         succes: True if the node process the request as expected, false if any exception occurs
         sequence: Ping sequence
-        command: Reply command
+        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -351,7 +399,8 @@ class PingReply(Message):
     sequence: int
     command: str
 
-# Search
+
+# Search messages
 
 @catch_dataclass_exception
 @dataclass
@@ -361,7 +410,7 @@ class SearchRequest(Message):
     Attributes:
         researcher_id: ID of the researcher that sends the request
         tags: Tags for search request
-        command: Request command
+        command: Request command string
 
     Raises:
        FedbiomedMessageError: triggered if message's fields validation failed
@@ -382,7 +431,7 @@ class SearchReply(Message):
         databases: List of datasets
         node_id: Node id that replys the request
         count: Number of datasets
-        command: Reply command
+        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -395,7 +444,7 @@ class SearchReply(Message):
     command: str
 
 
-# Train
+# Train messages
 
 @catch_dataclass_exception
 @dataclass
@@ -410,9 +459,9 @@ class TrainRequest(Message):
         training_data: Dataset meta-data for training
         training: Declares whether training will be performed
         model_args: Arguments to initialize training plan class
-        model_url: URL where model is uploaded
+        model_url: URL where model (TrainingPlan) is available
         model_class: Class name of the training plan
-        command: Reply command
+        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -443,7 +492,7 @@ class TrainReply(Message):
         params_url: URL of parameters uploaded by node
         tming: Timing statistics
         msg: Custom message\
-        command: Reply command
+        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -459,8 +508,10 @@ class TrainReply(Message):
     command: str
 
 
+# protocol definition
+
 class ResearcherMessages():
-    """Allows to create the corresponding class instance from a received/ sent message by the researcher"""
+    """Allows to create the corresponding class instance from a received/sent message by the researcher."""
 
     @classmethod
     def reply_create(cls, params: Dict[str, Any]) -> Union[TrainReply,
@@ -470,7 +521,8 @@ class ResearcherMessages():
                                                            ErrorMessage,
                                                            ListReply,
                                                            AddScalarReply,
-                                                           ModelStatusReply]:
+                                                           ModelStatusReply,
+                                                           ApprovalReply]:
         """Message reception (as a mean to reply to node requests, such as a Ping request).
 
         It creates the adequate message, it maps an instruction (given the key "command" in the input dictionary
@@ -501,7 +553,8 @@ class ResearcherMessages():
                                      'error': ErrorMessage,
                                      'list': ListReply,
                                      'add_scalar': AddScalarReply,
-                                     'model-status': ModelStatusReply
+                                     'model-status': ModelStatusReply,
+                                     'approval': ApprovalReply
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -515,7 +568,8 @@ class ResearcherMessages():
                                                              SearchRequest,
                                                              PingRequest,
                                                              ListRequest,
-                                                             ModelStatusRequest]:
+                                                             ModelStatusRequest,
+                                                             ApprovalRequest]:
 
         """Creates the adequate message/request,
 
@@ -547,7 +601,8 @@ class ResearcherMessages():
                                      'search': SearchRequest,
                                      'ping': PingRequest,
                                      'list': ListRequest,
-                                     'model-status': ModelStatusRequest
+                                     'model-status': ModelStatusRequest,
+                                     'approval': ApprovalRequest
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -565,7 +620,8 @@ class NodeMessages():
                                                    SearchRequest,
                                                    PingRequest,
                                                    ListRequest,
-                                                   ModelStatusRequest]:
+                                                   ModelStatusRequest,
+                                                   ApprovalRequest]:
         """Creates the adequate message/ request to send to researcher, it maps an instruction (given the key
         "command" in the input dictionary `params`) to a Message object
 
@@ -592,7 +648,8 @@ class NodeMessages():
                                      'search': SearchRequest,
                                      'ping': PingRequest,
                                      'list': ListRequest,
-                                     'model-status': ModelStatusRequest
+                                     'model-status': ModelStatusRequest,
+                                     'approval': ApprovalRequest
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
@@ -609,7 +666,8 @@ class NodeMessages():
                                                  ErrorMessage,
                                                  AddScalarReply,
                                                  ListReply,
-                                                 ModelStatusReply]:
+                                                 ModelStatusReply,
+                                                 ApprovalReply]:
         """Message reception.
 
         It creates the adequate message reply to send to the researcher, it maps an instruction (given the key
@@ -641,7 +699,8 @@ class NodeMessages():
                                      'error': ErrorMessage,
                                      'add_scalar': AddScalarReply,
                                      'list': ListReply,
-                                     'model-status': ModelStatusReply
+                                     'model-status': ModelStatusReply,
+                                     'approval': ApprovalReply
                                      }
 
         if message_type not in MESSAGE_TYPE_TO_CLASS_MAP:
