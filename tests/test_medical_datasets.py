@@ -8,6 +8,7 @@ import itk
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
+from monai.transforms import Identity
 
 from fedbiomed.common.data import NIFTIFolderDataset
 from fedbiomed.common.exceptions import FedbiomedDatasetError
@@ -44,23 +45,37 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
     def test_getitem(self):
 
-        dataset = NIFTIFolderDataset(self.root)
-        for index, [input, target] in enumerate(dataset):
-            # test return types
-            self.assertTrue(isinstance(input, torch.Tensor))
-            self.assertTrue(isinstance(target, int))
+        def ident_int(i: int):
+            return i
 
-            ## we should also test data is the same as synthetic dataset
-            ## but cannot do that with the current class methods
-            #
-            ## tensors are the same, with no transforms/target_transforms
-            #self.assertEqual(len(input), len(synt_input))
-            #self.assertTrue(torch.all(torch.eq(input, synth_input)))
-            #
-            # same for target
+        # test all combination of using/not using a transformation
+        # with identity transformation for the type of the data
+        transformation = [
+            [None, None],
+            [Identity(), None],
+            [None, ident_int],
+            [Identity(), ident_int]
+        ]
 
-        # check we read all the samples
-        self.assertEqual(index + 1, sum(self.n_samples))
+
+        for transform, target_transform in transformation:
+            dataset = NIFTIFolderDataset(self.root, transform, target_transform)
+            for index, [input, target] in enumerate(dataset):
+                # test return types
+                self.assertTrue(isinstance(input, torch.Tensor))
+                self.assertTrue(isinstance(target, int))
+
+                ## we should also test data is the same as synthetic dataset
+                ## but cannot do that with the current class methods
+                #
+                ## tensors are the same, with no transforms/target_transforms
+                #self.assertEqual(len(input), len(synt_input))
+                #self.assertTrue(torch.all(torch.eq(input, synth_input)))
+                #
+                # same for target
+
+            # check we read all the samples
+            self.assertEqual(index + 1, sum(self.n_samples))
 
     def test_dataloader(self):
         dataset = NIFTIFolderDataset(self.root)
