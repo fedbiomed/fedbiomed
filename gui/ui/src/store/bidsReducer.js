@@ -3,9 +3,12 @@
  * @type {{identifiers: {}, format: null, folder_path: null}}
  */
 const initialState = {
-    folder_path: null,
+    data_path: null,
+    patient_folders: null,
     format: null,
-    identifiers: {}
+    reference_csv: null,
+    identifiers: null,
+
 }
 
 
@@ -23,13 +26,25 @@ export const bidsReducer = (state = initialState, action) => {
         case "SET_FOLDER_PATH":
             return {
                 ...state,
-                folder_path: action.payload
+                data_path: action.payload
+            }
+        case "PATIENT_FOLDERS":
+            return {
+               ...state,
+
             }
 
         case "SET_FORMAT":
 
             return {
-                ...state
+                ...state,
+                patient_folders: action.payload
+            }
+
+        case "SET_REFERENCE_CSV":
+            return {
+                ...state,
+                reference_csv : action.payload
             }
 
         case "SET_IDENTIFIERS":
@@ -39,6 +54,6 @@ export const bidsReducer = (state = initialState, action) => {
             }
 
         default:
-            break
+            return state
     }
 }

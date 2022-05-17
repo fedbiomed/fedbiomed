@@ -3,13 +3,14 @@ import { repositoryReducer,
          datasetsReducer,
          datasetPreviewReducer,
          resultReducer} from "./reducers";
-
+import {bidsReducer} from "./bidsReducer";
 
 
 export default combineReducers({
-    repository : repositoryReducer,
-    datasets   : datasetsReducer,
-    preview    : datasetPreviewReducer,
-    resultModal: resultReducer
+    bidsDataset : bidsReducer,
+    repository  : repositoryReducer,
+    datasets    : datasetsReducer,
+    preview     : datasetPreviewReducer,
+    resultModal : resultReducer
     
   })

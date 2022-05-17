@@ -673,13 +673,18 @@ div.table {
 }
 
 .modal-inner .close {
-  right: 0px;
-  top: 0px;
+  right: 5px;
+  top: 4px;
   position: absolute;
   padding: 10px;
-  color: #888;
-  font-size: 15px;
+  font-size: 12px;
   cursor: pointer;
+  background: var(--button-color);
+  color: #fff;
+  border-radius: 20px;
+  width: 15px;
+  text-align: center;
+font-weight: bold;
 }
 
 .modal-overlay .modal-inner .modal-header{

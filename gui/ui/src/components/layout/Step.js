@@ -7,7 +7,7 @@ const Step = (props) => {
     const child = props.children
 
     return (
-        <div className={styles.step}>
+        <div className={`${styles.step} ${props.disable ? styles.notAllowed : null}`}>
             <div className={styles.number}>
                 <span>{props.step}</span>
             </div>

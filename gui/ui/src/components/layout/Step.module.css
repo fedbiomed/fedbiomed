@@ -5,6 +5,18 @@
     margin: 20px 0px;
 }
 
+.step.notAllowed :global(.button),
+.step.notAllowed :global(a),
+.step.notAllowed :global(input),
+.step.notAllowed :global(button)  {
+    pointer-events: none
+}
+
+.step.notAllowed {
+    opacity: 0.5;
+    cursor:not-allowed;
+}
+
 .number{
     width: 10%;
     display: block;
@@ -27,7 +39,7 @@
 }
 
 .content {
-    idth: 90%;
+    width: 90%;
     border-left: 1px solid #eee;
     padding: 20px 0px 20px 20px;
 }
