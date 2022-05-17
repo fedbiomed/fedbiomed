@@ -6,7 +6,7 @@ is imported from `fedbiomed.node.environ`
 
 **Typical use:**
 
-```
+```python
 from fedbiomed.node.environ import environ
 
 print(environ['NODE_ID'])
