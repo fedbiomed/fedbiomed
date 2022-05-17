@@ -230,14 +230,14 @@ class TrainingArgs():
 
     def __setitem__(self, key: str, value: Any) -> Any:
         """
-        Validate and then set a value for a given key.
+        Validate and then set a (key, value) pair to the current object.
 
         Args:
             key:   key
-            value: values
+            value: value
 
         Returns:
-            validated keys
+            Full object updated with the validated (key, value) incorporated
 
         Raises:
             FedbiomedUserInputError: in case of problem (invalid key or value)
@@ -259,7 +259,7 @@ class TrainingArgs():
 
     def __getitem__(self, key: str) -> Any:
         """
-        Returns the value associated to a key.
+        Returns a copy of the value associated to a key.
 
         Args:
             key:   key
@@ -286,7 +286,7 @@ class TrainingArgs():
         Update multiple keys of the training arguments.
 
         Args:
-            values:  a dictionnary of keys to validate/update
+            values:  a dictionnary of (key, value) to validate/update
 
         Returns:
             the object itself after modification
@@ -309,7 +309,7 @@ class TrainingArgs():
         t ^= { 'epochs': 2 , 'lr': 0.01 }
         ```
         Args:
-            other (Dict):  a dictionnary of keys to validate/update
+            other:  a dictionnary of keys to validate/update
 
         Returns:
             the object itself after modification
@@ -337,7 +337,7 @@ class TrainingArgs():
         Returns the default value for the key.
 
         Args:
-            key (str):  key
+            key:  key
 
         Returns:
             value: the default value associated to the key
@@ -375,10 +375,11 @@ class TrainingArgs():
         """Mimics the get() method of dict, provided for backward compatibility.
 
         Args:
-            key (str): a key for retrieving data fro the dictionary
-            default (Any): default value to return if key does not belong to dictionary
+            key: a key for retrieving data fro the dictionary
+            default: default value to return if key does not belong to dictionary
         """
         try:
             return deepcopy(self._ta[key])
         except KeyError:
+            # TODO: test if provided defualt value is compliant with the scheme
             return default
