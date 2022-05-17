@@ -112,140 +112,13 @@ class Message(object):
         return ret
 
 
-@catch_dataclass_exception
-@dataclass
-class ModelStatusReply(Message):
-    """Describes a model approve status check message sent by the node
+#
+# messages definition, sorted by
+# - Request/Reply order
+# - alphabetic oder
+#
 
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-
-    Attributes:
-        researcher_id: Id of the researcher that sends the request
-        node_id: Node id that replys the request
-        job_id: job id related to the experiment
-        succes: True if the node process the request as expected, false
-            if any execption occurs
-        approval_obligation : Approval mode for node. True, if model approval is enabled/required
-            in the node for training.
-        is_approved: True, if the requested model is one of the approved model by the node
-        msg: Message from node based on state of the reply
-        model_url: The model that has been checked for approval
-        command: Reply command
-    """
-
-    researcher_id: str
-    node_id: str
-    job_id: str
-    success: bool
-    approval_obligation: bool
-    is_approved: bool
-    msg: str
-    model_url: str
-    command: str
-
-
-@catch_dataclass_exception
-@dataclass
-class SearchReply(Message):
-    """Describes a search message sent by the node
-
-    Attributes:
-        researcher_id: Id of the researcher that sends the request
-        succes: True if the node process the request as expected, false if any exception occurs
-        databases: List of datasets
-        node_id: Node id that replys the request
-        count: Number of datasets
-        command: Reply command
-
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-    """
-    researcher_id: str
-    success: bool
-    databases: list
-    node_id: str
-    count: int
-    command: str
-
-
-@catch_dataclass_exception
-@dataclass
-class ListReply(Message):
-    """This class describes a list reply message sent by the node that includes list of datasets. It is a
-    reply for ListRequest message from the researcher.
-
-    Attributes:
-        researcher_id: Id of the researcher that sends the request
-        succes: True if the node process the request as expected, false if any exception occurs
-        databases: List of datasets
-        node_id: Node id that replys the request
-        count: Number of datasets
-        command: Reply command
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-    """
-
-    researcher_id: str
-    success: bool
-    databases: list
-    node_id: str
-    count: int
-    command: str
-
-
-@catch_dataclass_exception
-@dataclass
-class PingReply(Message):
-    """
-    This class describes a ping message sent by the node.
-
-    Attributes:
-        researcher_id: Id of the researcher that will receive the reply
-        node_id: Node id that replys the request
-        succes: True if the node process the request as expected, false if any exception occurs
-        sequence: Ping sequence
-        command: Reply command
-
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-    """
-    researcher_id: str
-    node_id: str
-    success: bool
-    sequence: int
-    command: str
-
-
-@catch_dataclass_exception
-@dataclass
-class TrainReply(Message):
-    """Describes a train message sent by the node.
-
-    Attributes:
-        researcher_id: Id of the researcher that receives the reply
-        job_id: Id of the Job that is sent by researcher
-        success: True if the node process the request as expected, false if any exception occurs
-        node_id: Node id that replys the request
-        dataset_id: id of the dataset that is used for training
-        params_url: URL of parameters uploaded by node
-        tming: Timing statistics
-        msg: Custom message\
-        command: Reply command
-
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-    """
-    researcher_id: str
-    job_id: str
-    success: bool
-    node_id: str
-    dataset_id: str
-    params_url: str
-    timing: dict
-    msg: str
-    command: str
-
+# AddScalar
 
 @catch_dataclass_exception
 @dataclass
@@ -287,27 +160,7 @@ class AddScalarReply(Message):
     command: str
 
 
-@catch_dataclass_exception
-@dataclass
-class LogMessage(Message):
-    """Describes a log message sent by the node.
-
-    Attributes:
-        researcher_id: ID of the researcher that will receive the log message
-        node_id: ID of the node that sends log message
-        level: Log level
-        msg: Log message
-        command: Reply command
-
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-    """
-    researcher_id: str
-    node_id: str
-    level: str
-    msg: str
-    command: str
-
+# Error
 
 @catch_dataclass_exception
 @dataclass
@@ -330,6 +183,77 @@ class ErrorMessage(Message):
     extra_msg: str
     command: str
 
+
+# List
+
+@catch_dataclass_exception
+@dataclass
+class ListRequest(Message):
+    """Describes a list request message sent by the researcher to nodes in order to list datasets belonging to
+    each node.
+
+    Attributes:
+        researcher_id: Id of the researcher that sends the request
+        command: Request command
+
+    Raises:
+       FedbiomedMessageError: triggered if message's fields validation failed
+    """
+
+    researcher_id: str
+    command: str
+
+
+@catch_dataclass_exception
+@dataclass
+class ListReply(Message):
+    """This class describes a list reply message sent by the node that includes list of datasets. It is a
+    reply for ListRequest message from the researcher.
+
+    Attributes:
+        researcher_id: Id of the researcher that sends the request
+        succes: True if the node process the request as expected, false if any exception occurs
+        databases: List of datasets
+        node_id: Node id that replys the request
+        count: Number of datasets
+        command: Reply command
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+
+    researcher_id: str
+    success: bool
+    databases: list
+    node_id: str
+    count: int
+    command: str
+
+
+# Log
+
+@catch_dataclass_exception
+@dataclass
+class LogMessage(Message):
+    """Describes a log message sent by the node.
+
+    Attributes:
+        researcher_id: ID of the researcher that will receive the log message
+        node_id: ID of the node that sends log message
+        level: Log level
+        msg: Log message
+        command: Reply command
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    node_id: str
+    level: str
+    msg: str
+    command: str
+
+
+# ModelStatus
 
 @catch_dataclass_exception
 @dataclass
@@ -354,39 +278,38 @@ class ModelStatusRequest(Message):
 
 @catch_dataclass_exception
 @dataclass
-class SearchRequest(Message):
-    """Describes a search message sent by the researcher.
-
-    Attributes:
-        researcher_id: ID of the researcher that sends the request
-        tags: Tags for search request
-        command: Request command
+class ModelStatusReply(Message):
+    """Describes a model approve status check message sent by the node
 
     Raises:
-       FedbiomedMessageError: triggered if message's fields validation failed
-    """
-    researcher_id: str
-    tags: list
-    command: str
-
-
-@catch_dataclass_exception
-@dataclass
-class ListRequest(Message):
-    """Describes a list request message sent by the researcher to nodes in order to list datasets belonging to
-    each node.
+        FedbiomedMessageError: triggered if message's fields validation failed
 
     Attributes:
         researcher_id: Id of the researcher that sends the request
-        command: Request command
-
-    Raises:
-       FedbiomedMessageError: triggered if message's fields validation failed
+        node_id: Node id that replys the request
+        job_id: job id related to the experiment
+        succes: True if the node process the request as expected, false
+            if any execption occurs
+        approval_obligation : Approval mode for node. True, if model approval is enabled/required
+            in the node for training.
+        is_approved: True, if the requested model is one of the approved model by the node
+        msg: Message from node based on state of the reply
+        model_url: The model that has been checked for approval
+        command: Reply command
     """
 
     researcher_id: str
+    node_id: str
+    job_id: str
+    success: bool
+    approval_obligation: bool
+    is_approved: bool
+    msg: str
+    model_url: str
     command: str
 
+
+# Ping
 
 @catch_dataclass_exception
 @dataclass
@@ -405,6 +328,74 @@ class PingRequest(Message):
     sequence: int
     command: str
 
+
+
+@catch_dataclass_exception
+@dataclass
+class PingReply(Message):
+    """This class describes a ping message sent by the node.
+
+    Attributes:
+        researcher_id: Id of the researcher that will receive the reply
+        node_id: Node id that replys the request
+        succes: True if the node process the request as expected, false if any exception occurs
+        sequence: Ping sequence
+        command: Reply command
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    node_id: str
+    success: bool
+    sequence: int
+    command: str
+
+# Search
+
+@catch_dataclass_exception
+@dataclass
+class SearchRequest(Message):
+    """Describes a search message sent by the researcher.
+
+    Attributes:
+        researcher_id: ID of the researcher that sends the request
+        tags: Tags for search request
+        command: Request command
+
+    Raises:
+       FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    tags: list
+    command: str
+
+
+@catch_dataclass_exception
+@dataclass
+class SearchReply(Message):
+    """Describes a search message sent by the node
+
+    Attributes:
+        researcher_id: Id of the researcher that sends the request
+        succes: True if the node process the request as expected, false if any exception occurs
+        databases: List of datasets
+        node_id: Node id that replys the request
+        count: Number of datasets
+        command: Reply command
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    success: bool
+    databases: list
+    node_id: str
+    count: int
+    command: str
+
+
+# Train
 
 @catch_dataclass_exception
 @dataclass
@@ -435,6 +426,36 @@ class TrainRequest(Message):
     model_args: dict
     model_url: str
     model_class: str
+    command: str
+
+
+@catch_dataclass_exception
+@dataclass
+class TrainReply(Message):
+    """Describes a train message sent by the node.
+
+    Attributes:
+        researcher_id: Id of the researcher that receives the reply
+        job_id: Id of the Job that is sent by researcher
+        success: True if the node process the request as expected, false if any exception occurs
+        node_id: Node id that replys the request
+        dataset_id: id of the dataset that is used for training
+        params_url: URL of parameters uploaded by node
+        tming: Timing statistics
+        msg: Custom message\
+        command: Reply command
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str
+    job_id: str
+    success: bool
+    node_id: str
+    dataset_id: str
+    params_url: str
+    timing: dict
+    msg: str
     command: str
 
 
