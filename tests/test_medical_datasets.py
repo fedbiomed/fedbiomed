@@ -82,13 +82,36 @@ class TestNIFTIFolderDataset(unittest.TestCase):
                 itk.imwrite(img, img_path)
 
 
+import torch
+from torchvision.transforms import Lambda
+from monai.transforms import GaussianSmooth
+from fedbiomed.common.data import BIDSDataset
+
+
 class TestBIDSDataset(unittest.TestCase):
     def setUp(self) -> None:
         self.root = '/Users/ssilvari/Downloads/IXI_sample'
+        self.tabular_file = '/Users/ssilvari/Downloads/IXI_sample/IXI.xls'
+
+        self.transform = {'T1': Lambda(lambda x: torch.flatten(x))}
+        self.target_transform = {'label': GaussianSmooth()}
 
     def test_instantiating_dataset(self):
-        from fedbiomed.common.data import BIDSDataset
         dataset = BIDSDataset(self.root)
+        batch = dataset[0]
+        self.assertIsInstance(batch, dict)
+        self.assertIsInstance(batch['data']['T1'], dict)
+        self.assertIsInstance(batch['target']['label'], dict)
+
+    def test_data_transforms(self):
+        dataset = BIDSDataset(self.root, transform=self.transform)
+        batch = dataset[0]
+        self.assertTrue(batch['data']['T1'].dim() == 1)
+
+    def test_target_transform(self):
+        dataset = BIDSDataset(self.root, target_transform=self.target_transform)
+        batch = dataset[0]
+        self.assertEqual(batch['data']['T1'].shape, batch['target']['label'].shape)
 
 
 if __name__ == '__main__':

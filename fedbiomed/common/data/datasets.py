@@ -8,8 +8,9 @@ This submodule provides the dataset classes for common cases of use in healthcar
 from abc import ABC
 from os import PathLike
 from pathlib import Path
-from typing import Union, Tuple, Dict, Iterable, Optional, List
+from typing import Union, Tuple, Dict, Iterable, Optional, List, Any, Callable
 
+import pandas as pd
 import torch
 from cachetools import cached
 from monai.data import ITKReader
@@ -107,6 +108,31 @@ class NIFTIFolderDataset(Dataset, ABC):
         return len(self.files)
 
 
+def _check_and_reformat_transforms(
+        transform: Union[Callable, Dict[str, Callable]],
+        modalities: Union[str, Iterable[str]]
+) -> Dict[str, Callable]:
+    """Checks and formats transforms into a dictionary of transforms.
+
+    Args:
+        transform: Function or dictionary of functions for preprocessing data.
+        modalities: Modalities to be considered.
+
+    Returns:
+        A dict of transforms compatible with the provided modalities.
+    """
+    if isinstance(modalities, str):
+        modalities = [modalities]
+
+    if isinstance(transform, dict):
+        for modality in transform.keys():
+            assert modality in modalities, f'Modality `{modality}` is not present in {modalities}'
+        return transform
+
+    if len(modalities) == 1:
+        return {modalities[0]: transform}
+
+
 class BIDSDataset(Dataset):
     """Torch dataset following the BIDS Structure.
 
@@ -133,9 +159,12 @@ class BIDSDataset(Dataset):
 
     def __init__(self,
                  root: Union[str, PathLike, Path],
-                 transform: Dict[str, Transform] = None,
+                 transform: Union[Callable, Dict[str, Callable]] = None,
                  data_modalities: Optional[Union[str, Iterable[str]]] = 'T1',
-                 target_modalities: Optional[Union[str, Iterable[str]]] = 'label'
+                 target_modalities: Optional[Union[str, Iterable[str]]] = 'label',
+                 target_transform: Union[Callable, Dict[str, Callable]] = None,
+                 tabular_file: Union[str, PathLike, Path] = None,
+                 index_col: Union[int, str] = 0,
                  ):
         """Constructor for class `BIDSDataset`.
 
@@ -146,9 +175,14 @@ class BIDSDataset(Dataset):
             target_modalities (str, Iterable): Modality or modalities that will be used as target sources.
         """
         self.root_folder = Path(root).expanduser().resolve()
-        self.transform = transform
         self.data_modalities = [data_modalities] if isinstance(data_modalities, str) else data_modalities
         self.target_modalities = [target_modalities] if isinstance(data_modalities, str) else target_modalities
+
+        self.transform = _check_and_reformat_transforms(transform, data_modalities)
+        self.target_transform = _check_and_reformat_transforms(target_transform, target_modalities)
+
+        self.tabular_file = Path(tabular_file).expanduser().resolve() if tabular_file is not None else None
+        self.index_col = index_col
 
         # Image loader
         self.reader = Compose([
@@ -156,14 +190,25 @@ class BIDSDataset(Dataset):
             ToTensor()
         ])
 
-    @property
-    def subject_folders(self) -> List[Path]:
-        """Loads a subject list by iterating over the root directory of the dataset."""
-        subject_folders = list(self.root_folder.iterdir())
-        return subject_folders
+        # Assert transforms format. They should be provided as dictionaries.
+        # E.g. {'T1': Normalize(...), 'T2': ToTensor()}
+        assert isinstance(self.transform, dict), f'As you have multiple data modalities, ' \
+                                                 f'transforms have to a dictionary using ' \
+                                                 f'the modality keys: {self.data_modalities}'
+        assert isinstance(self.target_transform, dict), f'As you have multiple target modalities, ' \
+                                                        f'transforms have to a dictionary using ' \
+                                                        f'the modality keys: {self.target_modalities}'
 
-    def load_images(self, subject_folder: Path, modalities: list, as_dict=True):
-        files = {} if as_dict else []
+    @property
+    def demographics(self) -> pd.DataFrame:
+        """Loads tabular data file (supports excel, csv, tsv and colon separated value files)."""
+        try:
+            return pd.read_csv(self.tabular_file, index_col=self.index_col, engine='python')
+        except UnicodeDecodeError:
+            return pd.read_excel(self.tabular_file, index_col=self.index_col)
+
+    def load_images(self, subject_folder: Path, modalities: list):
+        files = {}
 
         for modality in modalities:
             image_folder = subject_folder.joinpath(modality)
@@ -173,22 +218,45 @@ class BIDSDataset(Dataset):
             # Load the first, we assume there is going to be a single image per modality for now.
             img_path = nii_files[0]
             img = self.reader(img_path)
-            if as_dict:
-                files[modality] = img
-            else:
-                files.append(img)
+            files[modality] = img
         return files
 
-    def _load_modality(self):
-        """Loads data from a particular modality."""
-        pass
-
     def __getitem__(self, item):
-        subject_folder = self.subject_folders[item]
+        subject_folder = self.complete_subject_folders[item]
         data = self.load_images(subject_folder, modalities=self.data_modalities)
         targets = self.load_images(subject_folder, modalities=self.target_modalities)
 
-        return data, targets
+        # Apply transforms to data elements
+        for modality, transform in self.transform.items():
+            if transform:
+                data[modality] = transform(data[modality])
+
+        # Apply transform to target elements
+        for modality, target_transform in self.target_transform.items():
+            if target_transform:
+                targets[modality] = target_transform(targets[modality])
+
+        return dict(data=data, target=targets)
 
     def __len__(self):
-        pass
+        return len(self.complete_subject_folders)
+
+    @property
+    def subject_folders(self) -> List[Path]:
+        """Loads a subject list by iterating over the root directory of the dataset."""
+        subject_folders = [subject_folder for subject_folder in self.root_folder.iterdir() if subject_folder.is_dir()]
+        return subject_folders
+
+    @property
+    def complete_subject_folders(self) -> List[Path]:
+        """Returns subject folders of only those who have their complete modalities"""
+        all_modalities = self.data_modalities + self.target_modalities
+        complete_subject_folders = []
+
+        # Iterate over all folders and append only the subjects that have all modalities present.
+        for subject_folder in self.subject_folders:
+            if all([subject_folder.joinpath(modality).is_dir() for modality in all_modalities]):
+                complete_subject_folders.append(subject_folder)
+
+        return complete_subject_folders
+
