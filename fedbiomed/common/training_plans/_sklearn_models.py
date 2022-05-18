@@ -267,6 +267,11 @@ class FedBernoulliNB(SKLearnTrainingPlan):
         - model_args: (dict, optional): model arguments. Defaults to {}
         """
 
+        msg = ErrorNumbers.FB605.value + \
+              " FedBernoulliNB not implemented."
+        logger.critical(msg)
+        raise FedbiomedTrainingPlanError(msg)
+
         super().__init__(model_args)
 
         self.is_classification = True
@@ -315,6 +320,12 @@ class FedGaussianNB(SKLearnTrainingPlan):
         Args:
         - model_args: (dict, optional): model arguments. Defaults to {}
         """
+
+        msg = ErrorNumbers.FB605.value + \
+              " FedGaussianNB not implemented."
+        logger.critical(msg)
+        raise FedbiomedTrainingPlanError(msg)
+
         super().__init__(model_args)
         self.is_classification = True
 
