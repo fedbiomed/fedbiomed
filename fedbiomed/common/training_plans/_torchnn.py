@@ -528,28 +528,26 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         """
 
         if self.DP['type'] == 'central':
+
+            sigma_CDP = deepcopy(self.DP['sigma_CDP'])
+            sigma_CDP *= len(self.training_data_loader.dataset)
+            
             delta_params = {}
             perturbed_params = {}
             for name, param in params.items():
-
                 ###
                 ### Extracting the update
                 ###
-                delta_theta = param - self.init_params[name]
-                delta_params[name] = delta_theta
+                delta_theta = deepcopy(param)
+                delta_params[name] = delta_theta - self.init_params[name]
 
             for key, delta_param in delta_params.items():
+                ###
+                ### Perturb update and update parameters
+                ###
                 delta_theta_tilde = deepcopy(delta_param)
-                #size = delta_theta_tilde.size()
-                #print('SIZE1=',size)
-                #perturb = torch.distributions.multivariate_normal.MultivariateNormal(torch.zeros(size), self.DP['sigma_CDP']*self.DP['clip']*torch.eye(size))
-                #delta_theta_tilde += torch.normal(mean=0, std=self.DP['sigma_CDP']*self.DP['clip'])
-                #delta_theta_tilde += perturb
-                #print('SIZE2=',delta_theta_tilde.size())
-
-
-                delta_theta_tilde += self.DP['sigma_CDP']*self.DP['clip'] * torch.randn_like(delta_param)
-                perturbed_params[key]=self.init_params[key] + delta_theta_tilde
+                delta_theta_tilde += sigma_CDP*self.DP['clip'] * torch.randn_like(delta_theta_tilde)
+                perturbed_params[key]= delta_theta_tilde + self.init_params[key]
             
             params = deepcopy(perturbed_params )
 
