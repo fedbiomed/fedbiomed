@@ -1,7 +1,9 @@
 import logging
+import os
 import tempfile
 import unittest
 
+import pandas as pd
 from torch.utils.data import DataLoader
 
 log = logging.getLogger(__name__)
@@ -68,7 +70,6 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
     def _create_synthetic_dataset(self):
         import itk
-        import os
         import numpy as np
 
         fake_img_data = np.random.rand(10, 10, 10)
@@ -92,41 +93,31 @@ from fedbiomed.common.data import BIDSDataset
 
 class TestBIDSDataset(unittest.TestCase):
     def setUp(self) -> None:
-        self.root = '/Users/ssilvari/Downloads/IXI_sample'
-        self.tabular_file = '/Users/ssilvari/Downloads/IXI_sample/participants.xlsx'
+        self.root = tempfile.mkdtemp()
+        self.tabular_file = os.path.join(self.root, 'participants.xlsx')
         self.index_col = 'FOLDER_NAME'
 
         self.transform = {'T1': Lambda(lambda x: torch.flatten(x))}
         self.target_transform = {'label': GaussianSmooth()}
 
+        self.n_samples = 10
         self.batch_size = 3
+
+        print(f'Dataset folder located in: {self.root}')
+        self._create_synthetic_dataset()
 
     def test_instantiating_dataset(self):
         dataset = BIDSDataset(self.root)
-        batch = dataset[0]
-        self.assertIsInstance(batch, dict)
-        self.assertIsInstance(batch['data'], dict)
-        self.assertIsInstance(batch['target'], dict)
-        self.assertIsInstance(batch['demographics'], dict)
+        self._assert_batch_types_and_sizes(dataset)
+
+    def test_cached_properties(self):
+        dataset = BIDSDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
+        print(dataset.demographics.head())
+        print(dataset.demographics.head())
 
     def test_instantiation_with_demographics(self):
         dataset = BIDSDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
-        batch = dataset[0]
-        self.assertIsInstance(batch, dict)
-        self.assertIsInstance(batch['data'], dict)
-        self.assertIsInstance(batch['target'], dict)
-        self.assertIsInstance(batch['demographics'], dict)
-
-        # Use dataloader
-        data_loader = DataLoader(dataset, batch_size=self.batch_size)
-        batch = iter(data_loader).next()
-
-        lengths = [len(b) for b in batch['data'].values()]
-        lengths += [len(b) for b in batch['target'].values()]
-        lengths += [len(b) for b in batch['demographics'].values()]
-
-        # Assert for batch size on modalities and demographics
-        self.assertTrue(len(set(lengths)) == 1)
+        self._assert_batch_types_and_sizes(dataset)
 
     def test_data_transforms(self):
         dataset = BIDSDataset(self.root, transform=self.transform)
@@ -137,6 +128,61 @@ class TestBIDSDataset(unittest.TestCase):
         dataset = BIDSDataset(self.root, target_transform=self.target_transform)
         batch = dataset[0]
         self.assertEqual(batch['data']['T1'].shape, batch['target']['label'].shape)
+
+    def _assert_batch_types_and_sizes(self, dataset):
+        data_loader = DataLoader(dataset, batch_size=self.batch_size)
+        batch = iter(data_loader).next()
+
+        self.assertIsInstance(batch, dict)
+        self.assertIsInstance(batch['data'], dict)
+        self.assertIsInstance(batch['target'], dict)
+        self.assertIsInstance(batch['demographics'], dict)
+
+        lengths = [len(b) for b in batch['data'].values()]
+        lengths += [len(b) for b in batch['target'].values()]
+        lengths += [len(b) for b in batch['demographics'].values()]
+
+        # Assert for batch size on modalities and demographics
+        self.assertTrue(len(set(lengths)) == 1)
+
+    def _create_synthetic_dataset(self):
+        import itk
+        import numpy as np
+        from uuid import uuid4
+        from random import randint, choice
+
+        # Image and target data
+        fake_img_data = np.random.rand(10, 10, 10)
+        img = itk.image_from_array(fake_img_data)
+
+        # Generate subject ids
+        subject_ids = [str(uuid4()) for _ in range(self.n_samples)]
+        modalities = ['T1', 'T2', 'label']
+        centers = [f'center_{uuid4()}' for _ in range(randint(3, 6))]
+
+        demographics = pd.DataFrame()
+        demographics.index.name = self.index_col
+
+        for subject_id in subject_ids:
+            subject_folder = os.path.join(self.root, subject_id)
+            os.makedirs(subject_folder)
+
+            # Create class folder
+            for modality in modalities:
+                modality_folder = os.path.join(subject_folder, modality)
+                os.mkdir(modality_folder)
+                img_path = os.path.join(modality_folder, f'image_{uuid4()}.nii.gz')
+                itk.imwrite(img, img_path)
+
+            # Add demographics information
+            demographics.loc[subject_id, 'AGE'] = randint(15, 90)
+            demographics.loc[subject_id, 'CENTER'] = choice(centers)
+        demographics.to_excel(self.tabular_file)
+
+    def tearDown(self) -> None:
+        import shutil
+        if 'IXI' not in self.root:
+            shutil.rmtree(self.root)
 
 
 if __name__ == '__main__':

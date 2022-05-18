@@ -12,7 +12,7 @@ from typing import Union, Tuple, Dict, Iterable, Optional, List, Any, Callable
 
 import pandas as pd
 import torch
-from cachetools import cached
+from functools import cache
 from monai.data import ITKReader
 from monai.transforms import Transform, LoadImage, ToTensor, Compose
 from torch import Tensor
@@ -159,10 +159,12 @@ class BIDSDataset(Dataset):
 
     def __init__(self,
                  root: Union[str, PathLike, Path],
-                 transform: Union[Callable, Dict[str, Callable]] = None,
                  data_modalities: Optional[Union[str, Iterable[str]]] = 'T1',
+                 transform: Union[Callable, Dict[str, Callable]] = None,
+
                  target_modalities: Optional[Union[str, Iterable[str]]] = 'label',
                  target_transform: Union[Callable, Dict[str, Callable]] = None,
+
                  tabular_file: Union[str, PathLike, Path] = None,
                  index_col: Union[int, str] = 0,
                  ):
@@ -170,9 +172,12 @@ class BIDSDataset(Dataset):
 
         Args:
             root: Root folder containing all the subject directories.
-            transform: A function or transform that preprocesses each data source (image).
             data_modalities (str, Iterable): Modality or modalities to be used as data sources.
-            target_modalities (str, Iterable): Modality or modalities that will be used as target sources.
+            transform: A function or dict of function transform(s) that preprocess each data source.
+            target_modalities: (str, Iterable): Modality or modalities to be used as target sources.
+            target_transform: A function or dict of function transform(s) that preprocess each target source.
+            tabular_file: Path to a CSV or Excel file containing the demographic information from the patients.
+            index_col: Column name in the tabular file containing the subject ids which mush match the folder names.
         """
         self.root_folder = Path(root).expanduser().resolve()
         self.data_modalities = [data_modalities] if isinstance(data_modalities, str) else data_modalities
@@ -199,14 +204,6 @@ class BIDSDataset(Dataset):
                                                         f'transforms have to a dictionary using ' \
                                                         f'the modality keys: {self.target_modalities}'
 
-    @property
-    def demographics(self) -> pd.DataFrame:
-        """Loads tabular data file (supports excel, csv, tsv and colon separated value files)."""
-        try:
-            return pd.read_csv(self.tabular_file, index_col=self.index_col, engine='python')
-        except UnicodeDecodeError:
-            return pd.read_excel(self.tabular_file, index_col=self.index_col)
-
     def load_images(self, subject_folder: Path, modalities: list):
         files = {}
 
@@ -221,10 +218,19 @@ class BIDSDataset(Dataset):
             files[modality] = img
         return files
 
+    def _get_from_demographics(self, subject_id):
+        if self.tabular_file:
+            demographics = self.demographics.loc[subject_id].to_dict()
+            # Extract only compatible types for torch
+            return {key: val for key, val in demographics.items() if isinstance(val, (int, float, str, bool))}
+        else:
+            return {}
+
     def __getitem__(self, item):
         subject_folder = self.complete_subject_folders[item]
         data = self.load_images(subject_folder, modalities=self.data_modalities)
         targets = self.load_images(subject_folder, modalities=self.target_modalities)
+        demographics = self._get_from_demographics(subject_id=subject_folder.name)
 
         # Apply transforms to data elements
         for modality, transform in self.transform.items():
@@ -236,18 +242,33 @@ class BIDSDataset(Dataset):
             if target_transform:
                 targets[modality] = target_transform(targets[modality])
 
-        return dict(data=data, target=targets)
+        return dict(data=data, target=targets, demographics=demographics)
 
     def __len__(self):
-        return len(self.complete_subject_folders)
+        length = len(self.complete_subject_folders)
+        assert length > 0, 'Dataset cannot be empty. ' \
+                           'Check again that the folder and ' \
+                           'the tabular data (if provided) exist and match properly.'
+        return length
 
     @property
+    @cache
+    def demographics(self) -> pd.DataFrame:
+        """Loads tabular data file (supports excel, csv, tsv and colon separated value files)."""
+        if 'xls' in self.tabular_file.suffix.lower():
+            return pd.read_excel(self.tabular_file, index_col=self.index_col)
+        else:
+            return pd.read_csv(self.tabular_file, index_col=self.index_col, engine='python')
+
+    @property
+    @cache
     def subject_folders(self) -> List[Path]:
         """Loads a subject list by iterating over the root directory of the dataset."""
         subject_folders = [subject_folder for subject_folder in self.root_folder.iterdir() if subject_folder.is_dir()]
         return subject_folders
 
     @property
+    @cache
     def complete_subject_folders(self) -> List[Path]:
         """Returns subject folders of only those who have their complete modalities"""
         all_modalities = self.data_modalities + self.target_modalities
@@ -258,5 +279,12 @@ class BIDSDataset(Dataset):
             if all([subject_folder.joinpath(modality).is_dir() for modality in all_modalities]):
                 complete_subject_folders.append(subject_folder)
 
-        return complete_subject_folders
+        if self.tabular_file:
+            # Consider only those who are present in the demographics file
+            # Subject ids are the folder name which is contained as the basename of the path `.name`.
+            # Subjects that contained all the modalities and the demographics: subs_with_all
+            existing_subject_ids = [sid.name for sid in complete_subject_folders]
+            subs_with_all = self.demographics.index.intersection(existing_subject_ids)
+            complete_subject_folders = [f for f in complete_subject_folders if f.name in subs_with_all]
 
+        return complete_subject_folders
