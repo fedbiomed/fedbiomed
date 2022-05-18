@@ -2,6 +2,7 @@
 Implements the message exchanges from researcher to nodes
 """
 
+
 import json
 import tabulate
 from time import sleep
@@ -53,6 +54,7 @@ class Requests(metaclass=SingletonMeta):
 
         self._monitor_message_callback = None
 
+
     def get_messaging(self) -> Messaging:
         """Retrieves Messaging object
 
@@ -60,6 +62,7 @@ class Requests(metaclass=SingletonMeta):
             Messaging object
         """
         return self.messaging
+
 
     def on_message(self, msg: Dict[str, Any], topic: str):
         """ Handler called by the [`Messaging`][fedbiomed.common.messaging] class,  when a message is received on
@@ -94,6 +97,7 @@ class Requests(metaclass=SingletonMeta):
         else:
             logger.error("message received on wrong topic (" + topic + ") - IGNORING")
 
+
     @staticmethod
     def print_node_log_message(log: Dict[str, Any]):
         """Prints logger messages coming from the node
@@ -117,6 +121,7 @@ class Requests(metaclass=SingletonMeta):
                                 original_msg["message"],
                                 5 * "-------------"))
 
+
     def send_message(self, msg: dict, client: str = None):
         """
         Ask the messaging class to send a new message (receivers are
@@ -128,6 +133,7 @@ class Requests(metaclass=SingletonMeta):
         """
         logger.debug(str(environ['RESEARCHER_ID']))
         self.messaging.send_message(msg, client=client)
+
 
     def get_messages(self, commands: list = [], time: float = .0) -> Responses:
         """Goes through the queue and gets messages with the specific command
@@ -161,6 +167,7 @@ class Requests(metaclass=SingletonMeta):
                 pass
 
         return Responses(answers)
+
 
     def get_responses(self,
                       look_for_commands: list,
@@ -199,6 +206,7 @@ class Requests(metaclass=SingletonMeta):
             responses += new_responses
         return Responses(responses)
 
+
     def ping_nodes(self) -> list:
         """ Pings online nodes
 
@@ -214,6 +222,7 @@ class Requests(metaclass=SingletonMeta):
         # TODO: (below, above) handle exceptions
         nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_commands=['ping'])]
         return nodes_online
+
 
     def search(self, tags: tuple, nodes: list = None) -> dict:
         """ Searches available data by tags
@@ -257,6 +266,7 @@ class Requests(metaclass=SingletonMeta):
             logger.info("No available dataset has found in nodes with tags: {}".format(tags))
 
         return data_found
+
 
     def list(self, nodes: list = None, verbose: bool = False) -> dict:
         """Lists available data in each node
@@ -303,6 +313,7 @@ class Requests(metaclass=SingletonMeta):
 
         return data_found
 
+
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
         """ Adds callback function for monitor messages
 
@@ -311,6 +322,7 @@ class Requests(metaclass=SingletonMeta):
         """
 
         self._monitor_message_callback = callback
+
 
     def remove_monitor_callback(self):
         """ Removes callback function for Monitor class. """
