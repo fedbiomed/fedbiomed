@@ -2,6 +2,8 @@ import logging
 import tempfile
 import unittest
 
+from torch.utils.data import DataLoader
+
 log = logging.getLogger(__name__)
 
 from fedbiomed.common.data import NIFTIFolderDataset
@@ -91,17 +93,40 @@ from fedbiomed.common.data import BIDSDataset
 class TestBIDSDataset(unittest.TestCase):
     def setUp(self) -> None:
         self.root = '/Users/ssilvari/Downloads/IXI_sample'
-        self.tabular_file = '/Users/ssilvari/Downloads/IXI_sample/IXI.xls'
+        self.tabular_file = '/Users/ssilvari/Downloads/IXI_sample/participants.xlsx'
+        self.index_col = 'FOLDER_NAME'
 
         self.transform = {'T1': Lambda(lambda x: torch.flatten(x))}
         self.target_transform = {'label': GaussianSmooth()}
+
+        self.batch_size = 3
 
     def test_instantiating_dataset(self):
         dataset = BIDSDataset(self.root)
         batch = dataset[0]
         self.assertIsInstance(batch, dict)
-        self.assertIsInstance(batch['data']['T1'], dict)
-        self.assertIsInstance(batch['target']['label'], dict)
+        self.assertIsInstance(batch['data'], dict)
+        self.assertIsInstance(batch['target'], dict)
+        self.assertIsInstance(batch['demographics'], dict)
+
+    def test_instantiation_with_demographics(self):
+        dataset = BIDSDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
+        batch = dataset[0]
+        self.assertIsInstance(batch, dict)
+        self.assertIsInstance(batch['data'], dict)
+        self.assertIsInstance(batch['target'], dict)
+        self.assertIsInstance(batch['demographics'], dict)
+
+        # Use dataloader
+        data_loader = DataLoader(dataset, batch_size=self.batch_size)
+        batch = iter(data_loader).next()
+
+        lengths = [len(b) for b in batch['data'].values()]
+        lengths += [len(b) for b in batch['target'].values()]
+        lengths += [len(b) for b in batch['demographics'].values()]
+
+        # Assert for batch size on modalities and demographics
+        self.assertTrue(len(set(lengths)) == 1)
 
     def test_data_transforms(self):
         dataset = BIDSDataset(self.root, transform=self.transform)
