@@ -40,6 +40,16 @@ class _Capturer(list):
 
 
 class SKLearnTrainingPlan(BaseTrainingPlan):
+    """Base class for Fed-BioMed wrappers of sklearn classes.
+
+    Classes that inherit from this must have a `model` attribute with an instance of the sklearn class being wrapped.
+
+    Attributes:
+        params: parameters of the model, both learnable and non-learnable
+        model_args: model arguments provided by researcher
+        param_list: names of the parameters that will be used for aggregation
+        dataset_path: the path to the dataset on the node
+    """
     def __init__(self, model_args: dict = {}):
         """
         Class initializer.

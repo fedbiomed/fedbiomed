@@ -11,6 +11,11 @@ from fedbiomed.common.logger import logger
 from ._sklearn_training_plan import SKLearnTrainingPlan
 
 class FedPerceptron(SKLearnTrainingPlan):
+    """Fed-BioMed federated wrapper of Perceptron class from scikit-learn.
+
+    Attributes:
+        model: an instance of the sklearn class that we are wrapping (static attribute).
+    """
 
     model = Perceptron()
 
@@ -96,6 +101,11 @@ class FedPerceptron(SKLearnTrainingPlan):
 #======
 
 class FedSGDRegressor(SKLearnTrainingPlan):
+    """Fed-BioMed federated wrapper of SGDRegressor class from scikit-learn.
+
+    Attributes:
+        model: an instance of the sklearn class that we are wrapping (static attribute).
+    """
 
     model = SGDRegressor()
 
@@ -159,6 +169,11 @@ class FedSGDRegressor(SKLearnTrainingPlan):
 #======
 
 class FedSGDClassifier(SKLearnTrainingPlan):
+    """Fed-BioMed federated wrapper of SGDClassifier class from scikit-learn.
+
+    Attributes:
+        model: an instance of the sklearn class that we are wrapping (static attribute).
+    """
 
     model = SGDClassifier()
 
@@ -237,6 +252,11 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         return loss
 
 class FedBernoulliNB(SKLearnTrainingPlan):
+    """Fed-BioMed federated wrapper of BernoulliNB class from scikit-learn.
+
+    !!! info "Not implemented yet!"
+        This class has not yet been implemented.
+    """
 
     model = BernoulliNB()
 
@@ -281,6 +301,11 @@ class FedBernoulliNB(SKLearnTrainingPlan):
         print('self.model.get_params()', self.model.get_params())
 
 class FedGaussianNB(SKLearnTrainingPlan):
+    """Fed-BioMed federated wrapper of FedGaussianNB class from scikit-learn.
+
+    !!! info "Not implemented yet!"
+        This class has not yet been implemented.
+    """
 
     model = GaussianNB()
 
@@ -319,22 +344,47 @@ class FedGaussianNB(SKLearnTrainingPlan):
         """
         Initialize the model parameter
         """
+
+        self.param_list = ['intercept_','coef_']
+        init_params = {
+            'intercept_': np.array([0.]) if (self.model_args['n_classes'] == 2) else np.array(
+                [0.] * self.model_args['n_classes']),
+            'coef_': np.array([0.] * self.model_args['n_features']).reshape(1, self.model_args['n_features']) if (
+                    self.model_args['n_classes'] == 2) else np.array(
+                [0.] * self.model_args['n_classes'] * self.model_args['n_features']).reshape(self.model_args['n_classes'],
+                                                                                             self.model_args['n_features'])
+        }
+
+        for p in self.param_list:
+            setattr(self.model, p, init_params[p])
         for p in self.params:
             setattr(self.model, p, self.params[p])
 
 #############################################################################################3
 class FedMultinomialNB(SKLearnTrainingPlan):
-    def __init__(self, model_args):
+    """Fed-BioMed federated wrapper of FedMultinomialNB class from scikit-learn.
 
-        raise("model not implemented yet")
+    !!! info "Not implemented yet!"
+        This class has not yet been implemented.
+    """
+    def __init__(self, model_args):
+        msg = ErrorNumbers.FB605.value + \
+              " FedMultinomialNB not implemented."
+        logger.critical(msg)
+        raise FedbiomedTrainingPlanError(msg)
 
     def training_routine_hook(self):
         pass
 
 class FedPassiveAggressiveClassifier(SKLearnTrainingPlan):
+    """Fed-BioMed federated wrapper of PassiveAggressiveClassifier class from scikit-learn.
+
+    !!! info "Not implemented yet!"
+        This class has not yet been implemented.
+    """
     def __init__(self, model_args):
         msg = ErrorNumbers.FB605.value + \
-              ": model" + __class__.__name__+ " not implemented yet "
+              ": model FedPassiveAggressiveClassifier not implemented yet "
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
@@ -342,9 +392,14 @@ class FedPassiveAggressiveClassifier(SKLearnTrainingPlan):
         pass
 
 class FedPassiveAggressiveRegressor(SKLearnTrainingPlan):
+    """Fed-BioMed federated wrapper of class PassiveAggressiveRegressor from scikit-learn.
+
+    !!! info "Not implemented yet!"
+        This class has not yet been implemented.
+    """
     def __init__(self, model_args):
         msg = ErrorNumbers.FB605.value + \
-              ": model" + __class__.__name__+ " not implemented yet "
+              ": model FedPassiveAggressiveRegressor not implemented yet "
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
@@ -352,9 +407,14 @@ class FedPassiveAggressiveRegressor(SKLearnTrainingPlan):
         pass
 
 class FedMiniBatchKMeans(SKLearnTrainingPlan):
+    """Fed-BioMed federated wrapper of MiniBatchKMeans class from scikit-learn.
+
+    !!! info "Not implemented yet!"
+        This class has not yet been implemented.
+    """
     def __init__(self, model_args):
         msg = ErrorNumbers.FB605.value + \
-              ": model" + __class__.__name__+ " not implemented yet "
+              ": model FedMiniBatchKMeans not implemented yet "
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
@@ -362,9 +422,14 @@ class FedMiniBatchKMeans(SKLearnTrainingPlan):
         pass
 
 class FedMiniBatchDictionaryLearning(SKLearnTrainingPlan):
+    """Fed-BioMed federated wrapper of MiniBatchDictionaryLearning class from scikit-learn.
+
+    !!! info "Not implemented yet!"
+        This class has not yet been implemented.
+    """
     def __init__(self, model_args):
         msg = ErrorNumbers.FB605.value + \
-              ": model" + __class__.__name__+ " not implemented yet "
+              ": model FedMiniBatchDictionaryLearning not implemented yet "
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
