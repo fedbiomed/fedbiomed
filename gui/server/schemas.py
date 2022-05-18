@@ -255,3 +255,13 @@ class AddDefaultDatasetRequest(Validator):
                        },
         "required": []
     })
+
+
+class GetCsvData(Validator):
+
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {"path": {"type": "array"}},
+        "required": ["path"]
+    })

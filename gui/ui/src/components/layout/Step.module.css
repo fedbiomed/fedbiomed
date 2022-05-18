@@ -5,6 +5,7 @@
     margin: 20px 0px;
 }
 
+
 .step.notAllowed :global(.button),
 .step.notAllowed :global(a),
 .step.notAllowed :global(input),
@@ -18,7 +19,7 @@
 }
 
 .number{
-    width: 10%;
+    width: 5%;
     display: block;
     text-align: center;
 }
@@ -39,9 +40,13 @@
 }
 
 .content {
-    width: 90%;
+    width: 95%;
     border-left: 1px solid #eee;
     padding: 20px 0px 20px 20px;
+}
+
+.contentInner {
+    padding : 20px 10px;
 }
 
 .outlet {

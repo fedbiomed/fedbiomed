@@ -5,6 +5,8 @@
 const initialState = {
     data_path: null,
     patient_folders: null,
+    folder_ref_column: {index: null, name:null},
+    reference_column_name:null,
     format: null,
     reference_csv: null,
     identifiers: null,
@@ -52,7 +54,11 @@ export const bidsReducer = (state = initialState, action) => {
                 ...state,
                 identifiers: action.payload
             }
-
+        case "FOLDER_REF_COLUMN":
+            return {
+                ...state,
+                folder_ref_column: action.payload,
+            }
         default:
             return state
     }

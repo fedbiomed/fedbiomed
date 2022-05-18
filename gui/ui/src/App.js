@@ -47,7 +47,7 @@ function App(props) {
             <SideNav activePage={setHeader}/>
           </div>
           <div className="main-frame">
-            <Header text={headerName}/>
+            {/*<Header text={headerName}/>*/}
               <div className="router-frame">
                 <div className="inner"> 
                   <Routes>

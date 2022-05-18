@@ -12,11 +12,13 @@ const Step = (props) => {
                 <span>{props.step}</span>
             </div>
             <div className={styles.content}>
-                <div className={styles.label}>
-                    <label>{props.desc}</label>
-                </div>
-                <div className={styles.outlet}>
-                    {child}
+                <div className={styles.contentInner}>
+                    <div className={styles.label}>
+                        <label>{props.desc}</label>
+                    </div>
+                    <div className={styles.outlet}>
+                        {child}
+                    </div>
                 </div>
             </div>
         </div>

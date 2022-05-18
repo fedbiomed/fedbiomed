@@ -1,5 +1,5 @@
 import axios from "axios";
-import {EP_REPOSITORY_LIST} from "../../constants";
+import {EP_REPOSITORY_LIST, EP_LOAD_CSV_DATA} from "../../constants";
 
 /**
  * Sets Folder Path
@@ -8,8 +8,21 @@ import {EP_REPOSITORY_LIST} from "../../constants";
  */
 export const setFolderPath = (path) => {
     return (dispatch) => {
-        dispatch({type: "SET_FOLDER_PATH", payload: path})
+        // Set path
+        dispatch({type: "SET_FOLDER_PATH", payload: path.path})
         dispatch(getSubDirectories(path.path))
+    }
+}
+
+/**
+ * Set reference column that corresponds patient folders
+ * @param ref
+ * @returns {(function(*): void)|*}
+ */
+export const setFolderRefColumn = (ref) => {
+    return (dispatch) => {
+        // TODO: Validate selected column corresponds patient folders
+        dispatch({type: "FOLDER_REF_COLUMN", payload:ref})
     }
 }
 
@@ -20,7 +33,20 @@ export const setFolderPath = (path) => {
  */
 export const setReferenceCSV = (path) => {
     return (dispatch) => {
-        dispatch({type: "SET_REFERENCE_CSV", payload: path})
+        dispatch({type:'SET_LOADING', payload: true})
+        axios.post(EP_LOAD_CSV_DATA, {path : path.path}).then( response => {
+            if(response.status === 200){
+                let data = response.data.result
+                dispatch({type: "SET_REFERENCE_CSV", payload: { path: path.path, data: data}})
+            }else{
+                dispatch({type: 'ERROR_MODAL' , payload: response.data.result.message})
+            }
+            dispatch({type:'SET_LOADING', payload: false})
+        }).catch(error => {
+            dispatch({type:'SET_LOADING', payload: false})
+            dispatch(displayError(error, "Error while getting reference CSV for BIDS;"))
+        })
+
     }
 }
 
@@ -35,7 +61,7 @@ const getSubDirectories = (path) => {
             dispatch({type:'SET_LOADING', payload: true})
             if(response.status === 200){
                 let data = response.data.result
-                dispatch({type: "PATIENT_FOLDERS", payload:data})
+                dispatch({type: "PATIENT_FOLDERS", payload:data.path})
                 console.log(data)
             }else{
                 dispatch({type: 'ERROR_MODAL' , payload: response.data.result.message})
@@ -58,10 +84,10 @@ const getSubDirectories = (path) => {
 const displayError = (error, message) => {
     return (dispatch) => {
         dispatch({type:'SET_LOADING', payload: false})
-        if(error.response){
+        if(error.response.data.message){
             dispatch({type: 'ERROR_MODAL', payload: message + error.response.data.message})
         }else{
-            dispatch({type: 'ERROR_MODAL', payload: 'Unexpected Error:' + error.toString()})
+            dispatch({type: 'ERROR_MODAL', payload: 'Unexpected Error: ' + error.toString()})
         }
     }
 }
