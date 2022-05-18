@@ -183,7 +183,7 @@ class FedSGDClassifier(SKLearnTrainingPlan):
             self.model_args['verbose'] = 1
             self.params.update({'verbose':1})
 
-        self.is_classification = True
+        self._is_classification = True
         self._verbose_capture_option = self.model_args['verbose']
 
         # Instantiate the model

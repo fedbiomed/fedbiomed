@@ -223,7 +223,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
 
         # At the first round model won't have classes_ attribute
         if self._is_classification and not hasattr(self.model, 'classes_'):
-            classes = self.__classes_from_concatenated_train_test()
+            classes = self._classes_from_concatenated_train_test()
             setattr(self.model, 'classes_', classes)
 
         # Build metrics object
