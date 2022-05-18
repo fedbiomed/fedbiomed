@@ -6,6 +6,7 @@ from datetime import datetime
 import hashlib
 import os
 from python_minifier import minify
+import shutil
 from tabulate import tabulate
 from tinydb import TinyDB, Query
 from typing import Any, Dict, List, Tuple
@@ -254,6 +255,15 @@ class ModelManager:
 
         return approved, approved_model
 
+    def create_py_model_from_txt(self, model_path: str) -> str:
+        # remove '*.py' extension of `model_path` and rename it into `*.txt` 
+        model_path_txt, _ = os.path.splitext(model_path)
+        model_path_txt += '.txt'
+
+        # save the content of the model into a plain '*.txt' file
+        shutil.copyfile(model_path, model_path_txt)
+        return model_path_txt
+
     def reply_model_approval_request(self, msg: dict, messaging: Messaging):
         reply = {
             'researcher_id': msg['researcher_id'],
@@ -264,6 +274,8 @@ class ModelManager:
             'status': 0  # HTTP status (set by default to 0, non existing HTTP status code)
         }
 
+        _model_approval_checking_failed = False
+        is_approved = False
         try:
             model_name = "training_plan_" + str(uuid.uuid4().hex)
             status, _ = self._repo.download_file(msg['model_url'], model_name + '.py')
@@ -271,12 +283,39 @@ class ModelManager:
             reply['status'] = status
 
             # check if model has already been registered into database
-            is_approved, _ = self.check_is_model_approved(os.path.join(environ["TMP_DIR"], model_name + '.py'))
+            tmp_file = os.path.join(environ["TMP_DIR"], model_name + '.py')
+            model_to_check = self.create_py_model_from_txt(tmp_file)
+            is_approved, _ = self.check_is_model_approved(model_to_check)
+
 
         except FedbiomedModelManagerError as fed_err:
-            logger.warning(f"Can not check whether model has already be registered or not due to error: {fed_err}")
+            logger.error(f"Can not check whether model has already be registered or not due to error: {fed_err}")
+            _model_approval_checking_failed = True
         except:
             pass
+        
+        if not is_approved or _model_approval_checking_failed:
+            # move model into corresponding directory
+            logger.info("Storing TrainingPlan into requested model...")
+            model_path = os.path.join(environ['MODEL_DIR'], model_name + '.py')
+            shutil.move(tmp_file, model_path)
+            
+            # Model file creation date
+            ctime = datetime.fromtimestamp(os.path.getctime(model_path)).strftime("%d-%m-%Y %H:%M:%S.%f")
+            
+            model_object = dict(name=model_name,
+                                description = msg['description'],
+                                model_path=model_path,
+                                model_id=model_name,
+                                model_type=ModelTypes.REQUESTED.name,
+                                model_status=ModelApprovalStatus.PENDING.name,
+                                date_created=ctime, 
+                                researcher_id=msg['researcher_id']
+                                )
+            self._db.insert(model_object)
+        else:
+            logger.warning("Model has already been registered in database... aborting")
+                
         # Send model approval acknowledge answer to researcher
         messaging.send_message(NodeMessages.reply_create(reply).get_dict())
 
