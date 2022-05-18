@@ -161,9 +161,10 @@ class ModelManager:
             model_object = dict(name=name, description=description,
                                 hash=model_hash, model_path=path,
                                 model_id=model_id, model_type=model_type,
-                                status=ModelApprovalStatus.APPROVED.name,
+                                model_status=ModelApprovalStatus.APPROVED.value,
                                 algorithm=algorithm, date_created=ctime,
-                                date_modified=mtime, date_registered=rtime)
+                                date_modified=mtime, date_registered=rtime,
+                                researcher_id=None)
             
             if researcher_id is not None:
                 model_object.update({'researcher_id': researcher_id})
@@ -270,14 +271,14 @@ class ModelManager:
             'node_id': environ['NODE_ID'],
            # 'model_url': msg['model_url'],
             'sequence': msg['sequence'],
-            'command': 'approval',
-            'status': 0  # HTTP status (set by default to 0, non existing HTTP status code)
+            'status': 0,  # HTTP status (set by default to 0, non existing HTTP status code)
+            'command': 'approval'
         }
 
-        _model_approval_checking_failed = False
         is_approved = False
         try:
-            model_name = "training_plan_" + str(uuid.uuid4().hex)
+            #model_id = str(uuid.uuid4())
+            model_name = "model_" + str(uuid.uuid4())
             status, _ = self._repo.download_file(msg['model_url'], model_name + '.py')
 
             reply['status'] = status
@@ -290,32 +291,33 @@ class ModelManager:
 
         except FedbiomedModelManagerError as fed_err:
             logger.error(f"Can not check whether model has already be registered or not due to error: {fed_err}")
-            _model_approval_checking_failed = True
-        except:
-            pass
-        
-        if not is_approved or _model_approval_checking_failed:
+
+        if not is_approved:
             # move model into corresponding directory
             logger.info("Storing TrainingPlan into requested model...")
             model_path = os.path.join(environ['MODEL_DIR'], model_name + '.py')
             shutil.move(tmp_file, model_path)
-            
+
             # Model file creation date
             ctime = datetime.fromtimestamp(os.path.getctime(model_path)).strftime("%d-%m-%Y %H:%M:%S.%f")
-            
+
             model_object = dict(name=model_name,
                                 description = msg['description'],
                                 model_path=model_path,
                                 model_id=model_name,
-                                model_type=ModelTypes.REQUESTED.name,
-                                model_status=ModelApprovalStatus.PENDING.name,
+                                model_type=ModelTypes.REQUESTED.value,
+                                model_status=ModelApprovalStatus.PENDING.value,
+                                algorithm=None,
                                 date_created=ctime, 
+                                date_modified=ctime,
+                                date_registered=None,
                                 researcher_id=msg['researcher_id']
                                 )
             self._db.insert(model_object)
         else:
             logger.warning("Model has already been registered in database... aborting")
                 
+        reply['success'] = True
         # Send model approval acknowledge answer to researcher
         messaging.send_message(NodeMessages.reply_create(reply).get_dict())
 

@@ -204,6 +204,7 @@ class ApprovalReply(Message):
     sequence: int
     status: int
     command: str
+    success: bool
 
 
 # Error message

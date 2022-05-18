@@ -201,8 +201,8 @@ class Requests(metaclass=SingletonMeta):
                         # TODO: test if 'success'key exists
                         # what do we do if not ?
                         new_responses.append(resp)
-                except Exception:
-                    logger.error('Incorrect message received:' + str(resp))
+                except Exception as e:
+                    logger.error('Incorrect message received:' + str(resp) + e)
                     pass
 
             if len(new_responses) == 0:
@@ -416,6 +416,8 @@ class Requests(metaclass=SingletonMeta):
         # TODO:
         # - cannot implement without counter part (node side)
 
+        for resp in self.get_responses(look_for_commands=['approval'], timeout=timeout):
+            print( "resp", resp)
         # return the answers
         return {}
 
