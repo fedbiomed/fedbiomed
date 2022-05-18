@@ -140,12 +140,10 @@ class BIDSDataset(Dataset):
 
     └─ my_processed_data/
        └─ sub-01/
-           └─ ses-test/
-              ├─ anat/
-              │  └─ sub-01_ses-test_T1w.nii.gz
-              └─ func/
-                 ├─ sub-01_ses-test_task-overtverbgeneration_run-1_bold.nii.gz
-                 ├─ sub-01_ses-test_task-overtverbgeneration_run-2_bold.nii.gz
+          ├─ T1/
+          │  └─ sub-01_ses-test_T1w.nii.gz
+          └─ T2/
+             ├─ sub-01_ses-test_task-overtverbgeneration_run-1_bold.nii.gz
 
     Certain modalities are allowed per subject in the dataset. Each of these is represented by a folder within each
     subject's directory.:
