@@ -2055,3 +2055,39 @@ class Experiment(object):
         # note: exceptions for `load_state` should be handled in training plan
 
         return object_instance
+
+
+
+    @exp_exceptions
+    def model_approve(self,
+                      model,
+                      description: str = "no description provided",
+                      nodes: list = [],
+                      timeout: int = 30) -> dict:
+        """Send a model and a ApprovalRequest message to node(s).
+
+        This is a simple redirect to the Requests.model_approve() method.
+
+        If a list of node id(s) is provided, the message will be individually sent
+        to all nodes of the list.
+        If the node id(s) list is None (default), the message is broadcast to all nodes.
+
+        Args:
+            model: the model to upload and send to the nodes for approval.
+                   It can be:
+                   - a path_name (str)
+                   - a model (class)
+                   - an instance of a model (TrainingPlan instance)
+            nodes: list of nodes (specified by their UUID)
+            timeout: maximum waiting time for the answers
+
+        Returns:
+            a dictionnary of pairs (node_id: status), where status indicates to the researcher
+            that the model has been correctly downloaded on the node side.
+            Warning: stauts does not mean that the model is approved, only that it has been added
+            to the "approval queue" on the node side.
+        """
+        return self._reqs.model_approve(model,
+                                        description,
+                                        nodes,
+                                        timeout)
