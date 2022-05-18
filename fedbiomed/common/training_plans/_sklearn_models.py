@@ -40,23 +40,16 @@ class FedPerceptron(SKLearnTrainingPlan):
         self.add_dependency([
                              "from sklearn.linear_model import Perceptron "
                              ])
-        print('sklearn models perceptron model get param',self.model.get_params())
-        print('perceptron model id ',id(self.model))
 
     def training_routine_hook(self):
         """
         Training routine of Perceptron
         """
-        print('sklearn models enter training routine hook perceptron')
         (self.data, self.target) = self.training_data_loader
         classes = self._classes_from_concatenated_train_test()
         if classes.shape[0] < 3:
             self._is_binary_classification = True
-        print('is binary classificaton',self._is_binary_classification)
-        print('self.model.get params',self.model.get_params())
-        print('self.model',self.model)
         self.model.partial_fit(self.data, self.target, classes=classes)
-        print('partial fit ended')
 
     def set_init_params(self):
         """
@@ -86,7 +79,6 @@ class FedPerceptron(SKLearnTrainingPlan):
         - epoch: epoch number
         Returns: float: the loss captured in the output of its weighted average in case of mutliclass classification
         '''
-        print('sklearn models enter evaluate loss perceptron')
         _loss_collector = self._evaluate_loss_core(output, epoch)
         if not self._is_binary_classification:
             support = self._compute_support(self.target)
@@ -231,8 +223,6 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         for p in self.params:
             setattr(self.model, p, self.params[p])
 
-        print('self.params',self.params)
-        print('self.model.get_params()', self.model.get_params())
     def evaluate_loss(self,output,epoch) -> float:
         '''
         Evaluate the loss.
@@ -302,8 +292,6 @@ class FedBernoulliNB(SKLearnTrainingPlan):
         """
         for p in self.params:
             setattr(self.model, p, self.params[p])
-        print('self.params',self.params)
-        print('self.model.get_params()', self.model.get_params())
 
 class FedGaussianNB(SKLearnTrainingPlan):
     """Fed-BioMed federated wrapper of FedGaussianNB class from scikit-learn.

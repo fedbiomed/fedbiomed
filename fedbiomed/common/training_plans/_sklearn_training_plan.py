@@ -25,7 +25,6 @@ class _Capturer(list):
     """
 
     def __enter__(self):
-        print("enter Capturer")
         sys.stdout.flush()
         self._stdout = sys.stdout
         sys.stdout = self._stringio = StringIO()
@@ -35,7 +34,6 @@ class _Capturer(list):
         self.extend(self._stringio.getvalue().splitlines())
         del self._stringio  # Remove it from memory
         sys.stdout = self._stdout
-        print("exit Capturer")
 
 
 
@@ -58,8 +56,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         - model_args (dict, optional): model arguments. Defaults to {}.
         """
         super().__init__()
-
-        print('model id sklearntarining plan',id(self.model))
 
         if getattr(self, 'model') is None:
             msg = ErrorNumbers.FB303.value + ": SKLEARN model is None"
@@ -109,7 +105,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             - gpu_only (bool): force use of a GPU device if any available, even if researcher
               doesnt request for using a GPU. Default False.
                 """
-        print('sklearn training plan enter training routine')
         if self.model is None:
             raise FedbiomedTrainingPlanError('model in None')
 
@@ -136,7 +131,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
         - history_monitor ([type], optional): [description]. Defaults to None.
         '''
-        print('sklearn training plan enter training routine core loop')
         for epoch in range(epochs):
             with _Capturer() as output:
                 # Fit model based on model type
@@ -148,7 +142,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                           str(e)
                     logger.critical(msg)
                     raise FedbiomedTrainingPlanError(msg)
-            print(output)
             # Logging training training outputs
             if history_monitor is not None:
                 if self._verbose_capture_option:
@@ -178,7 +171,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         - epoch: epoch number
         Returns: list[float]: list of loss captured in the output
         '''
-        print('sklearn training plan enter evaluate loss core')
         _loss_collector = []
         for line in output:
             if len(line.split("loss: ")) == 1:
@@ -408,15 +400,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         Returns:
             np.ndarray: support
         """
-        print('sklearn training plan enter compute-support')
         support = np.zeros((len(self.model.classes_),))
 
         # to see how multi classification is done in sklearn, please visit:
         # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L324   # noqa
         # https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09bcc2eaeba98f7e737aac2ac782f0e5f1/sklearn/linear_model/_stochastic_gradient.py#L738   # noqa
-        print('sklearn training plan, model.classes_ = ',self.model.classes_)
-        print('sklearn training plan, support = ',support)
-        print('target:',targets)
         for i, aclass in enumerate(self.model.classes_):
             # in sklearn code, in `fit_binary1`, `i`` seems to be
             # iterated over model.classes_
