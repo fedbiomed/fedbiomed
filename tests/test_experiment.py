@@ -804,20 +804,6 @@ class TestExperiment(unittest.TestCase):
             self.test_exp.set_training_args(expected_train_args, reset=False)
 
 
-    def test_experiment_14_clean_training_arguments(self):
-        """
-        Tests if training arguments can be cleaned using `clean_training_args`
-        """
-        # initalisation of test
-        some_training_args = {'batch_maxnum': 123}
-        self.test_exp.set_training_args(some_training_args)
-
-        # action
-        self.test_exp.clean_training_args()
-
-        self.assertNotIn(list(some_training_args.keys()), list(self.test_exp.training_args().keys()))
-
-
     def test_experiment_15_set_test_ratio(self):
         """
         Tests test_ratio setter `set_test_ratio`, correct uses and

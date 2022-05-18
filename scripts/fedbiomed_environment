@@ -178,14 +178,14 @@ case $1 in
         activate_network verbose
         ;;
 
-    node)
+    node|n)
         conda deactivate
         [[ -z "$FEDBIOMED_NO_RESET" ]] && { environment_reset ; }
         development_env $2
         activate_node verbose
         ;;
 
-    researcher)
+    researcher|r)
         conda deactivate
         [[ -z "$FEDBIOMED_NO_RESET" ]] && { environment_reset ; }
         development_env $2

@@ -1197,70 +1197,6 @@ class Experiment(object):
 
         return self._training_args
 
-        if isinstance(training_args, dict):
-            if reset or self._training_args is None:
-                # (re)start from minimal training arguments
-                self.clean_training_args()
-            self._training_args.update(training_args)
-
-            # verify the content of training args items with setters/validators,
-            # when the item and the validator exist
-            if 'test_ratio' in training_args:
-                self.set_test_ratio(training_args['test_ratio'])
-            if 'test_on_local_updates' in training_args:
-                self.set_test_on_local_updates(training_args['test_on_local_updates'])
-            if 'test_on_global_updates' in training_args:
-                self.set_test_on_global_updates(training_args['test_on_global_updates'])
-            if 'test_metric_args' in training_args and 'test_metric' not in training_args:
-                msg = ErrorNumbers.FB410.value + ' `test_metric_args` cannot be set ' + \
-                    'without setting a `test_metric`'
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
-            if 'test_metric' in training_args:
-                test_metric_args = training_args.get('test_metric_args', {})
-                try:
-                    self.set_test_metric(training_args['test_metric'], **test_metric_args)
-                except TypeError:
-                    msg = ErrorNumbers.FB410.value + ' `test_metric_args` expected a dict, ' + \
-                        f'got a {type(test_metric_args)}'
-                    logger.critical(msg)
-                    raise FedbiomedExperimentError(msg)
-        else:
-            # bad type
-            msg = ErrorNumbers.FB410.value + f' `training_args` : {type(training_args)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-            # self._training_args always exist at this point
-
-        if self._job is not None:
-            # job setter function exists, use it
-            self._job.training_args = self._training_args
-            logger.debug('Experimentation training_args updated for `job`')
-
-        return self._training_args
-
-    @exp_exceptions
-    def clean_training_args(self):
-        """ Cleans / resets training arguments `training_args` with default values.
-
-        !!! info "Default values after cleaning"
-
-            This method cleans training args by setting default value for required parameters. :
-             - test_ratio: 0.
-             - test_on_local_updates: False
-             - test_on_global_updates: False
-             - test_metric: None
-             - test_metric_args: to an empty dictionary
-        """
-        # minimal content for the training args
-        self._training_args = {
-            'test_ratio': .0,
-            'test_on_local_updates': False,
-            'test_on_global_updates': False,
-            # TODO: better default value ?
-            'test_metric': None,
-            'test_metric_args': {}
-        }
 
     @exp_exceptions
     def set_test_ratio(self, ratio: float) -> float:
@@ -2119,3 +2055,39 @@ class Experiment(object):
         # note: exceptions for `load_state` should be handled in training plan
 
         return object_instance
+
+
+
+    @exp_exceptions
+    def model_approve(self,
+                      model,
+                      description: str = "no description provided",
+                      nodes: list = [],
+                      timeout: int = 30) -> dict:
+        """Send a model and a ApprovalRequest message to node(s).
+
+        This is a simple redirect to the Requests.model_approve() method.
+
+        If a list of node id(s) is provided, the message will be individually sent
+        to all nodes of the list.
+        If the node id(s) list is None (default), the message is broadcast to all nodes.
+
+        Args:
+            model: the model to upload and send to the nodes for approval.
+                   It can be:
+                   - a path_name (str)
+                   - a model (class)
+                   - an instance of a model (TrainingPlan instance)
+            nodes: list of nodes (specified by their UUID)
+            timeout: maximum waiting time for the answers
+
+        Returns:
+            a dictionnary of pairs (node_id: status), where status indicates to the researcher
+            that the model has been correctly downloaded on the node side.
+            Warning: stauts does not mean that the model is approved, only that it has been added
+            to the "approval queue" on the node side.
+        """
+        return self._reqs.model_approve(model,
+                                        description,
+                                        nodes,
+                                        timeout)

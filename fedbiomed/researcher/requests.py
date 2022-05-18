@@ -2,17 +2,23 @@
 Implements the message exchanges from researcher to nodes
 """
 
+
+import inspect
 import json
+import os
+import re
 import tabulate
+import uuid
+
 from time import sleep
 from typing import Any, Dict, Callable
-import uuid
 
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.messaging import Messaging
+from fedbiomed.common.repository import Repository
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.tasks_queue import TasksQueue
 
@@ -53,6 +59,7 @@ class Requests(metaclass=SingletonMeta):
 
         self._monitor_message_callback = None
 
+
     def get_messaging(self) -> Messaging:
         """Retrieves Messaging object
 
@@ -60,6 +67,7 @@ class Requests(metaclass=SingletonMeta):
             Messaging object
         """
         return self.messaging
+
 
     def on_message(self, msg: Dict[str, Any], topic: str):
         """ Handler called by the [`Messaging`][fedbiomed.common.messaging] class,  when a message is received on
@@ -94,6 +102,7 @@ class Requests(metaclass=SingletonMeta):
         else:
             logger.error("message received on wrong topic (" + topic + ") - IGNORING")
 
+
     @staticmethod
     def print_node_log_message(log: Dict[str, Any]):
         """Prints logger messages coming from the node
@@ -117,6 +126,7 @@ class Requests(metaclass=SingletonMeta):
                                 original_msg["message"],
                                 5 * "-------------"))
 
+
     def send_message(self, msg: dict, client: str = None):
         """
         Ask the messaging class to send a new message (receivers are
@@ -128,6 +138,7 @@ class Requests(metaclass=SingletonMeta):
         """
         logger.debug(str(environ['RESEARCHER_ID']))
         self.messaging.send_message(msg, client=client)
+
 
     def get_messages(self, commands: list = [], time: float = .0) -> Responses:
         """Goes through the queue and gets messages with the specific command
@@ -161,6 +172,7 @@ class Requests(metaclass=SingletonMeta):
                 pass
 
         return Responses(answers)
+
 
     def get_responses(self,
                       look_for_commands: list,
@@ -199,6 +211,7 @@ class Requests(metaclass=SingletonMeta):
             responses += new_responses
         return Responses(responses)
 
+
     def ping_nodes(self) -> list:
         """ Pings online nodes
 
@@ -214,6 +227,7 @@ class Requests(metaclass=SingletonMeta):
         # TODO: (below, above) handle exceptions
         nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_commands=['ping'])]
         return nodes_online
+
 
     def search(self, tags: tuple, nodes: list = None) -> dict:
         """ Searches available data by tags
@@ -257,6 +271,7 @@ class Requests(metaclass=SingletonMeta):
             logger.info("No available dataset has found in nodes with tags: {}".format(tags))
 
         return data_found
+
 
     def list(self, nodes: list = None, verbose: bool = False) -> dict:
         """Lists available data in each node
@@ -303,6 +318,108 @@ class Requests(metaclass=SingletonMeta):
 
         return data_found
 
+
+    def model_approve(self,
+                      model,
+                      description: str = "no description provided",
+                      nodes: list = [],
+                      timeout: int = 30) -> dict:
+        """Send a model and a ApprovalRequest message to node(s).
+
+        If a list of node id(s) is provided, the message will be individually sent
+        to all nodes of the list.
+        If the node id(s) list is None (default), the message is broadcast to all nodes.
+
+
+        Args:
+            model: the model to upload and send to the nodes for approval.
+                   It can be:
+                   - a path_name (str)
+                   - a model (class)
+                   - an instance of a model (TrainingPlan instance)
+            nodes: list of nodes (specified by their UUID)
+            timeout: maximum waiting time for the answers
+
+        Returns:
+            a dictionnary of pairs (node_id: status), where status indicates to the researcher
+            that the model has been correctly downloaded on the node side.
+            Warning: stauts does not mean that the model is approved, only that it has been added
+            to the "approval queue" on the node side.
+        """
+
+        # first verify all arguments
+        if not isinstance(nodes, list):
+            logger.error("bad nodes argument, model not sent")
+            return {}
+
+        # verify the model and save it to a local file name if necessary
+        if isinstance(model, str):
+            # model is provided as a file
+            # TODO: verify that this file a a proper TrainingPlan
+            if os.path.isfile(model) and os.access(model, os.R_OK):
+                model_file = model
+            else:
+                logger.error(f"cannot access to the file ({model})")
+                return {}
+        else:
+            # we need a model instance in other cases
+            if inspect.isclass(model):
+                # case if `model` is a class
+                try:
+                    model_instance = model()
+                except Exception as e:  # TODO: be more specific
+                    logger.error(f"cannot instanciate the given model ({e})")
+                    return {}
+            else:
+                # also handle case where model is already an instance of a class
+                model_instance = model
+
+            # then save this instance to a file
+            model_file = os.path.join(environ['TMP_DIR'],
+                                      "model_" + str(uuid.uuid4()) + ".py")
+
+            try:
+                model_instance.save_code(model_file)
+            except Exception as e:  # TODO: be more specific
+                logger.error(f"Cannot save the model to a file ({e})")
+                logger.error(f"Are you sure that {model} is a TrainingPlan ?")
+                return {}
+
+        logger.debug(f"***** model file : {model_file}")
+
+        # create a repository instance and upload the model file
+        repository = Repository(environ['UPLOADS_URL'],
+                                environ['TMP_DIR'],
+                                environ['CACHE_DIR'])
+
+        upload_status = repository.upload_file(model_file)
+
+        print(f"**** upload_status: {upload_status}")
+
+        # send message to node(s)
+        message = ResearcherMessages.request_create(
+            {'researcher_id': environ['RESEARCHER_ID'],
+             'description': str(description),
+             'sequence': self._sequence,
+             'model_url': upload_status['file'],
+             'command': 'approval'}).get_dict()
+
+        if nodes:
+            # send message to each node
+            for n in nodes:
+                self.messaging.send_message(message, client = n)
+        else:
+            # broadcast message
+            self.messaging.send_message(message)
+
+        # wait for answers for a certain timeout
+        # TODO:
+        # - cannot implement without counter part (node side)
+
+        # return the answers
+        return {}
+
+
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
         """ Adds callback function for monitor messages
 
@@ -311,6 +428,7 @@ class Requests(metaclass=SingletonMeta):
         """
 
         self._monitor_message_callback = callback
+
 
     def remove_monitor_callback(self):
         """ Removes callback function for Monitor class. """
