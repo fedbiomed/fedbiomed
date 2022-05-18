@@ -45,9 +45,15 @@ class ModelTypes(_BaseEnum):
         REGISTERED: means model saved by a user/hospital/node
         DEFAULT: means model is default model provided by Fed-BioMed
     """
-
+    REQUESTED: str = 'requested'
     REGISTERED: str = 'registered'
     DEFAULT: str = 'default'
+
+
+class ModelApprovalStatus(_BaseEnum):
+    APPROVED: str = "Approved"
+    REJECTED: str = "Rejected"
+    PENDING: str = "Pending"
 
 
 class TrainingPlans(_BaseEnum):

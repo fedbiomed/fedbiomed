@@ -11,7 +11,7 @@ from tinydb import TinyDB, Query
 from typing import Any, Dict, List, Tuple
 import uuid
 
-from fedbiomed.common.constants import HashingAlgorithms, ModelTypes, ErrorNumbers
+from fedbiomed.common.constants import HashingAlgorithms, ModelApprovalStatus, ModelTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedModelManagerError, FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
@@ -103,7 +103,8 @@ class ModelManager:
                        description: str,
                        path: str,
                        model_type: str = 'registered',
-                       model_id: str = None
+                       model_id: str = None,
+                       researcher_id: str = None
                        ) -> True:
         """Approves/registers model file thourgh CLI.
 
@@ -159,8 +160,12 @@ class ModelManager:
             model_object = dict(name=name, description=description,
                                 hash=model_hash, model_path=path,
                                 model_id=model_id, model_type=model_type,
+                                status=ModelApprovalStatus.APPROVED.name,
                                 algorithm=algorithm, date_created=ctime,
                                 date_modified=mtime, date_registered=rtime)
+            
+            if researcher_id is not None:
+                model_object.update({'researcher_id': researcher_id})
             try:
                 self._db.insert(model_object)
             except ValueError as err:
@@ -182,7 +187,7 @@ class ModelManager:
         models = self._db.search(self._database.model_type.all('registered'))
         logger.info('Checking hashes for registered models...')
         if not models:
-            logger.info('There is no models registered')
+            logger.info('There are no models registered')
         else:
             for model in models:
                 # If model file is exists
@@ -248,6 +253,32 @@ class ModelManager:
             approved_model = None
 
         return approved, approved_model
+
+    def reply_model_approval_request(self, msg: dict, messaging: Messaging):
+        reply = {
+            'researcher_id': msg['researcher_id'],
+            'node_id': environ['NODE_ID'],
+           # 'model_url': msg['model_url'],
+            'sequence': msg['sequence'],
+            'command': 'approval',
+            'status': 0  # HTTP status (set by default to 0, non existing HTTP status code)
+        }
+
+        try:
+            model_name = "training_plan_" + str(uuid.uuid4().hex)
+            status, _ = self._repo.download_file(msg['model_url'], model_name + '.py')
+
+            reply['status'] = status
+
+            # check if model has already been registered into database
+            is_approved, _ = self.check_is_model_approved(os.path.join(environ["TMP_DIR"], model_name + '.py'))
+
+        except FedbiomedModelManagerError as fed_err:
+            logger.warning(f"Can not check whether model has already be registered or not due to error: {fed_err}")
+        except:
+            pass
+        # Send model approval acknowledge answer to researcher
+        messaging.send_message(NodeMessages.reply_create(reply).get_dict())
 
     def reply_model_status_request(self, msg: dict, messaging: Messaging):
         """Checks whether requested model file is approved or not and sends ModelStatusReply to

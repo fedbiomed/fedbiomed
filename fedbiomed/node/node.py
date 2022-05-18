@@ -129,6 +129,9 @@ class Node:
                      'databases': databases,
                      'count': len(databases),
                      }).get_dict())
+            elif command == 'approval':
+                # Ask for model approval 
+                self.model_manager.reply_model_approval_request(request, self.messaging)
             elif command == 'model-status':
                 # Check is model approved
                 self.model_manager.reply_model_status_request(request, self.messaging)

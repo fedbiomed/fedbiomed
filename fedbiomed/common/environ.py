@@ -255,6 +255,8 @@ class Environ(metaclass=SingletonMeta):
         self._values['DEFAULT_MODELS_DIR'] = os.path.join(ROOT_DIR,
                                                           'envs', 'common', 'default_models')
 
+        # default diectory for saving model approved / waiting for approval / rejected
+        self._values['MODEL_DIR'] = os.path.join(ROOT_DIR, 'envs', 'common', 'model')
         try:
             _cfg_value = cfg.get('security', 'allow_default_models')
         except configparser.Error:
