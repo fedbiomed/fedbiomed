@@ -217,6 +217,7 @@ class BIDSDataset(Dataset):
         return files
 
     def _get_from_demographics(self, subject_id):
+        """Extracts subject information from a particular subject in the form of a dictionary."""
         if self.tabular_file:
             demographics = self.demographics.loc[subject_id].to_dict()
             # Extract only compatible types for torch
