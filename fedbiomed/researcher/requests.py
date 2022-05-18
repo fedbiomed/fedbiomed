@@ -3,17 +3,22 @@ Implements the message exchanges from researcher to nodes
 """
 
 
+import inspect
 import json
+import os
+import re
 import tabulate
+import uuid
+
 from time import sleep
 from typing import Any, Dict, Callable
-import uuid
 
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.messaging import Messaging
+from fedbiomed.common.repository import Repository
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.tasks_queue import TasksQueue
 
@@ -312,6 +317,107 @@ class Requests(metaclass=SingletonMeta):
                                 " No data has been set up for this node.")
 
         return data_found
+
+
+    def model_approve(self,
+                      model,
+                      description: str = "no description provided",
+                      nodes: list = [],
+                      timeout: int = 30) -> dict:
+        """Send a model and a ApprovalRequest message to node(s).
+
+        If a list of node id(s) is provided, the message will be individually sent
+        to all nodes of the list.
+        If the node id(s) list is None (default), the message is broadcast to all nodes.
+
+
+        Args:
+            model: the model to upload and send to the nodes for approval.
+                   It can be:
+                   - a path_name (str)
+                   - a model (class)
+                   - an instance of a model (TrainingPlan instance)
+            nodes: list of nodes (specified by their UUID)
+            timeout: maximum waiting time for the answers
+
+        Returns:
+            a dictionnary of pairs (node_id: status), where status indicates to the researcher
+            that the model has been correctly downloaded on the node side.
+            Warning: stauts does not mean that the model is approved, only that it has been added
+            to the "approval queue" on the node side.
+        """
+
+        # first verify all arguments
+        if not isinstance(nodes, list):
+            logger.error("bad nodes argument, model not sent")
+            return {}
+
+        # verify the model and save it to a local file name if necessary
+        if isinstance(model, str):
+            # model is provided as a file
+            # TODO: verify that this file a a proper TrainingPlan
+            if os.path.isfile(model) and os.access(model, os.R_OK):
+                model_file = model
+            else:
+                logger.error(f"cannot access to the file ({model})")
+                return {}
+        else:
+            # we need a model instance in other cases
+            if inspect.isclass(model):
+                # case if `model` is a class
+                try:
+                    model_instance = model()
+                except Exception as e:  # TODO: be more specific
+                    logger.error(f"cannot instanciate the given model ({e})")
+                    return {}
+            else:
+                # also handle case where model is already an instance of a class
+                model_instance = model
+
+            # then save this instance to a file
+            model_file = os.path.join(environ['TMP_DIR'],
+                                      "model_" + str(uuid.uuid4()) + ".py")
+
+            try:
+                model_instance.save_code(model_file)
+            except Exception as e:  # TODO: be more specific
+                logger.error(f"Cannot save the model to a file ({e})")
+                logger.error(f"Are you sure that {model} is a TrainingPlan ?")
+                return {}
+
+        logger.debug(f"***** model file : {model_file}")
+
+        # create a repository instance and upload the model file
+        repository = Repository(environ['UPLOADS_URL'],
+                                environ['TMP_DIR'],
+                                environ['CACHE_DIR'])
+
+        upload_status = repository.upload_file(model_file)
+
+        print(f"**** upload_status: {upload_status}")
+
+        # send message to node(s)
+        message = ResearcherMessages.request_create(
+            {'researcher_id': environ['RESEARCHER_ID'],
+             'description': str(description),
+             'sequence': self._sequence,
+             'model_url': upload_status['file'],
+             'command': 'approval'}).get_dict()
+
+        if nodes:
+            # send message to each node
+            for n in nodes:
+                self.messaging.send_message(message, client = n)
+        else:
+            # broadcast message
+            self.messaging.send_message(message)
+
+        # wait for answers for a certain timeout
+        # TODO:
+        # - cannot implement without counter part (node side)
+
+        # return the answers
+        return {}
 
 
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
