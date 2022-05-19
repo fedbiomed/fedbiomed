@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Tuple
 import uuid
 
 from fedbiomed.common.constants import HashingAlgorithms, ModelApprovalStatus, ModelTypes, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedModelManagerError, FedbiomedRepositoryError
+from fedbiomed.common.exceptions import FedbiomedDatasetManagerError, FedbiomedModelManagerError, FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.messaging import Messaging
@@ -214,6 +214,9 @@ class ModelManager:
                                                          "database remove operation failed, with following error: ",
                                                          f"{str(err)}")
 
+    def check_is_model_requested(self, path: str) -> bool:
+        pass
+
     def check_is_model_approved(self, path: str) -> Tuple[bool, Dict[str, Any]]:
         """Checks whether model is approved by the node.
 
@@ -241,11 +244,13 @@ class ModelManager:
         # If node allows defaults models search hash for all model types
         # otherwise search only for `registered` models
         if environ['ALLOW_DEFAULT_MODELS']:
-            models = self._db.search(self._database.hash == req_model_hash)
+            _all_models_registered = (self._database.model_type != ModelTypes.REQUESTED.value)
+            # _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
+            # models = self._db.search(_all_models_registered & _all_models_which_have_req_hash)
         else:
-            _all_models_registered = (self._database.model_type == 'registered')
-            _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
-            models = self._db.search(_all_models_registered & _all_models_which_have_req_hash)
+            _all_models_registered = (self._database.model_type == ModelTypes.REGISTERED.value)
+        _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
+        models = self._db.search(_all_models_registered & _all_models_which_have_req_hash)
 
         if models:
             approved = True
@@ -276,6 +281,7 @@ class ModelManager:
         }
 
         is_approved = False
+        non_downaloadable = False
         try:
             #model_id = str(uuid.uuid4())
             model_name = "model_" + str(uuid.uuid4())
@@ -288,36 +294,49 @@ class ModelManager:
             model_to_check = self.create_py_model_from_txt(tmp_file)
             is_approved, _ = self.check_is_model_approved(model_to_check)
 
-
+        except FedbiomedRepositoryError as fed_err:
+            logger.error(f"Cannot download model from server due to error: {fed_err}")
+            reply['success'] = False
+            non_downaloadable = True
         except FedbiomedModelManagerError as fed_err:
             logger.error(f"Can not check whether model has already be registered or not due to error: {fed_err}")
 
-        if not is_approved:
-            # move model into corresponding directory
-            logger.info("Storing TrainingPlan into requested model...")
-            model_path = os.path.join(environ['MODEL_DIR'], model_name + '.py')
-            shutil.move(tmp_file, model_path)
+        if not is_approved and not non_downaloadable:
+            # move model into corresponding directory (from TMP_DIR to MODEL_DIR)
+            try:
+                logger.info("Storing TrainingPlan into requested model directory...")
+                model_path = os.path.join(environ['MODEL_DIR'], model_name + '.py')
+                shutil.move(tmp_file, model_path)
 
-            # Model file creation date
-            ctime = datetime.fromtimestamp(os.path.getctime(model_path)).strftime("%d-%m-%Y %H:%M:%S.%f")
+                # Model file creation date
+                ctime = datetime.fromtimestamp(os.path.getctime(model_path)).strftime("%d-%m-%Y %H:%M:%S.%f")
 
-            model_object = dict(name=model_name,
-                                description = msg['description'],
-                                model_path=model_path,
-                                model_id=model_name,
-                                model_type=ModelTypes.REQUESTED.value,
-                                model_status=ModelApprovalStatus.PENDING.value,
-                                algorithm=None,
-                                date_created=ctime, 
-                                date_modified=ctime,
-                                date_registered=None,
-                                researcher_id=msg['researcher_id']
-                                )
-            self._db.insert(model_object)
-        else:
+                model_hash, hash_algo = self._create_hash(model_to_check)
+                model_object = dict(name=model_name,
+                                    description = msg['description'],
+                                    hash=model_hash,
+                                    model_path=model_path,
+                                    model_id=model_name,
+                                    model_type=ModelTypes.REQUESTED.value,
+                                    model_status=ModelApprovalStatus.PENDING.value,
+                                    algorithm=hash_algo,
+                                    date_created=ctime, 
+                                    date_modified=ctime,
+                                    date_registered=None,
+                                    researcher_id=msg['researcher_id']
+                                    )
+                self._db.insert(model_object)
+                reply['success'] = True
+                logger.info("... Model successfully sent to Node for approval")
+            except (PermissionError, FileNotFoundError, OSError) as err:
+                reply['success'] = False
+                logger.error(f"Cannot save model into directory due to error : {err}")
+        elif is_approved and not non_downaloadable:
             logger.warning("Model has already been registered in database... aborting")
-                
-        reply['success'] = True
+            reply['success'] = True
+        else:
+            reply['success'] = False
+        
         # Send model approval acknowledge answer to researcher
         messaging.send_message(NodeMessages.reply_create(reply).get_dict())
 
