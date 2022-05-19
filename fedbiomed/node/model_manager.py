@@ -285,7 +285,7 @@ class ModelManager:
         reply = {
             'researcher_id': msg['researcher_id'],
             'node_id': environ['NODE_ID'],
-           # 'model_url': msg['model_url'],
+            # 'model_url': msg['model_url'],
             'sequence': msg['sequence'],
             'status': 0,  # HTTP status (set by default to 0, non existing HTTP status code)
             'command': 'approval'
@@ -294,7 +294,7 @@ class ModelManager:
         is_approved = False
         non_downaloadable = False
         try:
-            #model_id = str(uuid.uuid4())
+            # model_id = str(uuid.uuid4())
             model_name = "model_" + str(uuid.uuid4())
             status, _ = self._repo.download_file(msg['model_url'], model_name + '.py')
 

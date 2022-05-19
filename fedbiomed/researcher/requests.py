@@ -6,7 +6,6 @@ Implements the message exchanges from researcher to nodes
 import inspect
 import json
 import os
-import re
 import tabulate
 import uuid
 
@@ -445,7 +444,7 @@ class Requests(metaclass=SingletonMeta):
 
         # eventually complete the result with expected results
         for n in nodes:
-            if not n in result:
+            if n not in result:
                 result[n] = False
 
         # return the answers
