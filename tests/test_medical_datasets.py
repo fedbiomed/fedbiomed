@@ -9,7 +9,8 @@ import itk
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from monai.transforms import Identity
+from monai.data import ITKReader
+from monai.transforms import Transform, LoadImage, ToTensor, Compose, Identity
 
 from fedbiomed.common.data import NIFTIFolderDataset
 from fedbiomed.common.exceptions import FedbiomedDatasetError
@@ -30,6 +31,11 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
     def test_instantiation(self):
         _ = NIFTIFolderDataset(self.root)
+
+    def test_empty_folder_raises_error(self):
+        with self.assertRaises(FedbiomedDatasetError):
+            temp = tempfile.mkdtemp()
+            NIFTIFolderDataset(temp)
 
     def test_indexation(self):
         dataset = NIFTIFolderDataset(self.root)
@@ -93,18 +99,23 @@ class TestNIFTIFolderDataset(unittest.TestCase):
                 self.assertTrue(isinstance(input, torch.Tensor))
                 self.assertTrue(isinstance(target, int))
 
-                ## we should also test data is the same as synthetic dataset
-                ## but cannot do that with the current class methods
-                #
-                ## tensors are the same, with no transforms/target_transforms
-                #self.assertEqual(len(input), len(synt_input))
-                #self.assertTrue(torch.all(torch.eq(input, synth_input)))
-                #
-                # same for target
+                file_index = self.sample_paths.index(str(dataset.files()[index]))
+                # check that targets match (need to compare label string as ordering may differ)
+                self.assertEqual(dataset.labels()[target], self.class_names[self.sample_class[file_index]])
+
+                # check that the input match (read content)
+                # don't apply transformation as we're only doing idle transform
+                synth_input_func = Compose([
+                    LoadImage(ITKReader(), image_only=True),
+                    ToTensor()
+                ])
+                synth_input = synth_input_func(self.sample_paths[file_index])
+                self.assertTrue(torch.all(torch.eq(input, synth_input)))
 
             # check we read all the samples
             self.assertEqual(index + 1, sum(self.n_samples))
 
+    # not really a unit test belonging to this class, but nice to have it => ok ?
     def test_dataloader(self):
         dataset = NIFTIFolderDataset(self.root)
         batch_size = len(dataset) // 2
@@ -113,11 +124,6 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
         self.assertEqual(len(targets), batch_size)
         self.assertEqual(len(img_batch), batch_size)
-
-    def test_empty_folder_raises_error(self):
-        with self.assertRaises(FedbiomedDatasetError):
-            temp = tempfile.mkdtemp()
-            NIFTIFolderDataset(temp)
 
     def _create_synthetic_dataset(self):
         self.class_names = []
