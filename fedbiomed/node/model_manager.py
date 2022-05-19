@@ -215,7 +215,18 @@ class ModelManager:
                                                          f"{str(err)}")
 
     def check_is_model_requested(self, path: str) -> bool:
-        pass
+        # Create hash for requested model
+        req_model_hash, _ = self._create_hash(path)
+        self._db.clear_cache()
+        _all_requested_model = (self._database.model_type == ModelTypes.REQUESTED.value)
+        _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
+        models = self._db.search(_all_requested_model & _all_models_which_have_req_hash)
+        if models:
+            requested = True
+        else:
+            requested = False
+
+        return requested
 
     def check_is_model_approved(self, path: str) -> Tuple[bool, Dict[str, Any]]:
         """Checks whether model is approved by the node.
@@ -293,6 +304,7 @@ class ModelManager:
             tmp_file = os.path.join(environ["TMP_DIR"], model_name + '.py')
             model_to_check = self.create_py_model_from_txt(tmp_file)
             is_approved, _ = self.check_is_model_approved(model_to_check)
+            is_requested = self.check_is_model_requested(model_to_check)
 
         except FedbiomedRepositoryError as fed_err:
             logger.error(f"Cannot download model from server due to error: {fed_err}")
@@ -301,10 +313,10 @@ class ModelManager:
         except FedbiomedModelManagerError as fed_err:
             logger.error(f"Can not check whether model has already be registered or not due to error: {fed_err}")
 
-        if not is_approved and not non_downaloadable:
+        if not is_approved  and not non_downaloadable:
             # move model into corresponding directory (from TMP_DIR to MODEL_DIR)
             try:
-                logger.info("Storing TrainingPlan into requested model directory...")
+                logger.debug("Storing TrainingPlan into requested model directory...")
                 model_path = os.path.join(environ['MODEL_DIR'], model_name + '.py')
                 shutil.move(tmp_file, model_path)
 
@@ -325,9 +337,15 @@ class ModelManager:
                                     date_registered=None,
                                     researcher_id=msg['researcher_id']
                                     )
-                self._db.insert(model_object)
+                # if is_requested:
+                #     self._db.update(model_object)
+                # else:
+                #     self._db.insert(model_object)
+                self._db.upsert(model_object, self._database.hash == model_hash)
+                # `upsert` stands for update and insert in TinyDB. This prevents any duplicate
+                # if same model is sent twice to Node for approval
                 reply['success'] = True
-                logger.info("... Model successfully sent to Node for approval")
+                logger.debug("... Model successfully recieved by Node for approval")
             except (PermissionError, FileNotFoundError, OSError) as err:
                 reply['success'] = False
                 logger.error(f"Cannot save model into directory due to error : {err}")
@@ -335,6 +353,7 @@ class ModelManager:
             logger.warning("Model has already been registered in database... aborting")
             reply['success'] = True
         else:
+            # case where model is non-downloadable
             reply['success'] = False
         
         # Send model approval acknowledge answer to researcher
