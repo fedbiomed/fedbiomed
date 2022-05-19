@@ -385,7 +385,7 @@ class Requests(metaclass=SingletonMeta):
                 logger.error(f"Are you sure that {model} is a TrainingPlan ?")
                 return {}
 
-        logger.debug(f"***** model file : {model_file}")
+        logger.debug(f"model_approve: model file = {model_file}")
 
         # create a repository instance and upload the model file
         repository = Repository(environ['UPLOADS_URL'],
@@ -394,13 +394,15 @@ class Requests(metaclass=SingletonMeta):
 
         upload_status = repository.upload_file(model_file)
 
-        print(f"**** upload_status: {upload_status}")
+        logger.debug(f"model_approve: upload_status = {upload_status}")
 
         # send message to node(s)
+        sequence = self._sequence   # store the sequence for reply filtering
+        self._sequence += 1
         message = ResearcherMessages.request_create(
             {'researcher_id': environ['RESEARCHER_ID'],
              'description': str(description),
-             'sequence': self._sequence,
+             'sequence': sequence,
              'model_url': upload_status['file'],
              'command': 'approval'}).get_dict()
 
@@ -413,13 +415,25 @@ class Requests(metaclass=SingletonMeta):
             self.messaging.send_message(message)
 
         # wait for answers for a certain timeout
-        # TODO:
-        # - cannot implement without counter part (node side)
+        result = {}
+        for resp in self.get_responses(look_for_commands=['approval'],
+                                       timeout = timeout):
+            print( "*** resp = ", resp)
+            if sequence != resp['sequence']:
+                logger.error("received an approval_reply with wrong sequence, ignoring it")
+                continue
 
-        for resp in self.get_responses(look_for_commands=['approval'], timeout=timeout):
-            print( "resp", resp)
+            n = resp['node_id']
+            s = resp['success']
+            result[n] = s
+
+        # eventually complete the result with expected results
+        for n in nodes:
+            if not n in result:
+                result[n] = False
+
         # return the answers
-        return {}
+        return result
 
 
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
