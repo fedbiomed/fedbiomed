@@ -5,6 +5,7 @@ import {connect, useDispatch} from "react-redux"
 import FileBrowser from "../../components/common/FileBrowser";
 import {setFolderPath, setFolderRefColumn, setReferenceCSV} from "../../store/actions/bidsDatasetActions"
 import {SelectiveTable} from "../../components/common/Tables";
+import {Label, Tag, Text, TextArea} from "../../components/common/Inputs";
 
 
 
@@ -74,9 +75,48 @@ const BidsStandard = (props) => {
                         style={{maxHeight:350}}
                         table={props.bidsDataset.reference_csv.data}
                         onSelect={setReferenceFolderIDColumn}
-                        selectedLabel={"FolderID"}
+                        selectedLabel={"Folder Name"}
                         selectedColIndex={props.bidsDataset.folder_ref_column.index}
                     />
+                </Step>
+            ) : null }
+
+            {props.bidsDataset.folder_ref_column.name != null ? (
+                <Step
+                    key={4}
+                    disable={stepCount > 0 ? false : true}
+                    step={4}
+                    desc={'Please enter following informations'}
+                >
+                    <div className="row">
+                        <div className="form-control" >
+                            <Label>Dataset Name <span style={{fontSize:11}}>(min 4 character)</span>
+                            </Label>
+                            <Text
+                                name={"name"}
+                                type="text"
+                                placeholder="Enter name for dataset"
+                            />
+                        </div>
+                        <div className="form-control" >
+                            <Label>Enter tags for dataset <span style={{fontSize:11}}>(Please press enter or space to register tag)</span></Label>
+                            <Tag
+                                name={"tags"}
+                                type="text"
+                                placeholder="Enter tags"
+                            />
+
+                        </div>
+                    </div>
+                    <div className={`row`}>
+                        <div className="form-control">
+                            <Label>Description <span style={{fontSize:11}}>(min 4 character)</span> </Label>
+                            <TextArea name="desc"
+                                      type="text"
+                                      placeholder="Please type a description for dataset"
+                            />
+                        </div>
+                    </div>
                 </Step>
             ) : null }
 

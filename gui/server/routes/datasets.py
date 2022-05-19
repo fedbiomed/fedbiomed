@@ -381,9 +381,11 @@ def get_csv_data():
     try:
         df = dataset_manager.read_csv(data_path)
         rows = df.shape[0]
+        df.fillna("NULL", inplace=True)
         data_preview = df.iloc[0:30, :].to_dict('split')
         data_preview.update({"samples": rows, "displays": 30})
     except Exception as e:
+        print(e)
         return error(f"Can not read given data file please make sure the format "
                      f"is one of csv, tsv or txt: {e}"), 400
 

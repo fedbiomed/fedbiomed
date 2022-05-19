@@ -109,6 +109,7 @@ export const SelectiveTable = (props) => {
     const handleTableColumnClick = (event) => {
         let index  = getIndex(event)
         setActiveColIndex(index)
+        console.log(index)
         if(props.onSelect){
             props.onSelect(index)
         }
@@ -129,21 +130,23 @@ export const SelectiveTable = (props) => {
             <div style={props.style} className={styles.table_wrapper}>
                 <div className={styles.wrapper_inner}>
                     <table ref={tableRef} className={styles.dataTable}>
-                        <tbody>
-                            <TableHead
-                                table={props.table}
-                                hoverColumns={true}
-                                hoverColIndex={hoverColIndex}
-                                activeColIndex={activeColIndex}
-                                selectedLabel={props.selectedLabel}
-                            />
-                            <TableRows
-                                table={props.table}
-                                hoverColumns={true}
-                                hoverColIndex={hoverColIndex}
-                                activeColIndex={activeColIndex}
-                            />
-                        </tbody>
+                            <thead className={props.theadClassName} style={props.theadStyle}>
+                                <TableHead
+                                    table={props.table}
+                                    hoverColumns={true}
+                                    hoverColIndex={hoverColIndex}
+                                    activeColIndex={activeColIndex}
+                                    selectedLabel={props.selectedLabel}
+                                />
+                            </thead>
+                            <tbody className={props.tbodyClassName} style={props.tbodyStyle} >
+                                <TableRows
+                                    table={props.table}
+                                    hoverColumns={true}
+                                    hoverColIndex={hoverColIndex}
+                                    activeColIndex={activeColIndex}
+                                />
+                            </tbody>
                     </table>
 
                 </div>
@@ -164,28 +167,30 @@ export const SelectiveTable = (props) => {
  */
 const TableHead = (props) => {
     return (
-        <tr>
-            {props.table.columns.map((item, key) => {
-                if(props.hoverColumns){
-                    return <th className={props.hoverColIndex === key ||
-                                            props.activeColIndex === key ?
-                                                styles.activeCol : null}
-                                key={key}>
-                                <React.Fragment>
-                                    {props.activeColIndex === key ? (
-                                        <span className={styles.selectedLabel}>
-                                            {props.selectedLabel ? props.selectedLabel : 'Selected'}
-                                        </span>
-                                    ) : null }
-                                    {item}
-                                </React.Fragment>
+            <tr>
+                {props.table.columns.map((item, key) => {
 
-                            </th>
-                }else{
-                   return <th key={key}>{item}</th>
-                }
-            })}
-        </tr>
+                    if(props.hoverColumns){
+                        return <th className={props.hoverColIndex === key ||
+                                                    props.activeColIndex === key ?
+                                                        styles.activeCol : null}
+                                    key={key}>
+                                    <React.Fragment>
+                                        {props.activeColIndex === key ? (
+                                            <span className={styles.selectedLabel}>
+                                                {props.selectedLabel ? props.selectedLabel : 'Selected'}
+                                            </span>
+                                        ) : null }
+                                        {item}
+                                    </React.Fragment>
+                                </th>
+
+                    }else{
+                       return <th key={key}>{item}</th>
+                    }
+
+                })}
+            </tr>
     )
 }
 
@@ -202,30 +207,30 @@ const TableRows = (props) => {
     return (
         <React.Fragment>
             {props.table.data.map((row, key) => {
-                return(
-                    <tr className={props.className}>
+                    return(
+                        <tr className={props.className}>
 
-                            <React.Fragment>
-                                {row.map((col, key_col) => {
-                                    if(props.hoverColumns){
-                                        return(
-                                            <td className={props.hoverColIndex === key_col ||
-                                                            props.activeColIndex === key_col ?
-                                                                styles.activeCol : null}
-                                                key={`td-${key_col}`}>
-                                                {col.toString().substring(0,12)}
-                                            </td>
-                                        )
-                                    }else{
-                                         <td key={`td-${key_col}`}>{col.toString().substring(0,12)}</td>
-                                    }
+                                <React.Fragment>
+                                    {row.map((col, key_col) => {
+                                        if(props.hoverColumns){
+                                            return(
+                                                <td className={props.hoverColIndex === key_col ||
+                                                                props.activeColIndex === key_col ?
+                                                                    styles.activeCol : null}
+                                                    key={`td-${key_col}`}>
+                                                    {col.toString().substring(0,12)}
+                                                </td>
+                                            )
+                                        }else{
+                                             <td key={`td-${key_col}`}>{col.toString().substring(0,12)}</td>
+                                        }
 
-                                })}
-                            </React.Fragment>
+                                    })}
+                                </React.Fragment>
 
-                    </tr>
-                 )
-            })}
+                        </tr>
+                     )
+                })}
         </React.Fragment>
 
     )
