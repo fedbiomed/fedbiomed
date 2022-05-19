@@ -165,7 +165,7 @@ class ModelManager:
                                 algorithm=algorithm, date_created=ctime,
                                 date_modified=mtime, date_registered=rtime,
                                 researcher_id=None)
-            
+
             if researcher_id is not None:
                 model_object.update({'researcher_id': researcher_id})
             try:
@@ -187,7 +187,7 @@ class ModelManager:
 
         self._db.clear_cache()
         models = self._db.search(self._database.model_type.all('registered'))
-        logger.info('Checking hashes for registered models...')
+        logger.info('Checking hashes for registered models')
         if not models:
             logger.info('There are no models registered')
         else:
@@ -273,7 +273,7 @@ class ModelManager:
         return approved, approved_model
 
     def create_py_model_from_txt(self, model_path: str) -> str:
-        # remove '*.py' extension of `model_path` and rename it into `*.txt` 
+        # remove '*.py' extension of `model_path` and rename it into `*.txt`
         model_path_txt, _ = os.path.splitext(model_path)
         model_path_txt += '.txt'
 
@@ -316,7 +316,7 @@ class ModelManager:
         if not is_approved  and not non_downaloadable:
             # move model into corresponding directory (from TMP_DIR to MODEL_DIR)
             try:
-                logger.debug("Storing TrainingPlan into requested model directory...")
+                logger.debug("Storing TrainingPlan into requested model directory")
                 model_path = os.path.join(environ['MODEL_DIR'], model_name + '.py')
                 shutil.move(tmp_file, model_path)
 
@@ -332,7 +332,7 @@ class ModelManager:
                                     model_type=ModelTypes.REQUESTED.value,
                                     model_status=ModelApprovalStatus.PENDING.value,
                                     algorithm=hash_algo,
-                                    date_created=ctime, 
+                                    date_created=ctime,
                                     date_modified=ctime,
                                     date_registered=None,
                                     researcher_id=msg['researcher_id']
@@ -345,17 +345,17 @@ class ModelManager:
                 # `upsert` stands for update and insert in TinyDB. This prevents any duplicate
                 # if same model is sent twice to Node for approval
                 reply['success'] = True
-                logger.debug("... Model successfully recieved by Node for approval")
+                logger.debug("Model successfully received by Node for approval")
             except (PermissionError, FileNotFoundError, OSError) as err:
                 reply['success'] = False
                 logger.error(f"Cannot save model into directory due to error : {err}")
         elif is_approved and not non_downaloadable:
-            logger.warning("Model has already been registered in database... aborting")
+            logger.warning("Model has already been registered in database. aborting")
             reply['success'] = True
         else:
             # case where model is non-downloadable
             reply['success'] = False
-        
+
         # Send model approval acknowledge answer to researcher
         messaging.send_message(NodeMessages.reply_create(reply).get_dict())
 
@@ -367,7 +367,7 @@ class ModelManager:
 
         Args:
             msg: Message that is received from researcher. Formatted as ModelStatusRequest
-            messaging: MQTT client to send reply  to researcher     
+            messaging: MQTT client to send reply  to researcher
         """
 
         # Main header for the model status request
@@ -604,7 +604,7 @@ class ModelManager:
 
         Args:
             verbose: When it is True, print list of model in tabular format.
-                Default is True. 
+                Default is True.
 
         Returns:
             A list of models that have
