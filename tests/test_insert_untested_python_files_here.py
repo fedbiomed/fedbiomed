@@ -30,8 +30,9 @@ import fedbiomed.common.singleton
 import fedbiomed.common.tasks_queue
 import fedbiomed.common.training_plans.__init__
 import fedbiomed.common.training_plans._base_training_plan
-import fedbiomed.common.training_plans._fedbiosklearn
 import fedbiomed.common.training_plans._torchnn
+import fedbiomed.common.training_plans._sklearn_training_plan
+import fedbiomed.common.training_plans._sklearn_models
 import fedbiomed.common.utils
 import fedbiomed.node.__init__
 import fedbiomed.node.cli
