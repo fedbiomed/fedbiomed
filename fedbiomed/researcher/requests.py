@@ -404,8 +404,6 @@ class Requests(metaclass=SingletonMeta):
             logger.error(f"This file is not a python file ({e})")
             return {}
 
-        logger.debug(f"model_approve: model file = {model_file}")
-
         # create a repository instance and upload the model file
         repository = Repository(environ['UPLOADS_URL'],
                                 environ['TMP_DIR'],
