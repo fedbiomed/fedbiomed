@@ -15,10 +15,25 @@ from testsupport.fake_responses import FakeResponses
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import TasksQueue
+from fedbiomed.common.training_plans import TorchTrainingPlan
 
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.monitor import Monitor
+
+
+
+# for test_request_13_model_approve
+class TrainingPlanGood(TorchTrainingPlan):
+    pass
+
+class TrainingPlanBad():
+    pass
+
+class TrainingPlanCannotInstanciate(TorchTrainingPlan):
+    def __init__(self):
+        x = unknown_method()
+    pass
 
 
 class TestRequests(unittest.TestCase):
@@ -484,6 +499,8 @@ class TestRequests(unittest.TestCase):
         self.assertIsNone(self.requests._monitor_message_callback, "Monitor callback hasn't been removed")
 
 
+
+
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     def test_request_13_model_approve(self,
@@ -517,6 +534,20 @@ class TestRequests(unittest.TestCase):
                                              "this is not a python file !!",
                                              timeout = 2,
                                              nodes = "and not a list of UUIDs"
+                                             )
+        self.assertDictEqual( result, {} )
+
+        # model is not a TrainingPlan
+        result = self.requests.model_approve(TrainingPlanBad,
+                                             "not a training plan !!",
+                                             timeout = 2
+                                             )
+        self.assertDictEqual( result, {} )
+
+        # another wrong model
+        result = self.requests.model_approve(TrainingPlanCannotInstanciate,
+                                             "cannot instanciate",
+                                             timeout = 2
                                              )
         self.assertDictEqual( result, {} )
 
@@ -626,6 +657,50 @@ class TestRequests(unittest.TestCase):
         keys = list(result.keys())
         self.assertTrue( result[keys[0]] )
 
+
+        # send a proper TrainingPlan
+        model = TrainingPlanGood
+        self.requests._sequence = 112233
+        mock_get_responses.return_value = [
+            {'command': 'approval',
+             'node_id': 'dummy-id-1',
+             'success': True,
+             'sequence': 112233 }
+        ]
+        mock_upload_file.return_value={
+            "node_id": "dummy-id-1",
+            "url": "fake_url",
+            "file": "fake_file",
+            "success": True
+        }
+        result = self.requests.model_approve(model,
+                                             "model is a TrainingPlan subclass",
+                                             timeout = 2
+                                             )
+        keys = list(result.keys())
+        self.assertTrue( result[keys[0]] )
+
+        # send an instance of TrainingPlan
+        model = TrainingPlanGood()
+        self.requests._sequence = 112233
+        mock_get_responses.return_value = [
+            {'command': 'approval',
+             'node_id': 'dummy-id-1',
+             'success': True,
+             'sequence': 112233 }
+        ]
+        mock_upload_file.return_value={
+            "node_id": "dummy-id-1",
+            "url": "fake_url",
+            "file": "fake_file",
+            "success": True
+        }
+        result = self.requests.model_approve(model,
+                                             "model is a TrainingPlan instance",
+                                             timeout = 2
+                                             )
+        keys = list(result.keys())
+        self.assertTrue( result[keys[0]] )
 
 
 if __name__ == '__main__':  # pragma: no cover
