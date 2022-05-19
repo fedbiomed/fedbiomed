@@ -2044,6 +2044,7 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             sequence=100,
             status=200,
+            success=True,
             command='do_it')
 
         # all these test should fail (bad number of args arguments or bad type)
@@ -2062,6 +2063,7 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             sequence=100,
             status=200,
+            success=True,
             command='do_it',
             extra_arg='this will break'
         )
@@ -2074,6 +2076,7 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             sequence=100,
             status=200,
+            success=True,
             command='do_it')
 
         self.check_class_args(
@@ -2084,6 +2087,7 @@ class TestMessage(unittest.TestCase):
             node_id=False,
             sequence=100,
             status=200,
+            success=True,
             command='do_it')
 
         self.check_class_args(
@@ -2094,6 +2098,7 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             sequence="not an int",
             status=200,
+            success=True,
             command='do_it')
 
         self.check_class_args(
@@ -2104,6 +2109,7 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             sequence=100,
             status="not an int",
+            success=True,
             command='do_it')
 
         self.check_class_args(
@@ -2114,7 +2120,19 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             sequence=100,
             status=200,
+            success=True,
             command=False)
+
+        self.check_class_args(
+            message.ApprovalReply,
+            expected_result=False,
+
+            researcher_id='toto',
+            node_id='titi',
+            sequence=100,
+            status=200,
+            success="not a bool",
+            command='do_it')
 
 
 
@@ -2140,6 +2158,7 @@ class TestMessage(unittest.TestCase):
             "node_id": 'titi',
             "sequence": 12345,
             "status": 200,
+            "success": True,
             "command": "approval"
 
         }
