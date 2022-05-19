@@ -17,12 +17,15 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.metrics import Metrics
 from ._base_training_plan import BaseTrainingPlan
 
+from opacus import PrivacyEngine 
+from opacus.validators import ModuleValidator
+
 
 class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
     """Implements  TrainingPlan for torch NN framework
 
     An abstraction over pytorch module to run pytorch models and scripts on node side. Researcher model (resp. params)
-    will be
+    will be:
 
     1. saved  on a '*.py' (resp. '*.pt') files,
     2. uploaded on a HTTP server (network layer),
@@ -41,7 +44,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         """ Construct training plan
 
         Args:
-            model_args: model arguments. Items used in this class build time
+            model_args (dict): model arguments. Items used in this class build time. Defaults to {} (empty
+            dictionary)
         """
 
         super().__init__()
@@ -84,7 +88,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # Aggregated model parameters
         self.init_params = None
 
-    def type(self):
+        # Empty DP dictionary 
+        self.DP = {}
+
+    def type(self) -> TrainingPlans.TorchTrainingPlan:
         """ Gets training plan type"""
         return self.__type
 
@@ -153,8 +160,9 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          batch_maxnum: int = 0,
                          dry_run: bool = False,
                          use_gpu: Union[bool, None] = None,
-                         fedprox_mu: float =None,
-                         history_monitor: Any =None,
+                         fedprox_mu: float = None,
+                         dp_args: dict = {},
+                         history_monitor: Any = None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
         # FIXME 2: remove parameters specific for testing specified in the
@@ -165,7 +173,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         - a `training_data()` function defining how sampling / handling data in node's dataset is done. It should
             return a generator able to output tuple (batch_idx, (data, targets)) that is iterable for each batch.
-        - a `training_step()` function defining how cost is computed. It should output model error for model backpropagation.
+        - a `training_step()` function defining how cost is computed. It should output model error for model
+        backpropagation.
 
         Args:
             epochs: Number of epochs (complete pass on data).
@@ -186,21 +195,29 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU. Default False.
         """
-        self.train()  # pytorch switch for training
+
+        if dp_args:
+            self.initialize_dp(dp_args)
 
         # set correct type for node args
         if not isinstance(node_args, dict):
             node_args = {}
 
+        if self.optimizer is None:
+            self.make_optimizer(lr)
+
+        if self.DP:
+            # Add __preprocess_ldp as preprocess 
+            self.add_preprocess(method=self.__preprocess_ldp, process_type=ProcessTypes.DATA_LOADER)
+
+        # Run preprocess when everything is ready before the training
+        self.__preprocess()
+
         self._set_device(use_gpu, node_args)
         # send all model to device, ensures having all the requested tensors
         self.to(self.device)
 
-        if self.optimizer is None:
-            self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
-
-        # Run preprocess when everything is ready before the training
-        self.__preprocess()
+        self.train()  # pytorch switch for training
 
         # Initialize training data that comes from Round class
         # TODO: Decide whether it should attached to `self`
@@ -238,6 +255,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 res.backward()
 
                 self.optimizer.step()
+
+                if self.DP:
+                    # To be used by the nodes to assess budget locally
+                    eps, alpha = self.privacy_engine.accountant.get_privacy_spent(delta=.1/len(self.training_data_loader))
 
                 # do not take into account more than batch_maxnum
                 # batches from the dataset
@@ -434,19 +455,121 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         try:
             # Check whether postprocess method exists, and use it
             logger.debug("running model.postprocess() method")
-            return self.postprocess(self.state_dict())  # Post process
+            post_params = self.postprocess(self.state_dict())  # Post process
+            if self.DP:
+                return self.postprocess_dp(post_params) 
+            return post_params
         except AttributeError:
             # Method does not exist; skip
             logger.debug("model.postprocess() method not provided")
-            pass
+            if self.DP:
+                return self.postprocess_dp(self.state_dict())
+            else: 
+                pass
 
         return self.state_dict()
 
-    def __norm_l2(self) -> float:
-        """Regularize L2 that is used by FedProx optimization
+    def initialize_dp(self, dp_args: dict):
+        """Initialize arguments to perform DP training, and check that the user
+        has correctly provided all requested DP parameters in the correct form
+
+        Args:
+            dp_args (dict, optional): DP parameters provided by the user
+        """
+
+        self.DP = dp_args
+
+        print('############### Initializing DP##################')
+
+        assert 'type' in self.DP,  "DP 'type' not provided"
+        assert 'sigma' in self.DP, "DP 'sigma' parameter not provided"
+        assert 'clip' in self.DP,  "DP 'clip' parameter not provided"
+        assert  self.DP['type'] in ['central','local'], "DP strategy unknown"
+
+        if self.DP['type'] == 'local':
+            try:
+                float(self.DP['sigma'])
+            except ValueError:
+                msg = ErrorNumbers.FB605.value + ": 'sigma'  parameter requested is not a float"
+                logger.critical(msg)
+                raise FedbiomedTrainingPlanError(msg)
+        else:
+            self.DP.update(sigma_CDP=dp_args['sigma'])
+            self.DP['sigma'] = 0. 
+        try:
+            float(self.DP['clip'])
+        except ValueError:
+            msg = ErrorNumbers.FB605.value + ": 'clip'  parameter requested is not a float"
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
+
+
+    def postprocess_dp(self, params: dict) -> dict:
+        """
+        Postprocess of model's parameters after training with DP.
+
+        Postprocess of DP parameters implies:
+        - If central DP is enabled, model's parameters are perturbed
+             according to the provided DP parameters
+        - When the Opacus `PrivacyEngine` is attached to the model, 
+            parameters' names are modified by the addition of `_module.`. 
+            This modification should be undone before communicating to the master
+            for aggregation. This is needed in order to correctly perform 
+            download/upload of model's parameters in the following rounds
+
+        Args:
+            params (dict): optimized parameters
 
         Returns:
-            L2 norm of model parameters (before local training)
+            dict containing (postprocessed) parameters
+
+        Exceptions:
+            none
+        """
+
+        if self.DP['type'] == 'central':
+            delta_params = {}
+            perturbed_params = {}
+            for name, param in params.items():
+
+                ###
+                ### Extracting the update
+                ###
+                delta_theta = params[name] - self.init_params[name]
+                delta_params[name] = delta_theta
+
+                for key in delta_params.keys():
+                    delta_theta_tilde = delta_params[key] \
+                            + torch.sqrt(torch.tensor([2]))*self.DP['sigma_CDP']*self.DP['clip'] * torch.randn_like(delta_params[key])
+                    perturbed_params[key]=self.init_params[key] + delta_theta_tilde
+            params = perturbed_params 
+
+        params_keys = list(params.keys())
+        for key in params_keys:
+            if '_module' in key:
+                newkey = key.replace('_module.', '')
+                params[newkey] = params.pop(key)
+
+        return params
+    
+    def make_optimizer(self,lr: float):
+        """
+        Method to define the desired optimizer as class attribute `self.optimizer`.
+        
+        The default optimizer for torch NN models is `torch.optim.Adam`.
+        The user can overwrite this method to provide a custom optimizer.
+
+        Args:
+            lr (float): learning rate
+        """
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+
+    def __norm_l2(self) -> float:
+        """
+        Used by FedProx optimization: evaluate L2 norm of model parameters
+
+        Returns:
+            norm (float): L2 norm of model parameters
         """
         norm = 0
         for key, val in self.state_dict().items():
@@ -464,6 +587,34 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             else:
                 logger.error(f"Process `{process_type}` is not implemented for `TorchTrainingPlan`. Preprocess will "
                              f"be ignored")
+
+    def __preprocess_ldp(self, data_loader):
+        """
+        Method to enable DP training using Opacus.
+        
+        This method is executed before starting the training epochs loop any time
+        the DP training is enabled. DP training is done here by using the `Opacus`
+        `PrivacyEngine`. Further information are available in the 
+        [Opacus webpage](https://opacus.ai/api/privacy_engine.html)
+
+        Args:
+            data_loader
+
+        Returns:
+            data_loader
+        """
+
+        # enter PrivacyEngine
+        self.privacy_engine = PrivacyEngine()
+        self.model, self.optimizer, data_loader = self.privacy_engine.make_private(module=self.model,
+                                                                              optimizer=self.optimizer,
+                                                                              data_loader = data_loader,
+                                                                              noise_multiplier=self.DP.get('sigma'),
+                                                                              max_grad_norm=self.DP.get('clip')
+                                                                    )
+        
+        return data_loader
+
 
     def __process_data_loader(self, method: Callable):
         """Process handler for data loader kind processes.
