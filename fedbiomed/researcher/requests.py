@@ -448,11 +448,8 @@ class Requests(metaclass=SingletonMeta):
                 logger.info(f"node ({n}) has not correctly downloaded the model")
 
         # print info to the user regarding the result
-        if not result:
-            logger.info("no nodes have acknowledged model reception before the timeout")
-        else:
-            if not any(result.values()):
-                logger.info("no nodes node has not acknowledge model reception before the timeout")
+        if not result or not any(result.values()):
+            logger.info("no nodes have acknowledged correct model reception before the timeout")
 
         # eventually complete the result with expected results
         # (if the message was sent to sepcific nodes)
