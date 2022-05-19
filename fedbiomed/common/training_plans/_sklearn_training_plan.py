@@ -1,11 +1,12 @@
-'''
-TrainingPlan definition for sklearn ML framework
-'''
+"""TrainingPlan definitions for sklearn ML framework
+
+This module implements the base class for all implementations of Fed-BioMed wrappers around scikit-learn models.
+"""
 
 import sys
 import numpy as np
 
-from typing import Any, Dict, Union, Callable
+from typing import Any, Dict, Union, Callable, TYPE_CHECKING
 from io import StringIO
 from joblib import dump, load
 
@@ -17,11 +18,13 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.utils import get_method_spec
 
+if TYPE_CHECKING:
+    from fedbiomed.node.history_monitor import HistoryMonitor  # just needed for typing
+
 
 class _Capturer(list):
-    """
-    Capturing class for output of the scikit-learn models during training
-    when the verbose is set to true.
+    """Capturing class for the console output of the scikit-learn models during training
+    when verbose is set to true.
     """
 
     def __enter__(self):
@@ -36,11 +39,16 @@ class _Capturer(list):
         sys.stdout = self._stdout
 
 
-
 class SKLearnTrainingPlan(BaseTrainingPlan):
     """Base class for Fed-BioMed wrappers of sklearn classes.
 
-    Classes that inherit from this must have a `model` attribute with an instance of the sklearn class being wrapped.
+    Classes that inherit from this must meet the following conditions:
+    - have a `model` attribute with an instance of the scikit-learn class being wrapped
+    - populate a `params_list` attribute during initialization with the model parameters to be used for aggregation
+    - implement a `training_routine_hook` method that:
+        1. sets `data` and `target` attributes as outputs of a data loader
+        2. calls `partial_fit` or a similar method of the wrapped scikit-learn model
+    - implement a `evaluate_loss` method that calls the `_evaluate_loss_core` method of this class (i.e. the base)
 
     Attributes:
         params: parameters of the model, both learnable and non-learnable
@@ -48,6 +56,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         param_list: names of the parameters that will be used for aggregation
         dataset_path: the path to the dataset on the node
     """
+
     def __init__(self, model_args: dict = {}):
         """
         Class initializer.
@@ -83,15 +92,16 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         self._verbose_capture_option = False
         self.dataset_path = None
         self.add_dependency(["import inspect",
-                         "import numpy as np",
-                         "import pandas as pd",
-                         "from fedbiomed.common.training_plans import SKLearnTrainingPlan",
-                         "from fedbiomed.common.data import DataManager",
-                         ])
+                             "import numpy as np",
+                             "import pandas as pd",
+                             "from fedbiomed.common.training_plans import SKLearnTrainingPlan",
+                             "from fedbiomed.common.data import DataManager",
+                             ])
 
-    def training_routine(self,epochs=1,
-                             history_monitor=None,
-                             node_args: Union[dict, None] = None):
+    def training_routine(self,
+                         epochs: int = 1,
+                         history_monitor: Union[HistoryMonitor, None] = None,
+                         node_args: Union[dict, None] = None):
         """
         Method training_routine called in Round, to change only if you know what you are doing.
 
@@ -122,15 +132,15 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             raise e
 
     def _training_routine_core_loop(self,
-                                    epochs=1,
-                                    history_monitor=None):
-        '''
+                                    epochs: int = 1,
+                                    history_monitor: Union[HistoryMonitor, None] = None):
+        """
         Training routine core
         Args:
-        - model_hook: training_routine_hook of child class {FedSGDClassifier, FedBernoulliNB, FedGaussianNB, FedSGDRegressor, FedPerceptron}
+        - model_hook: training_routine_hook of child class {FedSGDClassifier, FedSGDRegressor, FedPerceptron}
         - epochs (integer, optional) : number of training epochs for this round. Defaults to 1
         - history_monitor ([type], optional): [description]. Defaults to None.
-        '''
+        """
         for epoch in range(epochs):
             with _Capturer() as output:
                 # Fit model based on model type
@@ -151,26 +161,26 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                     loss_function = 'Loss ' + self.model.loss if hasattr(self.model, 'loss') else 'Loss'
                     # TODO: This part should be changed after mini-batch implementation is completed
                     history_monitor.add_scalar(metric={loss_function: float(loss)},
-                                                   iteration=1,
-                                                   epoch=epoch,
-                                                   train=True,
-                                                   num_batches=1,
-                                                   total_samples=len(self.data),
-                                                   batch_samples=len(self.data))
+                                               iteration=1,
+                                               epoch=epoch,
+                                               train=True,
+                                               num_batches=1,
+                                               total_samples=len(self.data),
+                                               batch_samples=len(self.data))
                 else:
                     # TODO: For clustering; passes inertia value as scalar. It should be implemented when
                     #  KMeans implementation is ready history_monitor.add_scalar('Inertia',
                     #  self.model.inertia_, -1 , epoch) Need to find a way for Bayesian approaches
                     pass
 
-    def _evaluate_loss_core(self,output,epoch) -> list[float]:
-        '''
+    def _evaluate_loss_core(output: StringIO, epoch: int) -> list[float]:
+        """
         Evaluate the loss when verbose option _verbose_capture_option is set to True.
         Args:
         - output: output of the scikit-learn models during training
         - epoch: epoch number
         Returns: list[float]: list of loss captured in the output
-        '''
+        """
         _loss_collector = []
         for line in output:
             if len(line.split("loss: ")) == 1:
@@ -187,11 +197,10 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                 logger.error("Error during monitoring:" + str(e))
         return _loss_collector
 
-
     def testing_routine(self,
                         metric: Union[MetricTypes, None],
                         metric_args: Dict[str, Any],
-                        history_monitor,
+                        history_monitor: Union[HistoryMonitor, None],
                         before_train: bool):
         """
         Testing routine for SGDSkLearnModel. This method is called by the Round class if testing
@@ -236,15 +245,15 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                 m_value = self.testing_step(data, target)
             except Exception as err:
                 msg = ErrorNumbers.FB605.value + \
-                    ": error - " + \
-                    str(err)
+                      ": error - " + \
+                      str(err)
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
 
             # If custom evaluation step returns None
             if m_value is None:
                 msg = ErrorNumbers.FB605.value + \
-                    ": metric function has returned None"
+                      ": metric function has returned None"
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
 
@@ -266,8 +275,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                 pred = self.model.predict(data)
             except Exception as e:
                 msg = ErrorNumbers.FB605.value + \
-                    ": error during predicting test data set - " + \
-                    str(e)
+                      ": error during predicting test data set - " + \
+                      str(e)
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
 
@@ -308,7 +317,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
 
         return np.unique(target_test_train)
 
-    def __preprocess(self):
+    def __preprocess(self) -> None:
         """
         Method for executing registered preprocess that are defined by user.
         """
@@ -323,16 +332,14 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                 logger.error(f"Process `{process_type}` is not implemented for the training plan SGBSkLearnModel. "
                              f"Preprocess will be ignored")
 
-    def __process_data_loader(self, method: Callable):
-
-        """
-        Process handler for data loader kind processes.
+    def __process_data_loader(self, method: Callable) -> None:
+        """Process handler for data loader kind processes.
 
         Args:
           method (Callable) : Process method that is going to be executed
 
         Raises FedbiomedTrainingPlanError:
-          - raised when method doesnot have 2 positional arguments
+          - raised when method doesn't have 2 positional arguments
           - Raised if running method fails
           - if dataloader returned by method is not of type: Tuple[np.ndarray, np.ndarray]
           - if dataloaders contained in method output don't contain the same number of samples
@@ -341,9 +348,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         argspec = get_method_spec(method)
         if len(argspec) != 2:
             msg = ErrorNumbers.FB605.value + \
-                ": process for type `PreprocessType.DATA_LOADER`" + \
-                " should have two argument/parameter as inputs/data" + \
-                " and target sets that will be used for training. "
+                  ": process for type `PreprocessType.DATA_LOADER`" + \
+                  " should have two argument/parameter as inputs/data" + \
+                  " and target sets that will be used for training. "
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
@@ -351,9 +358,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             data_loader = method(self.training_data_loader[0], self.training_data_loader[1])
         except Exception as e:
             msg = ErrorNumbers.FB605.value + \
-                ": error while running process method -> " + \
-                method.__name__ + \
-                str(e)
+                  ": error while running process method -> " + \
+                  method.__name__ + \
+                  str(e)
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
@@ -371,21 +378,20 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                              f"`{method.__name__}` ")
             else:
                 msg = ErrorNumbers.FB605.value + \
-                    ": process error " + \
-                    method.__name__ + \
-                    " : number of samples of inputs and target sets should be equal "
+                      ": process error " + \
+                      method.__name__ + \
+                      " : number of samples of inputs and target sets should be equal "
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
 
         else:
             msg = ErrorNumbers.FB605.value + \
-                ": process method " + \
-                method.__name__ + \
-                " should return tuple length of two as dataset and" + \
-                " target and both should be and instance of np.ndarray."
+                  ": process method " + \
+                  method.__name__ + \
+                  " should return tuple length of two as dataset and" + \
+                  " target and both should be and instance of np.ndarray."
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
-
 
     def _compute_support(self, targets: np.ndarray) -> np.ndarray:
         """
@@ -394,7 +400,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         `fit_binary` and `_prepare_fit_binary` have been implemented.
 
         Args:
-            targets (np.ndarray): targets that contains labels
+            targets (np.ndarray): targets that contain labels
             used for training models
 
         Returns:
@@ -416,21 +422,21 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
 
         return support
 
-    def save(self, filename, params: dict = None):
+    def save(self, filename: str, params: dict = None) -> None:
         """
         Save method for parameter communication, internally is used
         dump and load joblib library methods.
-        :param filename (string)
-        :param params (dictionary) model parameters to save
+
+        Args:
+            filename: (string) name of the output file
+            params: (dictionary) model parameters to save
 
         Save can be called from Job or Round.
-            From round is always called with params.
-            From job is called with no params in constructor and
-            with params in update_parameters.
+        From round is always called with params.
+        From job is called with no params in constructor and with params in update_parameters.
 
-            Torch state_dict has a model_params object. model_params tag
-            is used in the code. This is why this tag is
-            used in sklearn case.
+        Torch state_dict has a model_params object. model_params tag is used in the code. This is why this tag is
+        used in sklearn case.
         """
         file = open(filename, "wb")
         if params is None:
@@ -445,15 +451,20 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             dump(self.model, file)
         file.close()
 
-    def load(self, filename, to_params: bool = False) -> Dict:
-        """
-        Method to load the updated parameters of a scikit model
+    def load(self, filename: str, to_params: bool = False) -> Dict:
+        """Method to load the parameters of a scikit model
+
+        This function updates the `model` attribute with the loaded parameters.
         Load can be called from Job or Round.
         From round is called with no params
         From job is called with  params
-        :param filename (string)
-        :param to_params (boolean) to differentiate a pytorch from a sklearn
-        :return dictionary with the loaded parameters.
+
+        Args:
+            filename (string) the name of the file to load
+            to_params (boolean) to differentiate a pytorch from a sklearn
+
+        Returns:
+            dictionary with the loaded parameters
         """
         di_ret = {}
         file = open(filename, "rb")
@@ -467,8 +478,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         return di_ret
 
     def get_model(self):
-        """
-            :return the scikit model object (sklearn.base.BaseEstimator)
+        """Get the wrapped scikit-learn model
+            Returns:
+                the scikit model object (sklearn.base.BaseEstimator)
         """
         return self.model
 
@@ -480,8 +492,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         """
         Provide a dictionary with the federated parameters you need to aggregate, refer to
         scikit documentation for a detail of parameters
-        :return the federated parameters (dictionary)
+
+        Returns:
+            the federated parameters (dictionary)
         """
         return {key: getattr(self.model, key) for key in self.param_list}
-
-
