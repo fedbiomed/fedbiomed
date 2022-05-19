@@ -162,3 +162,8 @@ class FedbiomedDatasetManagerError(FedbiomedError):
     Exceptions specific for the class DatasetManager.
     """
     pass
+
+
+class FedbiomedBIDSDatasetError(FedbiomedError):
+    """ Exceptions specific for the class BIDSDataset"""
+    pass

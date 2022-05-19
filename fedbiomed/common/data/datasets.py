@@ -18,6 +18,7 @@ from monai.transforms import Transform, LoadImage, ToTensor, Compose
 from torch import Tensor
 from torch.utils.data import Dataset
 
+from fedbiomed.common.exceptions import FedbiomedBIDSDatasetError
 
 class NIFTIFolderDataset(Dataset, ABC):
     """A Generic class for loading NIFTI Images using the folder structure as the target labels.
@@ -133,6 +134,7 @@ def _check_and_reformat_transforms(
         return {modalities[0]: transform}
 
 
+
 class BIDSDataset(Dataset):
     """Torch dataset following the BIDS Structure.
 
@@ -152,17 +154,16 @@ class BIDSDataset(Dataset):
         * `T2` sequence magnetic resonance image
         * `label` which contains segmentation masks
     """
-    ALLOWED_MODALITIES = ['T1', 'T2', 'LABEL']
+    # ALLOWED_MODALITIES = ['T1', 'T2', 'LABEL']
+
     ALLOWED_EXTENSIONS = ['.nii', '.nii.gz']
 
     def __init__(self,
                  root: Union[str, PathLike, Path],
                  data_modalities: Optional[Union[str, Iterable[str]]] = 'T1',
                  transform: Union[Callable, Dict[str, Callable]] = None,
-
                  target_modalities: Optional[Union[str, Iterable[str]]] = 'label',
                  target_transform: Union[Callable, Dict[str, Callable]] = None,
-
                  tabular_file: Union[str, PathLike, Path] = None,
                  index_col: Union[int, str] = 0,
                  ):
@@ -193,17 +194,27 @@ class BIDSDataset(Dataset):
             ToTensor()
         ])
 
-        # Assert transforms format. They should be provided as dictionaries.
+        # Raise if transform objects are not provided as dictionaries.
         # E.g. {'T1': Normalize(...), 'T2': ToTensor()}
-        assert isinstance(self.transform, dict), f'As you have multiple data modalities, ' \
-                                                 f'transforms have to a dictionary using ' \
-                                                 f'the modality keys: {self.data_modalities}'
-        assert isinstance(self.target_transform, dict), f'As you have multiple target modalities, ' \
-                                                        f'transforms have to a dictionary using ' \
-                                                        f'the modality keys: {self.target_modalities}'
+        if not isinstance(self.transform, dict):
+            raise FedbiomedBIDSDatasetError(f'As you have multiple data modalities, transforms have to a dictionary '
+                                            f'using the modality keys: {self.data_modalities}')
+        if not isinstance(self.target_transform, dict):
+            raise FedbiomedBIDSDatasetError(f'As you have multiple target modalities, transforms have to a dictionary '
+                                            f'using the modality keys: {self.target_modalities}')
 
     def load_images(self, subject_folder: Path, modalities: list):
-        files = {}
+        """
+
+        Args:
+            subject_folder: Subject folder where modalities are stored
+            modalities: List of available modalities
+
+        Returns:
+            Subject image data as victories where keys represent each modality.
+        """
+
+        subject_data = {}
 
         for modality in modalities:
             image_folder = subject_folder.joinpath(modality)
@@ -213,8 +224,9 @@ class BIDSDataset(Dataset):
             # Load the first, we assume there is going to be a single image per modality for now.
             img_path = nii_files[0]
             img = self.reader(img_path)
-            files[modality] = img
-        return files
+            subject_data[modality] = img
+
+        return subject_data
 
     def _get_from_demographics(self, subject_id):
         """Extracts subject information from a particular subject in the form of a dictionary."""
