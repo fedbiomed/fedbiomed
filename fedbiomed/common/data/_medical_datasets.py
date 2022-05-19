@@ -45,8 +45,8 @@ class NIFTIFolderDataset(Dataset):
     _ALLOWED_EXTENSIONS = ['.nii', '.nii.gz']
 
     def __init__(self, root: Union[str, PathLike, Path],
-                 transform: Transform = None,
-                 target_transform: Transform = None
+                 transform: Union[Transform, None] = None,
+                 target_transform: Union[Transform, None] = None
                  ):
         """
         Args:

@@ -3,6 +3,7 @@ import os
 import tempfile
 import random
 import shutil
+from pathlib import Path
 
 import itk
 import numpy as np
@@ -55,7 +56,21 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         for label in labels:
             self.assertTrue(isinstance(label, str))
 
-        # TODO : compare label list
+        # compare label list content
+        self.assertEqual(sorted(labels), sorted(self.class_names))
+
+    def test_files(self):
+        dataset = NIFTIFolderDataset(self.root)
+
+        # verify type of returned files
+        files = dataset.files()
+        self.assertTrue(isinstance(files, list))
+        for file in files:
+            self.assertTrue(isinstance(file, Path))
+
+        # compare label list content
+        self.assertEqual(sorted([str(f) for f in files]), sorted([str(f) for f in self.sample_paths]))
+
 
     def test_getitem(self):
 
