@@ -1,8 +1,9 @@
 """ This file contains dummy Classes for unit testing. It fakes Experiment class
-(from fedbiomed.researcher.experiment) 
+(from fedbiomed.researcher.experiment)
 """
 from typing import Union, TypeVar, Type, List
 
+from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.researcher.experiment import Experiment
 
 # need those types defined
@@ -48,7 +49,7 @@ class ExperimentMock():
         self._model_class = model_class
         self._model_path = model_path
         self._model_args = model_args
-        self._training_args = training_args
+        self._training_args = TrainingArgs( only_required = False)
         class Job:
             def load_state(self, saved_state):
                 self._saved_state = saved_state

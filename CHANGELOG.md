@@ -2,7 +2,7 @@
 
 ## 2022-xx-xx version 3.6 or 4.0
 
-- xxx
+- TrainingArgs class to manage/verify training arguments on researcher side
 
 ## 2022-05-09 version 3.5
 
