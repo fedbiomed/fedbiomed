@@ -202,7 +202,7 @@ class Requests(metaclass=SingletonMeta):
                         # what do we do if not ?
                         new_responses.append(resp)
                 except Exception as e:
-                    logger.error('Incorrect message received:' + str(resp) + e)
+                    logger.error(f"Incorrect message received: {resp} - error: {e}")
                     pass
 
             if len(new_responses) == 0:
