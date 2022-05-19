@@ -7,7 +7,6 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans, ProcessTypes
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 
-
 from ._sklearn_training_plan import SKLearnTrainingPlan
 
 class FedPerceptron(SKLearnTrainingPlan):
@@ -90,8 +89,6 @@ class FedPerceptron(SKLearnTrainingPlan):
         return loss
 
 
-#======
-
 class FedSGDRegressor(SKLearnTrainingPlan):
     """Fed-BioMed federated wrapper of SGDRegressor class from scikit-learn.
 
@@ -157,8 +154,6 @@ class FedSGDRegressor(SKLearnTrainingPlan):
         loss = _loss_collector[-1]
         return loss
 
-
-#======
 
 class FedSGDClassifier(SKLearnTrainingPlan):
     """Fed-BioMed federated wrapper of SGDClassifier class from scikit-learn.
@@ -241,6 +236,8 @@ class FedSGDClassifier(SKLearnTrainingPlan):
             loss = _loss_collector[-1]
         return loss
 
+
+#############################################################################################3
 class FedBernoulliNB(SKLearnTrainingPlan):
     """Fed-BioMed federated wrapper of BernoulliNB class from scikit-learn.
 
@@ -359,7 +356,6 @@ class FedGaussianNB(SKLearnTrainingPlan):
         for p in self.params:
             setattr(self.model, p, self.params[p])
 
-#############################################################################################3
 class FedMultinomialNB(SKLearnTrainingPlan):
     """Fed-BioMed federated wrapper of FedMultinomialNB class from scikit-learn.
 
