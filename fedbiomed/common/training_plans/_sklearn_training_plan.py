@@ -18,9 +18,6 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.utils import get_method_spec
 
-if TYPE_CHECKING:
-    from fedbiomed.node.history_monitor import HistoryMonitor  # just needed for typing
-
 
 class _Capturer(list):
     """Capturing class for the console output of the scikit-learn models during training
@@ -102,7 +99,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
 
     def training_routine(self,
                          epochs: int = 1,
-                         history_monitor: Union[HistoryMonitor, None] = None,
+                         history_monitor = None,
                          node_args: Union[dict, None] = None):
         """
         Method training_routine called in Round, to change only if you know what you are doing.
@@ -135,7 +132,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
 
     def _training_routine_core_loop(self,
                                     epochs: int = 1,
-                                    history_monitor: Union[HistoryMonitor, None] = None):
+                                    history_monitor = None):
         """
         Training routine core
         Args:
@@ -175,7 +172,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                     #  self.model.inertia_, -1 , epoch) Need to find a way for Bayesian approaches
                     pass
 
-    def _evaluate_loss_core(output: StringIO, epoch: int) -> list[float]:
+    def _evaluate_loss_core(self, output: StringIO, epoch: int) -> list[float]:
         """
         Evaluate the loss when verbose option _verbose_capture_option is set to True.
         Args:
@@ -202,7 +199,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
     def testing_routine(self,
                         metric: Union[MetricTypes, None],
                         metric_args: Dict[str, Any],
-                        history_monitor: Union[HistoryMonitor, None],
+                        history_monitor,
                         before_train: bool):
         """
         Testing routine for SGDSkLearnModel. This method is called by the Round class if testing

@@ -20,7 +20,7 @@ class FedPerceptron(SKLearnTrainingPlan):
 
     model = Perceptron()
 
-    def __init__(self, model_args: dict = None)
+    def __init__(self, model_args: dict = None):
         """Class constructor
 
         Args:
@@ -87,7 +87,7 @@ class FedPerceptron(SKLearnTrainingPlan):
             (float) the value of the loss function in the case of binary classification, and the weighted average
                 of the loss values for all classes in case of multiclass classification
         """
-        _loss_collector = _evaluate_loss_core(output, epoch)
+        _loss_collector = self._evaluate_loss_core(output, epoch)
         if not self._is_binary_classification:
             support = self._compute_support(self.target)
             loss = np.average(_loss_collector, weights=support)  # perform a weighted average
@@ -161,7 +161,7 @@ class FedSGDRegressor(SKLearnTrainingPlan):
         Returns: float: the loss captured in the output
         """
 
-        _loss_collector = _evaluate_loss_core(output, epoch)
+        _loss_collector = self._evaluate_loss_core(output, epoch)
         loss = _loss_collector[-1]
         return loss
 
@@ -242,7 +242,7 @@ class FedSGDClassifier(SKLearnTrainingPlan):
             (float) the value of the loss function in the case of binary classification, and the weighted average
                 of the loss values for all classes in case of multiclass classification
         """
-        _loss_collector = _evaluate_loss_core(output, epoch)
+        _loss_collector = self._evaluate_loss_core(output, epoch)
         if not self._is_binary_classification:
             support = self._compute_support(self.target)
             loss = np.average(_loss_collector, weights=support)  # perform a weighted average
