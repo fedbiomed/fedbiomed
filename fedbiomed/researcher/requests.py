@@ -10,6 +10,7 @@ import re
 import tabulate
 import uuid
 
+from python_minifier import minify
 from time import sleep
 from typing import Any, Dict, Callable
 
@@ -385,6 +386,24 @@ class Requests(metaclass=SingletonMeta):
                 logger.error(f"Are you sure that {model} is a TrainingPlan ?")
                 return {}
 
+        # verify that the file can be minified before sending
+        #
+        # TODO: enforce a stronger check here (user story #179)
+        try:
+            with open(model_file, "r") as f:
+                content = f.read()
+            minify(content,
+                   remove_annotations=False,
+                   combine_imports=False,
+                   remove_pass=False,
+                   hoist_literals=False,
+                   remove_object_base=True,
+                   rename_locals=False)
+        except Exception as e:
+            # minify doesnot provide any specific exception
+            logger.error(f"This file is not a python file ({e})")
+            return {}
+
         logger.debug(f"model_approve: model file = {model_file}")
 
         # create a repository instance and upload the model file
@@ -418,7 +437,6 @@ class Requests(metaclass=SingletonMeta):
         result = {}
         for resp in self.get_responses(look_for_commands=['approval'],
                                        timeout = timeout):
-            print( "*** resp = ", resp)
             if sequence != resp['sequence']:
                 logger.error("received an approval_reply with wrong sequence, ignoring it")
                 continue
