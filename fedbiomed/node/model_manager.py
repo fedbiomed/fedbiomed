@@ -5,11 +5,13 @@
 from datetime import datetime
 import hashlib
 import os
+
+from numpy import isin
 from python_minifier import minify
 import shutil
 from tabulate import tabulate
 from tinydb import TinyDB, Query
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 import uuid
 
 from fedbiomed.common.constants import HashingAlgorithms, ModelApprovalStatus, ModelTypes, ErrorNumbers
@@ -304,7 +306,6 @@ class ModelManager:
             tmp_file = os.path.join(environ["TMP_DIR"], model_name + '.py')
             model_to_check = self.create_py_model_from_txt(tmp_file)
             is_approved, _ = self.check_is_model_approved(model_to_check)
-            is_requested = self.check_is_model_requested(model_to_check)
 
         except FedbiomedRepositoryError as fed_err:
             logger.error(f"Cannot download model from server due to error: {fed_err}")
@@ -341,8 +342,10 @@ class ModelManager:
                 #     self._db.update(model_object)
                 # else:
                 #     self._db.insert(model_object)
+                if self.check_is_model_requested(model_to_check):
+                    logger.debug("Model already awaiting for approval")
                 self._db.upsert(model_object, self._database.hash == model_hash)
-                # `upsert` stands for update and insert in TinyDB. This prevents any duplicate
+                # `upsert` stands for update and insert in TinyDB. This prevents any duplicate, that can happen
                 # if same model is sent twice to Node for approval
                 reply['success'] = True
                 logger.debug("Model successfully received by Node for approval")
@@ -599,7 +602,9 @@ class ModelManager:
                                              f"Details: {str(err)}")
         return True
 
-    def list_approved_models(self, verbose: bool = True) -> List:
+    def list_models(self, sort_by: Union[str, None] = None,
+                    only: Union[None, ModelApprovalStatus, List[ModelApprovalStatus]] = None,
+                    verbose: bool = True) -> List:
         """Lists approved model files
 
         Args:
@@ -616,6 +621,7 @@ class ModelManager:
         self._db.clear_cache()
         models = self._db.all()
 
+
         # Drop some keys for security reasons
         _tags_to_remove = ['model_path',
                            'hash',
@@ -626,8 +632,27 @@ class ModelManager:
                 try:
                     doc.pop(tag_to_remove)
                 except KeyError:
-                    logger.warning(f"missing entry in databse: {tag_to_remove} for model {doc}")
+                    logger.warning(f"missing entry in database: {tag_to_remove} for model {doc}")
+                    
+        if sort_by is not None:
+            # sorting model fields by column attributes
+            if self._db.search(self._database[sort_by].exists()) and sort_by not in _tags_to_remove:
+                models = sorted(models, key= lambda x: x[sort_by])
+            else:
+                logger.warning(f"Field {sort_by} is not available in dataset")
+
+        if isinstance(only, ModelApprovalStatus):
+            # filetring model based on their status
+            for doc in models:
+                if doc.get('model_status') == only.value: 
+                    models.remove(doc)
+
         if verbose:
             print(tabulate(models, headers='keys'))
 
         return models
+
+    # def list_model(self, sort_by_date: bool = True, sort_by_status: bool = False,
+    #                only: Union[None, ModelApprovalStatus] = None):
+    #     pass
+    

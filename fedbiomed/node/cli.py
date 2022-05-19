@@ -485,7 +485,7 @@ def register_model():
         exit(1)
 
     print('\nGreat! Take a look at your data:')
-    model_manager.list_approved_models(verbose=True)
+    model_manager.list_models(verbose=True)
 
 
 def update_model():
@@ -496,7 +496,7 @@ def update_model():
     User can either choose different model file (different path)
     to update model or same model file.
     """
-    models = model_manager.list_approved_models(verbose=False)
+    models = model_manager.list_models(verbose=False)
 
     # Select only registered model to update
     models = [ m for m in models  if m['model_type'] == ModelTypes.REGISTERED.value]
@@ -529,7 +529,7 @@ def update_model():
             model_manager.update_model(model_id, path)
 
             logger.info('Model has been updated. Here all your models')
-            model_manager.list_approved_models(verbose=True)
+            model_manager.list_models(verbose=True)
 
             return
 
@@ -546,7 +546,7 @@ def delete_model():
     should be removed directly from the file system.
     """
 
-    models = model_manager.list_approved_models(verbose=False)
+    models = model_manager.list_models(verbose=False)
     models = [ m for m in models  if m['model_type'] == ModelTypes.REGISTERED.value]
     if not models:
         logger.warning('No models to delete')
@@ -570,7 +570,7 @@ def delete_model():
             # Delete model
             model_manager.delete_model(model_id)
             logger.info('Model has been removed. Here your other models')
-            model_manager.list_approved_models(verbose=True)
+            model_manager.list_models(verbose=True)
 
             return
 
@@ -711,7 +711,7 @@ def launch_cli():
     elif args.delete_model:
         delete_model()
     elif args.list_models:
-        model_manager.list_approved_models(verbose = True)
+        model_manager.list_models(verbose = True)
     elif args.start_node:
         # convert to node arguments structure format expected in Round()
         node_args = {

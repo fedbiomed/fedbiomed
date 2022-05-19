@@ -463,15 +463,15 @@ class TestModelManager(unittest.TestCase):
             with self.assertRaises(FedbiomedModelManagerError):
                 self.model_manager.delete_model(model['model_id'])
 
-    def test_model_manager_14_list_approved_models(self):
+    def test_model_manager_14_list_models(self):
         """ Testing list method of model manager """
 
         self.model_manager.register_update_default_models()
-        models = self.model_manager.list_approved_models(verbose=False)
+        models = self.model_manager.list_models(verbose=False)
         self.assertIsInstance(models, list, 'Could not get list of models properly')
 
         # Check with verbose
-        models = self.model_manager.list_approved_models(verbose=True)
+        models = self.model_manager.list_models(verbose=True)
         self.assertIsInstance(models, list, 'Could not get list of models properly in verbose mode')
         
         # do some tests on the first model of models contained in database
