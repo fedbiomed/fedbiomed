@@ -57,13 +57,15 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         dataset_path: the path to the dataset on the node
     """
 
-    def __init__(self, model_args: dict = {}):
+    def __init__(self, model_args: dict = None):
         """
         Class initializer.
 
         Args:
         - model_args (dict, optional): model arguments. Defaults to {}.
         """
+        if model_args is None:
+            model_args = {}
         super().__init__()
 
         if getattr(self, 'model') is None:

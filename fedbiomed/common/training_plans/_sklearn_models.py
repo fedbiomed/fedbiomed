@@ -20,12 +20,15 @@ class FedPerceptron(SKLearnTrainingPlan):
 
     model = Perceptron()
 
-    def __init__(self, model_args: dict = {}):
+    def __init__(self, model_args: dict = None)
         """Class constructor
 
         Args:
         - model_args: (dict, optional): model arguments. Defaults to {}
         """
+        if model_args is None:
+            model_args = {}
+
         super().__init__(model_args)
 
         if 'verbose' not in model_args:
@@ -104,12 +107,14 @@ class FedSGDRegressor(SKLearnTrainingPlan):
 
     model = SGDRegressor()
 
-    def __init__(self, model_args: dict = {}):
+    def __init__(self, model_args: dict = None):
         """
         Sklearn SGDRegressor model
         Args:
         - model_args: (dict, optional): model arguments. Defaults to {}
         """
+        if model_args is None:
+            model_args = {}
         super().__init__(model_args)
 
         if 'verbose' not in model_args:
@@ -170,13 +175,14 @@ class FedSGDClassifier(SKLearnTrainingPlan):
 
     model = SGDClassifier()
 
-    def __init__(self, model_args: dict = {}):
+    def __init__(self, model_args: dict = None):
         """
         Sklearn SGDClassifier model
         Args:
         - model_args: (dict, optional): model arguments. Defaults to {}
         """
-
+        if model_args is None:
+            model_args = {}
         super().__init__(model_args)
 
         # if verbose is not provided in model_args set it to true and add it to self.params
