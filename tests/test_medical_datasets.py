@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from monai.data import ITKReader
-from monai.transforms import Transform, LoadImage, ToTensor, Compose, Identity
+from monai.transforms import LoadImage, ToTensor, Compose, Identity
 
 from fedbiomed.common.data import NIFTIFolderDataset
 from fedbiomed.common.exceptions import FedbiomedDatasetError
