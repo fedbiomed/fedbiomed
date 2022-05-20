@@ -64,7 +64,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             _ = NIFTIFolderDataset(self.root, None, fonction)
 
-    def test_indexation(self):
+    def test_indexation_correct(self):
         dataset = NIFTIFolderDataset(self.root)
 
         img, target = dataset[0]
@@ -73,6 +73,18 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         self.assertEqual(img.dtype, torch.float32)
 
         self.assertTrue(isinstance(target, int))
+
+    def test_indexation_incorrect(self):
+        dataset = NIFTIFolderDataset(self.root)
+
+        # type error
+        for index in ('toto', {}):
+            with self.assertRaises(FedbiomedDatasetError):
+                _ = dataset[index]
+        # value error
+        for index in (-2, len(dataset), len(dataset) + 10):
+            with self.assertRaises(IndexError):
+                _ = dataset[index]
 
     def test_len(self):
         dataset = NIFTIFolderDataset(self.root)
