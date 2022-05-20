@@ -290,6 +290,11 @@ case $1 in
                     python -m fedbiomed.node.cli --register-model $PARAMS
                     ;;
 
+                approve-model|--approve-model|-aml)
+                    source ./script/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --approve-model $PARAMS
+                    ;;
+
                 update-model|--update-model|-uml)
                     source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --update-model $PARAMS

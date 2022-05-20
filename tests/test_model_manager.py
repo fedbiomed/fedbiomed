@@ -401,7 +401,7 @@ class TestModelManager(unittest.TestCase):
                            return_value=(model_hash, model_hashing_algorithm)),
               patch.object(os.path, 'getmtime', return_value=file_modification_date_timestamp),
               patch.object(os.path, 'getctime', return_value=file_creation_date_timestamp)):
-            self.model_manager.update_model('test-model-id', default_model_file_1)
+            self.model_manager.update_model_hash('test-model-id', default_model_file_1)
 
         # checks
         # first, we are accessing to the updated model
@@ -426,8 +426,8 @@ class TestModelManager(unittest.TestCase):
             model_id='test-model-id'
         )
         with self.assertRaises(FedbiomedModelManagerError):
-            self.model_manager.update_model(model_id='test-model-id',
-                                            path=default_model_file_path)
+            self.model_manager.update_model_hash(model_id='test-model-id',
+                                                 path=default_model_file_path)
 
     def test_model_manager_13_delete_registered_models(self):
         """ Testing delete operation for model manager """

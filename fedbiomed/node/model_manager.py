@@ -166,6 +166,7 @@ class ModelManager:
                                 model_status=ModelApprovalStatus.APPROVED.value,
                                 algorithm=algorithm, date_created=ctime,
                                 date_modified=mtime, date_registered=rtime,
+                                date_last_action=rtime,
                                 researcher_id=None)
 
             if researcher_id is not None:
@@ -335,7 +336,8 @@ class ModelManager:
                                     algorithm=hash_algo,
                                     date_created=ctime,
                                     date_modified=ctime,
-                                    date_registered=None,
+                                    date_registered=ctime,
+                                    date_last_action=None,
                                     researcher_id=msg['researcher_id']
                                     )
                 # if is_requested:
@@ -521,7 +523,7 @@ class ModelManager:
                 raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": Failed to update database, with error: "
                                                  f"{str(err)}")
 
-    def update_model(self, model_id: str, path: str) -> True:
+    def update_model_hash(self, model_id: str, path: str) -> True:
         """Updates model file entry in model database.
 
         Updates model hash value for provided model file. It also updates
@@ -545,7 +547,7 @@ class ModelManager:
         except RuntimeError as err:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": get request on database failed."
                                              f" Details: {str(err)}")
-        if model['model_type'] == ModelTypes.REGISTERED.value:
+        if model['model_type'] != ModelTypes.DEFAULT.value:
 
             # Get modification date
             mtime = datetime.fromtimestamp(os.path.getmtime(path))
@@ -568,6 +570,37 @@ class ModelManager:
                                              'and restart your node')
 
         return True
+
+    def update_model_status(self, model_id: str, model_status: ModelApprovalStatus) -> True:
+        self._db.clear_cache()
+        try:
+            model = self._db.get(self._database.model_id == model_id)
+        except RuntimeError as err:
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": get request on database failed."
+                                             f" Details: {str(err)}")
+        if model['model_status'] == model_status.value:
+            logger.warning(f" model {model_id} has already the following model status {model_status.value}")
+            return
+        else:
+            model_path = model['model_path']
+            # Get modification date
+            mtime = datetime.fromtimestamp(os.path.getmtime(model_path))
+            # Get creation date
+            ctime = datetime.fromtimestamp(os.path.getctime(model_path))
+            self._db.update({'model_status': model_status.value,
+                             'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
+                             'date_created': ctime.strftime("%d-%m-%Y %H:%M:%S.%f"),
+                             },
+                            self._database.model_id == model_id)
+            logger.info(f"Model {model_id} status changed to {model_status.value} !")
+
+        return True
+
+    def approve_model(self, model_id: str) -> True:
+        self.update_model_status(model_id, ModelApprovalStatus.APPROVED)
+
+    def reject_model(self, model_id: str) -> True:
+        self.update_model_status(model_id, ModelApprovalStatus.REJECTED)
 
     def delete_model(self, model_id: str) -> True:
         """Removes model file from database.
@@ -619,9 +652,26 @@ class ModelManager:
         """
 
         self._db.clear_cache()
-        models = self._db.all()
+        
+        #print("models", type(models))
 
-
+        if isinstance(only, (ModelApprovalStatus, list)):
+            # filetring model based on their status
+            if not isinstance(only, list):
+                # convert everything into a list
+                only = [only]
+            only = [x.value for x in only]  # extract value from ModelApprovalStatus
+            self._db
+            models = self._db.get(self._database.model_status not in only)
+            # for i, doc in enumerate(models):
+            #     print(doc, doc.get('model_status'), only, doc.get('model_status')  not in only)
+            #     #print("MODELS", models)
+            #     if doc.get('model_status') not in only: 
+            #         #print(doc)
+            #         models.pop(i)
+                  
+        else:
+            models = self._db.all()  
         # Drop some keys for security reasons
         _tags_to_remove = ['model_path',
                            'hash',
@@ -641,15 +691,11 @@ class ModelManager:
             else:
                 logger.warning(f"Field {sort_by} is not available in dataset")
 
-        if isinstance(only, ModelApprovalStatus):
-            # filetring model based on their status
-            for doc in models:
-                if doc.get('model_status') == only.value: 
-                    models.remove(doc)
+        
 
         if verbose:
             print(tabulate(models, headers='keys'))
-
+        #print("MODELS", models)
         return models
 
     # def list_model(self, sort_by_date: bool = True, sort_by_status: bool = False,

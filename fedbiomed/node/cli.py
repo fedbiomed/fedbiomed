@@ -19,7 +19,7 @@ import tkinter.filedialog
 import tkinter.messagebox
 from tkinter import _tkinter
 
-from fedbiomed.common.constants  import ModelTypes, ErrorNumbers
+from fedbiomed.common.constants  import ModelApprovalStatus, ModelTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 
 from fedbiomed.node.dataset_manager import DatasetManager
@@ -526,7 +526,7 @@ def update_model():
             path = validated_path_input(type = "txt")
 
             # Update model through model manager
-            model_manager.update_model(model_id, path)
+            model_manager.update_model_hash(model_id, path)
 
             logger.info('Model has been updated. Here all your models')
             model_manager.list_models(verbose=True)
@@ -535,6 +535,47 @@ def update_model():
 
         except (ValueError, IndexError, AssertionError):
             logger.error('Invalid option. Please, try again.')
+
+
+def approve_model(sort_by_date: bool = True):
+    if sort_by_date:
+        sort_by = 'date_modified'
+    else: 
+        sort_by = None
+    non_approved_models = model_manager.list_models(sort_by=sort_by,
+                                                    only=[ModelApprovalStatus.PENDING, 
+                                                          ModelApprovalStatus.REJECTED],
+                                                    verbose=False)
+    if not non_approved_models:
+        logger.warning("All models have been approved or no model has been registered... aborting")
+        return
+
+    options = [m['name'] + '\t Model ID ' + m['model_id'] + '\t model status ' +
+               m['model_status'] for m in non_approved_models]
+
+    msg = "Select the model to approve:\n"
+    msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
+    msg += "\nSelect: "
+
+    while True:
+        try:
+            opt_idx = int(input(msg)) - 1
+            model_id = non_approved_models[opt_idx]['model_id']
+            model_manager.approve_model(model_id)
+            logger.info(f"Model {model_id} has been approved. Researcher can now train the Training Plan" +
+                        " on Node {environ['NODE_ID']}")
+            return
+
+        except (ValueError, IndexError, AssertionError):
+            logger.error('Invalid option. Please, try again.')
+
+
+def reject_model():
+    approved_models = model_manager.list_models(only=ModelApprovalStatus.APPROVED,
+                                                verbose=False)
+    
+    if not approved_models:
+        logger.warning("All models have already been rejected or ")
 
 
 def delete_model():
@@ -635,6 +676,9 @@ def launch_cli():
                         help='Force use of a GPU device, if any available, even if researcher doesnt ' +
                         'request it (default: dont use GPU)',
                         action='store_true')
+    parser.add_argument('-aml', '--approve-model',
+                        help='Approve a model sent by Researcher (which status is either Pending or Rejected)',
+                        action='store_true')
     args = parser.parse_args()
 
     if not any(args.__dict__.values()):
@@ -706,6 +750,8 @@ def launch_cli():
         delete_database(interactive=False)
     elif args.register_model:
         register_model()
+    elif args.approve_model:
+        approve_model()
     elif args.update_model:
         update_model()
     elif args.delete_model:
