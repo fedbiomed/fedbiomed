@@ -6,7 +6,7 @@ This module implements the base class for all implementations of Fed-BioMed wrap
 import sys
 import numpy as np
 
-from typing import Any, Dict, Union, Callable, TYPE_CHECKING
+from typing import Any, Dict, Union, Callable
 from io import StringIO
 from joblib import dump, load
 
