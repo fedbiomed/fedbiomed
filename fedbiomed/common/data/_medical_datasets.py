@@ -60,11 +60,28 @@ class NIFTIFolderDataset(Dataset):
             transform: transforms to be applied on data.
             target_transform: transforms to be applied on target indexes.
         """
+        # check parameters type
+        for tr, trname in ((transform, 'transform'), (target_transform, 'target_transform')):
+            if not isinstance(tr, Transform) and tr is not None:
+                raise FedbiomedDatasetError(
+                    f"{ErrorNumbers.FB612.value}: Parameter {trname} has incorrect type {type(tr)}, "
+                    f"cannot create dataset.")               
+        if not isinstance(root, str) and not isinstance(root, PathLike) and not isinstance(root, Path):
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB612.value}: Parameter `root` has incorrect type {type(root)}, "
+                f"cannot create dataset.")             
+
+        # initialize object variables
         self._files = []
         self._class_labels = []
         self._targets = []
 
-        self._root_dir = Path(root).expanduser()
+        try:
+            self._root_dir = Path(root).expanduser()
+        except RuntimeError as e:
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB612.value}: Cannot expand path {root}, error message is: {e}")
+
         self._transform = transform
         self._target_transform = target_transform
         self._reader = Compose([
@@ -92,7 +109,7 @@ class NIFTIFolderDataset(Dataset):
         if len(self._files) == 0 or len(self._targets) == 0:
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB612.value}: Cannot create dataset because no compatible files found"
-                f" in the {self._root_dir}.")
+                f" in first level subdirectories of {self._root_dir}.")
 
     def labels(self) -> List[str]:
         """Retrieves the labels of the target classes.
