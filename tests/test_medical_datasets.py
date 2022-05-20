@@ -80,16 +80,13 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
     def test_getitem(self):
 
-        def ident_int(i: int):
-            return i
-
         # test all combination of using/not using a transformation
         # with identity transformation for the type of the data
         transformation = [
             [None, None],
             [Identity(), None],
-            [None, ident_int],
-            [Identity(), ident_int]
+            [None, Identity()],
+            [Identity(), Identity()]
         ]
 
         for transform, target_transform in transformation:
