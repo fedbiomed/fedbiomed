@@ -150,32 +150,42 @@ class NIFTIFolderDataset(Dataset):
         Returns:
             A tuple composed of the input sample (an image) and a target sample index (label index).
         """
-        #try:
-        img = self._reader(self._files[item])
-        #except Exception as e:
-        #    # many possible errors, too hard to list
-        #    raise FedbiomedDatasetError(
-        #        f"{ErrorNumbers.FB612.value}: Cannot get sample number {item} from dataset, "
-        #        f"error message is {e}.")
+        # check type and value for arguments
+        if not isinstance(item, int):
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB612.value}: Parameter `item` has incorrect type {type(item)}, "
+                f"cannot get item from dataset.") 
+        if item < 0 or item >= len(self._files):
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB612.value}: Parameter `item` has incorrect value {item}, "
+                f"cannot get item from dataset.")
+
+        try:
+            img = self._reader(self._files[item])
+        except Exception as e:
+            # many possible errors, too hard to list
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB612.value}: Cannot get sample number {item} from dataset, "
+                f"error message is {e}.")
 
         target = int(self._targets[item])
 
         if callable(self._transform):
-            #try:
-            img = self._transform(img)
-            #except Exception as e:
-            #    # cannot list all exceptions
-            #    raise FedbiomedDatasetError(
-            #        f"{ErrorNumbers.FB612.value}: Cannot apply transformation to source sample number {item} "
-            #        f"from dataset, error message is {e}.")                
+            try:
+                img = self._transform(img)
+            except Exception as e:
+                # cannot list all exceptions
+                raise FedbiomedDatasetError(
+                    f"{ErrorNumbers.FB612.value}: Cannot apply transformation to source sample number {item} "
+                    f"from dataset, error message is {e}.")                
         if callable(self._target_transform):
-            #try:
-            target = int(self._target_transform(target))
-            #except Exception as e:
-            #    # cannot list all exceptions
-            #    raise FedbiomedDatasetError(
-            #        f"{ErrorNumbers.FB612.value}: Cannot apply transformation to target sample number {item} "
-            #        f"from dataset, error message is {e}.") 
+            try:
+                target = int(self._target_transform(target))
+            except Exception as e:
+                # cannot list all exceptions
+                raise FedbiomedDatasetError(
+                    f"{ErrorNumbers.FB612.value}: Cannot apply transformation to target sample number {item} "
+                    f"from dataset, error message is {e}.") 
 
         return img, target
 
