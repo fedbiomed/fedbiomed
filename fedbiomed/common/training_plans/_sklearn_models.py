@@ -64,10 +64,10 @@ class FedPerceptron(SKLearnTrainingPlan):
             'intercept_': np.array([0.]) if (self.model_args['n_classes'] == 2) else np.array(
                 [0.] * self.model_args['n_classes']),
             'coef_': np.array([0.] * self.model_args['n_features']).reshape(1, self.model_args['n_features']) if (
-                    self.model_args['n_classes'] == 2) else np.array(
-                [0.] * self.model_args['n_classes'] * self.model_args['n_features']).reshape(
-                self.model_args['n_classes'],
-                self.model_args['n_features'])
+                self.model_args['n_classes'] == 2) else np.array(
+                    [0.] * self.model_args['n_classes'] * self.model_args['n_features']).reshape(
+                        self.model_args['n_classes'],
+                        self.model_args['n_features'])
         }
 
         for p in self.param_list:
@@ -219,10 +219,10 @@ class FedSGDClassifier(SKLearnTrainingPlan):
             'intercept_': np.array([0.]) if (self.model_args['n_classes'] == 2) else np.array(
                 [0.] * self.model_args['n_classes']),
             'coef_': np.array([0.] * self.model_args['n_features']).reshape(1, self.model_args['n_features']) if (
-                    self.model_args['n_classes'] == 2) else np.array(
-                [0.] * self.model_args['n_classes'] * self.model_args['n_features']).reshape(
-                self.model_args['n_classes'],
-                self.model_args['n_features'])
+                self.model_args['n_classes'] == 2) else np.array(
+                    [0.] * self.model_args['n_classes'] * self.model_args['n_features']).reshape(
+                        self.model_args['n_classes'],
+                        self.model_args['n_features'])
         }
 
         for p in self.param_list:
@@ -271,7 +271,7 @@ class FedBernoulliNB(SKLearnTrainingPlan):
         """
 
         msg = ErrorNumbers.FB605.value + \
-              " FedBernoulliNB not implemented."
+            " FedBernoulliNB not implemented."
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
@@ -324,7 +324,7 @@ class FedGaussianNB(SKLearnTrainingPlan):
         """
 
         msg = ErrorNumbers.FB605.value + \
-              " FedGaussianNB not implemented."
+            " FedGaussianNB not implemented."
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
@@ -362,10 +362,10 @@ class FedGaussianNB(SKLearnTrainingPlan):
             'intercept_': np.array([0.]) if (self.model_args['n_classes'] == 2) else np.array(
                 [0.] * self.model_args['n_classes']),
             'coef_': np.array([0.] * self.model_args['n_features']).reshape(1, self.model_args['n_features']) if (
-                    self.model_args['n_classes'] == 2) else np.array(
-                [0.] * self.model_args['n_classes'] * self.model_args['n_features']).reshape(
-                self.model_args['n_classes'],
-                self.model_args['n_features'])
+                self.model_args['n_classes'] == 2) else np.array(
+                    [0.] * self.model_args['n_classes'] * self.model_args['n_features']).reshape(
+                        self.model_args['n_classes'],
+                        self.model_args['n_features'])
         }
 
         for p in self.param_list:
@@ -383,7 +383,7 @@ class FedMultinomialNB(SKLearnTrainingPlan):
 
     def __init__(self, model_args):
         msg = ErrorNumbers.FB605.value + \
-              " FedMultinomialNB not implemented."
+            " FedMultinomialNB not implemented."
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
@@ -400,7 +400,7 @@ class FedPassiveAggressiveClassifier(SKLearnTrainingPlan):
 
     def __init__(self, model_args):
         msg = ErrorNumbers.FB605.value + \
-              ": model FedPassiveAggressiveClassifier not implemented yet "
+            ": model FedPassiveAggressiveClassifier not implemented yet "
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
@@ -417,7 +417,7 @@ class FedPassiveAggressiveRegressor(SKLearnTrainingPlan):
 
     def __init__(self, model_args):
         msg = ErrorNumbers.FB605.value + \
-              ": model FedPassiveAggressiveRegressor not implemented yet "
+            ": model FedPassiveAggressiveRegressor not implemented yet "
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
@@ -434,7 +434,7 @@ class FedMiniBatchKMeans(SKLearnTrainingPlan):
 
     def __init__(self, model_args):
         msg = ErrorNumbers.FB605.value + \
-              ": model FedMiniBatchKMeans not implemented yet "
+            ": model FedMiniBatchKMeans not implemented yet "
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
@@ -451,7 +451,7 @@ class FedMiniBatchDictionaryLearning(SKLearnTrainingPlan):
 
     def __init__(self, model_args):
         msg = ErrorNumbers.FB605.value + \
-              ": model FedMiniBatchDictionaryLearning not implemented yet "
+            ": model FedMiniBatchDictionaryLearning not implemented yet "
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
