@@ -97,7 +97,13 @@ class NIFTIFolderDataset(Dataset):
         # Search files that correspond to the following criteria:
         # 1. Extension in ALLOWED extensions
         # 2. File folder's parent must be root (inspects folder only one level of depth)
-        self._files = [ p.resolve() for p in self._root_dir.glob("*/*") if ''.join(p.suffixes) in self._ALLOWED_EXTENSIONS ]
+        try:
+            self._files = [ p.resolve() for p in self._root_dir.glob("*/*") if ''.join(p.suffixes) in self._ALLOWED_EXTENSIONS ]
+        except PermissionError as e:
+            # can other exceptions occur ?
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB612.value}: Cannot create dataset because scan of "
+                f"directory {self._root_dir} failed with error message: {e}.")
 
         # Create class labels dictionary
         self._class_labels = list(set([p.parent.name for p in self._files]))
@@ -144,13 +150,32 @@ class NIFTIFolderDataset(Dataset):
         Returns:
             A tuple composed of the input sample (an image) and a target sample index (label index).
         """
+        #try:
         img = self._reader(self._files[item])
+        #except Exception as e:
+        #    # many possible errors, too hard to list
+        #    raise FedbiomedDatasetError(
+        #        f"{ErrorNumbers.FB612.value}: Cannot get sample number {item} from dataset, "
+        #        f"error message is {e}.")
+
         target = int(self._targets[item])
 
         if callable(self._transform):
+            #try:
             img = self._transform(img)
+            #except Exception as e:
+            #    # cannot list all exceptions
+            #    raise FedbiomedDatasetError(
+            #        f"{ErrorNumbers.FB612.value}: Cannot apply transformation to source sample number {item} "
+            #        f"from dataset, error message is {e}.")                
         if callable(self._target_transform):
+            #try:
             target = int(self._target_transform(target))
+            #except Exception as e:
+            #    # cannot list all exceptions
+            #    raise FedbiomedDatasetError(
+            #        f"{ErrorNumbers.FB612.value}: Cannot apply transformation to target sample number {item} "
+            #        f"from dataset, error message is {e}.") 
 
         return img, target
 
