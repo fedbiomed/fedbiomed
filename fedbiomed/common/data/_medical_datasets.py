@@ -80,7 +80,7 @@ class NIFTIFolderDataset(Dataset):
         # Search files that correspond to the following criteria:
         # 1. Extension in ALLOWED extensions
         # 2. File folder's parent must be root (inspects folder only one level of depth)
-        self._files = [p.resolve() for p in self._root_dir.glob("**/*") if ''.join(p.suffixes) in self._ALLOWED_EXTENSIONS and p.parent.parent == self._root_dir]
+        self._files = [ p.resolve() for p in self._root_dir.glob("*/*") if ''.join(p.suffixes) in self._ALLOWED_EXTENSIONS ]
 
         # Create class labels dictionary
         self._class_labels = list(set([p.parent.name for p in self._files]))
