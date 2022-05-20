@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from monai.data import ITKReader
-from monai.transforms import LoadImage, ToTensor, Compose, Identity
+from monai.transforms import LoadImage, ToTensor, Compose, Identity, PadListDataCollate
 
 from fedbiomed.common.data import NIFTIFolderDataset
 from fedbiomed.common.exceptions import FedbiomedDatasetError
@@ -29,13 +29,33 @@ class TestNIFTIFolderDataset(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.root)
 
-    def test_instantiation(self):
-        _ = NIFTIFolderDataset(self.root)
+    def test_instantiation_correct(self):
+        # correct instantiations
+        NIFTIFolderDataset(self.root)
+        NIFTIFolderDataset(self.root, None, None)
+        NIFTIFolderDataset(self.root, transform=Identity(), target_transform=None)
+        NIFTIFolderDataset(self.root, transform=None, target_transform=Identity())
 
-    def test_empty_folder_raises_error(self):
+    def test_instantiation_incorrect(self):
+        # incorrect instantiations
+
+        # incorrect path type and values
+        for dir in (3, '~badaccount', '/not/existent/dir'):
+            with self.assertRaises(FedbiomedDatasetError):
+                NIFTIFolderDataset(dir)
+
+        # empty path directory
         with self.assertRaises(FedbiomedDatasetError):
             temp = tempfile.mkdtemp()
             NIFTIFolderDataset(temp)
+
+        def fonction():
+            pass
+        # incorrect transform functions
+        with self.assertRaises(FedbiomedDatasetError):
+            _ = NIFTIFolderDataset(self.root, fonction, None)
+        with self.assertRaises(FedbiomedDatasetError):
+            _ = NIFTIFolderDataset(self.root, None, fonction)
 
     def test_indexation(self):
         dataset = NIFTIFolderDataset(self.root)

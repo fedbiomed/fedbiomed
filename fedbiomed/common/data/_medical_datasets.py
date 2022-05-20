@@ -156,9 +156,8 @@ class NIFTIFolderDataset(Dataset):
                 f"{ErrorNumbers.FB612.value}: Parameter `item` has incorrect type {type(item)}, "
                 f"cannot get item from dataset.") 
         if item < 0 or item >= len(self._files):
-            raise FedbiomedDatasetError(
-                f"{ErrorNumbers.FB612.value}: Parameter `item` has incorrect value {item}, "
-                f"cannot get item from dataset.")
+            # need an IndexError, cannot use a FedbiomedError
+            raise IndexError('Bad index {item} in dataset samples')
 
         try:
             img = self._reader(self._files[item])
