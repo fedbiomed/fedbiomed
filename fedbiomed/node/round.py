@@ -384,6 +384,12 @@ class Round:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
                                       f"{str(training_plan_type.value)} has failed: {str(e)}")
 
+        # Get dataset property
+        default_launching_parameters = self.dataset.get("default_launching_parameters", {})
+        if hasattr(data_manager.dataset, "set_multiple_params"):
+            data_manager.dataset.set_multiple_params(default_launching_parameters)
+
+
         # Check whether training_data returns proper instance
         # it should be always Fed-BioMed DataManager
         if not isinstance(data_manager, DataManager):
