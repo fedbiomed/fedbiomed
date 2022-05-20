@@ -1,3 +1,8 @@
+"""
+Fed-BioMed encapsulation of SKLearn base classes.
+"""
+
+
 import numpy as np
 from io import StringIO
 
@@ -21,10 +26,10 @@ class FedPerceptron(SKLearnTrainingPlan):
     model = Perceptron()
 
     def __init__(self, model_args: dict = None):
-        """Class constructor
+        """Class constructor.
 
         Args:
-        - model_args: (dict, optional): model arguments. Defaults to {}
+            model_args: model arguments. Defaults to {}
         """
         if model_args is None:
             model_args = {}
@@ -46,7 +51,7 @@ class FedPerceptron(SKLearnTrainingPlan):
         ])
 
     def training_routine_hook(self) -> None:
-        """Training hook of Perceptron
+        """Training hook of Perceptron.
 
         Initializes the data loader and calls the `partial_fit` method.
         """
@@ -57,7 +62,7 @@ class FedPerceptron(SKLearnTrainingPlan):
         self.model.partial_fit(self.data, self.target, classes=classes)
 
     def set_init_params(self) -> None:
-        """Initialize the model parameters
+        """Initialize the model parameters.
         """
         self.param_list = ['intercept_', 'coef_']
         init_params = {
@@ -77,14 +82,14 @@ class FedPerceptron(SKLearnTrainingPlan):
             setattr(self.model, p, self.params[p])
 
     def evaluate_loss(self, output: StringIO, epoch: int) -> float:
-        """Evaluate the loss
+        """Evaluate the loss.
 
         Args:
-        - output: output of the scikit-learn perceptron model during training
-        - epoch: epoch number
+            output: output of the scikit-learn perceptron model during training
+            epoch: epoch number
 
         Returns:
-            (float) the value of the loss function in the case of binary classification, and the weighted average
+            float: the value of the loss function in the case of binary classification, and the weighted average
                 of the loss values for all classes in case of multiclass classification
         """
         _loss_collector = self._evaluate_loss_core(output, epoch)
@@ -109,9 +114,10 @@ class FedSGDRegressor(SKLearnTrainingPlan):
 
     def __init__(self, model_args: dict = None):
         """
-        Sklearn SGDRegressor model
+        Sklearn SGDRegressor model.
+
         Args:
-        - model_args: (dict, optional): model arguments. Defaults to {}
+            model_args: model arguments. Defaults to {}
         """
         if model_args is None:
             model_args = {}
@@ -134,14 +140,14 @@ class FedSGDRegressor(SKLearnTrainingPlan):
 
     def training_routine_hook(self) -> None:
         """
-        Training routine of SGDRegressor
+        Training routine of SGDRegressor.
         """
         (self.data, self.target) = self.training_data_loader
         self.model.partial_fit(self.data, self.target)
 
     def set_init_params(self) -> None:
         """
-        Initialize the model parameter
+        Initialize the model parameter.
         """
         self.param_list = ['intercept_', 'coef_']
         init_params = {'intercept_': np.array([0.]),
@@ -155,10 +161,13 @@ class FedSGDRegressor(SKLearnTrainingPlan):
     def evaluate_loss(self, output: StringIO, epoch: int) -> float:
         """
         Evaluate the loss.
+
         Args:
-        - output: output of the scikit-learn SGDRegressor model during training
-        - epoch: epoch number
-        Returns: float: the loss captured in the output
+            output: output of the scikit-learn SGDRegressor model during training
+            epoch: epoch number
+
+        Returns:
+            float: the loss captured in the output
         """
 
         _loss_collector = self._evaluate_loss_core(output, epoch)
@@ -177,9 +186,10 @@ class FedSGDClassifier(SKLearnTrainingPlan):
 
     def __init__(self, model_args: dict = None):
         """
-        Sklearn SGDClassifier model
+        Sklearn SGDClassifier model.
+
         Args:
-        - model_args: (dict, optional): model arguments. Defaults to {}
+            model_args: model arguments. Defaults to {}
         """
         if model_args is None:
             model_args = {}
@@ -200,8 +210,7 @@ class FedSGDClassifier(SKLearnTrainingPlan):
                              ])
 
     def training_routine_hook(self) -> None:
-        """
-        Training routine of SGDClassifier
+        """Training routine of SGDClassifier.
         """
         (self.data, self.target) = self.training_data_loader
         classes = self._classes_from_concatenated_train_test()
@@ -211,8 +220,7 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         self.model.partial_fit(self.data, self.target, classes=classes)
 
     def set_init_params(self) -> None:
-        """
-        Initialize the model parameter
+        """Initialize the model parameter.
         """
         self.param_list = ['intercept_', 'coef_']
         init_params = {
@@ -235,11 +243,11 @@ class FedSGDClassifier(SKLearnTrainingPlan):
         """Evaluate the loss
 
         Args:
-        - output: output of the scikit-learn SGDClassifier model during training
-        - epoch: epoch number
+            output: output of the scikit-learn SGDClassifier model during training
+            epoch: epoch number
 
         Returns:
-            (float) the value of the loss function in the case of binary classification, and the weighted average
+            float: the value of the loss function in the case of binary classification, and the weighted average
                 of the loss values for all classes in case of multiclass classification
         """
         _loss_collector = self._evaluate_loss_core(output, epoch)
@@ -264,10 +272,10 @@ class FedBernoulliNB(SKLearnTrainingPlan):
     model = BernoulliNB()
 
     def __init__(self, model_args: dict = {}):
-        """
-        Sklearn BernoulliNB model
+        """Sklearn BernoulliNB model.
+
         Args:
-        - model_args: (dict, optional): model arguments. Defaults to {}
+            model_args: model arguments. Defaults to {}
         """
 
         msg = ErrorNumbers.FB605.value + \
@@ -289,8 +297,7 @@ class FedBernoulliNB(SKLearnTrainingPlan):
         ])
 
     def training_routine_hook(self):
-        """
-        Training routine of BernoulliNB
+        """Training routine of BernoulliNB.
         """
         (self.data, self.target) = self.training_data_loader
         classes = self._classes_from_concatenated_train_test()
@@ -300,8 +307,7 @@ class FedBernoulliNB(SKLearnTrainingPlan):
         self.model.partial_fit(self.data, self.target, classes=classes)
 
     def set_init_params(self):
-        """
-        Initialize the model parameter
+        """Initialize the model parameter.
         """
         for p in self.params:
             setattr(self.model, p, self.params[p])
@@ -318,9 +324,10 @@ class FedGaussianNB(SKLearnTrainingPlan):
 
     def __init__(self, model_args: dict = {}):
         """
-        Sklearn GaussianNB model
+        Sklearn GaussianNB model.
+
         Args:
-        - model_args: (dict, optional): model arguments. Defaults to {}
+            model_args: model arguments. Defaults to {}
         """
 
         msg = ErrorNumbers.FB605.value + \
@@ -342,8 +349,7 @@ class FedGaussianNB(SKLearnTrainingPlan):
         ])
 
     def training_routine_hook(self):
-        """
-        Training routine of GaussianNB
+        """Training routine of GaussianNB.
         """
         (self.data, self.target) = self.training_data_loader
         classes = self._classes_from_concatenated_train_test()
@@ -353,8 +359,7 @@ class FedGaussianNB(SKLearnTrainingPlan):
         self.model.partial_fit(self.data, self.target, classes=classes)
 
     def set_init_params(self):
-        """
-        Initialize the model parameter
+        """Initialize the model parameter.
         """
 
         self.param_list = ['intercept_', 'coef_']
