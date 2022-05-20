@@ -48,6 +48,13 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             temp = tempfile.mkdtemp()
             NIFTIFolderDataset(temp)
+        # directory with no nifti file
+        with self.assertRaises(FedbiomedDatasetError):
+            temp = tempfile.mkdtemp()
+            tempsub = os.path.join(temp, 'subfolder')
+            os.mkdir(tempsub)
+            Path(os.path.join(tempsub, 'testfile')).touch()
+            NIFTIFolderDataset(temp)        
 
         def fonction():
             pass

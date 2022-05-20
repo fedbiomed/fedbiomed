@@ -98,7 +98,8 @@ class NIFTIFolderDataset(Dataset):
         # 1. Extension in ALLOWED extensions
         # 2. File folder's parent must be root (inspects folder only one level of depth)
         try:
-            self._files = [ p.resolve() for p in self._root_dir.glob("*/*") if ''.join(p.suffixes) in self._ALLOWED_EXTENSIONS ]
+            self._files = [ p.resolve() for p in self._root_dir.glob("*/*")
+                            if ''.join(p.suffixes) in self._ALLOWED_EXTENSIONS ]
         except PermissionError as e:
             # can other exceptions occur ?
             raise FedbiomedDatasetError(
