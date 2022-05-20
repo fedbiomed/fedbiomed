@@ -17,7 +17,7 @@ from typing import Union, Callable, List, Dict, Type
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.repository import Repository
-from fedbiomed.common.training_plans import TorchTrainingPlan, SGDSkLearnModel  # noqa
+from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan  # noqa
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
