@@ -39,30 +39,37 @@ class TestNIFTIFolderDataset(unittest.TestCase):
     def test_instantiation_incorrect(self):
         # incorrect instantiations
 
-        # incorrect path type and values
+        # incorrect path - type or values
         for dir in (3, '~badaccount', '/not/existent/dir'):
             with self.assertRaises(FedbiomedDatasetError):
                 NIFTIFolderDataset(dir)
 
         # empty path directory
+        temp = tempfile.mkdtemp()
         with self.assertRaises(FedbiomedDatasetError):
-            temp = tempfile.mkdtemp()
             NIFTIFolderDataset(temp)
         # directory with no nifti file
+        temp = tempfile.mkdtemp()
+        tempsub = os.path.join(temp, 'subfolder')
+        os.mkdir(tempsub)
+        Path(os.path.join(tempsub, 'testfile')).touch()
         with self.assertRaises(FedbiomedDatasetError):
-            temp = tempfile.mkdtemp()
-            tempsub = os.path.join(temp, 'subfolder')
-            os.mkdir(tempsub)
-            Path(os.path.join(tempsub, 'testfile')).touch()
-            NIFTIFolderDataset(temp)        
+            NIFTIFolderDataset(temp)
+        # directory unreadable    
+        temp = tempfile.mkdtemp()
+        tempsub = os.path.join(temp, 'subfolder')
+        os.mkdir(tempsub)
+        os.chmod(tempsub, 0) 
+        with self.assertRaises(FedbiomedDatasetError):
+            NIFTIFolderDataset(temp) 
 
         def fonction():
             pass
-        # incorrect transform functions
+        # incorrectly typed transform functions
         with self.assertRaises(FedbiomedDatasetError):
-            _ = NIFTIFolderDataset(self.root, fonction, None)
+            NIFTIFolderDataset(self.root, fonction, None)
         with self.assertRaises(FedbiomedDatasetError):
-            _ = NIFTIFolderDataset(self.root, None, fonction)
+            NIFTIFolderDataset(self.root, None, fonction)
 
     def test_indexation_correct(self):
         dataset = NIFTIFolderDataset(self.root)
@@ -85,6 +92,28 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         for index in (-2, len(dataset), len(dataset) + 10):
             with self.assertRaises(IndexError):
                 _ = dataset[index]
+
+        # transformation error (transform function do not match data)
+        transformation = [
+            [PadListDataCollate(), None],
+            [None, PadListDataCollate()],
+            [PadListDataCollate(), PadListDataCollate()]
+        ]
+        for transform, target_transform in transformation:
+            dataset = NIFTIFolderDataset(self.root, transform, target_transform)
+            with self.assertRaises(FedbiomedDatasetError):
+                dataset[0]
+
+        # unreadable sample file
+        temp = tempfile.mkdtemp()
+        tempsub = os.path.join(temp, 'subfolder')
+        os.mkdir(tempsub)
+        tempsubfile = os.path.join(tempsub, 'testfile.nii')
+        Path(tempsubfile).touch()
+        dataset = NIFTIFolderDataset(temp)
+        os.chmod(tempsubfile, 0)
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset[0]
 
     def test_len(self):
         dataset = NIFTIFolderDataset(self.root)
@@ -115,7 +144,6 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
         # compare label list content
         self.assertEqual(sorted([str(f) for f in files]), sorted([str(f) for f in self.sample_paths]))
-
 
     def test_getitem(self):
 

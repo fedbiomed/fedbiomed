@@ -97,14 +97,15 @@ class NIFTIFolderDataset(Dataset):
         # Search files that correspond to the following criteria:
         # 1. Extension in ALLOWED extensions
         # 2. File folder's parent must be root (inspects folder only one level of depth)
-        try:
-            self._files = [ p.resolve() for p in self._root_dir.glob("*/*")
-                            if ''.join(p.suffixes) in self._ALLOWED_EXTENSIONS ]
-        except PermissionError as e:
-            # can other exceptions occur ?
-            raise FedbiomedDatasetError(
-                f"{ErrorNumbers.FB612.value}: Cannot create dataset because scan of "
-                f"directory {self._root_dir} failed with error message: {e}.")
+        self._files = [ p.resolve() for p in self._root_dir.glob("*/*")
+                        if ''.join(p.suffixes) in self._ALLOWED_EXTENSIONS ]
+        # note: no PermissionError raised. If directory cannot be listed it is ignored
+
+        #except PermissionError as e:
+        #    # can other exceptions occur ?
+        #    raise FedbiomedDatasetError(
+        #        f"{ErrorNumbers.FB612.value}: Cannot create dataset because scan of "
+        #        f"directory {self._root_dir} failed with error message: {e}.")
 
         # Create class labels dictionary
         self._class_labels = list(set([p.parent.name for p in self._files]))
