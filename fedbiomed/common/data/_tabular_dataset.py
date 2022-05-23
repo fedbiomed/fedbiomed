@@ -10,11 +10,11 @@ import pandas as pd
 from torch import from_numpy, Tensor
 from torch.utils.data import Dataset
 
-from fedbiomed.common.exceptions import FedbiomedTorchTabularDatasetError
+from fedbiomed.common.exceptions import FedbiomedDatasetError
 from fedbiomed.common.constants import ErrorNumbers
 
 
-class TorchTabularDataset(Dataset):
+class TabularDataset(Dataset):
     """Torch based Dataset object to create torch Dataset from given numpy or dataframe
     type of input and target variables
     """
@@ -42,7 +42,7 @@ class TorchTabularDataset(Dataset):
         elif isinstance(inputs, np.ndarray):
             self.inputs = inputs
         else:
-            raise FedbiomedTorchTabularDatasetError(f"{ErrorNumbers.FB610.value}: The argument `inputs` should be "
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB610.value}: The argument `inputs` should be "
                                                     f"an instance one of np.ndarray, pd.DataFrame or pd.Series")
         # Configuring self.target attribute
         if isinstance(target, (pd.DataFrame, pd.Series)):
@@ -50,12 +50,12 @@ class TorchTabularDataset(Dataset):
         elif isinstance(inputs, np.ndarray):
             self.target = target
         else:
-            raise FedbiomedTorchTabularDatasetError(f"{ErrorNumbers.FB610.value}: The argument `target` should be "
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB610.value}: The argument `target` should be "
                                                     f"an instance one of np.ndarray, pd.DataFrame or pd.Series")
 
         # The lengths should be equal
         if len(self.inputs) != len(self.target):
-            raise FedbiomedTorchTabularDatasetError(f"{ErrorNumbers.FB610.value}: Length of input variables and target "
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB610.value}: Length of input variables and target "
                                                     f"variable does not match. Please make sure that they have "
                                                     f"equal size while creating the method `training_data` of "
                                                     f"TrainingPlan")

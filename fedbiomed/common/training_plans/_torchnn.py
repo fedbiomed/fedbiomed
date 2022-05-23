@@ -153,8 +153,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          batch_maxnum: int = 0,
                          dry_run: bool = False,
                          use_gpu: Union[bool, None] = None,
-                         fedprox_mu: float =None,
-                         history_monitor: Any =None,
+                         fedprox_mu: float = None,
+                         history_monitor: Any = None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
         # FIXME 2: remove parameters specific for testing specified in the

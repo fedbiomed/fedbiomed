@@ -1,3 +1,4 @@
+from typing import Tuple
 import unittest
 from fedbiomed.common.validator import Validator, SchemeValidator, \
     validator_decorator, _ValidatorHookType
@@ -20,7 +21,7 @@ class TestValidator(unittest.TestCase):
     # define some validation hooks to add to the validator
     @staticmethod
     @validator_decorator
-    def hook_01_positive_integer_check(value):
+    def hook_01_positive_integer_check(value) -> bool:
         """
         value must be a positive integer
         """
@@ -29,7 +30,7 @@ class TestValidator(unittest.TestCase):
         return True
 
     @staticmethod
-    def hook_02_positive_integer_check(value):
+    def hook_02_positive_integer_check(value) -> Tuple[bool, str]:
         """
         value must be a positive integer
 
@@ -37,7 +38,7 @@ class TestValidator(unittest.TestCase):
         (boolean, error_message_string)
         """
         if not isinstance(value, int) or value < 1:
-            return False, str(value) + " is not a positive integer"
+            return False, f"{value} is not a positive integer"
         return True, None
 
 
@@ -180,7 +181,9 @@ class TestValidator(unittest.TestCase):
 
 
     def test_validator_04_another_one(self):
-
+        """
+        provide my own hook
+        """
         v = Validator()
         self.assertTrue(v.register( 'probability', self.hook_probability_check))
 
@@ -204,6 +207,9 @@ class TestValidator(unittest.TestCase):
 
 
     def test_validator_05_without_decorator(self):
+        """
+        provide a hook without using the @validator_decorator
+        """
         v = Validator()
 
         rule_name = 'rule_02'
@@ -221,7 +227,9 @@ class TestValidator(unittest.TestCase):
 
 
     def test_validator_06_strict_or_not(self):
-
+        """
+        test the script flag
+        """
         v = Validator()
 
         rule_name = 'this_rule_is_unknown'
@@ -627,12 +635,14 @@ class TestSchemeValidator(unittest.TestCase):
         # add default values to an invalid json
         sc = SchemeValidator( { "a": { "rules": [ float ],
                                        "required": True,
-                                       "default": 1.0 },
+                                       "default": 3.14 },
                                 "b": { "rules": [ int ],
                                        "required": True,
                                        "default": 666 },
                                 "c": { "rules": [ str ],
-                                       "default": "stupid because unused" }
+                                       "default": "stupid because unused" },
+                                "d": { "rules": [ str ]
+                                      }
                                }
                              )
         self.assertTrue( sc.is_valid())
@@ -643,6 +653,14 @@ class TestSchemeValidator(unittest.TestCase):
 
         good = sc.populate_with_defaults( bad )
         self.assertTrue( sc.validate(good))
+        self.assertEqual( good['a'], 1.0)
+        self.assertEqual( good['b'], 666)
+
+        good_again = sc.populate_with_defaults( { "d": "some string"} , only_required = False)
+        self.assertTrue( sc.validate(good_again))
+        self.assertEqual( good_again['a'], 3.14)
+        self.assertEqual( good_again['b'], 666)
+        self.assertEqual( good_again['d'], "some string")
 
         # be carefull that this is not idiot proof....
         bad = { "a": "string instead a float" }
