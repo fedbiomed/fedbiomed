@@ -75,7 +75,11 @@ class NIFTIFolderDataset(Dataset):
         self._explore_root_folder()
 
     def _explore_root_folder(self) -> None:
-        """Scans all files found in folder structure to populate dataset"""
+        """Scans all files found in folder structure to populate dataset
+
+        Raises:
+            FedbiomedDatasetError: If compatible image files are not found
+        """
 
         # Search files that correspond to the following criteria:
         # 1. Extension in ALLOWED extensions
