@@ -19,14 +19,15 @@ from fedbiomed.common.constants import ErrorNumbers
 
 
 class NIFTIFolderDataset(Dataset):
-    """A Generic class for loading NIFTI Images using the folder structure as the target labels.
+    """A Generic class for loading NIFTI Images using the folder structure as the target classes' labels.
 
     Supported formats:
     - NIFTI and compressed NIFTI files: `.nii`, `.nii.gz`
 
-    This is a Dataset useful in classification tasks. Its usage is quite simple.
-    Images must be contained by folders that describe the group/class they belong to.
-    Behaves much like `torchvision.datasets.ImageFolder`
+    This is a Dataset useful in classification tasks. Its usage is quite simple, quite near
+    from `torchvision.datasets.ImageFolder`.
+    Images must be contained in first level subfolders (level 2+ subfolders are ignored)
+    that describe the target class they belong to (target class label is the name of the folder).
 
     ```
     nifti_dataset_root_folder
@@ -35,10 +36,14 @@ class NIFTIFolderDataset(Dataset):
     │   └── subject_2.nii
     │   └── ...
     └── disease_group
-        ├── subject_1.nii
-        └── subject_2.nii
+        ├── subject_3.nii
+        └── subject_4.nii
         └── ...
     ```
+
+    In this example, there are 4 samples (one from each *.nii file),
+    2 target class, with labels `control_group` and `disease_group`.
+    `subject_1.nii` has class label `control_group`, `subject_3.nii` has class label `disease_group`,etc.
     """
 
     # constant, thus can be a class variable
@@ -48,11 +53,12 @@ class NIFTIFolderDataset(Dataset):
                  transform: Union[Transform, None] = None,
                  target_transform: Union[Transform, None] = None
                  ):
-        """
+        """Constructor of the class
+
         Args:
             root: folder where the data is located.
             transform: transforms to be applied on data.
-            target_transform: transforms to be applied on target.
+            target_transform: transforms to be applied on target indexes.
         """
         self._files = []
         self._class_labels = []
@@ -93,7 +99,7 @@ class NIFTIFolderDataset(Dataset):
     def labels(self) -> List[str]:
         """Retrieves the labels of the target classes.
 
-        Target label index is the index in this list.
+        Target label index is the index of the corresponding label in this list.
 
         Returns:
             List of the labels of the target classes.
@@ -104,7 +110,7 @@ class NIFTIFolderDataset(Dataset):
         """Retrieves the paths to the sample images.
 
         Gives sames order as when retrieving the sample images (eg `self.files[0]`
-        is the path to `self)
+        is the path to `self.__getitem__[0]`)
 
         Returns:
             List of the absolute paths to the sample images
@@ -114,13 +120,11 @@ class NIFTIFolderDataset(Dataset):
     def __getitem__(self, item: int) -> Tuple[Tensor, int]:
         """Gets item from dataset
 
-        Applies `transform` to the image if it is not `None`.
-        Applies `target_transform` to the sample index if it is not `None`
+        If `transform` is not `None`, applies it to the image.
+        If `target_transform` is not `None`, applies it to the target class index
 
         Args:
             item: Index to select single sample from dataset
-
-        Raises:
 
         Returns:
             A tuple composed of the input sample (an image) and a target sample index (label index).
@@ -136,6 +140,9 @@ class NIFTIFolderDataset(Dataset):
         return img, target
 
     def __len__(self) -> int:
-        """Gets number of samples in dataset
+        """Gets number of samples in the dataset.
+
+        Returns:
+            Number of samples in the dataset.
         """
         return len(self._files)
