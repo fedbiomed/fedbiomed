@@ -1,5 +1,4 @@
-"""
-Common healthcare data manager
+"""Common healthcare data manager
 
 Provides classes managing dataset for common cases of use in healthcare:
 - NIFTI: For NIFTI medical images
@@ -24,9 +23,9 @@ class NIFTIFolderDataset(Dataset):
     Supported formats:
     - NIFTI and compressed NIFTI files: `.nii`, `.nii.gz`
 
-    This is a Dataset useful in classification tasks. Its usage is quite simple, quite near
-    from `torchvision.datasets.ImageFolder`.
-    Images must be contained in first level subfolders (level 2+ subfolders are ignored)
+    This is a Dataset useful in classification tasks. Its usage is quite simple, quite similar
+    to `torchvision.datasets.ImageFolder`.
+    Images must be contained in first level sub-folders (level 2+ sub-folders are ignored)
     that describe the target class they belong to (target class label is the name of the folder).
 
     ```
@@ -65,11 +64,11 @@ class NIFTIFolderDataset(Dataset):
             if not isinstance(tr, Transform) and tr is not None:
                 raise FedbiomedDatasetError(
                     f"{ErrorNumbers.FB612.value}: Parameter {trname} has incorrect type {type(tr)}, "
-                    f"cannot create dataset.")               
+                    f"cannot create dataset.")
         if not isinstance(root, str) and not isinstance(root, PathLike) and not isinstance(root, Path):
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB612.value}: Parameter `root` has incorrect type {type(root)}, "
-                f"cannot create dataset.")             
+                f"cannot create dataset.")
 
         # initialize object variables
         self._files = []
@@ -92,16 +91,20 @@ class NIFTIFolderDataset(Dataset):
         self._explore_root_folder()
 
     def _explore_root_folder(self) -> None:
-        """Scans all files found in folder structure to populate dataset"""
+        """Scans all files found in folder structure to populate dataset
+
+        Raises:
+            FedbiomedDatasetError: If compatible image files/folders for input or target are not found.
+        """
 
         # Search files that correspond to the following criteria:
         # 1. Extension in ALLOWED extensions
         # 2. File folder's parent must be root (inspects folder only one level of depth)
-        self._files = [ p.resolve() for p in self._root_dir.glob("*/*")
-                        if ''.join(p.suffixes) in self._ALLOWED_EXTENSIONS ]
-        # note: no PermissionError raised. If directory cannot be listed it is ignored
+        self._files = [p.resolve() for p in self._root_dir.glob("*/*")
+                       if ''.join(p.suffixes) in self._ALLOWED_EXTENSIONS]
 
-        #except PermissionError as e:
+        # note: no PermissionError raised. If directory cannot be listed it is ignored
+        # except PermissionError as e:
         #    # can other exceptions occur ?
         #    raise FedbiomedDatasetError(
         #        f"{ErrorNumbers.FB612.value}: Cannot create dataset because scan of "
@@ -156,7 +159,7 @@ class NIFTIFolderDataset(Dataset):
         if not isinstance(item, int):
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB612.value}: Parameter `item` has incorrect type {type(item)}, "
-                f"cannot get item from dataset.") 
+                f"cannot get item from dataset.")
         if item < 0 or item >= len(self._files):
             # need an IndexError, cannot use a FedbiomedError
             raise IndexError('Bad index {item} in dataset samples')
@@ -178,7 +181,7 @@ class NIFTIFolderDataset(Dataset):
                 # cannot list all exceptions
                 raise FedbiomedDatasetError(
                     f"{ErrorNumbers.FB612.value}: Cannot apply transformation to source sample number {item} "
-                    f"from dataset, error message is {e}.")                
+                    f"from dataset, error message is {e}.")
         if callable(self._target_transform):
             try:
                 target = int(self._target_transform(target))
@@ -186,7 +189,7 @@ class NIFTIFolderDataset(Dataset):
                 # cannot list all exceptions
                 raise FedbiomedDatasetError(
                     f"{ErrorNumbers.FB612.value}: Cannot apply transformation to target sample number {item} "
-                    f"from dataset, error message is {e}.") 
+                    f"from dataset, error message is {e}.")
 
         return img, target
 
