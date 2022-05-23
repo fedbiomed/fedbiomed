@@ -391,11 +391,23 @@ class BIDSDataset(Dataset):
         return dict(data=data, target=targets, demographics=demographics)
 
     def __len__(self):
-        length = len(self.complete_subject_folders)
-        assert length > 0, 'Dataset cannot be empty. ' \
-                           'Check again that the folder and ' \
-                           'the tabular data (if provided) exist and match properly.'
+        """ Length method to get number of samples
+
+        Raises:
+            FedbiomedBIDSDatasetError: If the dataset is empty.
+        """
+        self._instantiate_subject_folders()
+        length = len(self._complete_subject_folders)
+
+        if length <= 0:
+            raise FedbiomedBIDSDatasetError('Dataset cannot be empty. Check again that the folder and '
+                                            'the tabular data (if provided) exist and match properly.')
         return length
+
+    def _instantiate_subject_folders(self):
+        # For the first item retrieve complete subject folders
+        if self._complete_subject_folders is None:
+            self._complete_subject_folders = self.subject_folders()
 
     @property
     def tabular_file(self):
@@ -515,7 +527,7 @@ class BIDSDataset(Dataset):
         """
 
         all_modalities = self.data_modalities + self.target_modalities
-        subject_folder_names = self._bids_controller.available_subjects()
+        subject_folder_names = self._bids_controller.subjects()
 
         # Get subject that has all requested modalities
         complete_subject_folders = self._bids_controller.complete_subjects(subject_folder_names, all_modalities)
