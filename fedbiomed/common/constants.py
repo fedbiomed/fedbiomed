@@ -143,9 +143,11 @@ class ErrorNumbers(_BaseEnum):
     FB606: str = "FB606: model manager error"
     FB607: str = "FB607: data manager error"
     FB608: str = "FB608: torch data manager error"
-    FB609: str = "FB608: scikit-learn data manager error"
-    FB610: str = "FB609: Torch based tabular dataset creation error"
+    FB609: str = "FB609: scikit-learn data manager error"
+    FB610: str = "FB610: Torch based tabular dataset creation error"
     FB611: str = "FB611: Error while trying to evaluate using the specified metric"
+    FB612: str = "FB612: Torch based NIFTI dataset error"
+
 
     # oops
     FB999: str = "FB999: unknown error code sent by the node"
