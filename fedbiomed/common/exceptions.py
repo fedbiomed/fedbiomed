@@ -21,6 +21,13 @@ class FedbiomedAggregatorError(FedbiomedError):
     pass
 
 
+class FedbiomedDatasetError(FedbiomedError):
+    """
+    Exceptions specific for the class fedbiomed.common.data.NIFTIFolderDataset.
+    """
+    pass
+
+
 class FedbiomedDataManagerError(FedbiomedError):
     """
     Exception for DataManager errors.
@@ -141,13 +148,6 @@ class FedbiomedTaskQueueError(FedbiomedError):
 class FedbiomedTorchDataManagerError(FedbiomedError):
     """
     Exceptions specific for the class TorchDataset.
-    """
-    pass
-
-
-class FedbiomedTorchTabularDatasetError(FedbiomedError):
-    """
-    Exceptions specific for the class fedbiomed.common.data.TorchTabularDataset.
     """
     pass
 
