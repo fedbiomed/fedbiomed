@@ -279,6 +279,12 @@ class TestBIDSDataset(unittest.TestCase):
         dataset = BIDSDataset(self.root)
         self._assert_batch_types_and_sizes(dataset)
 
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset = BIDSDataset(self.root, transform="Invalid")
+
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset = BIDSDataset(self.root, target_transform="Invalid")
+
     def test_cached_properties(self):
         dataset = BIDSDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
         print(dataset.demographics.head())
@@ -341,7 +347,7 @@ class TestBIDSBase(unittest.TestCase):
             shutil.rmtree(self.root)
         pass
 
-    def test__init__(self):
+    def test_bids_base__init__(self):
         self.bids_base = BIDSBase()
         self.assertIsNone(self.bids_base.root, "BIDSBase root should not in empty initialization")
 
@@ -356,23 +362,56 @@ class TestBIDSBase(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             self.bids_base.root = None
 
+        # If subjects has no modality folder
         dummy_root = tempfile.mkdtemp()
         _create_wrong_formatted_folder_for_bids(dummy_root, 3)
-
         with self.assertRaises(FedbiomedDatasetError):
             self.bids_base.root = dummy_root
 
         # Remove tmp folder
         shutil.rmtree(dummy_root)
 
+        # If root has no subject folder
         dummy_root_2 = tempfile.mkdtemp()
         _create_wrong_formatted_folder_for_bids(dummy_root, 0)
-
         with self.assertRaises(FedbiomedDatasetError):
             self.bids_base.root = dummy_root_2
 
         # Remove tmp folder
         shutil.rmtree(dummy_root_2)
+
+    def test_bids_base_modalities(self):
+        """Testing the method gets modalities from subject folder"""
+
+        self.bids_base = BIDSBase(root=self.root)
+        unique_modalities, all_modalities = self.bids_base.modalities()
+
+        self.assertIsInstance(all_modalities, list, "All modalities are not as expected")
+        unique_modalities.sort()
+        self.assertListEqual(unique_modalities, ["T1", "T2", "label"])
+
+    def test_bids_base_available_subjects(self):
+        """Testing the method that extract available subjects for training"""
+        self.bids_base = BIDSBase(root=self.root)
+        file = self.bids_base.read_demographics(self.tabular_file, self.index_col)
+        complete_subject, missing_folders, missing_entries = \
+            self.bids_base.available_subjects(subjects_from_index=file.index)
+
+        # Test results
+        self.assertListEqual(missing_folders, [])
+        self.assertListEqual(missing_entries, [])
+
+    def test_bids_base_read_demographics(self):
+
+        self.bids_base = BIDSBase(root=self.root)
+
+        with self.assertRaises(FedbiomedDatasetError):
+            self.bids_base.read_demographics(os.path.join(self.root, 'toto'), index_col=12)
+
+        test_csv = pd.DataFrame([[1, 2, 3], [1, 2, 3]])
+        test_csv.to_csv(os.path.join(self.root, 'toto.csv'))
+        df = self.bids_base.read_demographics(os.path.join(self.root, 'toto.csv'), index_col=1)
+        self.assertIsInstance(df, pd.DataFrame)
 
 
 if __name__ == '__main__':

@@ -348,7 +348,8 @@ class BIDSBase:
                             - If path is not a directory
         """
         if not isinstance(path, (Path, str)):
-            raise FedbiomedDatasetError(f"The argument root should an instance of `Path` or `str`, but got {type(path)}")
+            raise FedbiomedDatasetError(
+                f"The argument root should an instance of `Path` or `str`, but got {type(path)}")
 
         if not isinstance(path, Path):
             path = Path(path)
@@ -427,12 +428,12 @@ class BIDSDataset(Dataset, BIDSBase):
 
         # Raise if transform objects are not provided as dictionaries.
         # E.g. {'T1': Normalize(...), 'T2': ToTensor()}
-        if not isinstance(self.transform, dict):
-            raise FedbiomedDatasetError(f'As you have multiple data modalities, transforms have to a dictionary '
-                                        f'using the modality keys: {self.data_modalities}')
-        if not isinstance(self.target_transform, dict):
-            raise FedbiomedDatasetError(f'As you have multiple target modalities, transforms have to a dictionary '
-                                        f'using the modality keys: {self.target_modalities}')
+        # if not isinstance(self.transform, dict):
+        #     raise FedbiomedDatasetError(f'As you have multiple data modalities, transforms have to a dictionary '
+        #                                 f'using the modality keys: {self.data_modalities}')
+        # if not isinstance(self.target_transform, dict):
+        #     raise FedbiomedDatasetError(f'As you have multiple target modalities, transforms have to a dictionary '
+        #                                 f'using the modality keys: {self.target_modalities}')
 
     def __getitem__(self, item):
 
@@ -453,13 +454,13 @@ class BIDSDataset(Dataset, BIDSBase):
         demographics = self._get_from_demographics(subject_id=subject_folder.name)
 
         # Apply transforms to data elements
-        for modality, transform in self.transform.items():
-            if transform:
+        if self.transform is not None:
+            for modality, transform in self.transform.items():
                 data[modality] = transform(data[modality])
 
         # Apply transform to target elements
-        for modality, target_transform in self.target_transform.items():
-            if target_transform:
+        if self.target_transform is not None:
+            for modality, target_transform in self.target_transform.items():
                 targets[modality] = target_transform(targets[modality])
 
         return dict(data=data, target=targets, demographics=demographics)
@@ -641,16 +642,37 @@ class BIDSDataset(Dataset, BIDSBase):
         Returns:
             A dict of transforms compatible with the provided modalities.
         """
+
+        # Return None if any transform is not provided
+        if transform is None:
+            return None
+
+        # Convert str type modality to list
         if isinstance(modalities, str):
             modalities = [modalities]
 
+        # If transform is dict, map modalities to transforms
         if isinstance(transform, dict):
-            for modality in transform.keys():
-                assert modality in modalities, f'Modality `{modality}` is not present in {modalities}'
+            for modality, method in transform.items():
+                if modality not in modalities:
+                    raise FedbiomedDatasetError(f'Modality `{modality}` is not present in {modalities}')
+
+                if not callable(method):
+                    raise FedbiomedDatasetError(f'Transform for `{modality}` should be callable')
+
             return transform
 
-        if len(modalities) == 1:
+        # If transform is not dict and there is only one modality
+        elif len(modalities) == 1:
+            if not callable(transform):
+                raise FedbiomedDatasetError(f'Transform for `{modalities[0]}` should be callable')
+
             return {modalities[0]: transform}
+
+        # Raise ------
+        else:
+            raise FedbiomedDatasetError(f'As you have multiple data modalities, transforms have to be a dictionary '
+                                        f'using the modality keys: {modalities}')
 
 
 class BIDSController(BIDSBase):
