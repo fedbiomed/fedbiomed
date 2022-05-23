@@ -17,7 +17,7 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 from fedbiomed.common.logger import logger
-from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedBIDSDatasetError, FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
 from fedbiomed.common.constants import ErrorNumbers
 
 
@@ -206,8 +206,7 @@ class NIFTIFolderDataset(Dataset):
         return len(self._files)
 
 
-
-class BIDSController:
+class BIDSBase:
     """Controller class for BIDS dataset.
 
     Contains methods to validate BIDS folder hierarchy  and extract folder-base meta data
@@ -236,7 +235,7 @@ class BIDSController:
         path = self.validate_bids_root_folder(path)
         self._root = path
 
-    def modalities(self):
+    def modalities(self) -> Tuple[list, list]:
         """ Gets all available modalities under root directory
 
         Returns:
@@ -316,7 +315,7 @@ class BIDSController:
         """
         path = Path(path)
         if not path.is_file():
-            raise FedbiomedBIDSDatasetError(f"Demographics should be a file not a directory")
+            raise FedbiomedDatasetError(f"Demographics should be a file not a directory")
 
         if 'xls' in path.suffix.lower():
             return pd.read_excel(path, index_col=index_col)
@@ -349,43 +348,28 @@ class BIDSController:
                             - If path is not a directory
         """
         if not isinstance(path, (Path, str)):
-            raise FedbiomedError(f"The argument root should an instance of `Path` or `str`, but got {type(path)}")
+            raise FedbiomedDatasetError(f"The argument root should an instance of `Path` or `str`, but got {type(path)}")
 
         if not isinstance(path, Path):
             path = Path(path)
 
         if not path.is_dir():
-            raise FedbiomedError(f"Root for BIDS dataset should be a directory.")
+            raise FedbiomedDatasetError(f"Root for BIDS dataset should be a directory.")
 
         directories = [f for f in path.iterdir() if f.is_dir()]
         if len(directories) == 0:
-            raise FedbiomedBIDSDatasetError("Root folder of BIDS should contain subject folders, but no "
-                                            "sub folder has been found. ")
+            raise FedbiomedDatasetError("Root folder of BIDS should contain subject folders, but no "
+                                        "sub folder has been found. ")
 
         modalities = [f for f in path.glob("*/*") if f.is_dir()]
         if len(modalities) == 0:
-            raise FedbiomedBIDSDatasetError("Subject folders for BIDS should contain modalities as folders. Folder "
-                                            "structure should be root/<subjects>/<modalities>")
+            raise FedbiomedDatasetError("Subject folders for BIDS should contain modalities as folders. Folder "
+                                        "structure should be root/<subjects>/<modalities>")
 
         return path
 
 
-class BIDSDeploymentController(BIDSController):
-
-    def __init__(self, root: str = None, demographics_file: str = None):
-        super().__init__(root=root)
-        self._demographics = demographics_file
-
-    def is_modalities(self):
-        """"""
-        unique_modalities, modalities = self.modalities()
-        if len(unique_modalities) == len(modalities):
-            raise FedbiomedBIDSDatasetError("")
-
-        return True
-
-
-class BIDSDataset(Dataset):
+class BIDSDataset(Dataset, BIDSBase):
     """Torch dataset following the BIDS Structure.
 
     Certain modalities are allowed per subject in the dataset. Each of these is represented by a folder within each
@@ -420,12 +404,7 @@ class BIDSDataset(Dataset):
             tabular_file: Path to a CSV or Excel file containing the demographic information from the patients.
             index_col: Column name in the tabular file containing the subject ids which mush match the folder names.
         """
-
-        try:
-            # Validate root directory
-            self._bids_controller = BIDSController(root=root)
-        except FedbiomedError as e:
-            raise FedbiomedBIDSDatasetError(f"Can not create BIDS dataset due to root path. {e}")
+        super(BIDSDataset, self).__init__(root=root)
 
         self._root = Path(root).expanduser().resolve()
         self._tabular_file = tabular_file
@@ -444,24 +423,25 @@ class BIDSDataset(Dataset):
         ])
 
         self._complete_subject_folders = None
+        self._is_complete = 0
 
         # Raise if transform objects are not provided as dictionaries.
         # E.g. {'T1': Normalize(...), 'T2': ToTensor()}
         if not isinstance(self.transform, dict):
-            raise FedbiomedBIDSDatasetError(f'As you have multiple data modalities, transforms have to a dictionary '
-                                            f'using the modality keys: {self.data_modalities}')
+            raise FedbiomedDatasetError(f'As you have multiple data modalities, transforms have to a dictionary '
+                                        f'using the modality keys: {self.data_modalities}')
         if not isinstance(self.target_transform, dict):
-            raise FedbiomedBIDSDatasetError(f'As you have multiple target modalities, transforms have to a dictionary '
-                                            f'using the modality keys: {self.target_modalities}')
+            raise FedbiomedDatasetError(f'As you have multiple target modalities, transforms have to a dictionary '
+                                        f'using the modality keys: {self.target_modalities}')
 
     def __getitem__(self, item):
 
         # For the first item retrieve complete subject folders
-        if self._complete_subject_folders is None:
-            self._complete_subject_folders = self.subject_folders()
+
+        subjects = self.subject_folders()
 
         # Get subject folder
-        subject_folder = self._complete_subject_folders[item]
+        subject_folder = subjects[item]
 
         # Load data modalities
         data = self.load_images(subject_folder, modalities=self.data_modalities)
@@ -488,20 +468,16 @@ class BIDSDataset(Dataset):
         """ Length method to get number of samples
 
         Raises:
-            FedbiomedBIDSDatasetError: If the dataset is empty.
+            FedbiomedDatasetError: If the dataset is empty.
         """
-        self._instantiate_subject_folders()
-        length = len(self._complete_subject_folders)
+
+        subject_folders = self.subject_folders()
+        length = len(subject_folders)
 
         if length <= 0:
-            raise FedbiomedBIDSDatasetError('Dataset cannot be empty. Check again that the folder and '
-                                            'the tabular data (if provided) exist and match properly.')
+            raise FedbiomedDatasetError('Dataset cannot be empty. Check again that the folder and '
+                                        'the tabular data (if provided) exist and match properly.')
         return length
-
-    def _instantiate_subject_folders(self):
-        # For the first item retrieve complete subject folders
-        if self._complete_subject_folders is None:
-            self._complete_subject_folders = self.subject_folders()
 
     @property
     def tabular_file(self):
@@ -522,12 +498,12 @@ class BIDSDataset(Dataset):
 
         """
         if not isinstance(value, (str, Path)):
-            raise FedbiomedBIDSDatasetError(f"Path for tabular file should be of `str` or `Path` type, "
-                                            f"but got {type(value)} ")
+            raise FedbiomedDatasetError(f"Path for tabular file should be of `str` or `Path` type, "
+                                        f"but got {type(value)} ")
 
         path = Path(value)
         if not path.is_file():
-            raise FedbiomedBIDSDatasetError(f"Path should be a data file")
+            raise FedbiomedDatasetError(f"Path should be a data file")
 
         self._tabular_file = Path(path).expanduser().resolve()
 
@@ -539,10 +515,10 @@ class BIDSDataset(Dataset):
             value: Column index
 
         Raises:
-            FedbiomedBIDSDatasetError: If value to set is not of `int` type
+            FedbiomedDatasetError: If value to set is not of `int` type
         """
         if not isinstance(value, int):
-            raise FedbiomedBIDSDatasetError(f"`index_col` should be of `int` type, but got {type(value)}")
+            raise FedbiomedDatasetError(f"`index_col` should be of `int` type, but got {type(value)}")
 
         self._index_col = value
 
@@ -552,9 +528,37 @@ class BIDSDataset(Dataset):
         """Loads tabular data file (supports excel, csv, tsv and colon separated value files)."""
 
         if self._tabular_file is None or self._index_col is None:
-            raise FedbiomedBIDSDatasetError("Please set ")
+            raise FedbiomedDatasetError("Please set ")
 
-        return self._bids_controller.read_demographics(self._tabular_file, self._index_col)
+        # Read demographics CSV
+        demographics = self.read_demographics(self._tabular_file, self._index_col)
+
+        # Keep the first one in duplicated subjects
+        return demographics.loc[~demographics.index.duplicated(keep="first")]
+
+    @property
+    @cache
+    def subjects_has_all_modalities(self):
+        """Gets only the subject has required modalities"""
+
+        all_modalities = self.data_modalities + self.target_modalities
+        subject_folder_names = self.subjects()
+
+        # Get subject that has all requested modalities
+        complete_subjects = self.complete_subjects(subject_folder_names, all_modalities)
+
+        return complete_subjects
+
+    @property
+    @cache
+    def subjects_registered_in_demographics(self):
+        """Gets the subject only those who are present in the demographics file."""
+
+        complete_subject_folders, *_ = self.available_subjects(
+            subjects_from_folder=self.subjects_has_all_modalities,
+            subjects_from_index=self.demographics.index)
+
+        return complete_subject_folders
 
     def set_dataset_parameters(self, parameters: dict):
         """Sets dataset parameters.
@@ -563,10 +567,10 @@ class BIDSDataset(Dataset):
             parameters: Parameters to initialize
 
         Raises:
-            FedbiomedBIDSDatasetError: If given parameters are not of `dict` type
+            FedbiomedDatasetError: If given parameters are not of `dict` type
         """
         if not isinstance(parameters, dict):
-            raise FedbiomedBIDSDatasetError(f"Expected type for `parameters` is `dict, but got {type(parameters)}`")
+            raise FedbiomedDatasetError(f"Expected type for `parameters` is `dict, but got {type(parameters)}`")
 
         for key, value in parameters.items():
             if hasattr(self, key):
@@ -598,6 +602,21 @@ class BIDSDataset(Dataset):
 
         return subject_data
 
+    def subject_folders(self) -> List[Path]:
+        """Retries subject folder names of only those who have their complete modalities
+
+        Returns:
+            List of subject directories that has all requested modalities
+        """
+
+        # If demographics are present
+        if self._tabular_file is not None:
+            complete_subject_folders = self.subjects_registered_in_demographics
+        else:
+            complete_subject_folders = self.subjects_has_all_modalities
+
+        return [self._root.joinpath(folder) for folder in complete_subject_folders]
+
     def _get_from_demographics(self, subject_id):
         """Extracts subject information from a particular subject in the form of a dictionary."""
 
@@ -609,34 +628,6 @@ class BIDSDataset(Dataset):
             return {key: val for key, val in demographics.items() if isinstance(val, (int, float, str, bool))}
         else:
             return {}
-
-    def subject_folders(self) -> List[Path]:
-        """Retries subject folder names of only those who have their complete modalities
-
-        !!! info "Important"
-            It is a cached property.
-
-        Returns:
-            List of subject directories that has all requested modalities
-        """
-
-        all_modalities = self.data_modalities + self.target_modalities
-        subject_folder_names = self._bids_controller.subjects()
-
-        # Get subject that has all requested modalities
-        complete_subject_folders = self._bids_controller.complete_subjects(subject_folder_names, all_modalities)
-
-        # If demographics are present
-        if self._tabular_file is not None:
-            # Consider only those who are present in the demographics file
-            # Subject ids are the folder name which is contained as the basename of the path `.name`.
-            # Subjects that contained all the modalities and the demographics: subs_with_all
-
-            complete_subject_folders, *_ = self._bids_controller.available_subjects(
-                subjects_from_folder=complete_subject_folders,
-                subjects_from_index=self.demographics.index)
-
-        return [self._root.joinpath(folder) for folder in complete_subject_folders]
 
     @staticmethod
     def _check_and_reformat_transforms(transform: Union[Callable, Dict[str, Callable]],
@@ -660,3 +651,58 @@ class BIDSDataset(Dataset):
 
         if len(modalities) == 1:
             return {modalities[0]: transform}
+
+
+class BIDSController(BIDSBase):
+
+    def __init__(self, root: str = None):
+        """Constructs BIDSController """
+        super(BIDSController, self).__init__(root=root)
+
+    def check_modalities(self, _raise: bool = True) -> Tuple[bool, str]:
+        """Checks whether subject folders contains at least one common modality
+
+        Args:
+            _raise: Flag to indicate whether function should raise in case of error. If `False` returns
+                tuple contains respectively `False` and error message
+
+        Returns:
+            status: True, if folders contain at leas one common modality
+            message: Error message if folder do not contain at least one common modality. If they do, error message
+                will be empty string
+        """
+        unique_modalities, modalities = self.modalities()
+        if len(unique_modalities) == len(modalities):
+            message = "Subject folders in BIDS root folder does not contain any common modalities. " \
+                      "At least one common modality is expected."
+            if _raise:
+                raise FedbiomedDatasetError(message)
+            else:
+                return False, message
+
+        return True, ""
+
+    def subject_modality_status(self, index: Union[List, pd.Series] = None) -> Dict:
+        """Scans subject and checks which modalities are exiting for subject
+
+        Returns:
+            Modality status for each subject that indicates which modalities are available
+        """
+
+        modality_status = {}
+        _, modalities = self.modalities()
+        subjects = self.subjects()
+
+        if index is not None:
+            _, missing_subjects, missing_entries = self.available_subjects(subjects_from_index=index)
+
+        for subject in subjects:
+            modality_status.update({subject: {}})
+            modality_report = self.is_modalities_existing(subject, modalities)
+            modality_status[subject] = {modality: status for modality, status in zip(modalities, modality_report)}
+
+            if index is not None:
+                modality_status[subject].update({"missing_in_folder": True if subject in missing_subjects else False})
+                modality_status[subject].update({"missing_in_index": True if subject in missing_entries else False})
+
+        return modality_status

@@ -46,7 +46,6 @@ class TestDatasetManager(unittest.TestCase):
         def __getitem__(self, idx):
             return self._data[idx], self._labels[idx]
 
-
     def setUp(self):
         """
         run this at the begining of each test

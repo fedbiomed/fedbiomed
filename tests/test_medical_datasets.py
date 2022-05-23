@@ -1,12 +1,12 @@
 import unittest
 import os
-import logging
-import os
 import tempfile
 import random
 import shutil
 from pathlib import Path
-
+from uuid import uuid4
+from random import randint, choice
+from pathlib import PosixPath
 import itk
 import numpy as np
 import pandas as pd
@@ -19,7 +19,7 @@ from fedbiomed.common.data import NIFTIFolderDataset
 from fedbiomed.common.exceptions import FedbiomedDatasetError
 from torchvision.transforms import Lambda
 from monai.transforms import GaussianSmooth
-from fedbiomed.common.data import BIDSDataset
+from fedbiomed.common.data import BIDSDataset, BIDSBase
 
 
 class TestNIFTIFolderDataset(unittest.TestCase):
@@ -219,7 +219,48 @@ class TestNIFTIFolderDataset(unittest.TestCase):
                 self.sample_class.append(self.class_names.index(class_name))
 
 
+def _create_synthetic_dataset(root, n_samples, tabular_file, index_col):
+
+    # Image and target data
+    fake_img_data = np.random.rand(10, 10, 10)
+    img = itk.image_from_array(fake_img_data)
+
+    # Generate subject ids
+    subject_ids = [str(uuid4()) for _ in range(n_samples)]
+    modalities = ['T1', 'T2', 'label']
+    centers = [f'center_{uuid4()}' for _ in range(randint(3, 6))]
+
+    demographics = pd.DataFrame()
+    demographics.index.name = index_col
+
+    for subject_id in subject_ids:
+        subject_folder = os.path.join(root, subject_id)
+        os.makedirs(subject_folder)
+
+        # Create class folder
+        for modality in modalities:
+            modality_folder = os.path.join(subject_folder, modality)
+            os.mkdir(modality_folder)
+            img_path = os.path.join(modality_folder, f'image_{uuid4()}.nii.gz')
+            itk.imwrite(img, img_path)
+
+        # Add demographics information
+        demographics.loc[subject_id, 'AGE'] = randint(15, 90)
+        demographics.loc[subject_id, 'CENTER'] = choice(centers)
+    demographics.to_excel(tabular_file)
+
+
+def _create_wrong_formatted_folder_for_bids(root, n_samples):
+
+    subject_ids = [str(uuid4()) for _ in range(n_samples)]
+    for subject_id in subject_ids:
+        subject_folder = os.path.join(root, subject_id)
+        os.makedirs(subject_folder)
+
+
+
 class TestBIDSDataset(unittest.TestCase):
+
     def setUp(self) -> None:
         self.root = tempfile.mkdtemp()
         self.tabular_file = os.path.join(self.root, 'participants.xlsx')
@@ -232,7 +273,7 @@ class TestBIDSDataset(unittest.TestCase):
         self.batch_size = 3
 
         print(f'Dataset folder located in: {self.root}')
-        self._create_synthetic_dataset()
+        _create_synthetic_dataset(self.root, self.n_samples, self.tabular_file, self.index_col)
 
     def test_instantiating_dataset(self):
         dataset = BIDSDataset(self.root)
@@ -273,44 +314,65 @@ class TestBIDSDataset(unittest.TestCase):
         # Assert for batch size on modalities and demographics
         self.assertTrue(len(set(lengths)) == 1)
 
-    def _create_synthetic_dataset(self):
-        import itk
-        import numpy as np
-        from uuid import uuid4
-        from random import randint, choice
-
-        # Image and target data
-        fake_img_data = np.random.rand(10, 10, 10)
-        img = itk.image_from_array(fake_img_data)
-
-        # Generate subject ids
-        subject_ids = [str(uuid4()) for _ in range(self.n_samples)]
-        modalities = ['T1', 'T2', 'label']
-        centers = [f'center_{uuid4()}' for _ in range(randint(3, 6))]
-
-        demographics = pd.DataFrame()
-        demographics.index.name = self.index_col
-
-        for subject_id in subject_ids:
-            subject_folder = os.path.join(self.root, subject_id)
-            os.makedirs(subject_folder)
-
-            # Create class folder
-            for modality in modalities:
-                modality_folder = os.path.join(subject_folder, modality)
-                os.mkdir(modality_folder)
-                img_path = os.path.join(modality_folder, f'image_{uuid4()}.nii.gz')
-                itk.imwrite(img, img_path)
-
-            # Add demographics information
-            demographics.loc[subject_id, 'AGE'] = randint(15, 90)
-            demographics.loc[subject_id, 'CENTER'] = choice(centers)
-        demographics.to_excel(self.tabular_file)
-
     def tearDown(self) -> None:
-        import shutil
         if 'IXI' not in self.root:
             shutil.rmtree(self.root)
+
+
+class TestBIDSBase(unittest.TestCase):
+
+    def setUp(self) -> None:
+
+        self.root = tempfile.mkdtemp()
+        self.tabular_file = os.path.join(self.root, 'participants.xlsx')
+        self.index_col = 'FOLDER_NAME'
+
+        self.transform = {'T1': Lambda(lambda x: torch.flatten(x))}
+        self.target_transform = {'label': GaussianSmooth()}
+
+        self.n_samples = 10
+        self.batch_size = 3
+
+        _create_synthetic_dataset(self.root, self.n_samples, self.tabular_file, self.index_col)
+
+    def tearDown(self) -> None:
+
+        if 'IXI' not in self.root:
+            shutil.rmtree(self.root)
+        pass
+
+    def test__init__(self):
+        self.bids_base = BIDSBase()
+        self.assertIsNone(self.bids_base.root, "BIDSBase root should not in empty initialization")
+
+        self.bids_base = BIDSBase(root=self.root)
+        self.assertIsInstance(self.bids_base.root, PosixPath)
+        self.assertEqual(str(self.bids_base.root), self.root, "BIDSBase root should not in empty initialization")
+
+        with self.assertRaises(FedbiomedDatasetError):
+            self.bids_base = BIDSBase(root="unknown-folder-path")
+
+        # Try to set root to None
+        with self.assertRaises(FedbiomedDatasetError):
+            self.bids_base.root = None
+
+        dummy_root = tempfile.mkdtemp()
+        _create_wrong_formatted_folder_for_bids(dummy_root, 3)
+
+        with self.assertRaises(FedbiomedDatasetError):
+            self.bids_base.root = dummy_root
+
+        # Remove tmp folder
+        shutil.rmtree(dummy_root)
+
+        dummy_root_2 = tempfile.mkdtemp()
+        _create_wrong_formatted_folder_for_bids(dummy_root, 0)
+
+        with self.assertRaises(FedbiomedDatasetError):
+            self.bids_base.root = dummy_root_2
+
+        # Remove tmp folder
+        shutil.rmtree(dummy_root_2)
 
 
 if __name__ == '__main__':

@@ -172,7 +172,3 @@ class FedbiomedUserInputError(FedbiomedError):
     """
     pass
 
-
-class FedbiomedBIDSDatasetError(FedbiomedError):
-    """ Exceptions specific for the class BIDSDataset"""
-    pass
