@@ -291,10 +291,14 @@ case $1 in
                     ;;
 
                 approve-model|--approve-model|-aml)
-                    source ./script/fedbiomed_environment node $IP_ADDRESS
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --approve-model $PARAMS
                     ;;
 
+                reject-model|--reject-model|-rjml)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --reject-model $PARAMS
+                    ;;
                 update-model|--update-model|-uml)
                     source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --update-model $PARAMS

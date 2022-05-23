@@ -562,8 +562,8 @@ def approve_model(sort_by_date: bool = True):
             opt_idx = int(input(msg)) - 1
             model_id = non_approved_models[opt_idx]['model_id']
             model_manager.approve_model(model_id)
-            logger.info(f"Model {model_id} has been approved. Researcher can now train the Training Plan" +
-                        " on Node {environ['NODE_ID']}")
+            logger.info(f"Model {model_id} has been approved. Researchers can now train the Training Plan" +
+                        f" on Node {environ['NODE_ID']}")
             return
 
         except (ValueError, IndexError, AssertionError):
@@ -571,11 +571,32 @@ def approve_model(sort_by_date: bool = True):
 
 
 def reject_model():
-    approved_models = model_manager.list_models(only=ModelApprovalStatus.APPROVED,
+    approved_models = model_manager.list_models(only=[ModelApprovalStatus.APPROVED,
+                                                      ModelApprovalStatus.PENDING],
                                                 verbose=False)
     
     if not approved_models:
-        logger.warning("All models have already been rejected or ")
+        logger.warning("All models have already been rejected or no model has been registered... aborting")
+        return
+    
+    options = [m['name'] + '\t Model ID ' + m['model_id'] + '\t model status ' +
+               m['model_status'] for m in approved_models]
+
+    msg = "Select the model to reject (this will prevent Researcher to run model on Node):\n"
+    msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
+    msg += "\nSelect: "
+
+    while True:
+        try:
+            opt_idx = int(input(msg)) - 1
+            model_id = approved_models[opt_idx]['model_id']
+            model_manager.reject_model(model_id)
+            logger.info(f"Model {model_id} has been approved. Researchers can not train model" +
+                        f" on Node {environ['NODE_ID']} anymore")
+            return
+
+        except (ValueError, IndexError, AssertionError):
+            logger.error('Invalid option. Please, try again.')
 
 
 def delete_model():
@@ -656,6 +677,12 @@ def launch_cli():
     parser.add_argument('-rml', '--register-model',
                         help='Approve new model files.',
                         action='store_true')
+    parser.add_argument('-aml', '--approve-model',
+                        help='Approve a model sent by Researcher (which status is either Pending or Rejected)',
+                        action='store_true')
+    parser.add_argument('-rjml', '--reject-model',
+                        help='Reject a model sent by Researcher (which status is either Pending or Rejected)',
+                        action='store_true')
     parser.add_argument('-uml', '--update-model',
                         help='Update model file.',
                         action='store_true')
@@ -676,9 +703,7 @@ def launch_cli():
                         help='Force use of a GPU device, if any available, even if researcher doesnt ' +
                         'request it (default: dont use GPU)',
                         action='store_true')
-    parser.add_argument('-aml', '--approve-model',
-                        help='Approve a model sent by Researcher (which status is either Pending or Rejected)',
-                        action='store_true')
+
     args = parser.parse_args()
 
     if not any(args.__dict__.values()):
@@ -752,6 +777,8 @@ def launch_cli():
         register_model()
     elif args.approve_model:
         approve_model()
+    elif args.reject_model:
+        reject_model()
     elif args.update_model:
         update_model()
     elif args.delete_model:

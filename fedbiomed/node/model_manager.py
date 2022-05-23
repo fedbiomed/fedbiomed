@@ -200,8 +200,11 @@ class ModelManager:
                     if model['algorithm'] != environ['HASHING_ALGORITHM']:
                         logger.info(f'Recreating hashing for : {model["name"]} \t {model["model_id"]}')
                         hashing, algorithm = self._create_hash(model['model_path'])
+                        rtime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
                         try:
-                            self._db.update({'hash': hashing, 'algorithm': algorithm},
+                            self._db.update({'hash': hashing,
+                                             'algorithm': algorithm,
+                                             'date_last_action': rtime},
                                             self._database.model_id.all(model["model_id"]))
                         except ValueError as err:
                             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value +
@@ -340,10 +343,7 @@ class ModelManager:
                                     date_last_action=None,
                                     researcher_id=msg['researcher_id']
                                     )
-                # if is_requested:
-                #     self._db.update(model_object)
-                # else:
-                #     self._db.insert(model_object)
+
                 if self.check_is_model_requested(model_to_check):
                     logger.debug("Model already awaiting for approval")
                 self._db.upsert(model_object, self._database.hash == model_hash)
@@ -509,14 +509,16 @@ class ModelManager:
                 if model_info['algorithm'] != environ['HASHING_ALGORITHM']:
                     logger.info(f'Recreating hashing for : {model_info["name"]} \t {model_info["model_id"]}')
                     hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_MODELS_DIR'], model))
-                    self._db.update({'hash': hash, 'algorithm': algorithm},
+                    self._db.update({'hash': hash, 'algorithm': algorithm,
+                                     'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")},
                                     self._database.model_path == path)
                 # If default model file is modified update hashing
                 elif mtime > datetime.strptime(model_info['date_modified'], "%d-%m-%Y %H:%M:%S.%f"):
                     logger.info(f"Modified default model file has been detected. Hashing will be updated for: {model}")
                     hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_MODELS_DIR'], model))
                     self._db.update({'hash': hash, 'algorithm': algorithm,
-                                    'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f")},
+                                     'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
+                                     'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")},
                                     self._database.model_path == path)
             except ValueError as err:
                 # triggered if database update failed (see `update` method in tinydb code)
@@ -559,6 +561,7 @@ class ModelManager:
                 self._db.update({'hash': hash, 'algorithm': algorithm,
                                  'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
                                  'date_created': ctime.strftime("%d-%m-%Y %H:%M:%S.%f"),
+                                 'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f"),
                                  'model_path': path},
                                 self._database.model_id == model_id)
             except ValueError as err:
@@ -590,6 +593,7 @@ class ModelManager:
             self._db.update({'model_status': model_status.value,
                              'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
                              'date_created': ctime.strftime("%d-%m-%Y %H:%M:%S.%f"),
+                             'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
                              },
                             self._database.model_id == model_id)
             logger.info(f"Model {model_id} status changed to {model_status.value} !")
@@ -652,24 +656,16 @@ class ModelManager:
         """
 
         self._db.clear_cache()
-        
-        #print("models", type(models))
 
         if isinstance(only, (ModelApprovalStatus, list)):
             # filetring model based on their status
             if not isinstance(only, list):
                 # convert everything into a list
                 only = [only]
-            only = [x.value for x in only]  # extract value from ModelApprovalStatus
-            self._db
-            models = self._db.get(self._database.model_status not in only)
-            # for i, doc in enumerate(models):
-            #     print(doc, doc.get('model_status'), only, doc.get('model_status')  not in only)
-            #     #print("MODELS", models)
-            #     if doc.get('model_status') not in only: 
-            #         #print(doc)
-            #         models.pop(i)
-                  
+            only = [x.value for x in only if isinstance(x, ModelApprovalStatus)]
+            # extract value from ModelApprovalStatus
+            models = self._db.search(self._database.model_status.one_of(only))
+
         else:
             models = self._db.all()  
         # Drop some keys for security reasons
