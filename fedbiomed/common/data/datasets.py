@@ -153,37 +153,56 @@ class BIDSController:
         modalities = [f.name for f in self._root.glob("*/*") if f.is_dir() and not f.name.startswith((".", "_"))]
         return list(set(modalities)), modalities
 
-    def is_modality_existing(self, subject, modalities):
-        """ """
+    def is_modalities_existing(self, subject: str, modalities: List[str]) -> List[bool]:
+        """Checks whether given modalities exists in the subject directory
+
+        Args:
+            subject: Subject ID or subject folder name
+            modalities: List of modalities to check
+
+        Returns:
+            List of `bool` that represents whether modality is existing respectively for each of modality.
+        """
         return [self._root.joinpath(subject, modality).is_dir() for modality in modalities]
 
-    def complete_subjects(self, subjects, modalities):
-        """ """
-        return [subject for subject in subjects if all(self.is_modality_existing(subject, modalities))]
+    def complete_subjects(self, subjects: List[str], modalities: List[str]) -> List[str]:
+        """Retries subjects that have given all the modalities.
+
+        Args:
+            subjects: List of subject folder names
+            modalities: List of required modalities
+
+        Returns:
+            List of subject folder names that have required modalities
+        """
+        return [subject for subject in subjects if all(self.is_modalities_existing(subject, modalities))]
+
+    def subjects(self) -> List[str]:
+        """Retries subject folder names under BIDS roots directory.
+
+        Returns:
+            subject folder names under BIDS roots directory.
+        """
+        return [f.name for f in self._root.iterdir() if f.is_dir() and not f.name.startswith(".")]
 
     def available_subjects(self,
-                           subjects_from_index: [list, pd.Series, None] = None,
-                           subjects_from_folder: list = None) -> Tuple[list, list, list, list]:
-
+                           subjects_from_index: [list, pd.Series, None],
+                           subjects_from_folder: list = None) -> tuple[list[str], list[str], list[str]]:
         """Checks missing subject folders and missing entries in demographics
 
         Args:
-            subjects_from_index:
-            subjects_from_folder:
-            subject_folder_names: Subject folder names that is retried from
-                demographics tabular file of BIDS dataset
+            subjects_from_index: Given subject folder names in demographics
+            subjects_from_folder: List of subject folder names to get intersection of given subject_from_index
 
         Returns:
+            complete_subjects:
             missing_subject_folders:
             missing_entries:
-
         """
-        if subjects_from_index is None:
-            return [f.name for f in self._root.iterdir() if f.is_dir() and not f.name.startswith((".", "_"))]
 
+        # Select oll subject folders if it is not given
         if subjects_from_folder is None:
-            subjects_from_folder = [f.name for f in self._root.iterdir() if f.is_dir() and
-                                    not f.name.startswith((".", "_"))]
+            subjects_from_folder = self.subjects()
 
         # Missing subject that will cause warnings
         missing_subject_folders = list(set(subjects_from_index) - set(subjects_from_folder))
@@ -194,7 +213,7 @@ class BIDSController:
         # Intersection
         complete_subjects = list(set(subjects_from_index).intersection(set(subjects_from_folder)))
 
-        return complete_subjects, subjects_from_folder, missing_subject_folders, missing_entries
+        return complete_subjects, missing_subject_folders, missing_entries
 
     @staticmethod
     def read_demographics(path: Union[str, Path], index_col: int):
@@ -262,9 +281,6 @@ class BIDSDeploymentController(BIDSController):
     def __init__(self, root: str = None, demographics_file: str = None):
         super().__init__(root=root)
         self._demographics = demographics_file
-
-    def set_demographics(self, col):
-        self._demographics
 
     def is_modalities(self):
         """"""
