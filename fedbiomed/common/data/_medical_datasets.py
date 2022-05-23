@@ -1,5 +1,4 @@
-"""
-Common healthcare data manager
+"""Common healthcare data manager
 
 Provides classes managing dataset for common cases of use in healthcare:
 - NIFTI: For NIFTI medical images
@@ -24,9 +23,9 @@ class NIFTIFolderDataset(Dataset):
     Supported formats:
     - NIFTI and compressed NIFTI files: `.nii`, `.nii.gz`
 
-    This is a Dataset useful in classification tasks. Its usage is quite simple, quite near
-    from `torchvision.datasets.ImageFolder`.
-    Images must be contained in first level subfolders (level 2+ subfolders are ignored)
+    This is a Dataset useful in classification tasks. Its usage is quite simple, quite similar
+    to `torchvision.datasets.ImageFolder`.
+    Images must be contained in first level sub-folders (level 2+ sub-folders are ignored)
     that describe the target class they belong to (target class label is the name of the folder).
 
     ```
@@ -60,11 +59,28 @@ class NIFTIFolderDataset(Dataset):
             transform: transforms to be applied on data.
             target_transform: transforms to be applied on target indexes.
         """
+        # check parameters type
+        for tr, trname in ((transform, 'transform'), (target_transform, 'target_transform')):
+            if not isinstance(tr, Transform) and tr is not None:
+                raise FedbiomedDatasetError(
+                    f"{ErrorNumbers.FB612.value}: Parameter {trname} has incorrect type {type(tr)}, "
+                    f"cannot create dataset.")
+        if not isinstance(root, str) and not isinstance(root, PathLike) and not isinstance(root, Path):
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB612.value}: Parameter `root` has incorrect type {type(root)}, "
+                f"cannot create dataset.")
+
+        # initialize object variables
         self._files = []
         self._class_labels = []
         self._targets = []
 
-        self._root_dir = Path(root).expanduser()
+        try:
+            self._root_dir = Path(root).expanduser()
+        except RuntimeError as e:
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB612.value}: Cannot expand path {root}, error message is: {e}")
+
         self._transform = transform
         self._target_transform = target_transform
         self._reader = Compose([
@@ -78,15 +94,21 @@ class NIFTIFolderDataset(Dataset):
         """Scans all files found in folder structure to populate dataset
 
         Raises:
-            FedbiomedDatasetError: If compatible image files are not found
+            FedbiomedDatasetError: If compatible image files/folders for input or target are not found.
         """
 
         # Search files that correspond to the following criteria:
         # 1. Extension in ALLOWED extensions
         # 2. File folder's parent must be root (inspects folder only one level of depth)
-        self._files = [p.resolve() for p in self._root_dir.glob("**/*")
-                       if ''.join(p.suffixes) in self._ALLOWED_EXTENSIONS and
-                       p.parent.parent == self._root_dir]
+        self._files = [p.resolve() for p in self._root_dir.glob("*/*")
+                       if ''.join(p.suffixes) in self._ALLOWED_EXTENSIONS]
+
+        # note: no PermissionError raised. If directory cannot be listed it is ignored
+        # except PermissionError as e:
+        #    # can other exceptions occur ?
+        #    raise FedbiomedDatasetError(
+        #        f"{ErrorNumbers.FB612.value}: Cannot create dataset because scan of "
+        #        f"directory {self._root_dir} failed with error message: {e}.")
 
         # Create class labels dictionary
         self._class_labels = list(set([p.parent.name for p in self._files]))
@@ -98,7 +120,7 @@ class NIFTIFolderDataset(Dataset):
         if len(self._files) == 0 or len(self._targets) == 0:
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB612.value}: Cannot create dataset because no compatible files found"
-                f" in the {self._root_dir}.")
+                f" in first level subdirectories of {self._root_dir}.")
 
     def labels(self) -> List[str]:
         """Retrieves the labels of the target classes.
@@ -133,13 +155,41 @@ class NIFTIFolderDataset(Dataset):
         Returns:
             A tuple composed of the input sample (an image) and a target sample index (label index).
         """
-        img = self._reader(self._files[item])
+        # check type and value for arguments
+        if not isinstance(item, int):
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB612.value}: Parameter `item` has incorrect type {type(item)}, "
+                f"cannot get item from dataset.")
+        if item < 0 or item >= len(self._files):
+            # need an IndexError, cannot use a FedbiomedError
+            raise IndexError('Bad index {item} in dataset samples')
+
+        try:
+            img = self._reader(self._files[item])
+        except Exception as e:
+            # many possible errors, too hard to list
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB612.value}: Cannot get sample number {item} from dataset, "
+                f"error message is {e}.")
+
         target = int(self._targets[item])
 
         if callable(self._transform):
-            img = self._transform(img)
+            try:
+                img = self._transform(img)
+            except Exception as e:
+                # cannot list all exceptions
+                raise FedbiomedDatasetError(
+                    f"{ErrorNumbers.FB612.value}: Cannot apply transformation to source sample number {item} "
+                    f"from dataset, error message is {e}.")
         if callable(self._target_transform):
-            target = int(self._target_transform(target))
+            try:
+                target = int(self._target_transform(target))
+            except Exception as e:
+                # cannot list all exceptions
+                raise FedbiomedDatasetError(
+                    f"{ErrorNumbers.FB612.value}: Cannot apply transformation to target sample number {item} "
+                    f"from dataset, error message is {e}.")
 
         return img, target
 
