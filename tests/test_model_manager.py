@@ -3,13 +3,14 @@ import copy
 from datetime import datetime
 import os
 import shutil
+import tempfile
 import unittest
 import inspect
 from unittest.mock import patch, MagicMock
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
-from fedbiomed.common.constants import ErrorNumbers, HashingAlgorithms
+from fedbiomed.common.constants import ErrorNumbers, HashingAlgorithms, ModelApprovalStatus, ModelTypes
 from fedbiomed.common.exceptions import FedbiomedMessageError, FedbiomedModelManagerError, FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 
@@ -338,8 +339,8 @@ class TestModelManager(unittest.TestCase):
         # check that the model has been removed
         self.assertIsNone(removed_model)
 
-    def test_model_manager_10_checking_model_approve(self):
-        """ Testing check model is approved or not """
+    def test_model_manager_10_checking_model_register(self):
+        """ Testing check model is registered or not """
 
         model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
         model_file_2 = os.path.join(self.testdir, 'test-model-2.txt')
@@ -347,22 +348,22 @@ class TestModelManager(unittest.TestCase):
         self.model_manager.register_model(
             name='test-model',
             path=model_file_1,
-            model_type='registered',
+            model_type=ModelTypes.REGISTERED.value,
             description='desc'
         )
 
         # Load default datasets
         self.model_manager.register_update_default_models()
 
-        # Test when model is not approved
-        approve, model = self.model_manager.check_is_model_approved(model_file_2)
-        self.assertFalse(approve, "Model has been approved but it it shouldn't have been")
-        self.assertIsNone(model, "Model has been approved but it it shouldn't have been")
+        # Test when model is not registered (ie not present in the database)
+        approve, model = self.model_manager.check_is_model_registered(model_file_2)
+        self.assertFalse(approve, "Model has been registered but it hasnot been registered")
+        self.assertIsNone(model, "Model has been registered but it hasnot been registered")
 
-        # Test when model is approved model
-        approve, model = self.model_manager.check_is_model_approved(model_file_1)
-        self.assertTrue(approve, "Model hasn't been approved but it should have been")
-        self.assertIsNotNone(model, "Model hasn't been approved but it should have been")
+        # Test when model is a registered (either registered or default)
+        approve, model = self.model_manager.check_is_model_registered(model_file_1)
+        self.assertTrue(approve, "Model hasn't been registered but it should have been")
+        self.assertIsNotNone(model, "Model hasn't been registered but it should have been")
 
         # Test when default models is not allowed / not approved
         self.values['ALLOW_DEFAULT_MODELS'] = False
@@ -370,11 +371,73 @@ class TestModelManager(unittest.TestCase):
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
         for model in default_models:
             model_path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
-            approve, model = self.model_manager.check_is_model_approved(model_path)
-            self.assertFalse(approve, "Model has been approved but it shouldn't have been")
-            self.assertIsNone(model, "Model has been approved but it shouldn't have been")
+            approve, model = self.model_manager.check_is_model_registered(model_path)
+            self.assertFalse(approve, "Model has been registered but it shouldn't have been")
+            self.assertIsNone(model, "Model has been registered but it shouldn't have been")
 
-    def test_model_manager_11_update_model_normal_case(self, ):
+    def test_model_manager_11_check_if_model_requested(self):
+        """Tests if model has been requested or not"""
+        model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
+        model_file_2 = os.path.join(self.testdir, 'test-model-2.txt')
+
+        self.model_manager.register_model(
+            name='test-model',
+            path=model_file_1,
+            model_type=ModelTypes.REQUESTED.value,
+            description='desc'
+        )
+
+        self.assertTrue(self.model_manager.check_is_model_requested(model_file_1))
+
+        self.assertFalse(self.model_manager.check_is_model_requested(model_file_2))
+
+        # adding model_file_2 to database as registered
+        self.model_manager.register_model(
+            name='test-model-2',
+            path=model_file_2,
+            model_type=ModelTypes.REGISTERED.value,
+            description='desc'
+        )
+
+        self.assertFalse(self.model_manager.check_is_model_requested(model_file_2))
+        
+        default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
+        for model in default_models:
+            model_path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
+            self.assertFalse(self.model_manager.check_is_model_requested(model_path))
+
+    def test_model_manager_12_create_txt_model_from_py(self):
+        
+        # initialisation: creating a *.py file
+        randomfolder = tempfile.mkdtemp()
+        if not os.access(randomfolder, os.W_OK):
+            self.skipTest("Test skipped cause temporary directory not writtable")
+        else:
+            file = 'model.py'
+            code_source = \
+                "class TestClass:\n" + \
+                "   def __init__(self, **kwargs):\n" + \
+                "       self._kwargs = kwargs\n" + \
+                "   def load_state(self, state :str):\n" + \
+                "       self._state = state\n"
+            with open(file, 'w') as f:
+                f.write(code_source)
+
+            # action
+            txt_model_path = self.model_manager.create_txt_model_from_py(file)
+
+            # checks
+            ## tests if `txt_model` has a *.txt extension
+            _, ext = os.path.splitext(txt_model_path)
+            self.assertEqual(ext, '.txt')
+
+            # check if content is the same in *.txt file and in *.py file
+            with open(txt_model_path, 'r') as f:
+                code = f.read()
+
+            self.assertEqual(code, code_source)
+
+    def test_model_manager_13_update_model_normal_case(self, ):
         """Tests method `update_model` in the normal case scenario"""
 
         # database initialisation
@@ -414,7 +477,7 @@ class TestModelManager(unittest.TestCase):
         self.assertEqual(updated_model['date_created'], file_creation_date_literal)
         self.assertEqual(updated_model['model_path'], default_model_file_1)
 
-    def test_model_manager_12_update_model_exception(self):
+    def test_model_manager_14_update_model_exception(self):
         """Tests method `update_model` """
         # database preparation
         default_model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
@@ -429,7 +492,7 @@ class TestModelManager(unittest.TestCase):
             self.model_manager.update_model_hash(model_id='test-model-id',
                                                  path=default_model_file_path)
 
-    def test_model_manager_13_delete_registered_models(self):
+    def test_model_manager_15_delete_registered_models(self):
         """ Testing delete operation for model manager """
 
         model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
@@ -479,9 +542,66 @@ class TestModelManager(unittest.TestCase):
         self.assertNotIn('hash', models[0])
         self.assertNotIn('date_modified', models[0])
         self.assertNotIn('date_created', models[0])
+        
+        # check by sorting results ()
+        ## list of fields we are going to sort in alphabetical order
+        sort_by_fields = ['date_last_action',
+                          'model_type',
+                          'model_status',
+                          'algorithm', 
+                          'researcher_id']
+        
+        for sort_by_field in sort_by_fields:
+            models_sorted_by_modified_date = self.model_manager.list_models(sort_by=sort_by_field,
+                                                                            )
+            for i in range(len(models_sorted_by_modified_date) - 1):
+                
+                # do not compare if values extracted are set to None
+                if models_sorted_by_modified_date[i][sort_by_field] is not None \
+                   and models_sorted_by_modified_date[i + 1][sort_by_field] is not None:
+                    self.assertLessEqual(models_sorted_by_modified_date[i][sort_by_field],
+                                         models_sorted_by_modified_date[i + 1][sort_by_field])
+
+        # check with results filtered on `model_status` field
+        ## first, register a model
+        model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
+
+        self.model_manager.register_model(
+            name='test-model-1',
+            path=model_file_path,
+            model_type='registered',
+            description='desc'
+        )
+        ## second, reject it 
+        _, model_to_reject = self.model_manager.check_is_model_registered(model_file_path)
+        self.model_manager.reject_model(model_to_reject['model_id'])
+        
+        # action: gather only rejected models
+        rejected_models = self.model_manager.list_models(select_status=ModelApprovalStatus.REJECTED)
+        
+        self.assertIn('test-model-1', [x['name'] for x in rejected_models])
+        self.assertNotIn(ModelApprovalStatus.APPROVED.value,
+                         [x['model_status'] for x in rejected_models])
+        # gather only pending models (there should be no model with pending status,
+        # so request returns empty list)
+        pending_models = self.model_manager.list_models(select_status=ModelApprovalStatus.PENDING,
+                                                        verbose=False)
+        self.assertEqual(pending_models, [])
+        
+        ## filtering with more than one status (get only REJECTED and APPROVAL model)
+        rejected_and_approved_models = self.model_manager.list_models(select_status=[ModelApprovalStatus.REJECTED,
+                                                                                     ModelApprovalStatus.APPROVED],
+                                                                      verbose=False)
+        for model in rejected_and_approved_models:
+            # Model status should be either Rejected or Approved...
+            self.assertIn(model['model_status'],
+                          [ModelApprovalStatus.REJECTED.value,
+                           ModelApprovalStatus.APPROVED.value])
+            # ... but not Pending
+            self.assertNotEqual(model['model_status'], ModelApprovalStatus.PENDING.value)
 
     @patch('fedbiomed.common.repository.Repository.download_file')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
     def test_model_manager_15_reply_model_status_request(self,
                                                          mock_checking,
                                                          mock_download):
@@ -579,7 +699,7 @@ class TestModelManager(unittest.TestCase):
                                                         })
 
     @patch('fedbiomed.common.repository.Repository.download_file')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
     def test_model_manager_16_reply_model_status_request_exception(self,
                                                                    mock_checking,
                                                                    mock_download):

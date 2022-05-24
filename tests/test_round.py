@@ -74,7 +74,7 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('builtins.eval')
     @patch('builtins.exec')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_status_model')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_01_run_model_training_normal_case(self,
@@ -144,7 +144,7 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('builtins.eval')
     @patch('builtins.exec')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_02_run_model_training_correct_model_calls(self,

@@ -543,8 +543,8 @@ def approve_model(sort_by_date: bool = True):
     else: 
         sort_by = None
     non_approved_models = model_manager.list_models(sort_by=sort_by,
-                                                    only=[ModelApprovalStatus.PENDING, 
-                                                          ModelApprovalStatus.REJECTED],
+                                                    select_status=[ModelApprovalStatus.PENDING, 
+                                                                   ModelApprovalStatus.REJECTED],
                                                     verbose=False)
     if not non_approved_models:
         logger.warning("All models have been approved or no model has been registered... aborting")
@@ -571,14 +571,14 @@ def approve_model(sort_by_date: bool = True):
 
 
 def reject_model():
-    approved_models = model_manager.list_models(only=[ModelApprovalStatus.APPROVED,
-                                                      ModelApprovalStatus.PENDING],
+    approved_models = model_manager.list_models(select_status=[ModelApprovalStatus.APPROVED,
+                                                               ModelApprovalStatus.PENDING],
                                                 verbose=False)
-    
+
     if not approved_models:
         logger.warning("All models have already been rejected or no model has been registered... aborting")
         return
-    
+
     options = [m['name'] + '\t Model ID ' + m['model_id'] + '\t model status ' +
                m['model_status'] for m in approved_models]
 
@@ -590,8 +590,9 @@ def reject_model():
         try:
             opt_idx = int(input(msg)) - 1
             model_id = approved_models[opt_idx]['model_id']
-            model_manager.reject_model(model_id)
-            logger.info(f"Model {model_id} has been approved. Researchers can not train model" +
+            notes = input("Please give a note to explain why model has been rejected: \n")
+            model_manager.reject_model(model_id, notes)
+            logger.info(f"Model {model_id} has been rejected. Researchers can not train model" +
                         f" on Node {environ['NODE_ID']} anymore")
             return
 
@@ -614,7 +615,8 @@ def delete_model():
         logger.warning('No models to delete')
         return
 
-    options = [m['name'] + '\t Model ID ' + m['model_id'] for m in models]
+    options = [m['name'] + '\t Model ID ' + m['model_id'] + '\t Model_type ' +
+               m['model_type'] + '\tModel status ' + m['model_status'] for m in models]
     msg = "Select the model to delete:\n"
     msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
     msg += "\nSelect: "

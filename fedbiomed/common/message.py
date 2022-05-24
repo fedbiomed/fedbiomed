@@ -352,7 +352,7 @@ class ModelStatusReply(Message):
     job_id: str
     success: bool
     approval_obligation: bool
-    is_approved: bool
+    status: str
     msg: str
     model_url: str
     command: str

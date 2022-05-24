@@ -217,7 +217,7 @@ class Job:
     def training_args(self, training_args: dict):
         self._training_args = training_args
 
-    def check_model_is_approved_by_nodes(self):
+    def check_model_is_approved_by_nodes(self) -> List:
 
         """ Checks whether model is approved or not.
 
@@ -225,7 +225,7 @@ class Job:
         So, researchers can find out if their model has been approved
 
         """
-
+        print("SENDONG REQUET TO NODE")
         message = {
             'researcher_id': self._researcher_id,
             'job_id': self._id,
@@ -260,7 +260,7 @@ class Job:
                     logger.info(f'Model approval is not required by the node: {resp.get("node_id")}')
             else:
                 logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
-
+        
         # Get the nodes that haven't replied model-status request
         non_replied_nodes = list(set(node_ids) - set(replied_nodes))
         if non_replied_nodes:

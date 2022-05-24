@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Tuple, Union
 import uuid
 
 from fedbiomed.common.constants import HashingAlgorithms, ModelApprovalStatus, ModelTypes, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedDatasetManagerError, FedbiomedModelManagerError, FedbiomedRepositoryError
+from fedbiomed.common.exceptions import FedbiomedModelManagerError, FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.messaging import Messaging
@@ -164,13 +164,15 @@ class ModelManager:
                                 hash=model_hash, model_path=path,
                                 model_id=model_id, model_type=model_type,
                                 model_status=ModelApprovalStatus.APPROVED.value,
-                                algorithm=algorithm, date_created=ctime,
-                                date_modified=mtime, date_registered=rtime,
-                                date_last_action=rtime,
-                                researcher_id=None)
+                                algorithm=algorithm,
+                                researcher_id=researcher_id,
+                                date_created=ctime,
+                                date_modified=mtime,
+                                date_registered=rtime,
+                                date_last_action=rtime
+                                )
 
-            if researcher_id is not None:
-                model_object.update({'researcher_id': researcher_id})
+
             try:
                 self._db.insert(model_object)
             except ValueError as err:
@@ -179,7 +181,7 @@ class ModelManager:
             return True
 
     def check_hashes_for_registered_models(self):
-        """Checks registered models.
+        """Checks registered models (models either rejected or approved).
 
         Makes sure model files exists and hashing algorithm is matched with specified
         algorithm in the config file.
@@ -234,8 +236,8 @@ class ModelManager:
 
         return requested
 
-    def check_is_model_approved(self, path: str) -> Tuple[bool, Dict[str, Any]]:
-        """Checks whether model is approved by the node.
+    def check_is_model_registered(self, path: str) -> Tuple[bool, Dict[str, Any]]:
+        """Checks whether model has been registered by the node.
 
         Sends a query to database to search for hash of requested model.
         If it is the hash matches with one of the
@@ -278,7 +280,65 @@ class ModelManager:
 
         return approved, approved_model
 
-    def create_py_model_from_txt(self, model_path: str) -> str:
+    def check_model_status(self,
+                           model_path: str,
+                           status: Union[ModelApprovalStatus, ModelTypes]) -> Tuple[bool, Dict[str, Any]]:
+        # Create hash for requested model
+        req_model_hash, _ = self._create_hash(model_path)
+        self._db.clear_cache()
+
+        # If node allows defaults models search hash for all model types
+        # otherwise search only for `registered` models
+        if environ['ALLOW_DEFAULT_MODELS']:
+            _all_models_with_status = (self._database.model_type != ModelTypes.REQUESTED.value)
+            # _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
+            # models = self._db.search(_all_models_registered & _all_models_which_have_req_hash)
+        else:
+            if isinstance(status, ModelApprovalStatus):
+                _all_models_with_status = (self._database.model_type == status.value)
+            elif isinstance(status, ModelTypes):
+                _all_models_with_status = (self._database.model_status == status.value)
+            else:
+                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : status should be either" + 
+                                                 f" ModelApprovalStatus or ModelTypes, but got {type(status)}")
+        _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
+        models = self._db.search(_all_models_with_status & _all_models_which_have_req_hash)
+
+        if models:
+            is_status = True
+            model = models[0]  # Search request returns an array
+        else:
+            is_status = False
+            model = None
+
+        return is_status, model      
+
+    def get_model_status(self, model_path: str) -> Union[Dict[str, Any], None]:
+        req_model_hash, _ = self._create_hash(model_path)
+        self._db.clear_cache()
+        _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
+        _cond_model_path = (self._database.model_path == model_path)
+        #  FIXME: is it useful? cause hashes should be unique
+        models = self._db.search(_all_models_which_have_req_hash)
+        
+        print("Models requested", models)
+        if models:
+            model = models[0]  # Search request returns an array
+        else:
+            model = None
+            
+        return model.get('model_status')
+        
+    def create_txt_model_from_py(self, model_path: str) -> str:
+        """Creates a text model file (*.txt extension) from a python (*.py) model file,
+        in the directory where the python model file belongs to.
+
+        Args:
+            model_path (str): path to the model file (with *.py) extension
+
+        Returns:
+            model_path_txt (str): path to new model file (with *.txt extension)
+        """
         # remove '*.py' extension of `model_path` and rename it into `*.txt`
         model_path_txt, _ = os.path.splitext(model_path)
         model_path_txt += '.txt'
@@ -297,7 +357,7 @@ class ModelManager:
             'command': 'approval'
         }
 
-        is_approved = False
+        is_registered = False
         non_downaloadable = False
         try:
             # model_id = str(uuid.uuid4())
@@ -308,9 +368,9 @@ class ModelManager:
 
             # check if model has already been registered into database
             tmp_file = os.path.join(environ["TMP_DIR"], model_name + '.py')
-            model_to_check = self.create_py_model_from_txt(tmp_file)
-            is_approved, _ = self.check_is_model_approved(model_to_check)
-
+            model_to_check = self.create_txt_model_from_py(tmp_file)
+            is_registered, _ = self.check_model_status(model_to_check, ModelTypes.REGISTERED)
+            print("model type", is_registered)
         except FedbiomedRepositoryError as fed_err:
             logger.error(f"Cannot download model from server due to error: {fed_err}")
             reply['success'] = False
@@ -318,7 +378,7 @@ class ModelManager:
         except FedbiomedModelManagerError as fed_err:
             logger.error(f"Can not check whether model has already be registered or not due to error: {fed_err}")
 
-        if not is_approved  and not non_downaloadable:
+        if not is_registered  and not non_downaloadable:
             # move model into corresponding directory (from TMP_DIR to MODEL_DIR)
             try:
                 logger.debug("Storing TrainingPlan into requested model directory")
@@ -341,10 +401,11 @@ class ModelManager:
                                     date_modified=ctime,
                                     date_registered=ctime,
                                     date_last_action=None,
-                                    researcher_id=msg['researcher_id']
+                                    researcher_id=msg['researcher_id'],
+                                    notes=None
                                     )
 
-                if self.check_is_model_requested(model_to_check):
+                if self.check_model_status(model_to_check, ModelApprovalStatus.PENDING):
                     logger.debug("Model already awaiting for approval")
                 self._db.upsert(model_object, self._database.hash == model_hash)
                 # `upsert` stands for update and insert in TinyDB. This prevents any duplicate, that can happen
@@ -354,7 +415,7 @@ class ModelManager:
             except (PermissionError, FileNotFoundError, OSError) as err:
                 reply['success'] = False
                 logger.error(f"Cannot save model into directory due to error : {err}")
-        elif is_approved and not non_downaloadable:
+        elif is_registered and not non_downaloadable:
             logger.warning("Model has already been registered in database. aborting")
             reply['success'] = True
         else:
@@ -384,6 +445,7 @@ class ModelManager:
             'command': 'model-status'
         }
 
+        print("REPLY_MODEL_STATUS")
         try:
 
             # Create model file with id and download
@@ -395,34 +457,30 @@ class ModelManager:
                 reply = {**header,
                          'success': False,
                          'approval_obligation': False,
-                         'is_approved': False,
+                         'status': 'None',
                          'msg': f'Can not download model file. {msg["model_url"]}'}
             else:
+                model_file = os.path.join(environ["TMP_DIR"], model_name + '.py')
+                status = self.get_model_status(model_file)
                 if environ["MODEL_APPROVAL"]:
-                    is_approved, _ = self.check_is_model_approved(os.path.join(environ["TMP_DIR"], model_name + '.py'))
-                    if not is_approved:
-                        reply = {**header,
-                                 'success': True,
-                                 'approval_obligation': True,
-                                 'is_approved': False,
-                                 'msg': 'Model is not approved by the node'}
-                    else:
-                        reply = {**header,
-                                 'success': True,
-                                 'approval_obligation': True,
-                                 'is_approved': True,
-                                 'msg': 'Model is approved by the node'}
+
+                    reply = {**header,
+                             'success': True,
+                             'approval_obligation': True,
+                             'status': status,
+                             'msg': 'Model is not approved by the node'}
+
                 else:
                     reply = {**header,
                              'success': True,
                              'approval_obligation': False,
-                             'is_approved': False,
+                             'status': status,
                              'msg': 'This node does not require model approval (maybe for debuging purposes).'}
         except FedbiomedModelManagerError as fed_err:
             reply = {**header,
                      'success': False,
                      'approval_obligation': False,
-                     'is_approved': False,
+                     'status': 'Error',
                      'msg': ErrorNumbers.FB606.value +
                      f': Cannot check if model has been registered. Details {fed_err}'}
 
@@ -430,18 +488,18 @@ class ModelManager:
             reply = {**header,
                      'success': False,
                      'approval_obligation': False,
-                     'is_approved': False,
+                     'status': 'Error',
                      'msg': ErrorNumbers.FB604.value + ': An error occured when downloading model file.'
                      f' {msg["model_url"]} , {fed_err}'}
         except Exception as e:
             reply = {**header,
                      'success': False,
                      'approval_obligation': False,
-                     'is_approved': False,
+                     'status': 'Error',
                      'msg': ErrorNumbers.FB606.value + ': An unknown error occured when downloading model file.'
                      f' {msg["model_url"]} , {e}'}
-
-        # Send check model status answer to researcher
+        # finally:
+        #     # Send check model status answer to researcher
         messaging.send_message(NodeMessages.reply_create(reply).get_dict())
 
         return
@@ -574,7 +632,11 @@ class ModelManager:
 
         return True
 
-    def update_model_status(self, model_id: str, model_status: ModelApprovalStatus) -> True:
+    def _update_model_status(self,
+                             model_id: str,
+                             model_status: ModelApprovalStatus, 
+                             model_type: ModelTypes, 
+                             notes: Union[str, None] = None) -> True:
         self._db.clear_cache()
         try:
             model = self._db.get(self._database.model_id == model_id)
@@ -590,21 +652,30 @@ class ModelManager:
             mtime = datetime.fromtimestamp(os.path.getmtime(model_path))
             # Get creation date
             ctime = datetime.fromtimestamp(os.path.getctime(model_path))
-            self._db.update({'model_status': model_status.value,
+            self._db.update({
+                             #'model_type': model_type.value,
+                             'model_status': model_status.value,
                              'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
                              'date_created': ctime.strftime("%d-%m-%Y %H:%M:%S.%f"),
-                             'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
-                             },
+                             'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f"),
+                             'notes': notes
+                            },
                             self._database.model_id == model_id)
             logger.info(f"Model {model_id} status changed to {model_status.value} !")
 
         return True
 
-    def approve_model(self, model_id: str) -> True:
-        self.update_model_status(model_id, ModelApprovalStatus.APPROVED)
+    def approve_model(self, model_id: str, extra_notes: Union[str, None] = None) -> True:
+        self._update_model_status(model_id,
+                                  ModelApprovalStatus.APPROVED,
+                                  ModelTypes.REGISTERED, 
+                                  extra_notes)
 
-    def reject_model(self, model_id: str) -> True:
-        self.update_model_status(model_id, ModelApprovalStatus.REJECTED)
+    def reject_model(self, model_id: str, extra_notes: Union[str, None] = None) -> True:
+        self._update_model_status(model_id,
+                                  ModelApprovalStatus.REJECTED,
+                                  ModelTypes.REGISTERED, 
+                                  extra_notes)
 
     def delete_model(self, model_id: str) -> True:
         """Removes model file from database.
@@ -628,7 +699,7 @@ class ModelManager:
         try:
             model = self._db.get(self._database.model_id == model_id)
 
-            if model['model_type'] == ModelTypes.REGISTERED.value:
+            if model['model_type'] != ModelTypes.DEFAULT.value:
 
                 self._db.remove(doc_ids=[model.doc_id])
             else:
@@ -639,12 +710,15 @@ class ModelManager:
                                              f"Details: {str(err)}")
         return True
 
+
     def list_models(self, sort_by: Union[str, None] = None,
-                    only: Union[None, ModelApprovalStatus, List[ModelApprovalStatus]] = None,
+                    select_status: Union[None, ModelApprovalStatus, List[ModelApprovalStatus]] = None,
                     verbose: bool = True) -> List:
         """Lists approved model files
 
         Args:
+            sort_by: when specified, sort results by alphabetical order,
+                provided sort_by is an entry in the database.
             verbose: When it is True, print list of model in tabular format.
                 Default is True.
 
@@ -653,19 +727,29 @@ class ModelManager:
                 been found as `registered`. Each model is in fact a dictionary
                 containing fields (note that following fields are removed :'model_path',
                 'hash', dates due to privacy reasons).
+
+        Raises: FedbiomedModelManagerError triggers if request to database failed
+        
         """
 
         self._db.clear_cache()
 
-        if isinstance(only, (ModelApprovalStatus, list)):
+        if isinstance(select_status, (ModelApprovalStatus, list)):
             # filetring model based on their status
-            if not isinstance(only, list):
+            if not isinstance(select_status, list):
                 # convert everything into a list
-                only = [only]
-            only = [x.value for x in only if isinstance(x, ModelApprovalStatus)]
+                select_status = [select_status]
+            select_status = [x.value for x in select_status if isinstance(x, ModelApprovalStatus)]
             # extract value from ModelApprovalStatus
-            models = self._db.search(self._database.model_status.one_of(only))
-
+            try:
+                models = self._db.search(self._database.model_status.one_of(select_status))
+            except RuntimeError as rerr:
+                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 
+                                                 ": request failed when looking for a model into database with" +
+                                                 f" error: {rerr}")
+        #if isinstance(select_model_type, (ModelTypes, list)):
+            
+        #if select_model_type is None and select_status is None:
         else:
             models = self._db.all()  
         # Drop some keys for security reasons
@@ -683,7 +767,7 @@ class ModelManager:
         if sort_by is not None:
             # sorting model fields by column attributes
             if self._db.search(self._database[sort_by].exists()) and sort_by not in _tags_to_remove:
-                models = sorted(models, key= lambda x: x[sort_by])
+                models = sorted(models, key= lambda x: (x[sort_by] is None, x[sort_by]))
             else:
                 logger.warning(f"Field {sort_by} is not available in dataset")
 
@@ -691,7 +775,7 @@ class ModelManager:
 
         if verbose:
             print(tabulate(models, headers='keys'))
-        #print("MODELS", models)
+
         return models
 
     # def list_model(self, sort_by_date: bool = True, sort_by_status: bool = False,
