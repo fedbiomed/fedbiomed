@@ -250,7 +250,7 @@ def _create_synthetic_dataset(root, n_samples, tabular_file, index_col):
         # Add demographics information
         demographics.loc[subject_id, 'AGE'] = randint(15, 90)
         demographics.loc[subject_id, 'CENTER'] = choice(centers)
-    demographics.to_excel(tabular_file)
+    demographics.to_csv(tabular_file)
 
 
 def _create_wrong_formatted_folder_for_bids(root, n_samples):
@@ -265,7 +265,7 @@ class TestBIDSDataset(unittest.TestCase):
 
     def setUp(self) -> None:
         self.root = tempfile.mkdtemp()
-        self.tabular_file = os.path.join(self.root, 'participants.xlsx')
+        self.tabular_file = os.path.join(self.root, 'participants.csv')
         self.index_col = 'FOLDER_NAME'
 
         self.transform = {'T1': Lambda(lambda x: torch.flatten(x))}
@@ -343,7 +343,7 @@ class TestBIDSBase(unittest.TestCase):
     def setUp(self) -> None:
 
         self.root = tempfile.mkdtemp()
-        self.tabular_file = os.path.join(self.root, 'participants.xlsx')
+        self.tabular_file = os.path.join(self.root, 'participants.csv')
         self.index_col = 'FOLDER_NAME'
 
         self.transform = {'T1': Lambda(lambda x: torch.flatten(x))}
