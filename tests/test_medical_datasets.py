@@ -314,7 +314,7 @@ class TestBIDSDataset(unittest.TestCase):
             dataset.set_dataset_parameters("NONEDICTPARAMS")
 
         dataset.set_dataset_parameters({"tabular_file": self.tabular_file, "index_col": self.index_col})
-        self.assertEqual(dataset.tabular_file, self.tabular_file)
+        self.assertEqual(str(dataset.tabular_file), self.tabular_file)
         self.assertEqual(dataset.index_col, self.index_col)
 
     def _assert_batch_types_and_sizes(self, dataset):
