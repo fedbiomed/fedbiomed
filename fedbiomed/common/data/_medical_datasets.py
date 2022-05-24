@@ -239,7 +239,8 @@ class BIDSBase:
         """ Gets all available modalities under root directory
 
         Returns:
-             List of unique available modalities
+             List of unique available modalities appearing at least once
+             List of all encountered modalities in each subject folder, appearing once per folder
         """
 
         # Accept only folders that don't start with "." and "_"
@@ -259,7 +260,7 @@ class BIDSBase:
         return [self._root.joinpath(subject, modality).is_dir() for modality in modalities]
 
     def complete_subjects(self, subjects: List[str], modalities: List[str]) -> List[str]:
-        """Retries subjects that have given all the modalities.
+        """Retrieves subjects that have given all the modalities.
 
         Args:
             subjects: List of subject folder names
@@ -270,8 +271,8 @@ class BIDSBase:
         """
         return [subject for subject in subjects if all(self.is_modalities_existing(subject, modalities))]
 
-    def subjects(self) -> List[str]:
-        """Retries subject folder names under BIDS roots directory.
+    def subjects_with_imaging_data_folders(self) -> List[str]:
+        """Retrieves subject folder names under BIDS roots directory.
 
         Returns:
             subject folder names under BIDS roots directory.
@@ -288,14 +289,14 @@ class BIDSBase:
             subjects_from_folder: List of subject folder names to get intersection of given subject_from_index
 
         Returns:
-            complete_subjects:
-            missing_subject_folders:
-            missing_entries:
+            available_subjects: subjects that have an imaging data folder and are also present in the demographics file
+            missing_subject_folders: subjects that are in the demographics file but do not have an imaging data folder
+            missing_entries: subjects that have an imaging data folder but are not present in the demographics file
         """
 
         # Select oll subject folders if it is not given
         if subjects_from_folder is None:
-            subjects_from_folder = self.subjects()
+            subjects_from_folder = self.subjects_with_imaging_data_folders()
 
         # Missing subject that will cause warnings
         missing_subject_folders = list(set(subjects_from_index) - set(subjects_from_folder))
@@ -304,9 +305,9 @@ class BIDSBase:
         missing_entries = list(set(subjects_from_folder) - set(subjects_from_index))
 
         # Intersection
-        complete_subjects = list(set(subjects_from_index).intersection(set(subjects_from_folder)))
+        available_subjects = list(set(subjects_from_index).intersection(set(subjects_from_folder)))
 
-        return complete_subjects, missing_subject_folders, missing_entries
+        return available_subjects, missing_subject_folders, missing_entries
 
     @staticmethod
     def read_demographics(path: Union[str, Path], index_col: int):
@@ -544,7 +545,7 @@ class BIDSDataset(Dataset, BIDSBase):
         """Gets only the subject has required modalities"""
 
         all_modalities = list(set(self._data_modalities + self._target_modalities))
-        subject_folder_names = self.subjects()
+        subject_folder_names = self.subjects_with_imaging_data_folders()
 
         # Get subject that has all requested modalities
         complete_subjects = self.complete_subjects(subject_folder_names, all_modalities)
@@ -605,7 +606,7 @@ class BIDSDataset(Dataset, BIDSBase):
         return subject_data
 
     def subject_folders(self) -> List[Path]:
-        """Retries subject folder names of only those who have their complete modalities
+        """Retrieves subject folder names of only those who have their complete modalities
 
         Returns:
             List of subject directories that has all requested modalities
@@ -620,7 +621,7 @@ class BIDSDataset(Dataset, BIDSBase):
         return [self._root.joinpath(folder) for folder in complete_subject_folders]
 
     def shape(self):
-        """Retries shape information for modalities and demographics csv"""
+        """Retrieves shape information for modalities and demographics csv"""
 
         # Get all modalities
         modalities, _ = self.modalities()
@@ -736,7 +737,7 @@ class BIDSController(BIDSBase):
 
         modality_status = {}
         _, modalities = self.modalities()
-        subjects = self.subjects()
+        subjects = self.subjects_with_imaging_data_folders()
 
         if index is not None:
             _, missing_subjects, missing_entries = self.available_subjects(subjects_from_index=index)
