@@ -53,8 +53,8 @@ class NIFTIFolderDataset(Dataset):
     _ALLOWED_EXTENSIONS = ['.nii', '.nii.gz']
 
     def __init__(self, root: Union[str, PathLike, Path],
-                 transform: Union[Transform, None] = None,
-                 target_transform: Union[Transform, None] = None
+                 transform: Union[Callable, None] = None,
+                 target_transform: Union[Callable, None] = None
                  ):
         """Constructor of the class
 
@@ -65,14 +65,13 @@ class NIFTIFolderDataset(Dataset):
         """
         # check parameters type
         for tr, trname in ((transform, 'transform'), (target_transform, 'target_transform')):
-            if not isinstance(tr, Transform) and tr is not None:
-                raise FedbiomedDatasetError(
-                    f"{ErrorNumbers.FB612.value}: Parameter {trname} has incorrect type {type(tr)}, "
-                    f"cannot create dataset.")
+            if not callable(tr) and tr is not None:
+                raise FedbiomedDatasetError(f"{ErrorNumbers.FB612.value}: Parameter {trname} has incorrect "
+                                            f"type {type(tr)}, cannot create dataset.")
+
         if not isinstance(root, str) and not isinstance(root, PathLike) and not isinstance(root, Path):
-            raise FedbiomedDatasetError(
-                f"{ErrorNumbers.FB612.value}: Parameter `root` has incorrect type {type(root)}, "
-                f"cannot create dataset.")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB612.value}: Parameter `root` has incorrect type "
+                                        f"{type(root)}, cannot create dataset.")
 
         # initialize object variables
         self._files = []
@@ -178,7 +177,7 @@ class NIFTIFolderDataset(Dataset):
 
         target = int(self._targets[item])
 
-        if callable(self._transform):
+        if self._transform is not None:
             try:
                 img = self._transform(img)
             except Exception as e:
@@ -186,7 +185,8 @@ class NIFTIFolderDataset(Dataset):
                 raise FedbiomedDatasetError(
                     f"{ErrorNumbers.FB612.value}: Cannot apply transformation to source sample number {item} "
                     f"from dataset, error message is {e}.")
-        if callable(self._target_transform):
+
+        if self._target_transform is not None:
             try:
                 target = int(self._target_transform(target))
             except Exception as e:
@@ -209,12 +209,12 @@ class NIFTIFolderDataset(Dataset):
 class BIDSBase:
     """Controller class for BIDS dataset.
 
-    Contains methods to validate BIDS folder hierarchy  and extract folder-base meta data
+    Contains methods to validate BIDS folder hierarchy  and extract folder-base metadata
     in formation such as modalities number of subject etc.
     """
 
     def __init__(self, root: Union[str, Path, None] = None):
-        """Constructs BIDSControler"""
+        """Constructs BIDSBase"""
         if root is not None:
             root = self.validate_bids_root_folder(root)
 
@@ -315,7 +315,7 @@ class BIDSBase:
         """
         path = Path(path)
         if not path.is_file():
-            raise FedbiomedDatasetError(f"Demographics should be a file not a directory")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Demographics should be a file, not a directory")
 
         if 'xls' in path.suffix.lower():
             return pd.read_excel(path, index_col=index_col)
@@ -348,8 +348,8 @@ class BIDSBase:
                             - If path is not a directory
         """
         if not isinstance(path, (Path, str)):
-            raise FedbiomedDatasetError(
-                f"The argument root should an instance of `Path` or `str`, but got {type(path)}")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: The argument root should an instance of "
+                                        f"`Path` or `str`, but got {type(path)}")
 
         if not isinstance(path, Path):
             path = Path(path)
@@ -359,13 +359,13 @@ class BIDSBase:
 
         directories = [f for f in path.iterdir() if f.is_dir()]
         if len(directories) == 0:
-            raise FedbiomedDatasetError("Root folder of BIDS should contain subject folders, but no "
-                                        "sub folder has been found. ")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Root folder of BIDS should contain subject "
+                                        f"folders, but no sub folder has been found. ")
 
         modalities = [f for f in path.glob("*/*") if f.is_dir()]
         if len(modalities) == 0:
-            raise FedbiomedDatasetError("Subject folders for BIDS should contain modalities as folders. Folder "
-                                        "structure should be root/<subjects>/<modalities>")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}Subject folders for BIDS should contain modalities "
+                                        f"as folders. Folder structure should be root/<subjects>/<modalities>")
 
         return path
 
@@ -411,29 +411,17 @@ class BIDSDataset(Dataset, BIDSBase):
         self._tabular_file = tabular_file
         self._index_col = index_col
 
-        self.data_modalities = [data_modalities] if isinstance(data_modalities, str) else data_modalities
-        self.target_modalities = [target_modalities] if isinstance(data_modalities, str) else target_modalities
+        self._data_modalities = [data_modalities] if isinstance(data_modalities, str) else data_modalities
+        self._target_modalities = [target_modalities] if isinstance(data_modalities, str) else target_modalities
 
-        self.transform = self._check_and_reformat_transforms(transform, data_modalities)
-        self.target_transform = self._check_and_reformat_transforms(target_transform, target_modalities)
+        self._transform = self._check_and_reformat_transforms(transform, data_modalities)
+        self._target_transform = self._check_and_reformat_transforms(target_transform, target_modalities)
 
         # Image loader
         self._reader = Compose([
             LoadImage(ITKReader(), image_only=True),
             ToTensor()
         ])
-
-        self._complete_subject_folders = None
-        self._is_complete = 0
-
-        # Raise if transform objects are not provided as dictionaries.
-        # E.g. {'T1': Normalize(...), 'T2': ToTensor()}
-        # if not isinstance(self.transform, dict):
-        #     raise FedbiomedDatasetError(f'As you have multiple data modalities, transforms have to a dictionary '
-        #                                 f'using the modality keys: {self.data_modalities}')
-        # if not isinstance(self.target_transform, dict):
-        #     raise FedbiomedDatasetError(f'As you have multiple target modalities, transforms have to a dictionary '
-        #                                 f'using the modality keys: {self.target_modalities}')
 
     def __getitem__(self, item):
 
@@ -445,23 +433,33 @@ class BIDSDataset(Dataset, BIDSBase):
         subject_folder = subjects[item]
 
         # Load data modalities
-        data = self.load_images(subject_folder, modalities=self.data_modalities)
+        data = self.load_images(subject_folder, modalities=self._data_modalities)
 
         # Load target modalities
-        targets = self.load_images(subject_folder, modalities=self.target_modalities)
+        targets = self.load_images(subject_folder, modalities=self._target_modalities)
 
         # Demographics
         demographics = self._get_from_demographics(subject_id=subject_folder.name)
 
         # Apply transforms to data elements
-        if self.transform is not None:
-            for modality, transform in self.transform.items():
-                data[modality] = transform(data[modality])
+        if self._transform is not None:
+            for modality, transform in self._transform.items():
+                try:
+                    data[modality] = transform(data[modality])
+                except Exception as e:
+                    raise FedbiomedDatasetError(
+                        f"{ErrorNumbers.FB613.value}: Cannot apply transformation to modality `{modality}` in "
+                        f"sample number {item} from dataset, error message is {e}.")
 
         # Apply transform to target elements
-        if self.target_transform is not None:
-            for modality, target_transform in self.target_transform.items():
-                targets[modality] = target_transform(targets[modality])
+        if self._target_transform is not None:
+            for modality, target_transform in self._target_transform.items():
+                try:
+                    targets[modality] = target_transform(targets[modality])
+                except Exception as e:
+                    raise FedbiomedDatasetError(
+                        f"{ErrorNumbers.FB613.value}: Cannot apply transformation to modality `{modality}` in target "
+                        f"sample number {item} from dataset, error message is {e}.")
 
         return dict(data=data, target=targets, demographics=demographics)
 
@@ -476,8 +474,8 @@ class BIDSDataset(Dataset, BIDSBase):
         length = len(subject_folders)
 
         if length <= 0:
-            raise FedbiomedDatasetError('Dataset cannot be empty. Check again that the folder and '
-                                        'the tabular data (if provided) exist and match properly.')
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Dataset cannot be empty. Check again that the "
+                                        f"folder and the tabular data (if provided) exist and match properly.")
         return length
 
     @property
@@ -499,8 +497,8 @@ class BIDSDataset(Dataset, BIDSBase):
 
         """
         if not isinstance(value, (str, Path)):
-            raise FedbiomedDatasetError(f"Path for tabular file should be of `str` or `Path` type, "
-                                        f"but got {type(value)} ")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value} Path for tabular file should be of `str` or "
+                                        f"`Path` type, but got {type(value)} ")
 
         path = Path(value)
         if not path.is_file():
@@ -518,8 +516,9 @@ class BIDSDataset(Dataset, BIDSBase):
         Raises:
             FedbiomedDatasetError: If value to set is not of `int` type
         """
-        if not isinstance(value, int):
-            raise FedbiomedDatasetError(f"`index_col` should be of `int` type, but got {type(value)}")
+        if not isinstance(value, (int, str)):
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: `index_col` should be of `int` type, but "
+                                        f"got {type(value)}")
 
         self._index_col = value
 
@@ -529,10 +528,15 @@ class BIDSDataset(Dataset, BIDSBase):
         """Loads tabular data file (supports excel, csv, tsv and colon separated value files)."""
 
         if self._tabular_file is None or self._index_col is None:
-            raise FedbiomedDatasetError("Please set ")
+            # If there is no tabular file return empty data frame
+            return None
 
         # Read demographics CSV
-        demographics = self.read_demographics(self._tabular_file, self._index_col)
+        try:
+            demographics = self.read_demographics(self._tabular_file, self._index_col)
+        except Exception as e:
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Can not load demographics tabular file. "
+                                        f"Error message is: {e}")
 
         # Keep the first one in duplicated subjects
         return demographics.loc[~demographics.index.duplicated(keep="first")]
@@ -542,7 +546,7 @@ class BIDSDataset(Dataset, BIDSBase):
     def subjects_has_all_modalities(self):
         """Gets only the subject has required modalities"""
 
-        all_modalities = self.data_modalities + self.target_modalities
+        all_modalities = list(set(self._data_modalities + self._target_modalities))
         subject_folder_names = self.subjects()
 
         # Get subject that has all requested modalities
@@ -611,17 +615,31 @@ class BIDSDataset(Dataset, BIDSBase):
         """
 
         # If demographics are present
-        if self._tabular_file is not None:
+        if self._tabular_file and self._index_col:
             complete_subject_folders = self.subjects_registered_in_demographics
         else:
             complete_subject_folders = self.subjects_has_all_modalities
 
         return [self._root.joinpath(folder) for folder in complete_subject_folders]
 
+    def shape(self):
+        """Retries shape information for modalities and demographics csv"""
+
+        # Get all modalities
+        modalities, _ = self.modalities()
+        sample = self[0]
+        result = {modality: list(sample["data"][modality].shape) for modality in modalities}
+
+        num_modalities = len(modalities)
+        demographics_shape = self.demographics.shape if self.demographics is not None else None
+        result.update({"demographics": demographics_shape, "num_modalities": num_modalities})
+
+        return result
+
     def _get_from_demographics(self, subject_id):
         """Extracts subject information from a particular subject in the form of a dictionary."""
 
-        if self._tabular_file:
+        if self._tabular_file and self._index_col:
             demographics = self.demographics.loc[subject_id].to_dict()
 
             # Extract only compatible types for torch
@@ -653,26 +671,31 @@ class BIDSDataset(Dataset, BIDSBase):
 
         # If transform is dict, map modalities to transforms
         if isinstance(transform, dict):
+            # Raise if transform objects are not provided as dictionaries.
+            # E.g. {'T1': Normalize(...), 'T2': ToTensor()}
             for modality, method in transform.items():
                 if modality not in modalities:
-                    raise FedbiomedDatasetError(f'Modality `{modality}` is not present in {modalities}')
+                    raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Modality `{modality}` is not present "
+                                                f"in {modalities}")
 
                 if not callable(method):
-                    raise FedbiomedDatasetError(f'Transform for `{modality}` should be callable')
+                    raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value} Transform method/function for "
+                                                f"`{modality}` should be callable")
 
             return transform
 
         # If transform is not dict and there is only one modality
         elif len(modalities) == 1:
             if not callable(transform):
-                raise FedbiomedDatasetError(f'Transform for `{modalities[0]}` should be callable')
+                raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Transform method/function for "
+                                            f"`{modalities[0]}` should be callable")
 
             return {modalities[0]: transform}
 
         # Raise ------
         else:
-            raise FedbiomedDatasetError(f'As you have multiple data modalities, transforms have to be a dictionary '
-                                        f'using the modality keys: {modalities}')
+            raise FedbiomedDatasetError(f'{ErrorNumbers.FB613.value}: As you have multiple data modalities, transforms '
+                                        f'have to be a dictionary using the modality keys: {modalities}')
 
 
 class BIDSController(BIDSBase):
@@ -695,8 +718,8 @@ class BIDSController(BIDSBase):
         """
         unique_modalities, modalities = self.modalities()
         if len(unique_modalities) == len(modalities):
-            message = "Subject folders in BIDS root folder does not contain any common modalities. " \
-                      "At least one common modality is expected."
+            message = f"{ErrorNumbers.FB613.value}: Subject folders in BIDS root folder does not contain any common " \
+                      f"modalities. At least one common modality is expected."
             if _raise:
                 raise FedbiomedDatasetError(message)
             else:
@@ -705,8 +728,11 @@ class BIDSController(BIDSBase):
         return True, ""
 
     def subject_modality_status(self, index: Union[List, pd.Series] = None) -> Dict:
-        """Scans subject and checks which modalities are exiting for subject
+        """Scans subjects and checks which modalities are existing for each subject
 
+        Args:
+            index: Array-like index that comes from reference csv file of BIDS dataset. It represents subject
+                folder names.
         Returns:
             Modality status for each subject that indicates which modalities are available
         """
@@ -728,3 +754,35 @@ class BIDSController(BIDSBase):
                 modality_status[subject].update({"missing_in_index": True if subject in missing_entries else False})
 
         return modality_status
+
+    def load_bids(self, tabular_file: Union[str, Path] = None, index_col: Union[str, int] = None) -> BIDSDataset:
+        """ Load BIDS dataset with given tabular_file and index_col
+
+        Args:
+            tabular_file: File path to demographics data set
+            index_col: Column index that represents subject folder names
+
+        Returns:
+            BIDSDataset object
+
+        Raises:
+            FedbiomedDatasetError: If BIDS dataset is not successfully loaded
+
+        """
+        if self._root is None:
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Can not load BIDS dataset without declaring"
+                                        f"root directory. Please set root or build BIDSController with by providing "
+                                        f"`root` argument use")
+
+        modalities, _ = self.modalities()
+
+        try:
+            dataset = BIDSDataset(root=self._root,
+                                  tabular_file=tabular_file,
+                                  index_col=index_col,
+                                  data_modalities=modalities,
+                                  target_modalities=modalities)
+        except FedbiomedError as e:
+            raise FedbiomedDatasetError(f"Can not create BIDS dataset. {e}")
+
+        return dataset

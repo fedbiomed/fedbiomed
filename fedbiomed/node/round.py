@@ -384,11 +384,6 @@ class Round:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
                                       f"{str(training_plan_type.value)} has failed: {str(e)}")
 
-        # Get dataset property
-        default_launching_parameters = self.dataset.get("default_launching_parameters", {})
-        if hasattr(data_manager.dataset, "set_multiple_params"):
-            data_manager.dataset.set_multiple_params(default_launching_parameters)
-
 
         # Check whether training_data returns proper instance
         # it should be always Fed-BioMed DataManager
@@ -403,6 +398,11 @@ class Round:
             data_manager.load(tp_type=training_plan_type)
         except FedbiomedError as e:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Error while loading data manager; {str(e)}")
+
+        # Get dataset property
+        default_dataset_parameters = self.dataset.get("default_dataset_parameters", {})
+        if hasattr(data_manager.dataset, "set_dataset_params"):
+            data_manager.dataset.set_dataset_params(default_dataset_parameters)
 
         # All Framework based data managers have the same methods
         # If testing ratio is 0,

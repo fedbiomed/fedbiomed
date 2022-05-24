@@ -70,12 +70,15 @@ class TestNIFTIFolderDataset(unittest.TestCase):
             NIFTIFolderDataset(temp)
 
         def fonction():
-            pass
+            return True
+
+        test_transform = fonction()
+
         # incorrectly typed transform functions
         with self.assertRaises(FedbiomedDatasetError):
-            NIFTIFolderDataset(self.root, fonction, None)
+            NIFTIFolderDataset(self.root, test_transform, None)
         with self.assertRaises(FedbiomedDatasetError):
-            NIFTIFolderDataset(self.root, None, fonction)
+            NIFTIFolderDataset(self.root, None, test_transform)
 
     def test_indexation_correct(self):
         dataset = NIFTIFolderDataset(self.root)
@@ -258,7 +261,6 @@ def _create_wrong_formatted_folder_for_bids(root, n_samples):
         os.makedirs(subject_folder)
 
 
-
 class TestBIDSDataset(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -303,6 +305,17 @@ class TestBIDSDataset(unittest.TestCase):
         dataset = BIDSDataset(self.root, target_transform=self.target_transform)
         batch = dataset[0]
         self.assertEqual(batch['data']['T1'].shape, batch['target']['label'].shape)
+
+    def test_bids_dataset_set_dataset_parameters(self):
+
+        dataset = BIDSDataset(self.root)
+
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset.set_dataset_parameters("NONEDICTPARAMS")
+
+        dataset.set_dataset_parameters({"tabular_file": self.tabular_file, "index_col": self.index_col})
+        self.assertEqual(dataset.tabular_file, self.tabular_file)
+        self.assertEqual(dataset.index_col, self.index_col)
 
     def _assert_batch_types_and_sizes(self, dataset):
         data_loader = DataLoader(dataset, batch_size=self.batch_size)
