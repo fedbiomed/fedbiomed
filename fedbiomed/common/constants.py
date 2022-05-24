@@ -141,6 +141,7 @@ class ErrorNumbers(_BaseEnum):
     FB610: str = "FB610: Torch based tabular dataset creation error"
     FB611: str = "FB611: Error while trying to evaluate using the specified metric"
     FB612: str = "FB612: Torch based NIFTI dataset error"
+    FB613: str = "FB613: BIDS dataset error"
 
 
     # oops
