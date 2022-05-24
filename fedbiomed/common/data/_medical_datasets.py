@@ -314,13 +314,10 @@ class BIDSBase:
 
         """
         path = Path(path)
-        if not path.is_file():
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Demographics should be a file, not a directory")
+        if not path.is_file() or path.suffix.lower() not in [".csv", ".tsv"]:
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Demographics should be CSV or TSV files")
 
-        if 'xls' in path.suffix.lower():
-            return pd.read_excel(path, index_col=index_col)
-        else:
-            return pd.read_csv(path, index_col=index_col, engine='python')
+        return pd.read_csv(path, index_col=index_col, engine='python')
 
     @staticmethod
     def validate_bids_root_folder(path: Union[str, Path]) -> Path:
