@@ -171,4 +171,3 @@ class FedbiomedUserInputError(FedbiomedError):
     Exception raised then user input is invalid.
     """
     pass
-

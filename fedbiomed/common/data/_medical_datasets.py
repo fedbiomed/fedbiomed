@@ -12,7 +12,7 @@ import pandas as pd
 
 from functools import cache
 from monai.data import ITKReader
-from monai.transforms import Transform, LoadImage, ToTensor, Compose
+from monai.transforms import LoadImage, ToTensor, Compose
 from torch import Tensor
 from torch.utils.data import Dataset
 
@@ -352,7 +352,7 @@ class BIDSBase:
             path = Path(path)
 
         if not path.is_dir():
-            raise FedbiomedDatasetError(f"Root for BIDS dataset should be a directory.")
+            raise FedbiomedDatasetError("Root for BIDS dataset should be a directory.")
 
         directories = [f for f in path.iterdir() if f.is_dir()]
         if len(directories) == 0:
@@ -499,7 +499,7 @@ class BIDSDataset(Dataset, BIDSBase):
 
         path = Path(value)
         if not path.is_file():
-            raise FedbiomedDatasetError(f"Path should be a data file")
+            raise FedbiomedDatasetError("Path should be a data file")
 
         self._tabular_file = Path(path).expanduser().resolve()
 
