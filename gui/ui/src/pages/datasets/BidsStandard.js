@@ -6,7 +6,7 @@ import FileBrowser from "../../components/common/FileBrowser";
 import {setFolderPath, setFolderRefColumn, setReferenceCSV} from "../../store/actions/bidsDatasetActions"
 import {SelectiveTable} from "../../components/common/Tables";
 import {Label, Tag, Text, TextArea} from "../../components/common/Inputs";
-
+import BidsSubjectInformation from "./BidsSubjectInformation";
 
 
 
@@ -44,7 +44,7 @@ const BidsStandard = (props) => {
                   desc={'Please select the root folder that contains BIDS Nifti format brain images. '}
             >
                <FileBrowser
-                    folderPath = {props.bidsDataset.data_path ? props.bidsDataset.data_path : null}
+                    folderPath = {props.bidsDataset.bids_root ? props.bidsDataset.bids_root : null}
                     onSelect = {setDataPath}
                />
                 {props.bidsDataset.modalities ?
@@ -61,7 +61,7 @@ const BidsStandard = (props) => {
 
             </Step>
 
-            {props.bidsDataset.data_path ?(
+            {props.bidsDataset.bids_root ?(
                 <Step
                     key={2}
                     disable={stepCount > 0 ? false : true}
@@ -88,12 +88,13 @@ const BidsStandard = (props) => {
                         table={props.bidsDataset.reference_csv.data}
                         onSelect={setReferenceFolderIDColumn}
                         selectedLabel={"Folder Name"}
-                        selectedColIndex={props.bidsDataset.folder_ref_column.index}
+                        selectedColIndex={props.bidsDataset.bids_ref.ref.index}
                     />
+                    <BidsSubjectInformation subjects={props.bidsDataset.bids_ref.subjects} />
                 </Step>
             ) : null }
 
-            {props.bidsDataset.folder_ref_column.name != null ? (
+            {props.bidsDataset.bids_ref.ref.name != null ? (
                 <Step
                     key={4}
                     disable={stepCount > 0 ? false : true}

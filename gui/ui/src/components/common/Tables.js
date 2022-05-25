@@ -81,7 +81,6 @@ export const TableData = (props) => {
 export const SelectiveTable = (props) => {
     const tableRef = React.createRef()
     const [hoverColIndex, setHoverColIndex] = React.useState(null)
-    const [activeColIndex, setActiveColIndex] = React.useState(props.selectedColIndex)
 
     React.useEffect( () => {
         if(tableRef.current){
@@ -108,10 +107,10 @@ export const SelectiveTable = (props) => {
 
     const handleTableColumnClick = (event) => {
         let index  = getIndex(event)
-        setActiveColIndex(index)
-        console.log(index)
-        if(props.onSelect){
-            props.onSelect(index)
+        if(index !== props.selectedColIndex){
+            if(props.onSelect){
+                props.onSelect(index)
+            }
         }
     };
 
@@ -135,7 +134,7 @@ export const SelectiveTable = (props) => {
                                     table={props.table}
                                     hoverColumns={true}
                                     hoverColIndex={hoverColIndex}
-                                    activeColIndex={activeColIndex}
+                                    activeColIndex={props.selectedColIndex}
                                     selectedLabel={props.selectedLabel}
                                 />
                             </thead>
@@ -144,7 +143,7 @@ export const SelectiveTable = (props) => {
                                     table={props.table}
                                     hoverColumns={true}
                                     hoverColIndex={hoverColIndex}
-                                    activeColIndex={activeColIndex}
+                                    activeColIndex={props.selectedColIndex}
                                 />
                             </tbody>
                     </table>

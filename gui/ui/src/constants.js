@@ -10,6 +10,7 @@ export const EP_DEFAULT_DATASET_ADD     = '/api/datasets/add-default-dataset'
 export const EP_CONFIG_NODE_ENVIRON = '/api/config/node-environ'
 export const EP_LOAD_CSV_DATA = '/api/datasets/get-csv-data'
 export const EP_VALIDATE_BIDS_ROOT = '/api/datasets/bids/validate-bids-root'
+export const EP_VALIDATE_REFERENCE_COLUMN = '/api/datasets/bids/validate-reference-column'
 
 // Messages
 export const DATA_NOTFOUND = 'There is no data has been found for the dataset. It might be deleted'

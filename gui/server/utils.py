@@ -50,7 +50,7 @@ def error(msg: str):
 
 def success(msg: str):
     """ Function that returns jsonfied success result
-        with a message, it is used for API enpoints  
+        with a message, it is used for API endpoints
     Args:
 
         msg     (str): Response message for successful request.

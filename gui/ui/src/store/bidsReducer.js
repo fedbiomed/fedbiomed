@@ -3,10 +3,17 @@
  * @type {{identifiers: {}, format: null, folder_path: null}}
  */
 const initialState = {
-    data_path: null,
+    bids_root: null,
     patient_folders: null,
     modalities : null,
-    folder_ref_column: {index: null, name:null},
+    bids_ref : {
+        ref : {index: null, name:null},
+        subjects: {
+            available_subject : null,
+            missing_entries: null,
+            missing_folders: null
+        }
+    },
     reference_column_name:null,
     format: null,
     reference_csv: null,
@@ -24,14 +31,20 @@ const initialState = {
  */
 export const bidsReducer = (state = initialState, action) => {
 
-
     switch (action.type){
         case "SET_BIDS_ROOT":
             return {
                 ...state,
-                data_path: action.payload.root_path,
+                bids_root: action.payload.root_path,
                 modalities: action.payload.modalities,
             }
+        case "RESET_BIDS_ROOT":
+            return {
+                ...state,
+                bids_root: null,
+                modalities: null,
+            }
+
         case "PATIENT_FOLDERS":
             return {
                ...state,
@@ -56,10 +69,22 @@ export const bidsReducer = (state = initialState, action) => {
                 ...state,
                 identifiers: action.payload
             }
-        case "FOLDER_REF_COLUMN":
+        case "SET_BIDS_REF":
             return {
                 ...state,
-                folder_ref_column: action.payload,
+                bids_ref: {
+                    ref : action.payload.ref,
+                    subjects: {
+                        available_subjects : action.payload.subjects.available_subjects,
+                        missing_entries: action.payload.subjects.missing_entries,
+                        missing_folders: action.payload.subjects.missing_folders
+                    }
+                }}
+
+        case "RESET_BIDS_REF":
+            return {
+                ...state,
+                bids_ref : initialState.bids_ref
             }
         default:
             return state

@@ -270,24 +270,26 @@ class ValidateBIDSReferenceCSV(Validator):
     type = 'json'
     schema = JsonSchema({
         "type": "object",
-        "properties": {"path": {
-            "type": "array",
-            "errorMessages": {
-                "type": "CSV path should be given as an array"
-            },
-            "root": {
-                "type": "array",
-                "errorMessages": {
-                    "type": "ROOT path should be given as an array"
+        "properties": {
+                "reference_csv_path": {
+                    "type": "array",
+                    "errorMessages": {
+                        "type": "CSV path should be given as an array"
+                    },
                 },
+                "bids_root": {
+                    "type": "array",
+                    "errorMessages": {
+                        "type": "ROOT path should be given as an array"
+                    },
+                },
+                "index_col": {
+                    "type": "integer",
+                    "errorMessage": {
+                        "type": "Index column should be an integer"}
+                }
             },
-            "index_col": {
-                "type": int,
-                "errorMessage": {
-                    "type": "Index column should be an integer"}
-            }
-        }},
-        "required": ["path", "root", "index_col"]
+        "required": ["reference_csv_path", "bids_root", "index_col"]
     })
 
 
@@ -296,12 +298,12 @@ class ValidateBIDSRoot(Validator):
     schema = JsonSchema({
         "type": "object",
         "properties": {
-            "root": {
+            "bids_root": {
                 "type": "array",
                 "errorMessages": {
                     "type": "ROOT path should be given as an array"
                 },
             }
         },
-        "required": ["root"]
+        "required": ["bids_root"]
     })
