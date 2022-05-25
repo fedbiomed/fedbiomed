@@ -176,6 +176,7 @@ def get_disk_usage(path: str):
     """
 
     size = 0
+
     if os.path.isfile(path):
         try:
             size = os.path.getsize(path)
@@ -183,8 +184,8 @@ def get_disk_usage(path: str):
             pass
     elif os.path.isdir(path):
         try:
-            for path, dirs, files in os.walk(path):
-                for f in files:
+            for index, (path, dirs, files) in enumerate(os.walk(path)):
+                for i, f in enumerate(files):
                     fp = os.path.join(path, f)
                     size += os.path.getsize(fp)
         except:
@@ -205,4 +206,5 @@ def parse_size(size):
         if size < 1024.0:
             return formatter % (size, unit)
         size /= 1024.0
+
     return formatter % (size, 'BB')

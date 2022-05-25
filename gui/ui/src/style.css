@@ -716,7 +716,7 @@ justify-content: flex-start;
 
 .form-control {
   width: calc(100% - 40px);
-  margin: 20px 10px;
+  margin: 20px 0px;
 }
 
 .form-control.with-button {

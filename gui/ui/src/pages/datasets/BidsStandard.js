@@ -47,6 +47,18 @@ const BidsStandard = (props) => {
                     folderPath = {props.bidsDataset.data_path ? props.bidsDataset.data_path : null}
                     onSelect = {setDataPath}
                />
+                {props.bidsDataset.modalities ?
+                    (<div className={''}>
+                        <label>Modalities: </label>
+                        {props.bidsDataset.modalities.map((item, key) => {
+                              return(
+                                  <span className={styles.modalities} key={key}>{item}</span>
+                              )
+                        })}
+                    </div>) : null
+                }
+
+
             </Step>
 
             {props.bidsDataset.data_path ?(

@@ -51,11 +51,11 @@ def list_data_path():
             'base': base,
             'files': [],
             'number': len(files),
-            'displays': len(files) if len(files) <= 100 else 100,
+            'displays': len(files) if len(files) <= 1000 else 1000,
             'path': req_path
         }
 
-        files = files if len(files) <= 100 else files[0:100]
+        files = files if len(files) <= 1000 else files[0:1000]
 
         table = database.db().table('_default')
         query = database.query()

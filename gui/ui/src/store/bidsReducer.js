@@ -5,6 +5,7 @@
 const initialState = {
     data_path: null,
     patient_folders: null,
+    modalities : null,
     folder_ref_column: {index: null, name:null},
     reference_column_name:null,
     format: null,
@@ -25,10 +26,11 @@ export const bidsReducer = (state = initialState, action) => {
 
 
     switch (action.type){
-        case "SET_FOLDER_PATH":
+        case "SET_BIDS_ROOT":
             return {
                 ...state,
-                data_path: action.payload
+                data_path: action.payload.root_path,
+                modalities: action.payload.modalities,
             }
         case "PATIENT_FOLDERS":
             return {

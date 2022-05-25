@@ -146,7 +146,7 @@ class AddDataSetRequest(Validator):
             'type': {'type': 'string',
                      'oneOf': [{"enum": ['csv', 'images']}],
                      'errorMessages': {
-                        'oneOf': ' "%s" dataset type is not supported'
+                         'oneOf': ' "%s" dataset type is not supported'
                      }},
             'desc': {'type': 'string', "minLength": 4, "maxLength": 256,
                      'errorMessages': {
@@ -235,7 +235,7 @@ class AddDefaultDatasetRequest(Validator):
                                 'errorMessages': {
                                     'minLength': 'Dataset name must have at least 4 character',
                                     'maxLength': 'Dataset name must be max 128 character'
-                                    }
+                                }
                                 },
                        'path': {'type': 'array'},
                        'tags': {'type': 'array', "minItems": 1, "maxItems": 4, 'default': ["#MNIST", "#dataset"],
@@ -246,7 +246,7 @@ class AddDefaultDatasetRequest(Validator):
                                 }},
                        'type': {'type': 'string', 'default': "default",
                                 'oneOf': [{"enum": ['default']}]},
-                       'desc': {'type': 'string', "minLength": 4, "maxLength": 256, 'default' : "Default MNIST dataset",
+                       'desc': {'type': 'string', "minLength": 4, "maxLength": 256, 'default': "Default MNIST dataset",
                                 'errorMessages': {
                                     'minLength': 'Description must have at least 4 character',
                                     'maxLength': 'Description must be max 256 character'
@@ -258,10 +258,50 @@ class AddDefaultDatasetRequest(Validator):
 
 
 class GetCsvData(Validator):
-
     type = 'json'
     schema = JsonSchema({
         "type": "object",
         "properties": {"path": {"type": "array"}},
         "required": ["path"]
+    })
+
+
+class ValidateBIDSReferenceCSV(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {"path": {
+            "type": "array",
+            "errorMessages": {
+                "type": "CSV path should be given as an array"
+            },
+            "root": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "ROOT path should be given as an array"
+                },
+            },
+            "index_col": {
+                "type": int,
+                "errorMessage": {
+                    "type": "Index column should be an integer"}
+            }
+        }},
+        "required": ["path", "root", "index_col"]
+    })
+
+
+class ValidateBIDSRoot(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {
+            "root": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "ROOT path should be given as an array"
+                },
+            }
+        },
+        "required": ["root"]
     })

@@ -1,5 +1,5 @@
 import axios from "axios";
-import {EP_REPOSITORY_LIST, EP_LOAD_CSV_DATA} from "../../constants";
+import {EP_REPOSITORY_LIST, EP_LOAD_CSV_DATA, EP_VALIDATE_BIDS_ROOT} from "../../constants";
 
 /**
  * Sets Folder Path
@@ -8,7 +8,29 @@ import {EP_REPOSITORY_LIST, EP_LOAD_CSV_DATA} from "../../constants";
  */
 export const setFolderPath = (path) => {
     return (dispatch) => {
-        // Set path
+        if(path.type !== "dir"){
+            dispatch({type: 'ERROR_MODAL' , payload: "ROOT path for BIDS dataset should be folder/directory"})
+            return
+        }
+        dispatch({type:'SET_LOADING', payload: true})
+        axios.post(EP_VALIDATE_BIDS_ROOT, {root : path.path})
+            .then(response => {
+                if(response.status === 200){
+                    let data = response.data.result
+                    if(data.valid){
+                        dispatch({type: "SET_BIDS_ROOT", payload: { root_path: path.path, modalities: data.modalities}})
+                    }else{
+                        dispatch({type: 'ERROR_MODAL' , payload: data.message})
+                    }
+                }else{
+                    dispatch({type: 'ERROR_MODAL' , payload: response.data.result.message})
+                }
+                dispatch({type:'SET_LOADING', payload: false})
+            }).catch(error => {
+                dispatch({type:'SET_LOADING', payload: false})
+                dispatch(displayError(error, "Unexpected error while validating BIDS root path."))
+        })
+
         dispatch({type: "SET_FOLDER_PATH", payload: path.path})
         dispatch(getSubDirectories(path.path))
     }
@@ -33,20 +55,21 @@ export const setFolderRefColumn = (ref) => {
  */
 export const setReferenceCSV = (path) => {
     return (dispatch) => {
-        dispatch({type:'SET_LOADING', payload: true})
+
         axios.post(EP_LOAD_CSV_DATA, {path : path.path}).then( response => {
             if(response.status === 200){
                 let data = response.data.result
                 dispatch({type: "SET_REFERENCE_CSV", payload: { path: path.path, data: data}})
             }else{
-                dispatch({type: 'ERROR_MODAL' , payload: response.data.result.message})
+                dispatch({type: 'ERROR_MODAL', payload: response.data.result.message})
             }
+
             dispatch({type:'SET_LOADING', payload: false})
         }).catch(error => {
             dispatch({type:'SET_LOADING', payload: false})
-            dispatch(displayError(error, "Error while getting reference CSV for BIDS;"))
+            dispatch(displayError(error, "Error while validating reference CSV file"))
         })
-
+        return
     }
 }
 
