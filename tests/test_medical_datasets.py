@@ -4,9 +4,12 @@ import tempfile
 import random
 import shutil
 from pathlib import Path
-
+from uuid import uuid4
+from random import randint, choice
+from pathlib import PosixPath
 import itk
 import numpy as np
+import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from monai.data import ITKReader
@@ -14,6 +17,9 @@ from monai.transforms import LoadImage, ToTensor, Compose, Identity, PadListData
 
 from fedbiomed.common.data import NIFTIFolderDataset
 from fedbiomed.common.exceptions import FedbiomedDatasetError
+from torchvision.transforms import Lambda
+from monai.transforms import GaussianSmooth
+from fedbiomed.common.data import BIDSDataset, BIDSBase
 
 
 class TestNIFTIFolderDataset(unittest.TestCase):
@@ -55,21 +61,24 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         Path(os.path.join(tempsub, 'testfile')).touch()
         with self.assertRaises(FedbiomedDatasetError):
             NIFTIFolderDataset(temp)
-        # directory unreadable    
+        # directory unreadable
         temp = tempfile.mkdtemp()
         tempsub = os.path.join(temp, 'subfolder')
         os.mkdir(tempsub)
-        os.chmod(tempsub, 0) 
+        os.chmod(tempsub, 0)
         with self.assertRaises(FedbiomedDatasetError):
-            NIFTIFolderDataset(temp) 
+            NIFTIFolderDataset(temp)
 
         def fonction():
-            pass
+            return True
+
+        test_transform = fonction()
+
         # incorrectly typed transform functions
         with self.assertRaises(FedbiomedDatasetError):
-            NIFTIFolderDataset(self.root, fonction, None)
+            NIFTIFolderDataset(self.root, test_transform, None)
         with self.assertRaises(FedbiomedDatasetError):
-            NIFTIFolderDataset(self.root, None, fonction)
+            NIFTIFolderDataset(self.root, None, test_transform)
 
     def test_indexation_correct(self):
         dataset = NIFTIFolderDataset(self.root)
@@ -211,6 +220,211 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
                 self.sample_paths.append(img_path)
                 self.sample_class.append(self.class_names.index(class_name))
+
+
+def _create_synthetic_dataset(root, n_samples, tabular_file, index_col):
+
+    # Image and target data
+    fake_img_data = np.random.rand(10, 10, 10)
+    img = itk.image_from_array(fake_img_data)
+
+    # Generate subject ids
+    subject_ids = [str(uuid4()) for _ in range(n_samples)]
+    modalities = ['T1', 'T2', 'label']
+    centers = [f'center_{uuid4()}' for _ in range(randint(3, 6))]
+
+    demographics = pd.DataFrame()
+    demographics.index.name = index_col
+
+    for subject_id in subject_ids:
+        subject_folder = os.path.join(root, subject_id)
+        os.makedirs(subject_folder)
+
+        # Create class folder
+        for modality in modalities:
+            modality_folder = os.path.join(subject_folder, modality)
+            os.mkdir(modality_folder)
+            img_path = os.path.join(modality_folder, f'image_{uuid4()}.nii.gz')
+            itk.imwrite(img, img_path)
+
+        # Add demographics information
+        demographics.loc[subject_id, 'AGE'] = randint(15, 90)
+        demographics.loc[subject_id, 'CENTER'] = choice(centers)
+    demographics.to_csv(tabular_file)
+
+
+def _create_wrong_formatted_folder_for_bids(root, n_samples):
+
+    subject_ids = [str(uuid4()) for _ in range(n_samples)]
+    for subject_id in subject_ids:
+        subject_folder = os.path.join(root, subject_id)
+        os.makedirs(subject_folder)
+
+
+class TestBIDSDataset(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.root = tempfile.mkdtemp()
+        self.tabular_file = os.path.join(self.root, 'participants.csv')
+        self.index_col = 'FOLDER_NAME'
+
+        self.transform = {'T1': Lambda(lambda x: torch.flatten(x))}
+        self.target_transform = {'label': GaussianSmooth()}
+
+        self.n_samples = 10
+        self.batch_size = 3
+
+        print(f'Dataset folder located in: {self.root}')
+        _create_synthetic_dataset(self.root, self.n_samples, self.tabular_file, self.index_col)
+
+    def test_instantiating_dataset(self):
+        dataset = BIDSDataset(self.root)
+        self._assert_batch_types_and_sizes(dataset)
+
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset = BIDSDataset(self.root, transform="Invalid")
+
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset = BIDSDataset(self.root, target_transform="Invalid")
+
+    def test_cached_properties(self):
+        dataset = BIDSDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
+        print(dataset.demographics.head())
+        print(dataset.demographics.head())
+
+    def test_instantiation_with_demographics(self):
+        dataset = BIDSDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
+        self._assert_batch_types_and_sizes(dataset)
+
+    def test_data_transforms(self):
+        dataset = BIDSDataset(self.root, transform=self.transform)
+        batch = dataset[0]
+        self.assertTrue(batch['data']['T1'].dim() == 1)
+
+    def test_target_transform(self):
+        dataset = BIDSDataset(self.root, target_transform=self.target_transform)
+        batch = dataset[0]
+        self.assertEqual(batch['data']['T1'].shape, batch['target']['label'].shape)
+
+    def test_bids_dataset_set_dataset_parameters(self):
+
+        dataset = BIDSDataset(self.root)
+
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset.set_dataset_parameters("NONEDICTPARAMS")
+
+        dataset.set_dataset_parameters({"tabular_file": self.tabular_file, "index_col": self.index_col})
+        self.assertEqual(str(dataset.tabular_file), self.tabular_file)
+        self.assertEqual(dataset.index_col, self.index_col)
+
+    def _assert_batch_types_and_sizes(self, dataset):
+        data_loader = DataLoader(dataset, batch_size=self.batch_size)
+        batch = iter(data_loader).next()
+
+        self.assertIsInstance(batch, dict)
+        self.assertIsInstance(batch['data'], dict)
+        self.assertIsInstance(batch['target'], dict)
+        self.assertIsInstance(batch['demographics'], dict)
+
+        lengths = [len(b) for b in batch['data'].values()]
+        lengths += [len(b) for b in batch['target'].values()]
+        lengths += [len(b) for b in batch['demographics'].values()]
+
+        # Assert for batch size on modalities and demographics
+        self.assertTrue(len(set(lengths)) == 1)
+
+    def tearDown(self) -> None:
+        if 'IXI' not in self.root:
+            shutil.rmtree(self.root)
+
+
+class TestBIDSBase(unittest.TestCase):
+
+    def setUp(self) -> None:
+
+        self.root = tempfile.mkdtemp()
+        self.tabular_file = os.path.join(self.root, 'participants.csv')
+        self.index_col = 'FOLDER_NAME'
+
+        self.transform = {'T1': Lambda(lambda x: torch.flatten(x))}
+        self.target_transform = {'label': GaussianSmooth()}
+
+        self.n_samples = 10
+        self.batch_size = 3
+
+        _create_synthetic_dataset(self.root, self.n_samples, self.tabular_file, self.index_col)
+
+    def tearDown(self) -> None:
+
+        if 'IXI' not in self.root:
+            shutil.rmtree(self.root)
+        pass
+
+    def test_bids_base__init__(self):
+        self.bids_base = BIDSBase()
+        self.assertIsNone(self.bids_base.root, "BIDSBase root should not in empty initialization")
+
+        self.bids_base = BIDSBase(root=self.root)
+        self.assertIsInstance(self.bids_base.root, PosixPath)
+        self.assertEqual(str(self.bids_base.root), self.root, "BIDSBase root should not in empty initialization")
+
+        with self.assertRaises(FedbiomedDatasetError):
+            self.bids_base = BIDSBase(root="unknown-folder-path")
+
+        # Try to set root to None
+        with self.assertRaises(FedbiomedDatasetError):
+            self.bids_base.root = None
+
+        # If subjects has no modality folder
+        dummy_root = tempfile.mkdtemp()
+        _create_wrong_formatted_folder_for_bids(dummy_root, 3)
+        with self.assertRaises(FedbiomedDatasetError):
+            self.bids_base.root = dummy_root
+
+        # Remove tmp folder
+        shutil.rmtree(dummy_root)
+
+        # If root has no subject folder
+        dummy_root_2 = tempfile.mkdtemp()
+        _create_wrong_formatted_folder_for_bids(dummy_root, 0)
+        with self.assertRaises(FedbiomedDatasetError):
+            self.bids_base.root = dummy_root_2
+
+        # Remove tmp folder
+        shutil.rmtree(dummy_root_2)
+
+    def test_bids_base_modalities(self):
+        """Testing the method gets modalities from subject folder"""
+
+        self.bids_base = BIDSBase(root=self.root)
+        unique_modalities, all_modalities = self.bids_base.modalities()
+
+        self.assertIsInstance(all_modalities, list, "All modalities are not as expected")
+        unique_modalities.sort()
+        self.assertListEqual(unique_modalities, ["T1", "T2", "label"])
+
+    def test_bids_base_available_subjects(self):
+        """Testing the method that extract available subjects for training"""
+        self.bids_base = BIDSBase(root=self.root)
+        file = self.bids_base.read_demographics(self.tabular_file, self.index_col)
+        complete_subject, missing_folders, missing_entries = \
+            self.bids_base.available_subjects(subjects_from_index=file.index)
+
+        # Test results
+        self.assertListEqual(missing_folders, [])
+        self.assertListEqual(missing_entries, [])
+
+    def test_bids_base_read_demographics(self):
+
+        self.bids_base = BIDSBase(root=self.root)
+
+        with self.assertRaises(FedbiomedDatasetError):
+            self.bids_base.read_demographics(os.path.join(self.root, 'toto'), index_col=12)
+
+        test_csv = pd.DataFrame([[1, 2, 3], [1, 2, 3]])
+        test_csv.to_csv(os.path.join(self.root, 'toto.csv'))
+        df = self.bids_base.read_demographics(os.path.join(self.root, 'toto.csv'), index_col=1)
+        self.assertIsInstance(df, pd.DataFrame)
 
 
 if __name__ == '__main__':

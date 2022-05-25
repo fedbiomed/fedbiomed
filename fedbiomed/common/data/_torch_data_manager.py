@@ -40,6 +40,7 @@ class TorchDataManager(object):
         self._subset_test: Union[Subset, None] = None
         self._subset_train: Union[Subset, None] = None
 
+    @property
     def dataset(self) -> Dataset:
         """Gets dataset.
 

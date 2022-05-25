@@ -113,9 +113,8 @@ class DataManager(object):
         # Specific to DataManager class
         if item == 'load':
             return object.__getattribute__(self, item)
-
         try:
             return self._data_manager_instance.__getattribute__(item)
         except AttributeError:
-            raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: method {str(item)} not"
+            raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: method {str(item)} not "
                                             f"implemented for class: {str(self._data_manager_instance)}")
