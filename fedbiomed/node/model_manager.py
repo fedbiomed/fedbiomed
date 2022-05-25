@@ -105,7 +105,7 @@ class ModelManager:
                        name: str,
                        description: str,
                        path: str,
-                       model_type: str = 'registered',
+                       model_type: str = ModelTypes.REGISTERED.value,
                        model_id: str = None,
                        researcher_id: str = None
                        ) -> True:
@@ -191,7 +191,7 @@ class ModelManager:
         """
 
         self._db.clear_cache()
-        models = self._db.search(self._database.model_type.all('registered'))
+        models = self._db.search(self._database.model_type.all(ModelTypes.REGISTERED.value))
         logger.info('Checking hashes for registered models')
         if not models:
             logger.info('There are no models registered')
@@ -289,21 +289,22 @@ class ModelManager:
 
         # If node allows defaults models search hash for all model types
         # otherwise search only for `registered` models
-        if environ['ALLOW_DEFAULT_MODELS']:
-            _all_models_with_status = (self._database.model_type != ModelTypes.REQUESTED.value)
-            # _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
-            # models = self._db.search(_all_models_registered & _all_models_which_have_req_hash)
+        # if environ['ALLOW_DEFAULT_MODELS']:
+        #     _all_models_with_status = (self._database.model_type != ModelTypes.REQUESTED.value)
+        #     # _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
+        #     # models = self._db.search(_all_models_registered & _all_models_which_have_req_hash)
+        # else:
+        if isinstance(status, ModelApprovalStatus):
+            _all_models_with_status = (self._database.model_status == status.value)
+        elif isinstance(status, ModelTypes):
+            _all_models_with_status = (self._database.model_type == status.value)
         else:
-            if isinstance(status, ModelApprovalStatus):
-                _all_models_with_status = (self._database.model_type == status.value)
-            elif isinstance(status, ModelTypes):
-                _all_models_with_status = (self._database.model_status == status.value)
-            else:
-                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : status should be either" + 
-                                                 f" ModelApprovalStatus or ModelTypes, but got {type(status)}")
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : status should be either" + 
+                                             f" ModelApprovalStatus or ModelTypes, but got {type(status)}")
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
         models = self._db.search(_all_models_with_status & _all_models_which_have_req_hash)
-
+        
+        print("MODEL STATUS", models)
         if models:
             is_status = True
             model = models[0]  # Search request returns an array
@@ -313,12 +314,11 @@ class ModelManager:
 
         return is_status, model      
 
-    def get_model_status(self, model_path: str) -> Union[Dict[str, Any], None]:
+    def get_model_from_database(self, model_path: str) -> Union[Dict[str, Any], None]:
         req_model_hash, _ = self._create_hash(model_path)
         self._db.clear_cache()
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
-        _cond_model_path = (self._database.model_path == model_path)
-        #  FIXME: is it useful? cause hashes should be unique
+        #  hashes in database should be unique
         models = self._db.search(_all_models_which_have_req_hash)
         
         print("Models requested", models)
@@ -327,7 +327,7 @@ class ModelManager:
         else:
             model = None
             
-        return model.get('model_status')
+        return model
         
     def create_txt_model_from_py(self, model_path: str) -> str:
         """Creates a text model file (*.txt extension) from a python (*.py) model file,
@@ -457,24 +457,37 @@ class ModelManager:
                 reply = {**header,
                          'success': False,
                          'approval_obligation': False,
-                         'status': 'None',
+                         'status': 'Error',
                          'msg': f'Can not download model file. {msg["model_url"]}'}
             else:
                 model_file = os.path.join(environ["TMP_DIR"], model_name + '.py')
-                status = self.get_model_status(model_file)
-                if environ["MODEL_APPROVAL"]:
+                model = self.get_model_from_database(model_file)
+                if model is not None:
+                    model_status = model.get('model_status', 'Mot Registered')
+                else:
+                    model_status = 'Not Registered'
+                print("STATUS", model_status)
 
+                if environ["MODEL_APPROVAL"]:
+                    if model_status == ModelApprovalStatus.APPROVED.value:
+                        msg = "Model has been approved by the node, training can start"
+                    elif model_status == ModelApprovalStatus.PENDING.value:
+                        msg = "Model is pending: waiting for a review"
+                    elif model_status == ModelApprovalStatus.REJECTED.value:
+                        msg = "Model has been rejected by the node, training is not possible"
+                    else:
+                        msg = f"Unknown model / model not in database (status {model_status})"
                     reply = {**header,
                              'success': True,
                              'approval_obligation': True,
-                             'status': status,
-                             'msg': 'Model is not approved by the node'}
+                             'status': model_status,
+                             'msg': msg}
 
                 else:
                     reply = {**header,
                              'success': True,
                              'approval_obligation': False,
-                             'status': status,
+                             'status': model_status,
                              'msg': 'This node does not require model approval (maybe for debuging purposes).'}
         except FedbiomedModelManagerError as fed_err:
             reply = {**header,

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import sys
 import unittest
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, ModelApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedMessageError
 import fedbiomed.common.message as message
 
@@ -874,7 +874,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.APPROVED.value,
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -888,7 +888,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.REJECTED.value,
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -902,7 +902,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.PENDING.value,
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -916,7 +916,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            is_approved='True',
+            status=True,
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -930,7 +930,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation='True',
-            is_approved=True,
+            status='None',
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -944,7 +944,7 @@ class TestMessage(unittest.TestCase):
             job_id=False,
             success='not a bool',
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.PENDING.value,
             msg='sdrt',
             model_url=123123,
             command=True)
@@ -958,7 +958,7 @@ class TestMessage(unittest.TestCase):
             job_id=False,
             success='not a bool',
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.REJECTED.value,
             msg='sdrt')
 
         self.check_class_args(
@@ -967,7 +967,7 @@ class TestMessage(unittest.TestCase):
 
             success='not a bool',
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.APPROVED.value,
             msg='sdrt')
 
     def test_message_08_log(self):
@@ -1922,7 +1922,7 @@ class TestMessage(unittest.TestCase):
             'job_id': 'titi',
             'success': True,
             'approval_obligation': True,
-            'is_approved': True,
+            'status': ModelApprovalStatus.APPROVED.value,
             'msg': 'sdrt',
             'model_url': 'url',
             'command': 'model-status'

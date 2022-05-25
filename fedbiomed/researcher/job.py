@@ -10,6 +10,7 @@ import shutil
 import tempfile
 import time
 import uuid
+from fedbiomed.common.constants import ModelApprovalStatus
 import validators
 
 from typing import Union, Callable, List, Dict, Type
@@ -252,10 +253,11 @@ class Job:
 
             if resp.get('success') is True:
                 if resp.get('approval_obligation') is True:
-                    if resp.get('is_approved') is True:
+                    if resp.get('status') == ModelApprovalStatus.APPROVED.value:
                         logger.info(f'Model has been approved by the node: {resp.get("node_id")}')
                     else:
-                        logger.warning(f'Model has NOT been approved by the node: {resp.get("node_id")}')
+                        logger.warning(f'Model has NOT been approved by the node: {resp.get("node_id")}.' +
+                                       f'Model status : {resp.get("status")}')
                 else:
                     logger.info(f'Model approval is not required by the node: {resp.get("node_id")}')
             else:

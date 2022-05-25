@@ -601,9 +601,9 @@ class TestModelManager(unittest.TestCase):
             self.assertNotEqual(model['model_status'], ModelApprovalStatus.PENDING.value)
 
     @patch('fedbiomed.common.repository.Repository.download_file')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
+    @patch('fedbiomed.node.model_manager.ModelManager.get_model_from_database')
     def test_model_manager_15_reply_model_status_request(self,
-                                                         mock_checking,
+                                                         mock_get_model,
                                                          mock_download):
         """Tests model manager `reply_model_status_request` method (normal case scenarii)"""
 
@@ -611,7 +611,7 @@ class TestModelManager(unittest.TestCase):
         messaging.send_message.return_value = None
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
         mock_download.return_value = 200, None
-        mock_checking.return_value = True, {}
+        mock_get_model.return_value = {'model_status': ModelApprovalStatus.APPROVED.value}
 
         msg = {
             'researcher_id': 'ssss',
@@ -629,8 +629,9 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': True,
                                                         'approval_obligation': True,
-                                                        'is_approved': True,
-                                                        'msg': 'Model is approved by the node',
+                                                        'status': ModelApprovalStatus.APPROVED.value,
+                                                        'msg': "Model has been approved by the node," +
+                                                        " training can start",
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
                                                         })
@@ -643,7 +644,7 @@ class TestModelManager(unittest.TestCase):
         # test 2: case where status code of HTTP request equals 200 AND model has
         # not been approved
         msg['researcher_id'] = 'dddd'
-        mock_checking.return_value = False, {}
+        mock_get_model.return_value = {'model_status': ModelApprovalStatus.REJECTED.value}
         messaging.reset_mock()
         # action
         self.model_manager.reply_model_status_request(msg, messaging)
@@ -654,8 +655,9 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': True,
                                                         'approval_obligation': True,
-                                                        'is_approved': False,
-                                                        'msg': 'Model is not approved by the node',
+                                                        'status': ModelApprovalStatus.REJECTED.value,
+                                                        'msg': "Model has been rejected by the node," +
+                                                        " training is not possible",
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
                                                         })
@@ -673,7 +675,7 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': True,
                                                         'approval_obligation': False,
-                                                        'is_approved': False,
+                                                        'status': ModelApprovalStatus.REJECTED.value,
                                                         'msg': test3_msg,
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
@@ -681,7 +683,7 @@ class TestModelManager(unittest.TestCase):
 
         # test 4: case where status code of HTTP request equals 404 (request failed)
         mock_download.return_value = 404, None
-        mock_checking.return_value = True, {}
+        mock_get_model.return_value = {'model_status': ModelApprovalStatus.PENDING.value}
         msg['researcher_id'] = '12345'
 
         messaging.reset_mock()
@@ -692,16 +694,16 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': False,
                                                         'approval_obligation': False,
-                                                        'is_approved': False,
+                                                        'status': 'Error',
                                                         'msg': f'Can not download model file. {msg["model_url"]}',
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
                                                         })
 
     @patch('fedbiomed.common.repository.Repository.download_file')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
+    @patch('fedbiomed.node.model_manager.ModelManager.get_model_from_database')
     def test_model_manager_16_reply_model_status_request_exception(self,
-                                                                   mock_checking,
+                                                                   mock_get_model,
                                                                    mock_download):
         """
         Tests `reply_model_status_request` method when exceptions are occuring:
@@ -720,7 +722,7 @@ class TestModelManager(unittest.TestCase):
         download_exception = FedbiomedRepositoryError("mimicking an exception triggered from"
                                                       "fedbiomed.common.repository")
         mock_download.side_effect = download_exception
-        mock_checking.return_value = True, {}
+        mock_get_model.return_value = True, {}
 
         msg = {
             'researcher_id': 'ssss',
@@ -741,22 +743,22 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': False,
                                                         'approval_obligation': False,
-                                                        'is_approved': False,
+                                                        'status': 'Error',
                                                         'msg': download_err_msg,
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
                                                         })
-        # test 2: test that error triggered through `check_is_model_approved` method
+        # test 2: test that error triggered through `check_model_status` method
         # of `ModelManager` is correctly handled
 
         # resetting `mock_download`
         mock_download.side_effect = None
         mock_download.return_value = 200, None
         messaging.reset_mock()
-        # creating a new exception for `check_is_model_approved` method
+        # creating a new exception for `check_model_status` method
         checking_model_exception = FedbiomedModelManagerError("mimicking an exception happening when calling "
                                                               "'check_is_model_approved'")
-        mock_checking.side_effect = checking_model_exception
+        mock_get_model.side_effect = checking_model_exception
 
         checking_model_err_msg = ErrorNumbers.FB606.value + ': Cannot check if model has been registered.' + \
             f' Details {checking_model_exception}'
@@ -769,7 +771,7 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': False,
                                                         'approval_obligation': False,
-                                                        'is_approved': False,
+                                                        'status': 'Error',
                                                         'msg': checking_model_err_msg,
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
@@ -779,12 +781,12 @@ class TestModelManager(unittest.TestCase):
         messaging.reset_mock()
         # creating a new exception for `check_is_model_approved` method
         checking_model_exception_t3 = Exception("mimicking an exception happening when calling "
-                                                "'check_is_model_approved'")
+                                                "'check_model_status'")
 
         checking_model_err_msg_t3 = ErrorNumbers.FB606.value + ': An unknown error occured when downloading model file.' +\
             f' {msg["model_url"]} , {str(checking_model_exception_t3)}'
 
-        mock_checking.side_effect = checking_model_exception_t3
+        mock_get_model.side_effect = checking_model_exception_t3
         # action
         self.model_manager.reply_model_status_request(msg, messaging)
 
@@ -794,7 +796,7 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': False,
                                                         'approval_obligation': False,
-                                                        'is_approved': False,
+                                                        'status': 'Error',
                                                         'msg': checking_model_err_msg_t3,
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
