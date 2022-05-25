@@ -22,8 +22,9 @@ from torchvision import transforms
 
 from fedbiomed.node.environ import environ
 
-from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
-from fedbiomed.common.constants  import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.data import BIDSDataset
 
 from fedbiomed.common.logger import logger
 
@@ -275,7 +276,8 @@ class DatasetManager:
                      tags: Union[tuple, list],
                      description: str,
                      path: str,
-                     dataset_id: str = None):
+                     dataset_id: str = None,
+                     default_dataset_parameters : Union[dict, None] = None):
         """Adds a new dataset contained in a file to node's database.
 
         Args:
@@ -297,7 +299,7 @@ class DatasetManager:
         assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
 
         dtypes = []  # empty list for Image datasets
-        data_types = ['csv', 'default', 'mednist', 'images']
+        data_types = ['csv', 'default', 'mednist', 'images', 'bids']
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
                                       ' a compatible data type. '
@@ -323,12 +325,24 @@ class DatasetManager:
             assert os.path.isdir(path), f'Folder {path} for Images Dataset does not exist.'
             shape = self.load_images_dataset(path)
 
+        elif data_type == 'bids':
+            assert os.path.isdir(path), f'Folder {path} for BIDS Dataset does not exist.'
+            assert os.path.isfile(default_dataset_parameters['tabular_file']), f'File ({default_dataset_parameters["tabular_file"]}) not found.'
+            try:
+                dataset = BIDSDataset(root=path,
+                                      tabular_file=default_dataset_parameters['tabular_file'],
+                                      index_col=default_dataset_parameters['index_col'])
+            except FedbiomedError as e:
+                raise FedbiomedDatasetError(f"Can not create BIDS dataset. {e}")
+            shape = dataset.shape()
+
         if not dataset_id:
             dataset_id = 'dataset_' + str(uuid.uuid4())
 
         new_database = dict(name=name, data_type=data_type, tags=tags,
                             description=description, shape=shape,
-                            path=path, dataset_id=dataset_id, dtypes=dtypes)
+                            path=path, dataset_id=dataset_id, dtypes=dtypes,
+                            default_dataset_parameters=default_dataset_parameters)
         self.db.insert(new_database)
 
         return dataset_id

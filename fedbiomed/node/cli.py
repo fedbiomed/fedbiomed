@@ -59,9 +59,9 @@ def validated_data_type_input() -> str:
 
     Returns:
         A string keyword for one of the possible data type
-            ('csv', 'default', 'mednist', 'images').
+            ('csv', 'default', 'mednist', 'images', 'bids').
     """
-    valid_options = ['csv', 'default', 'mednist', 'images']
+    valid_options = ['csv', 'default', 'mednist', 'images', 'bids']
     valid_options = {i: val for i, val in enumerate(valid_options, 1)}
 
     msg = "Please select the data type that you're configuring:\n"
@@ -205,6 +205,8 @@ def add_database(interactive: bool = True,
         else:
             data_type = 'default'
 
+        default_dataset_parameters = None
+
         if data_type == 'default':
             tags = ['#MNIST', "#dataset"]
             if interactive is True:
@@ -231,7 +233,27 @@ def add_database(interactive: bool = True,
 
             description = input('Description: ')
 
-            path = validated_path_input(data_type)
+            if data_type == 'bids':
+                # get bids root
+                print('Please select the root folder of the BIDS dataset')
+                path = validated_path_input(type='dir')
+                # get tabular file
+                print('Please select the demographics file (must be CSV or TSV)')
+                tabular_file_path = validated_path_input(type='csv')
+                # get index col from user
+                while True:
+                    try:
+                        index_col = input('Please input the (numerical) index of the column containing '
+                                          'the subject ids corresponding to image folder names ')
+                        index_col = int(index_col)
+                        break
+                    except ValueError:
+                        warnings.warn('Please input a numeric value (integer)')
+                default_dataset_parameters = {} if default_dataset_parameters is None else default_dataset_parameters
+                default_dataset_parameters['tabular_file'] = tabular_file_path
+                default_dataset_parameters['index_col'] = index_col
+            else:
+                path = validated_path_input(data_type)
 
     else:
         # all data have been provided at call
@@ -256,7 +278,8 @@ def add_database(interactive: bool = True,
                                      tags=tags,
                                      data_type=data_type,
                                      description=description,
-                                     path=path)
+                                     path=path,
+                                     default_dataset_parameters=default_dataset_parameters)
     except (AssertionError, FedbiomedDatasetManagerError) as e:
         if interactive is True:
             try:
