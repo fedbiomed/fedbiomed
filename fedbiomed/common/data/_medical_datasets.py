@@ -625,6 +625,8 @@ class BIDSDataset(Dataset, BIDSBase):
 
         # Get all modalities
         modalities, _ = self.modalities()
+        # TODO this is broken because there's not guarantee that the sample will have all modalities.
+        # Need to find a better way.
         sample = self[0]
         result = {modality: list(sample["data"][modality].shape) for modality in modalities}
 
