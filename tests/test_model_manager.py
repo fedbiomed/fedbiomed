@@ -339,75 +339,8 @@ class TestModelManager(unittest.TestCase):
         # check that the model has been removed
         self.assertIsNone(removed_model)
 
-    def test_model_manager_10_checking_model_register(self):
-        """ Testing check model is registered or not """
-
-        model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
-        model_file_2 = os.path.join(self.testdir, 'test-model-2.txt')
-
-        self.model_manager.register_model(
-            name='test-model',
-            path=model_file_1,
-            model_type=ModelTypes.REGISTERED.value,
-            description='desc'
-        )
-
-        # Load default datasets
-        self.model_manager.register_update_default_models()
-
-        # Test when model is not registered (ie not present in the database)
-        approve, model = self.model_manager.check_is_model_registered(model_file_2)
-        self.assertFalse(approve, "Model has been registered but it hasnot been registered")
-        self.assertIsNone(model, "Model has been registered but it hasnot been registered")
-
-        # Test when model is a registered (either registered or default)
-        approve, model = self.model_manager.check_is_model_registered(model_file_1)
-        self.assertTrue(approve, "Model hasn't been registered but it should have been")
-        self.assertIsNotNone(model, "Model hasn't been registered but it should have been")
-
-        # Test when default models is not allowed / not approved
-        self.values['ALLOW_DEFAULT_MODELS'] = False
-
-        default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
-        for model in default_models:
-            model_path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
-            approve, model = self.model_manager.check_is_model_registered(model_path)
-            self.assertFalse(approve, "Model has been registered but it shouldn't have been")
-            self.assertIsNone(model, "Model has been registered but it shouldn't have been")
-
-    def test_model_manager_11_check_if_model_requested(self):
-        """Tests if model has been requested or not"""
-        model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
-        model_file_2 = os.path.join(self.testdir, 'test-model-2.txt')
-
-        self.model_manager.register_model(
-            name='test-model',
-            path=model_file_1,
-            model_type=ModelTypes.REQUESTED.value,
-            description='desc'
-        )
-
-        self.assertTrue(self.model_manager.check_is_model_requested(model_file_1))
-
-        self.assertFalse(self.model_manager.check_is_model_requested(model_file_2))
-
-        # adding model_file_2 to database as registered
-        self.model_manager.register_model(
-            name='test-model-2',
-            path=model_file_2,
-            model_type=ModelTypes.REGISTERED.value,
-            description='desc'
-        )
-
-        self.assertFalse(self.model_manager.check_is_model_requested(model_file_2))
-        
-        default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
-        for model in default_models:
-            model_path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
-            self.assertFalse(self.model_manager.check_is_model_requested(model_path))
-
     def test_model_manager_12_create_txt_model_from_py(self):
-        
+        """Test_model_manager_12: tests if txt file can be created from py file"""
         # initialisation: creating a *.py file
         randomfolder = tempfile.mkdtemp()
         if not os.access(randomfolder, os.W_OK):

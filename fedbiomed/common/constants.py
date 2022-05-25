@@ -119,7 +119,7 @@ class ErrorNumbers(_BaseEnum):
     FB404: str = "FB404: bad model param (.pt) format for TrainingPlan"
     FB405: str = "FB405: received delayed answer for previous computation round"
     FB406: str = "FB406: list of nodes is empty at data lookup phase"
-    FB407: str = "FB407: list of nodes became empty when training"
+    FB407: str = "FB407: list of nodes became empty when training (no node has answered)"
     FB408: str = "FB408: node did not answer during training"
     FB409: str = "FB409: node sent Status=Error during training"
     FB410: str = "FB410: bad type or value for experiment argument"

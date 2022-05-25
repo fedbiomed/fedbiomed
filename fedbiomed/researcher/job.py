@@ -11,6 +11,7 @@ import tempfile
 import time
 import uuid
 from fedbiomed.common.constants import ModelApprovalStatus
+from fedbiomed.common.exceptions import FedbiomedRepositoryError
 import validators
 
 from typing import Union, Callable, List, Dict, Type
@@ -226,7 +227,7 @@ class Job:
         So, researchers can find out if their model has been approved
 
         """
-        print("SENDONG REQUET TO NODE")
+
         message = {
             'researcher_id': self._researcher_id,
             'job_id': self._id,
@@ -361,8 +362,13 @@ class Job:
                 # TODO : handle error depending on status
                 if do_training:
                     logger.info(f"Downloading model params after training on {m['node_id']} - from {m['params_url']}")
-                    _, params_path = self.repo.download_file(m['params_url'],
-                                                             'node_params_' + str(uuid.uuid4()) + '.pt')
+                    try:
+                        _, params_path = self.repo.download_file(m['params_url'],
+                                                                 'node_params_' + str(uuid.uuid4()) + '.pt')
+                    except FedbiomedRepositoryError as err:
+                        logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
+                                     f" stops working (details: {err})")
+                        return
                     params = self.model_instance.load(params_path, to_params=True)['model_params']
                 else:
                     params_path = None

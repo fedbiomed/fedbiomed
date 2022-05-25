@@ -222,20 +222,6 @@ class ModelManager:
                                                          "database remove operation failed, with following error: ",
                                                          f"{str(err)}")
 
-    def check_is_model_requested(self, path: str) -> bool:
-        # Create hash for requested model
-        req_model_hash, _ = self._create_hash(path)
-        self._db.clear_cache()
-        _all_requested_model = (self._database.model_type == ModelTypes.REQUESTED.value)
-        _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
-        models = self._db.search(_all_requested_model & _all_models_which_have_req_hash)
-        if models:
-            requested = True
-        else:
-            requested = False
-
-        return requested
-
     def check_is_model_registered(self, path: str) -> Tuple[bool, Dict[str, Any]]:
         """Checks whether model has been registered by the node.
 
@@ -282,7 +268,27 @@ class ModelManager:
 
     def check_model_status(self,
                            model_path: str,
-                           status: Union[ModelApprovalStatus, ModelTypes]) -> Tuple[bool, Dict[str, Any]]:
+                           state: Union[ModelApprovalStatus, ModelTypes]) -> Tuple[bool, Dict[str, Any]]:
+        """Checks whether model has the specified status.
+
+        Sends a query to database to search for hash of requested model.
+        If it is the hash matches with one of the
+        models hashes in the DB, and if model has the specified status {approved, rejected, pending} 
+        or model_type {registered, requested, default}.
+
+        Args:
+            model_path: The path of requested model file by researcher after downloading
+                model file from file repository.
+            state: model status or model type, to check against model
+
+        Returns:
+            A tuple (approved, approved_model) where
+
+                - approved: Whether model has been approved (returns True) or not (False)
+                - approved_model: Dictionary containing fields
+                    related to the model. If database search request failed,
+                    returns None instead.
+        """
         # Create hash for requested model
         req_model_hash, _ = self._create_hash(model_path)
         self._db.clear_cache()
@@ -294,17 +300,16 @@ class ModelManager:
         #     # _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
         #     # models = self._db.search(_all_models_registered & _all_models_which_have_req_hash)
         # else:
-        if isinstance(status, ModelApprovalStatus):
-            _all_models_with_status = (self._database.model_status == status.value)
-        elif isinstance(status, ModelTypes):
-            _all_models_with_status = (self._database.model_type == status.value)
+        if isinstance(state, ModelApprovalStatus):
+            _all_models_with_status = (self._database.model_status == state.value)
+        elif isinstance(state, ModelTypes):
+            _all_models_with_status = (self._database.model_type == state.value)
         else:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : status should be either" + 
-                                             f" ModelApprovalStatus or ModelTypes, but got {type(status)}")
+                                             f" ModelApprovalStatus or ModelTypes, but got {type(state)}")
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
         models = self._db.search(_all_models_with_status & _all_models_which_have_req_hash)
         
-        print("MODEL STATUS", models)
         if models:
             is_status = True
             model = models[0]  # Search request returns an array
@@ -315,20 +320,29 @@ class ModelManager:
         return is_status, model      
 
     def get_model_from_database(self, model_path: str) -> Union[Dict[str, Any], None]:
+        """Gets model from database, by its hash
+
+        Args:
+            model_path: model path where the file is saved, in order to compute its hash
+            !!! info "model file MUST be a *.txt file."
+
+        Returns:
+            model: model entry found in the dataset if query in database succeed. Otherwise, returns 
+            None.
+        """
         req_model_hash, _ = self._create_hash(model_path)
         self._db.clear_cache()
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
         #  hashes in database should be unique
         models = self._db.search(_all_models_which_have_req_hash)
-        
-        print("Models requested", models)
+
         if models:
             model = models[0]  # Search request returns an array
         else:
             model = None
-            
+
         return model
-        
+
     def create_txt_model_from_py(self, model_path: str) -> str:
         """Creates a text model file (*.txt extension) from a python (*.py) model file,
         in the directory where the python model file belongs to.
@@ -348,6 +362,12 @@ class ModelManager:
         return model_path_txt
 
     def reply_model_approval_request(self, msg: dict, messaging: Messaging):
+        """Submits a model file (TrainingPlan) for approval. Needs an action from Node
+
+        Args:
+            msg: approval request message, recieved from Researcher
+            messaging: MQTT client to send reply  to researcher
+        """
         reply = {
             'researcher_id': msg['researcher_id'],
             'node_id': environ['NODE_ID'],
@@ -370,7 +390,7 @@ class ModelManager:
             tmp_file = os.path.join(environ["TMP_DIR"], model_name + '.py')
             model_to_check = self.create_txt_model_from_py(tmp_file)
             is_registered, _ = self.check_model_status(model_to_check, ModelTypes.REGISTERED)
-            print("model type", is_registered)
+
         except FedbiomedRepositoryError as fed_err:
             logger.error(f"Cannot download model from server due to error: {fed_err}")
             reply['success'] = False
@@ -404,9 +424,9 @@ class ModelManager:
                                     researcher_id=msg['researcher_id'],
                                     notes=None
                                     )
-
                 if self.check_model_status(model_to_check, ModelApprovalStatus.PENDING):
-                    logger.debug("Model already awaiting for approval")
+                    logger.info("Model already sent for Approval (status Pending). Please wait for Node approval.")
+
                 self._db.upsert(model_object, self._database.hash == model_hash)
                 # `upsert` stands for update and insert in TinyDB. This prevents any duplicate, that can happen
                 # if same model is sent twice to Node for approval
@@ -426,8 +446,8 @@ class ModelManager:
         messaging.send_message(NodeMessages.reply_create(reply).get_dict())
 
     def reply_model_status_request(self, msg: dict, messaging: Messaging):
-        """Checks whether requested model file is approved or not and sends ModelStatusReply to
-            researcher.
+        """Returns requested model file status {approved, rejected, pending}
+        and sends ModelStatusReply to researcher.
 
         Called directly from Node.py when it receives ModelStatusRequest.
 
@@ -445,7 +465,6 @@ class ModelManager:
             'command': 'model-status'
         }
 
-        print("REPLY_MODEL_STATUS")
         try:
 
             # Create model file with id and download
@@ -463,10 +482,9 @@ class ModelManager:
                 model_file = os.path.join(environ["TMP_DIR"], model_name + '.py')
                 model = self.get_model_from_database(model_file)
                 if model is not None:
-                    model_status = model.get('model_status', 'Mot Registered')
+                    model_status = model.get('model_status', 'Not Registered')
                 else:
                     model_status = 'Not Registered'
-                print("STATUS", model_status)
 
                 if environ["MODEL_APPROVAL"]:
                     if model_status == ModelApprovalStatus.APPROVED.value:
@@ -648,8 +666,21 @@ class ModelManager:
     def _update_model_status(self,
                              model_id: str,
                              model_status: ModelApprovalStatus, 
-                             model_type: ModelTypes, 
                              notes: Union[str, None] = None) -> True:
+        """Updates model entry ([`model_status`] field) for a given [`model_id`] in the database
+
+        Args:
+            model_id: id of the model
+            model_status: new model status {approved, rejected, pending}
+            notes: additional notes to enter into the database, explaining why model
+                has been approved or rejected for instance. Defaults to None.
+
+        Returns:
+            True: currently always returns True
+
+        Raises:
+            FedbiomedModelManagerError:         
+        """
         self._db.clear_cache()
         try:
             model = self._db.get(self._database.model_id == model_id)
@@ -658,7 +689,7 @@ class ModelManager:
                                              f" Details: {str(err)}")
         if model['model_status'] == model_status.value:
             logger.warning(f" model {model_id} has already the following model status {model_status.value}")
-            return
+            return True
         else:
             model_path = model['model_path']
             # Get modification date
@@ -679,16 +710,36 @@ class ModelManager:
         return True
 
     def approve_model(self, model_id: str, extra_notes: Union[str, None] = None) -> True:
-        self._update_model_status(model_id,
-                                  ModelApprovalStatus.APPROVED,
-                                  ModelTypes.REGISTERED, 
-                                  extra_notes)
+        """Approves a model stored into the database given its [`model_id`] 
+
+        Args:
+            model_id: id of the model.
+            extra_notes: notes detailing why model has been approved.
+            Defaults to None.
+
+        Returns:
+            True: currently always returns True
+        """
+        res = self._update_model_status(model_id,
+                                        ModelApprovalStatus.APPROVED,
+                                        extra_notes)
+        return res
 
     def reject_model(self, model_id: str, extra_notes: Union[str, None] = None) -> True:
-        self._update_model_status(model_id,
-                                  ModelApprovalStatus.REJECTED,
-                                  ModelTypes.REGISTERED, 
-                                  extra_notes)
+        """Approves a model stored into the database given its [`model_id`] 
+
+        Args:
+            model_id: id of the model.
+            extra_notes: notes detailing why model has been rejected.
+            Defaults to None.
+
+        Returns:
+            True: currently always returns True
+        """
+        res = self._update_model_status(model_id,
+                                        ModelApprovalStatus.REJECTED,
+                                        extra_notes)
+        return res
 
     def delete_model(self, model_id: str) -> True:
         """Removes model file from database.
@@ -761,7 +812,6 @@ class ModelManager:
                                                  ": request failed when looking for a model into database with" +
                                                  f" error: {rerr}")
         #if isinstance(select_model_type, (ModelTypes, list)):
-            
         #if select_model_type is None and select_status is None:
         else:
             models = self._db.all()  
@@ -776,7 +826,7 @@ class ModelManager:
                     doc.pop(tag_to_remove)
                 except KeyError:
                     logger.warning(f"missing entry in database: {tag_to_remove} for model {doc}")
-                    
+
         if sort_by is not None:
             # sorting model fields by column attributes
             if self._db.search(self._database[sort_by].exists()) and sort_by not in _tags_to_remove:
@@ -784,14 +834,8 @@ class ModelManager:
             else:
                 logger.warning(f"Field {sort_by} is not available in dataset")
 
-        
 
         if verbose:
             print(tabulate(models, headers='keys'))
 
         return models
-
-    # def list_model(self, sort_by_date: bool = True, sort_by_status: bool = False,
-    #                only: Union[None, ModelApprovalStatus] = None):
-    #     pass
-    
