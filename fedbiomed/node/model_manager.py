@@ -424,7 +424,7 @@ class ModelManager:
                                     researcher_id=msg['researcher_id'],
                                     notes=None
                                     )
-                if self.check_model_status(model_to_check, ModelApprovalStatus.PENDING):
+                if self.check_model_status(model_to_check, ModelApprovalStatus.PENDING)[0]:
                     logger.info("Model already sent for Approval (status Pending). Please wait for Node approval.")
 
                 self._db.upsert(model_object, self._database.hash == model_hash)

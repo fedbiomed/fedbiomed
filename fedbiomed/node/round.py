@@ -119,6 +119,7 @@ class Round:
                     if not approved:
                         error_message = f'Requested model is not approved by the node: {environ["NODE_ID"]}'
                         return self._send_round_reply(success=False, message=error_message)
+                        
                     else:
                         logger.info(f'Model has been approved by the node {model["name"]}')
 

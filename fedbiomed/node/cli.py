@@ -481,7 +481,7 @@ def register_model():
         try:
             tkinter.messagebox.showwarning(title='Warning', message=str(e))
         except ModuleNotFoundError:
-            warnings.warn('[ERROR]: {e}')
+            warnings.warn(f'[ERROR]: {e}')
         exit(1)
 
     print('\nGreat! Take a look at your data:')
@@ -538,6 +538,11 @@ def update_model():
 
 
 def approve_model(sort_by_date: bool = True):
+    """Approves a given model that has either Pending or Rejected status
+
+    Args:
+        sort_by_date: whether to sort by last modification date. Defaults to True.
+    """
     if sort_by_date:
         sort_by = 'date_modified'
     else: 
@@ -571,6 +576,8 @@ def approve_model(sort_by_date: bool = True):
 
 
 def reject_model():
+    """Rejects a given model that has either Pending or Approved status
+    """
     approved_models = model_manager.list_models(select_status=[ModelApprovalStatus.APPROVED,
                                                                ModelApprovalStatus.PENDING],
                                                 verbose=False)
