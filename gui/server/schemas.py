@@ -122,6 +122,33 @@ class ListDatasetRequest(Validator):
     })
 
 
+class ListModelRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "sort_by": {'type': 'string'},
+             "select_status": {'type': 'string'}
+         },
+         "required": []
+         },
+        )
+
+class ApproveModelRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "model_id": {"type": "string",
+                          "minLength": 1,
+                          'errorMessages': {"minLength": "model_id must have at least one character"},
+                          },
+             "notes": {"type": "string"}
+         },
+         "required": ["model_id"]
+        }
+    )
+
 class AddDataSetRequest(Validator):
     """ Json Schema for reqeust of adding new datasets """
 
