@@ -444,7 +444,7 @@ class ModelManager:
         Called directly from Node.py when it receives ModelStatusRequest.
 
         Args:
-            msg: Message that is received from researcher. Formatted as ModelStatusRequest
+            msg: Message that is received frmodel_f1b2f939-c288-4623-b0ca-f8653f86da98om researcher. Formatted as ModelStatusRequest
             messaging: MQTT client to send reply  to researcher
         """
 
@@ -671,7 +671,7 @@ class ModelManager:
             True: currently always returns True
 
         Raises:
-            FedbiomedModelManagerError:         
+            FedbiomedModelManagerError:    
         """
         self._db.clear_cache()
         try:
@@ -679,9 +679,13 @@ class ModelManager:
         except RuntimeError as err:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": get request on database failed."
                                              f" Details: {str(err)}")
-        if model['model_status'] == model_status.value:
+        if model is None:
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value +
+                                             f": no model matches provided model_id {model_id}")
+        if model.get('model_status') == model_status.value:
             logger.warning(f" model {model_id} has already the following model status {model_status.value}")
             return True
+        
         else:
             model_path = model['model_path']
             # Get modification date
@@ -754,7 +758,9 @@ class ModelManager:
         self._db.clear_cache()
         try:
             model = self._db.get(self._database.model_id == model_id)
-
+            if model is None:
+                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value +
+                                                 f": model {model_id} not in database")
             if model['model_type'] != ModelTypes.DEFAULT.value:
 
                 self._db.remove(doc_ids=[model.doc_id])

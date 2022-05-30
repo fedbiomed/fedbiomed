@@ -134,7 +134,8 @@ class ListModelRequest(Validator):
          },
         )
 
-class ApproveModelRequest(Validator):
+
+class ApproveRejectModelRequest(Validator):
     type = 'json'
     schema = JsonSchema(
         {'type': "object",
@@ -146,8 +147,39 @@ class ApproveModelRequest(Validator):
              "notes": {"type": "string"}
          },
          "required": ["model_id"]
-        }
+         }
     )
+
+
+class DeleteModelRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "model_id": {"type": "string",
+                          "minLength": 1,
+                          'errorMessages': {"minLength": "model_id must have at least one character"},
+                          }
+         },
+         "required": ["model_id"]
+         }
+    )
+
+
+class ModelPreviewRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "model_path": {"type": "string",
+                            "minLength": 1,
+                            'errorMessages': {"minLength": "model_path must have at least one character"},
+                            },
+         },
+         "required": ["model_path"]  
+         }
+    )
+
 
 class AddDataSetRequest(Validator):
     """ Json Schema for reqeust of adding new datasets """
