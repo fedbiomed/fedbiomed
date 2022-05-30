@@ -155,6 +155,14 @@ class Round:
             error_message = f"Cannot instantiate model object: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
+        try:
+            if (self.model.dp_args):
+                self.model.validate_and_fix_model()
+        except Exception as e:
+            error_message = f"Cannot fix the model for training in opacus: {str(e)}"
+            return self._send_round_reply(success=False, message=error_message)
+
+
         # import model params into the model instance
         try:
             self.model.load(params_path, to_params=False)
