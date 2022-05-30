@@ -624,9 +624,7 @@ class BIDSDataset(Dataset, BIDSBase):
         """Retrieves shape information for modalities and demographics csv"""
 
         # Get all modalities
-        modalities, _ = self.modalities()
-        # TODO this is broken because there's not guarantee that the sample will have all modalities.
-        # Need to find a better way.
+        modalities = list(set(self._data_modalities + self._target_modalities))
         sample = self[0]
         result = {modality: list(sample["data"][modality].shape) for modality in modalities}
 
@@ -699,6 +697,17 @@ class BIDSDataset(Dataset, BIDSBase):
 
 
 class BIDSController(BIDSBase):
+    """Utility class to construct and verify BIDS datasets without knowledge of the experiment.
+
+    The purpose of this class is to enable key functionalities related to the BIDSDataset at the time of dataset
+    deployment, i.e. when the data is being added to the node's database.
+
+    Specifically, the BIDSController class can be used to:
+    - construct a BIDSDataset with all available data modalities, without knowing which ones will be used as
+        targets or features during an experiment
+    - validate that the proper folder structure has been respected by the data managers preparing the data
+    - identify which subjects have which modalities
+    """
 
     def __init__(self, root: str = None):
         """Constructs BIDSController """
