@@ -248,12 +248,8 @@ class ModelManager:
 
         # If node allows defaults models search hash for all model types
         # otherwise search only for `registered` models
-        if environ['ALLOW_DEFAULT_MODELS']:
-            _all_models_registered = (self._database.model_type != ModelTypes.REQUESTED.value)
-            # _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
-            # models = self._db.search(_all_models_registered & _all_models_which_have_req_hash)
-        else:
-            _all_models_registered = (self._database.model_type == ModelTypes.REGISTERED.value)
+
+        _all_models_registered = (self._database.model_type == ModelTypes.REGISTERED.value)
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
         models = self._db.search(_all_models_registered & _all_models_which_have_req_hash)
 
@@ -295,11 +291,7 @@ class ModelManager:
 
         # If node allows defaults models search hash for all model types
         # otherwise search only for `registered` models
-        # if environ['ALLOW_DEFAULT_MODELS']:
-        #     _all_models_with_status = (self._database.model_type != ModelTypes.REQUESTED.value)
-        #     # _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
-        #     # models = self._db.search(_all_models_registered & _all_models_which_have_req_hash)
-        # else:
+
         if isinstance(state, ModelApprovalStatus):
             _all_models_with_status = (self._database.model_status == state.value)
         elif isinstance(state, ModelTypes):
@@ -783,6 +775,7 @@ class ModelManager:
         Args:
             sort_by: when specified, sort results by alphabetical order,
                 provided sort_by is an entry in the database.
+            select_status: filter list by model status or list of model statuses
             verbose: When it is True, print list of model in tabular format.
                 Default is True.
 
@@ -811,8 +804,7 @@ class ModelManager:
                 raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 
                                                  ": request failed when looking for a model into database with" +
                                                  f" error: {rerr}")
-        #if isinstance(select_model_type, (ModelTypes, list)):
-        #if select_model_type is None and select_status is None:
+
         else:
             models = self._db.all()  
         # Drop some keys for security reasons
