@@ -24,7 +24,7 @@ from fedbiomed.node.environ import environ
 
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.data import BIDSDataset
+from fedbiomed.common.data import BIDSController
 
 from fedbiomed.common.logger import logger
 
@@ -248,9 +248,10 @@ class DatasetManager:
             dataset = datasets.ImageFolder(folder_path,
                                            transform=transforms.ToTensor())
         except Exception as e:
-            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading dataset from the selected" \
+            _msg = ErrorNumbers.FB315.value +\
+                "\nThe following error was raised while loading dataset from the selected" \
                 " path:  " + str(e) + "\nPlease make sure that the selected folder is not empty \
-                   and doesn't have any empty class folder"
+                and doesn't have any empty class folder"
             logger.error(_msg)
             raise FedbiomedDatasetManagerError(_msg)
 
@@ -327,13 +328,14 @@ class DatasetManager:
 
         elif data_type == 'bids':
             assert os.path.isdir(path), f'Folder {path} for BIDS Dataset does not exist.'
-            assert os.path.isfile(default_dataset_parameters['tabular_file']), f'File ({default_dataset_parameters["tabular_file"]}) not found.'
+            assert os.path.isfile(default_dataset_parameters['tabular_file']), \
+                f'File ({default_dataset_parameters["tabular_file"]}) not found.'
             try:
-                dataset = BIDSDataset(root=path,
-                                      tabular_file=default_dataset_parameters['tabular_file'],
-                                      index_col=default_dataset_parameters['index_col'])
+                # load through the BIDSController to ensure all available modalities are inspected
+                dataset = BIDSController(root=path).load_bids(tabular_file=default_dataset_parameters['tabular_file'],
+                                                              index_col=default_dataset_parameters['index_col'])
             except FedbiomedError as e:
-                raise FedbiomedDatasetError(f"Can not create BIDS dataset. {e}")
+                raise FedbiomedDatasetManagerError(f"Can not create BIDS dataset. {e}")
             shape = dataset.shape()
 
         if not dataset_id:
