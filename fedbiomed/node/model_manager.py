@@ -50,6 +50,11 @@ class ModelManager:
         self._db = self._tinydb.table('Models')
         self._database = Query()
         self._repo = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
+        
+        self._tags_to_remove = ['model_path',
+                                'hash',
+                                'date_modified',
+                                'date_created']
 
     def _create_hash(self, path: str):
         """Creates hash with given model file
@@ -311,25 +316,53 @@ class ModelManager:
 
         return is_status, model      
 
-    def get_model_from_database(self, model_path: str) -> Union[Dict[str, Any], None]:
+    def get_model_from_database(self,
+                                model_path: str = None,
+                                model_id: str = None,
+                                secure: bool = True
+                                ) -> Union[Dict[str, Any], None]:
         """Gets model from database, by its hash
 
         Args:
-            model_path: model path where the file is saved, in order to compute its hash
+            model_path: model path where the file is saved, in order to compute its hash. Defaults
+                to None.
             !!! info "model file MUST be a *.txt file."
+            model_id: model id used for retrieving [`model_path`] (if [`model_path`]).
+            Defaults to None.
+            !!! info "if arguments [`model_id`] and [`model_path`] are set to None, it triggers an FedBiomedError"
 
         Returns:
             model: model entry found in the dataset if query in database succeed. Otherwise, returns 
             None.
+        
+        Raises:
+            FedbiomedModelManagerError: triggered if both model_path and model_id are set to None
+            FedbiomedModelManagerError: triggered if [`model_path`] is not found in database entry
+            FedbiomedModelManagerError
         """
-        req_model_hash, _ = self._create_hash(model_path)
         self._db.clear_cache()
+        if model_path is None and model_id is None:
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : at least one of the arguments model_path" 
+                                             " and model_id MUST not be set to None")
+        elif model_path is None:
+            # search for model_id to get model_path
+            model = self._db.get(self._database.model_id == model_id)
+            if model is None:
+                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + "no model matches model_id")
+            model_path = model.get('model_path')
+        if model_path is None:
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : model_path not found in database entry" 
+                                             f" ({model_id})")
+        req_model_hash, _ = self._create_hash(model_path)
+        
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
         #  hashes in database should be unique
         models = self._db.search(_all_models_which_have_req_hash)
 
         if models:
             model = models[0]  # Search request returns an array
+            if secure:
+                self._remove_sensible_keys_from_request(model)
         else:
             model = None
 
@@ -814,20 +847,13 @@ class ModelManager:
         else:
             models = self._db.all()  
         # Drop some keys for security reasons
-        _tags_to_remove = ['model_path',
-                           'hash',
-                           'date_modified',
-                           'date_created']
+
         for doc in models:
-            for tag_to_remove in _tags_to_remove:
-                try:
-                    doc.pop(tag_to_remove)
-                except KeyError:
-                    logger.warning(f"missing entry in database: {tag_to_remove} for model {doc}")
+            self._remove_sensible_keys_from_request(doc)
 
         if sort_by is not None:
             # sorting model fields by column attributes
-            if self._db.search(self._database[sort_by].exists()) and sort_by not in _tags_to_remove:
+            if self._db.search(self._database[sort_by].exists()) and sort_by not in self._tags_to_remove:
                 models = sorted(models, key= lambda x: (x[sort_by] is None, x[sort_by]))
             else:
                 logger.warning(f"Field {sort_by} is not available in dataset")
@@ -837,3 +863,12 @@ class ModelManager:
             print(tabulate(models, headers='keys'))
 
         return models
+
+    def _remove_sensible_keys_from_request(self, doc: Dict[str, Any]):
+        # Drop some keys for security reasons
+
+        for tag_to_remove in self._tags_to_remove:
+            try:
+                doc.pop(tag_to_remove)
+            except KeyError:
+                logger.warning(f"missing entry in database: {tag_to_remove} for model {doc}")

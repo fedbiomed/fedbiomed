@@ -72,9 +72,9 @@ def delete_model():
 def preview_model():
     req = request.json
     model_path = req.get('model_path')
-    if model_path is None:
-        return error("missing model_path"), 400
-    res = MODEL_MANAGER.get_model_from_database(model_path)
+    model_id = req.get('model_id')
+    
+    res = MODEL_MANAGER.get_model_from_database(model_path, model_id)
     
     if res is None:
         return error(f"No model with provided model path {model_path} found in database"), 400

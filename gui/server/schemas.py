@@ -174,9 +174,11 @@ class ModelPreviewRequest(Validator):
              "model_path": {"type": "string",
                             "minLength": 1,
                             'errorMessages': {"minLength": "model_path must have at least one character"},
+            
                             },
+             "model_id": {"type": "string"},
          },
-         "required": ["model_path"]  
+         "required": []  
          }
     )
 
