@@ -9,7 +9,6 @@ import {
 import Home from './pages/Home'
 import Configuration from './pages/Configuration';
 import Repository from './pages/repository';
-import Header from './components/layout/Header';
 import SideNav from './components/layout/SideNav';
 import Datasets from './pages/datasets';
 import AddDataset from "./pages/datasets/AddDataset"
@@ -24,17 +23,6 @@ function App(props) {
 
   const dispatch = useDispatch()
 
-  const [headerName, setHeaderName] = React.useState('Home')
-
-  /**
-   * Change header based on active item
-   * @param {string} val
-   */
-  const setHeader = (val) => {
-      setHeaderName(val)
-  }
-
-
   const onResultModalClose = () => {
     dispatch({type:'RESET_GLOBAL_MODAL'})
   }
@@ -44,7 +32,7 @@ function App(props) {
       <Router>
         <div className="layout-wrapper">
           <div className="main-side-bar">
-            <SideNav activePage={setHeader}/>
+            <SideNav/>
           </div>
           <div className="main-frame">
               <div className="router-frame">
@@ -58,7 +46,7 @@ function App(props) {
                         <Route index element={<CommonStandards/>} />
                         <Route path="bids" element={<BidsStandard/>} />
                     </Route>
-                    <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview setHeader={setHeader}/>} />
+                    <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview />} />
                   </Routes>
                   <div className={`loader-frame ${props.result.loading ?  'active' : ''}`}>
                       <div style={{width:"100%"}}>

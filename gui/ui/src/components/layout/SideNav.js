@@ -25,15 +25,13 @@ const SideNav  = (props) => {
     const location = useLocation()
 
     const [selectedKey, setSelectedKey] = React.useState(items.find(_item => location.pathname.startsWith(_item.path)).key)
-    const activePage = props.activePage
 
     React.useEffect(() => {
         let item = items.find(_item => location.pathname === _item.path)
         if(item){
             setSelectedKey(item.key)
-            activePage(item.label)
         }
-    }, [setSelectedKey, activePage, location.pathname, ])
+    }, [setSelectedKey, location.pathname, ])
 
     return (
         <div className="side-nav">

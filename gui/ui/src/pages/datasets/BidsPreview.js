@@ -6,13 +6,14 @@ import {ReactComponent as TickIcon} from '../../assets/img/tick.svg'
 import {ReactComponent as XIcon} from '../../assets/img/x.svg'
 const BidsPreview = (props) => {
 
+    const {dataset_id, bids, BIDSPreview } = props
 
     React.useEffect(() => {
-        if((props.dataset_id && !props.bids.subject_table) ||
-            (props.dataset_id && props.dataset_id !== props.bids.dataset_id)){
-            props.getBIDSPreview(props.dataset_id)
+        if((dataset_id && !bids.subject_table) ||
+            (dataset_id && dataset_id !== bids.dataset_id)){
+            BIDSPreview(dataset_id)
         }
-    }, [props.dataset_id, props.getBIDSPreview])
+    }, [dataset_id, bids, BIDSPreview])
 
     const transform = (text) => {
         if(text === false){
@@ -36,7 +37,6 @@ const BidsPreview = (props) => {
     }else{
         return null
     }
-
 };
 
 
@@ -48,7 +48,7 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = (dispatch) => {
     return {
-        getBIDSPreview: (dataset_id) => dispatch(getBIDSPreview(dataset_id))
+        BIDSPreview: (dataset_id) => dispatch(getBIDSPreview(dataset_id))
     }
 }
 

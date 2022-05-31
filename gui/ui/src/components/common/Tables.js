@@ -4,6 +4,7 @@ import styles from './Tables.module.css'
 
 
 
+
 export const Table = (props) => {
     return(
          <React.Fragment>
@@ -95,11 +96,28 @@ export const TableData = (props) => {
 }
 
 
-
-
 export const SelectiveTable = (props) => {
     const tableRef = React.createRef()
     const [hoverColIndex, setHoverColIndex] = React.useState(null)
+
+    const handleTableHover = React.useCallback( event => {
+        let index  = getIndex(event)
+        setHoverColIndex(index)
+    }, []);
+
+    const handleTableColumnClick = React.useCallback(event => {
+        let index  = getIndex(event)
+        if(index !== props.selectedColIndex){
+            if(props.onSelect){
+                props.onSelect(index)
+            }
+        }
+    }, [props]);
+
+    const handleTableUnHover = React.useCallback(event => {
+        setHoverColIndex(null)
+    }, []);
+
 
     React.useEffect( () => {
         if(tableRef.current){
@@ -113,29 +131,11 @@ export const SelectiveTable = (props) => {
             if(tableRef.current){
               tableRef.current.removeEventListener('mouseover', handleTableHover);
               tableRef.current.removeEventListener('mouseout', handleTableHover);
+              tableRef.current.removeEventListener('mousedown', handleTableColumnClick);
             }
         };
 
-    }, [])
-
-
-    const handleTableHover = (event) => {
-        let index  = getIndex(event)
-        setHoverColIndex(index)
-    };
-
-    const handleTableColumnClick = (event) => {
-        let index  = getIndex(event)
-        if(index !== props.selectedColIndex){
-            if(props.onSelect){
-                props.onSelect(index)
-            }
-        }
-    };
-
-    const handleTableUnHover = (event) => {
-        setHoverColIndex(null)
-    };
+    }, [handleTableUnHover, handleTableHover, handleTableColumnClick])
 
     const getIndex = (event) => {
         let target = event.target
@@ -188,8 +188,7 @@ export const TableHead = (props) => {
                     if(props.hoverColumns){
                         return <th key={key} className={props.hoverColIndex === key ||
                                                     props.activeColIndex === key ?
-                                                        styles.activeCol : null}
-                                    key={key}>
+                                                        styles.activeCol : null}>
                                     <React.Fragment>
                                         {props.activeColIndex === key ? (
                                             <span className={styles.selectedLabel}>
