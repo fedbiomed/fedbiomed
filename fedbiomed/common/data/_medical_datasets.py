@@ -356,6 +356,8 @@ class BIDSBase:
         if not isinstance(path, Path):
             path = Path(path)
 
+        if not path.exists():
+            raise FedbiomedDatasetError(f"Folder or file {path} not found on system")
         if not path.is_dir():
             raise FedbiomedDatasetError("Root for BIDS dataset should be a directory.")
 
