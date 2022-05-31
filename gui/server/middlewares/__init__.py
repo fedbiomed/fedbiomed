@@ -3,6 +3,7 @@ from typing import Callable
 
 
 def middleware(middlewares: list[Callable]):
+    """Middleware decorator for routes """
     def _middleware(func):
         @wraps(func)
         def __middleware(*args, **kwargs):

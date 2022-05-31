@@ -17,6 +17,7 @@ const Index = (props) => {
 
     const [selected, setSelected] = React.useState(null)
     const [path] = React.useState(props.path)
+    const [onlyExtensions] = React.useState(props.onlyExtensions)
     const navigator = useNavigate()
     const dispatch = useDispatch()
     const frameContent = React.useRef(null)
@@ -29,9 +30,9 @@ const Index = (props) => {
      */
     React.useEffect((props) => {
         if(path){
-            getFiles({path : path}, true)
+            getFiles({path : path, only_extensions: onlyExtensions}, true)
         }else{
-            getFiles({path : []})
+            getFiles({path : [], only_extensions: onlyExtensions})
         }
 
     }, [getFiles, path, props.repository.files.length])
@@ -55,7 +56,7 @@ const Index = (props) => {
      *
      */
     const refreshCurrentRepository = () => {
-        getFiles({path:props.repository.current, refresh: true}, false)
+        getFiles({path:props.repository.current, only_extensions: onlyExtensions, refresh: true}, false)
     }
 
     /**

@@ -24,6 +24,7 @@ DATA_PATH_RW = app.config['DATA_PATH_RW']
 @validate_request_data(schema=ValidateBIDSReferenceCSV)
 @middleware(middlewares=[bids.read_bids_reference, bids.validate_available_subjects])
 def validate_reference_csv_column():
+    """ Validate selected reference CSV and column shows folder names """
     subjects = g.available_subjects
     return response({"valid": True, "subjects": subjects}), 200
 
@@ -32,6 +33,7 @@ def validate_reference_csv_column():
 @validate_request_data(schema=ValidateBIDSRoot)
 @middleware(middlewares=[bids.validate_bids_root])
 def validate_root_path():
+    """Validates BIDS root path"""
     return response(data={"valid": True, "modalities": g.modalities}), 200
 
 
@@ -88,6 +90,7 @@ def add_bids_dataset():
 @validate_request_data(schema=PreviewDatasetRequest)
 @cached(key="dataset_id", prefix="bids-preview", timeout=600)
 def bids_preview():
+    """Gets preview of BIDS dataset by providing a table of subject and available modalities"""
     req = request.json
     table = database.db().table('_default')
     query = database.query()

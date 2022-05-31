@@ -70,7 +70,7 @@ export class  BidsStandard extends React.Component {
             <div className={styles.main}>
                 <Step key={1}
                       step={1}
-                      desc={'Please select the root folder that contains BIDS Nifti format brain images. '}
+                      desc={'Please select the root folder of BIDS dataset.'}
                 >
                    <FileBrowser
                         folderPath = {this.props.bids_root ? this.props.bids_root : null}
@@ -94,7 +94,7 @@ export class  BidsStandard extends React.Component {
                     <Step
                         key={2}
                         step={2}
-                        desc={'Please select reference CSV file where al patient IDs are stored '}
+                        desc={'Please select reference/demographics CSV file where all subject folder names are stored'}
                     >
                        <FileBrowser
                             folderPath = {this.props.bidsDataset.reference_csv ? this.props.bidsDataset.reference_csv.path : null}
@@ -110,7 +110,7 @@ export class  BidsStandard extends React.Component {
                     <Step
                         key={3}
                         step={3}
-                        desc={'Please select to ID column from reference csv'}
+                        desc={'Please select to column that represent subject folders in BIDS root directory.'}
                     >
                         <SelectiveTable
                             style={{maxHeight:350}}
@@ -136,7 +136,7 @@ export class  BidsStandard extends React.Component {
                     <Step
                         key={5}
                         step={5}
-                        label="Add dataset"
+                        label="Add/Register BIDS Dataset"
                     >
                          <ButtonsWrapper>
                             <Button onClick={this.addDataset}>Add Dataset</Button>

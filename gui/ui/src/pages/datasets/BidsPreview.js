@@ -8,7 +8,8 @@ const BidsPreview = (props) => {
 
 
     React.useEffect(() => {
-        if(props.dataset_id && !props.bids.subject_table){
+        if((props.dataset_id && !props.bids.subject_table) ||
+            (props.dataset_id && props.dataset_id !== props.bids.dataset_id)){
             props.getBIDSPreview(props.dataset_id)
         }
     }, [props.dataset_id, props.getBIDSPreview])

@@ -11,6 +11,7 @@ DATA_PATH_RW = app.config['DATA_PATH_RW']
 
 
 def read_bids_reference():
+    """Reads demographics/reference CSV for BIDS """
     req = request.json
     if not req["reference_csv_path"] or req["reference_csv_path"] is None:
         g.reference = None
@@ -31,6 +32,7 @@ def read_bids_reference():
 
 
 def validate_bids_root():
+    """Validates BIDS root folder"""
     req = request.json
     root = os.path.join(DATA_PATH_RW, *req["bids_root"])
 
@@ -75,6 +77,7 @@ def validate_available_subjects():
 
 
 def create_and_validate_bids_dataset():
+    """Create and validates BIDS dataset"""
     req = request.json
     root = os.path.join(DATA_PATH_RW, *req["bids_root"])
     if req.get("reference_csv_path", None) is None:
