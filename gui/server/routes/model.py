@@ -179,7 +179,10 @@ def preview_model():
 @api.route('/model/update-list-model', methods=["GET"])
 def update_list_model():
     """API endpoint for getting only newly added model in database
-    (avoid returning model list each time for performance sake)
+    (avoid returning model list each time for performance sake).
+    Returns either models that have been added after the last call to
+    `update_list_model` or modified (through `date_last_action` field) or 
+    which have missing dates
     ---
     Response {application/json}:
         200:
@@ -191,7 +194,8 @@ def update_list_model():
     print("LAST CALL", TIME_OF_LAST_CALL)
     models = MODEL_MANAGER.list_models(sort_by='date_last_action', verbose=False)
     updated_models = []
-    # we sort list from the more recent updated models to the less recent ones
+    # we sort list from the more recent updated models to the less recent ones (list_model
+    # returns from the older to newer)
     for model in models[::-1]:
         date = model.get('date_last_action', datetime.now())
         if isinstance(date, str):
