@@ -278,7 +278,7 @@ class DatasetManager:
                      description: str,
                      path: str,
                      dataset_id: str = None,
-                     default_dataset_parameters : Union[dict, None] = None):
+                     dataset_parameters : Union[dict, None] = None):
         """Adds a new dataset contained in a file to node's database.
 
         Args:
@@ -328,12 +328,12 @@ class DatasetManager:
 
         elif data_type == 'bids':
             assert os.path.isdir(path), f'Folder {path} for BIDS Dataset does not exist.'
-            assert os.path.isfile(default_dataset_parameters['tabular_file']), \
-                f'File ({default_dataset_parameters["tabular_file"]}) not found.'
+            assert os.path.isfile(dataset_parameters['tabular_file']), \
+                f'File ({dataset_parameters["tabular_file"]}) not found.'
             try:
                 # load through the BIDSController to ensure all available modalities are inspected
-                dataset = BIDSController(root=path).load_bids(tabular_file=default_dataset_parameters['tabular_file'],
-                                                              index_col=default_dataset_parameters['index_col'])
+                dataset = BIDSController(root=path).load_bids(tabular_file=dataset_parameters['tabular_file'],
+                                                              index_col=dataset_parameters['index_col'])
             except FedbiomedError as e:
                 raise FedbiomedDatasetManagerError(f"Can not create BIDS dataset. {e}")
             shape = dataset.shape()
@@ -344,7 +344,7 @@ class DatasetManager:
         new_database = dict(name=name, data_type=data_type, tags=tags,
                             description=description, shape=shape,
                             path=path, dataset_id=dataset_id, dtypes=dtypes,
-                            default_dataset_parameters=default_dataset_parameters)
+                            dataset_parameters=dataset_parameters)
         self.db.insert(new_database)
 
         return dataset_id

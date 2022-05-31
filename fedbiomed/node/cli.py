@@ -205,7 +205,7 @@ def add_database(interactive: bool = True,
         else:
             data_type = 'default'
 
-        default_dataset_parameters = None
+        dataset_parameters = None
 
         if data_type == 'default':
             tags = ['#MNIST', "#dataset"]
@@ -249,9 +249,9 @@ def add_database(interactive: bool = True,
                         break
                     except ValueError:
                         warnings.warn('Please input a numeric value (integer)')
-                default_dataset_parameters = {} if default_dataset_parameters is None else default_dataset_parameters
-                default_dataset_parameters['tabular_file'] = tabular_file_path
-                default_dataset_parameters['index_col'] = index_col
+                dataset_parameters = {} if dataset_parameters is None else dataset_parameters
+                dataset_parameters['tabular_file'] = tabular_file_path
+                dataset_parameters['index_col'] = index_col
             else:
                 path = validated_path_input(data_type)
 
@@ -279,7 +279,7 @@ def add_database(interactive: bool = True,
                                      data_type=data_type,
                                      description=description,
                                      path=path,
-                                     default_dataset_parameters=default_dataset_parameters)
+                                     dataset_parameters=dataset_parameters)
     except (AssertionError, FedbiomedDatasetManagerError) as e:
         if interactive is True:
             try:
