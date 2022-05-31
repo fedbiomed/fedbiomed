@@ -41,7 +41,7 @@ const FileBrowser = (props) => {
                    ) : null
                }
                 <div className={"repository-select"}>
-                    <Button onClick={openRepositoryModal}>Select Data File</Button>
+                    <Button onClick={openRepositoryModal}>{props.buttonText ? props.buttonText : "Select File"}</Button>
                     <div className={`path`}>
                         { props.folderPath ?  '/'+ props.folderPath.join('/') : null}
                     </div>
@@ -56,6 +56,8 @@ const FileBrowser = (props) => {
                             onSelect={onSelect}
                             mode={'file-browser'}
                             maxHeight="500px"
+                            onlyFolders={props.onlyFolders}
+                            onlyExtensions={props.onlyExtensions}
                         />
                     </Modal.Content>
             </Modal>

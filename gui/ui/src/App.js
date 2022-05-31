@@ -47,7 +47,6 @@ function App(props) {
             <SideNav activePage={setHeader}/>
           </div>
           <div className="main-frame">
-            {/*<Header text={headerName}/>*/}
               <div className="router-frame">
                 <div className="inner"> 
                   <Routes>
@@ -62,12 +61,15 @@ function App(props) {
                     <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview setHeader={setHeader}/>} />
                   </Routes>
                   <div className={`loader-frame ${props.result.loading ?  'active' : ''}`}>
-                    <div className="lds-ring">
-                      <div></div>
-                      <div></div>
-                      <div></div>
-                      <div></div>
-                    </div>
+                      <div style={{width:"100%"}}>
+                          <div className="lds-ring">
+                                <div></div>
+                                <div></div>
+                                <div></div>
+                                <div></div>
+                          </div>
+                          <span style={{textAlign: "center", display:"block"}}>{props.result.text}</span>
+                      </div>
                   </div>
                 </div>
               </div>

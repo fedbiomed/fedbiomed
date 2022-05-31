@@ -165,7 +165,7 @@ export const CommonStandards = (props) => {
                         </div>
                     </div>
                     <div className="form-control">
-                  ~      <Label>Please select data type</Label>
+                        <Label>Please select data type</Label>
                         <Select name="type" onChange={onDataTypeChange}>
                             {
                                 props.new_dataset.extension === ".csv" ?

@@ -1,6 +1,7 @@
 .main {
     positoion:relative;
     display: block;
+    padding-bottom: 150px;
 }
 
 .modalities {

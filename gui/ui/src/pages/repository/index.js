@@ -258,6 +258,12 @@ const Index = (props) => {
                                         <th>State</th>
                                     </tr>
                                         {   props.repository.files[props.repository.level] && props.repository.files[props.repository.level].map((item, key) => {
+
+                                            if(props.onlyExtensions && item.type !== "dir" && !props.onlyExtensions.includes(item.extension)){
+                                                return null
+                                            }else if(props.onlyFolders && item.type === "file"){
+                                                return null
+                                            }else{
                                                 return(
                                                     <RepositoryListRow
                                                         key={key}
@@ -270,6 +276,7 @@ const Index = (props) => {
                                                         mode={mode}
                                                     />
                                                 )
+                                            }
                                             })
                                         }
                                     </tbody>

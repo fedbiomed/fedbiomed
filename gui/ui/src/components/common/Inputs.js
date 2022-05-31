@@ -25,15 +25,15 @@ export const Text = (props) => {
     return (
         <input 
             className="input"
-            type        = {props.type} 
-            name        = {props.name}
-            id          = {props.id}
-            ref         = {ref}
-            onChange    = {props.onChange}
-            onKeyDown   = {props.onKeyDown}
-            value       = {props.value}
-            placeholder = {props.placeholder}
-            ></input>
+            type={props.type}
+            name={props.name}
+            id={props.id}
+            ref={ref}
+            onChange={props.onChange}
+            onKeyDown={props.onKeyDown}
+            value={props.value}
+            placeholder={props.placeholder}
+        />
     )
 }
 
@@ -46,14 +46,14 @@ export const TextArea = (props) => {
     return (
         <textarea
             className="input"
-            type = {props.type} 
+            type = {props.type}
             name = {props.name}
             id   = {props.id}
             ref  = {props.ref}
             onChange = {props.onChange}
             value = {props.value ? props.value : undefined}
             placeholder={props.placeholder}
-        ></textarea>
+        />
     )
 }
 

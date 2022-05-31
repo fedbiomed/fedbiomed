@@ -14,11 +14,12 @@ const initialState = {
             missing_folders: null
         }
     },
-    reference_column_name:null,
-    format: null,
+    metadata : {
+        name: null,
+        tags: null,
+        desc: null,
+    },
     reference_csv: null,
-    identifiers: null,
-
 }
 
 
@@ -44,13 +45,11 @@ export const bidsReducer = (state = initialState, action) => {
                 bids_root: null,
                 modalities: null,
             }
-
         case "PATIENT_FOLDERS":
             return {
                ...state,
 
             }
-
         case "SET_FORMAT":
 
             return {
@@ -63,7 +62,14 @@ export const bidsReducer = (state = initialState, action) => {
                 ...state,
                 reference_csv : action.payload
             }
-
+        case "SET_BIDS_METADATA":
+            return {
+                ...state,
+                metadata: {
+                    ...state.metadata,
+                    ...action.payload
+                }
+            }
         case "SET_IDENTIFIERS":
             return {
                 ...state,
@@ -80,13 +86,37 @@ export const bidsReducer = (state = initialState, action) => {
                         missing_folders: action.payload.subjects.missing_folders
                     }
                 }}
-
         case "RESET_BIDS_REF":
             return {
                 ...state,
                 bids_ref : initialState.bids_ref
             }
+        case "RESET_BIDS_REFERENCE_CSV":
+            return {
+                ...state,
+                bids_ref : initialState.bids_ref,
+                reference_csv : null
+            }
+        case "RESET_BIDS":
+            return initialState
         default:
             return state
     }
 }
+
+const bidsPreviewInitialstate = {
+    subject_table : null,
+    modalities : null,
+    dataset_id : null,
+}
+
+export const bidsPreviewReducer = (state = bidsPreviewInitialstate, action) => {
+
+    switch (action.type){
+        case "SET_BIDS_PREVIEW":
+            return action.payload
+        default:
+            return state
+    }
+}
+

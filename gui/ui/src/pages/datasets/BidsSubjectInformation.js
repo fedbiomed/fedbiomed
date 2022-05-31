@@ -1,14 +1,13 @@
 import React from 'react';
-import Dropdown from "../../components/layout/Dropdown";
-import dropDownStyle from "../../components/layout/Dropdown.module.css"
+import Accordion from "../../components/layout/Accordion";
+import dropDownStyle from "../../components/layout/Accordion.module.css"
 import {TableData} from "../../components/common/Tables"
 
 const BidsSubjectInformation = (props) => {
-    console.log(props.subjects)
     if(props.subjects.available_subjects){
         return (
             <React.Fragment>
-                <Dropdown
+                <Accordion
                     color={dropDownStyle.green}
                     label={props.subjects.available_subjects.length.toString() + " subject available for training"}
                 >
@@ -19,9 +18,9 @@ const BidsSubjectInformation = (props) => {
                             index: Array.from(Array(props.subjects.available_subjects.length).keys())
                         }
                     }/>
-                </Dropdown>
+                </Accordion>
 
-                <Dropdown
+                <Accordion
                     color={props.subjects.missing_entries.length === 0 ? dropDownStyle.green : dropDownStyle.red }
                     label={props.subjects.missing_entries.length.toString() + " subjects are existing in the BIDS " +
                         "directory but not in the reference tabular data"}
@@ -33,8 +32,8 @@ const BidsSubjectInformation = (props) => {
                             index: Array.from(Array(props.subjects.missing_entries.length).keys())
                         }
                         }/>
-                </Dropdown>
-                <Dropdown
+                </Accordion>
+                <Accordion
                     color={props.subjects.missing_folders.length === 0 ? dropDownStyle.green : dropDownStyle.red }
                     label={props.subjects.missing_folders.length.toString() + " subject for that is declared in the " +
                         "CSV does not exist in the BIDS root folder  for training"}
@@ -46,11 +45,10 @@ const BidsSubjectInformation = (props) => {
                             index: Array.from(Array(props.subjects.missing_folders.length).keys())
                         }
                         }/>
-                </Dropdown>
+                </Accordion>
             </React.Fragment>
         );
     }
-
     return null
 
 };

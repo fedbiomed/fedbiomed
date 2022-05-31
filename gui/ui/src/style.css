@@ -963,7 +963,7 @@ a.fed-box-link{
 
 .loader-frame {
   display: none;
-  position: absolute;
+  position: fixed;
   top: 0px;
   right: 0px;
   left: 0px;
@@ -979,10 +979,11 @@ a.fed-box-link{
 }
 
 .lds-ring {
-  display: inline-block;
+  display: block;
   position: relative;
   width: 80px;
   height: 80px;
+  margin: 0 auto;
 }
 .lds-ring div {
   box-sizing: border-box;

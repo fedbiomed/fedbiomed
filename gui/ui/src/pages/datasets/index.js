@@ -150,10 +150,9 @@ export const Datasets = (props) => {
      * clicked. Send request to add MNIST dataset
      */
     const onAddDefaultDataset = () => {
-
         // Send empty data by default
         // it will be MNIST
-        props.addDefaultDataset({})
+        props.addDefaultDataset({tags : ["#MNIST", "#dataset"], name : "MNIST", desc: "Default MNIST dataset"})
     }
 
     return (

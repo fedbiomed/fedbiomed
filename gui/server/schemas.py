@@ -2,6 +2,26 @@ from flask import request
 import jsonschema
 from jsonschema import Draft7Validator, validators
 
+# Constant validators settings
+datasetName = {'type': 'string', "minLength": 4, "maxLength": 128,
+               'errorMessages': {
+                   'minLength': 'Dataset name must have at least 4 character',
+                   'maxLength': 'Dataset name must be max 128 character'
+               }}
+
+datasetTags = {'type': 'array', "minItems": 1, "maxItems": 4,
+               'errorMessages': {
+                   'minItems': 'At least 1 tag should be provided',
+                   'maxItems': 'Tags can be max. 4',
+                   'type': 'Tags are in wrong format'
+               }}
+
+datasetDesc = {'type': 'string', "minLength": 4, "maxLength": 256,
+               'errorMessages': {
+                   'minLength': 'Description must have at least 4 character',
+                   'maxLength': 'Description must be max 256 character'
+               }}
+
 
 def extend_validator(validator_class):
     """ Extending json validator to set default values
@@ -103,7 +123,7 @@ class JsonSchema(object):
                 if field in self._schema['properties'] and \
                         'errorMessages' in self._schema['properties'][field] and \
                         reason in self._schema['properties'][field]['errorMessages']:
-                    message = self._schema['properties'][field]['errorMessages'][reason] % e.instance
+                    message = str(self._schema['properties'][field]['errorMessages'][reason]).format(e.instance)
 
             if message:
                 raise jsonschema.ValidationError(message)
@@ -129,30 +149,15 @@ class AddDataSetRequest(Validator):
     schema = JsonSchema({
         'type': 'object',
         'properties': {
-            'name': {'type': 'string', "minLength": 4, "maxLength": 128,
-                     'errorMessages': {
-                         'minLength': 'Dataset name must have at least 4 character',
-                         'maxLength': 'Dataset name must be max 128 character'
-                     }
-                     },
+            'name': datasetName,
             'path': {'type': 'array'},
-            'tags': {'type': 'array', "minItems": 1, "maxItems": 4,
-                     'errorMessages': {
-                         'minItems': 'At least 1 tag should be provided',
-                         'maxItems': 'Tags can be max. 4',
-                         'type': 'Tags are in wrong format'
-                     }
-                     },
+            'tags': datasetTags,
             'type': {'type': 'string',
                      'oneOf': [{"enum": ['csv', 'images']}],
                      'errorMessages': {
                          'oneOf': ' "%s" dataset type is not supported'
                      }},
-            'desc': {'type': 'string', "minLength": 4, "maxLength": 256,
-                     'errorMessages': {
-                         'minLength': 'Description must have at least 4 character',
-                         'maxLength': 'Description must be max 256 character'
-                     }}
+            'desc': datasetDesc
         },
         'required': ['name', 'path', 'tags', 'desc', 'type'],
     }, message=None)
@@ -230,27 +235,12 @@ class AddDefaultDatasetRequest(Validator):
     type = 'json'
     schema = JsonSchema({
         'type': "object",
-        "properties": {"name": {'type': 'string',
-                                "default": 'mnist', "minLength": 4, "maxLength": 128,
-                                'errorMessages': {
-                                    'minLength': 'Dataset name must have at least 4 character',
-                                    'maxLength': 'Dataset name must be max 128 character'
-                                }
-                                },
+        "properties": {"name": datasetName,
                        'path': {'type': 'array'},
-                       'tags': {'type': 'array', "minItems": 1, "maxItems": 4, 'default': ["#MNIST", "#dataset"],
-                                'errorMessages': {
-                                    'minItems': 'At least 1 tag should be provided',
-                                    'maxItems': 'Tags can be max. 4',
-                                    'type': 'Tags is in wrong format'
-                                }},
+                       'tags': datasetTags,
                        'type': {'type': 'string', 'default': "default",
                                 'oneOf': [{"enum": ['default']}]},
-                       'desc': {'type': 'string', "minLength": 4, "maxLength": 256, 'default': "Default MNIST dataset",
-                                'errorMessages': {
-                                    'minLength': 'Description must have at least 4 character',
-                                    'maxLength': 'Description must be max 256 character'
-                                }}
+                       'desc': datasetDesc
 
                        },
         "required": []
@@ -271,24 +261,24 @@ class ValidateBIDSReferenceCSV(Validator):
     schema = JsonSchema({
         "type": "object",
         "properties": {
-                "reference_csv_path": {
-                    "type": "array",
-                    "errorMessages": {
-                        "type": "CSV path should be given as an array"
-                    },
+            "reference_csv_path": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "CSV path should be given as an array"
                 },
-                "bids_root": {
-                    "type": "array",
-                    "errorMessages": {
-                        "type": "ROOT path should be given as an array"
-                    },
-                },
-                "index_col": {
-                    "type": "integer",
-                    "errorMessage": {
-                        "type": "Index column should be an integer"}
-                }
             },
+            "bids_root": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "ROOT path for BIDS dataset should be given as an array."
+                },
+            },
+            "index_col": {
+                "type": "integer",
+                "errorMessage": {
+                    "type": "Index column should be an integer"}
+            }
+        },
         "required": ["reference_csv_path", "bids_root", "index_col"]
     })
 
@@ -306,4 +296,36 @@ class ValidateBIDSRoot(Validator):
             }
         },
         "required": ["bids_root"]
+    })
+
+
+class ValidateBIDSAddRequest(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {
+            "bids_root": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "ROOT path should be given as an array"
+                },
+            },
+            "reference_csv_path": {
+                "type": "array",
+                "default": None,
+                "errorMessages": {
+                    "type": "Reference CSV path should be given as an array"
+                },
+            },
+            "index_col": {
+                "type": "integer",
+                "default": None,
+                "errorMessage": {
+                    "type": "Index column should be declared as an integer"}
+            },
+            'name': datasetName,
+            'tags': datasetTags,
+            'desc': datasetDesc
+        },
+        "required": ["bids_root", "name", "tags", "desc"]
     })

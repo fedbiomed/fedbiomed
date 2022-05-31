@@ -748,8 +748,8 @@ class BIDSController(BIDSBase):
             modality_status[subject] = {modality: status for modality, status in zip(modalities, modality_report)}
 
             if index is not None:
-                modality_status[subject].update({"missing_in_folder": True if subject in missing_subjects else False})
-                modality_status[subject].update({"missing_in_index": True if subject in missing_entries else False})
+                modality_status[subject].update({"in_folder": False if subject in missing_subjects else True})
+                modality_status[subject].update({"in_index": False if subject in missing_entries else True})
 
         return modality_status
 

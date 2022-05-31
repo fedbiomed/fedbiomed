@@ -7,6 +7,8 @@ from db import database
 
 from . import api
 from utils import success, error, validate_json, validate_request_data, response
+from middlewares import middleware, common
+
 from schemas import AddDataSetRequest, \
     RemoveDatasetRequest, \
     UpdateDatasetRequest, \
@@ -104,6 +106,7 @@ def remove_dataset():
 
 @api.route('/datasets/add', methods=['POST'])
 @validate_request_data(schema=AddDataSetRequest)
+@middleware(middlewares=[common.check_tags_already_registered])
 def add_dataset():
     """ API endpoint to add single dataset to the database. Currently it
         uses some methods of data set manager.
@@ -337,9 +340,6 @@ def add_default_dataset():
     except Exception as e:
         return error(str(e)), 400
 
-    # Create database connection
-    table = database.db().table('_default')
-    query = database.query()
 
     # Create unique id for the dataset
     dataset_id = 'dataset_' + str(uuid.uuid4())

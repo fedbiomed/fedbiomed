@@ -1,7 +1,7 @@
 import React from 'react';
-import styles from "./Dropdown.module.css"
+import styles from "./Accordion.module.css"
 
-const Dropdown = (props) => {
+const Accordion = (props) => {
 
     const [show, setShow] = React.useState(false)
 
@@ -31,4 +31,4 @@ const Dropdown = (props) => {
     );
 };
 
-export default Dropdown;
+export default Accordion;
