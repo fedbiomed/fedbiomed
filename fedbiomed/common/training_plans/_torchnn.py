@@ -528,21 +528,27 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         """
 
         if self.DP['type'] == 'central':
+
+            sigma_CDP = deepcopy(self.DP['sigma_CDP'])
+            
             delta_params = {}
             perturbed_params = {}
             for name, param in params.items():
-
                 ###
                 ### Extracting the update
                 ###
-                delta_theta = params[name] - self.init_params[name]
-                delta_params[name] = delta_theta
+                delta_theta = deepcopy(param)
+                delta_params[name] = delta_theta - self.init_params[name]
 
-                for key in delta_params.keys():
-                    delta_theta_tilde = delta_params[key] \
-                            + torch.sqrt(torch.tensor([2]))*self.DP['sigma_CDP']*self.DP['clip'] * torch.randn_like(delta_params[key])
-                    perturbed_params[key]=self.init_params[key] + delta_theta_tilde
-            params = perturbed_params 
+            for key, delta_param in delta_params.items():
+                ###
+                ### Perturb update and update parameters
+                ###
+                delta_theta_tilde = deepcopy(delta_param)
+                delta_theta_tilde += sigma_CDP*self.DP['clip'] * torch.randn_like(delta_theta_tilde)
+                perturbed_params[key]= delta_theta_tilde + self.init_params[key]
+            
+            params = deepcopy(perturbed_params )
 
         params_keys = list(params.keys())
         for key in params_keys:
