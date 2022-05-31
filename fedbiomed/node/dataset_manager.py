@@ -327,9 +327,11 @@ class DatasetManager:
             shape = self.load_images_dataset(path)
 
         elif data_type == 'bids':
-            assert os.path.isdir(path), f'Folder {path} for BIDS Dataset does not exist.'
-            assert os.path.isfile(dataset_parameters['tabular_file']), \
-                f'File ({dataset_parameters["tabular_file"]}) not found.'
+            if not os.path.isdir(path):
+                raise FedbiomedDatasetManagerError(f'Folder {path} for BIDS Dataset does not exist.')
+            if not os.path.isfile(dataset_parameters['tabular_file']):
+                raise FedbiomedDatasetManagerError(f'File ({dataset_parameters["tabular_file"]}) not found.')
+
             try:
                 # load through the BIDSController to ensure all available modalities are inspected
                 dataset = BIDSController(root=path).load_bids(tabular_file=dataset_parameters['tabular_file'],
