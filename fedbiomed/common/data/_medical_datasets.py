@@ -214,7 +214,11 @@ class BIDSBase:
     """
 
     def __init__(self, root: Union[str, Path, None] = None):
-        """Constructs BIDSBase"""
+        """Constructs BIDSBase
+
+        Args:
+            root: path to BIDS root folder.
+        """
         if root is not None:
             root = self.validate_bids_root_folder(root)
 
@@ -280,7 +284,7 @@ class BIDSBase:
         return [f.name for f in self._root.iterdir() if f.is_dir() and not f.name.startswith(".")]
 
     def available_subjects(self,
-                           subjects_from_index: [list, pd.Series, None],
+                           subjects_from_index: Union[list, pd.Series, None],
                            subjects_from_folder: list = None) -> tuple[list[str], list[str], list[str]]:
         """Checks missing subject folders and missing entries in demographics
 
@@ -294,7 +298,7 @@ class BIDSBase:
             missing_entries: subjects that have an imaging data folder but are not present in the demographics file
         """
 
-        # Select oll subject folders if it is not given
+        # Select all subject folders if it is not given
         if subjects_from_folder is None:
             subjects_from_folder = self.subjects_with_imaging_data_folders()
 
@@ -426,7 +430,10 @@ class BIDSDataset(Dataset, BIDSBase):
         # For the first item retrieve complete subject folders
 
         subjects = self.subject_folders()
-
+        
+        if not subjects:
+            # case where subjects is an empty list (subject folders have not been found)
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Cannot find subject folders")
         # Get subject folder
         subject_folder = subjects[item]
 

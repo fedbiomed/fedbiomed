@@ -20,7 +20,7 @@ import tkinter.messagebox
 from tkinter import _tkinter
 
 from fedbiomed.common.constants  import ModelTypes, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
+from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError, FedbiomedDatasetManagerError
 
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.environ import environ
@@ -243,8 +243,8 @@ def add_database(interactive: bool = True,
                 # get index col from user
                 while True:
                     try:
-                        index_col = input('Please input the (numerical) index of the column containing '
-                                          'the subject ids corresponding to image folder names ')
+                        index_col = input('\nPlease input the (numerical) index of the column containing '
+                                          'the subject ids corresponding to image folder names \n')
                         index_col = int(index_col)
                         break
                     except ValueError:
@@ -289,7 +289,9 @@ def add_database(interactive: bool = True,
         else:
             warnings.warn(f'[ERROR]: {e}')
         exit(1)
-
+    except FedbiomedDatasetError as err:
+        warnings.warn(f'[ERROR]: {err} ... Aborting'
+                      "\nHint: are you sure you have selected the correct index in Demographic file?")
     print('\nGreat! Take a look at your data:')
     dataset_manager.list_my_data(verbose=True)
 
