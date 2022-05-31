@@ -317,42 +317,28 @@ class ModelManager:
         return is_status, model      
 
     def get_model_from_database(self,
-                                model_path: str = None,
-                                model_id: str = None,
+                                model_path: str,
                                 secure: bool = True
                                 ) -> Union[Dict[str, Any], None]:
         """Gets model from database, by its hash
 
         Args:
-            model_path: model path where the file is saved, in order to compute its hash. Defaults
-                to None.
+            model_path: model path where the file is saved, in order to compute its hash. 
             !!! info "model file MUST be a *.txt file."
-            model_id: model id used for retrieving [`model_path`] (if [`model_path`]).
-            Defaults to None.
-            !!! info "if arguments [`model_id`] and [`model_path`] are set to None, it triggers an FedBiomedError"
 
         Returns:
             model: model entry found in the dataset if query in database succeed. Otherwise, returns 
             None.
         
         Raises:
-            FedbiomedModelManagerError: triggered if both model_path and model_id are set to None
             FedbiomedModelManagerError: triggered if [`model_path`] is not found in database entry
             FedbiomedModelManagerError
         """
         self._db.clear_cache()
-        if model_path is None and model_id is None:
-            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : at least one of the arguments model_path" 
-                                             " and model_id MUST not be set to None")
-        elif model_path is None:
-            # search for model_id to get model_path
-            model = self._db.get(self._database.model_id == model_id)
-            if model is None:
-                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + "no model matches model_id")
-            model_path = model.get('model_path')
+
         if model_path is None:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : model_path not found in database entry" 
-                                             f" ({model_id})")
+                                             f" ({model_path})")
         req_model_hash, _ = self._create_hash(model_path)
         
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
@@ -366,6 +352,15 @@ class ModelManager:
         else:
             model = None
 
+        return model
+
+    def get_model_from_id(self, model_id: str, secure: bool = True) -> Union[Dict[str, Any], None]:
+        """Returns model entry from database through a query bqased on the model_id.
+        If there is no model matching [`model_id`], returns None
+        """
+        model = self._db.get(self._database.model_id == model_id)
+        if secure and model is not None:
+            self._remove_sensible_keys_from_request(model)
         return model
 
     def create_txt_model_from_py(self, model_path: str) -> str:
