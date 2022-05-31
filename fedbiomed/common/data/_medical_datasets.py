@@ -261,6 +261,8 @@ class BIDSBase:
         Returns:
             List of `bool` that represents whether modality is existing respectively for each of modality.
         """
+        if not isinstance(modalities, list):
+            raise FedbiomedDatasetError(f"Expected a list for modalities, but got {type(modalities)}")
         return [self._root.joinpath(subject, modality).is_dir() for modality in modalities]
 
     def complete_subjects(self, subjects: List[str], modalities: List[str]) -> List[str]:
@@ -284,7 +286,7 @@ class BIDSBase:
         return [f.name for f in self._root.iterdir() if f.is_dir() and not f.name.startswith(".")]
 
     def available_subjects(self,
-                           subjects_from_index: Union[list, pd.Series, None],
+                           subjects_from_index: Union[list, pd.Series],
                            subjects_from_folder: list = None) -> tuple[list[str], list[str], list[str]]:
         """Checks missing subject folders and missing entries in demographics
 
