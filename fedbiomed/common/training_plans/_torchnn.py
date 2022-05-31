@@ -70,11 +70,12 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         self.device = self.device_init
         if not isinstance(model_args, dict):
             self.use_gpu = False
+            self.dp_args = False
         else:
             self.use_gpu = model_args.get('use_gpu', False)
+            self.dp_args = model_args.get('dp_args', False)
 
         # list dependencies of the model
-
         self.add_dependency(["import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
@@ -87,9 +88,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         # Aggregated model parameters
         self.init_params = None
-
-        # Empty DP dictionary 
-        self.DP = {}
 
     def type(self) -> TrainingPlans.TorchTrainingPlan:
         """ Gets training plan type"""
@@ -196,7 +194,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     doesn't request for using a GPU. Default False.
         """
 
-        if dp_args:
+        if (self.dp_args):
+            self.validate_and_fix_model()
             self.initialize_dp(dp_args)
 
         # set correct type for node args
@@ -206,7 +205,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         if self.optimizer is None:
             self.make_optimizer(lr)
 
-        if self.DP:
+        if self.dp_args:
             # Add __preprocess_ldp as preprocess 
             self.add_preprocess(method=self.__preprocess_ldp, process_type=ProcessTypes.DATA_LOADER)
 
@@ -256,7 +255,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 self.optimizer.step()
 
-                if self.DP:
+                if self.dp_args:
                     # To be used by the nodes to assess budget locally
                     eps, alpha = self.privacy_engine.accountant.get_privacy_spent(delta=.1/len(self.training_data_loader))
 
@@ -456,13 +455,13 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             # Check whether postprocess method exists, and use it
             logger.debug("running model.postprocess() method")
             post_params = self.postprocess(self.state_dict())  # Post process
-            if self.DP:
+            if self.dp_args:
                 return self.postprocess_dp(post_params) 
             return post_params
         except AttributeError:
             # Method does not exist; skip
             logger.debug("model.postprocess() method not provided")
-            if self.DP:
+            if self.dp_args:
                 return self.postprocess_dp(self.state_dict())
             else: 
                 pass
@@ -477,27 +476,23 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             dp_args (dict, optional): DP parameters provided by the user
         """
 
-        self.DP = dp_args
+        assert 'type' in self.dp_args,  "DP 'type' not provided"
+        assert 'sigma' in self.dp_args, "DP 'sigma' parameter not provided"
+        assert 'clip' in self.dp_args,  "DP 'clip' parameter not provided"
+        assert  self.dp_args['type'] in ['central','local'], "DP strategy unknown"
 
-        print('############### Initializing DP##################')
-
-        assert 'type' in self.DP,  "DP 'type' not provided"
-        assert 'sigma' in self.DP, "DP 'sigma' parameter not provided"
-        assert 'clip' in self.DP,  "DP 'clip' parameter not provided"
-        assert  self.DP['type'] in ['central','local'], "DP strategy unknown"
-
-        if self.DP['type'] == 'local':
+        if self.dp_args['type'] == 'local':
             try:
-                float(self.DP['sigma'])
+                float(self.dp_args['sigma'])
             except ValueError:
                 msg = ErrorNumbers.FB605.value + ": 'sigma'  parameter requested is not a float"
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
         else:
-            self.DP.update(sigma_CDP=dp_args['sigma'])
-            self.DP['sigma'] = 0. 
+            self.dp_args.update(sigma_CDP=self.dp_args['sigma'])
+            self.dp_args['sigma'] = 0. 
         try:
-            float(self.DP['clip'])
+            float(self.dp_args['clip'])
         except ValueError:
             msg = ErrorNumbers.FB605.value + ": 'clip'  parameter requested is not a float"
             logger.critical(msg)
@@ -527,9 +522,9 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
             none
         """
 
-        if self.DP['type'] == 'central':
+        if self.dp_args['type'] == 'central':
 
-            sigma_CDP = deepcopy(self.DP['sigma_CDP'])
+            sigma_CDP = deepcopy(self.dp_args['sigma_CDP'])
             
             delta_params = {}
             perturbed_params = {}
@@ -545,7 +540,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 ### Perturb update and update parameters
                 ###
                 delta_theta_tilde = deepcopy(delta_param)
-                delta_theta_tilde += sigma_CDP*self.DP['clip'] * torch.randn_like(delta_theta_tilde)
+                delta_theta_tilde += sigma_CDP*self.dp_args['clip'] * torch.randn_like(delta_theta_tilde)
                 perturbed_params[key]= delta_theta_tilde + self.init_params[key]
             
             params = deepcopy(perturbed_params )
@@ -594,6 +589,14 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 logger.error(f"Process `{process_type}` is not implemented for `TorchTrainingPlan`. Preprocess will "
                              f"be ignored")
 
+    def validate_and_fix_model(self):
+        from opacus.validators import ModuleValidator
+        # Validate and Fix model to be DP-compliant
+        if not ModuleValidator.is_valid(self.model):
+            print('######################################## Fixing Model ########################################')
+            self.model = ModuleValidator.fix(self.model)
+
+
     def __preprocess_ldp(self, data_loader):
         """
         Method to enable DP training using Opacus.
@@ -615,8 +618,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         self.model, self.optimizer, data_loader = self.privacy_engine.make_private(module=self.model,
                                                                               optimizer=self.optimizer,
                                                                               data_loader = data_loader,
-                                                                              noise_multiplier=self.DP.get('sigma'),
-                                                                              max_grad_norm=self.DP.get('clip')
+                                                                              noise_multiplier=self.dp_args.get('sigma'),
+                                                                              max_grad_norm=self.dp_args.get('clip')
                                                                     )
         
         return data_loader
