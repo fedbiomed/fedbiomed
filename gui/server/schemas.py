@@ -311,14 +311,14 @@ class ValidateBIDSAddRequest(Validator):
                 },
             },
             "reference_csv_path": {
-                "type": "array",
+                "type": ["array", "null"],
                 "default": None,
                 "errorMessages": {
                     "type": "Reference CSV path should be given as an array"
                 },
             },
             "index_col": {
-                "type": "integer",
+                "type": ["integer", "null"],
                 "default": None,
                 "errorMessage": {
                     "type": "Index column should be declared as an integer"}

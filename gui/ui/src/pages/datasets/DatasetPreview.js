@@ -109,9 +109,11 @@ export const DatasetPreview = (props) => {
             content  =  shape.join(' x ')
         }else{
             Object.keys(shape).forEach((item, key) => {
-                content += item + ": "
-                content += Array.isArray(shape[item]) ? shape[item].join(' x ') : shape[item].toString()
-                content += " | "
+                if(shape[item]){
+                    content += item + ": "
+                    content += Array.isArray(shape[item]) ? shape[item].join(' x ') : shape[item].toString()
+                    content += " | "
+                }
             })
         }
         return content

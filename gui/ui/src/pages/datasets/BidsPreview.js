@@ -29,8 +29,8 @@ const BidsPreview = (props) => {
         return (
             <React.Fragment>
                 <Table style={{maxHeight:350,textAlign:'center'}}>
-                    <TableHead table={props.bids.subject_table} hoverColumns={false}/>
-                    <TableRows table={props.bids.subject_table} hoverColumns={false} transformation={transform}/>
+                    <TableHead table={props.bids.subject_table} showIndex={true} hoverColumns={false} indexName={"Subjects"}/>
+                    <TableRows table={props.bids.subject_table} showIndex={true} hoverColumns={false} transformation={transform}/>
                 </Table>
             </React.Fragment>
         );

@@ -183,8 +183,11 @@ export const TableHead = (props) => {
     return (
          <thead className={props.theadClassName} style={props.theadStyle}>
             <tr>
+                {props.table.index && props.showIndex ? (
+                            <th>{props.indexName ? props.indexName : "-"}</th>
+                        ) : null
+                }
                 {props.table.columns.map((item, key) => {
-
                     if(props.hoverColumns){
                         return <th key={key} className={props.hoverColIndex === key ||
                                                     props.activeColIndex === key ?
@@ -204,6 +207,7 @@ export const TableHead = (props) => {
                     }
 
                 })}
+
             </tr>
          </thead>
     )
@@ -223,6 +227,11 @@ export const TableRows = (props) => {
                 return(
                     <tr key={'row-'+key} className={props.className}>
                         <React.Fragment>
+                            { props.table.index && props.showIndex ? (
+                                <TableCol transformation={props.transformation} >
+                                    {props.table.index[key]}
+                                </TableCol>
+                            ): null}
                             {row.map((col, key_col) => {
                                 if(props.hoverColumns){
                                     return(

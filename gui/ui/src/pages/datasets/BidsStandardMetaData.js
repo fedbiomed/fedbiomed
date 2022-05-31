@@ -1,15 +1,13 @@
 import React from 'react';
 import {Label, Tag, Text, TextArea} from "../../components/common/Inputs";
+import {connect} from "react-redux"
+import {setBIDSDatasetMetadata} from "../../store/actions/bidsDatasetActions";
+
 
 const DatasetMetadata = (props) => {
 
-    const [metadata, setMetaData ] = React.useState({})
-
-    const setDatasetMetadata = (name, value) => {
-        setMetaData({...metadata, [name] : value})
-        if(props.onMetadataChange ){
-            props.onMetadataChange(metadata)
-        }
+    const setBIDSDatasetMetadata = (name, value) => {
+        props.setBIDSDatasetMetadata({[name] : value})
     }
 
     return (
@@ -22,8 +20,8 @@ const DatasetMetadata = (props) => {
                             name={"name"}
                             type="text"
                             placeholder="Enter name for dataset"
-                            onChange={(e) => { setDatasetMetadata('name', e.target.value)}}
-                            value={metadata.name}
+                            onChange={(e) => { setBIDSDatasetMetadata('name', e.target.value)}}
+                            value={props.metadata.name ? props.metadata.name : ""}
                         />
                     </div>
                     <div className="form-control" >
@@ -32,8 +30,8 @@ const DatasetMetadata = (props) => {
                             name={"tags"}
                             type="text"
                             placeholder="Enter tags"
-                            onChange={(e) => { setDatasetMetadata('tags', e.target.value)}}
-                            tags={metadata.tags}
+                            onChange={(e) => { setBIDSDatasetMetadata('tags', e.target.value)}}
+                            tags={props.metadata.tags ? props.metadata.tags : ""}
                         />
 
                     </div>
@@ -44,8 +42,8 @@ const DatasetMetadata = (props) => {
                         <TextArea name="desc"
                                   type="text"
                                   placeholder="Please type a description for dataset"
-                                  onChange={(e) => { setDatasetMetadata('desc', e.target.value)}}
-                                  value={metadata.desc}
+                                  onChange={(e) => { setBIDSDatasetMetadata('desc', e.target.value)}}
+                                  value={props.metadata.desc ? props.metadata.desc : "" }
                         />
                     </div>
                 </div>
@@ -53,4 +51,16 @@ const DatasetMetadata = (props) => {
     );
 };
 
-export default DatasetMetadata;
+const mapStateToProps = (state) => {
+    return {
+        metadata : state.bidsDataset.metadata
+    }
+}
+
+const mapDispatchToProps = (dispatch) => {
+    return {
+        setBIDSDatasetMetadata : (data) => dispatch(setBIDSDatasetMetadata(data))
+    }
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(DatasetMetadata);

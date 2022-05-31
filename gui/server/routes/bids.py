@@ -118,13 +118,9 @@ def bids_preview():
 
     modalities, _ = bids_controller.modalities()
 
-    table = [[i[0], *i[1].values()] for i in subject_table.items()]
-    subject_table = pd.DataFrame(table,
-                                 columns=["Subjects"] + modalities + ["In Folder", "In Index"])
-
     data = {
-        "subject_table": subject_table.to_dict("split"),
+        "subject_table": subject_table,
         "modalities": modalities,
     }
-
+    print(data)
     return response(data=data), 200

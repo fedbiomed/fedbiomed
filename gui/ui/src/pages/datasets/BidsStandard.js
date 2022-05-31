@@ -6,13 +6,14 @@ import FileBrowser from "../../components/common/FileBrowser";
 import {setFolderPath,
     setFolderRefColumn,
     setReferenceCSV,
-    setBIDSDatasetMetadata,
-    addBIDSDataset} from "../../store/actions/bidsDatasetActions"
+    addBIDSDataset,
+    setIgnoreReferenceCsv} from "../../store/actions/bidsDatasetActions"
 import {SelectiveTable} from "../../components/common/Tables";
 import BidsSubjectInformation from "./BidsSubjectInformation";
 import Button, {ButtonsWrapper} from "../../components/common/Button";
 import {useNavigate, useParams, useLocation} from "react-router-dom";
 import DatasetMetadata from "./BidsStandardMetaData";
+import {CheckBox} from "../../components/common/Inputs";
 
 
 const withRouter = (Component) =>  {
@@ -36,7 +37,6 @@ export class  BidsStandard extends React.Component {
 
     constructor(props) {
         super(props);
-        this.state = {}
     }
 
     setDataPath = (path) => {
@@ -56,14 +56,14 @@ export class  BidsStandard extends React.Component {
             name: this.props.bidsDataset.reference_csv.data.columns[index]
         })
     }
-    setBIDSDatasetMetadata = (data) => {
-        this.props.setBIDSDatasetMetadata(data)
-    }
 
     addDataset = () => {
         this.props.addBIDSDataset(this.props.router.navigate)
     }
 
+    ignoreReferenceCsv = (status) => {
+        this.props.ignoreReferenceCsv(status)
+    }
 
     render() {
         return (
@@ -96,17 +96,24 @@ export class  BidsStandard extends React.Component {
                         step={2}
                         desc={'Please select reference/demographics CSV file where all subject folder names are stored'}
                     >
-                       <FileBrowser
-                            folderPath = {this.props.bidsDataset.reference_csv ? this.props.bidsDataset.reference_csv.path : null}
-                            onSelect = {this.setReferenceCSV}
-                            onlyExtensions = {[".csv"]}
-                            buttonText = "Select Data File"
-                       />
+                       <CheckBox onChange={this.ignoreReferenceCsv}
+                                 checked={this.props.ignore_reference_csv}>
+                           Use only subject folders for BIDS dataset. This option will allow you to loads BIDS dataset
+                           without declaring reference/demographics csv.
+                       </CheckBox>
+                        { !this.props.ignore_reference_csv ? (
+                             <FileBrowser
+                                folderPath = {this.props.bidsDataset.reference_csv ? this.props.bidsDataset.reference_csv.path : null}
+                                onSelect = {this.setReferenceCSV}
+                                onlyExtensions = {[".csv"]}
+                                buttonText = "Select Data File"
+                           />
+                        ) : null}
                     </Step>
                     ) : null
                 }
 
-                {this.props.bids_root && this.props.bidsDataset.reference_csv != null ? (
+                { !this.props.ignore_reference_csv && this.props.bids_root && this.props.bidsDataset.reference_csv != null ? (
                     <Step
                         key={3}
                         step={3}
@@ -123,16 +130,19 @@ export class  BidsStandard extends React.Component {
                     </Step>
                 ) : null }
 
-                {this.props.bidsDataset.bids_ref.ref.name != null ? (
+                {this.props.bidsDataset.bids_ref.ref.name != null || this.props.ignore_reference_csv ? (
                     <Step
                         key={4}
                         step={4}
                         desc={'Please enter following information'}
                     >
-                        <DatasetMetadata onMetadataChange={this.setBIDSDatasetMetadata}/>
+                        <DatasetMetadata/>
                     </Step>
                 ) : null }
-                {this.props.metadata.name && this.props.metadata.tags && this.props.metadata.desc ? (
+                {(this.props.metadata.name && this.props.metadata.tags && this.props.metadata.desc) &&
+                    ((!this.props.ignore_reference_csv && this.props.bidsDataset.bids_ref.ref.name ) ||
+                      this.props.ignore_reference_csv
+                    )? (
                     <Step
                         key={5}
                         step={5}
@@ -160,7 +170,8 @@ const mapStateToProps = (state) => {
     return {
         metadata : state.bidsDataset.metadata,
         bids_root : state.bidsDataset.bids_root,
-        bidsDataset : state.bidsDataset
+        bidsDataset : state.bidsDataset,
+        ignore_reference_csv : state.bidsDataset.ignore_reference_csv
     }
 }
 
@@ -174,8 +185,8 @@ const mapDispatchToProps = (dispatch) => {
         setFolderPath : (data) => dispatch(setFolderPath(data)),
         setReferenceCSV : (data) => dispatch(setReferenceCSV(data)),
         setFolderRefColumn : (data) => dispatch(setFolderRefColumn(data)),
-        setBIDSDatasetMetadata : (data) => dispatch(setBIDSDatasetMetadata(data)),
-        addBIDSDataset : (navigate) => dispatch(addBIDSDataset(navigate))
+        addBIDSDataset : (navigate) => dispatch(addBIDSDataset(navigate)),
+        ignoreReferenceCsv : (data) => dispatch(setIgnoreReferenceCsv(data))
     }
 }
 

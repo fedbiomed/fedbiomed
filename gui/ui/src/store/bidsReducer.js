@@ -20,6 +20,7 @@ const initialState = {
         desc: null,
     },
     reference_csv: null,
+    ignore_reference_csv: false,
 }
 
 
@@ -96,6 +97,11 @@ export const bidsReducer = (state = initialState, action) => {
                 ...state,
                 bids_ref : initialState.bids_ref,
                 reference_csv : null
+            }
+        case "SET_IGNORE_REFERENCE_CSV":
+            return {
+                ...state,
+                ignore_reference_csv : action.payload
             }
         case "RESET_BIDS":
             return initialState

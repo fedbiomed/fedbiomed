@@ -118,6 +118,13 @@ export const setBIDSDatasetMetadata = (data) => {
     }
 }
 
+
+export const setIgnoreReferenceCsv = (data) => {
+    return (dispatch) => {
+        dispatch({type: "SET_IGNORE_REFERENCE_CSV", payload: data})
+    }
+}
+
 /**
  * Sends BIDS dataset add request and validate result
  * @returns {(function(*))|*}
@@ -128,11 +135,17 @@ export const addBIDSDataset = (navigator) => {
         let bids = getState().bidsDataset
         let data = {
             bids_root : bids.bids_root,
-            index_col: bids.bids_ref.ref.index,
-            reference_csv_path: bids.reference_csv.path,
             name : bids.metadata.name,
             desc : bids.metadata.desc,
             tags : bids.metadata.tags
+        }
+
+        if(!bids.ignore_reference_csv){
+            data = {
+                ...data,
+                index_col: bids.bids_ref.ref.index,
+                reference_csv_path: bids.reference_csv ? bids.reference_csv.path : null,
+            }
         }
         axios.post(EP_ADD_BIDS_DATASET, data).then( response => {
                 dispatch({type: 'SUCCESS_MODAL' , payload: "Dataset has been successfully added"})

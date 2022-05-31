@@ -735,21 +735,24 @@ class BIDSController(BIDSBase):
             Modality status for each subject that indicates which modalities are available
         """
 
-        modality_status = {}
-        _, modalities = self.modalities()
+
+        modalities, _ = self.modalities()
         subjects = self.subjects_with_imaging_data_folders()
+        modality_status = {"columns": [*modalities], "data": [], "index": []}
 
         if index is not None:
             _, missing_subjects, missing_entries = self.available_subjects(subjects_from_index=index)
+            modality_status["columns"].extend(["in_folder", "in_index"])
 
         for subject in subjects:
-            modality_status.update({subject: {}})
             modality_report = self.is_modalities_existing(subject, modalities)
-            modality_status[subject] = {modality: status for modality, status in zip(modalities, modality_report)}
-
+            status_list = [status for status in modality_report]
             if index is not None:
-                modality_status[subject].update({"in_folder": False if subject in missing_subjects else True})
-                modality_status[subject].update({"in_index": False if subject in missing_entries else True})
+                status_list.extend(False if subject in missing_subjects else True)
+                status_list.extend(False if subject in missing_entries else True)
+
+            modality_status["data"].append(status_list)
+            modality_status["index"].append(subject)
 
         return modality_status
 

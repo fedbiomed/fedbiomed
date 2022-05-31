@@ -1,5 +1,5 @@
 import React from 'react'
-
+import styles from "./Inputs.module.css"
 
 export const Label = (props) => {
 
@@ -207,5 +207,22 @@ export const Select = (props) => {
                 props.children
             ) : null}
         </select>
+    )
+}
+
+export const CheckBox = (props) => {
+
+    const [checked, setChecked] = React.useState(props.checked)
+
+    const handleChange = () => {
+        setChecked(!checked)
+        props.onChange(!checked)
+    }
+
+    return(
+        <label className={styles.checkboxLabel}>
+            <input className={styles.checkboxInput} name={props.name} type={"checkbox"} checked={checked} onChange={handleChange}/>
+            {props.children}
+        </label>
     )
 }
