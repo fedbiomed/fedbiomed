@@ -109,18 +109,19 @@ class ModelManager:
                        model_id: str = None,
                        researcher_id: str = None
                        ) -> True:
-        """Approves/registers model file thourgh CLI.
+        """Approves/registers model file through CLI.
 
         Args:
-            name: Model file name. The name should be unique. Otherwise methods
+            name: Model file name. The name should be unique. Otherwise, methods
                 throws an Exception FedbiomedModelManagerError
-            description: Description fro model file.
+            description: Description for model file.
             path: Exact path for the model that will be registered
             model_type: Default is `registered`. It means that model has been registered
                 by a user/hospital. Other value can be `default` which indicates
                 that model is default (models for tutorials/examples)
             model_id: Pre-defined id for model. Default is None. When it is Nonde method
                 creates unique id for the model.
+            researcher_id: ID of the researcher who is owner/requester of the model file
 
         Raises:
             FedbiomedModelManagerError: `model_type` is not `registered` or `default`
@@ -171,7 +172,6 @@ class ModelManager:
                                 date_registered=rtime,
                                 date_last_action=rtime
                                 )
-
 
             try:
                 self._db.insert(model_object)
@@ -371,6 +371,7 @@ class ModelManager:
 
         is_registered = False
         non_downaloadable = False
+
         try:
             # model_id = str(uuid.uuid4())
             model_name = "model_" + str(uuid.uuid4())
@@ -402,7 +403,7 @@ class ModelManager:
 
                 model_hash, hash_algo = self._create_hash(model_to_check)
                 model_object = dict(name=model_name,
-                                    description = msg['description'],
+                                    description=msg['description'],
                                     hash=model_hash,
                                     model_path=model_path,
                                     model_id=model_name,
@@ -464,7 +465,7 @@ class ModelManager:
             status, _ = self._repo.download_file(msg['model_url'], model_name + '.py')
             if status != 200:
                 # FIXME: should 'approval_obligation' be always false when model cannot be downloaded,
-                # regardless of environment variable "MODEL_APPROVAL"?
+                #  regardless of environment variable "MODEL_APPROVAL"?
                 reply = {**header,
                          'success': False,
                          'approval_obligation': False,
@@ -688,14 +689,11 @@ class ModelManager:
             mtime = datetime.fromtimestamp(os.path.getmtime(model_path))
             # Get creation date
             ctime = datetime.fromtimestamp(os.path.getctime(model_path))
-            self._db.update({
-                             #'model_type': model_type.value,
-                             'model_status': model_status.value,
+            self._db.update({'model_status': model_status.value,
                              'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
                              'date_created': ctime.strftime("%d-%m-%Y %H:%M:%S.%f"),
                              'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f"),
-                             'notes': notes
-                            },
+                             'notes': notes},
                             self._database.model_id == model_id)
             logger.info(f"Model {model_id} status changed to {model_status.value} !")
 
@@ -747,8 +745,8 @@ class ModelManager:
             Currently always returns True.
 
         Raises:
-            FedBiomedModelManagerError: cannot read model from the database
-            FedBiomedModelManagerError: model is not a `registered` model (thus a `default` model)
+            FedbiomedModelManagerError: cannot read model from the database
+            FedbiomedModelManagerError: model is not a `registered` model (thus a `default` model)
         """
 
         self._db.clear_cache()
@@ -765,7 +763,6 @@ class ModelManager:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": cannot get model from database."
                                              f"Details: {str(err)}")
         return True
-
 
     def list_models(self, sort_by: Union[str, None] = None,
                     select_status: Union[None, ModelApprovalStatus, List[ModelApprovalStatus]] = None,
@@ -786,13 +783,12 @@ class ModelManager:
                 'hash', dates due to privacy reasons).
 
         Raises: FedbiomedModelManagerError triggers if request to database failed
-        
         """
 
         self._db.clear_cache()
 
         if isinstance(select_status, (ModelApprovalStatus, list)):
-            # filetring model based on their status
+            # filtering model based on their status
             if not isinstance(select_status, list):
                 # convert everything into a list
                 select_status = [select_status]
@@ -825,7 +821,6 @@ class ModelManager:
                 models = sorted(models, key= lambda x: (x[sort_by] is None, x[sort_by]))
             else:
                 logger.warning(f"Field {sort_by} is not available in dataset")
-
 
         if verbose:
             print(tabulate(models, headers='keys'))
