@@ -292,6 +292,7 @@ class DatasetManager:
 
         Raises:
             NotImplementedError: `data_type` is not supported.
+            FedbiomedDatasetManagerError: path does not exist or dataset was not saved properly.
         """
         # Accept tilde as home folder
         path = os.path.expanduser(path)
@@ -333,12 +334,19 @@ class DatasetManager:
                 raise FedbiomedDatasetManagerError(f'File ({dataset_parameters["tabular_file"]}) not found.')
 
             try:
-                # load through the BIDSController to ensure all available modalities are inspected
+                # load using the BIDSController to ensure all available modalities are inspected
                 dataset = BIDSController(root=path).load_bids(tabular_file=dataset_parameters['tabular_file'],
                                                               index_col=dataset_parameters['index_col'])
             except FedbiomedError as e:
                 raise FedbiomedDatasetManagerError(f"Can not create BIDS dataset. {e}")
-            shape = dataset.shape()
+            else:
+                shape = dataset.shape()
+
+            # try to read one sample and raise if it doesn't work
+            try:
+                _ = dataset[0]
+            except Exception as e:
+                raise FedbiomedDatasetManagerError(f'BIDS Dataset was not saved properly and cannot be read. {e}')
 
         if not dataset_id:
             dataset_id = 'dataset_' + str(uuid.uuid4())
