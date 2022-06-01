@@ -735,7 +735,6 @@ class BIDSController(BIDSBase):
             Modality status for each subject that indicates which modalities are available
         """
 
-
         modalities, _ = self.modalities()
         subjects = self.subjects_with_imaging_data_folders()
         modality_status = {"columns": [*modalities], "data": [], "index": []}
@@ -748,8 +747,8 @@ class BIDSController(BIDSBase):
             modality_report = self.is_modalities_existing(subject, modalities)
             status_list = [status for status in modality_report]
             if index is not None:
-                status_list.extend(False if subject in missing_subjects else True)
-                status_list.extend(False if subject in missing_entries else True)
+                status_list.append(False if subject in missing_subjects else True)
+                status_list.append(False if subject in missing_entries else True)
 
             modality_status["data"].append(status_list)
             modality_status["index"].append(subject)
