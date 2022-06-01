@@ -344,7 +344,7 @@ class DatasetManager:
 
             # try to read one sample and raise if it doesn't work
             try:
-                _ = dataset[0]
+                _ = dataset.get_nontransformed_item(0)
             except Exception as e:
                 raise FedbiomedDatasetManagerError(f'BIDS Dataset was not saved properly and cannot be read. {e}')
 

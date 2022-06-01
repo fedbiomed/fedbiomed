@@ -433,10 +433,8 @@ class BIDSDataset(Dataset, BIDSBase):
             ToTensor()
         ])
 
-    def __getitem__(self, item):
-
+    def get_nontransformed_item(self, item):
         # For the first item retrieve complete subject folders
-
         subjects = self.subject_folders()
         
         if not subjects:
@@ -453,6 +451,10 @@ class BIDSDataset(Dataset, BIDSBase):
 
         # Demographics
         demographics = self._get_from_demographics(subject_id=subject_folder.name)
+        return (data, demographics), targets
+
+    def __getitem__(self, item):
+        (data, demographics), targets = self.get_nontransformed_item(item)
 
         # Apply transforms to data elements
         if self._transform is not None:
@@ -471,10 +473,10 @@ class BIDSDataset(Dataset, BIDSBase):
                     targets[modality] = target_transform(targets[modality])
                 except Exception as e:
                     raise FedbiomedDatasetError(
-                        f"{ErrorNumbers.FB613.value}: Cannot apply transformation to modality `{modality}` in target "
-                        f"sample number {item} from dataset, error message is {e}.")
+                        f"{ErrorNumbers.FB613.value}: Cannot apply target transformation to modality `{modality}`"
+                        f"in sample number {item} from dataset, error message is {e}.")
 
-        return dict(data=data, target=targets, demographics=demographics)
+        return (data, demographics), targets
 
     def __len__(self):
         """ Length method to get number of samples
@@ -640,8 +642,8 @@ class BIDSDataset(Dataset, BIDSBase):
 
         # Get all modalities
         modalities = list(set(self._data_modalities + self._target_modalities))
-        sample = self[0]
-        result = {modality: list(sample["data"][modality].shape) for modality in modalities}
+        (image, _), _ = self.get_nontransformed_item(0)
+        result = {modality: list(image[modality].shape) for modality in modalities}
 
         num_modalities = len(modalities)
         demographics_shape = self.demographics.shape if self.demographics is not None else None
