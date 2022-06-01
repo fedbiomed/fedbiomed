@@ -316,7 +316,7 @@ class BIDSBase:
         return available_subjects, missing_subject_folders, missing_entries
 
     @staticmethod
-    def read_demographics(path: Union[str, Path], index_col: int):
+    def read_demographics(path: Union[str, Path], index_col: Optional[int] = None):
         """ Read demographics tabular file for BIDS dataset
 
         """
@@ -325,6 +325,10 @@ class BIDSBase:
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Demographics should be CSV or TSV files")
 
         return pd.read_csv(path, index_col=index_col, engine='python')
+
+    @staticmethod
+    def demographics_column_names(path: Union[str, Path]):
+        return BIDSBase.read_demographics(path).columns.values
 
     @staticmethod
     def validate_bids_root_folder(path: Union[str, Path]) -> Path:
@@ -705,6 +709,18 @@ class BIDSDataset(Dataset, BIDSBase):
         else:
             raise FedbiomedDatasetError(f'{ErrorNumbers.FB613.value}: As you have multiple data modalities, transforms '
                                         f'have to be a dictionary using the modality keys: {modalities}')
+
+    def set_dataset_params(self, params: dict) -> None:
+        """Sets additional parameters retrieved from the local node DB.
+
+        In the BIDS case, it is used to set the path to the tabular file and the index column.
+
+        Args:
+            params: dictionary of {parameter name: parameter value}
+        """
+        for param_name, param_value in params.items():
+            if hasattr(self, param_name):
+                setattr(self, param_name, param_value)
 
 
 class BIDSController(BIDSBase):
