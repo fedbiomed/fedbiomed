@@ -195,7 +195,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         """
 
         if (self.dp_args):
-            self.validate_and_fix_model()
             self.initialize_dp(dp_args)
 
         # set correct type for node args
