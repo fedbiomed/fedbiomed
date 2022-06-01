@@ -2,20 +2,21 @@ import os
 import uuid
 import re
 
-import pandas as pd
-from functools import cache
+from cache import cached
 from flask import jsonify, request, g
 from db import database
+from . import api
+from app import app
+from middlewares import middleware, bids, common
+
 from utils import success, error, validate_json, validate_request_data, response
 from schemas import ValidateBIDSReferenceCSV, \
     ValidateBIDSRoot, \
     ValidateBIDSAddRequest, \
     PreviewDatasetRequest
-from . import api
-from app import app
-from middlewares import middleware, bids, common
+
 from fedbiomed.common.data import BIDSController
-from cache import cached
+
 
 # Bids Controller
 bids_controller = BIDSController()
@@ -23,8 +24,6 @@ bids_controller = BIDSController()
 # Path to write and read the datafiles
 DATA_PATH_RW = app.config['DATA_PATH_RW']
 
-# Request object as JSON
-req = request.json
 
 # Database table (default datasets table of TinyDB) and query object
 table = database.db().table('_default')
@@ -57,6 +56,10 @@ def validate_root_path():
                          bids.create_and_validate_bids_dataset])
 def add_bids_dataset():
     """ Adds BIDS dataset into database of NODE """
+
+    # Request object as JSON
+    req = request.json
+
     data_path_save = os.path.join(app.config['DATA_PATH_SAVE'], *req['bids_root'])
 
     # Create unique id for the dataset
@@ -98,6 +101,10 @@ def add_bids_dataset():
 @cached(key="dataset_id", prefix="bids-preview", timeout=600)
 def bids_preview():
     """Gets preview of BIDS dataset by providing a table of subject and available modalities"""
+
+    # Request object as JSON
+    req = request.json
+
     dataset = table.get(query.dataset_id == req['dataset_id'])
 
     # Extract data path where the files are saved in the local GUI repository
