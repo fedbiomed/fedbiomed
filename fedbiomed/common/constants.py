@@ -42,6 +42,7 @@ class ModelTypes(_BaseEnum):
     """Constant values for model type that will be saved into db
 
     Attributes:
+        REQUESTED: ??
         REGISTERED: means model saved by a user/hospital/node
         DEFAULT: means model is default model provided by Fed-BioMed
     """
@@ -51,6 +52,13 @@ class ModelTypes(_BaseEnum):
 
 
 class ModelApprovalStatus(_BaseEnum):
+    """Enumeration class for model approval status of a model on a node when model approval is active.
+
+    Attributes:
+        APPROVED: model was accepted for this node, can be executed now
+        REJECTED: model was disapproved for this node, cannot be executed
+        PENDING: model is waiting for review and approval, cannot be executed yet
+    """
     APPROVED: str = "Approved"
     REJECTED: str = "Rejected"
     PENDING: str = "Pending"
