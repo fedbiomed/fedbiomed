@@ -1,7 +1,6 @@
 import os
 from flask import Flask, render_template, send_from_directory
 from config import Config
-from flask_caching import Cache
 
 
 build_dir = os.getenv('BUILD_DIR', '../ui/gui-build')
@@ -14,7 +13,6 @@ db_prefix = os.getenv('DB_PREFIX', 'db_')
 config = Config()
 app.config.update(config.generate_config())
 
-cache = Cache(app)
 
 # Import api route blueprint before importing routes
 # and register as blueprint
