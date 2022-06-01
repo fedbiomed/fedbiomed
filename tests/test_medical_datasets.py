@@ -278,7 +278,7 @@ class TestBIDSDataset(unittest.TestCase):
         _create_synthetic_dataset(self.root, self.n_samples, self.tabular_file, self.index_col)
 
     def test_instantiating_dataset(self):
-        dataset = BIDSDataset(self.root)
+        dataset = BIDSDataset(self.root, demographics_transform=lambda x: torch.Tensor([0.]))
         self._assert_batch_types_and_sizes(dataset)
 
         with self.assertRaises(FedbiomedDatasetError):
@@ -293,18 +293,20 @@ class TestBIDSDataset(unittest.TestCase):
         print(dataset.demographics.head())
 
     def test_instantiation_with_demographics(self):
-        dataset = BIDSDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
+        dataset = BIDSDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col,
+                              demographics_transform=lambda x: torch.as_tensor(x['AGE']))
         self._assert_batch_types_and_sizes(dataset)
 
     def test_data_transforms(self):
-        dataset = BIDSDataset(self.root, transform=self.transform)
-        batch = dataset[0]
-        self.assertTrue(batch['data']['T1'].dim() == 1)
+        dataset = BIDSDataset(self.root, transform=self.transform, demographics_transform=lambda x: torch.Tensor([0.]))
+        (images, demographics), targets = dataset[0]
+        self.assertTrue(images['T1'].dim() == 1)
 
     def test_target_transform(self):
-        dataset = BIDSDataset(self.root, target_transform=self.target_transform)
-        batch = dataset[0]
-        self.assertEqual(batch['data']['T1'].shape, batch['target']['label'].shape)
+        dataset = BIDSDataset(self.root, target_transform=self.target_transform,
+                              demographics_transform=lambda x: torch.Tensor([0.]))
+        (images, demographics), targets = dataset[0]
+        self.assertEqual(images['T1'].shape, targets['label'].shape)
 
     def test_bids_dataset_set_dataset_parameters(self):
 
@@ -319,16 +321,15 @@ class TestBIDSDataset(unittest.TestCase):
 
     def _assert_batch_types_and_sizes(self, dataset):
         data_loader = DataLoader(dataset, batch_size=self.batch_size)
-        batch = iter(data_loader).next()
+        (images, demographics), targets = iter(data_loader).next()
 
-        self.assertIsInstance(batch, dict)
-        self.assertIsInstance(batch['data'], dict)
-        self.assertIsInstance(batch['target'], dict)
-        self.assertIsInstance(batch['demographics'], dict)
+        self.assertIsInstance(images, dict)
+        self.assertIsInstance(targets, dict)
+        self.assertIsInstance(demographics, torch.Tensor)
 
-        lengths = [len(b) for b in batch['data'].values()]
-        lengths += [len(b) for b in batch['target'].values()]
-        lengths += [len(b) for b in batch['demographics'].values()]
+        lengths = [len(b) for b in images.values()]
+        lengths += [len(b) for b in targets.values()]
+        lengths += [demographics.shape[0]]
 
         # Assert for batch size on modalities and demographics
         self.assertTrue(len(set(lengths)) == 1)
