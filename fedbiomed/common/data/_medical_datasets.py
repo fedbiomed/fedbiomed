@@ -401,6 +401,7 @@ class BIDSDataset(Dataset, BIDSBase):
                  transform: Union[Callable, Dict[str, Callable]] = None,
                  target_modalities: Optional[Union[str, Iterable[str]]] = 'label',
                  target_transform: Union[Callable, Dict[str, Callable]] = None,
+                 demographics_transform: Optional[Callable] = None,
                  tabular_file: Union[str, PathLike, Path, None] = None,
                  index_col: Union[int, str, None] = None,
                  ):
@@ -426,6 +427,7 @@ class BIDSDataset(Dataset, BIDSBase):
 
         self._transform = self._check_and_reformat_transforms(transform, data_modalities)
         self._target_transform = self._check_and_reformat_transforms(target_transform, target_modalities)
+        self._demographics_transform = demographics_transform
 
         # Image loader
         self._reader = Compose([
@@ -465,6 +467,24 @@ class BIDSDataset(Dataset, BIDSBase):
                     raise FedbiomedDatasetError(
                         f"{ErrorNumbers.FB613.value}: Cannot apply transformation to modality `{modality}` in "
                         f"sample number {item} from dataset, error message is {e}.")
+
+        # Apply transforms to demographics elements
+        if self._demographics_transform is not None:
+            try:
+                demographics = self._demographics_transform(demographics)
+            except Exception as e:
+                raise FedbiomedDatasetError(
+                    f"{ErrorNumbers.FB613.value}: Cannot apply demographics transformation to "
+                    f"sample number {item} from dataset. Error message: {e}.")
+
+        # Try to convert demographics to tensor one last time
+        try:
+            demographics = torch.as_tensor(demographics)
+        except Exception as e:
+            raise FedbiomedDatasetError(f'{ErrorNumbers.FB310.value}: Could not convert demographics to torch Tensor. '
+                                        f'Please use demographics_transformation argument of BIDSDataset to convert '
+                                        f'the results manually or provide a data type that can be easily converted.\n'
+                                        f'Reason for failed conversion: {e}')
 
         # Apply transform to target elements
         if self._target_transform is not None:
