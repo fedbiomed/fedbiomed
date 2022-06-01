@@ -16,8 +16,19 @@ from app import app
 from middlewares import middleware, bids, common
 from fedbiomed.common.data import BIDSController
 from cache import cached
+
+# Bids Controller
 bids_controller = BIDSController()
+
+# Path to write and read the datafiles
 DATA_PATH_RW = app.config['DATA_PATH_RW']
+
+# Request object as JSON
+req = request.json
+
+# Database table (default datasets table of TinyDB) and query object
+table = database.db().table('_default')
+query = database.query()
 
 
 @api.route('/datasets/bids/validate-reference-column', methods=['POST'])
@@ -46,10 +57,6 @@ def validate_root_path():
                          bids.create_and_validate_bids_dataset])
 def add_bids_dataset():
     """ Adds BIDS dataset into database of NODE """
-    req = request.json
-    table = database.db().table('_default')
-    query = database.query()
-
     data_path_save = os.path.join(app.config['DATA_PATH_SAVE'], *req['bids_root'])
 
     # Create unique id for the dataset
@@ -91,9 +98,6 @@ def add_bids_dataset():
 @cached(key="dataset_id", prefix="bids-preview", timeout=600)
 def bids_preview():
     """Gets preview of BIDS dataset by providing a table of subject and available modalities"""
-    req = request.json
-    table = database.db().table('_default')
-    query = database.query()
     dataset = table.get(query.dataset_id == req['dataset_id'])
 
     # Extract data path where the files are saved in the local GUI repository
@@ -122,5 +126,4 @@ def bids_preview():
         "subject_table": subject_table,
         "modalities": modalities,
     }
-    print(data)
     return response(data=data), 200
