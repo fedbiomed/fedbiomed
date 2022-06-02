@@ -12,7 +12,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from tinydb import TinyDB, Query
 
-FEDBIOMED_ROOT = os.path.dirname(os.path.dirname(__file__))
+FEDBIOMED_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 config_file = """
 [default]
 node_id = CENTER_ID
