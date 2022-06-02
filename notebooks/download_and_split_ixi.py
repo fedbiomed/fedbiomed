@@ -99,6 +99,7 @@ if __name__ == '__main__':
 
     # Federated Dataset
     federated_data_folder = os.path.join(root_folder, 'UniCancer-Centers')
+    shutil.rmtree(federated_data_folder, ignore_errors=True)
 
     csv_global = os.path.join(centralized_data_folder, 'participants.csv')
     allcenters = pd.read_csv(csv_global)
