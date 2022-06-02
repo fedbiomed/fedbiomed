@@ -146,29 +146,29 @@ if __name__ == '__main__':
             )
         test.to_csv(os.path.join(holdout_folder, 'participants.csv'))
 
-        # Populate node
-        print('Populating nodes...')
-        db_folder = os.path.join(FEDBIOMED_ROOT, 'var')
-        os.makedirs(db_folder, exist_ok=True)
-        db_file = os.path.join(db_folder, f'db_{center_name}.json')
-        db = TinyDB(db_file)
-        db.insert({
-            "name": "IXI",
-            "data_type": "bids",
-            "tags": ["bids-train"],
-            "description": "IXI",
-            "shape": {
-                "label": [83, 44, 55],
-                "T1": [83, 44, 55], "T2": [83, 44, 55],
-                "demographics": [len(train), 14],
-                "num_modalities": 3},
-            "path": train_folder,
-            "dataset_id": f"dataset_{uuid.uuid4()}",
-            "dtypes": [],
-            "dataset_parameters": {
-                "tabular_file": train_participants_csv,
-                "index_col": 14
-            }})
+        # # Populate node Does not work yet
+        # print('Populating nodes...')
+        # db_folder = os.path.join(FEDBIOMED_ROOT, 'var')
+        # os.makedirs(db_folder, exist_ok=True)
+        # db_file = os.path.join(db_folder, f'db_{center_name}.json')
+        # db = TinyDB(db_file)
+        # db.insert({
+        #     "name": "IXI",
+        #     "data_type": "bids",
+        #     "tags": ["bids-train"],
+        #     "description": "IXI",
+        #     "shape": {
+        #         "label": [83, 44, 55],
+        #         "T1": [83, 44, 55], "T2": [83, 44, 55],
+        #         "demographics": [len(train), 14],
+        #         "num_modalities": 3},
+        #     "path": train_folder,
+        #     "dataset_id": f"dataset_{uuid.uuid4()}",
+        #     "dtypes": [],
+        #     "dataset_parameters": {
+        #         "tabular_file": train_participants_csv,
+        #         "index_col": 14
+        #     }})
 
     print(f'Centralized dataset located at: {centralized_data_folder}')
     print(f'Federated dataset located at: {federated_data_folder}')
@@ -177,3 +177,5 @@ if __name__ == '__main__':
     print(f'Please start your nodes executing:')
     for center_name in center_names:
         print(f'\t./scripts/fedbiomed_run node config {center_name.lower()}.ini start')
+
+
