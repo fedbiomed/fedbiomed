@@ -42,6 +42,8 @@ def has_correct_checksum_md5(filename, hash):
         file_hash = hashlib.md5()
         while chunk := f.read(8192):
             file_hash.update(chunk)
+    print(type(file_hash), file_hash)
+    print(type(hash), hash)
 
     return str(file_hash) == hash
 
