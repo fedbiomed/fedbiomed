@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import hashlib
 import os
+import uuid
+
 import requests
 from tqdm import tqdm
 import argparse
@@ -8,6 +10,24 @@ from zipfile import ZipFile
 import shutil
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from tinydb import TinyDB, Query
+
+FEDBIOMED_ROOT = os.path.dirname(os.path.dirname(__file__))
+config_file = """
+[default]
+node_id = CENTER_ID
+uploads_url = http://localhost:8844/upload/
+
+[mqtt]
+broker_ip = localhost
+port = 1883
+keep_alive = 60
+
+[security]
+hashing_algorithm = SHA256
+allow_default_models = True
+model_approval = False
+"""
 
 
 def parse_args():
@@ -54,11 +74,11 @@ def download_and_extract_ixi_sample(root_folder):
         return data_folder
 
     # Extract if ZIP exists but not folder
-    if not os.path.exists(zip_filename) and has_correct_checksum_md5(zip_filename, 'eecb83422a2685937a955251fa45cb03'):
+    if not os.path.exists(zip_filename):
         # Download if it does not exist
         download_file(url, zip_filename)
 
-    if not os.path.isdir(data_folder):
+    if not os.path.isdir(data_folder) and has_correct_checksum_md5(zip_filename, 'eecb83422a2685937a955251fa45cb03'):
         with ZipFile(zip_filename, 'r') as zip_obj:
             zip_obj.extractall(root_folder)
 
@@ -85,6 +105,36 @@ if __name__ == '__main__':
     center_dfs = list()
 
     for center_name in center_names:
+        cfg_folder = os.path.join(FEDBIOMED_ROOT, 'etc')
+        os.makedirs(cfg_folder, exist_ok=True)
+        cfg_file = os.path.join(cfg_folder, f'{center_name.lower()}.ini')
+
+        with open(cfg_file, 'w') as f:
+            f.write(config_file.replace('CENTER_ID', center_name))
+
+        # Populate node
+        db_folder = os.path.join(FEDBIOMED_ROOT, 'var')
+        os.makedirs(db_folder, exist_ok=True)
+        db_file = os.path.join(cfg_folder, f'{center_name.lower()}.json')
+        # db = TinyDB(db_file)
+        # db.insert({
+        #     "name": "IXI",
+        #     "data_type": "bids",
+        #     "tags": ["bids-train"],
+        #     "description": "IXI",
+        #     "shape": {
+        #         "label": [83, 44, 55],
+        #         "T1": [83, 44, 55], "T2": [83, 44, 55],
+        #         "demographics": [551, 13],
+        #         "num_modalities": 3},
+        #     "path": os.path.join(federated_data_folder, center_name),
+        #     "dataset_id": f"dataset_{uuid.uuid4()}",
+        #     "dtypes": [],
+        #     "dataset_parameters": {
+        #         "tabular_file": "/home/ssilvari/Downloads/IXI_sample/participants.csv",
+        #         "index_col": 13
+        #     }})
+
         df = allcenters[allcenters.SITE_NAME == center_name]
         center_dfs.append(df)
 
@@ -114,5 +164,5 @@ if __name__ == '__main__':
             )
         test.to_csv(os.path.join(holdout_folder, 'participants.csv'))
 
-        print(f'Centralized dataset located at: {centralized_data_folder}')
-        print(f'Federated dataset located at: {federated_data_folder}')
+    print(f'Centralized dataset located at: {centralized_data_folder}')
+    print(f'Federated dataset located at: {federated_data_folder}')
