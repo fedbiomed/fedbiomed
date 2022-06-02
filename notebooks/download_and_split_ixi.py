@@ -160,7 +160,7 @@ if __name__ == '__main__':
             "shape": {
                 "label": [83, 44, 55],
                 "T1": [83, 44, 55], "T2": [83, 44, 55],
-                "demographics": [len(train), 13],
+                "demographics": [len(train), 14],
                 "num_modalities": 3},
             "path": train_folder,
             "dataset_id": f"dataset_{uuid.uuid4()}",
