@@ -116,29 +116,6 @@ if __name__ == '__main__':
         with open(cfg_file, 'w') as f:
             f.write(config_file.replace('CENTER_ID', center_name))
 
-        # Populate node
-        db_folder = os.path.join(FEDBIOMED_ROOT, 'var')
-        os.makedirs(db_folder, exist_ok=True)
-        db_file = os.path.join(cfg_folder, f'{center_name.lower()}.json')
-        # db = TinyDB(db_file)
-        # db.insert({
-        #     "name": "IXI",
-        #     "data_type": "bids",
-        #     "tags": ["bids-train"],
-        #     "description": "IXI",
-        #     "shape": {
-        #         "label": [83, 44, 55],
-        #         "T1": [83, 44, 55], "T2": [83, 44, 55],
-        #         "demographics": [551, 13],
-        #         "num_modalities": 3},
-        #     "path": os.path.join(federated_data_folder, center_name),
-        #     "dataset_id": f"dataset_{uuid.uuid4()}",
-        #     "dtypes": [],
-        #     "dataset_parameters": {
-        #         "tabular_file": "/home/ssilvari/Downloads/IXI_sample/participants.csv",
-        #         "index_col": 13
-        #     }})
-
         df = allcenters[allcenters.SITE_NAME == center_name]
         center_dfs.append(df)
 
@@ -158,7 +135,8 @@ if __name__ == '__main__':
                 dirs_exist_ok=True
             )
 
-        train.to_csv(os.path.join(train_folder, 'participants.csv'))
+        train_participants_csv = os.path.join(train_folder, 'participants.csv')
+        train.to_csv(train_participants_csv)
 
         for subject_folder in test.FOLDER_NAME.values:
             shutil.copytree(
@@ -168,5 +146,34 @@ if __name__ == '__main__':
             )
         test.to_csv(os.path.join(holdout_folder, 'participants.csv'))
 
+        # Populate node
+        print('Populating nodes...')
+        db_folder = os.path.join(FEDBIOMED_ROOT, 'var')
+        os.makedirs(db_folder, exist_ok=True)
+        db_file = os.path.join(db_folder, f'{center_name.lower()}.json')
+        db = TinyDB(db_file)
+        db.insert({
+            "name": "IXI",
+            "data_type": "bids",
+            "tags": ["bids-train"],
+            "description": "IXI",
+            "shape": {
+                "label": [83, 44, 55],
+                "T1": [83, 44, 55], "T2": [83, 44, 55],
+                "demographics": [551, 13],
+                "num_modalities": 3},
+            "path": train_folder,
+            "dataset_id": f"dataset_{uuid.uuid4()}",
+            "dtypes": [],
+            "dataset_parameters": {
+                "tabular_file": train_participants_csv,
+                "index_col": 14
+            }})
+
     print(f'Centralized dataset located at: {centralized_data_folder}')
     print(f'Federated dataset located at: {federated_data_folder}')
+
+    print()
+    print(f'Please start your nodes executing:')
+    for center_name in center_names:
+        print(f'\t./scripts/fedbiomed_run node config {center_name.lower()}.ini start')
