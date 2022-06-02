@@ -42,8 +42,8 @@ class ModelTypes(_BaseEnum):
     """Constant values for model type that will be saved into db
 
     Attributes:
-        REQUESTED: ??
-        REGISTERED: means model saved by a user/hospital/node
+        REQUESTED: means model submitted in-application by the researcher
+        REGISTERED: means model added by a hospital/node
         DEFAULT: means model is default model provided by Fed-BioMed
     """
     REQUESTED: str = 'requested'

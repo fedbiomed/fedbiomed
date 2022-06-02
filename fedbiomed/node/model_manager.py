@@ -264,7 +264,7 @@ class ModelManager:
 
     def check_model_status(self,
                            model_path: str,
-                           state: Union[ModelApprovalStatus, ModelTypes]) -> Tuple[bool, Dict[str, Any]]:
+                           state: Union[ModelApprovalStatus, ModelTypes, None]) -> Tuple[bool, Dict[str, Any]]:
         """Checks whether model has the specified status.
 
         Sends a query to database to search for hash of requested model.
@@ -275,13 +275,15 @@ class ModelManager:
         Args:
             model_path: The path of requested model file by researcher after downloading
                 model file from file repository.
-            state: model status or model type, to check against model
+            state: model status or model type, to check against model. `None` accepts
+                any model status or type.
 
         Returns:
-            A tuple (approved, approved_model) where
+            A tuple (is_status, model) where
 
-                - approved: Whether model has been approved (returns True) or not (False)
-                - approved_model: Dictionary containing fields
+                - status: Whether model exists in database
+                    with specified status (returns True) or not (False)
+                - model: Dictionary containing fields
                     related to the model. If database search request failed,
                     returns None instead.
         """
@@ -292,7 +294,9 @@ class ModelManager:
         # If node allows defaults models search hash for all model types
         # otherwise search only for `registered` models
 
-        if isinstance(state, ModelApprovalStatus):
+        if state is None:
+            _all_models_with_status = None
+        elif isinstance(state, ModelApprovalStatus):
             _all_models_with_status = (self._database.model_status == state.value)
         elif isinstance(state, ModelTypes):
             _all_models_with_status = (self._database.model_type == state.value)
@@ -300,8 +304,13 @@ class ModelManager:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : status should be either" + 
                                              f" ModelApprovalStatus or ModelTypes, but got {type(state)}")
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
-        models = self._db.search(_all_models_with_status & _all_models_which_have_req_hash)
-        
+        if _all_models_with_status is None:
+            # check only against hash
+            models = self._db.search(_all_models_which_have_req_hash)
+        else:
+            # check against hash and status
+            models = self._db.search(_all_models_with_status & _all_models_which_have_req_hash)
+   
         if models:
             is_status = True
             model = models[0]  # Search request returns an array
@@ -369,7 +378,7 @@ class ModelManager:
             'command': 'approval'
         }
 
-        is_registered = False
+        is_existant = False
         non_downaloadable = False
 
         try:
@@ -382,7 +391,7 @@ class ModelManager:
             # check if model has already been registered into database
             tmp_file = os.path.join(environ["TMP_DIR"], model_name + '.py')
             model_to_check = self.create_txt_model_from_py(tmp_file)
-            is_registered, _ = self.check_model_status(model_to_check, ModelTypes.REGISTERED)
+            is_existant, _ = self.check_model_status(model_to_check, None)
 
         except FedbiomedRepositoryError as fed_err:
             logger.error(f"Cannot download model from server due to error: {fed_err}")
@@ -391,7 +400,7 @@ class ModelManager:
         except FedbiomedModelManagerError as fed_err:
             logger.error(f"Can not check whether model has already be registered or not due to error: {fed_err}")
 
-        if not is_registered  and not non_downaloadable:
+        if not is_existant  and not non_downaloadable:
             # move model into corresponding directory (from TMP_DIR to MODEL_DIR)
             try:
                 logger.debug("Storing TrainingPlan into requested model directory")
@@ -417,8 +426,6 @@ class ModelManager:
                                     researcher_id=msg['researcher_id'],
                                     notes=None
                                     )
-                if self.check_model_status(model_to_check, ModelApprovalStatus.PENDING)[0]:
-                    logger.info("Model already sent for Approval (status Pending). Please wait for Node approval.")
 
                 self._db.upsert(model_object, self._database.hash == model_hash)
                 # `upsert` stands for update and insert in TinyDB. This prevents any duplicate, that can happen
@@ -428,8 +435,11 @@ class ModelManager:
             except (PermissionError, FileNotFoundError, OSError) as err:
                 reply['success'] = False
                 logger.error(f"Cannot save model into directory due to error : {err}")
-        elif is_registered and not non_downaloadable:
-            logger.warning("Model has already been registered in database. aborting")
+        elif is_existant and not non_downaloadable:
+            if self.check_model_status(model_to_check, ModelApprovalStatus.PENDING)[0]:
+                logger.info("Model already sent for Approval (status Pending). Please wait for Node approval.")
+            else:
+                logger.warning("Model already exists in database (status Approved or Rejected). Aborting")
             reply['success'] = True
         else:
             # case where model is non-downloadable
