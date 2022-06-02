@@ -78,7 +78,8 @@ def download_and_extract_ixi_sample(root_folder):
         # Download if it does not exist
         download_file(url, zip_filename)
 
-    if not os.path.isdir(data_folder) and has_correct_checksum_md5(zip_filename, 'eecb83422a2685937a955251fa45cb03'):
+    assert has_correct_checksum_md5(zip_filename, 'eecb83422a2685937a955251fa45cb03')
+    if not os.path.isdir(data_folder):
         with ZipFile(zip_filename, 'r') as zip_obj:
             zip_obj.extractall(root_folder)
 
