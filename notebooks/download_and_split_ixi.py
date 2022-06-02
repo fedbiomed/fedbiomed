@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import hashlib
 import os
+import pathlib
 import uuid
 
 import requests
@@ -12,7 +13,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from tinydb import TinyDB, Query
 
-FEDBIOMED_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+FEDBIOMED_ROOT = str(pathlib.Path(__file__).parent.resolve().parent)
 print('Root for Fed-BioMed:', FEDBIOMED_ROOT)
 
 config_file = """
