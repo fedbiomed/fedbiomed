@@ -138,22 +138,25 @@ class ModelManager:
 
         if not model_id:
             model_id = 'model_' + str(uuid.uuid4())
+        model_hash, algorithm = self._create_hash(path)
 
-        # Check model path whether is registered before
+        # Check model whether it was registered before
         self._db.clear_cache()
 
         models_path_search = self._db.search(self._database.model_path == path)
         models_name_search = self._db.search(self._database.name == name)
+        models_hash_search = self._db.search(self._database.hash == model_hash)
 
         if models_path_search:
             raise FedbiomedModelManagerError(f'This model has been added already: {path}')
         elif models_name_search:
             raise FedbiomedModelManagerError(f'There is already a model added with same name: {name}'
                                              '. Please use different name')
+        elif models_hash_search:
+            raise FedbiomedModelManagerError('There is already an existing model in database same code hash, '
+                                             f'model name is "{models_hash_search[0]["name"]}"')
         else:
 
-            # Create hash and save it into db
-            model_hash, algorithm = self._create_hash(path)
             # Model file creation date
             ctime = datetime.fromtimestamp(os.path.getctime(path)).strftime("%d-%m-%Y %H:%M:%S.%f")
             # Model file modification date
