@@ -109,6 +109,7 @@ if __name__ == '__main__':
         os.makedirs(cfg_folder, exist_ok=True)
         cfg_file = os.path.join(cfg_folder, f'{center_name.lower()}.ini')
 
+        print(f'Creating node at: {cfg_file}')
         with open(cfg_file, 'w') as f:
             f.write(config_file.replace('CENTER_ID', center_name))
 
