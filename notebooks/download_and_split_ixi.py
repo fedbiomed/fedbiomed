@@ -13,6 +13,8 @@ from sklearn.model_selection import train_test_split
 from tinydb import TinyDB, Query
 
 FEDBIOMED_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+print('Root for Fed-BioMed:', FEDBIOMED_ROOT)
+
 config_file = """
 [default]
 node_id = CENTER_ID
