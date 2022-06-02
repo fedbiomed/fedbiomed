@@ -75,7 +75,7 @@ if __name__ == '__main__':
     centralized_data_folder = download_and_extract_ixi_sample(root_folder)
 
     # Federated Dataset
-    dst_folder_base = os.path.join(root_folder, 'UniCancer-Centers')
+    federated_data_folder = os.path.join(root_folder, 'UniCancer-Centers')
 
     csv_global = os.path.join(centralized_data_folder, 'participants.csv')
     allcenters = pd.read_csv(csv_global)
@@ -90,8 +90,8 @@ if __name__ == '__main__':
 
         train, test = train_test_split(df, test_size=0.1)
 
-        train_folder = os.path.join(dst_folder_base, center_name, 'train')
-        holdout_folder = os.path.join(dst_folder_base, center_name, 'holdout')
+        train_folder = os.path.join(federated_data_folder, center_name, 'train')
+        holdout_folder = os.path.join(federated_data_folder, center_name, 'holdout')
         if not os.path.exists(train_folder):
             os.makedirs(train_folder)
         if not os.path.exists(holdout_folder):
@@ -113,3 +113,6 @@ if __name__ == '__main__':
                 dirs_exist_ok=True
             )
         test.to_csv(os.path.join(holdout_folder, 'participants.csv'))
+
+        print(f'Centralized dataset located at: {centralized_data_folder}')
+        print(f'Federated dataset located at: {federated_data_folder}')
