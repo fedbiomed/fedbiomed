@@ -150,7 +150,7 @@ if __name__ == '__main__':
         print('Populating nodes...')
         db_folder = os.path.join(FEDBIOMED_ROOT, 'var')
         os.makedirs(db_folder, exist_ok=True)
-        db_file = os.path.join(db_folder, f'{center_name.lower()}.json')
+        db_file = os.path.join(db_folder, f'db_{center_name.lower()}.json')
         db = TinyDB(db_file)
         db.insert({
             "name": "IXI",
