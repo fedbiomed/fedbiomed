@@ -744,7 +744,7 @@ class ModelManager:
     def delete_model(self, model_id: str) -> True:
         """Removes model file from database.
 
-        Only removes `registered` type of models from the database.
+        Only removes `registered` and `requested` type of models from the database.
         Does not remove the corresponding model file from the disk.
         Default models should be removed from the directory
 

@@ -612,12 +612,12 @@ def delete_model():
 
     Does not modify or delete model file.
 
-    Deletes only registered models. For default models, files
+    Deletes only registered and requested models. For default models, files
     should be removed directly from the file system.
     """
 
     models = model_manager.list_models(verbose=False)
-    models = [ m for m in models  if m['model_type'] == ModelTypes.REGISTERED.value]
+    models = [ m for m in models  if m['model_type'] in [ModelTypes.REGISTERED.value, ModelTypes.REQUESTED.value]]
     if not models:
         logger.warning('No models to delete')
         return
@@ -684,22 +684,22 @@ def launch_cli():
                         help='Start fedbiomed node.',
                         action='store_true')
     parser.add_argument('-rml', '--register-model',
-                        help='Approve new model files.',
+                        help='Register and approve a model from a local file.',
                         action='store_true')
     parser.add_argument('-aml', '--approve-model',
-                        help='Approve a model sent by Researcher (which status is either Pending or Rejected)',
+                        help='Approve a model (for any type of model)',
                         action='store_true')
     parser.add_argument('-rjml', '--reject-model',
-                        help='Reject a model sent by Researcher (which status is either Pending or Rejected)',
+                        help='Reject a model (for any type of model)',
                         action='store_true')
     parser.add_argument('-uml', '--update-model',
-                        help='Update model file.',
+                        help='Update model file (for a model registered from a local file)',
                         action='store_true')
     parser.add_argument('-dml', '--delete-model',
-                        help='Deletes models from DB',
+                        help='Delete a model from database (not for default models)',
                         action='store_true')
     parser.add_argument('-lms', '--list-models',
-                        help='Start fedbiomed node.',
+                        help='List all models',
                         action='store_true')
     parser.add_argument('-g', '--gpu',
                         help='Use of a GPU device, if any available (default: dont use GPU)',
