@@ -119,7 +119,7 @@ if __name__ == '__main__':
         df = allcenters[allcenters.SITE_NAME == center_name]
         center_dfs.append(df)
 
-        train, test = train_test_split(df, test_size=0.1)
+        train, test = train_test_split(df, test_size=0., random_state=21)
 
         train_folder = os.path.join(federated_data_folder, center_name, 'train')
         holdout_folder = os.path.join(federated_data_folder, center_name, 'holdout')
