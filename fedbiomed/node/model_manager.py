@@ -143,9 +143,13 @@ class ModelManager:
         # Check model whether it was registered before
         self._db.clear_cache()
 
-        models_path_search = self._db.search(self._database.model_path == path)
-        models_name_search = self._db.search(self._database.name == name)
-        models_hash_search = self._db.search(self._database.hash == model_hash)
+        try:
+            models_path_search = self._db.search(self._database.model_path == path)
+            models_name_search = self._db.search(self._database.name == name)
+            models_hash_search = self._db.search(self._database.hash == model_hash)
+        except RuntimeError as err:
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": search request on database failed."
+                                             f" Details: {str(err)}")        
 
         if models_path_search:
             raise FedbiomedModelManagerError(f'This model has been added already: {path}')
@@ -597,8 +601,25 @@ class ModelManager:
         Raises:
             FedbiomedModelManagerError: cannot read or update the model in database
         """
+        hash, algorithm = self._create_hash(path)
 
         self._db.clear_cache()
+
+        # Check if identical model already exists in database
+        try:
+            models_path_search = self._db.search(self._database.model_path == path)
+            models_hash_search = self._db.search(self._database.hash == hash)
+        except RuntimeError as err:
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": search request on database failed."
+                                             f" Details: {str(err)}")        
+
+        if models_path_search:
+            raise FedbiomedModelManagerError(f'This model has been added already: {path}')
+        elif models_hash_search:
+            raise FedbiomedModelManagerError('There is already an existing model in database same code hash, '
+                                             f'model name is "{models_hash_search[0]["name"]}"')
+
+        # Register model
         try:
             model = self._db.get(self._database.model_id == model_id)
         except RuntimeError as err:
@@ -611,7 +632,6 @@ class ModelManager:
             # Get creation date
             ctime = datetime.fromtimestamp(os.path.getctime(path))
 
-            hash, algorithm = self._create_hash(path)
             try:
                 self._db.update({'hash': hash, 'algorithm': algorithm,
                                  'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
