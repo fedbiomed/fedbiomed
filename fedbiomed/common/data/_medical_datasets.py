@@ -206,37 +206,37 @@ class NIFTIFolderDataset(Dataset):
         return len(self._files)
 
 
-class BIDSBase:
-    """Controller class for BIDS dataset.
+class MedicalFolderBase:
+    """Controller class for Medical Folder dataset.
 
-    Contains methods to validate BIDS folder hierarchy  and extract folder-base metadata
+    Contains methods to validate the MedicalFolder folder hierarchy and extract folder-base metadata
     in formation such as modalities number of subject etc.
     """
 
     def __init__(self, root: Union[str, Path, None] = None):
-        """Constructs BIDSBase
+        """Constructs MedicalFolderBase
 
         Args:
-            root: path to BIDS root folder.
+            root: path to Medical Folder root folder.
         """
         if root is not None:
-            root = self.validate_bids_root_folder(root)
+            root = self.validate_MedicalFolder_root_folder(root)
 
         self._root = root
 
     @property
     def root(self):
-        """Root property of BIDSController"""
+        """Root property of MedicalFolderController"""
         return self._root
 
     @root.setter
     def root(self, path: Union[str, Path]):
-        """ Setter for root directory of BIDS dataset
+        """ Setter for root directory of Medical Folder dataset
 
         Args:
-            path: Path to set as root directory of BIDS dataset
+            path: Path to set as root directory of Medical Folder dataset
         """
-        path = self.validate_bids_root_folder(path)
+        path = self.validate_MedicalFolder_root_folder(path)
         self._root = path
 
     def modalities(self) -> Tuple[list, list]:
@@ -278,10 +278,10 @@ class BIDSBase:
         return [subject for subject in subjects if all(self.is_modalities_existing(subject, modalities))]
 
     def subjects_with_imaging_data_folders(self) -> List[str]:
-        """Retrieves subject folder names under BIDS roots directory.
+        """Retrieves subject folder names under Medical Folder roots directory.
 
         Returns:
-            subject folder names under BIDS roots directory.
+            subject folder names under Medical Folder roots directory.
         """
         return [f.name for f in self._root.iterdir() if f.is_dir() and not f.name.startswith(".")]
 
@@ -317,7 +317,7 @@ class BIDSBase:
 
     @staticmethod
     def read_demographics(path: Union[str, Path], index_col: Optional[int] = None):
-        """ Read demographics tabular file for BIDS dataset
+        """ Read demographics tabular file for Medical Folder dataset
 
         """
         path = Path(path)
@@ -328,16 +328,16 @@ class BIDSBase:
 
     @staticmethod
     def demographics_column_names(path: Union[str, Path]):
-        return BIDSBase.read_demographics(path).columns.values
+        return MedicalFolderBase.read_demographics(path).columns.values
 
     @staticmethod
-    def validate_bids_root_folder(path: Union[str, Path]) -> Path:
-        """ Validates BIDS root directory by checking folder structure
+    def validate_MedicalFolder_root_folder(path: Union[str, Path]) -> Path:
+        """ Validates Medical Folder root directory by checking folder structure
 
-        The BIDS structure has the following pattern:
+        The Medical Folder structure has the following pattern:
 
         ```
-        └─ BIDS_root/
+        └─ MedicalFolder_root/
             └─ sub-01/
                 ├─ T1/
                 │  └─ sub-01_xxx.nii.gz
@@ -349,7 +349,7 @@ class BIDSBase:
             path:
 
         Returns:
-            Path to root folder of BIDS dataset
+            Path to root folder of Medical Folder dataset
 
         Raises:
             FedbiomedError: - If path is not an instance of `str` or `pathlib.Path`
@@ -365,23 +365,23 @@ class BIDSBase:
         if not path.exists():
             raise FedbiomedDatasetError(f"Folder or file {path} not found on system")
         if not path.is_dir():
-            raise FedbiomedDatasetError("Root for BIDS dataset should be a directory.")
+            raise FedbiomedDatasetError("Root for Medical Folder dataset should be a directory.")
 
         directories = [f for f in path.iterdir() if f.is_dir()]
         if len(directories) == 0:
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Root folder of BIDS should contain subject "
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Root folder of Medical Folder should contain subject "
                                         f"folders, but no sub folder has been found. ")
 
         modalities = [f for f in path.glob("*/*") if f.is_dir()]
         if len(modalities) == 0:
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}Subject folders for BIDS should contain modalities "
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}Subject folders for Medical Folder should contain modalities "
                                         f"as folders. Folder structure should be root/<subjects>/<modalities>")
 
         return path
 
 
-class BIDSDataset(Dataset, BIDSBase):
-    """Torch dataset following the BIDS Structure.
+class MedicalFolderDataset(Dataset, MedicalFolderBase):
+    """Torch dataset following the Medical Folder Structure.
 
     Certain modalities are allowed per subject in the dataset. Each of these is represented by a folder within each
     subject's directory.:
@@ -404,7 +404,7 @@ class BIDSDataset(Dataset, BIDSBase):
                  tabular_file: Union[str, PathLike, Path, None] = None,
                  index_col: Union[int, str, None] = None,
                  ):
-        """Constructor for class `BIDSDataset`.
+        """Constructor for class `MedicalFolderDataset`.
 
         Args:
             root: Root folder containing all the subject directories.
@@ -415,7 +415,7 @@ class BIDSDataset(Dataset, BIDSBase):
             tabular_file: Path to a CSV or Excel file containing the demographic information from the patients.
             index_col: Column name in the tabular file containing the subject ids which mush match the folder names.
         """
-        super(BIDSDataset, self).__init__(root=root)
+        super(MedicalFolderDataset, self).__init__(root=root)
 
         self._root = Path(root).expanduser().resolve()
         self._tabular_file = tabular_file
@@ -594,7 +594,7 @@ class BIDSDataset(Dataset, BIDSBase):
             if hasattr(self, key):
                 setattr(self, key, value)
             else:
-                logger.warning(f"Trying to set undefined attribute {key} ti BIDSDataset")
+                logger.warning(f"Trying to set undefined attribute {key} ti MedicalFolderDataset")
 
     def load_images(self, subject_folder: Path, modalities: list):
         """Loads modality images in given subject folder
@@ -711,22 +711,22 @@ class BIDSDataset(Dataset, BIDSBase):
                                         f'have to be a dictionary using the modality keys: {modalities}')
 
 
-class BIDSController(BIDSBase):
-    """Utility class to construct and verify BIDS datasets without knowledge of the experiment.
+class MedicalFolderController(MedicalFolderBase):
+    """Utility class to construct and verify Medical Folder datasets without knowledge of the experiment.
 
-    The purpose of this class is to enable key functionalities related to the BIDSDataset at the time of dataset
+    The purpose of this class is to enable key functionalities related to the MedicalFolderDataset at the time of dataset
     deployment, i.e. when the data is being added to the node's database.
 
-    Specifically, the BIDSController class can be used to:
-    - construct a BIDSDataset with all available data modalities, without knowing which ones will be used as
+    Specifically, the MedicalFolderController class can be used to:
+    - construct a MedicalFolderDataset with all available data modalities, without knowing which ones will be used as
         targets or features during an experiment
     - validate that the proper folder structure has been respected by the data managers preparing the data
     - identify which subjects have which modalities
     """
 
     def __init__(self, root: str = None):
-        """Constructs BIDSController """
-        super(BIDSController, self).__init__(root=root)
+        """Constructs MedicalFolderController """
+        super(MedicalFolderController, self).__init__(root=root)
 
     def check_modalities(self, _raise: bool = True) -> Tuple[bool, str]:
         """Checks whether subject folders contains at least one common modality
@@ -742,7 +742,7 @@ class BIDSController(BIDSBase):
         """
         unique_modalities, modalities = self.modalities()
         if len(unique_modalities) == len(modalities):
-            message = f"{ErrorNumbers.FB613.value}: Subject folders in BIDS root folder does not contain any common " \
+            message = f"{ErrorNumbers.FB613.value}: Subject folders in Medical Folder root folder does not contain any common " \
                       f"modalities. At least one common modality is expected."
             if _raise:
                 raise FedbiomedDatasetError(message)
@@ -755,7 +755,7 @@ class BIDSController(BIDSBase):
         """Scans subjects and checks which modalities are existing for each subject
 
         Args:
-            index: Array-like index that comes from reference csv file of BIDS dataset. It represents subject
+            index: Array-like index that comes from reference csv file of Medical Folder dataset. It represents subject
                 folder names.
         Returns:
             Modality status for each subject that indicates which modalities are available
@@ -779,34 +779,34 @@ class BIDSController(BIDSBase):
 
         return modality_status
 
-    def load_bids(self, tabular_file: Union[str, Path] = None, index_col: Union[str, int] = None) -> BIDSDataset:
-        """ Load BIDS dataset with given tabular_file and index_col
+    def load_MedicalFolder(self, tabular_file: Union[str, Path] = None, index_col: Union[str, int] = None) -> MedicalFolderDataset:
+        """ Load Medical Folder dataset with given tabular_file and index_col
 
         Args:
             tabular_file: File path to demographics data set
             index_col: Column index that represents subject folder names
 
         Returns:
-            BIDSDataset object
+            MedicalFolderDataset object
 
         Raises:
-            FedbiomedDatasetError: If BIDS dataset is not successfully loaded
+            FedbiomedDatasetError: If Medical Folder dataset is not successfully loaded
 
         """
         if self._root is None:
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Can not load BIDS dataset without declaring"
-                                        f"root directory. Please set root or build BIDSController with by providing "
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Can not load Medical Folder dataset without declaring"
+                                        f"root directory. Please set root or build MedicalFolderController with by providing "
                                         f"`root` argument use")
 
         modalities, _ = self.modalities()
 
         try:
-            dataset = BIDSDataset(root=self._root,
-                                  tabular_file=tabular_file,
-                                  index_col=index_col,
-                                  data_modalities=modalities,
-                                  target_modalities=modalities)
+            dataset = MedicalFolderDataset(root=self._root,
+                                           tabular_file=tabular_file,
+                                           index_col=index_col,
+                                           data_modalities=modalities,
+                                           target_modalities=modalities)
         except FedbiomedError as e:
-            raise FedbiomedDatasetError(f"Can not create BIDS dataset. {e}")
+            raise FedbiomedDatasetError(f"Can not create Medical Folder dataset. {e}")
 
         return dataset

@@ -21,7 +21,7 @@ from tkinter import _tkinter
 
 from fedbiomed.common.constants  import ModelTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError, FedbiomedDatasetManagerError
-from fedbiomed.common.data import BIDSController
+from fedbiomed.common.data import MedicalFolderController
 
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.environ import environ
@@ -60,9 +60,9 @@ def validated_data_type_input() -> str:
 
     Returns:
         A string keyword for one of the possible data type
-            ('csv', 'default', 'mednist', 'images', 'bids').
+            ('csv', 'default', 'mednist', 'images', 'medical folder').
     """
-    valid_options = ['csv', 'default', 'mednist', 'images', 'bids']
+    valid_options = ['csv', 'default', 'mednist', 'images', 'medical folder']
     valid_options = {i: val for i, val in enumerate(valid_options, 1)}
 
     msg = "Please select the data type that you're configuring:\n"
@@ -234,15 +234,15 @@ def add_database(interactive: bool = True,
 
             description = input('Description: ')
 
-            if data_type == 'bids':
-                # get bids root
-                print('Please select the root folder of the BIDS dataset')
+            if data_type == 'medical folder':
+                # get medical folder root
+                print('Please select the root folder of the Medical Folder dataset')
                 path = validated_path_input(type='dir')
                 # get tabular file
                 print('Please select the demographics file (must be CSV or TSV)')
                 tabular_file_path = validated_path_input(type='csv')
                 # get index col from user
-                column_values = BIDSController.demographics_column_names(tabular_file_path)
+                column_values = MedicalFolderController.demographics_column_names(tabular_file_path)
                 for i, col in enumerate(column_values):
                     print(f'{i:3} : {col}')
                 while True:
