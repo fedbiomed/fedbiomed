@@ -208,7 +208,6 @@ class TrainingArgs():
             "log_interval": {
                 "rules": [int],
                 "required": False,
-                "default": 10
             }
 
         }
