@@ -101,6 +101,73 @@ class ModelManager:
 
         return hashing.hexdigest(), hash_algo
 
+    def _check_model_not_existing(self,
+                         name: Union[str, None] = None,
+                         path: Union[str, None] = None,
+                         hash: Union[str, None] = None) -> None:
+        """Check no model exists in database that matches specified criteria.
+
+        For each criterion, if criterion is not None, then check that no entry
+        exists in database matching this criterion. Raise an exception if such
+        entry exists.
+
+        Args:
+            name: Model name
+            path: Model file path
+            hash: Model hash
+
+        Raises:
+            FedbiomedModelManagerError: at least one model exists in DB matching a criterion
+
+        Returns:
+            None.
+        """
+        self._db.clear_cache()
+
+        if name is not None:
+            try:
+                models_name_get = self._db.get(self._database.name == name)
+            except RuntimeError as err:
+                error = ErrorNumbers.FB606.value + ": search request on database failed." + \
+                                                   f" Details: {str(err)}"
+                logger.critical(error)
+                raise FedbiomedModelManagerError(error)        
+            if models_name_get:
+                error = ErrorNumbers.FB606.value + \
+                    f': there is already a existing model with same name: "{name}"' + \
+                    '. Please use different name'
+                logger.critical(error)
+                raise FedbiomedModelManagerError(error)
+
+        if path is not None:
+            try:
+                models_path_get = self._db.get(self._database.model_path == path)
+            except RuntimeError as err:
+                error = ErrorNumbers.FB606.value + ": search request on database failed." + \
+                                                   f" Details: {str(err)}"
+                logger.critical(error)
+                raise FedbiomedModelManagerError(error)
+            if models_path_get:
+                error = ErrorNumbers.FB606.value + f': this model has been added already: {path}'
+                logger.critical(error)
+                raise FedbiomedModelManagerError(error)
+
+        # TODO: to be more robust we should also check algorithm is the same
+        if hash is not None:
+            try:
+                models_hash_get = self._db.get(self._database.hash == hash)
+            except RuntimeError as err:
+                error = ErrorNumbers.FB606.value + ": search request on database failed." + \
+                                                   f" Details: {str(err)}"
+                logger.critical(error)
+                raise FedbiomedModelManagerError(error)
+            if models_hash_get:
+                error = ErrorNumbers.FB606.value + \
+                    ': there is already an existing model in database same code hash, ' + \
+                    f'model name is "{models_hash_get["name"]}"'
+                logger.critical(error)
+                raise FedbiomedModelManagerError(error)
+
     def register_model(self,
                        name: str,
                        description: str,
@@ -140,52 +207,36 @@ class ModelManager:
             model_id = 'model_' + str(uuid.uuid4())
         model_hash, algorithm = self._create_hash(path)
 
-        # Check model whether it was registered before
         self._db.clear_cache()
 
+        # Verify no such model is already registered
+        self._check_model_not_existing(name, path, model_hash)
+
+        # Model file creation date
+        ctime = datetime.fromtimestamp(os.path.getctime(path)).strftime("%d-%m-%Y %H:%M:%S.%f")
+        # Model file modification date
+        mtime = datetime.fromtimestamp(os.path.getmtime(path)).strftime("%d-%m-%Y %H:%M:%S.%f")
+        # Model file registration date
+        rtime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
+
+        model_object = dict(name=name, description=description,
+                            hash=model_hash, model_path=path,
+                            model_id=model_id, model_type=model_type,
+                            model_status=ModelApprovalStatus.APPROVED.value,
+                            algorithm=algorithm,
+                            researcher_id=researcher_id,
+                            date_created=ctime,
+                            date_modified=mtime,
+                            date_registered=rtime,
+                            date_last_action=rtime
+                            )
+
         try:
-            models_path_search = self._db.get(self._database.model_path == path)
-            models_name_search = self._db.get(self._database.name == name)
-            models_hash_search = self._db.get(self._database.hash == model_hash)
-        except RuntimeError as err:
-            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": search request on database failed."
-                                             f" Details: {str(err)}")        
-
-        if models_path_search:
-            raise FedbiomedModelManagerError(f'This model has been added already: {path}')
-        elif models_name_search:
-            raise FedbiomedModelManagerError(f'There is already a model added with same name: {name}'
-                                             '. Please use different name')
-        elif models_hash_search:
-            raise FedbiomedModelManagerError('There is already an existing model in database same code hash, '
-                                             f'model name is "{models_hash_search["name"]}"')
-        else:
-
-            # Model file creation date
-            ctime = datetime.fromtimestamp(os.path.getctime(path)).strftime("%d-%m-%Y %H:%M:%S.%f")
-            # Model file modification date
-            mtime = datetime.fromtimestamp(os.path.getmtime(path)).strftime("%d-%m-%Y %H:%M:%S.%f")
-            # Model file registration date
-            rtime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
-
-            model_object = dict(name=name, description=description,
-                                hash=model_hash, model_path=path,
-                                model_id=model_id, model_type=model_type,
-                                model_status=ModelApprovalStatus.APPROVED.value,
-                                algorithm=algorithm,
-                                researcher_id=researcher_id,
-                                date_created=ctime,
-                                date_modified=mtime,
-                                date_registered=rtime,
-                                date_last_action=rtime
-                                )
-
-            try:
-                self._db.insert(model_object)
-            except ValueError as err:
-                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : database insertion failed with"
-                                                 f" following error: {str(err)}")
-            return True
+            self._db.insert(model_object)
+        except ValueError as err:
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : database insertion failed with"
+                                             f" following error: {str(err)}")
+        return True
 
     def check_hashes_for_registered_models(self):
         """Checks registered models (models either rejected or approved).
@@ -209,6 +260,10 @@ class ModelManager:
                     if model['algorithm'] != environ['HASHING_ALGORITHM']:
                         logger.info(f'Recreating hashing for : {model["name"]} \t {model["model_id"]}')
                         hashing, algorithm = self._create_hash(model['model_path'])
+
+                        # Verify no such model already exists in DB
+                        self._check_model_not_existing(None, None , hashing)
+
                         rtime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
                         try:
                             self._db.update({'hash': hashing,
@@ -232,10 +287,10 @@ class ModelManager:
     def check_model_status(self,
                            model_path: str,
                            state: Union[ModelApprovalStatus, ModelTypes, None]) -> Tuple[bool, Dict[str, Any]]:
-        """Checks whether model has the specified status.
+        """Checks whether model exists in database and has the specified status.
 
         Sends a query to database to search for hash of requested model.
-        If it is the hash matches with one of the
+        If the hash matches with one of the
         models hashes in the DB, and if model has the specified status {approved, rejected, pending} 
         or model_type {registered, requested, default}.
 
@@ -281,7 +336,7 @@ class ModelManager:
         else:
             # check against hash and status
             model = self._db.get(_all_models_with_status & _all_models_which_have_req_hash)
-   
+
         if model:
             is_status = True
         else:
