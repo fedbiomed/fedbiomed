@@ -236,27 +236,28 @@ class TestTorchnn(unittest.TestCase):
 
 class TestSendToDevice(unittest.TestCase):
     def setUp(self) -> None:
-        self.tp = TorchTrainingPlan()
         self.cuda = torch.device('cuda')
         self.cpu = torch.device('cpu')
 
     @patch('torch.Tensor.to')
     def test_send_tensor_to_device(self, patch_tensor_to):
         """Test basic case of sending a tensor to cpu and gpu."""
+        tp = TorchTrainingPlan()
         t = torch.Tensor([0])
-        t = self.tp.send_to_device(t, self.cpu)
+        t = tp.send_to_device(t, self.cpu)
         patch_tensor_to.assert_called_once()
         t = torch.Tensor([0])
-        t = self.tp.send_to_device(t, self.cuda)
+        t = tp.send_to_device(t, self.cuda)
         self.assertEqual(patch_tensor_to.call_count, 2)
 
     def test_nested_collections(self):
         """Test case where tensors are contained within nested collections."""
+        tp = TorchTrainingPlan()
         t = torch.Tensor([0])
         ll = [t]*3
         d = {'key1': ll, 'key2': t}
         tup = (ll, d, t)
-        output = self.tp.send_to_device(tup, torch.device('cpu'))
+        output = tp.send_to_device(tup, torch.device('cpu'))
 
         self.assertIsInstance(output[0], type(tup[0]))
         for el in output[0]:
@@ -271,13 +272,73 @@ class TestSendToDevice(unittest.TestCase):
         self.assertIsInstance(output[2], torch.Tensor)
 
         with patch('torch.Tensor.to') as p:
-            output = self.tp.send_to_device(tup, torch.device('cuda'))
+            _ = tp.send_to_device(tup, torch.device('cuda'))
             self.assertEqual(p.call_count, 8)
 
     def test_unsupported_parameters(self):
         """Ensure that the function correctly raises errors with wrong parameters."""
+        tp = TorchTrainingPlan()
         with self.assertRaises(FedbiomedTrainingPlanError):
-            self.tp.send_to_device("unsupported variable type", self.cpu)
+            tp.send_to_device("unsupported variable type", self.cpu)
+
+
+class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
+    """Test training routine when data loaders return different data types.
+
+    Dataloaders in Fed-BioMed should always return a tuple (data, target). In the base case, the `data` and `target`
+    are torch Tensors. However, they could also be lists, tuples or dicts. While the use is responsible for handling
+    these data types correctly in the `training_step` routine, we must make sure that the training routine as a whole
+    runs correctly.
+    """
+
+    @staticmethod
+    def iterate_once(return_value):
+        """Utility create generators that load a data sample only once."""
+        yield return_value
+
+    @patch('torch.Tensor.backward')
+    def test_data_loader_returns_tensors(self, patch_tensor_backward):
+        tp = TorchTrainingPlan()
+        tp.optimizer = MagicMock(spec=torch.optim.Adam)
+        tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset)
+        gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
+            (torch.Tensor([0]), torch.Tensor([1])))
+        tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
+        tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
+        tp.training_routine(epochs=1)
+        tp.training_step.assert_called_once_with(torch.Tensor([0]), torch.Tensor([1]))
+        patch_tensor_backward.assert_called_once()
+
+    @patch('torch.Tensor.backward')
+    def test_data_loader_returns_tuples(self, patch_tensor_backward):
+        tp = TorchTrainingPlan()
+        tp.optimizer = MagicMock(spec=torch.optim.Adam)
+        tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset)
+        gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
+            ((torch.Tensor([0]), torch.Tensor([1])), torch.Tensor([2])))
+        tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
+        tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
+        tp.training_routine(epochs=1)
+        tp.training_step.assert_called_once_with((torch.Tensor([0]), torch.Tensor([1])), torch.Tensor([2]))
+        patch_tensor_backward.assert_called_once()
+
+    @patch('torch.Tensor.backward')
+    def test_data_loader_returns_dicts(self, patch_tensor_backward):
+        tp = TorchTrainingPlan()
+        tp.optimizer = MagicMock(spec=torch.optim.Adam)
+        tp.training_data_loader = MagicMock(spec=torch.utils.data.Dataset)
+        gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
+            ({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])}))
+        tp.training_data_loader.__getitem__ = lambda _, idx: next(gen_load_data_as_tuples)
+        tp.training_step = MagicMock(return_value=torch.Tensor([0.]))
+        tp.training_routine(epochs=1)
+        tp.training_step.assert_called_once_with({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])})
+        patch_tensor_backward.assert_called_once()
+
+
+
+
+
 
 
 
