@@ -233,5 +233,53 @@ class TestTorchnn(unittest.TestCase):
                                    history_monitor=history_monitor,
                                    before_train=True)
 
+
+class TestSendToDevice(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tp = TorchTrainingPlan()
+        self.cuda = torch.device('cuda')
+        self.cpu = torch.device('cpu')
+
+    @patch('torch.Tensor.to')
+    def test_send_tensor_to_device(self, patch_tensor_to):
+        """Test basic case of sending a tensor to cpu and gpu."""
+        t = torch.Tensor([0])
+        t = self.tp.send_to_device(t, self.cpu)
+        patch_tensor_to.assert_called_once()
+        t = torch.Tensor([0])
+        t = self.tp.send_to_device(t, self.cuda)
+        self.assertEqual(patch_tensor_to.call_count, 2)
+
+    def test_nested_collections(self):
+        """Test case where tensors are contained within nested collections."""
+        t = torch.Tensor([0])
+        ll = [t]*3
+        d = {'key1': ll, 'key2': t}
+        tup = (ll, d, t)
+        output = self.tp.send_to_device(tup, torch.device('cpu'))
+
+        self.assertIsInstance(output[0], type(tup[0]))
+        for el in output[0]:
+            self.assertIsInstance(el, torch.Tensor)
+
+        self.assertIsInstance(output[1], type(tup[1]))
+        for key, val in output[1].items():
+            self.assertIsInstance(val, type(d[key]))
+            for el in val:
+                self.assertIsInstance(el, torch.Tensor)
+
+        self.assertIsInstance(output[2], torch.Tensor)
+
+        with patch('torch.Tensor.to') as p:
+            output = self.tp.send_to_device(tup, torch.device('cuda'))
+            self.assertEqual(p.call_count, 8)
+
+    def test_unsupported_parameters(self):
+        """Ensure that the function correctly raises errors with wrong parameters."""
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            self.tp.send_to_device("unsupported variable type", self.cpu)
+
+
+
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
