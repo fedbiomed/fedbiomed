@@ -358,13 +358,14 @@ class MedicalFolderBase:
 
         directories = [f for f in path.iterdir() if f.is_dir()]
         if len(directories) == 0:
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Root folder of Medical Folder should contain subject "
-                                        f"folders, but no sub folder has been found. ")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Root folder of Medical Folder should "
+                                        f"contain subject folders, but no sub folder has been found. ")
 
         modalities = [f for f in path.glob("*/*") if f.is_dir()]
         if len(modalities) == 0:
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}Subject folders for Medical Folder should contain modalities "
-                                        f"as folders. Folder structure should be root/<subjects>/<modalities>")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value} Subject folders for Medical Folder should "
+                                        f"contain modalities as folders. Folder structure should be "
+                                        f"root/<subjects>/<modalities>")
 
         return path
 
@@ -432,11 +433,9 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         ])
 
     def __getitem__(self, item):
-
         # For the first item retrieve complete subject folders
-
         subjects = self.subject_folders()
-        
+
         if not subjects:
             # case where subjects is an empty list (subject folders have not been found)
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Cannot find subject folders")
@@ -712,8 +711,8 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 class MedicalFolderController(MedicalFolderBase):
     """Utility class to construct and verify Medical Folder datasets without knowledge of the experiment.
 
-    The purpose of this class is to enable key functionalities related to the MedicalFolderDataset at the time of dataset
-    deployment, i.e. when the data is being added to the node's database.
+    The purpose of this class is to enable key functionalities related to the MedicalFolderDataset at the time of
+    dataset deployment, i.e. when the data is being added to the node's database.
 
     Specifically, the MedicalFolderController class can be used to:
     - construct a MedicalFolderDataset with all available data modalities, without knowing which ones will be used as
@@ -740,8 +739,8 @@ class MedicalFolderController(MedicalFolderBase):
         """
         unique_modalities, modalities = self.modalities()
         if len(unique_modalities) == len(modalities):
-            message = f"{ErrorNumbers.FB613.value}: Subject folders in Medical Folder root folder does not contain any common " \
-                      f"modalities. At least one common modality is expected."
+            message = f"{ErrorNumbers.FB613.value}: Subject folders in Medical Folder root folder does not contain" \
+                      f"any common modalities. At least one common modality is expected."
             if _raise:
                 raise FedbiomedDatasetError(message)
             else:
@@ -777,7 +776,9 @@ class MedicalFolderController(MedicalFolderBase):
 
         return modality_status
 
-    def load_MedicalFolder(self, tabular_file: Union[str, Path] = None, index_col: Union[str, int] = None) -> MedicalFolderDataset:
+    def load_MedicalFolder(self,
+                           tabular_file: Union[str, Path] = None,
+                           index_col: Union[str, int] = None) -> MedicalFolderDataset:
         """ Load Medical Folder dataset with given tabular_file and index_col
 
         Args:
@@ -792,9 +793,9 @@ class MedicalFolderController(MedicalFolderBase):
 
         """
         if self._root is None:
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Can not load Medical Folder dataset without declaring"
-                                        f"root directory. Please set root or build MedicalFolderController with by providing "
-                                        f"`root` argument use")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Can not load Medical Folder dataset without "
+                                        f"declaring root directory. Please set root or build MedicalFolderController "
+                                        f"with by providing `root` argument use")
 
         modalities, _ = self.modalities()
 

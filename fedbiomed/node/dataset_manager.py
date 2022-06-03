@@ -335,8 +335,9 @@ class DatasetManager:
 
             try:
                 # load using the MedicalFolderController to ensure all available modalities are inspected
-                dataset = MedicalFolderController(root=path).load_MedicalFolder(tabular_file=dataset_parameters['tabular_file'],
-                                                                                index_col=dataset_parameters['index_col'])
+                controller = MedicalFolderController(root=path)
+                dataset = controller.load_MedicalFolder(tabular_file=dataset_parameters['tabular_file'],
+                                                        index_col=dataset_parameters['index_col'])
             except FedbiomedError as e:
                 raise FedbiomedDatasetManagerError(f"Can not create Medical Folder dataset. {e}")
             else:
@@ -346,7 +347,8 @@ class DatasetManager:
             try:
                 _ = dataset[0]
             except Exception as e:
-                raise FedbiomedDatasetManagerError(f'Medical Folder Dataset was not saved properly and cannot be read. {e}')
+                raise FedbiomedDatasetManagerError(f'Medical Folder Dataset was not saved properly and '
+                                                   f'cannot be read. {e}')
 
         if not dataset_id:
             dataset_id = 'dataset_' + str(uuid.uuid4())
