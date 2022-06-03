@@ -280,10 +280,10 @@ class TestModelManager(unittest.TestCase):
         - Test 2: models are registered and are stored on computer
         - Test 3: model is no longer stored on computer.
         """
-        # patch
-        correct_hash = 'a correct hash'
-        correct_hashing_algo = 'a correct hashing algorithm'
-        create_hash_patch.return_value = correct_hash, correct_hashing_algo
+        ## patch
+        def create_hash_side_effect(path):
+            return f'a correct unique hash {path}', 'a correct hasing algo'
+        create_hash_patch.side_effect = create_hash_side_effect
 
         # test 1: case where there is no model registered
         self.model_manager.check_hashes_for_registered_models()
@@ -323,6 +323,7 @@ class TestModelManager(unittest.TestCase):
         models = self.model_manager._db.search(self.model_manager._database.model_type.all('registered'))
 
         for model in models:
+            correct_hash, correct_hashing_algo = create_hash_side_effect(model['model_path'])
             self.assertEqual(model['hash'], correct_hash)
             self.assertEqual(model['algorithm'], correct_hashing_algo)
 
@@ -346,7 +347,7 @@ class TestModelManager(unittest.TestCase):
         if not os.access(randomfolder, os.W_OK):
             self.skipTest("Test skipped cause temporary directory not writtable")
         else:
-            file = 'model.py'
+            file = os.path.join(environ['TMP_DIR'], 'model.py')
             code_source = \
                 "class TestClass:\n" + \
                 "   def __init__(self, **kwargs):\n" + \
@@ -393,11 +394,12 @@ class TestModelManager(unittest.TestCase):
         model_hashing_algorithm = 'a_hashing_algorithm'
 
         # action
+        default_model_file_2 = os.path.join(self.testdir, 'test-model-2.txt')
         with (patch.object(ModelManager, '_create_hash',
                            return_value=(model_hash, model_hashing_algorithm)),
               patch.object(os.path, 'getmtime', return_value=file_modification_date_timestamp),
               patch.object(os.path, 'getctime', return_value=file_creation_date_timestamp)):
-            self.model_manager.update_model_hash('test-model-id', default_model_file_1)
+            self.model_manager.update_model_hash('test-model-id', default_model_file_2)
 
         # checks
         # first, we are accessing to the updated model
@@ -408,7 +410,7 @@ class TestModelManager(unittest.TestCase):
         self.assertEqual(updated_model['algorithm'], model_hashing_algorithm)
         self.assertEqual(updated_model['date_modified'], file_modification_date_literal)
         self.assertEqual(updated_model['date_created'], file_creation_date_literal)
-        self.assertEqual(updated_model['model_path'], default_model_file_1)
+        self.assertEqual(updated_model['model_path'], default_model_file_2)
 
     def test_model_manager_14_update_model_exception(self):
         """Tests method `update_model` """
