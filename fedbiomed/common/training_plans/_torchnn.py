@@ -2,7 +2,7 @@
 TrainingPlan definition for torchnn ML framework
 '''
 
-from typing import Any, Dict, Union, Callable, Optional
+from typing import Any, Dict, Union, Callable
 from copy import deepcopy
 
 import torch
