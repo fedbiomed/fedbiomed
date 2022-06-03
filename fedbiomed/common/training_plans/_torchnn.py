@@ -192,7 +192,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         - a `training_data()` function defining how sampling / handling data in node's dataset is done. It should
             return a generator able to output tuple (batch_idx, (data, targets)) that is iterable for each batch.
-        - a `training_step()` function defining how cost is computed. It should output model error for model backpropagation.
+        - a `training_step()` function defining how cost is computed. It should output loss values for backpropagation.
 
         Args:
             epochs: Number of epochs (complete pass on data).

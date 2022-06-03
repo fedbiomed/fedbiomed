@@ -24,7 +24,7 @@ from fedbiomed.node.environ import environ
 
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.data import BIDSController
+from fedbiomed.common.data import MedicalFolderController
 
 from fedbiomed.common.logger import logger
 
@@ -301,7 +301,7 @@ class DatasetManager:
         assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
 
         dtypes = []  # empty list for Image datasets
-        data_types = ['csv', 'default', 'mednist', 'images', 'bids']
+        data_types = ['csv', 'default', 'mednist', 'images', 'medical folder']
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
                                       ' a compatible data type. '
@@ -327,18 +327,19 @@ class DatasetManager:
             assert os.path.isdir(path), f'Folder {path} for Images Dataset does not exist.'
             shape = self.load_images_dataset(path)
 
-        elif data_type == 'bids':
+        elif data_type == 'medical folder':
             if not os.path.isdir(path):
-                raise FedbiomedDatasetManagerError(f'Folder {path} for BIDS Dataset does not exist.')
+                raise FedbiomedDatasetManagerError(f'Folder {path} for Medical Folder Dataset does not exist.')
             if not os.path.isfile(dataset_parameters['tabular_file']):
                 raise FedbiomedDatasetManagerError(f'File ({dataset_parameters["tabular_file"]}) not found.')
 
             try:
-                # load using the BIDSController to ensure all available modalities are inspected
-                dataset = BIDSController(root=path).load_bids(tabular_file=dataset_parameters['tabular_file'],
-                                                              index_col=dataset_parameters['index_col'])
+                # load using the MedicalFolderController to ensure all available modalities are inspected
+                controller = MedicalFolderController(root=path)
+                dataset = controller.load_MedicalFolder(tabular_file=dataset_parameters['tabular_file'],
+                                                        index_col=dataset_parameters['index_col'])
             except FedbiomedError as e:
-                raise FedbiomedDatasetManagerError(f"Can not create BIDS dataset. {e}")
+                raise FedbiomedDatasetManagerError(f"Can not create Medical Folder dataset. {e}")
             else:
                 shape = dataset.shape()
 
@@ -346,7 +347,8 @@ class DatasetManager:
             try:
                 _ = dataset.get_nontransformed_item(0)
             except Exception as e:
-                raise FedbiomedDatasetManagerError(f'BIDS Dataset was not saved properly and cannot be read. {e}')
+                raise FedbiomedDatasetManagerError(f'Medical Folder Dataset was not saved properly and '
+                                                   f'cannot be read. {e}')
 
         if not dataset_id:
             dataset_id = 'dataset_' + str(uuid.uuid4())
