@@ -144,9 +144,9 @@ class ModelManager:
         self._db.clear_cache()
 
         try:
-            models_path_search = self._db.search(self._database.model_path == path)
-            models_name_search = self._db.search(self._database.name == name)
-            models_hash_search = self._db.search(self._database.hash == model_hash)
+            models_path_search = self._db.get(self._database.model_path == path)
+            models_name_search = self._db.get(self._database.name == name)
+            models_hash_search = self._db.get(self._database.hash == model_hash)
         except RuntimeError as err:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": search request on database failed."
                                              f" Details: {str(err)}")        
@@ -158,7 +158,7 @@ class ModelManager:
                                              '. Please use different name')
         elif models_hash_search:
             raise FedbiomedModelManagerError('There is already an existing model in database same code hash, '
-                                             f'model name is "{models_hash_search[0]["name"]}"')
+                                             f'model name is "{models_hash_search["name"]}"')
         else:
 
             # Model file creation date
@@ -271,16 +271,19 @@ class ModelManager:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : status should be either" + 
                                              f" ModelApprovalStatus or ModelTypes, but got {type(state)}")
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
+
+        # TODO: more robust implementation
+        # current implementation (with `get`) makes supposition that there is at most
+        # one model with a given hash in the database
         if _all_models_with_status is None:
             # check only against hash
-            models = self._db.search(_all_models_which_have_req_hash)
+            model = self._db.get(_all_models_which_have_req_hash)
         else:
             # check against hash and status
-            models = self._db.search(_all_models_with_status & _all_models_which_have_req_hash)
+            model = self._db.get(_all_models_with_status & _all_models_which_have_req_hash)
    
-        if models:
+        if model:
             is_status = True
-            model = models[0]  # Search request returns an array
         else:
             is_status = False
             model = None
@@ -301,12 +304,13 @@ class ModelManager:
         req_model_hash, _ = self._create_hash(model_path)
         self._db.clear_cache()
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
-        #  hashes in database should be unique
-        models = self._db.search(_all_models_which_have_req_hash)
 
-        if models:
-            model = models[0]  # Search request returns an array
-        else:
+        # TODO: more robust implementation
+        # hashes in database should be unique, but we don't verify it
+        # (and do we properly enforce it ?)
+        model = self._db.get(_all_models_which_have_req_hash)
+
+        if not model:
             model = None
 
         return model
@@ -398,15 +402,18 @@ class ModelManager:
                 # `upsert` stands for update and insert in TinyDB. This prevents any duplicate, that can happen
                 # if same model is sent twice to Node for approval
                 reply['success'] = True
-                logger.debug("Model successfully received by Node for approval")
+                logger.debug(f"Model '{msg['description']}' successfully received by Node for approval")
             except (PermissionError, FileNotFoundError, OSError) as err:
                 reply['success'] = False
-                logger.error(f"Cannot save model into directory due to error : {err}")
+                logger.error(f"Cannot save model '{msg['description']} 'into directory due to error : {err}")
         elif is_existant and not non_downaloadable:
             if self.check_model_status(model_to_check, ModelApprovalStatus.PENDING)[0]:
-                logger.info("Model already sent for Approval (status Pending). Please wait for Node approval.")
+                logger.info(f"Model '{msg['description']}' already sent for Approval (status Pending). "
+                            "Please wait for Node approval.")
+            elif self.check_model_status(model_to_check, ModelApprovalStatus.APPROVED)[0]:
+                logger.info(f"Model '{msg['description']}' is already Approved. Ready to train on this model.")
             else:
-                logger.warning("Model already exists in database (status Approved or Rejected). Aborting")
+                logger.warning(f"Model '{msg['description']}' already exists in database. Aborting")
             reply['success'] = True
         else:
             # case where model is non-downloadable
@@ -607,8 +614,8 @@ class ModelManager:
 
         # Check if identical model already exists in database
         try:
-            models_path_search = self._db.search(self._database.model_path == path)
-            models_hash_search = self._db.search(self._database.hash == hash)
+            models_path_search = self._db.get(self._database.model_path == path)
+            models_hash_search = self._db.get(self._database.hash == hash)
         except RuntimeError as err:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": search request on database failed."
                                              f" Details: {str(err)}")        
@@ -617,7 +624,7 @@ class ModelManager:
             raise FedbiomedModelManagerError(f'This model has been added already: {path}')
         elif models_hash_search:
             raise FedbiomedModelManagerError('There is already an existing model in database same code hash, '
-                                             f'model name is "{models_hash_search[0]["name"]}"')
+                                             f'model name is "{models_hash_search["name"]}"')
 
         # Register model
         try:
