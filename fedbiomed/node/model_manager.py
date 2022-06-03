@@ -627,16 +627,25 @@ class ModelManager:
                                                  f"Details : {str(err)}")
             # Check if hashing algorithm has changed
             try:
+                hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_MODELS_DIR'], model))               
+
                 if model_info['algorithm'] != environ['HASHING_ALGORITHM']:
+                    # Verify no such model already exists in DB
+                    self._check_model_not_existing(None, None , hash) 
+
                     logger.info(f'Recreating hashing for : {model_info["name"]} \t {model_info["model_id"]}')
-                    hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_MODELS_DIR'], model))
                     self._db.update({'hash': hash, 'algorithm': algorithm,
                                      'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")},
                                     self._database.model_path == path)
                 # If default model file is modified update hashing
                 elif mtime > datetime.strptime(model_info['date_modified'], "%d-%m-%Y %H:%M:%S.%f"):
+                    # only check when hash changes
+                    # else we have error because this model exists in database with same hash
+                    if hash != model_info['hash']:
+                        # Verify no such model already exists in DB
+                        self._check_model_not_existing(None, None , hash)
+
                     logger.info(f"Modified default model file has been detected. Hashing will be updated for: {model}")
-                    hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_MODELS_DIR'], model))
                     self._db.update({'hash': hash, 'algorithm': algorithm,
                                      'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
                                      'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")},
@@ -663,23 +672,9 @@ class ModelManager:
         Raises:
             FedbiomedModelManagerError: cannot read or update the model in database
         """
-        hash, algorithm = self._create_hash(path)
+        
 
         self._db.clear_cache()
-
-        # Check if identical model already exists in database
-        try:
-            models_path_search = self._db.get(self._database.model_path == path)
-            models_hash_search = self._db.get(self._database.hash == hash)
-        except RuntimeError as err:
-            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": search request on database failed."
-                                             f" Details: {str(err)}")        
-
-        if models_path_search:
-            raise FedbiomedModelManagerError(f'This model has been added already: {path}')
-        elif models_hash_search:
-            raise FedbiomedModelManagerError('There is already an existing model in database same code hash, '
-                                             f'model name is "{models_hash_search["name"]}"')
 
         # Register model
         try:
@@ -688,6 +683,9 @@ class ModelManager:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": get request on database failed."
                                              f" Details: {str(err)}")
         if model['model_type'] != ModelTypes.DEFAULT.value:
+            hash, algorithm = self._create_hash(path)
+            # Verify no such model already exists in DB
+            self._check_model_not_existing(None, path , hash)
 
             # Get modification date
             mtime = datetime.fromtimestamp(os.path.getmtime(path))
