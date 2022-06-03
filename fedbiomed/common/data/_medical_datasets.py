@@ -334,17 +334,6 @@ class MedicalFolderBase:
     def validate_MedicalFolder_root_folder(path: Union[str, Path]) -> Path:
         """ Validates Medical Folder root directory by checking folder structure
 
-        The Medical Folder structure has the following pattern:
-
-        ```
-        └─ MedicalFolder_root/
-            └─ sub-01/
-                ├─ T1/
-                │  └─ sub-01_xxx.nii.gz
-                └─ T2/
-                    ├─ sub-01_xxx.nii.gz
-        ```
-
         Args:
             path:
 
@@ -383,16 +372,25 @@ class MedicalFolderBase:
 class MedicalFolderDataset(Dataset, MedicalFolderBase):
     """Torch dataset following the Medical Folder Structure.
 
-    Certain modalities are allowed per subject in the dataset. Each of these is represented by a folder within each
-    subject's directory.:
+    The Medical Folder structure is loosely inspired by the BIDS standard [1]. It should respect the following pattern:
+    ```
+    └─ MedicalFolder_root/
+        └─ demographics.csv
+        └─ sub-01/
+            ├─ T1/
+            │  └─ sub-01_xxx.nii.gz
+            └─ T2/
+                ├─ sub-01_xxx.nii.gz
+    ```
+    where the first-level subfolders or the root correspond to the subjects, and each subject's folder contains
+    subfolders for each imaging modality. Images should be in Nifti format, with either the .nii or .nii.gz extensions.
+    Finally, within the root folder there should also be a demographics file containing at least one index column
+    with the names of the subject folders. This column will be used to explore the data and load the images. The
+    demographics file may contain additional information about each subject and will be loaded alongside the images
+    by our framework.
 
-    * `T1` sequence magnetic resonance image
-    * `T2` sequence magnetic resonance image
-    * `label` which contains segmentation masks
-
+    [1] https://bids.neuroimaging.io/
     """
-    # ALLOWED_MODALITIES = ['T1', 'T2', 'LABEL']
-
     ALLOWED_EXTENSIONS = ['.nii', '.nii.gz']
 
     def __init__(self,
