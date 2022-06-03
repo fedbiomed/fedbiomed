@@ -152,7 +152,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
             self.assertTrue(isinstance(file, Path))
 
         # compare label list content
-        self.assertEqual(sorted([str(f) for f in files]), sorted([str(f) for f in self.sample_paths]))
+        self.assertEqual(sorted([str(f) for f in files]), sorted([str(Path(f).expanduser().resolve()) for f in self.sample_paths]))
 
     def test_getitem(self):
 
@@ -172,7 +172,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
                 self.assertTrue(isinstance(input, torch.Tensor))
                 self.assertTrue(isinstance(target, int))
 
-                file_index = self.sample_paths.index(str(dataset.files()[index]))
+                file_index = self.sample_paths.index(Path(dataset.files()[index]))
                 # check that targets match (need to compare label string as ordering may differ)
                 self.assertEqual(dataset.labels()[target], self.class_names[self.sample_class[file_index]])
 
@@ -218,7 +218,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
                 img = itk.image_from_array(fake_img_data)
                 itk.imwrite(img, img_path)
 
-                self.sample_paths.append(img_path)
+                self.sample_paths.append(Path(img_path).expanduser().resolve())
                 self.sample_class.append(self.class_names.index(class_name))
 
 
@@ -317,7 +317,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
             dataset.set_dataset_parameters("NONEDICTPARAMS")
 
         dataset.set_dataset_parameters({"tabular_file": self.tabular_file, "index_col": self.index_col})
-        self.assertEqual(str(dataset.tabular_file), self.tabular_file)
+        self.assertEqual(str(dataset.tabular_file), str(Path(self.tabular_file).expanduser().resolve()))
         self.assertEqual(dataset.index_col, self.index_col)
 
     def _assert_batch_types_and_sizes(self, dataset):
