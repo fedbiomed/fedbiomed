@@ -102,19 +102,25 @@ class ModelManager:
         return hashing.hexdigest(), hash_algo
 
     def _check_model_not_existing(self,
-                         name: Union[str, None] = None,
-                         path: Union[str, None] = None,
-                         hash: Union[str, None] = None) -> None:
+                                  name: Union[str, None] = None,
+                                  path: Union[str, None] = None,
+                                  hash: Union[str, None] = None,
+                                  algorithm: Union [str, None] = None) -> None:
         """Check no model exists in database that matches specified criteria.
 
         For each criterion, if criterion is not None, then check that no entry
         exists in database matching this criterion. Raise an exception if such
         entry exists.
 
+        Hash and algorithm are checked together: if they both have non-None values,
+        it is checked whether database contains an entry that both matches
+        hash and algorithm.
+
         Args:
             name: Model name
             path: Model file path
             hash: Model hash
+            algorithm: Hashing algorithm
 
         Raises:
             FedbiomedModelManagerError: at least one model exists in DB matching a criterion
@@ -153,9 +159,14 @@ class ModelManager:
                 raise FedbiomedModelManagerError(error)
 
         # TODO: to be more robust we should also check algorithm is the same
-        if hash is not None:
+        if hash is not None or algorithm is not None:
             try:
-                models_hash_get = self._db.get(self._database.hash == hash)
+                if algorithm is None:
+                    models_hash_get = self._db.get(self._database.hash == hash)
+                elif hash is None:
+                    models_hash_get = self._db.get(self._database.algorithm == algorithm)
+                else:
+                    models_hash_get = self._db.get((self._database.hash == hash) & (self._database.algorithm == algorithm))
             except RuntimeError as err:
                 error = ErrorNumbers.FB606.value + ": search request on database failed." + \
                                                    f" Details: {str(err)}"
@@ -210,7 +221,7 @@ class ModelManager:
         self._db.clear_cache()
 
         # Verify no such model is already registered
-        self._check_model_not_existing(name, path, model_hash)
+        self._check_model_not_existing(name, path, model_hash, algorithm)
 
         # Model file creation date
         ctime = datetime.fromtimestamp(os.path.getctime(path)).strftime("%d-%m-%Y %H:%M:%S.%f")
@@ -262,7 +273,7 @@ class ModelManager:
                         hashing, algorithm = self._create_hash(model['model_path'])
 
                         # Verify no such model already exists in DB
-                        self._check_model_not_existing(None, None , hashing)
+                        self._check_model_not_existing(None, None , hashing, algorithm)
 
                         rtime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
                         try:
@@ -631,7 +642,7 @@ class ModelManager:
 
                 if model_info['algorithm'] != environ['HASHING_ALGORITHM']:
                     # Verify no such model already exists in DB
-                    self._check_model_not_existing(None, None , hash) 
+                    self._check_model_not_existing(None, None , hash, algorithm) 
 
                     logger.info(f'Recreating hashing for : {model_info["name"]} \t {model_info["model_id"]}')
                     self._db.update({'hash': hash, 'algorithm': algorithm,
@@ -643,7 +654,7 @@ class ModelManager:
                     # else we have error because this model exists in database with same hash
                     if hash != model_info['hash']:
                         # Verify no such model already exists in DB
-                        self._check_model_not_existing(None, None , hash)
+                        self._check_model_not_existing(None, None , hash, algorithm)
 
                     logger.info(f"Modified default model file has been detected. Hashing will be updated for: {model}")
                     self._db.update({'hash': hash, 'algorithm': algorithm,
@@ -685,7 +696,7 @@ class ModelManager:
         if model['model_type'] != ModelTypes.DEFAULT.value:
             hash, algorithm = self._create_hash(path)
             # Verify no such model already exists in DB
-            self._check_model_not_existing(None, path , hash)
+            self._check_model_not_existing(None, path , hash, algorithm)
 
             # Get modification date
             mtime = datetime.fromtimestamp(os.path.getmtime(path))
