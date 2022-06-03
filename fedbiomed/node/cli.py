@@ -245,14 +245,16 @@ def add_database(interactive: bool = True,
                 column_values = MedicalFolderController.demographics_column_names(tabular_file_path)
                 for i, col in enumerate(column_values):
                     print(f'{i:3} : {col}')
-                while True:
-                    try:
-                        index_col = input('\nPlease input the (numerical) index of the column containing '
-                                          'the subject ids corresponding to image folder names \n')
-                        index_col = int(index_col)
-                        break
-                    except ValueError:
-                        warnings.warn('Please input a numeric value (integer)')
+                if interactive:
+                    keep_asking_for_input = True
+                    while keep_asking_for_input:
+                        try:
+                            index_col = input('\nPlease input the (numerical) index of the column containing '
+                                              'the subject ids corresponding to image folder names \n')
+                            index_col = int(index_col)
+                            keep_asking_for_input = False
+                        except ValueError:
+                            warnings.warn('Please input a numeric value (integer)')
                 dataset_parameters = {} if dataset_parameters is None else dataset_parameters
                 dataset_parameters['tabular_file'] = tabular_file_path
                 dataset_parameters['index_col'] = index_col
