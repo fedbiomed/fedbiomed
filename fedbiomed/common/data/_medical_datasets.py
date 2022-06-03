@@ -710,18 +710,6 @@ class BIDSDataset(Dataset, BIDSBase):
             raise FedbiomedDatasetError(f'{ErrorNumbers.FB613.value}: As you have multiple data modalities, transforms '
                                         f'have to be a dictionary using the modality keys: {modalities}')
 
-    def set_dataset_params(self, params: dict) -> None:
-        """Sets additional parameters retrieved from the local node DB.
-
-        In the BIDS case, it is used to set the path to the tabular file and the index column.
-
-        Args:
-            params: dictionary of {parameter name: parameter value}
-        """
-        for param_name, param_value in params.items():
-            if hasattr(self, param_name):
-                setattr(self, param_name, param_value)
-
 
 class BIDSController(BIDSBase):
     """Utility class to construct and verify BIDS datasets without knowledge of the experiment.
