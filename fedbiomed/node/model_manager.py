@@ -225,46 +225,6 @@ class ModelManager:
                                                          "database remove operation failed, with following error: ",
                                                          f"{str(err)}")
 
-    def check_is_model_registered(self, path: str) -> Tuple[bool, Dict[str, Any]]:
-        """Checks whether model has been registered by the node.
-
-        Sends a query to database to search for hash of requested model.
-        If it is the hash matches with one of the
-        models hashes in the DB, it approves requested model.
-
-        Args:
-            path: The path of requested model file by researcher after downloading
-                model file from file repository.
-
-        Returns:
-            A tuple (approved, approved_model) where
-
-                - approved: Whether model has been approved or not
-                - approved_model: Dictionary containing fields
-                    related to the model. If database search request failed,
-                    returns None instead.
-        """
-
-        # Create hash for requested model
-        req_model_hash, _ = self._create_hash(path)
-        self._db.clear_cache()
-
-        # If node allows defaults models search hash for all model types
-        # otherwise search only for `registered` models
-
-        _all_models_registered = (self._database.model_type == ModelTypes.REGISTERED.value)
-        _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
-        models = self._db.search(_all_models_registered & _all_models_which_have_req_hash)
-
-        if models:
-            approved = True
-            approved_model = models[0]  # Search request returns an array
-        else:
-            approved = False
-            approved_model = None
-
-        return approved, approved_model
-
     def check_model_status(self,
                            model_path: str,
                            state: Union[ModelApprovalStatus, ModelTypes, None]) -> Tuple[bool, Dict[str, Any]]:

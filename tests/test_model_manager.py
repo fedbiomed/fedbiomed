@@ -506,7 +506,7 @@ class TestModelManager(unittest.TestCase):
             description='desc'
         )
         ## second, reject it 
-        _, model_to_reject = self.model_manager.check_is_model_registered(model_file_path)
+        _, model_to_reject = self.model_manager.check_model_status(model_file_path, ModelTypes.REGISTERED)
         self.model_manager.reject_model(model_to_reject['model_id'])
         
         # action: gather only rejected models
