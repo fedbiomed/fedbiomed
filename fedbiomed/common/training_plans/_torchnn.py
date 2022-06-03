@@ -152,10 +152,12 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
            FedbiomedTrainingPlanError: when to_send is not the correct type
         """
         if isinstance(to_send, torch.Tensor):
-            return to_send.to(self.device)
+            return to_send.to(device)
         elif isinstance(to_send, dict):
             return {key: self.send_to_device(val, device) for key, val in to_send.items()}
-        elif isinstance(to_send, (list, tuple)):
+        elif isinstance(to_send, tuple):
+            return tuple(self.send_to_device(d, device) for d in to_send)
+        elif isinstance(to_send, list):
             return [self.send_to_device(d, device) for d in to_send]
         else:
             raise FedbiomedTrainingPlanError(f'{ErrorNumbers.FB310.value} cannot send data to device. '
