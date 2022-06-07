@@ -556,7 +556,8 @@ def approve_model(sort_by_date: bool = True):
         return
 
     options = [m['name'] + '\t Model ID ' + m['model_id'] + '\t model status ' +
-               m['model_status'] for m in non_approved_models]
+               m['model_status'] + '\tdate_last_action ' +
+               str(m['date_last_action']) for m in non_approved_models]
 
     msg = "Select the model to approve:\n"
     msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
@@ -587,7 +588,7 @@ def reject_model():
         return
 
     options = [m['name'] + '\t Model ID ' + m['model_id'] + '\t model status ' +
-               m['model_status'] for m in approved_models]
+               m['model_status'] + '\tModel Type ' + m['model_type']  for m in approved_models]
 
     msg = "Select the model to reject (this will prevent Researcher to run model on Node):\n"
     msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])

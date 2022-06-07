@@ -109,7 +109,7 @@ class ModelManager:
                                   name: Union[str, None] = None,
                                   path: Union[str, None] = None,
                                   hash: Union[str, None] = None,
-                                  algorithm: Union [str, None] = None) -> None:
+                                  algorithm: Union[str, None] = None) -> None:
         """Check no model exists in database that matches specified criteria.
 
         For each criterion, if criterion is not None, then check that no entry
