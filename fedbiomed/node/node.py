@@ -60,7 +60,7 @@ class Node:
         """
         self.tasks_queue.add(task)
 
-    def on_message(self, msg: dict, topic:str = None):
+    def on_message(self, msg: dict, topic: str = None):
         """Handler to be used with `Messaging` class (ie the messager).
 
         Called when a  message arrives through the `Messaging`.
@@ -129,6 +129,9 @@ class Node:
                      'databases': databases,
                      'count': len(databases),
                      }).get_dict())
+            elif command == 'approval':
+                # Ask for model approval
+                self.model_manager.reply_model_approval_request(request, self.messaging)
             elif command == 'model-status':
                 # Check is model approved
                 self.model_manager.reply_model_status_request(request, self.messaging)

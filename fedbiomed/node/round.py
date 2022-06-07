@@ -9,7 +9,7 @@ import inspect
 from typing import Union, Any
 import uuid
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, ModelApprovalStatus
 from fedbiomed.common.data import DataManager
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
@@ -113,11 +113,13 @@ class Round:
                 return self._send_round_reply(success=False, message=error_message)
             else:
                 if environ["MODEL_APPROVAL"]:
-                    approved, model = self.model_manager.check_is_model_approved(os.path.join(environ["TMP_DIR"],
-                                                                                              import_module + '.py'))
+                    approved, model = self.model_manager.check_model_status(os.path.join(environ["TMP_DIR"],
+                                                                            import_module + '.py'),
+                                                                            ModelApprovalStatus.APPROVED)
                     if not approved:
                         error_message = f'Requested model is not approved by the node: {environ["NODE_ID"]}'
                         return self._send_round_reply(success=False, message=error_message)
+                        
                     else:
                         logger.info(f'Model has been approved by the node {model["name"]}')
 
