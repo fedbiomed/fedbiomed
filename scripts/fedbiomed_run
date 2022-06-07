@@ -314,6 +314,11 @@ case $1 in
                     python -m fedbiomed.node.cli --delete-model $PARAMS
                     ;;
 
+                view-model|--view-model|-vml)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --view-model $PARAMS
+                    ;;
+
                 start|--start|-s)
                     #export MQTT_BROKER=localhost
                     #export MQTT_BROKER_PORT=1883

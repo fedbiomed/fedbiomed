@@ -6,7 +6,7 @@ from datetime import datetime
 import hashlib
 import os
 
-from numpy import isin
+from numpy import TooHardError, isin
 from python_minifier import minify
 import shutil
 from tabulate import tabulate
@@ -354,7 +354,34 @@ class ModelManager:
             is_status = False
             model = None
 
-        return is_status, model      
+        return is_status, model
+
+    def get_model_by_name(self, model_name: str) -> Union[Dict[str, Any], None]:
+        """Gets model from database, by its name
+
+        Args:
+            model_name: name of the model entry to search in the database
+
+        Raises:
+            FedbiomedModelManagerError: cannot read database.
+
+        Returns:
+            model entry found in the database matching `model_name`. Otherwise, returns None.
+        """
+        self._db.clear_cache()
+
+        # TODO: more robust implementation
+        # names in database should be unique, but we don't verify it
+        # (and do we properly enforce it ?)
+        try:
+            model = self._db.get(self._database.name == model_name)
+        except Exception as e:
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ': cannot search database for model '
+                                             f' "{model_name}", error is "{e}"')
+
+        if not model:
+            model = None
+        return model
 
     def get_model_from_database(self, model_path: str) -> Union[Dict[str, Any], None]:
         """Gets model from database, by its hash
@@ -378,7 +405,6 @@ class ModelManager:
 
         if not model:
             model = None
-
         return model
 
     def create_txt_model_from_py(self, model_path: str) -> str:

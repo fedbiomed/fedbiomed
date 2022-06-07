@@ -651,6 +651,54 @@ def delete_model():
             logger.error('Invalid option. Please, try again.')
 
 
+def view_model():
+    """Views source code for a model in the database
+
+    If `EDITOR` is set then use this editor to view a copy of the model source code, so that
+    any modification are not saved to the model,
+
+    If `EDITOR` is unset or cannot be used to view the model, the print the model to the logger
+    """
+    models = model_manager.list_models(verbose=False)
+    if not models:
+        logger.warning("No model has been registered... aborting")
+        return
+
+    options = [m['name'] + '\t Model ID ' + m['model_id'] + '\t model status ' +
+               m['model_status'] for m in models]
+
+    msg = "Select the model to view:\n"
+    msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
+    msg += "\n\nDon't try to modify the model with this viewer, modifications will be dropped."
+    msg += "\nSelect: "
+
+    while True:
+        try:
+            opt_idx = int(input(msg)) - 1
+            assert opt_idx in range(len(models))
+            model_name = models[opt_idx]['name']
+
+            # should never be None, as we just checked for it
+            model = model_manager.get_model_by_name(model_name)
+            # first try to view using system editor
+            editor = os.getenv('EDITOR')
+            result = os.system(f'{editor} {model["model_path"]} 2>/dev/null')
+            if result != 0:
+                logger.info(f'Cannot view model with editor "{editor}", display via logger')
+                # second try to print via logger (default output)
+                try:
+                    with open(model["model_path"]) as m:
+                        model_source = ''.join(m.readlines())
+                        logger.info(f'\n\n{model_source}\n\n')
+                except Exception:
+                    logger.error('Cannot display model via logger. Aborting.')
+
+            return
+
+        except (ValueError, IndexError, AssertionError):
+            logger.error('Invalid option. Please, try again.')
+
+
 def launch_cli():
     """Parses command line input for the node component and launches node accordingly.
     """
@@ -703,7 +751,7 @@ def launch_cli():
     parser.add_argument('-lms', '--list-models',
                         help='List all models',
                         action='store_true')
-    parser.add_argument('-vms', '--view-models',
+    parser.add_argument('-vml', '--view-model',
                         help='View a model source code (for any type of model)',
                         action='store_true')
     parser.add_argument('-g', '--gpu',
@@ -799,9 +847,8 @@ def launch_cli():
         delete_model()
     elif args.list_models:
         model_manager.list_models(verbose = True)
-    elif args.view_models:
-        #view_model()
-        pass
+    elif args.view_model:
+        view_model()
     elif args.start_node:
         # convert to node arguments structure format expected in Round()
         node_args = {
