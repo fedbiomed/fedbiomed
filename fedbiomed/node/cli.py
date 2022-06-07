@@ -243,6 +243,7 @@ def add_database(interactive: bool = True,
                 tabular_file_path = validated_path_input(type='csv')
                 # get index col from user
                 column_values = MedicalFolderController.demographics_column_names(tabular_file_path)
+                print("\nHere are all the columns contained in demographics file:\n")
                 for i, col in enumerate(column_values):
                     print(f'{i:3} : {col}')
                 if interactive:
