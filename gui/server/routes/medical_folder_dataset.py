@@ -16,14 +16,15 @@ from schemas import ValidateMedicalFolderReferenceCSV, \
     PreviewDatasetRequest
 
 from fedbiomed.common.data import MedicalFolderController
-
+from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.common.exceptions import FedbiomedError
+dataset_manager = DatasetManager()
 
 # Medical Folder Controller
 mf_controller = MedicalFolderController()
 
 # Path to write and read the datafiles
 DATA_PATH_RW = app.config['DATA_PATH_RW']
-
 
 # Database table (default datasets table of TinyDB) and query object
 table = database.db().table()
@@ -32,7 +33,8 @@ query = database.query()
 
 @api.route('/datasets/medical-folder-dataset/validate-reference-column', methods=['POST'])
 @validate_request_data(schema=ValidateMedicalFolderReferenceCSV)
-@middleware(middlewares=[medical_folder_dataset.read_medical_folder_reference, medical_folder_dataset.validate_available_subjects])
+@middleware(middlewares=[medical_folder_dataset.read_medical_folder_reference,
+                         medical_folder_dataset.validate_available_subjects])
 def validate_reference_csv_column():
     """ Validate selected reference CSV and column shows folder names """
     subjects = g.available_subjects
@@ -52,8 +54,7 @@ def validate_root_path():
 @middleware(middlewares=[common.check_tags_already_registered,
                          medical_folder_dataset.validate_medical_folder_root,
                          medical_folder_dataset.read_medical_folder_reference,
-                         medical_folder_dataset.validate_available_subjects,
-                         medical_folder_dataset.create_and_validate_medical_folder_dataset])
+                         medical_folder_dataset.validate_available_subjects])
 def add_medical_folder_dataset():
     """ Adds MedicalFolder dataset into database of NODE """
 
@@ -65,10 +66,6 @@ def add_medical_folder_dataset():
     # Create unique id for the dataset
     dataset_id = 'dataset_' + str(uuid.uuid4())
 
-    # Get shape
-    mf_dataset = g.mf_dataset
-    shape = mf_dataset.shape()
-
     if req["reference_csv_path"] is None:
         dataset_parameters = {}
     else:
@@ -76,22 +73,23 @@ def add_medical_folder_dataset():
         dataset_parameters = {"index_col": req["index_col"],
                               "tabular_file": reference_csv}
     try:
-        table.insert({
-            "name": req["name"],
-            "path": data_path_save,
-            "data_type": "medical-folder",
-            "dtypes": [],
-            "shape": shape,
-            "tags": req['tags'],
-            "description": req['desc'],
-            "dataset_id": dataset_id,
-            "dataset_parameters": dataset_parameters
-        })
-    except Exception as e:
+        dataset_manager.add_database(name=req["name"],
+                                     data_type="medical-folder",
+                                     tags=req['tags'],
+                                     description=req['desc'],
+                                     path=data_path_save,
+                                     dataset_id=dataset_id,
+                                     dataset_parameters=dataset_parameters)
+    except FedbiomedError as e:
         return error(str(e)), 400
+    except Exception as e:
+        return error("Unexpected error: " + str(e)), 400
 
     # Get saved dataset document
     res = table.get(query.dataset_id == dataset_id)
+    if not res:
+        return error("Medical Folder Dataset is not properly deployed. "
+                     "Please try again."), 400
 
     return response(data=res), 200
 

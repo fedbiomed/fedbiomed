@@ -75,32 +75,3 @@ def validate_available_subjects():
 
     g.available_subjects = mf_subjects
 
-
-def create_and_validate_medical_folder_dataset():
-    """Create and validates MedicalFolder dataset"""
-    req = request.json
-    root = os.path.join(DATA_PATH_RW, *req["medical_folder_root"])
-    if req.get("reference_csv_path", None) is None:
-        reference_path = None
-        index_col = None
-    else:
-        reference_path = os.path.join(DATA_PATH_RW, *req["reference_csv_path"])
-        index_col = req["index_col"]
-
-    try:
-        mf_controller.root = root
-        mf_dataset = mf_controller.load_MedicalFolder(tabular_file=reference_path, index_col=index_col)
-    except FedbiomedError as e:
-        return error(f"Can not add MedicalFolder dataset. The error message is '{e}'"), 400
-    except Exception as e:
-        return error(f"Unexpected error while validating MedicalFolder dataset. Please contact to system provider.'"), 400
-
-    try:
-        x = mf_dataset[0]
-    except Exception as e:
-        return error("Error while validating MedicalFolder dataset. Pleas emake sure MedicalFolder dataset folder"
-                     " has been formatted as expected.")
-
-    g.mf_dataset = mf_dataset
-
-

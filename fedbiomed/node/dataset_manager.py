@@ -330,14 +330,21 @@ class DatasetManager:
         elif data_type == 'medical-folder':
             if not os.path.isdir(path):
                 raise FedbiomedDatasetManagerError(f'Folder {path} for Medical Folder Dataset does not exist.')
-            if not os.path.isfile(dataset_parameters['tabular_file']):
-                raise FedbiomedDatasetManagerError(f'File ({dataset_parameters["tabular_file"]}) not found.')
+
+            if "tabular_file" not in dataset_parameters:
+                logger.info("Medical Folder Dataset will be loaded without reference/demographics data.")
+            else:
+                if not os.path.isfile(dataset_parameters['tabular_file']):
+                    raise FedbiomedDatasetManagerError(f'Path {dataset_parameters["tabular_file"]} does not '
+                                                       f'correspond a file.')
+                if "index_col" not in dataset_parameters:
+                    raise FedbiomedDatasetManagerError(f'Index column is not provided')
 
             try:
                 # load using the MedicalFolderController to ensure all available modalities are inspected
                 controller = MedicalFolderController(root=path)
-                dataset = controller.load_MedicalFolder(tabular_file=dataset_parameters['tabular_file'],
-                                                        index_col=dataset_parameters['index_col'])
+                dataset = controller.load_MedicalFolder(tabular_file=dataset_parameters.get('tabular_file', None),
+                                                        index_col=dataset_parameters.get('index_col', None))
             except FedbiomedError as e:
                 raise FedbiomedDatasetManagerError(f"Can not create Medical Folder dataset. {e}")
             else:
