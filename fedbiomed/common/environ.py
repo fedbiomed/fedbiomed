@@ -21,6 +21,10 @@ Nodes Global Variables:
 - MESSAGES_QUEUE_DIR      : Path for queues
 - DB_PATH                 : TinyDB database path where datasets are saved
 - MODEL_DB_PATH           : Database where registered model are saved
+- DEFAULT_MODELS_DIR      : Path of directory for storing default models
+- MODEL_DIR               : Path of directory for storing registered models
+- MODEL_APPROVAL          : True if the node enables model approval
+- ALLOW_DEFAULT_MODELS    : True if the node enables default models for model approval
 
 Common Global Variables:
 
@@ -255,6 +259,13 @@ class Environ(metaclass=SingletonMeta):
         self._values['DEFAULT_MODELS_DIR'] = os.path.join(ROOT_DIR,
                                                           'envs', 'common', 'default_models')
 
+        # default diectory for saving model approved / waiting for approval / rejected
+        self._values['MODEL_DIR'] = os.path.join(VAR_DIR, f'model_{NODE_ID}')
+        # FIXME: we may want to change that
+        # Catch exceptions
+        if not os.path.isdir(self._values['MODEL_DIR'] ):
+            # create model directry 
+            os.mkdir(self._values['MODEL_DIR'])
         try:
             _cfg_value = cfg.get('security', 'allow_default_models')
         except configparser.Error:
