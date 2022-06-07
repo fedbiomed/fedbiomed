@@ -3,13 +3,14 @@ import copy
 from datetime import datetime
 import os
 import shutil
+import tempfile
 import unittest
 import inspect
 from unittest.mock import patch, MagicMock
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
-from fedbiomed.common.constants import ErrorNumbers, HashingAlgorithms
+from fedbiomed.common.constants import ErrorNumbers, HashingAlgorithms, ModelApprovalStatus, ModelTypes
 from fedbiomed.common.exceptions import FedbiomedMessageError, FedbiomedModelManagerError, FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 
@@ -279,10 +280,10 @@ class TestModelManager(unittest.TestCase):
         - Test 2: models are registered and are stored on computer
         - Test 3: model is no longer stored on computer.
         """
-        # patch
-        correct_hash = 'a correct hash'
-        correct_hashing_algo = 'a correct hashing algorithm'
-        create_hash_patch.return_value = correct_hash, correct_hashing_algo
+        ## patch
+        def create_hash_side_effect(path):
+            return f'a correct unique hash {path}', 'a correct hasing algo'
+        create_hash_patch.side_effect = create_hash_side_effect
 
         # test 1: case where there is no model registered
         self.model_manager.check_hashes_for_registered_models()
@@ -322,6 +323,7 @@ class TestModelManager(unittest.TestCase):
         models = self.model_manager._db.search(self.model_manager._database.model_type.all('registered'))
 
         for model in models:
+            correct_hash, correct_hashing_algo = create_hash_side_effect(model['model_path'])
             self.assertEqual(model['hash'], correct_hash)
             self.assertEqual(model['algorithm'], correct_hashing_algo)
 
@@ -338,43 +340,38 @@ class TestModelManager(unittest.TestCase):
         # check that the model has been removed
         self.assertIsNone(removed_model)
 
-    def test_model_manager_10_checking_model_approve(self):
-        """ Testing check model is approved or not """
+    def test_model_manager_12_create_txt_model_from_py(self):
+        """Test_model_manager_12: tests if txt file can be created from py file"""
+        # initialisation: creating a *.py file
+        randomfolder = tempfile.mkdtemp()
+        if not os.access(randomfolder, os.W_OK):
+            self.skipTest("Test skipped cause temporary directory not writtable")
+        else:
+            file = os.path.join(environ['TMP_DIR'], 'model.py')
+            code_source = \
+                "class TestClass:\n" + \
+                "   def __init__(self, **kwargs):\n" + \
+                "       self._kwargs = kwargs\n" + \
+                "   def load_state(self, state :str):\n" + \
+                "       self._state = state\n"
+            with open(file, 'w') as f:
+                f.write(code_source)
 
-        model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
-        model_file_2 = os.path.join(self.testdir, 'test-model-2.txt')
+            # action
+            txt_model_path = self.model_manager.create_txt_model_from_py(file)
 
-        self.model_manager.register_model(
-            name='test-model',
-            path=model_file_1,
-            model_type='registered',
-            description='desc'
-        )
+            # checks
+            ## tests if `txt_model` has a *.txt extension
+            _, ext = os.path.splitext(txt_model_path)
+            self.assertEqual(ext, '.txt')
 
-        # Load default datasets
-        self.model_manager.register_update_default_models()
+            # check if content is the same in *.txt file and in *.py file
+            with open(txt_model_path, 'r') as f:
+                code = f.read()
 
-        # Test when model is not approved
-        approve, model = self.model_manager.check_is_model_approved(model_file_2)
-        self.assertFalse(approve, "Model has been approved but it it shouldn't have been")
-        self.assertIsNone(model, "Model has been approved but it it shouldn't have been")
+            self.assertEqual(code, code_source)
 
-        # Test when model is approved model
-        approve, model = self.model_manager.check_is_model_approved(model_file_1)
-        self.assertTrue(approve, "Model hasn't been approved but it should have been")
-        self.assertIsNotNone(model, "Model hasn't been approved but it should have been")
-
-        # Test when default models is not allowed / not approved
-        self.values['ALLOW_DEFAULT_MODELS'] = False
-
-        default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
-        for model in default_models:
-            model_path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
-            approve, model = self.model_manager.check_is_model_approved(model_path)
-            self.assertFalse(approve, "Model has been approved but it shouldn't have been")
-            self.assertIsNone(model, "Model has been approved but it shouldn't have been")
-
-    def test_model_manager_11_update_model_normal_case(self, ):
+    def test_model_manager_13_update_model_normal_case(self, ):
         """Tests method `update_model` in the normal case scenario"""
 
         # database initialisation
@@ -397,11 +394,12 @@ class TestModelManager(unittest.TestCase):
         model_hashing_algorithm = 'a_hashing_algorithm'
 
         # action
+        default_model_file_2 = os.path.join(self.testdir, 'test-model-2.txt')
         with (patch.object(ModelManager, '_create_hash',
                            return_value=(model_hash, model_hashing_algorithm)),
               patch.object(os.path, 'getmtime', return_value=file_modification_date_timestamp),
               patch.object(os.path, 'getctime', return_value=file_creation_date_timestamp)):
-            self.model_manager.update_model('test-model-id', default_model_file_1)
+            self.model_manager.update_model_hash('test-model-id', default_model_file_2)
 
         # checks
         # first, we are accessing to the updated model
@@ -412,9 +410,9 @@ class TestModelManager(unittest.TestCase):
         self.assertEqual(updated_model['algorithm'], model_hashing_algorithm)
         self.assertEqual(updated_model['date_modified'], file_modification_date_literal)
         self.assertEqual(updated_model['date_created'], file_creation_date_literal)
-        self.assertEqual(updated_model['model_path'], default_model_file_1)
+        self.assertEqual(updated_model['model_path'], default_model_file_2)
 
-    def test_model_manager_12_update_model_exception(self):
+    def test_model_manager_14_update_model_exception(self):
         """Tests method `update_model` """
         # database preparation
         default_model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
@@ -426,10 +424,10 @@ class TestModelManager(unittest.TestCase):
             model_id='test-model-id'
         )
         with self.assertRaises(FedbiomedModelManagerError):
-            self.model_manager.update_model(model_id='test-model-id',
-                                            path=default_model_file_path)
+            self.model_manager.update_model_hash(model_id='test-model-id',
+                                                 path=default_model_file_path)
 
-    def test_model_manager_13_delete_registered_models(self):
+    def test_model_manager_15_delete_registered_models(self):
         """ Testing delete operation for model manager """
 
         model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
@@ -463,15 +461,15 @@ class TestModelManager(unittest.TestCase):
             with self.assertRaises(FedbiomedModelManagerError):
                 self.model_manager.delete_model(model['model_id'])
 
-    def test_model_manager_14_list_approved_models(self):
+    def test_model_manager_14_list_models(self):
         """ Testing list method of model manager """
 
         self.model_manager.register_update_default_models()
-        models = self.model_manager.list_approved_models(verbose=False)
+        models = self.model_manager.list_models(verbose=False)
         self.assertIsInstance(models, list, 'Could not get list of models properly')
 
         # Check with verbose
-        models = self.model_manager.list_approved_models(verbose=True)
+        models = self.model_manager.list_models(verbose=True)
         self.assertIsInstance(models, list, 'Could not get list of models properly in verbose mode')
         
         # do some tests on the first model of models contained in database
@@ -479,11 +477,68 @@ class TestModelManager(unittest.TestCase):
         self.assertNotIn('hash', models[0])
         self.assertNotIn('date_modified', models[0])
         self.assertNotIn('date_created', models[0])
+        
+        # check by sorting results ()
+        ## list of fields we are going to sort in alphabetical order
+        sort_by_fields = ['date_last_action',
+                          'model_type',
+                          'model_status',
+                          'algorithm', 
+                          'researcher_id']
+        
+        for sort_by_field in sort_by_fields:
+            models_sorted_by_modified_date = self.model_manager.list_models(sort_by=sort_by_field,
+                                                                            )
+            for i in range(len(models_sorted_by_modified_date) - 1):
+                
+                # do not compare if values extracted are set to None
+                if models_sorted_by_modified_date[i][sort_by_field] is not None \
+                   and models_sorted_by_modified_date[i + 1][sort_by_field] is not None:
+                    self.assertLessEqual(models_sorted_by_modified_date[i][sort_by_field],
+                                         models_sorted_by_modified_date[i + 1][sort_by_field])
+
+        # check with results filtered on `model_status` field
+        ## first, register a model
+        model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
+
+        self.model_manager.register_model(
+            name='test-model-1',
+            path=model_file_path,
+            model_type='registered',
+            description='desc'
+        )
+        ## second, reject it 
+        _, model_to_reject = self.model_manager.check_model_status(model_file_path, ModelTypes.REGISTERED)
+        self.model_manager.reject_model(model_to_reject['model_id'])
+        
+        # action: gather only rejected models
+        rejected_models = self.model_manager.list_models(select_status=ModelApprovalStatus.REJECTED)
+        
+        self.assertIn('test-model-1', [x['name'] for x in rejected_models])
+        self.assertNotIn(ModelApprovalStatus.APPROVED.value,
+                         [x['model_status'] for x in rejected_models])
+        # gather only pending models (there should be no model with pending status,
+        # so request returns empty list)
+        pending_models = self.model_manager.list_models(select_status=ModelApprovalStatus.PENDING,
+                                                        verbose=False)
+        self.assertEqual(pending_models, [])
+        
+        ## filtering with more than one status (get only REJECTED and APPROVAL model)
+        rejected_and_approved_models = self.model_manager.list_models(select_status=[ModelApprovalStatus.REJECTED,
+                                                                                     ModelApprovalStatus.APPROVED],
+                                                                      verbose=False)
+        for model in rejected_and_approved_models:
+            # Model status should be either Rejected or Approved...
+            self.assertIn(model['model_status'],
+                          [ModelApprovalStatus.REJECTED.value,
+                           ModelApprovalStatus.APPROVED.value])
+            # ... but not Pending
+            self.assertNotEqual(model['model_status'], ModelApprovalStatus.PENDING.value)
 
     @patch('fedbiomed.common.repository.Repository.download_file')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.node.model_manager.ModelManager.get_model_from_database')
     def test_model_manager_15_reply_model_status_request(self,
-                                                         mock_checking,
+                                                         mock_get_model,
                                                          mock_download):
         """Tests model manager `reply_model_status_request` method (normal case scenarii)"""
 
@@ -491,7 +546,7 @@ class TestModelManager(unittest.TestCase):
         messaging.send_message.return_value = None
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
         mock_download.return_value = 200, None
-        mock_checking.return_value = True, {}
+        mock_get_model.return_value = {'model_status': ModelApprovalStatus.APPROVED.value}
 
         msg = {
             'researcher_id': 'ssss',
@@ -509,8 +564,9 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': True,
                                                         'approval_obligation': True,
-                                                        'is_approved': True,
-                                                        'msg': 'Model is approved by the node',
+                                                        'status': ModelApprovalStatus.APPROVED.value,
+                                                        'msg': "Model has been approved by the node," +
+                                                        " training can start",
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
                                                         })
@@ -523,7 +579,7 @@ class TestModelManager(unittest.TestCase):
         # test 2: case where status code of HTTP request equals 200 AND model has
         # not been approved
         msg['researcher_id'] = 'dddd'
-        mock_checking.return_value = False, {}
+        mock_get_model.return_value = {'model_status': ModelApprovalStatus.REJECTED.value}
         messaging.reset_mock()
         # action
         self.model_manager.reply_model_status_request(msg, messaging)
@@ -534,8 +590,9 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': True,
                                                         'approval_obligation': True,
-                                                        'is_approved': False,
-                                                        'msg': 'Model is not approved by the node',
+                                                        'status': ModelApprovalStatus.REJECTED.value,
+                                                        'msg': "Model has been rejected by the node," +
+                                                        " training is not possible",
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
                                                         })
@@ -553,7 +610,7 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': True,
                                                         'approval_obligation': False,
-                                                        'is_approved': False,
+                                                        'status': ModelApprovalStatus.REJECTED.value,
                                                         'msg': test3_msg,
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
@@ -561,7 +618,7 @@ class TestModelManager(unittest.TestCase):
 
         # test 4: case where status code of HTTP request equals 404 (request failed)
         mock_download.return_value = 404, None
-        mock_checking.return_value = True, {}
+        mock_get_model.return_value = {'model_status': ModelApprovalStatus.PENDING.value}
         msg['researcher_id'] = '12345'
 
         messaging.reset_mock()
@@ -572,16 +629,16 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': False,
                                                         'approval_obligation': False,
-                                                        'is_approved': False,
+                                                        'status': 'Error',
                                                         'msg': f'Can not download model file. {msg["model_url"]}',
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
                                                         })
 
     @patch('fedbiomed.common.repository.Repository.download_file')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.node.model_manager.ModelManager.get_model_from_database')
     def test_model_manager_16_reply_model_status_request_exception(self,
-                                                                   mock_checking,
+                                                                   mock_get_model,
                                                                    mock_download):
         """
         Tests `reply_model_status_request` method when exceptions are occuring:
@@ -600,7 +657,7 @@ class TestModelManager(unittest.TestCase):
         download_exception = FedbiomedRepositoryError("mimicking an exception triggered from"
                                                       "fedbiomed.common.repository")
         mock_download.side_effect = download_exception
-        mock_checking.return_value = True, {}
+        mock_get_model.return_value = True, {}
 
         msg = {
             'researcher_id': 'ssss',
@@ -621,22 +678,22 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': False,
                                                         'approval_obligation': False,
-                                                        'is_approved': False,
+                                                        'status': 'Error',
                                                         'msg': download_err_msg,
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
                                                         })
-        # test 2: test that error triggered through `check_is_model_approved` method
+        # test 2: test that error triggered through `check_model_status` method
         # of `ModelManager` is correctly handled
 
         # resetting `mock_download`
         mock_download.side_effect = None
         mock_download.return_value = 200, None
         messaging.reset_mock()
-        # creating a new exception for `check_is_model_approved` method
+        # creating a new exception for `check_model_status` method
         checking_model_exception = FedbiomedModelManagerError("mimicking an exception happening when calling "
                                                               "'check_is_model_approved'")
-        mock_checking.side_effect = checking_model_exception
+        mock_get_model.side_effect = checking_model_exception
 
         checking_model_err_msg = ErrorNumbers.FB606.value + ': Cannot check if model has been registered.' + \
             f' Details {checking_model_exception}'
@@ -649,7 +706,7 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': False,
                                                         'approval_obligation': False,
-                                                        'is_approved': False,
+                                                        'status': 'Error',
                                                         'msg': checking_model_err_msg,
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
@@ -659,12 +716,12 @@ class TestModelManager(unittest.TestCase):
         messaging.reset_mock()
         # creating a new exception for `check_is_model_approved` method
         checking_model_exception_t3 = Exception("mimicking an exception happening when calling "
-                                                "'check_is_model_approved'")
+                                                "'check_model_status'")
 
         checking_model_err_msg_t3 = ErrorNumbers.FB606.value + ': An unknown error occured when downloading model file.' +\
             f' {msg["model_url"]} , {str(checking_model_exception_t3)}'
 
-        mock_checking.side_effect = checking_model_exception_t3
+        mock_get_model.side_effect = checking_model_exception_t3
         # action
         self.model_manager.reply_model_status_request(msg, messaging)
 
@@ -674,7 +731,7 @@ class TestModelManager(unittest.TestCase):
                                                         'job_id': 'xxx',
                                                         'success': False,
                                                         'approval_obligation': False,
-                                                        'is_approved': False,
+                                                        'status': 'Error',
                                                         'msg': checking_model_err_msg_t3,
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'

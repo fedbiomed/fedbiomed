@@ -85,7 +85,7 @@ class TrainingArgs():
             raise FedbiomedUserInputError(msg)
 
 
-    # validators
+
     @staticmethod
     @validator_decorator
     def _metric_validation_hook( metric: Union[MetricTypes, str, None] ) -> Union[bool, str]:

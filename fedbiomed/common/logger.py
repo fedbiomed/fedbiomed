@@ -152,7 +152,7 @@ class _MqttHandler(logging.Handler):
             # verify the message content with Message validator
             _ = message.NodeMessages.reply_create(msg)
             self._mqtt.publish(self._topic, json.dumps(msg))
-        except Exception as e:  # pragma: no cover
+        except Exception:  # pragma: no cover
             # obviously cannot call logger here... (infinite loop)  cannot also send the message to the researcher
             # (which was the purpose of the try block which failed)
             print(record.__dict__["asctime"],
