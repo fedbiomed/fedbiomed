@@ -398,7 +398,7 @@ node      : a second argument is mandatory
                 {
                     "path": "/path/to/dataset",
                     "data_type": "csv|default|images",
-                    "description": "arbitrary descrription string",
+                    "description": "arbitrary description string",
                     "tags": "comma,separated,list,without,blanks",
                     "name": "arbitrary name string"
                 }
@@ -408,6 +408,12 @@ node      : a second argument is mandatory
 
             - register-model  | --register-model    : To register new model files
             - update-model    | --update-model      : To update registered models
+            - delete-model    | --delete-model  | -dml  : To delete models (requested or registered)
+
+            - list-models     | --list-models   | -lms  : To list all the models (requested, default, or registered)
+            - approve-model   | --approve-model | -aml  : To approve requested models
+            - reject-model    | --reject-model  | -rjml : To reject requested models
+
 
             an optional config file CONFIG_NAME can be given it will be used instead of the default one (config.ini)
 

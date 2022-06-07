@@ -323,7 +323,7 @@ class Requests(metaclass=SingletonMeta):
                       model,
                       description: str = "no description provided",
                       nodes: list = [],
-                      timeout: int = 30) -> dict:
+                      timeout: int = 5) -> dict:
         """Send a model and a ApprovalRequest message to node(s).
 
         If a list of node id(s) is provided, the message will be individually sent
@@ -341,9 +341,9 @@ class Requests(metaclass=SingletonMeta):
             timeout: maximum waiting time for the answers
 
         Returns:
-            a dictionnary of pairs (node_id: status), where status indicates to the researcher
+            a dictionary of pairs (node_id: status), where status indicates to the researcher
             that the model has been correctly downloaded on the node side.
-            Warning: stauts does not mean that the model is approved, only that it has been added
+            Warning: status does not mean that the model is approved, only that it has been added
             to the "approval queue" on the node side.
         """
 
