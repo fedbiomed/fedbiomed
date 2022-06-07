@@ -658,10 +658,12 @@ def delete_model():
 def view_model():
     """Views source code for a model in the database
 
-    If `EDITOR` is set then use this editor to view a copy of the model source code, so that
+    If `environ[NODE_EDITOR]` is set then use this editor to view a copy of the model source code, so that
     any modification are not saved to the model,
 
-    If `EDITOR` is unset or cannot be used to view the model, the print the model to the logger
+    If `environ[NODE_EDITOR]` is unset or cannot be used to view the model, then print the model to the logger.
+
+    If model cannot be displayed to the logger, then abort.
     """
     models = model_manager.list_models(verbose=False)
     if not models:
@@ -683,15 +685,15 @@ def view_model():
             model_name = models[opt_idx]['name']
 
             # TODO: more robust (when refactor whole CLI)
-            # `model` should never be None, as we just checked for it
-            # file copy should work
-            # etc.
+            # - check `model` though it should never be None, as we just checked for it
+            # - check after file copy though it should work
+            # - etc.
             model = model_manager.get_model_by_name(model_name)
             model_tmpfile = os.path.join(environ['TMP_DIR'], 'model_tmpfile_' + str(uuid.uuid4()))
             shutil.copyfile(model["model_path"], model_tmpfile)
 
             # first try to view using system editor
-            editor = os.getenv('EDITOR')
+            editor = environ['NODE_EDITOR']
             result = os.system(f'{editor} {model_tmpfile} 2>/dev/null')
             if result != 0:
                 logger.info(f'Cannot view model with editor "{editor}", display via logger')
@@ -701,7 +703,7 @@ def view_model():
                         model_source = ''.join(m.readlines())
                         logger.info(f'\n\n{model_source}\n\n')
                 except Exception:
-                    logger.error('Cannot display model via logger. Aborting.')
+                    logger.critical('Cannot display model via logger. Aborting.')
 
             os.remove(model_tmpfile)
             return
