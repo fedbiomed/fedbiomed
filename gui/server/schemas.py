@@ -164,7 +164,7 @@ class ApproveRejectModelRequest(Validator):
                           "minLength": 1,
                           'errorMessages': {"minLength": "model_id must have at least one character"},
                           },
-             "notes": {"type": "string"}
+             "notes": {"type": ["string", "null"], "default": "No notes available"}
          },
          "required": ["model_id"]
          }

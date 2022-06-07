@@ -1,4 +1,4 @@
-import {LIST_MODELS, SINGLE_MODEL} from "./actions/actions"
+import {LIST_MODELS, RESET_SINGLE_MODEL, SINGLE_MODEL} from "./actions/actions"
 
 /**
  * Initial state of models
@@ -21,10 +21,10 @@ export const modelsReducer = (state = modelsInitialState, action) => {
     switch (action.type){
         case LIST_MODELS:
             return { ...state, list: action.payload}
-
         case SINGLE_MODEL:
             return {...state, single_model: action.payload}
-
+        case RESET_SINGLE_MODEL:
+            return {...state, single_model : null}
         default:
             return state
     }

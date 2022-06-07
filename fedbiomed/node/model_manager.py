@@ -399,14 +399,13 @@ class ModelManager:
         """
         model = self._db.get(self._database.model_id == model_id)
 
-        if content:
+        if content and model is not None:
             with open(model["model_path"], 'r') as file:
                 model_content = file.read()
+            model.update({"content": model_content})
 
         if secure and model is not None:
             self._remove_sensible_keys_from_request(model)
-
-        model.update({"content": model_content})
 
         return model
 

@@ -49,10 +49,11 @@ export const TextArea = (props) => {
             type = {props.type}
             name = {props.name}
             id   = {props.id}
-            ref  = {props.ref}
+            ref  = {props.areaRef}
             onChange = {props.onChange}
             value = {props.value ? props.value : undefined}
             placeholder={props.placeholder}
+            style={props.style}
         />
     )
 }

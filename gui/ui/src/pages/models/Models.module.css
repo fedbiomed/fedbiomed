@@ -1,0 +1,22 @@
+@import "../../assets/var.css";
+
+.tag {
+    padding: 10px;
+    color: #fff;
+    border-radius: 10px;
+    margin: 10px 0px;
+    display: block;
+    width: fit-content;
+}
+
+.tagPending {
+    background: var(--attention-color);
+}
+
+.tagDeclined {
+    background: var(--error-color);
+}
+
+.tagApproved {
+    background: var(--positive-color);
+}

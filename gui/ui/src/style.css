@@ -127,70 +127,6 @@ hr {
     color: #fff;
 }
 
-/* Butons CSS Start----------------------------------------------------------------------------------*/
-.button {
-  display: flex;
-  align-items: center;
-  max-width: 150px;
-  background: #eee;
-  padding: 5px;
-  text-align: center;
-  justify-content: center;
-  border-radius: 5px;
-  cursor:pointer
-}
-
-.button div.icon , .button div.text {
-  text-align: center;
-  margin: 5px;  /* and that, will result in a 10px gap */
-}
-
-.button .icon {
-  width: 25px !important;
-}
-
-.button {
-  width: auto;
-  padding: 10px;
-  color: #fff;
-  background-color: #0b6881;
-  cursor: pointer;
-  margin: 5px;  
-  border-radius: 5px;
-}
-
-.button:hover {
-  background-color: #888;
-}
-
-.button.negative {
-  background-color: #da334f;
-}
-
-.button.negative:hover {
-  background-color: #d3586d;
-}
-
-
-.buttons-wrapper {
-  display: flex;
-}
-
-.buttons-wrapper.float-right {
-  justify-content: flex-end;
-}
-.select-sm-button {
-  padding: 5px 5px 5px 5px;
-  background: var(--primary-color);
-  color: #fff;
-  border-radius: 5px;
-  font-size:10px;
-  text-align: center;
-  }
-
-/* Butons CSS END----------------------------------------------------------------------------------*/
-
-
 /* Header CSS START ------------------------------------------------------------------------------------*/
 
 .header {
@@ -206,6 +142,20 @@ hr {
 
 
 /* Header CSS END ------------------------------------------------------------------------------------*/
+
+
+/* ----- Button */
+
+.select-sm-button {
+  padding: 5px 5px 5px 5px;
+  background: var(--primary-color);
+  color: #fff;
+  border-radius: 5px;
+  font-size:10px;
+  text-align: center;
+  }
+
+
 
 
 /* Side Bar Navigation -------------------------------------------------------------------------------*/
@@ -781,7 +731,7 @@ textarea.input {
   padding: 20px;
       padding-left: 20px;
   border-radius: 10px;
-  padding-left: 35px;
+  padding-left: 45px;
   margin: 10px 0px 10px 0px;
 }
 

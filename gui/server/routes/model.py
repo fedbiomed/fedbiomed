@@ -73,10 +73,12 @@ def approve_model():
     """
     req = request.json
     model_id = req.get('model_id')
+    model_note = req.get('notes', None)
+
     if model_id is None:
         return error("missing model_id"), 400
     try:
-        res = MODEL_MANAGER.approve_model(model_id)
+        res = MODEL_MANAGER.approve_model(model_id, model_note)
     except FedbiomedModelManagerError as fed_err:
         return error(str(fed_err)), 400
     return success(f"model {model_id} has been approved"), 200
@@ -104,10 +106,12 @@ def reject_model():
     """
     req = request.json
     model_id = req.get('model_id')
+    model_note = req.get('notes', None)
+
     if model_id is None:
         return error("missing model_id"), 400
     try:
-        res = MODEL_MANAGER.reject_model(model_id)
+        res = MODEL_MANAGER.reject_model(model_id, extra_notes=model_note)
     except FedbiomedModelManagerError as fed_err:
         return error(str(fed_err)), 400
     return success(f"model {model_id} has been rejected"), 200
