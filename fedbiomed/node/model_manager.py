@@ -359,8 +359,7 @@ class ModelManager:
         return is_status, model      
 
     def get_model_from_database(self,
-                                model_path: str,
-                                secure: bool = True
+                                model_path: str
                                 ) -> Union[Dict[str, Any], None]:
         """Gets model from database, by its hash
 
@@ -434,7 +433,7 @@ class ModelManager:
         """Submits a model file (TrainingPlan) for approval. Needs an action from Node
 
         Args:
-            msg: approval request message, recieved from Researcher
+            msg: approval request message, received from Researcher
             messaging: MQTT client to send reply  to researcher
         """
         reply = {
@@ -715,7 +714,6 @@ class ModelManager:
         Raises:
             FedbiomedModelManagerError: cannot read or update the model in database
         """
-        
 
         self._db.clear_cache()
 
