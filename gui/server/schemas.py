@@ -122,6 +122,67 @@ class ListDatasetRequest(Validator):
     })
 
 
+class ListModelRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "sort_by": {'type': 'string'},
+             "select_status": {'type': 'string'}
+         },
+         "required": []
+         },
+        )
+
+
+class ApproveRejectModelRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "model_id": {"type": "string",
+                          "minLength": 1,
+                          'errorMessages': {"minLength": "model_id must have at least one character"},
+                          },
+             "notes": {"type": "string"}
+         },
+         "required": ["model_id"]
+         }
+    )
+
+
+class DeleteModelRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "model_id": {"type": "string",
+                          "minLength": 1,
+                          'errorMessages': {"minLength": "model_id must have at least one character"},
+                          }
+         },
+         "required": ["model_id"]
+         }
+    )
+
+
+class ModelPreviewRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "model_path": {"type": "string",
+                            "minLength": 1,
+                            'errorMessages': {"minLength": "model_path must have at least one character"},
+            
+                            },
+             "model_id": {"type": "string"},
+         },
+         "required": []  
+         }
+    )
+
+
 class AddDataSetRequest(Validator):
     """ Json Schema for reqeust of adding new datasets """
 
