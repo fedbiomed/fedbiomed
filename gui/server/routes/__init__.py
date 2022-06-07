@@ -10,4 +10,4 @@ from .config import *
 from .datasets import *
 from .repository import *
 from .bids import *
-
+from .model import *

@@ -42,12 +42,32 @@ class ModelTypes(_BaseEnum):
     """Constant values for model type that will be saved into db
 
     Attributes:
-        REGISTERED: means model saved by a user/hospital/node
+        REQUESTED: means model submitted in-application by the researcher
+        REGISTERED: means model added by a hospital/node
         DEFAULT: means model is default model provided by Fed-BioMed
     """
-
+    REQUESTED: str = 'requested'
     REGISTERED: str = 'registered'
     DEFAULT: str = 'default'
+
+
+class ModelApprovalStatus(_BaseEnum):
+    """Enumeration class for model approval status of a model on a node when model approval is active.
+
+    Attributes:
+        APPROVED: model was accepted for this node, can be executed now
+        REJECTED: model was disapproved for this node, cannot be executed
+        PENDING: model is waiting for review and approval, cannot be executed yet
+    """
+    APPROVED: str = "Approved"
+    REJECTED: str = "Rejected"
+    PENDING: str = "Pending"
+    
+    def str2enum(name: str):
+        for e in ModelApprovalStatus:
+            if e.value == name:
+                return e
+        return None
 
 
 class TrainingPlans(_BaseEnum):
@@ -113,7 +133,7 @@ class ErrorNumbers(_BaseEnum):
     FB404: str = "FB404: bad model param (.pt) format for TrainingPlan"
     FB405: str = "FB405: received delayed answer for previous computation round"
     FB406: str = "FB406: list of nodes is empty at data lookup phase"
-    FB407: str = "FB407: list of nodes became empty when training"
+    FB407: str = "FB407: list of nodes became empty when training (no node has answered)"
     FB408: str = "FB408: node did not answer during training"
     FB409: str = "FB409: node sent Status=Error during training"
     FB410: str = "FB410: bad type or value for experiment argument"

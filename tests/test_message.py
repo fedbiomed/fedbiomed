@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import sys
 import unittest
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, ModelApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedMessageError
 import fedbiomed.common.message as message
 
@@ -874,7 +874,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.APPROVED.value,
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -888,7 +888,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.REJECTED.value,
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -902,7 +902,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.PENDING.value,
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -916,7 +916,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation=True,
-            is_approved='True',
+            status=True,
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -930,7 +930,7 @@ class TestMessage(unittest.TestCase):
             job_id='titi',
             success=True,
             approval_obligation='True',
-            is_approved=True,
+            status='None',
             msg='sdrt',
             model_url='url',
             command='do_it')
@@ -944,7 +944,7 @@ class TestMessage(unittest.TestCase):
             job_id=False,
             success='not a bool',
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.PENDING.value,
             msg='sdrt',
             model_url=123123,
             command=True)
@@ -958,7 +958,7 @@ class TestMessage(unittest.TestCase):
             job_id=False,
             success='not a bool',
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.REJECTED.value,
             msg='sdrt')
 
         self.check_class_args(
@@ -967,7 +967,7 @@ class TestMessage(unittest.TestCase):
 
             success='not a bool',
             approval_obligation=True,
-            is_approved=True,
+            status=ModelApprovalStatus.APPROVED.value,
             msg='sdrt')
 
     def test_message_08_log(self):
@@ -1922,7 +1922,7 @@ class TestMessage(unittest.TestCase):
             'job_id': 'titi',
             'success': True,
             'approval_obligation': True,
-            'is_approved': True,
+            'status': ModelApprovalStatus.APPROVED.value,
             'msg': 'sdrt',
             'model_url': 'url',
             'command': 'model-status'
@@ -2044,6 +2044,7 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             sequence=100,
             status=200,
+            success=True,
             command='do_it')
 
         # all these test should fail (bad number of args arguments or bad type)
@@ -2062,6 +2063,7 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             sequence=100,
             status=200,
+            success=True,
             command='do_it',
             extra_arg='this will break'
         )
@@ -2074,6 +2076,7 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             sequence=100,
             status=200,
+            success=True,
             command='do_it')
 
         self.check_class_args(
@@ -2084,6 +2087,7 @@ class TestMessage(unittest.TestCase):
             node_id=False,
             sequence=100,
             status=200,
+            success=True,
             command='do_it')
 
         self.check_class_args(
@@ -2094,6 +2098,7 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             sequence="not an int",
             status=200,
+            success=True,
             command='do_it')
 
         self.check_class_args(
@@ -2104,6 +2109,7 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             sequence=100,
             status="not an int",
+            success=True,
             command='do_it')
 
         self.check_class_args(
@@ -2114,7 +2120,19 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             sequence=100,
             status=200,
+            success=True,
             command=False)
+
+        self.check_class_args(
+            message.ApprovalReply,
+            expected_result=False,
+
+            researcher_id='toto',
+            node_id='titi',
+            sequence=100,
+            status=200,
+            success="not a bool",
+            command='do_it')
 
 
 
@@ -2140,6 +2158,7 @@ class TestMessage(unittest.TestCase):
             "node_id": 'titi',
             "sequence": 12345,
             "status": 200,
+            "success": True,
             "command": "approval"
 
         }
