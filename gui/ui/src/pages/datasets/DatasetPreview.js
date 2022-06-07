@@ -213,7 +213,7 @@ export const DatasetPreview = (props) => {
                                             mode={`preview`}
                                         />
                                     </div>
-                                ) : preview.data_type === "MedicalFolder" ? (
+                                ) : preview.data_type === "medical-folder" ? (
                                     <MedicalFolderDatasetPreview
                                         dataset_id={dataset_id}
                                     />

@@ -26,7 +26,7 @@ DATA_PATH_RW = app.config['DATA_PATH_RW']
 
 
 # Database table (default datasets table of TinyDB) and query object
-table = database.db().table('_default')
+table = database.db().table()
 query = database.query()
 
 
@@ -88,7 +88,7 @@ def add_medical_folder_dataset():
             "dataset_parameters": dataset_parameters
         })
     except Exception as e:
-        return error("yop yop" + str(e)), 400
+        return error(str(e)), 400
 
     # Get saved dataset document
     res = table.get(query.dataset_id == dataset_id)
