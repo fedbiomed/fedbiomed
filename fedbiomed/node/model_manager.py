@@ -6,7 +6,6 @@ from datetime import datetime
 import hashlib
 import os
 
-from numpy import isin
 from python_minifier import minify
 import shutil
 from tabulate import tabulate
@@ -51,16 +50,22 @@ class ModelManager:
         self._database = Query()
         self._repo = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
 
-    def _create_hash(self, path: str):
+        self._tags_to_remove = ['model_path',
+                                'hash',
+                                'date_modified',
+                                'date_created']
+
+    @staticmethod
+    def _create_hash(path: str):
         """Creates hash with given model file
 
         Args:
             path: Model file path
 
         Raises:
-            FedBiomedModelManagerError: file cannot be open
-            FedBiomedModelManagerError: file cannot be minified
-            FedBiomedModelManagerError: Hashing algorithm does not exist in HASH_FUNCTION table
+            FedbiomedModelManagerError: file cannot be open
+            FedbiomedModelManagerError: file cannot be minified
+            FedbiomedModelManagerError: Hashing algorithm does not exist in HASH_FUNCTION table
         """
         hash_algo = environ['HASHING_ALGORITHM']
 
@@ -71,7 +76,7 @@ class ModelManager:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f" model file {path} not found on system")
         except PermissionError:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f" cannot open model file {path} due" +
-                                                                        " to unsatisfactory privelge")
+                                                                        " to unsatisfactory privilege")
         except OSError:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f" cannot open model file {path} " +
                                              "(file might have been corrupted)")
@@ -86,7 +91,7 @@ class ModelManager:
                                   remove_object_base=True,
                                   rename_locals=False)
         except Exception as err:
-            # minify doesnot provide any specific exception
+            # minify doesn't provide any specific exception
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f"cannot minify file {path}"
                                              f"details: {err}")
         # Hash model content based on active hashing algorithm
@@ -105,7 +110,7 @@ class ModelManager:
                                   name: Union[str, None] = None,
                                   path: Union[str, None] = None,
                                   hash: Union[str, None] = None,
-                                  algorithm: Union [str, None] = None) -> None:
+                                  algorithm: Union[str, None] = None) -> None:
         """Check no model exists in database that matches specified criteria.
 
         For each criterion, if criterion is not None, then check that no entry
@@ -124,9 +129,6 @@ class ModelManager:
 
         Raises:
             FedbiomedModelManagerError: at least one model exists in DB matching a criterion
-
-        Returns:
-            None.
         """
         self._db.clear_cache()
 
@@ -356,19 +358,29 @@ class ModelManager:
 
         return is_status, model      
 
-    def get_model_from_database(self, model_path: str) -> Union[Dict[str, Any], None]:
+    def get_model_from_database(self,
+                                model_path: str
+                                ) -> Union[Dict[str, Any], None]:
         """Gets model from database, by its hash
 
         Args:
-            model_path: model path where the file is saved, in order to compute its hash
+            model_path: model path where the file is saved, in order to compute its hash. 
             !!! info "model file MUST be a *.txt file."
 
         Returns:
             model: model entry found in the dataset if query in database succeed. Otherwise, returns 
             None.
+        
+        Raises:
+            FedbiomedModelManagerError: triggered if [`model_path`] is not found in database entry
         """
-        req_model_hash, _ = self._create_hash(model_path)
         self._db.clear_cache()
+
+        if model_path is None:
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : model_path not found in database entry" 
+                                             f" ({model_path})")
+        req_model_hash, _ = self._create_hash(model_path)
+        
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
 
         # TODO: more robust implementation
@@ -381,7 +393,25 @@ class ModelManager:
 
         return model
 
-    def create_txt_model_from_py(self, model_path: str) -> str:
+    def get_model_by_id(self, model_id: str, secure: bool = True, content: bool = False) -> Union[Dict[str, Any], None]:
+        """Returns model entry from database through a query based on the model_id.
+        If there is no model matching [`model_id`], returns None
+        """
+        model = self._db.get(self._database.model_id == model_id)
+
+        if content:
+            with open(model["model_path"], 'r') as file:
+                model_content = file.read()
+
+        if secure and model is not None:
+            self._remove_sensible_keys_from_request(model)
+
+        model.update({"content": model_content})
+
+        return model
+
+    @staticmethod
+    def create_txt_model_from_py(model_path: str) -> str:
         """Creates a text model file (*.txt extension) from a python (*.py) model file,
         in the directory where the python model file belongs to.
 
@@ -403,7 +433,7 @@ class ModelManager:
         """Submits a model file (TrainingPlan) for approval. Needs an action from Node
 
         Args:
-            msg: approval request message, recieved from Researcher
+            msg: approval request message, received from Researcher
             messaging: MQTT client to send reply  to researcher
         """
         reply = {
@@ -495,7 +525,8 @@ class ModelManager:
         Called directly from Node.py when it receives ModelStatusRequest.
 
         Args:
-            msg: Message that is received from researcher. Formatted as ModelStatusRequest
+            msg: Message that is received frmodel_f1b2f939-c288-4623-b0ca-f8653f86da98om researcher.
+                Formatted as ModelStatusRequest
             messaging: MQTT client to send reply  to researcher
         """
 
@@ -683,7 +714,6 @@ class ModelManager:
         Raises:
             FedbiomedModelManagerError: cannot read or update the model in database
         """
-        
 
         self._db.clear_cache()
 
@@ -744,9 +774,13 @@ class ModelManager:
         except RuntimeError as err:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": get request on database failed."
                                              f" Details: {str(err)}")
-        if model['model_status'] == model_status.value:
+        if model is None:
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value +
+                                             f": no model matches provided model_id {model_id}")
+        if model.get('model_status') == model_status.value:
             logger.warning(f" model {model_id} has already the following model status {model_status.value}")
             return True
+        
         else:
             model_path = model['model_path']
             # Get modification date
@@ -772,7 +806,7 @@ class ModelManager:
             Defaults to None.
 
         Returns:
-            True: currently always returns True
+            Currently always returns True
         """
         res = self._update_model_status(model_id,
                                         ModelApprovalStatus.APPROVED,
@@ -788,7 +822,7 @@ class ModelManager:
             Defaults to None.
 
         Returns:
-            True: currently always returns True
+            Currently always returns True
         """
         res = self._update_model_status(model_id,
                                         ModelApprovalStatus.REJECTED,
@@ -816,7 +850,9 @@ class ModelManager:
         self._db.clear_cache()
         try:
             model = self._db.get(self._database.model_id == model_id)
-
+            if model is None:
+                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value +
+                                                 f": model {model_id} not in database")
             if model['model_type'] != ModelTypes.DEFAULT.value:
 
                 self._db.remove(doc_ids=[model.doc_id])
@@ -869,20 +905,13 @@ class ModelManager:
         else:
             models = self._db.all()  
         # Drop some keys for security reasons
-        _tags_to_remove = ['model_path',
-                           'hash',
-                           'date_modified',
-                           'date_created']
+
         for doc in models:
-            for tag_to_remove in _tags_to_remove:
-                try:
-                    doc.pop(tag_to_remove)
-                except KeyError:
-                    logger.warning(f"missing entry in database: {tag_to_remove} for model {doc}")
+            self._remove_sensible_keys_from_request(doc)
 
         if sort_by is not None:
             # sorting model fields by column attributes
-            if self._db.search(self._database[sort_by].exists()) and sort_by not in _tags_to_remove:
+            if self._db.search(self._database[sort_by].exists()) and sort_by not in self._tags_to_remove:
                 models = sorted(models, key= lambda x: (x[sort_by] is None, x[sort_by]))
             else:
                 logger.warning(f"Field {sort_by} is not available in dataset")
@@ -891,3 +920,12 @@ class ModelManager:
             print(tabulate(models, headers='keys'))
 
         return models
+
+    def _remove_sensible_keys_from_request(self, doc: Dict[str, Any]):
+        # Drop some keys for security reasons
+
+        for tag_to_remove in self._tags_to_remove:
+            try:
+                doc.pop(tag_to_remove)
+            except KeyError:
+                logger.warning(f"missing entry in database: {tag_to_remove} for model {doc}")
