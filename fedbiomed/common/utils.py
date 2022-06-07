@@ -1,7 +1,7 @@
 import sys
 import inspect
 from collections.abc import Iterable
-from typing import Callable, Iterator, List, Union, Optional
+from typing import Callable, Iterator, List, Union
 from IPython.core.magics.code import extract_symbols
 
 import torch
