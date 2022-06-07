@@ -373,7 +373,8 @@ class MedicalFolderBase:
 class MedicalFolderDataset(Dataset, MedicalFolderBase):
     """Torch dataset following the Medical Folder Structure.
 
-    The Medical Folder structure is loosely inspired by the BIDS standard [1]. It should respect the following pattern:
+    The Medical Folder structure is loosely inspired by the (BIDS standard)[https://bids.neuroimaging.io/] [1].
+    It should respect the following pattern:
     ```
     └─ MedicalFolder_root/
         └─ demographics.csv
