@@ -167,7 +167,7 @@ def preview_model():
     model_id = req.get('model_id')
     
     try:
-        res = MODEL_MANAGER.get_model_from_id(model_id)
+        res = MODEL_MANAGER.get_model_by_id(model_id, content=True)
     except FedbiomedModelManagerError as fed_err:
         return error(f"Bad request. Details: {fed_err}"), 400
     if res is None:

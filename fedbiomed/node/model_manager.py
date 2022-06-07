@@ -55,7 +55,8 @@ class ModelManager:
                                 'date_modified',
                                 'date_created']
 
-    def _create_hash(self, path: str):
+    @staticmethod
+    def _create_hash(path: str):
         """Creates hash with given model file
 
         Args:
@@ -75,7 +76,7 @@ class ModelManager:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f" model file {path} not found on system")
         except PermissionError:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f" cannot open model file {path} due" +
-                                                                        " to unsatisfactory privelge")
+                                                                        " to unsatisfactory privilege")
         except OSError:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f" cannot open model file {path} " +
                                              "(file might have been corrupted)")
@@ -393,16 +394,25 @@ class ModelManager:
 
         return model
 
-    def get_model_from_id(self, model_id: str, secure: bool = True) -> Union[Dict[str, Any], None]:
-        """Returns model entry from database through a query bqased on the model_id.
+    def get_model_by_id(self, model_id: str, secure: bool = True, content: bool = False) -> Union[Dict[str, Any], None]:
+        """Returns model entry from database through a query based on the model_id.
         If there is no model matching [`model_id`], returns None
         """
         model = self._db.get(self._database.model_id == model_id)
+
+        if content:
+            with open(model["model_path"], 'r') as file:
+                model_content = file.read()
+
         if secure and model is not None:
             self._remove_sensible_keys_from_request(model)
+
+        model.update({"content": model_content})
+
         return model
 
-    def create_txt_model_from_py(self, model_path: str) -> str:
+    @staticmethod
+    def create_txt_model_from_py(model_path: str) -> str:
         """Creates a text model file (*.txt extension) from a python (*.py) model file,
         in the directory where the python model file belongs to.
 
