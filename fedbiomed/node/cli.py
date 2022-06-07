@@ -418,7 +418,7 @@ def delete_database(interactive: bool = True):
         try:
             if interactive is True:
                 opt_idx = int(input(msg)) - 1
-                assert opt_idx >= 0
+                assert opt_idx in range(len(my_data))
 
                 tags = my_data[opt_idx]['tags']
             else:
@@ -514,7 +514,7 @@ def update_model():
 
             # Get the selection
             opt_idx = int(input(msg)) - 1
-            assert opt_idx >= 0
+            assert opt_idx in range(len(models))
             model_id = models[opt_idx]['model_id']
 
             if not model_id:
@@ -565,6 +565,7 @@ def approve_model(sort_by_date: bool = True):
     while True:
         try:
             opt_idx = int(input(msg)) - 1
+            assert opt_idx in range(len(non_approved_models))
             model_id = non_approved_models[opt_idx]['model_id']
             model_manager.approve_model(model_id)
             logger.info(f"Model {model_id} has been approved. Researchers can now train the Training Plan" +
@@ -596,6 +597,7 @@ def reject_model():
     while True:
         try:
             opt_idx = int(input(msg)) - 1
+            assert opt_idx in range(len(approved_models))
             model_id = approved_models[opt_idx]['model_id']
             notes = input("Please give a note to explain why model has been rejected: \n")
             model_manager.reject_model(model_id, notes)
@@ -632,7 +634,7 @@ def delete_model():
         try:
 
             opt_idx = int(input(msg)) - 1
-            assert opt_idx >= 0
+            assert opt_idx in range(len(models))
             model_id = models[opt_idx]['model_id']
 
             if not model_id:
@@ -700,6 +702,9 @@ def launch_cli():
                         action='store_true')
     parser.add_argument('-lms', '--list-models',
                         help='List all models',
+                        action='store_true')
+    parser.add_argument('-vms', '--view-models',
+                        help='View a model source code (for any type of model)',
                         action='store_true')
     parser.add_argument('-g', '--gpu',
                         help='Use of a GPU device, if any available (default: dont use GPU)',
@@ -794,6 +799,9 @@ def launch_cli():
         delete_model()
     elif args.list_models:
         model_manager.list_models(verbose = True)
+    elif args.view_models:
+        #view_model()
+        pass
     elif args.start_node:
         # convert to node arguments structure format expected in Round()
         node_args = {
