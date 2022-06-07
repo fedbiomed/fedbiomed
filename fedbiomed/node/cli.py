@@ -4,12 +4,15 @@ Command line user interface for the node component
 
 import json
 import os
+import shutil
 import signal
 import sys
 import time
 from multiprocessing import Process
 from typing import Union
 from types import FrameType
+from shutil import copyfile
+import uuid
 
 import warnings
 import readline
@@ -679,21 +682,28 @@ def view_model():
             assert opt_idx in range(len(models))
             model_name = models[opt_idx]['name']
 
-            # should never be None, as we just checked for it
+            # TODO: more robust (when refactor whole CLI)
+            # `model` should never be None, as we just checked for it
+            # file copy should work
+            # etc.
             model = model_manager.get_model_by_name(model_name)
+            model_tmpfile = os.path.join(environ['TMP_DIR'], 'model_tmpfile_' + str(uuid.uuid4()))
+            shutil.copyfile(model["model_path"], model_tmpfile)
+
             # first try to view using system editor
             editor = os.getenv('EDITOR')
-            result = os.system(f'{editor} {model["model_path"]} 2>/dev/null')
+            result = os.system(f'{editor} {model_tmpfile} 2>/dev/null')
             if result != 0:
                 logger.info(f'Cannot view model with editor "{editor}", display via logger')
                 # second try to print via logger (default output)
                 try:
-                    with open(model["model_path"]) as m:
+                    with open(model_tmpfile) as m:
                         model_source = ''.join(m.readlines())
                         logger.info(f'\n\n{model_source}\n\n')
                 except Exception:
                     logger.error('Cannot display model via logger. Aborting.')
 
+            os.remove(model_tmpfile)
             return
 
         except (ValueError, IndexError, AssertionError):
