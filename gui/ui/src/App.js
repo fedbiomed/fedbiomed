@@ -18,6 +18,7 @@ import {connect, useDispatch} from 'react-redux'
 import Button, {ButtonsWrapper} from "./components/common/Button";
 import CommonStandards from "./pages/datasets/CommonStandards";
 import BidsStandard from "./pages/datasets/BidsStandard";
+import Models from "./pages/models/Models";
 
 function App(props) {
 
@@ -41,6 +42,7 @@ function App(props) {
                     <Route exact path="/" element={<Home/>} />
                     <Route path="/configuration/" element={<Configuration/>} />
                     <Route path="/repository/" element={<Repository/>} />
+                    <Route path="/models/" element={<Models/>} />
                     <Route path="/datasets/" element={<Datasets/>} />
                     <Route path="/datasets/add-dataset/" element={<AddDataset/>} >
                         <Route index element={<CommonStandards/>} />

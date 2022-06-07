@@ -120,7 +120,7 @@ export class  BidsStandard extends React.Component {
                         desc={'Please select to column that represent subject folders in BIDS root directory.'}
                     >
                         <SelectiveTable
-                            style={{maxHeight:350}}
+                            maxHeight={350}
                             table={this.props.bidsDataset.reference_csv.data}
                             onSelect={this.setReferenceFolderIDColumn}
                             selectedLabel={"Folder Name"}

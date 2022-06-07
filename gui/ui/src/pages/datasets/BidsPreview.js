@@ -1,6 +1,6 @@
 import React from 'react';
 import {connect} from "react-redux"
-import {Table, TableRows, TableHead } from "../../components/common/Tables";
+import {Table, DataTableRows, DataTableHead, TableWrapper} from "../../components/common/Tables";
 import {getBIDSPreview} from "../../store/actions/bidsDatasetActions";
 import {ReactComponent as TickIcon} from '../../assets/img/tick.svg'
 import {ReactComponent as XIcon} from '../../assets/img/x.svg'
@@ -28,10 +28,12 @@ const BidsPreview = (props) => {
     if(props.bids.subject_table){
         return (
             <React.Fragment>
-                <Table style={{maxHeight:350,textAlign:'center'}}>
-                    <TableHead table={props.bids.subject_table} showIndex={true} hoverColumns={false} indexName={"Subjects"}/>
-                    <TableRows table={props.bids.subject_table} showIndex={true} hoverColumns={false} transformation={transform}/>
-                </Table>
+                <TableWrapper maxHeight={350}>
+                    <Table style={{textAlign:'center'}}>
+                        <DataTableHead table={props.bids.subject_table} showIndex={true} hoverColumns={false} indexName={"Subjects"}/>
+                        <DataTableRows table={props.bids.subject_table} showIndex={true} hoverColumns={false} transformation={transform}/>
+                    </Table>
+                </TableWrapper>
             </React.Fragment>
         );
     }else{
