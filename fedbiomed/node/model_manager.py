@@ -736,7 +736,7 @@ class ModelManager:
             True: currently always returns True
 
         Raises:
-            FedbiomedModelManagerError:         
+            FedbiomedModelManagerError: If TinyDB raises `RuntimeError` while getting single model entry
         """
         self._db.clear_cache()
         try:
@@ -846,7 +846,8 @@ class ModelManager:
                 containing fields (note that following fields are removed :'model_path',
                 'hash', dates due to privacy reasons).
 
-        Raises: FedbiomedModelManagerError triggers if request to database failed
+        Raises:
+            FedbiomedModelManagerError: triggers if request to database failed
         """
 
         self._db.clear_cache()
