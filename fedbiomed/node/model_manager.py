@@ -62,9 +62,9 @@ class ModelManager:
             path: Model file path
 
         Raises:
-            FedBiomedModelManagerError: file cannot be open
-            FedBiomedModelManagerError: file cannot be minified
-            FedBiomedModelManagerError: Hashing algorithm does not exist in HASH_FUNCTION table
+            FedbiomedModelManagerError: file cannot be open
+            FedbiomedModelManagerError: file cannot be minified
+            FedbiomedModelManagerError: Hashing algorithm does not exist in HASH_FUNCTION table
         """
         hash_algo = environ['HASHING_ALGORITHM']
 
@@ -90,7 +90,7 @@ class ModelManager:
                                   remove_object_base=True,
                                   rename_locals=False)
         except Exception as err:
-            # minify doesnot provide any specific exception
+            # minify doesn't provide any specific exception
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f"cannot minify file {path}"
                                              f"details: {err}")
         # Hash model content based on active hashing algorithm
@@ -128,9 +128,6 @@ class ModelManager:
 
         Raises:
             FedbiomedModelManagerError: at least one model exists in DB matching a criterion
-
-        Returns:
-            None.
         """
         self._db.clear_cache()
 
@@ -376,7 +373,6 @@ class ModelManager:
         
         Raises:
             FedbiomedModelManagerError: triggered if [`model_path`] is not found in database entry
-            FedbiomedModelManagerError
         """
         self._db.clear_cache()
 
@@ -520,7 +516,8 @@ class ModelManager:
         Called directly from Node.py when it receives ModelStatusRequest.
 
         Args:
-            msg: Message that is received frmodel_f1b2f939-c288-4623-b0ca-f8653f86da98om researcher. Formatted as ModelStatusRequest
+            msg: Message that is received frmodel_f1b2f939-c288-4623-b0ca-f8653f86da98om researcher.
+                Formatted as ModelStatusRequest
             messaging: MQTT client to send reply  to researcher
         """
 
@@ -801,7 +798,7 @@ class ModelManager:
             Defaults to None.
 
         Returns:
-            True: currently always returns True
+            Currently always returns True
         """
         res = self._update_model_status(model_id,
                                         ModelApprovalStatus.APPROVED,
@@ -817,7 +814,7 @@ class ModelManager:
             Defaults to None.
 
         Returns:
-            True: currently always returns True
+            Currently always returns True
         """
         res = self._update_model_status(model_id,
                                         ModelApprovalStatus.REJECTED,
