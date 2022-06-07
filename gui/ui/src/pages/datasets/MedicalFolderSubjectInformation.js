@@ -3,7 +3,7 @@ import Accordion from "../../components/layout/Accordion";
 import dropDownStyle from "../../components/layout/Accordion.module.css"
 import {TableData} from "../../components/common/Tables"
 
-const BidsSubjectInformation = (props) => {
+const MedicalFolderSubjectInformation = (props) => {
     if(props.subjects.available_subjects){
         return (
             <React.Fragment>
@@ -22,7 +22,8 @@ const BidsSubjectInformation = (props) => {
 
                 <Accordion
                     color={props.subjects.missing_entries.length === 0 ? dropDownStyle.green : dropDownStyle.red }
-                    label={props.subjects.missing_entries.length.toString() + " subjects are existing in the BIDS " +
+                    label={props.subjects.missing_entries.length.toString() + " subjects are existing in the " +
+                        "MedicalFolder Dataset " +
                         "directory but not in the reference tabular data"}
                 >
                     <TableData
@@ -36,7 +37,7 @@ const BidsSubjectInformation = (props) => {
                 <Accordion
                     color={props.subjects.missing_folders.length === 0 ? dropDownStyle.green : dropDownStyle.red }
                     label={props.subjects.missing_folders.length.toString() + " subject for that is declared in the " +
-                        "CSV does not exist in the BIDS root folder  for training"}
+                        "CSV does not exist in the MedicalFolder Dataset root folder  for training"}
                 >
                     <TableData
                         table={{
@@ -53,4 +54,4 @@ const BidsSubjectInformation = (props) => {
 
 };
 
-export default BidsSubjectInformation;
+export default MedicalFolderSubjectInformation;

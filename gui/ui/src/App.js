@@ -17,7 +17,7 @@ import Modal from "./components/common/Modal"
 import {connect, useDispatch} from 'react-redux'
 import Button, {ButtonsWrapper} from "./components/common/Button";
 import CommonStandards from "./pages/datasets/CommonStandards";
-import BidsStandard from "./pages/datasets/BidsStandard";
+import MedicalFolderDataset from "./pages/datasets/MedicalFolderDataset";
 
 function App(props) {
 
@@ -44,7 +44,7 @@ function App(props) {
                     <Route path="/datasets/" element={<Datasets/>} />
                     <Route path="/datasets/add-dataset/" element={<AddDataset/>} >
                         <Route index element={<CommonStandards/>} />
-                        <Route path="bids" element={<BidsStandard/>} />
+                        <Route path="medical-folder-dataset" element={<MedicalFolderDataset/>} />
                     </Route>
                     <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview />} />
                   </Routes>

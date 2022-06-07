@@ -7,19 +7,19 @@ from flask import jsonify, request, g
 from db import database
 from . import api
 from app import app
-from middlewares import middleware, bids, common
+from middlewares import middleware, medical_folder_dataset, common
 
 from utils import success, error, validate_json, validate_request_data, response
-from schemas import ValidateBIDSReferenceCSV, \
-    ValidateBIDSRoot, \
-    ValidateBIDSAddRequest, \
+from schemas import ValidateMedicalFolderReferenceCSV, \
+    ValidateMedicalFolderRoot, \
+    ValidateMedicalFolderAddRequest, \
     PreviewDatasetRequest
 
-from fedbiomed.common.data import BIDSController
+from fedbiomed.common.data import MedicalFolderController
 
 
-# Bids Controller
-bids_controller = BIDSController()
+# Medical Folder Controller
+mf_controller = MedicalFolderController()
 
 # Path to write and read the datafiles
 DATA_PATH_RW = app.config['DATA_PATH_RW']
@@ -30,44 +30,44 @@ table = database.db().table('_default')
 query = database.query()
 
 
-@api.route('/datasets/bids/validate-reference-column', methods=['POST'])
-@validate_request_data(schema=ValidateBIDSReferenceCSV)
-@middleware(middlewares=[bids.read_bids_reference, bids.validate_available_subjects])
+@api.route('/datasets/medical-folder-dataset/validate-reference-column', methods=['POST'])
+@validate_request_data(schema=ValidateMedicalFolderReferenceCSV)
+@middleware(middlewares=[medical_folder_dataset.read_medical_folder_reference, medical_folder_dataset.validate_available_subjects])
 def validate_reference_csv_column():
     """ Validate selected reference CSV and column shows folder names """
     subjects = g.available_subjects
     return response({"valid": True, "subjects": subjects}), 200
 
 
-@api.route('/datasets/bids/validate-bids-root', methods=['POST'])
-@validate_request_data(schema=ValidateBIDSRoot)
-@middleware(middlewares=[bids.validate_bids_root])
+@api.route('/datasets/medical-folder-dataset/validate-root', methods=['POST'])
+@validate_request_data(schema=ValidateMedicalFolderRoot)
+@middleware(middlewares=[medical_folder_dataset.validate_medical_folder_root])
 def validate_root_path():
-    """Validates BIDS root path"""
+    """Validates MedicalFolder Dataset root path"""
     return response(data={"valid": True, "modalities": g.modalities}), 200
 
 
-@api.route('/datasets/bids/add', methods=['POST'])
-@validate_request_data(schema=ValidateBIDSAddRequest)
+@api.route('/datasets/medical-folder-dataset/add', methods=['POST'])
+@validate_request_data(schema=ValidateMedicalFolderAddRequest)
 @middleware(middlewares=[common.check_tags_already_registered,
-                         bids.validate_bids_root,
-                         bids.read_bids_reference,
-                         bids.validate_available_subjects,
-                         bids.create_and_validate_bids_dataset])
-def add_bids_dataset():
-    """ Adds BIDS dataset into database of NODE """
+                         medical_folder_dataset.validate_medical_folder_root,
+                         medical_folder_dataset.read_medical_folder_reference,
+                         medical_folder_dataset.validate_available_subjects,
+                         medical_folder_dataset.create_and_validate_medical_folder_dataset])
+def add_medical_folder_dataset():
+    """ Adds MedicalFolder dataset into database of NODE """
 
     # Request object as JSON
     req = request.json
 
-    data_path_save = os.path.join(app.config['DATA_PATH_SAVE'], *req['bids_root'])
+    data_path_save = os.path.join(app.config['DATA_PATH_SAVE'], *req['medical_folder_root'])
 
     # Create unique id for the dataset
     dataset_id = 'dataset_' + str(uuid.uuid4())
 
     # Get shape
-    bids_dataset = g.bids_dataset
-    shape = bids_dataset.shape()
+    mf_dataset = g.mf_dataset
+    shape = mf_dataset.shape()
 
     if req["reference_csv_path"] is None:
         dataset_parameters = {}
@@ -79,7 +79,7 @@ def add_bids_dataset():
         table.insert({
             "name": req["name"],
             "path": data_path_save,
-            "data_type": "BIDS",
+            "data_type": "medical-folder",
             "dtypes": [],
             "shape": shape,
             "tags": req['tags'],
@@ -96,11 +96,11 @@ def add_bids_dataset():
     return response(data=res), 200
 
 
-@api.route('/datasets/bids/preview', methods=['POST'])
+@api.route('/datasets/medical-folder-dataset/preview', methods=['POST'])
 @validate_request_data(schema=PreviewDatasetRequest)
-@cached(key="dataset_id", prefix="bids-preview", timeout=600)
-def bids_preview():
-    """Gets preview of BIDS dataset by providing a table of subject and available modalities"""
+@cached(key="dataset_id", prefix="medical_folder_dataset-preview", timeout=600)
+def medical_folder_preview():
+    """Gets preview of MedicalFolder dataset by providing a table of subject and available modalities"""
 
     # Request object as JSON
     req = request.json
@@ -110,7 +110,7 @@ def bids_preview():
     # Extract data path where the files are saved in the local GUI repository
     rexp = re.match('^' + app.config['DATA_PATH_SAVE'], dataset['path'])
     data_path = dataset['path'].replace(rexp.group(0), app.config['DATA_PATH_RW'])
-    bids_controller.root = data_path
+    mf_controller.root = data_path
 
     if "index_col" in dataset["dataset_parameters"]:
         # Extract data path where the files are saved in the local GUI repository
@@ -118,16 +118,16 @@ def bids_preview():
         reference_path = dataset["dataset_parameters"]["tabular_file"].replace(rexp.group(0),
                                                                                app.config['DATA_PATH_RW'])
 
-        reference_csv = bids_controller.read_demographics(
+        reference_csv = mf_controller.read_demographics(
             path=reference_path,
             index_col=dataset["dataset_parameters"]["index_col"]
         )
 
-        subject_table = bids_controller.subject_modality_status(index=reference_csv.index)
+        subject_table = mf_controller.subject_modality_status(index=reference_csv.index)
     else:
-        subject_table = bids_controller.subject_modality_status()
+        subject_table = mf_controller.subject_modality_status()
 
-    modalities, _ = bids_controller.modalities()
+    modalities, _ = mf_controller.modalities()
 
     data = {
         "subject_table": subject_table,

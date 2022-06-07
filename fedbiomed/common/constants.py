@@ -62,6 +62,12 @@ class ModelApprovalStatus(_BaseEnum):
     APPROVED: str = "Approved"
     REJECTED: str = "Rejected"
     PENDING: str = "Pending"
+    
+    def str2enum(name: str):
+        for e in ModelApprovalStatus:
+            if e.value == name:
+                return e
+        return None
 
 
 class TrainingPlans(_BaseEnum):
@@ -155,7 +161,7 @@ class ErrorNumbers(_BaseEnum):
     FB610: str = "FB610: Torch based tabular dataset creation error"
     FB611: str = "FB611: Error while trying to evaluate using the specified metric"
     FB612: str = "FB612: Torch based NIFTI dataset error"
-    FB613: str = "FB613: BIDS dataset error"
+    FB613: str = "FB613: Medical Folder dataset error"
 
 
     # oops

@@ -20,7 +20,8 @@ import tkinter.messagebox
 from tkinter import _tkinter
 
 from fedbiomed.common.constants  import ModelApprovalStatus, ModelTypes, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
+from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError, FedbiomedDatasetManagerError
+from fedbiomed.common.data import MedicalFolderController
 
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.environ import environ
@@ -59,9 +60,9 @@ def validated_data_type_input() -> str:
 
     Returns:
         A string keyword for one of the possible data type
-            ('csv', 'default', 'mednist', 'images').
+            ('csv', 'default', 'mednist', 'images', 'medical-folder').
     """
-    valid_options = ['csv', 'default', 'mednist', 'images']
+    valid_options = ['csv', 'default', 'mednist', 'images', 'medical-folder']
     valid_options = {i: val for i, val in enumerate(valid_options, 1)}
 
     msg = "Please select the data type that you're configuring:\n"
@@ -205,6 +206,8 @@ def add_database(interactive: bool = True,
         else:
             data_type = 'default'
 
+        dataset_parameters = None
+
         if data_type == 'default':
             tags = ['#MNIST', "#dataset"]
             if interactive is True:
@@ -231,7 +234,33 @@ def add_database(interactive: bool = True,
 
             description = input('Description: ')
 
-            path = validated_path_input(data_type)
+            if data_type == 'medical-folder':
+                # get medical-folder root
+                print('Please select the root folder of the Medical Folder dataset')
+                path = validated_path_input(type='dir')
+                # get tabular file
+                print('Please select the demographics file (must be CSV or TSV)')
+                tabular_file_path = validated_path_input(type='csv')
+                # get index col from user
+                column_values = MedicalFolderController.demographics_column_names(tabular_file_path)
+                print("\nHere are all the columns contained in demographics file:\n")
+                for i, col in enumerate(column_values):
+                    print(f'{i:3} : {col}')
+                if interactive:
+                    keep_asking_for_input = True
+                    while keep_asking_for_input:
+                        try:
+                            index_col = input('\nPlease input the (numerical) index of the column containing '
+                                              'the subject ids corresponding to image folder names \n')
+                            index_col = int(index_col)
+                            keep_asking_for_input = False
+                        except ValueError:
+                            warnings.warn('Please input a numeric value (integer)')
+                dataset_parameters = {} if dataset_parameters is None else dataset_parameters
+                dataset_parameters['tabular_file'] = tabular_file_path
+                dataset_parameters['index_col'] = index_col
+            else:
+                path = validated_path_input(data_type)
 
     else:
         # all data have been provided at call
@@ -256,7 +285,8 @@ def add_database(interactive: bool = True,
                                      tags=tags,
                                      data_type=data_type,
                                      description=description,
-                                     path=path)
+                                     path=path,
+                                     dataset_parameters=dataset_parameters)
     except (AssertionError, FedbiomedDatasetManagerError) as e:
         if interactive is True:
             try:
@@ -266,7 +296,9 @@ def add_database(interactive: bool = True,
         else:
             warnings.warn(f'[ERROR]: {e}')
         exit(1)
-
+    except FedbiomedDatasetError as err:
+        warnings.warn(f'[ERROR]: {err} ... Aborting'
+                      "\nHint: are you sure you have selected the correct index in Demographic file?")
     print('\nGreat! Take a look at your data:')
     dataset_manager.list_my_data(verbose=True)
 
@@ -556,7 +588,8 @@ def approve_model(sort_by_date: bool = True):
         return
 
     options = [m['name'] + '\t Model ID ' + m['model_id'] + '\t model status ' +
-               m['model_status'] for m in non_approved_models]
+               m['model_status'] + '\tdate_last_action ' +
+               str(m['date_last_action']) for m in non_approved_models]
 
     msg = "Select the model to approve:\n"
     msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
@@ -587,7 +620,7 @@ def reject_model():
         return
 
     options = [m['name'] + '\t Model ID ' + m['model_id'] + '\t model status ' +
-               m['model_status'] for m in approved_models]
+               m['model_status'] + '\tModel Type ' + m['model_type']  for m in approved_models]
 
     msg = "Select the model to reject (this will prevent Researcher to run model on Node):\n"
     msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])

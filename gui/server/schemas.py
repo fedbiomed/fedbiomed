@@ -142,6 +142,67 @@ class ListDatasetRequest(Validator):
     })
 
 
+class ListModelRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "sort_by": {'type': 'string'},
+             "select_status": {'type': 'string'}
+         },
+         "required": []
+         },
+        )
+
+
+class ApproveRejectModelRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "model_id": {"type": "string",
+                          "minLength": 1,
+                          'errorMessages': {"minLength": "model_id must have at least one character"},
+                          },
+             "notes": {"type": "string"}
+         },
+         "required": ["model_id"]
+         }
+    )
+
+
+class DeleteModelRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "model_id": {"type": "string",
+                          "minLength": 1,
+                          'errorMessages': {"minLength": "model_id must have at least one character"},
+                          }
+         },
+         "required": ["model_id"]
+         }
+    )
+
+
+class ModelPreviewRequest(Validator):
+    type = 'json'
+    schema = JsonSchema(
+        {'type': "object",
+         "properties": {
+             "model_path": {"type": "string",
+                            "minLength": 1,
+                            'errorMessages': {"minLength": "model_path must have at least one character"},
+            
+                            },
+             "model_id": {"type": "string"},
+         },
+         "required": []  
+         }
+    )
+
+
 class AddDataSetRequest(Validator):
     """ Json Schema for reqeust of adding new datasets """
 
@@ -256,7 +317,7 @@ class GetCsvData(Validator):
     })
 
 
-class ValidateBIDSReferenceCSV(Validator):
+class ValidateMedicalFolderReferenceCSV(Validator):
     type = 'json'
     schema = JsonSchema({
         "type": "object",
@@ -267,10 +328,10 @@ class ValidateBIDSReferenceCSV(Validator):
                     "type": "CSV path should be given as an array"
                 },
             },
-            "bids_root": {
+            "medical_folder_root": {
                 "type": "array",
                 "errorMessages": {
-                    "type": "ROOT path for BIDS dataset should be given as an array."
+                    "type": "ROOT path for MedicalFolder dataset should be given as an array."
                 },
             },
             "index_col": {
@@ -279,32 +340,32 @@ class ValidateBIDSReferenceCSV(Validator):
                     "type": "Index column should be an integer"}
             }
         },
-        "required": ["reference_csv_path", "bids_root", "index_col"]
+        "required": ["reference_csv_path", "medical_folder_root", "index_col"]
     })
 
 
-class ValidateBIDSRoot(Validator):
+class ValidateMedicalFolderRoot(Validator):
     type = 'json'
     schema = JsonSchema({
         "type": "object",
         "properties": {
-            "bids_root": {
+            "medical_folder_root": {
                 "type": "array",
                 "errorMessages": {
                     "type": "ROOT path should be given as an array"
                 },
             }
         },
-        "required": ["bids_root"]
+        "required": ["medical_folder_root"]
     })
 
 
-class ValidateBIDSAddRequest(Validator):
+class ValidateMedicalFolderAddRequest(Validator):
     type = 'json'
     schema = JsonSchema({
         "type": "object",
         "properties": {
-            "bids_root": {
+            "medical_folder_root": {
                 "type": "array",
                 "errorMessages": {
                     "type": "ROOT path should be given as an array"
@@ -327,5 +388,5 @@ class ValidateBIDSAddRequest(Validator):
             'tags': datasetTags,
             'desc': datasetDesc
         },
-        "required": ["bids_root", "name", "tags", "desc"]
+        "required": ["medical_folder_root", "name", "tags", "desc"]
     })

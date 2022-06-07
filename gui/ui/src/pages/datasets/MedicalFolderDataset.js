@@ -6,13 +6,13 @@ import FileBrowser from "../../components/common/FileBrowser";
 import {setFolderPath,
     setFolderRefColumn,
     setReferenceCSV,
-    addBIDSDataset,
-    setIgnoreReferenceCsv} from "../../store/actions/bidsDatasetActions"
+    addMedicalFolderDataset,
+    setIgnoreReferenceCsv} from "../../store/actions/medicalFolderDatasetActions"
 import {SelectiveTable} from "../../components/common/Tables";
-import BidsSubjectInformation from "./BidsSubjectInformation";
+import MedicalFolderSubjectInformation from "./MedicalFolderSubjectInformation";
 import Button, {ButtonsWrapper} from "../../components/common/Button";
 import {useNavigate, useParams, useLocation} from "react-router-dom";
-import DatasetMetadata from "./BidsStandardMetaData";
+import DatasetMetadata from "./MedicalFolderMetaData";
 import {CheckBox} from "../../components/common/Inputs";
 
 
@@ -33,7 +33,7 @@ const withRouter = (Component) =>  {
 }
 
 
-export class  BidsStandard extends React.Component {
+export class MedicalFolderDataset extends React.Component {
 
     constructor(props) {
         super(props);
@@ -44,7 +44,7 @@ export class  BidsStandard extends React.Component {
     }
 
     setReferenceCSV = (path) => {
-        if (this.props.bidsDataset.reference_csv) {
+        if (this.props.medicalFolderDataset.reference_csv) {
             this.props.setFolderRefColumn({name: null, index: null})
         }
         this.props.setReferenceCSV(path)
@@ -53,12 +53,12 @@ export class  BidsStandard extends React.Component {
     setReferenceFolderIDColumn = (index) => {
         this.props.setFolderRefColumn({
             index: index,
-            name: this.props.bidsDataset.reference_csv.data.columns[index]
+            name: this.props.medicalFolderDataset.reference_csv.data.columns[index]
         })
     }
 
     addDataset = () => {
-        this.props.addBIDSDataset(this.props.router.navigate)
+        this.props.addMedicalFolderDataset(this.props.router.navigate)
     }
 
     ignoreReferenceCsv = (status) => {
@@ -70,18 +70,18 @@ export class  BidsStandard extends React.Component {
             <div className={styles.main}>
                 <Step key={1}
                       step={1}
-                      desc={'Please select the root folder of BIDS dataset.'}
+                      desc={'Please select the root folder of MedicalFolder dataset.'}
                 >
                    <FileBrowser
-                        folderPath = {this.props.bids_root ? this.props.bids_root : null}
+                        folderPath = {this.props.medical_folder_root ? this.props.medical_folder_root : null}
                         onSelect = {this.setDataPath}
                         buttonText = "Select Folder"
                         onlyFolders={true}
                    />
-                    {this.props.bidsDataset.modalities ?
+                    {this.props.medicalFolderDataset.modalities ?
                         (<div className={''}>
                             <label>Modalities: </label>
-                            {this.props.bidsDataset.modalities.map((item, key) => {
+                            {this.props.medicalFolderDataset.modalities.map((item, key) => {
                                   return(
                                       <span className={styles.modalities} key={key}>{item}</span>
                                   )
@@ -90,7 +90,7 @@ export class  BidsStandard extends React.Component {
                     }
                 </Step>
 
-                {this.props.bids_root ?(
+                {this.props.medical_folder_root ?(
                     <Step
                         key={2}
                         step={2}
@@ -98,12 +98,12 @@ export class  BidsStandard extends React.Component {
                     >
                        <CheckBox onChange={this.ignoreReferenceCsv}
                                  checked={this.props.ignore_reference_csv}>
-                           Use only subject folders for BIDS dataset. This option will allow you to loads BIDS dataset
+                           Use only subject folders for MedicalFolder dataset. This option will allow you to loads MedicalFolder dataset
                            without declaring reference/demographics csv.
                        </CheckBox>
                         { !this.props.ignore_reference_csv ? (
                              <FileBrowser
-                                folderPath = {this.props.bidsDataset.reference_csv ? this.props.bidsDataset.reference_csv.path : null}
+                                folderPath = {this.props.medicalFolderDataset.reference_csv ? this.props.medicalFolderDataset.reference_csv.path : null}
                                 onSelect = {this.setReferenceCSV}
                                 onlyExtensions = {[".csv"]}
                                 buttonText = "Select Data File"
@@ -113,24 +113,24 @@ export class  BidsStandard extends React.Component {
                     ) : null
                 }
 
-                { !this.props.ignore_reference_csv && this.props.bids_root && this.props.bidsDataset.reference_csv != null ? (
+                { !this.props.ignore_reference_csv && this.props.medical_folder_root && this.props.medicalFolderDataset.reference_csv != null ? (
                     <Step
                         key={3}
                         step={3}
-                        desc={'Please select to column that represent subject folders in BIDS root directory.'}
+                        desc={'Please select to column that represent subject folders in MedicalFolder root directory.'}
                     >
                         <SelectiveTable
                             style={{maxHeight:350}}
-                            table={this.props.bidsDataset.reference_csv.data}
+                            table={this.props.medicalFolderDataset.reference_csv.data}
                             onSelect={this.setReferenceFolderIDColumn}
                             selectedLabel={"Folder Name"}
-                            selectedColIndex={this.props.bidsDataset.bids_ref.ref.index}
+                            selectedColIndex={this.props.medicalFolderDataset.medical_folder_ref.ref.index}
                         />
-                        <BidsSubjectInformation subjects={this.props.bidsDataset.bids_ref.subjects} />
+                        <MedicalFolderSubjectInformation subjects={this.props.medicalFolderDataset.medical_folder_ref.subjects} />
                     </Step>
                 ) : null }
 
-                {this.props.bidsDataset.bids_ref.ref.name != null || this.props.ignore_reference_csv ? (
+                {this.props.medicalFolderDataset.medical_folder_ref.ref.name != null || this.props.ignore_reference_csv ? (
                     <Step
                         key={4}
                         step={4}
@@ -140,13 +140,13 @@ export class  BidsStandard extends React.Component {
                     </Step>
                 ) : null }
                 {(this.props.metadata.name && this.props.metadata.tags && this.props.metadata.desc) &&
-                    ((!this.props.ignore_reference_csv && this.props.bidsDataset.bids_ref.ref.name ) ||
+                    ((!this.props.ignore_reference_csv && this.props.medicalFolderDataset.medical_folder_ref.ref.name ) ||
                       this.props.ignore_reference_csv
                     )? (
                     <Step
                         key={5}
                         step={5}
-                        label="Add/Register BIDS Dataset"
+                        label="Add/Register MedicalFolder Dataset"
                     >
                          <ButtonsWrapper>
                             <Button onClick={this.addDataset}>Add Dataset</Button>
@@ -160,18 +160,18 @@ export class  BidsStandard extends React.Component {
 
 
 /**
- * Map global bidsDataset of global state to local props.
+ * Map global medicalFolderDataset of global state to local props.
  * @param state
- * @returns {{bidsDataset: ((function(*=, *): ({identifiers, format: null, folder_path: null} |
+ * @returns {{medicalFolderDataset: ((function(*=, *): ({identifiers, format: null, folder_path: null} |
  *           {identifiers: {}, format: null, folder_path: null} |
  *           {identifiers: {}, format: null, folder_path}))|*)}}
  */
 const mapStateToProps = (state) => {
     return {
-        metadata : state.bidsDataset.metadata,
-        bids_root : state.bidsDataset.bids_root,
-        bidsDataset : state.bidsDataset,
-        ignore_reference_csv : state.bidsDataset.ignore_reference_csv
+        metadata : state.medicalFolderDataset.metadata,
+        medical_folder_root : state.medicalFolderDataset.medical_folder_root,
+        medicalFolderDataset : state.medicalFolderDataset,
+        ignore_reference_csv : state.medicalFolderDataset.ignore_reference_csv
     }
 }
 
@@ -185,10 +185,10 @@ const mapDispatchToProps = (dispatch) => {
         setFolderPath : (data) => dispatch(setFolderPath(data)),
         setReferenceCSV : (data) => dispatch(setReferenceCSV(data)),
         setFolderRefColumn : (data) => dispatch(setFolderRefColumn(data)),
-        addBIDSDataset : (navigate) => dispatch(addBIDSDataset(navigate)),
+        addMedicalFolderDataset : (navigate) => dispatch(addMedicalFolderDataset(navigate)),
         ignoreReferenceCsv : (data) => dispatch(setIgnoreReferenceCsv(data))
     }
 }
 
-export default connect(mapStateToProps, mapDispatchToProps)(withRouter(BidsStandard));
+export default connect(mapStateToProps, mapDispatchToProps)(withRouter(MedicalFolderDataset));
 
