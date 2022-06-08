@@ -48,6 +48,7 @@ def list_models():
     res = MODEL_MANAGER.list_models(sort_by=sort_by, 
                                     select_status=select_status,
                                     verbose=False)
+    print(res)
     return response(res), 200
 
 

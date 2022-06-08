@@ -98,6 +98,13 @@ th.activeCol {
 .entryTable tr td, th{
   text-align: left;
   padding : 10px 10px;
+  min-width: 100px;
+  max-width: 150px;
+}
+
+.entryTable thead td {
+    font-weight : bold;
+    background : #eee;
 }
 
 .entryTable tr:hover {
@@ -126,6 +133,17 @@ th.activeCol {
   fill : red
 }
 
+.entryTable :global(div.tag) {
+  display: inline-block;
+  width: auto;
+  padding:3px;
+  font-size: 12px;
+  background: #0099cc;
+  color:#fff;
+  border-radius: 3px;
+  margin: 3px;
+}
+
 
 .dataTable tbody::-webkit-scrollbar {
   margin-left:-10px;
@@ -149,17 +167,6 @@ table td :global(.action-buttons) {
   justify-content: space-evenly;
   align-items: center;
   width: 100%;
-}
-
-.entryTable :global(div.tag) {
-  display: inline-block;
-  width: auto;
-  padding:3px;
-  font-size: 12px;
-  background: #0099cc;
-  color:#fff;
-  border-radius: 3px;
-  margin: 3px;
 }
 
 
@@ -187,7 +194,7 @@ table td :global(.action-buttons) {
 }
 
 .infoTable tr :global(td.title){
-  background: #003366;
+  background: var(--button-color);
   color:#fff
 }
 

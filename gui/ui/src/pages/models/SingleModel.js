@@ -6,6 +6,7 @@ import {get_single_model as gsm,
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { docco } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import SingleModelActions from "./SingleModelActions";
+import styles from "./Models.module.css"
 const SingleModel = (props) => {
 
     const {model_id} = useParams()
@@ -18,7 +19,7 @@ const SingleModel = (props) => {
         return () => {
             reset_single_model()
         }
-    }, [model_id, get_single_model])
+    }, [model_id, get_single_model, navigator, reset_single_model])
 
     if(single_model){
          return (
@@ -30,6 +31,25 @@ const SingleModel = (props) => {
                             This model is in status <b>{single_model?.model_status.toUpperCase()}</b>
                         </div>
                         <SingleModelActions style={{width: "30%"}} single_model={single_model}/>
+                    </div>
+                    <div className={"row"}>
+                        <div>
+                            <h4>Model information</h4>
+                            <div className={styles.infoWrapper}>
+                                <span className={`${styles.tag} ${styles.tagInfo}`}>Description</span>
+                                <span className={`${styles.tag} ${styles.tagDesc}`}>{single_model.description}</span>
+                            </div>
+                            <div className={styles.infoWrapper}>
+                                <span className={`${styles.tag} ${styles.tagInfo}`}>Notes</span>
+                                <span className={`${styles.tag} ${styles.tagDesc}`}>{single_model.notes}</span>
+                            </div>
+                            <div className={styles.infoWrapper}>
+                                <span className={`${styles.tag} ${styles.tagInfo}`}>Requested By</span>
+                                <span className={`${styles.tag} ${styles.tagDesc}`}>
+                                    {single_model.researcher_id ? single_model.researcher_id :
+                                    `This model is "${single_model.model_type}"`} </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div className="frame-content">

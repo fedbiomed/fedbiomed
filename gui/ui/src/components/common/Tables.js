@@ -71,7 +71,7 @@ export const TableHead = (props) => {
  */
 export const TableCol = (props) => {
     return(
-        <td className={props.className}>
+        <td onClick={props.onClick} className={props.className}>
             {props.transformation ? props.transformation(props.children) : props.children}
         </td>
     )

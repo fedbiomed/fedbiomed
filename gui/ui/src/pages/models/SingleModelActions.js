@@ -78,13 +78,13 @@ const SingleModelActions = (props) => {
                         <Button type={"positive"} onClick={onApprove}>Approve</Button>
                         <Button type={"attention"} onClick={onReject}>Reject</Button>
                     </React.Fragment>
-                ) : single_model.model_status == "Approved" ? (
+                ) : single_model.model_status === "Approved" ? (
                     <React.Fragment>
-                        <Button type={"attention"} onClick={onReject}>Change as Reject</Button>
+                        <Button type={"attention"} onClick={onReject}>Change to Reject</Button>
                     </React.Fragment>
-                ) : single_model.model_status == "Rejected" ? (
-                    <React.Fragment>WW
-                        <Button type={"positive"} onClick={onApprove}>Change as Approved</Button>
+                ) : single_model.model_status === "Rejected" ? (
+                    <React.Fragment>
+                        <Button type={"positive"} onClick={onApprove}>Change to Approve</Button>
                     </React.Fragment>
                 ) : null}
                 <Button type={"negative"} disable={single_model.model_type === "default" ? true : false} onClick={onDelete}>Delete</Button>
