@@ -21,6 +21,9 @@ import argparse
 import tkinter.filedialog
 import tkinter.messagebox
 from tkinter import _tkinter
+from pygments import highlight
+from pygments.lexers import PythonLexer
+from pygments.formatters import Terminal256Formatter
 
 from fedbiomed.common.constants  import ModelApprovalStatus, ModelTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError, FedbiomedDatasetManagerError
@@ -732,7 +735,7 @@ def view_model():
                 # second try to print via logger (default output)
                 try:
                     with open(model_tmpfile) as m:
-                        model_source = ''.join(m.readlines())
+                        model_source = highlight(''.join(m.readlines()), PythonLexer() ,Terminal256Formatter())
                         logger.info(f'\n\n{model_source}\n\n')
                 except Exception:
                     logger.critical('Cannot display model via logger. Aborting.')
