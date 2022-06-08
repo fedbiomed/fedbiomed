@@ -165,7 +165,7 @@ class NIFTIFolderDataset(Dataset):
                 f"cannot get item from dataset.")
         if item < 0 or item >= len(self._files):
             # need an IndexError, cannot use a FedbiomedError
-            raise IndexError('Bad index {item} in dataset samples')
+            raise IndexError(f'Bad index {item} in dataset samples')
 
         try:
             img = self._reader(self._files[item])
@@ -335,7 +335,7 @@ class MedicalFolderBase:
         """ Validates Medical Folder root directory by checking folder structure
 
         Args:
-            path:
+            path: path to root directory
 
         Returns:
             Path to root folder of Medical Folder dataset
@@ -373,7 +373,8 @@ class MedicalFolderBase:
 class MedicalFolderDataset(Dataset, MedicalFolderBase):
     """Torch dataset following the Medical Folder Structure.
 
-    The Medical Folder structure is loosely inspired by the BIDS standard [1]. It should respect the following pattern:
+    The Medical Folder structure is loosely inspired by the (BIDS standard)[https://bids.neuroimaging.io/] [1].
+    It should respect the following pattern:
     ```
     └─ MedicalFolder_root/
         └─ demographics.csv
@@ -526,17 +527,18 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
     @property
     def index_col(self):
+        """Getter/setter of the column containing foler's name (in the tabular file)"""
         return self._index_col
 
     @tabular_file.setter
-    def tabular_file(self, value: Union[str, Path]):
+    def tabular_file(self, value: Union[str, Path]) -> Union[str, Path]:
         """Sets `tabular_file` property
 
         Args:
-            value:
+            value: path to the tabular file
 
         Returns:
-
+            path to the tabular file
         """
         if not isinstance(value, (str, Path)):
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value} Path for tabular file should be of `str` or "
@@ -547,6 +549,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             raise FedbiomedDatasetError("Path should be a data file")
 
         self._tabular_file = Path(path).expanduser().resolve()
+        return path
 
     @index_col.setter
     def index_col(self, value: int):
@@ -754,7 +757,11 @@ class MedicalFolderController(MedicalFolderBase):
     """
 
     def __init__(self, root: str = None):
-        """Constructs MedicalFolderController """
+        """Constructs MedicalFolderController
+
+        Args:
+            root: Folder path to dataset. Defaults to None.
+        """
         super(MedicalFolderController, self).__init__(root=root)
 
     def check_modalities(self, _raise: bool = True) -> Tuple[bool, str]:
@@ -785,7 +792,7 @@ class MedicalFolderController(MedicalFolderBase):
 
         Args:
             index: Array-like index that comes from reference csv file of Medical Folder dataset. It represents subject
-                folder names.
+                folder names. Defaults to None.
         Returns:
             Modality status for each subject that indicates which modalities are available
         """

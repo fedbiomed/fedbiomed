@@ -25,6 +25,159 @@ basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit
 
 
+function usage_body() {
+
+    case $1 in
+        node)
+            cat <<EOF
+
+node      : a second argument is mandatory
+            - start : launch a new node
+            - add/list/delete deal with dataset
+            - add-mnist PATH_TO_DATASET non-interactively adds a mnist dataset
+            - add-dataset-from-file PATH_TO_JSON_FILE non-interactively adds a dataset
+                described in a json file with the following format
+
+                {
+                    "path": "/path/to/dataset",
+                    "data_type": "csv|default|images",
+                    "description": "arbitrary description string",
+                    "tags": "comma,separated,list,without,blanks",
+                    "name": "arbitrary name string"
+                }
+
+            - delete-mnist non-interactively un-registers a mnist dataset
+            - delete-all non interactively un-registers all node datasets
+
+            - register-model  | --register-model    : To register new model files
+            - update-model    | --update-model      : To update registered models
+            - delete-model    | --delete-model  | -dml  : To delete models (requested or registered)
+
+            - list-models     | --list-models   | -lms  : To list all the models (requested, default, or registered)
+            - approve-model   | --approve-model | -aml  : To approve requested models
+            - reject-model    | --reject-model  | -rjml : To reject requested models
+
+
+            an optional config file CONFIG_NAME can be given it will be used instead of the default one (config.ini)
+
+            an optional IP_ADDRESS can be used to join the network component instead of
+                the default localhost
+
+            optional additional PARAMS are passed to fedbiomed
+
+            Option that should be used with start or add command to manage node modes.
+
+            - enable-model-approval     | --enable-model-approval   : to enable model approval mode
+            - allow-default-models      | --allow-default-models    : to allow default model for model approval mode
+            - disable-model-approval    | --disable-model-approval  : to disable model approval mode
+            - disable-default-models    | --disable-default-models  : to disable default models for model approval mode
+EOF
+        ;;
+
+        researcher)
+            cat <<EOF
+
+researcher: launch a researcher notebook
+
+            an optional IP_ADDRESS (eg 10.1.2.3 or host.foo) can be used to join the network
+                component instead of the default localhost
+EOF
+        ;;
+
+        network)
+            cat <<EOF
+
+network   : run the necessary docker containers (in development mode)
+            stop the containers if stop argument is provided
+EOF
+        ;;
+
+        gui)
+            cat <<EOF
+
+gui       :
+            Options:
+            - data-folder | --data-folder | -df  [<path>]   : Folder that data files are stored, by default script will
+                                                              look for \`data\` in Fed-BioMed directory
+            - config      | --config      | -c   [<config>] : Name of the node's config file. GUI will be configured
+                                                              based on given config file. By default, \`config_node.ini\`.
+                                                              If config file doesn't exist script will raise an error.
+            - port        | --port        | -p   [<port>]   : HTTP port that GUI will be served. Default is \`8484\`
+            - host        | --host        | -h   [<host>]   : HTTP host that GUI will be served, Default is \`localhost\`
+            - recreate    | --recreate    | -rc             : Flag that indicates, UI will be rebuilt while launching
+                                                              the GUI. Use this option if you have updated UI scripts.
+            - debug       | --debug       | -dbg            : Flag that will start Flask (Server) in debug mode.
+
+            Commands:
+            - start: Launches the Node GUI with given options.
+EOF
+        ;;
+    esac
+}
+
+function usage() {
+
+    case $1 in
+        node)
+            cat <<EOF
+usage: fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-model-approval | disable-model-approval | allow-default-models | disable-default-models ]
+                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | register-model | delete-model | update-model) PARAMS
+
+
+Runs the fedbiomed node component after properly initializing the environments.
+
+EOF
+            usage_body node
+        ;;
+
+        researcher)
+            cat <<EOF
+usage: fedbiomed_run researcher [ip_address IP_ADDRESS]
+
+Runs the fedbiomed researcher component.
+EOF
+            usage_body researcher
+        ;;
+
+        network)
+            cat <<EOF
+usage: fedbiomed_run network (stop)
+
+Runs the fedbiomed network component.
+EOF
+            usage_body network
+        ;;
+
+        gui)
+            cat <<EOF
+usage: febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | host IP_ADDRESS | port PORT | --recreate] (start)
+
+Runs the fedbiomed gui
+EOF
+            usage_body gui
+        ;;
+
+        *|'')
+            cat <<EOF
+usage: fedbiomed_run network (stop)
+       fedbiomed_run researcher [ip_address IP_ADDRESS]
+       fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-model-approval | disable-model-approval | allow-default-models | disable-default-models ]
+                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | register-model | delete-model | update-model) PARAMS
+        febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | host IP_ADDRESS | port PORT | --recreate]
+                         (start)
+
+Runs the fedbiomed components after properly initializing the environments.
+The component name is mandatory.
+EOF
+            usage_body network
+            usage_body researcher
+            usage_body node
+            usage_body gui
+    ;;
+    esac
+
+    exit 0
+}
 
 # Colors
 RED='\033[0;31m' #red
@@ -115,17 +268,24 @@ function start_gui() {
     fi
 }
 
+#
+# argument decoding
+#
 case $1 in
 
     network)
-        source ./scripts/fedbiomed_environment network
         cd ./envs/development/docker
         #
         case $2 in
             stop)
+                source ./scripts/fedbiomed_environment network
                 docker-compose down
-            ;;
+                ;;
+            help|-h|--help)
+                usage network
+                ;;
             *)
+                source ./scripts/fedbiomed_environment network
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
                              CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) \
                              docker-compose build restful mqtt
@@ -159,7 +319,7 @@ case $1 in
                   shift
                   shift
                   ;;
-              host|--host|-h)
+              host|--host)
                   GUI_HOST="$3"
                   shift
                   shift
@@ -176,6 +336,9 @@ case $1 in
                   GUI_DEBUG=True
                   shift
                   ;;
+              help|-h|--help)
+                  usage gui
+                  ;;
               *)
                   break
                   ;;
@@ -191,8 +354,9 @@ case $1 in
               ;;
         esac
       ;;
-    node)
 
+
+    node)
         while true ; do
             case $2 in
                 # handle optional parameters : config file, network ip, model approve and allow default models
@@ -231,6 +395,9 @@ case $1 in
                     shift
                 ;;
 
+                help|-h|--help)
+                    usage node
+                    ;;
                 *)
                     break
                 ;;
@@ -290,6 +457,15 @@ case $1 in
                     python -m fedbiomed.node.cli --register-model $PARAMS
                     ;;
 
+                approve-model|--approve-model|-aml)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --approve-model $PARAMS
+                    ;;
+
+                reject-model|--reject-model|-rjml)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --reject-model $PARAMS
+                    ;;
                 update-model|--update-model|-uml)
                     source ./scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --update-model $PARAMS
@@ -337,7 +513,10 @@ case $1 in
                     IP_ADDRESS=$3
                     shift
                     shift
-                ;;
+                    ;;
+                help|-h|--help)
+                    usage researcher
+                    ;;
                 *)
                     break
                 ;;
@@ -360,76 +539,13 @@ case $1 in
         ;;
 
     help|-h|--help)
-        cat <<EOF
-usage: fedbiomed_run network (stop)
-       fedbiomed_run researcher [ip_address IP_ADDRESS]
-       fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-model-approval | disable-model-approval | allow-default-models | disable-default-models ]
-                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | register-model | delete-model | update-model) PARAMS
-        febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | host IP_ADDRESS | port PORT | --recreate]
-                         (start)
-
-Runs the fedbiomed components after properly initializing the environments.
-The component name is mandatory.
-
-network   : run the necessary docker containers (in development mode)
-            stop the containers if stop argument is provided
-
-researcher: launch a researcher notebook
-
-            an optional IP_ADDRESS (eg 10.1.2.3 or host.foo) can be used to join the network
-                component instead of the default localhost
-
-node      : a second argument is mandatory
-            - start : launch a new node
-            - add/list/delete deal with dataset
-            - add-mnist PATH_TO_DATASET non-interactively adds a mnist dataset
-            - add-dataset-from-file PATH_TO_JSON_FILE non-interactively adds a dataset
-                described in a json file with the following format
-
-                {
-                    "path": "/path/to/dataset",
-                    "data_type": "csv|default|images",
-                    "description": "arbitrary descrription string",
-                    "tags": "comma,separated,list,without,blanks",
-                    "name": "arbitrary name string"
-                }
-
-            - delete-mnist non-interactively un-registers a mnist dataset
-            - delete-all non interactively un-registers all node datasets
-
-            - register-model  | --register-model    : To register new model files
-            - update-model    | --update-model      : To update registered models
-
-            an optional config file CONFIG_NAME can be given it will be used instead of the default one (config.ini)
-
-            an optional IP_ADDRESS can be used to join the network component instead of
-                the default localhost
-
-            optional additional PARAMS are passed to fedbiomed
-
-            Option that should be used with start or add command to manage node modes.
-
-            - enable-model-approval     | --enable-model-approval   : to enable model approval mode
-            - allow-default-models      | --allow-default-models    : to allow default model for model approval mode
-            - disable-model-approval    | --disable-model-approval  : to disable model approval mode
-            - disable-default-models    | --disable-default-models  : to disable default models for model approval mode
-gui       :
-            Options:
-            - data-folder | --data-folder | -df  [<path>]   : Folder that data files are stored, by default script will
-                                                              look for `data` in Fed-BioMed directory
-            - config      | --config      | -c   [<config>] : Name of the node's config file. GUI will be configured
-                                                              based on given config file. By default, `config_node.ini`.
-                                                              If config file doesn't exist script will raise an error.
-            - port        | --port        | -p   [<port>]   : HTTP port that GUI will be served. Default is `8484`
-            - host        | --host        | -h   [<host>]   : HTTP host that GUI will be served, Default is `localhost`
-            - recreate    | --recreate    | -rc             : Flag that indicates, UI will be rebuilt while launching
-                                                              the GUI. Use this option if you have updated UI scripts.
-            - debug       | --debug       | -dbg            : Flag that will start Flask (Server) in debug mode.
-
-            Commands:
-            - start: Launches the Node GUI with given options.
-
-EOF
+        case $2 in
+            node) usage node;;
+            researcher) usage researcher;;
+            gui) usage gui;;
+            network) usage network;;
+        esac
+        usage
         ;;
 
     *)

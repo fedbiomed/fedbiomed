@@ -19,7 +19,7 @@ import tkinter.filedialog
 import tkinter.messagebox
 from tkinter import _tkinter
 
-from fedbiomed.common.constants  import ModelTypes, ErrorNumbers
+from fedbiomed.common.constants  import ModelApprovalStatus, ModelTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.data import MedicalFolderController
 
@@ -243,6 +243,7 @@ def add_database(interactive: bool = True,
                 tabular_file_path = validated_path_input(type='csv')
                 # get index col from user
                 column_values = MedicalFolderController.demographics_column_names(tabular_file_path)
+                print("\nHere are all the columns contained in demographics file:\n")
                 for i, col in enumerate(column_values):
                     print(f'{i:3} : {col}')
                 if interactive:
@@ -277,6 +278,9 @@ def add_database(interactive: bool = True,
 
         if not os.path.exists(path):
             logger.critical("provided path does not exists: " + path)
+
+        # quick fix, but is this what we expect on the line just after ????
+        dataset_parameters = None
 
     # Add database
     try:
@@ -330,7 +334,7 @@ def manage_node(node_args: Union[dict, None] = None):
 
     Intended to be launched by the node in a separate process/thread.
 
-    Instantiates `Node` and `DatasetManager` object, start exchaning 
+    Instantiates `Node` and `DatasetManager` object, start exchaning
     messages with the researcher via the `Node`, passes control to the `Node`.
 
     Args:
@@ -432,7 +436,7 @@ def delete_database(interactive: bool = True):
 
             - if `True` interactively queries (repeatedly) from the command line
                 for a dataset to delete
-            - if `False` delete MNIST dataset if it exists in the database 
+            - if `False` delete MNIST dataset if it exists in the database
     """
     my_data = dataset_manager.list_my_data(verbose=False)
     if not my_data:
@@ -512,11 +516,11 @@ def register_model():
         try:
             tkinter.messagebox.showwarning(title='Warning', message=str(e))
         except ModuleNotFoundError:
-            warnings.warn('[ERROR]: {e}')
+            warnings.warn(f'[ERROR]: {e}')
         exit(1)
 
     print('\nGreat! Take a look at your data:')
-    model_manager.list_approved_models(verbose=True)
+    model_manager.list_models(verbose=True)
 
 
 def update_model():
@@ -527,7 +531,7 @@ def update_model():
     User can either choose different model file (different path)
     to update model or same model file.
     """
-    models = model_manager.list_approved_models(verbose=False)
+    models = model_manager.list_models(verbose=False)
 
     # Select only registered model to update
     models = [ m for m in models  if m['model_type'] == ModelTypes.REGISTERED.value]
@@ -557,11 +561,82 @@ def update_model():
             path = validated_path_input(type = "txt")
 
             # Update model through model manager
-            model_manager.update_model(model_id, path)
+            model_manager.update_model_hash(model_id, path)
 
             logger.info('Model has been updated. Here all your models')
-            model_manager.list_approved_models(verbose=True)
+            model_manager.list_models(verbose=True)
 
+            return
+
+        except (ValueError, IndexError, AssertionError):
+            logger.error('Invalid option. Please, try again.')
+
+
+def approve_model(sort_by_date: bool = True):
+    """Approves a given model that has either Pending or Rejected status
+
+    Args:
+        sort_by_date: whether to sort by last modification date. Defaults to True.
+    """
+    if sort_by_date:
+        sort_by = 'date_modified'
+    else:
+        sort_by = None
+    non_approved_models = model_manager.list_models(sort_by=sort_by,
+                                                    select_status=[ModelApprovalStatus.PENDING,
+                                                                   ModelApprovalStatus.REJECTED],
+                                                    verbose=False)
+    if not non_approved_models:
+        logger.warning("All models have been approved or no model has been registered... aborting")
+        return
+
+    options = [m['name'] + '\t Model ID ' + m['model_id'] + '\t model status ' +
+               m['model_status'] + '\tdate_last_action ' +
+               str(m['date_last_action']) for m in non_approved_models]
+
+    msg = "Select the model to approve:\n"
+    msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
+    msg += "\nSelect: "
+
+    while True:
+        try:
+            opt_idx = int(input(msg)) - 1
+            model_id = non_approved_models[opt_idx]['model_id']
+            model_manager.approve_model(model_id)
+            logger.info(f"Model {model_id} has been approved. Researchers can now train the Training Plan" +
+                        f" on Node {environ['NODE_ID']}")
+            return
+
+        except (ValueError, IndexError, AssertionError):
+            logger.error('Invalid option. Please, try again.')
+
+
+def reject_model():
+    """Rejects a given model that has either Pending or Approved status
+    """
+    approved_models = model_manager.list_models(select_status=[ModelApprovalStatus.APPROVED,
+                                                               ModelApprovalStatus.PENDING],
+                                                verbose=False)
+
+    if not approved_models:
+        logger.warning("All models have already been rejected or no model has been registered... aborting")
+        return
+
+    options = [m['name'] + '\t Model ID ' + m['model_id'] + '\t model status ' +
+               m['model_status'] + '\tModel Type ' + m['model_type']  for m in approved_models]
+
+    msg = "Select the model to reject (this will prevent Researcher to run model on Node):\n"
+    msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
+    msg += "\nSelect: "
+
+    while True:
+        try:
+            opt_idx = int(input(msg)) - 1
+            model_id = approved_models[opt_idx]['model_id']
+            notes = input("Please give a note to explain why model has been rejected: \n")
+            model_manager.reject_model(model_id, notes)
+            logger.info(f"Model {model_id} has been rejected. Researchers can not train model" +
+                        f" on Node {environ['NODE_ID']} anymore")
             return
 
         except (ValueError, IndexError, AssertionError):
@@ -573,17 +648,18 @@ def delete_model():
 
     Does not modify or delete model file.
 
-    Deletes only registered models. For default models, files
+    Deletes only registered and requested models. For default models, files
     should be removed directly from the file system.
     """
 
-    models = model_manager.list_approved_models(verbose=False)
-    models = [ m for m in models  if m['model_type'] == ModelTypes.REGISTERED.value]
+    models = model_manager.list_models(verbose=False)
+    models = [ m for m in models  if m['model_type'] in [ModelTypes.REGISTERED.value, ModelTypes.REQUESTED.value]]
     if not models:
         logger.warning('No models to delete')
         return
 
-    options = [m['name'] + '\t Model ID ' + m['model_id'] for m in models]
+    options = [m['name'] + '\t Model ID ' + m['model_id'] + '\t Model_type ' +
+               m['model_type'] + '\tModel status ' + m['model_status'] for m in models]
     msg = "Select the model to delete:\n"
     msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
     msg += "\nSelect: "
@@ -601,7 +677,7 @@ def delete_model():
             # Delete model
             model_manager.delete_model(model_id)
             logger.info('Model has been removed. Here your other models')
-            model_manager.list_approved_models(verbose=True)
+            model_manager.list_models(verbose=True)
 
             return
 
@@ -644,16 +720,22 @@ def launch_cli():
                         help='Start fedbiomed node.',
                         action='store_true')
     parser.add_argument('-rml', '--register-model',
-                        help='Approve new model files.',
+                        help='Register and approve a model from a local file.',
+                        action='store_true')
+    parser.add_argument('-aml', '--approve-model',
+                        help='Approve a model (for any type of model)',
+                        action='store_true')
+    parser.add_argument('-rjml', '--reject-model',
+                        help='Reject a model (for any type of model)',
                         action='store_true')
     parser.add_argument('-uml', '--update-model',
-                        help='Update model file.',
+                        help='Update model file (for a model registered from a local file)',
                         action='store_true')
     parser.add_argument('-dml', '--delete-model',
-                        help='Deletes models from DB',
+                        help='Delete a model from database (not for default models)',
                         action='store_true')
     parser.add_argument('-lms', '--list-models',
-                        help='Start fedbiomed node.',
+                        help='List all models',
                         action='store_true')
     parser.add_argument('-g', '--gpu',
                         help='Use of a GPU device, if any available (default: dont use GPU)',
@@ -666,6 +748,7 @@ def launch_cli():
                         help='Force use of a GPU device, if any available, even if researcher doesnt ' +
                         'request it (default: dont use GPU)',
                         action='store_true')
+
     args = parser.parse_args()
 
     if not any(args.__dict__.values()):
@@ -737,12 +820,16 @@ def launch_cli():
         delete_database(interactive=False)
     elif args.register_model:
         register_model()
+    elif args.approve_model:
+        approve_model()
+    elif args.reject_model:
+        reject_model()
     elif args.update_model:
         update_model()
     elif args.delete_model:
         delete_model()
     elif args.list_models:
-        model_manager.list_approved_models(verbose = True)
+        model_manager.list_models(verbose = True)
     elif args.start_node:
         # convert to node arguments structure format expected in Round()
         node_args = {
