@@ -51,7 +51,7 @@ const TableSearchBar = (props) => {
                 {props.by ? (
                     <React.Fragment>
                         <div className={styles.by}>
-                            By
+                            On
                         </div>
                         <div>
                             <Select

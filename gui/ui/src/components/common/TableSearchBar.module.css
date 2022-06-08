@@ -12,5 +12,6 @@
     display: flex;
     align-items: center;
     padding: 0px 10px;
-    background: #eee;
+    background: var(--button-color);
+    color:#fff;
 }

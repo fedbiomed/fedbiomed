@@ -69,7 +69,7 @@ const ModelsList = (props) => {
                             {value : "model_status", name: "Status"},
                             {value : "description", name: "Description"},
                             {value : "model_type", name: "Model Type"},
-                            {value : "date_last_action", name: "Last Action Data"},
+                            {value : "date_last_action", name: "Last Action Date"},
                             {value : "date_registered", name: "Registration Date"},
                             ]}
             />
@@ -95,12 +95,12 @@ const ModelsList = (props) => {
                                 <TableCol>{item.model_type.toUpperCase()}</TableCol>
                                 <TableCol>{item.description}</TableCol>
                                 <TableCol>
-                                    <Moment parse="DD-MM-YYYY HH:mm:ss" format="DD/MM/YY HH:MM">
+                                    <Moment parse="DD-MM-YYYY HH:mm:ss" format="DD-MM-YYYY HH:MM">
                                         {item.date_last_action}
                                     </Moment>
                                 </TableCol>
                                 <TableCol>
-                                    <Moment parse="DD-MM-YYYY HH:mm:ss" format="DD/MM/YY HH:MM">
+                                    <Moment parse="DD-MM-YYYY HH:mm:ss" format="DD-MM-YYYY HH:MM">
                                         {item.date_registered}
                                     </Moment>
                                 </TableCol>
