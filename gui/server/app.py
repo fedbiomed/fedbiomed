@@ -2,6 +2,7 @@ import os
 from flask import Flask, render_template, send_from_directory
 from config import Config
 
+
 build_dir = os.getenv('BUILD_DIR', '../ui/gui-build')
 
 # Create Flask Application

@@ -1,12 +1,12 @@
 import React from 'react';
 import {connect} from "react-redux"
 import {Link} from "react-router-dom"
-import { listDatasets,  removeDataset, addDefaultDataset, searchDataset } from '../store/actions/datasetsActions';
-import {ReactComponent as GarbageLogo} from '../assets/img/garbage.svg'
-import {ReactComponent as LaunchIcon} from '../assets/img/launch.svg'
-import Modal from '../components/Modal';
-import Button from '../components/Button'
-import {Text} from '../components/Inputs'
+import { listDatasets,  removeDataset, addDefaultDataset, searchDataset } from '../../store/actions/datasetsActions';
+import {ReactComponent as GarbageLogo} from '../../assets/img/garbage.svg'
+import {ReactComponent as LaunchIcon} from '../../assets/img/launch.svg'
+import Modal from '../../components/common/Modal';
+import Button from '../../components/common/Button'
+import {Text} from '../../components/common/Inputs'
 
 
 export const Datasets = (props) => {
@@ -150,10 +150,9 @@ export const Datasets = (props) => {
      * clicked. Send request to add MNIST dataset
      */
     const onAddDefaultDataset = () => {
-
         // Send empty data by default
         // it will be MNIST
-        props.addDefaultDataset({})
+        props.addDefaultDataset({tags : ["#MNIST", "#dataset"], name : "MNIST", desc: "Default MNIST dataset"})
     }
 
     return (
