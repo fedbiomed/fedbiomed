@@ -237,7 +237,6 @@ class TestNIFTIFolderDataset(unittest.TestCase):
                 self.sample_class.append(self.class_names.index(class_name))
 
 
-
 def _create_synthetic_dataset(root, n_samples, tabular_file, index_col):
     # Image and target data
     fake_img_data = np.random.rand(10, 10, 10)
@@ -297,7 +296,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
             shutil.rmtree(self.root)
 
     def test_medical_folder_dataset_01_instantiating_dataset(self):
-        dataset = MedicalFolderDataset(self.root, demographics_transform=lambda x: torch.Tensor([0.]))
+        dataset = MedicalFolderDataset(self.root)
         self._assert_batch_types_and_sizes(dataset)
 
         with self.assertRaises(FedbiomedDatasetError):
@@ -313,18 +312,16 @@ class TestMedicalFolderDataset(unittest.TestCase):
 
     def test_medical_folder_dataset_03_instantiation_with_demographics(self):
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col,
-                                   demographics_transform = lambda x: torch.as_tensor(x['AGE']))
+                                       demographics_transform=lambda x: torch.as_tensor(x['AGE']))
         self._assert_batch_types_and_sizes(dataset)
 
     def test_medical_folder_dataset_04_data_transforms(self):
-        dataset = MedicalFolderDataset(self.root, transform=self.transform,
-                                       demographics_transform=lambda x: torch.Tensor([0.]))
+        dataset = MedicalFolderDataset(self.root, transform=self.transform)
         (images, demographics), targets = dataset[0]
         self.assertTrue(images['T1'].dim() == 1)
 
     def test_medical_folder_dataset_05_target_transform(self):
-        dataset = MedicalFolderDataset(self.root, target_transform=self.target_transform,
-                                       demographics_transform=lambda x: torch.Tensor([0.]))
+        dataset = MedicalFolderDataset(self.root, target_transform=self.target_transform)
         (images, demographics), targets = dataset[0]
         self.assertEqual(images['T1'].shape, targets['label'].shape)
 
@@ -337,6 +334,34 @@ class TestMedicalFolderDataset(unittest.TestCase):
         dataset.set_dataset_parameters({"tabular_file": self.tabular_file, "index_col": self.index_col})
         self.assertEqual(str(dataset.tabular_file), str(Path(self.tabular_file).expanduser().resolve()))
         self.assertEqual(dataset.index_col, self.index_col)
+
+    def test_medical_folder_dataset_07_demographics_transform(self):
+        dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col,
+                                       demographics_transform=lambda x: torch.as_tensor(x['AGE']))
+        (images, demographics), targets = dataset[0]
+        csv_data = pd.read_csv(self.tabular_file)
+        self.assertTrue(demographics.numpy() in csv_data.AGE.values)
+
+        dataset = MedicalFolderDataset(self.root, demographics_transform=lambda x: torch.as_tensor(x['AGE']))
+        with self.assertRaises(FedbiomedDatasetError):
+            (images, demographics), targets = dataset[0]
+
+        def robust_transform(demographics):
+            if isinstance(demographics, dict) and len(demographics) == 0:
+                return demographics
+            else:
+                return demographics['AGE']
+        dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col,
+                                       demographics_transform=robust_transform)
+        (images, demographics), targets = dataset[0]
+        csv_data = pd.read_csv(self.tabular_file)
+        self.assertTrue(demographics.numpy() in csv_data.AGE.values)
+
+        dataset = MedicalFolderDataset(self.root, demographics_transform=robust_transform)
+        (images, demographics), targets = dataset[0]
+        self.assertIsInstance(demographics, torch.Tensor)
+        self.assertTrue(demographics.numel() == 0)
+
 
     def _assert_batch_types_and_sizes(self, dataset):
         data_loader = DataLoader(dataset, batch_size=self.batch_size)
