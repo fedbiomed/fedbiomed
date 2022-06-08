@@ -737,6 +737,19 @@ class TestModelManager(unittest.TestCase):
                                                         'command': 'model-status'
                                                         })
 
+    def test_model_manager_17_check_model_not_existing(self):
+        """Test `_check_model_not_existing` function
+        """
+        # note: if _check_model_not_existing succeeds, it returns/changes nothing
+        # so we don't have to do a `assert` in this case
+
+        # Test 1 : test with empty database, no check should raise error
+        for n in [None, 'dummy_name']:
+            for p in [None, 'dummy_path']:
+                for h in [None, 'dummy_hash']:
+                    for a in [None, 'dummy_algorithm']:
+                        self.model_manager._check_model_not_existing(n, p, h, a)
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
