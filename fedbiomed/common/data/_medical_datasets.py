@@ -480,7 +480,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                     f"demographics transform immediately returns an empty dict when an empty dict is provided as input.")
 
         # Try to convert demographics to tensor one last time
-        if len(demographics) == 0:
+        if isinstance(demographics, dict) and len(demographics) == 0:
             demographics = torch.empty(0)  # handle case where demographics is an empty dict
         else:
             try:
