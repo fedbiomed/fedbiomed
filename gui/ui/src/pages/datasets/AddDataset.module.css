@@ -1,0 +1,13 @@
+.main {
+    positoion:relative;
+    display: block;
+    padding-bottom: 150px;
+}
+
+.modalities {
+    display: inline-flex;
+    margin: 0px 10px;
+    border-radius: 10px;
+    background: #eee;
+    padding: 20px;
+}

@@ -1,11 +1,12 @@
 import React from 'react';
-import {TableData, TableInfo} from "../components/Tables"
+import {TableData, TableInfo} from "../../components/common/Tables"
 import { useParams} from 'react-router-dom';
-import {EP_DATASET_PREVIEW, DATA_NOTFOUND, EP_DATASET_UPDATE} from '../constants'
-import {Text, Tag, TextArea} from '../components/Inputs'
-import {Button, ButtonsWrapper} from '../components/Button'
+import {EP_DATASET_PREVIEW, EP_DATASET_UPDATE} from '../../constants'
+import {Text, Tag, TextArea} from '../../components/common/Inputs'
+import {Button, ButtonsWrapper} from '../../components/common/Button'
 import axios from 'axios';
-import Repository from "./Repository";
+import Repository from "../repository";
+import MedicalFolderDatasetPreview from "./MedicalFolderDatasetPreview";
 
 export const DatasetPreview = (props) => {
 
@@ -75,7 +76,7 @@ export const DatasetPreview = (props) => {
             'Type': { value : data.data_type ,
                       editable: false
                     },
-            'Shape': { value : data.shape.join(' x '),
+            'Shape': { value : parseShape(data.shape),
                       editable: false
                      },
             'Tags': { value : data.tags.join(', '),
@@ -95,6 +96,27 @@ export const DatasetPreview = (props) => {
         }
 
         return info
+    }
+
+    /**
+     * Parse shape filed of requested preview dataset
+     * @param shape
+     * @returns {string}
+     */
+    const parseShape = (shape) => {
+        let content = ""
+        if(Array.isArray(shape)){
+            content  =  shape.join(' x ')
+        }else{
+            Object.keys(shape).forEach((item, key) => {
+                if(shape[item]){
+                    content += item + ": "
+                    content += Array.isArray(shape[item]) ? shape[item].join(' x ') : shape[item].toString()
+                    content += " | "
+                }
+            })
+        }
+        return content
     }
 
     /**
@@ -183,7 +205,7 @@ export const DatasetPreview = (props) => {
                             preview && preview.data_preview ?
                                 preview.data_type === "csv" ? (
                                     <TableData table={preview.data_preview}/>
-                                ) : (
+                                ) : preview.data_type === "image" ? (
                                     <div className={`repository`}>
                                         <Repository
                                             path={preview.data_preview}
@@ -191,11 +213,12 @@ export const DatasetPreview = (props) => {
                                             mode={`preview`}
                                         />
                                     </div>
-                                ) : (
-                                    <div className={`error-box`}>
-                                        {DATA_NOTFOUND}
-                                    </div>
-                                )
+                                ) : preview.data_type === "medical-folder" ? (
+                                    <MedicalFolderDatasetPreview
+                                        dataset_id={dataset_id}
+                                    />
+                                ) : null
+                            : null
                         }
                     </>
                     ) : (

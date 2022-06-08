@@ -1,5 +1,5 @@
 import React from 'react'
-
+import styles from "./Inputs.module.css"
 
 export const Label = (props) => {
 
@@ -25,15 +25,15 @@ export const Text = (props) => {
     return (
         <input 
             className="input"
-            type        = {props.type} 
-            name        = {props.name}
-            id          = {props.id}
-            ref         = {ref}
-            onChange    = {props.onChange}
-            onKeyDown   = {props.onKeyDown}
-            value       = {props.value}
-            placeholder = {props.placeholder}
-            ></input>
+            type={props.type}
+            name={props.name}
+            id={props.id}
+            ref={ref}
+            onChange={props.onChange}
+            onKeyDown={props.onKeyDown}
+            value={props.value}
+            placeholder={props.placeholder}
+        />
     )
 }
 
@@ -46,14 +46,14 @@ export const TextArea = (props) => {
     return (
         <textarea
             className="input"
-            type = {props.type} 
+            type = {props.type}
             name = {props.name}
             id   = {props.id}
             ref  = {props.ref}
             onChange = {props.onChange}
             value = {props.value ? props.value : undefined}
             placeholder={props.placeholder}
-        ></textarea>
+        />
     )
 }
 
@@ -207,5 +207,22 @@ export const Select = (props) => {
                 props.children
             ) : null}
         </select>
+    )
+}
+
+export const CheckBox = (props) => {
+
+    const [checked, setChecked] = React.useState(props.checked)
+
+    const handleChange = () => {
+        setChecked(!checked)
+        props.onChange(!checked)
+    }
+
+    return(
+        <label className={styles.checkboxLabel}>
+            <input className={styles.checkboxInput} name={props.name} type={"checkbox"} checked={checked} onChange={handleChange}/>
+            {props.children}
+        </label>
     )
 }

@@ -51,11 +51,11 @@ def list_data_path():
             'base': base,
             'files': [],
             'number': len(files),
-            'displays': len(files) if len(files) <= 100 else 100,
+            'displays': len(files) if len(files) <= 1000 else 1000,
             'path': req_path
         }
 
-        files = files if len(files) <= 100 else files[0:100]
+        files = files if len(files) <= 1000 else files[0:1000]
 
         table = database.db().table('_default')
         query = database.query()
@@ -64,6 +64,9 @@ def list_data_path():
         for file in files:
             if not file.startswith('.'):
                 fullpath = os.path.join(dpath, file)
+                path_type = 'file' if os.path.isfile(fullpath) else 'dir'
+                extension = os.path.splitext(fullpath)[1]
+
                 # Get dataset registered with full path
                 dataset = table.get(query.path == fullpath)
 
@@ -78,8 +81,7 @@ def list_data_path():
                 # This is the path that will be displayed on the GUI
                 # It is created as list to be able to use it with `os.path.join`
                 exact_path = [*req_path, file]
-                extension = os.path.splitext(fullpath)[1]
-                path_type = 'file' if os.path.isfile(fullpath) else 'dir'
+
 
                 res['files'].append({"type": path_type,
                                      "name": file,

@@ -7,17 +7,22 @@ from db import database
 
 from . import api
 from utils import success, error, validate_json, validate_request_data, response
+from middlewares import middleware, common
+
 from schemas import AddDataSetRequest, \
     RemoveDatasetRequest, \
     UpdateDatasetRequest, \
     PreviewDatasetRequest, \
     AddDefaultDatasetRequest, \
-    ListDatasetRequest
+    ListDatasetRequest, \
+    GetCsvData
 
 from fedbiomed.node.dataset_manager import DatasetManager
 
 # Initialize Fed-BioMed DatasetManager
 dataset_manager = DatasetManager()
+
+DATA_PATH_RW = app.config['DATA_PATH_RW']
 
 
 @api.route('/datasets/list', methods=['POST'])
@@ -101,6 +106,7 @@ def remove_dataset():
 
 @api.route('/datasets/add', methods=['POST'])
 @validate_request_data(schema=AddDataSetRequest)
+@middleware(middlewares=[common.check_tags_already_registered])
 def add_dataset():
     """ API endpoint to add single dataset to the database. Currently it
         uses some methods of data set manager.
@@ -329,14 +335,11 @@ def add_default_dataset():
 
     try:
         shape = dataset_manager.load_default_database(name="MNIST",
-                                                  path=path,
-                                                  as_dataset=False)
+                                                      path=path,
+                                                      as_dataset=False)
     except Exception as e:
         return error(str(e)), 400
 
-    # Create database connection
-    table = database.db().table('_default')
-    query = database.query()
 
     # Create unique id for the dataset
     dataset_id = 'dataset_' + str(uuid.uuid4())
@@ -358,3 +361,31 @@ def add_default_dataset():
     res = table.get(query.dataset_id == dataset_id)
 
     return response(res), 200
+
+
+@api.route('/datasets/get-csv-data', methods=['POST'])
+@validate_request_data(schema=GetCsvData)
+def get_csv_data():
+    """
+    Loads csv from given path
+
+    """
+    req = request.json
+
+    # Data path that the files will be read
+    data_path = os.path.join(DATA_PATH_RW, *req['path'])
+
+    if not os.path.isfile(data_path):
+        return error(f"Path does not correspond to a valid data file: {os.path.join(*req['path'])}"), 400
+
+    try:
+        df = dataset_manager.read_csv(data_path)
+        rows = df.shape[0]
+        df.fillna("NULL", inplace=True)
+        data_preview = df.iloc[0:30, :].to_dict('split')
+        data_preview.update({"samples": rows, "displays": 30})
+    except Exception as e:
+        return error(f"Can not read given data file please make sure the format "
+                     f"is one of csv, tsv or txt: {e}"), 400
+
+    return response(data_preview), 200

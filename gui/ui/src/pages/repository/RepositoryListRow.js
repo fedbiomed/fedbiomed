@@ -1,11 +1,11 @@
 import React from 'react'
-import { ReactComponent as FolderIcon } from '../assets/img/folder.svg';
-import { ReactComponent as FileIcon } from '../assets/img/file.svg';
-import { ReactComponent as LaunchIcon} from '../assets/img/launch.svg'
+import { ReactComponent as FolderIcon } from '../../assets/img/folder.svg';
+import { ReactComponent as FileIcon } from '../../assets/img/file.svg';
+import { ReactComponent as LaunchIcon} from '../../assets/img/launch.svg'
 
 import {Link, useNavigate} from "react-router-dom";
 import {useDispatch} from "react-redux";
-import {ALLOWED_EXTENSIONS} from "../constants";
+import {ALLOWED_EXTENSIONS} from "../../constants";
 
 export const RepositoryListRow = (props) => {
      const navigator = useNavigate()
