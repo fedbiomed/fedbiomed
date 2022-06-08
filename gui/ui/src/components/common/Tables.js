@@ -131,7 +131,7 @@ export const TableData = (props) => {
         for(let i=0; i<props.table.index.length; i++){
             let row = []
             props.table.data[i].forEach( (item, key) => {
-                row.push( <TableCol key={`td-${key}`}>{item.toString().substring(0,12)}</TableCol>)
+                row.push( <TableCol key={`td-${key}`} transformation={props.transformation}>{item.toString().substring(0,12)}</TableCol>)
             })           
             result.push(<TableRow key={`tr-${i}`}>{row}</TableRow>)
         }
@@ -140,26 +140,33 @@ export const TableData = (props) => {
     }
 
 
-
-    return (
-        <TableWrapper maxHeight={props.maxHeight}>
+    if(props.children){
+        return(
             <Table className={styles.dataTable}>
-                <TableHead>
-                    <TableRow>
-                        {props.table.columns.map((item, key) => {
-                            return (
-                                <TableCol key={key}>{item}</TableCol>
-                            )
-                        })}
-                    </TableRow>
-                </TableHead>
-
-                <TableBody>
-                    { return_rows() }
-                </TableBody>
+                {props.children}
             </Table>
-        </TableWrapper>
-    );
+            )
+    }else{
+        return (
+            <TableWrapper maxHeight={props.maxHeight}>
+                <Table className={styles.dataTable}>
+                    <TableHead>
+                        <TableRow>
+                            {props.table.columns.map((item, key) => {
+                                return (
+                                    <TableCol key={key}>{item}</TableCol>
+                                )
+                            })}
+                        </TableRow>
+                    </TableHead>
+
+                    <TableBody>
+                        { return_rows() }
+                    </TableBody>
+                </Table>
+            </TableWrapper>
+        );
+    }
 }
 
 
@@ -218,7 +225,7 @@ export const SelectiveTable = (props) => {
                             table={props.table}
                             hoverColumns={true}
                             hoverColIndex={hoverColIndex}
-                            theadClassName={props.theadClassName}
+                            theadClassName={`${props.theadClassName} ${styles.stickyHead}`}
                             theadStyle={props.theadStyle}
                             activeColIndex={props.selectedColIndex}
                             selectedLabel={props.selectedLabel}

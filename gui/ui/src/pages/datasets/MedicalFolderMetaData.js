@@ -1,13 +1,13 @@
 import React from 'react';
 import {Label, Tag, Text, TextArea} from "../../components/common/Inputs";
 import {connect} from "react-redux"
-import {setBIDSDatasetMetadata} from "../../store/actions/bidsDatasetActions";
+import {setMedicalFolderDatasetMetadata} from "../../store/actions/medicalFolderDatasetActions";
 
 
-const DatasetMetadata = (props) => {
+const MedicalFolderMetadata = (props) => {
 
-    const setBIDSDatasetMetadata = (name, value) => {
-        props.setBIDSDatasetMetadata({[name] : value})
+    const setMedicalFolderDatasetMetadata = (name, value) => {
+        props.setMedicalFolderDatasetMetadata({[name] : value})
     }
 
     return (
@@ -20,7 +20,7 @@ const DatasetMetadata = (props) => {
                             name={"name"}
                             type="text"
                             placeholder="Enter name for dataset"
-                            onChange={(e) => { setBIDSDatasetMetadata('name', e.target.value)}}
+                            onChange={(e) => { setMedicalFolderDatasetMetadata('name', e.target.value)}}
                             value={props.metadata.name ? props.metadata.name : ""}
                         />
                     </div>
@@ -30,7 +30,7 @@ const DatasetMetadata = (props) => {
                             name={"tags"}
                             type="text"
                             placeholder="Enter tags"
-                            onChange={(e) => { setBIDSDatasetMetadata('tags', e.target.value)}}
+                            onChange={(e) => { setMedicalFolderDatasetMetadata('tags', e.target.value)}}
                             tags={props.metadata.tags ? props.metadata.tags : ""}
                         />
 
@@ -42,7 +42,7 @@ const DatasetMetadata = (props) => {
                         <TextArea name="desc"
                                   type="text"
                                   placeholder="Please type a description for dataset"
-                                  onChange={(e) => { setBIDSDatasetMetadata('desc', e.target.value)}}
+                                  onChange={(e) => { setMedicalFolderDatasetMetadata('desc', e.target.value)}}
                                   value={props.metadata.desc ? props.metadata.desc : "" }
                         />
                     </div>
@@ -53,14 +53,14 @@ const DatasetMetadata = (props) => {
 
 const mapStateToProps = (state) => {
     return {
-        metadata : state.bidsDataset.metadata
+        metadata : state.medicalFolderDataset.metadata
     }
 }
 
 const mapDispatchToProps = (dispatch) => {
     return {
-        setBIDSDatasetMetadata : (data) => dispatch(setBIDSDatasetMetadata(data))
+        setMedicalFolderDatasetMetadata : (data) => dispatch(setMedicalFolderDatasetMetadata(data))
     }
 }
 
-export default connect(mapStateToProps, mapDispatchToProps)(DatasetMetadata);
+export default connect(mapStateToProps, mapDispatchToProps)(MedicalFolderMetadata);

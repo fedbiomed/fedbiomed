@@ -10,13 +10,11 @@ export const EP_DEFAULT_DATASET_ADD     = '/api/datasets/add-default-dataset'
 export const EP_CONFIG_NODE_ENVIRON     = '/api/config/node-environ'
 export const EP_LOAD_CSV_DATA           = '/api/datasets/get-csv-data'
 
-// BIDS Dataset Endpoints
-export const EP_VALIDATE_BIDS_ROOT          = '/api/datasets/bids/validate-bids-root'
-export const EP_VALIDATE_REFERENCE_COLUMN   = '/api/datasets/bids/validate-reference-column'
-export const EP_ADD_BIDS_DATASET            = '/api/datasets/bids/add'
-export const EP_PREVIEW_BIDS_DATASET        = '/api/datasets/bids/preview'
-
-
+// MedicalFolder Dataset Endpoints
+export const EP_VALIDATE_MEDICAL_FOLDER_ROOT    = '/api/datasets/medical-folder-dataset/validate-root'
+export const EP_VALIDATE_REFERENCE_COLUMN       = '/api/datasets/medical-folder-dataset/validate-reference-column'
+export const EP_ADD_MEDICAL_FOLDER_DATASET      = '/api/datasets/medical-folder-dataset/add'
+export const EP_PREVIEW_MEDICAL_FOLDER_DATASET  = '/api/datasets/medical-folder-dataset/preview'
 
 //Models
 export const EP_LIST_MODELS     = '/api/model/list'
@@ -25,11 +23,8 @@ export const EP_REJECT_MODEL    = '/api/model/reject'
 export const EP_DELETE_MODEL    = '/api/model/delete'
 export const EP_PREVIEW_MODEL   = '/api/model/preview'
 
-
 // Messages
 export const DATA_NOTFOUND = 'There is no data found for the dataset. It might be deleted'
-
-
 
 // Form Handler
 export const ADD_DATASET_ERROR_MESSAGES = {

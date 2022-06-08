@@ -28,7 +28,21 @@ const SingleModel = (props) => {
                     <div className={"row"} style={{alignItems: "center"}}>
                         <div className={"note"} style={{width: "70%"}}>
                             Displaying model <b>{single_model?.name}</b>.
-                            This model is in status <b>{single_model?.model_status.toUpperCase()}</b>
+                            This model is in status
+                             {single_model?.model_status === "Rejected" ? (
+                                 <span className={`${styles.tag} ${styles.tagDeclined} ${styles.tagInline}`}>
+                                     REJECTED
+                                 </span>
+                             ) : single_model?.model_status === "Approved" ? (
+                                 <span className={`${styles.tag} ${styles.tagApproved} ${styles.tagInline}`}>
+                                     APPROVED
+                                 </span>
+                             ) : single_model?.model_status === "Pending" ? (
+                                 <span className={`${styles.tag} ${styles.tagPending} ${styles.tagInline}`}>
+                                     PENDING
+                                 </span>
+                             ) : null
+                             }
                         </div>
                         <SingleModelActions style={{width: "30%"}} single_model={single_model}/>
                     </div>
@@ -41,7 +55,9 @@ const SingleModel = (props) => {
                             </div>
                             <div className={styles.infoWrapper}>
                                 <span className={`${styles.tag} ${styles.tagInfo}`}>Notes</span>
-                                <span className={`${styles.tag} ${styles.tagDesc}`}>{single_model.notes}</span>
+                                <span className={`${styles.tag} ${styles.tagDesc}`}>
+                                    {single_model.notes ? single_model.notes : "-" }
+                                </span>
                             </div>
                             <div className={styles.infoWrapper}>
                                 <span className={`${styles.tag} ${styles.tagInfo}`}>Requested By</span>

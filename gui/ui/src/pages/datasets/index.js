@@ -164,7 +164,7 @@ export const Datasets = (props) => {
                     </p>
                     {
                         defaultDataStatus() === false ? (
-                            <Button style={{marginLeft:'auto'}} onClick={onAddDefaultDataset}>
+                            <Button wrapperStyle={{marginLeft:'auto'}} onClick={onAddDefaultDataset}>
                                 Add MNIST Dataset
                             </Button>
                         ) : null

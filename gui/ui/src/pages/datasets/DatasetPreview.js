@@ -6,7 +6,7 @@ import {Text, Tag, TextArea} from '../../components/common/Inputs'
 import {Button, ButtonsWrapper} from '../../components/common/Button'
 import axios from 'axios';
 import Repository from "../repository";
-import BidsPreview from "./BidsPreview";
+import MedicalFolderDatasetPreview from "./MedicalFolderDatasetPreview";
 
 export const DatasetPreview = (props) => {
 
@@ -213,8 +213,8 @@ export const DatasetPreview = (props) => {
                                             mode={`preview`}
                                         />
                                     </div>
-                                ) : preview.data_type === "BIDS" ? (
-                                    <BidsPreview
+                                ) : preview.data_type === "medical-folder" ? (
+                                    <MedicalFolderDatasetPreview
                                         dataset_id={dataset_id}
                                     />
                                 ) : null

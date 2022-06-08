@@ -41,6 +41,12 @@
     top: 0;
 }
 
+.stickyHead {
+    position: sticky;
+    border-bottom: 1px solid #333;
+    top: 0;
+}
+
 .table_wrapper table th {
     background: #eee;
     border-bottom: 2px solid #333;

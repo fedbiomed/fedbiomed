@@ -20,7 +20,8 @@ import tkinter.messagebox
 from tkinter import _tkinter
 
 from fedbiomed.common.constants  import ModelApprovalStatus, ModelTypes, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
+from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError, FedbiomedDatasetManagerError
+from fedbiomed.common.data import MedicalFolderController
 
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.environ import environ
@@ -59,9 +60,9 @@ def validated_data_type_input() -> str:
 
     Returns:
         A string keyword for one of the possible data type
-            ('csv', 'default', 'mednist', 'images').
+            ('csv', 'default', 'mednist', 'images', 'medical-folder').
     """
-    valid_options = ['csv', 'default', 'mednist', 'images']
+    valid_options = ['csv', 'default', 'mednist', 'images', 'medical-folder']
     valid_options = {i: val for i, val in enumerate(valid_options, 1)}
 
     msg = "Please select the data type that you're configuring:\n"
@@ -205,6 +206,8 @@ def add_database(interactive: bool = True,
         else:
             data_type = 'default'
 
+        dataset_parameters = None
+
         if data_type == 'default':
             tags = ['#MNIST', "#dataset"]
             if interactive is True:
@@ -231,7 +234,33 @@ def add_database(interactive: bool = True,
 
             description = input('Description: ')
 
-            path = validated_path_input(data_type)
+            if data_type == 'medical-folder':
+                # get medical-folder root
+                print('Please select the root folder of the Medical Folder dataset')
+                path = validated_path_input(type='dir')
+                # get tabular file
+                print('Please select the demographics file (must be CSV or TSV)')
+                tabular_file_path = validated_path_input(type='csv')
+                # get index col from user
+                column_values = MedicalFolderController.demographics_column_names(tabular_file_path)
+                print("\nHere are all the columns contained in demographics file:\n")
+                for i, col in enumerate(column_values):
+                    print(f'{i:3} : {col}')
+                if interactive:
+                    keep_asking_for_input = True
+                    while keep_asking_for_input:
+                        try:
+                            index_col = input('\nPlease input the (numerical) index of the column containing '
+                                              'the subject ids corresponding to image folder names \n')
+                            index_col = int(index_col)
+                            keep_asking_for_input = False
+                        except ValueError:
+                            warnings.warn('Please input a numeric value (integer)')
+                dataset_parameters = {} if dataset_parameters is None else dataset_parameters
+                dataset_parameters['tabular_file'] = tabular_file_path
+                dataset_parameters['index_col'] = index_col
+            else:
+                path = validated_path_input(data_type)
 
     else:
         # all data have been provided at call
@@ -250,13 +279,17 @@ def add_database(interactive: bool = True,
         if not os.path.exists(path):
             logger.critical("provided path does not exists: " + path)
 
+        # quick fix, but is this what we expect on the line just after ????
+        dataset_parameters = None
+
     # Add database
     try:
         dataset_manager.add_database(name=name,
                                      tags=tags,
                                      data_type=data_type,
                                      description=description,
-                                     path=path)
+                                     path=path,
+                                     dataset_parameters=dataset_parameters)
     except (AssertionError, FedbiomedDatasetManagerError) as e:
         if interactive is True:
             try:
@@ -266,7 +299,9 @@ def add_database(interactive: bool = True,
         else:
             warnings.warn(f'[ERROR]: {e}')
         exit(1)
-
+    except FedbiomedDatasetError as err:
+        warnings.warn(f'[ERROR]: {err} ... Aborting'
+                      "\nHint: are you sure you have selected the correct index in Demographic file?")
     print('\nGreat! Take a look at your data:')
     dataset_manager.list_my_data(verbose=True)
 
@@ -299,7 +334,7 @@ def manage_node(node_args: Union[dict, None] = None):
 
     Intended to be launched by the node in a separate process/thread.
 
-    Instantiates `Node` and `DatasetManager` object, start exchaning 
+    Instantiates `Node` and `DatasetManager` object, start exchaning
     messages with the researcher via the `Node`, passes control to the `Node`.
 
     Args:
@@ -401,7 +436,7 @@ def delete_database(interactive: bool = True):
 
             - if `True` interactively queries (repeatedly) from the command line
                 for a dataset to delete
-            - if `False` delete MNIST dataset if it exists in the database 
+            - if `False` delete MNIST dataset if it exists in the database
     """
     my_data = dataset_manager.list_my_data(verbose=False)
     if not my_data:
@@ -545,10 +580,10 @@ def approve_model(sort_by_date: bool = True):
     """
     if sort_by_date:
         sort_by = 'date_modified'
-    else: 
+    else:
         sort_by = None
     non_approved_models = model_manager.list_models(sort_by=sort_by,
-                                                    select_status=[ModelApprovalStatus.PENDING, 
+                                                    select_status=[ModelApprovalStatus.PENDING,
                                                                    ModelApprovalStatus.REJECTED],
                                                     verbose=False)
     if not non_approved_models:
