@@ -279,6 +279,9 @@ def add_database(interactive: bool = True,
         if not os.path.exists(path):
             logger.critical("provided path does not exists: " + path)
 
+        # quick fix, but is this what we expect on the line just after ????
+        dataset_parameters = None
+
     # Add database
     try:
         dataset_manager.add_database(name=name,
@@ -331,7 +334,7 @@ def manage_node(node_args: Union[dict, None] = None):
 
     Intended to be launched by the node in a separate process/thread.
 
-    Instantiates `Node` and `DatasetManager` object, start exchaning 
+    Instantiates `Node` and `DatasetManager` object, start exchaning
     messages with the researcher via the `Node`, passes control to the `Node`.
 
     Args:
@@ -433,7 +436,7 @@ def delete_database(interactive: bool = True):
 
             - if `True` interactively queries (repeatedly) from the command line
                 for a dataset to delete
-            - if `False` delete MNIST dataset if it exists in the database 
+            - if `False` delete MNIST dataset if it exists in the database
     """
     my_data = dataset_manager.list_my_data(verbose=False)
     if not my_data:
@@ -577,10 +580,10 @@ def approve_model(sort_by_date: bool = True):
     """
     if sort_by_date:
         sort_by = 'date_modified'
-    else: 
+    else:
         sort_by = None
     non_approved_models = model_manager.list_models(sort_by=sort_by,
-                                                    select_status=[ModelApprovalStatus.PENDING, 
+                                                    select_status=[ModelApprovalStatus.PENDING,
                                                                    ModelApprovalStatus.REJECTED],
                                                     verbose=False)
     if not non_approved_models:
