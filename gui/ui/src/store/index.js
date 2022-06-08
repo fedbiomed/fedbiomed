@@ -3,13 +3,14 @@ import { repositoryReducer,
          datasetsReducer,
          datasetPreviewReducer,
          resultReducer} from "./reducers";
-
+import {medicalFolderReducer, medicalFolderPreviewReducer} from "./medicalFolderReducer";
 
 
 export default combineReducers({
-    repository : repositoryReducer,
-    datasets   : datasetsReducer,
-    preview    : datasetPreviewReducer,
-    resultModal: resultReducer
-    
+    medicalFolderDataset : medicalFolderReducer,
+    repository  : repositoryReducer,
+    datasets    : datasetsReducer,
+    preview     : datasetPreviewReducer,
+    resultModal : resultReducer,
+    medicalFolderPreview : medicalFolderPreviewReducer
   })

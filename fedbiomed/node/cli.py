@@ -60,9 +60,9 @@ def validated_data_type_input() -> str:
 
     Returns:
         A string keyword for one of the possible data type
-            ('csv', 'default', 'mednist', 'images', 'medical folder').
+            ('csv', 'default', 'mednist', 'images', 'medical-folder').
     """
-    valid_options = ['csv', 'default', 'mednist', 'images', 'medical folder']
+    valid_options = ['csv', 'default', 'mednist', 'images', 'medical-folder']
     valid_options = {i: val for i, val in enumerate(valid_options, 1)}
 
     msg = "Please select the data type that you're configuring:\n"
@@ -234,8 +234,8 @@ def add_database(interactive: bool = True,
 
             description = input('Description: ')
 
-            if data_type == 'medical folder':
-                # get medical folder root
+            if data_type == 'medical-folder':
+                # get medical-folder root
                 print('Please select the root folder of the Medical Folder dataset')
                 path = validated_path_input(type='dir')
                 # get tabular file

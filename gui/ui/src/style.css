@@ -2,6 +2,7 @@
   --error-color : #f44949;
   --primary-color: #003366;
   --secondary-color:#0099cc;
+
 }
 
 
@@ -77,8 +78,8 @@ hr {
 
 .App .main-frame .router-frame {
   width : 100%;
-  height: calc(100vh - 60px);
-  max-height: calc(100vh - 60px);
+  height: 100vh;
+  max-height: 100vh;
   overflow: hidden;
 }
 
@@ -87,7 +88,7 @@ hr {
   display: flex;
   flex-flow: column;
   position: relative;
-  height: calc(100vh - 80px);
+  height: 100vh;
   overflow-y: scroll;
 }
 
@@ -221,7 +222,7 @@ hr {
   display: flex;
   width: 100%;
   align-items: center;
-  background: #003366;
+  background: var(--button-color);
 }
 
 .side-nav .brand img {
@@ -672,13 +673,18 @@ div.table {
 }
 
 .modal-inner .close {
-  right: 0px;
-  top: 0px;
+  right: 5px;
+  top: 4px;
   position: absolute;
   padding: 10px;
-  color: #888;
-  font-size: 15px;
+  font-size: 12px;
   cursor: pointer;
+  background: var(--button-color);
+  color: #fff;
+  border-radius: 20px;
+  width: 15px;
+  text-align: center;
+font-weight: bold;
 }
 
 .modal-overlay .modal-inner .modal-header{
@@ -687,8 +693,10 @@ overflow-y: scroll;
 }
 
 .modal-overlay .modal-inner .modal-content{
-flex: 1 1 auto;
-overflow-y: scroll;
+  flex: 1 1 auto;
+  overflow-y: scroll;
+  display: flex;
+  flex-flow: column;
 }
 
 .modal-overlay .modal-inner .modal-footer{
@@ -710,7 +718,7 @@ justify-content: flex-start;
 
 .form-control {
   width: calc(100% - 40px);
-  margin: 20px 10px;
+  margin: 20px 0px;
 }
 
 .form-control.with-button {
@@ -957,7 +965,7 @@ a.fed-box-link{
 
 .loader-frame {
   display: none;
-  position: absolute;
+  position: fixed;
   top: 0px;
   right: 0px;
   left: 0px;
@@ -973,10 +981,11 @@ a.fed-box-link{
 }
 
 .lds-ring {
-  display: inline-block;
+  display: block;
   position: relative;
   width: 80px;
   height: 80px;
+  margin: 0 auto;
 }
 .lds-ring div {
   box-sizing: border-box;
