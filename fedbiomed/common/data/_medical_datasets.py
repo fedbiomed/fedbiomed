@@ -427,11 +427,6 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         self._transform = self._check_and_reformat_transforms(transform, data_modalities)
         self._target_transform = self._check_and_reformat_transforms(target_transform, target_modalities)
-        # issue a warning if user tried to set demographics transform but dataset does not contain demographics
-        if demographics_transform and not self._tabular_file:
-            logger.warning(f"Trying to set demographics transform on a dataset without a demographics file. "
-                           f"This may result in a runtime error during training.")
-
         self._demographics_transform = demographics_transform
 
         # Image loader
@@ -480,16 +475,18 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             except Exception as e:
                 raise FedbiomedDatasetError(
                     f"{ErrorNumbers.FB613.value}: Cannot apply demographics transformation to "
-                    f"sample number {item} from dataset. Error message: {e}.")
+                    f"sample number {item} from dataset. Error message: {repr(e)}. "
+                    f"If the dataset was loaded without a demographics file, please ensure that the provided "
+                    f"demographics transform immediately returns an empty dict when an empty dict is provided as input.")
 
         # Try to convert demographics to tensor one last time
-        try:
-            if not demographics:
-                demographics = torch.empty(0)  # handle case where demographics is an empty dict
-            else:
+        if len(demographics) == 0:
+            demographics = torch.empty(0)  # handle case where demographics is an empty dict
+        else:
+            try:
                 demographics = torch.as_tensor(demographics)
-        except Exception as e:
-            raise FedbiomedDatasetError(f'{ErrorNumbers.FB310.value}: Could not convert demographics to torch Tensor. '
+            except Exception as e:
+                raise FedbiomedDatasetError(f'{ErrorNumbers.FB310.value}: Could not convert demographics to torch Tensor. '
                                         f'Please use demographics_transformation argument of BIDSDataset to convert '
                                         f'the results manually or provide a data type that can be easily converted.\n'
                                         f'Reason for failed conversion: {e}')
