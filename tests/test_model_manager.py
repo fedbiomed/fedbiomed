@@ -252,7 +252,7 @@ class TestModelManager(unittest.TestCase):
                 model_type='registered',
                 description='desc')
 
-        # Wrong types -------------------------------------
+        # Wrong types
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.register_model(
                 name='test-model-2',
@@ -274,6 +274,29 @@ class TestModelManager(unittest.TestCase):
                 path=model_file_2,
                 model_type='123123',
                 description='desc')
+
+    @patch('fedbiomed.node.model_manager.ModelManager._check_model_not_existing')
+    def test_model_manager_08_register_model_DB_error(self, check_model_not_existing_patch):
+        """ Testing registering method for new models continued """
+
+        # patch
+        check_model_not_existing_patch.value = None
+
+        model_file_2 = os.path.join(self.testdir, 'test-model-2.txt')
+
+        # Cannot access corrupted database
+        with open(environ['DB_PATH'], 'w') as f:
+            f.write('CORRUPTED DATABASE CONTENT')
+ 
+        with self.assertRaises(FedbiomedModelManagerError):
+            self.model_manager.register_model(
+                name='test-model-3',
+                path=model_file_2,
+                model_type='registered',
+                description='desc')        
+
+        with open(environ['DB_PATH'], 'w') as f:
+            f.write('') 
 
     @patch('fedbiomed.node.model_manager.ModelManager._create_hash')
     def test_model_manager_09_check_hashes_for_registerd_models(self,
@@ -304,7 +327,7 @@ class TestModelManager(unittest.TestCase):
         model_file_1_path = os.path.join(self.testdir, 'test-model-1.txt')
 
         # copying model (we will delete it afterward)
-        model_file_copied_path = os.path.join(self.testdir, 'copied-test-model-1.txt')
+        model_file_copied_path = os.path.join(environ['TMP_DIR'], 'copied-test-model-1.txt')
         shutil.copy(model_file_1_path, model_file_copied_path)
         self.model_manager.register_model(
             name='test-model',
@@ -343,6 +366,73 @@ class TestModelManager(unittest.TestCase):
         removed_model = self.model_manager._db.get(self.model_manager._database.name == 'test-model')
         # check that the model has been removed
         self.assertIsNone(removed_model)
+
+    @patch('fedbiomed.node.model_manager.ModelManager._create_hash')
+    def test_model_manager_09_check_hashes_for_registerd_models_DB_error(self, create_hash_patch):
+        """
+        Tests `hashes_for_registered_models` method, with 3 settings, causing database access errors
+        - Test 1: no model registered, cannot read database
+        - Test 2: one model registered, but cannot update database
+        - Test 3: model is no longer stored on computer.
+        """
+        ## patch
+        def create_hash_side_effect(path):
+            return f'a correct unique hash {path}', 'a correct hashing algo'
+        create_hash_patch.side_effect = create_hash_side_effect
+
+        def raise_fbmm_error(*args, **kwargs):
+            raise FedbiomedModelManagerError('my error message')
+
+        # Test 1: no model registered, cannot read database
+
+        patcher_db_search = patch('tinydb.table.Table.search', MagicMock(side_effect=raise_fbmm_error))
+        patcher_db_search.start()
+
+        with self.assertRaises(FedbiomedModelManagerError):
+            self.model_manager.check_hashes_for_registered_models()
+
+        patcher_db_search.stop()
+
+        # Test 2: one model registered, but cannot update database
+
+        # register model
+        model_file_1_path = os.path.join(self.testdir, 'test-model-1.txt')
+        model_file_copied_path = os.path.join(environ['TMP_DIR'], 'copied-test-model-1.txt')
+        shutil.copy(model_file_1_path, model_file_copied_path)
+        self.model_manager.register_model(
+            name='test-model',
+            path=model_file_copied_path,
+            model_type='registered',
+            description='desc',
+            model_id='test-model-id'
+        )
+        # update database with other hash and hashing algorithms
+        models = self.model_manager._db.search(self.model_manager._database.model_type.all('registered'))
+        for model in models:
+            self.model_manager._db.update({'hash': "different hash",
+                                           'algorithm': "different_hashing_algorithm"},
+                                          self.model_manager._database.model_id.all(model["model_id"]))
+
+        patcher_db_update = patch('tinydb.table.Table.update', MagicMock(side_effect=raise_fbmm_error))
+        patcher_db_update.start()
+
+        with self.assertRaises(FedbiomedModelManagerError):
+            self.model_manager.check_hashes_for_registered_models()
+
+        patcher_db_update.stop()
+
+        # Test 3 : one registered model, but file has been removed
+
+        # remove the model file stored on the system
+        os.remove(model_file_copied_path)
+
+        patcher_db_remove = patch('tinydb.table.Table.remove', MagicMock(side_effect=raise_fbmm_error))
+        patcher_db_remove.start()
+
+        with self.assertRaises(FedbiomedModelManagerError):
+            self.model_manager.check_hashes_for_registered_models()
+
+        patcher_db_remove.stop()
 
     def test_model_manager_12_create_txt_model_from_py(self):
         """Test_model_manager_12: tests if txt file can be created from py file"""
