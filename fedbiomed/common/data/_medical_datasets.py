@@ -426,6 +426,11 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         self._transform = self._check_and_reformat_transforms(transform, data_modalities)
         self._target_transform = self._check_and_reformat_transforms(target_transform, target_modalities)
+        # issue a warning if user tried to set demographics transform but dataset does not contain demographics
+        if demographics_transform and not self._tabular_file:
+            logger.warning(f"Trying to set demographics transform on a dataset without a demographics file. "
+                           f"This may result in a runtime error during training.")
+
         self._demographics_transform = demographics_transform
 
         # Image loader
@@ -478,7 +483,10 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         # Try to convert demographics to tensor one last time
         try:
-            demographics = torch.as_tensor(demographics)
+            if not demographics:
+                demographics = torch.empty(0)  # handle case where demographics is an empty dict
+            else:
+                demographics = torch.as_tensor(demographics)
         except Exception as e:
             raise FedbiomedDatasetError(f'{ErrorNumbers.FB310.value}: Could not convert demographics to torch Tensor. '
                                         f'Please use demographics_transformation argument of BIDSDataset to convert '
