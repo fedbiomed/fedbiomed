@@ -282,7 +282,7 @@ class TestModelManager(unittest.TestCase):
         """
         ## patch
         def create_hash_side_effect(path):
-            return f'a correct unique hash {path}', 'a correct hasing algo'
+            return f'a correct unique hash {path}', 'a correct hashing algo'
         create_hash_patch.side_effect = create_hash_side_effect
 
         # test 1: case where there is no model registered
@@ -737,7 +737,13 @@ class TestModelManager(unittest.TestCase):
                                                         'command': 'model-status'
                                                         })
 
-    def test_model_manager_17_check_model_not_existing(self):
+    @patch('fedbiomed.node.model_manager.ModelManager._create_hash')
+    @patch('os.path.getctime')
+    @patch('os.path.getmtime')
+    def test_model_manager_17_check_model_not_existing(self,
+                                                       getmtime_patch,
+                                                       getctime_patch,
+                                                       create_hash_patch):
         """Test `_check_model_not_existing` function
         """
         # note: if _check_model_not_existing succeeds, it returns/changes nothing
@@ -748,6 +754,38 @@ class TestModelManager(unittest.TestCase):
             for p in [None, 'dummy_path']:
                 for h in [None, 'dummy_hash']:
                     for a in [None, 'dummy_algorithm']:
+                        self.model_manager._check_model_not_existing(n, p, h, a)
+
+
+        # add model in database for next tests
+        model_name = 'mymodel_name'
+        model_path = 'mymodel_path'
+        model_hash = 'mymodel_hash'
+        model_algorithm = 'mymodel_algorithm'
+        # patching
+        getctime_patch.value = 12345
+        getmtime_patch.value = 23456
+        def create_hash_side_effect(path):
+            return model_hash, model_algorithm
+        create_hash_patch.side_effect = create_hash_side_effect
+
+        self.model_manager.register_model(model_name, 'mymodel_description', model_path)
+
+        # Test 2 : test with 1 model in database, check with different values, no error
+        for n in [None, 'dummy_name']:
+            for p in [None, 'dummy_path']:
+                for h in [None, 'dummy_hash']:
+                    for a in [None, 'dummy_algorithm']:
+                        self.model_manager._check_model_not_existing(n, p, h, a)        
+
+        # Test 3 : test with 1 model in database, check with existing value, error raised
+        for n in [None, model_name]:
+            for p in [None, model_path]:
+                for h, a in [(None, None), (model_hash, model_algorithm)]:
+                    if all(i == None for i in (n, p, h, a)):
+                        # no error occurs if we don't check against any condition ...q
+                        continue
+                    with self.assertRaises(FedbiomedModelManagerError):
                         self.model_manager._check_model_not_existing(n, p, h, a)
 
 
