@@ -375,7 +375,7 @@ class TestModelManager(unittest.TestCase):
         - Test 2: one model registered, but cannot update database
         - Test 3: model is no longer stored on computer.
         """
-        ## patch
+        # patch
         def create_hash_side_effect(path):
             return f'a correct unique hash {path}', 'a correct hashing algo'
         create_hash_patch.side_effect = create_hash_side_effect
@@ -859,6 +859,7 @@ class TestModelManager(unittest.TestCase):
         # patching
         getctime_patch.value = 12345
         getmtime_patch.value = 23456
+
         def create_hash_side_effect(path):
             return model_hash, model_algorithm
         create_hash_patch.side_effect = create_hash_side_effect
@@ -899,6 +900,57 @@ class TestModelManager(unittest.TestCase):
         # Final : empty database to enable proper cleaning
         with open(environ['DB_PATH'], 'w') as f:
             f.write('')        
+
+    @patch('os.path.getctime')
+    @patch('os.path.getmtime')
+    def test_model_manager_18_check_model_status(self,
+                                                 getmtime_patch,
+                                                 getctime_patch):
+        """Test `check_model_status` function
+        """
+
+        # patching
+        getctime_patch.value = 12345
+        getmtime_patch.value = 23456
+
+        # default models in database (not directly used, but to search among multiple entries)
+        self.model_manager.register_update_default_models()
+
+        model_name = 'mymodel_name'
+        model_path = os.path.join(self.testdir, 'test-model-1.txt')
+
+        # add one registered model in database
+        self.model_manager.register_model(model_name, 'mymodel_description', model_path)
+
+        # Test 1 : successful search for registered model
+        for status in [None, ModelTypes.REGISTERED, ModelApprovalStatus.APPROVED]:
+            is_present, model = self.model_manager.check_model_status(model_path, status)
+            self.assertTrue(is_present)
+            self.assertEqual(model['name'], model_name)
+            self.assertEqual(model['model_path'], model_path)
+
+        # Test 2 : unsuccessful search for registered model
+        for status in [ModelTypes.REQUESTED, ModelTypes.DEFAULT, ModelApprovalStatus.PENDING, ModelApprovalStatus.REJECTED]:
+            is_present, model = self.model_manager.check_model_status(model_path, status)
+            self.assertFalse(is_present)
+            self.assertEqual(model, None)      
+
+        # Test 3 : error because of bad status in search
+        for status in [ 3, True, 'toto', {}, {'clef'}, [], ['un']]:
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager.check_model_status(model_path, status)
+
+        # Test 4 : error in database access
+        def raise_fbmm_error(*args, **kwargs):
+            raise FedbiomedModelManagerError('my error message')
+        patcher_db_get = patch('tinydb.table.Table.get', MagicMock(side_effect=raise_fbmm_error))
+        patcher_db_get.start()
+
+        with self.assertRaises(FedbiomedModelManagerError):
+            self.model_manager.check_model_status(model_path, None)
+
+        patcher_db_get.stop()
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
