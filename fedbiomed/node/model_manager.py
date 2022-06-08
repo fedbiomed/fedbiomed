@@ -135,7 +135,7 @@ class ModelManager:
         if name is not None:
             try:
                 models_name_get = self._db.get(self._database.name == name)
-            except RuntimeError as err:
+            except Exception as err:
                 error = ErrorNumbers.FB606.value + ": search request on database failed." + \
                                                    f" Details: {str(err)}"
                 logger.critical(error)
@@ -150,7 +150,7 @@ class ModelManager:
         if path is not None:
             try:
                 models_path_get = self._db.get(self._database.model_path == path)
-            except RuntimeError as err:
+            except Exception as err:
                 error = ErrorNumbers.FB606.value + ": search request on database failed." + \
                                                    f" Details: {str(err)}"
                 logger.critical(error)
@@ -169,7 +169,7 @@ class ModelManager:
                     models_hash_get = self._db.get(self._database.algorithm == algorithm)
                 else:
                     models_hash_get = self._db.get((self._database.hash == hash) & (self._database.algorithm == algorithm))
-            except RuntimeError as err:
+            except Exception as err:
                 error = ErrorNumbers.FB606.value + ": search request on database failed." + \
                                                    f" Details: {str(err)}"
                 logger.critical(error)
@@ -292,7 +292,7 @@ class ModelManager:
                     logger.info(f'Model : {model["name"]} could not found in : {model["model_path"]}, will be removed')
                     try:
                         self._db.remove(doc_ids=[model.doc_id])
-                    except RuntimeError as err:
+                    except Exception as err:
                         raise FedbiomedModelManagerError(ErrorNumbers.FB606.value +
                                                          "database remove operation failed, with following error: ",
                                                          f"{str(err)}")
@@ -680,7 +680,7 @@ class ModelManager:
                             f' it will be removed from DB as well: {model_name}')
 
                 self._db.remove(doc_ids=[model_doc.doc_id])
-            except RuntimeError as err:
+            except Exception as err:
                 raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": failed to update database, "
                                                  f" with error {str(err)}")
         # Update models
@@ -689,7 +689,7 @@ class ModelManager:
             mtime = datetime.fromtimestamp(os.path.getmtime(path))
             try:
                 model_info = self._db.get(self._database.name == model)
-            except RuntimeError as err:
+            except Exception as err:
                 raise FedbiomedModelManagerError(ErrorNumbers.FB606.value +
                                                  f": failed to get model _info for model {model}"
                                                  f"Details : {str(err)}")
@@ -746,7 +746,7 @@ class ModelManager:
         # Register model
         try:
             model = self._db.get(self._database.model_id == model_id)
-        except RuntimeError as err:
+        except Exception as err:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": get request on database failed."
                                              f" Details: {str(err)}")
         if model['model_type'] != ModelTypes.DEFAULT.value:
@@ -792,12 +792,12 @@ class ModelManager:
             True: currently always returns True
 
         Raises:
-            FedbiomedModelManagerError: If TinyDB raises `RuntimeError` while getting single model entry
+            FedbiomedModelManagerError: If TinyDB raises `Exception` while getting single model entry
         """
         self._db.clear_cache()
         try:
             model = self._db.get(self._database.model_id == model_id)
-        except RuntimeError as err:
+        except Exception as err:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": get request on database failed."
                                              f" Details: {str(err)}")
         if model is None:
@@ -876,18 +876,24 @@ class ModelManager:
         self._db.clear_cache()
         try:
             model = self._db.get(self._database.model_id == model_id)
-            if model is None:
-                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value +
-                                                 f": model {model_id} not in database")
-            if model['model_type'] != ModelTypes.DEFAULT.value:
-
-                self._db.remove(doc_ids=[model.doc_id])
-            else:
-                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 'For default models, please remove'
-                                                 ' model file from `default_models` and restart your node')
-        except RuntimeError as err:
+        except Exception as err:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": cannot get model from database."
                                              f"Details: {str(err)}")
+
+        if model is None:
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value +
+                                             f": model {model_id} not in database")
+
+        if model['model_type'] != ModelTypes.DEFAULT.value:
+            try:
+                self._db.remove(doc_ids=[model.doc_id])
+            except Exception as err:
+                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": cannot remove model from database."
+                                                 f"Details: {str(err)}")
+        else:
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 'For default models, please remove'
+                                             ' model file from `default_models` and restart your node')
+
         return True
 
     def list_models(self, sort_by: Union[str, None] = None,
@@ -923,7 +929,7 @@ class ModelManager:
             # extract value from ModelApprovalStatus
             try:
                 models = self._db.search(self._database.model_status.one_of(select_status))
-            except RuntimeError as rerr:
+            except Exception as rerr:
                 raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 
                                                  ": request failed when looking for a model into database with" +
                                                  f" error: {rerr}")

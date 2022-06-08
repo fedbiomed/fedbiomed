@@ -49,6 +49,10 @@ class TestModelManager(unittest.TestCase):
         self.environ_model.__setitem__.side_effect = side_effect_set_item
         # ---------------------------------------------------------------------------
 
+        # handle case where previous test did not properly clean
+        if os.path.exists(environ['DB_PATH']):
+            os.remove(environ['DB_PATH'])
+
         # Build ModelManger
         self.model_manager = ModelManager()
 
@@ -757,7 +761,7 @@ class TestModelManager(unittest.TestCase):
                         self.model_manager._check_model_not_existing(n, p, h, a)
 
 
-        # add model in database for next tests
+        # Inter-test : add model in database for next tests
         model_name = 'mymodel_name'
         model_path = 'mymodel_path'
         model_hash = 'mymodel_hash'
@@ -783,11 +787,28 @@ class TestModelManager(unittest.TestCase):
             for p in [None, model_path]:
                 for h, a in [(None, None), (model_hash, model_algorithm)]:
                     if all(i == None for i in (n, p, h, a)):
-                        # no error occurs if we don't check against any condition ...q
+                        # no error occurs if we don't check against any condition ...
                         continue
                     with self.assertRaises(FedbiomedModelManagerError):
                         self.model_manager._check_model_not_existing(n, p, h, a)
 
+        # Inter-test : corrupt database content to prevent proper query
+        with open(environ['DB_PATH'], 'w') as f:
+            f.write('CORRUPTED DATABASE CONTENT')
+
+        # Test 4 : database not readable, error raised
+        for n in [None, 'dummy_name']:
+            for p in [None, 'dummy_path']:
+                for h in [None, 'dummy_hash']:
+                    for a in [None, 'dummy_algorithm']:
+                        if all(i == None for i in (n, p, h, a)):
+                            continue
+                        with self.assertRaises(FedbiomedModelManagerError):
+                            self.model_manager._check_model_not_existing(n, p, h, a)
+
+        # Final : empty database to enable proper cleaning
+        with open(environ['DB_PATH'], 'w') as f:
+            f.write('')        
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
