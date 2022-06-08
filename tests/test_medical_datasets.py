@@ -1,24 +1,25 @@
 import unittest
 import os
-import tempfile
 import random
 import shutil
-from pathlib import Path
-from uuid import uuid4
+import tempfile
+
+from pathlib import Path, PosixPath
 from random import randint, choice
-from pathlib import PosixPath
+from uuid import uuid4
+
 import itk
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader
+
 from monai.data import ITKReader
-from monai.transforms import LoadImage, ToTensor, Compose, Identity, PadListDataCollate
+from monai.transforms import Compose, GaussianSmooth, Identity, LoadImage, PadListDataCollate, ToTensor
+from torch.utils.data import DataLoader
+from torchvision.transforms import Lambda
 
 from fedbiomed.common.data import NIFTIFolderDataset
 from fedbiomed.common.exceptions import FedbiomedDatasetError
-from torchvision.transforms import Lambda
-from monai.transforms import GaussianSmooth
 from fedbiomed.common.data import MedicalFolderDataset, MedicalFolderBase
 
 
@@ -32,17 +33,20 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         self.root = tempfile.mkdtemp()  # Creates and returns tempdir
         self._create_synthetic_dataset()
 
+
     def tearDown(self) -> None:
         shutil.rmtree(self.root)
 
-    def test_instantiation_correct(self):
+
+    def test_nifti_folder_dataset_01_instantiation_correct(self):
         # correct instantiations
         NIFTIFolderDataset(self.root)
         NIFTIFolderDataset(self.root, None, None)
         NIFTIFolderDataset(self.root, transform=Identity(), target_transform=None)
         NIFTIFolderDataset(self.root, transform=None, target_transform=Identity())
 
-    def test_instantiation_incorrect(self):
+
+    def test_nifti_folder_dataset_02_instantiation_incorrect(self):
         # incorrect instantiations
 
         # incorrect path - type or values
@@ -80,7 +84,8 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             NIFTIFolderDataset(self.root, None, test_transform)
 
-    def test_indexation_correct(self):
+
+    def test_nifti_folder_dataset_03_indexation_correct(self):
         dataset = NIFTIFolderDataset(self.root)
 
         img, target = dataset[0]
@@ -90,7 +95,8 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
         self.assertTrue(isinstance(target, int))
 
-    def test_indexation_incorrect(self):
+
+    def test_nifti_folder_dataset_04_indexation_incorrect(self):
         dataset = NIFTIFolderDataset(self.root)
 
         # type error
@@ -124,13 +130,15 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             dataset[0]
 
-    def test_len(self):
+
+    def test_nifti_folder_dataset_05_len(self):
         dataset = NIFTIFolderDataset(self.root)
         n_samples = len(dataset)
 
         self.assertEqual(n_samples, sum(self.n_samples))
 
-    def test_labels(self):
+
+    def test_nifti_folder_dataset_06_labels(self):
         dataset = NIFTIFolderDataset(self.root)
 
         # verify type of returned labels
@@ -142,7 +150,8 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         # compare label list content
         self.assertEqual(sorted(labels), sorted(self.class_names))
 
-    def test_files(self):
+
+    def test_nifti_folder_dataset_07_files(self):
         dataset = NIFTIFolderDataset(self.root)
 
         # verify type of returned files
@@ -154,7 +163,8 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         # compare label list content
         self.assertEqual(sorted([str(f) for f in files]), sorted([str(Path(f).expanduser().resolve()) for f in self.sample_paths]))
 
-    def test_getitem(self):
+
+    def test_nifti_folder_dataset_08_getitem(self):
 
         # test all combination of using/not using a transformation
         # with identity transformation for the type of the data
@@ -188,8 +198,9 @@ class TestNIFTIFolderDataset(unittest.TestCase):
             # check we read all the samples
             self.assertEqual(index + 1, sum(self.n_samples))
 
+
     # not really a unit test belonging to this class, but nice to have it => ok ?
-    def test_dataloader(self):
+    def test_nifti_folder_dataset_09_dataloader(self):
         dataset = NIFTIFolderDataset(self.root)
         batch_size = len(dataset) // 2
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -197,6 +208,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
         self.assertEqual(len(targets), batch_size)
         self.assertEqual(len(img_batch), batch_size)
+
 
     def _create_synthetic_dataset(self):
         self.class_names = []
@@ -220,6 +232,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
                 self.sample_paths.append(Path(img_path).expanduser().resolve())
                 self.sample_class.append(self.class_names.index(class_name))
+
 
 
 def _create_synthetic_dataset(root, n_samples, tabular_file, index_col):
@@ -263,6 +276,7 @@ def _create_wrong_formatted_folder_for_medical_folder(root, n_samples):
 
 class TestMedicalFolderDataset(unittest.TestCase):
 
+
     def setUp(self) -> None:
         self.root = tempfile.mkdtemp()
         self.tabular_file = os.path.join(self.root, 'participants.csv')
@@ -277,7 +291,13 @@ class TestMedicalFolderDataset(unittest.TestCase):
         print(f'Dataset folder located in: {self.root}')
         _create_synthetic_dataset(self.root, self.n_samples, self.tabular_file, self.index_col)
 
-    def test_instantiating_dataset(self):
+
+    def tearDown(self) -> None:
+        if 'IXI' not in self.root:
+            shutil.rmtree(self.root)
+
+
+    def test_medical_folder_dataset_01_instantiating_dataset(self):
         dataset = MedicalFolderDataset(self.root)
         self._assert_batch_types_and_sizes(dataset)
 
@@ -287,26 +307,31 @@ class TestMedicalFolderDataset(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             dataset = MedicalFolderDataset(self.root, target_transform="Invalid")
 
-    def test_cached_properties(self):
+
+    def test_medical_folder_dataset_02_cached_properties(self):
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
         print(dataset.demographics.head())
         print(dataset.demographics.head())
 
-    def test_instantiation_with_demographics(self):
+
+    def test_medical_folder_dataset_03_instantiation_with_demographics(self):
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
         self._assert_batch_types_and_sizes(dataset)
 
-    def test_data_transforms(self):
+
+    def test_medical_folder_dataset_04_data_transforms(self):
         dataset = MedicalFolderDataset(self.root, transform=self.transform)
         batch = dataset[0]
         self.assertTrue(batch['data']['T1'].dim() == 1)
 
-    def test_target_transform(self):
+
+    def test_medical_folder_dataset_05_target_transform(self):
         dataset = MedicalFolderDataset(self.root, target_transform=self.target_transform)
         batch = dataset[0]
         self.assertEqual(batch['data']['T1'].shape, batch['target']['label'].shape)
 
-    def test_medical_folder_dataset_set_dataset_parameters(self):
+
+    def test_medical_folder_dataset_06_set_dataset_parameters(self):
 
         dataset = MedicalFolderDataset(self.root)
 
@@ -316,6 +341,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
         dataset.set_dataset_parameters({"tabular_file": self.tabular_file, "index_col": self.index_col})
         self.assertEqual(str(dataset.tabular_file), str(Path(self.tabular_file).expanduser().resolve()))
         self.assertEqual(dataset.index_col, self.index_col)
+
 
     def _assert_batch_types_and_sizes(self, dataset):
         data_loader = DataLoader(dataset, batch_size=self.batch_size)
@@ -333,9 +359,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
         # Assert for batch size on modalities and demographics
         self.assertTrue(len(set(lengths)) == 1)
 
-    def tearDown(self) -> None:
-        if 'IXI' not in self.root:
-            shutil.rmtree(self.root)
+
 
 
 class TestMedicalFolderBase(unittest.TestCase):
@@ -354,13 +378,15 @@ class TestMedicalFolderBase(unittest.TestCase):
 
         _create_synthetic_dataset(self.root, self.n_samples, self.tabular_file, self.index_col)
 
+
     def tearDown(self) -> None:
 
         if 'IXI' not in self.root:
             shutil.rmtree(self.root)
         pass
 
-    def test_medical_folder_base__init__(self):
+
+    def test_medical_folder_base_01_init(self):
         self.medical_folder_base = MedicalFolderBase()
         self.assertIsNone(self.medical_folder_base.root, "MedicalFolderBase root should not in empty initialization")
 
@@ -393,7 +419,8 @@ class TestMedicalFolderBase(unittest.TestCase):
         # Remove tmp folder
         shutil.rmtree(dummy_root_2)
 
-    def test_medical_folder_base_modalities(self):
+
+    def test_medical_folder_base_02_modalities(self):
         """Testing the method gets modalities from subject folder"""
 
         self.medical_folder_base = MedicalFolderBase(root=self.root)
@@ -403,7 +430,8 @@ class TestMedicalFolderBase(unittest.TestCase):
         unique_modalities.sort()
         self.assertListEqual(unique_modalities, ["T1", "T2", "label"])
 
-    def test_medical_folder_base_available_subjects(self):
+
+    def test_medical_folder_base_03_available_subjects(self):
         """Testing the method that extract available subjects for training"""
         self.medical_folder_base = MedicalFolderBase(root=self.root)
         file = self.medical_folder_base.read_demographics(self.tabular_file, self.index_col)
@@ -414,7 +442,8 @@ class TestMedicalFolderBase(unittest.TestCase):
         self.assertListEqual(missing_folders, [])
         self.assertListEqual(missing_entries, [])
 
-    def test_medical_folder_base_read_demographics(self):
+
+    def test_medical_folder_base_04_read_demographics(self):
 
         self.medical_folder_base = MedicalFolderBase(root=self.root)
 

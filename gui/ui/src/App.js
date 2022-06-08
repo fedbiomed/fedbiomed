@@ -6,32 +6,22 @@ import {
   Route
 } from "react-router-dom";
 
-import Home from './pages/Home' 
+import Home from './pages/Home'
 import Configuration from './pages/Configuration';
-import Repository from './pages/Repository';
-import Header from './components/Header';
-import SideNav from './components/SideNav';
-import Datasets from './pages/Datasets';
-import AddDataset from './pages/AddDataset';
-import DatasetPreview from './pages/DatasetPreview';
-import Modal from "./components/Modal"
+import Repository from './pages/repository';
+import SideNav from './components/layout/SideNav';
+import Datasets from './pages/datasets';
+import AddDataset from "./pages/datasets/AddDataset"
+import DatasetPreview from './pages/datasets/DatasetPreview';
+import Modal from "./components/common/Modal"
 import {connect, useDispatch} from 'react-redux'
-import Button, {ButtonsWrapper} from "./components/Button";
+import Button, {ButtonsWrapper} from "./components/common/Button";
+import CommonStandards from "./pages/datasets/CommonStandards";
+import MedicalFolderDataset from "./pages/datasets/MedicalFolderDataset";
 
 function App(props) {
 
   const dispatch = useDispatch()
-
-  const [headerName, setHeaderName] = React.useState('Home')
-
-  /**
-   * Change header based on active item
-   * @param {string} val
-   */
-  const setHeader = (val) => {
-      setHeaderName(val)
-  }
-
 
   const onResultModalClose = () => {
     dispatch({type:'RESET_GLOBAL_MODAL'})
@@ -42,27 +32,32 @@ function App(props) {
       <Router>
         <div className="layout-wrapper">
           <div className="main-side-bar">
-            <SideNav activePage={setHeader}/>
+            <SideNav/>
           </div>
           <div className="main-frame">
-            <Header text={headerName}/>
               <div className="router-frame">
                 <div className="inner"> 
                   <Routes>
                     <Route exact path="/" element={<Home/>} />
-                    <Route path="/configuration" element={<Configuration/>} />
-                    <Route path="/repository" element={<Repository/>} />
-                    <Route path="/datasets" element={<Datasets/>} />
-                    <Route path="/datasets/add-dataset" element={<AddDataset/>} />
-                    <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview setHeader={setHeader}/>} />
+                    <Route path="/configuration/" element={<Configuration/>} />
+                    <Route path="/repository/" element={<Repository/>} />
+                    <Route path="/datasets/" element={<Datasets/>} />
+                    <Route path="/datasets/add-dataset/" element={<AddDataset/>} >
+                        <Route index element={<CommonStandards/>} />
+                        <Route path="medical-folder-dataset" element={<MedicalFolderDataset/>} />
+                    </Route>
+                    <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview />} />
                   </Routes>
                   <div className={`loader-frame ${props.result.loading ?  'active' : ''}`}>
-                    <div className="lds-ring">
-                      <div></div>
-                      <div></div>
-                      <div></div>
-                      <div></div>
-                    </div>
+                      <div style={{width:"100%"}}>
+                          <div className="lds-ring">
+                                <div></div>
+                                <div></div>
+                                <div></div>
+                                <div></div>
+                          </div>
+                          <span style={{textAlign: "center", display:"block"}}>{props.result.text}</span>
+                      </div>
                   </div>
                 </div>
               </div>

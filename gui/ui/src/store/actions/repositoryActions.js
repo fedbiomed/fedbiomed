@@ -11,7 +11,7 @@ export  const getFilesFromRepository = (data, fresh = false) => {
     
     return (dispatch, getState) => {
 
-        dispatch({type:'SET_LOADING', payload: true})
+        dispatch({type:'SET_LOADING', payload: {status: true, text: "Listing local repository..."}})
         let files
         let folders
 
@@ -71,7 +71,7 @@ export  const getFilesFromRepository = (data, fresh = false) => {
         }
 
         ).catch( (error) => {
-            dispatch({type:'SET_LOADING', payload: false})
+            dispatch({type:'SET_LOADING', payload: {status: false}})
             if(error.response){
                 dispatch({type: 'ERROR_MODAL', payload: 'Error while listing files: ' + error.response.data.message})
             }else{
