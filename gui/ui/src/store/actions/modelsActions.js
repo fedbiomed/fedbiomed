@@ -9,7 +9,7 @@ import axios from "axios";
 export const list_models = (data = {}) => {
     return (dispatch) => {
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Listing all models..."}})
-        axios.post(EP_LIST_MODELS, {}).then(response => {
+        axios.post(EP_LIST_MODELS, data).then(response => {
             dispatch({type:'SET_LOADING', payload: {status: false}})
             let data = response.data.result
             console.log(data)

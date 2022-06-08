@@ -14,8 +14,8 @@ const SingleModel = (props) => {
     const navigator = useNavigate()
 
     React.useEffect(() => {
+        // Get single model
         get_single_model({model_id : model_id}, navigator)
-
         return () => {
             reset_single_model()
         }

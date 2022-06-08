@@ -148,7 +148,14 @@ class ListModelRequest(Validator):
         {'type': "object",
          "properties": {
              "sort_by": {'type': 'string'},
-             "select_status": {'type': 'string'}
+             "select_status": {'type': 'string'},
+             "search": {'type': 'object',
+                        'properties': {
+                            "by": {"type": "string"},
+                            "text": {"type": "string"}
+                        },
+                        "required": ["by", "text"]}
+
          },
          "required": []
          },

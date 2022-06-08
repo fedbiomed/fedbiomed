@@ -190,11 +190,11 @@ export const Select = (props) => {
 
     return (
         <select 
-            className="select"
+            className={`select ${props.className}`}
             type = {props.type} 
             name = {props.name}
             id   = {props.id}
-            ref = {props.ref}
+            ref = {props.selectRef}
             onChange = {props.onChange}
         >
 

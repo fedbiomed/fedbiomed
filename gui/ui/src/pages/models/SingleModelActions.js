@@ -14,7 +14,10 @@ const SingleModelActions = (props) => {
     const [notes, setNotes] = React.useState(single_model.notes)
     const navigator = useNavigate()
 
-
+    /**
+     * Globally handles approval/rejection operation
+     * @param action
+     */
     const handelModalApprove = (action) => {
 
         setModal({...modal, show:false})
@@ -22,13 +25,17 @@ const SingleModelActions = (props) => {
         action({model_id: single_model.model_id, notes: notes}, navigator)
     }
 
+    /**
+     * Update `notes` state each time user types
+     * @param e
+     */
     const onNotestChange = (e) => {
         setNotes(e.target.value)
     }
 
-
-
-
+    /**
+     * Handles approve operation
+     */
     const onApprove = () => {
         setModal({
             show: true,
@@ -40,6 +47,9 @@ const SingleModelActions = (props) => {
         )
     }
 
+    /**
+     * Handles reject operation
+     */
     const onReject = () => {
         setModal({
             show: true,
@@ -51,6 +61,9 @@ const SingleModelActions = (props) => {
 
     }
 
+    /**
+     * Handles delete operation
+     */
     const onDelete = () => {
         setModal({
             show: true,

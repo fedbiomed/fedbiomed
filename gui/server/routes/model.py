@@ -41,14 +41,15 @@ def list_models():
     req = request.json
     sort_by = req.get('sort_by', None)
     select_status = req.get('select_status', None)
+    search = req.get('search', None)
 
     if select_status is not None:
         select_status = ModelApprovalStatus.str2enum(select_status)
 
     res = MODEL_MANAGER.list_models(sort_by=sort_by, 
                                     select_status=select_status,
-                                    verbose=False)
-    print(res)
+                                    verbose=False,
+                                    search=search)
     return response(res), 200
 
 

@@ -7,15 +7,21 @@ import {list_models} from "../../store/actions/modelsActions";
 import {ReactComponent as SortIcon} from "../../assets/img/sort.svg";
 import Moment from 'react-moment';
 import styles from "./Models.module.css"
+import TableSearchBar from "../../components/common/TableSearchBar";
 
 const ModelsList = (props) => {
 
     const {list_models} = props
-
+    const [lastReach, setLastSearch] = React.useState({text: null, by: null})
     React.useEffect(() => {
         list_models()
     }, [list_models])
 
+    /**
+     * Renderer for status field of the table
+     * @param status
+     * @returns {JSX.Element|null}
+     */
     const renderStatus = (status) => {
 
         switch (status){
@@ -29,14 +35,44 @@ const ModelsList = (props) => {
                 return null
         }
     }
+
+    /**
+     * Send list request by giving fields
+     * @param by
+     */
     const sortyBy = (by) => {
-        console.log("clicked")
         list_models({sort_by : by})
     }
 
+    /**
+     * Handler for search typing
+     * @param searchText
+     * @param by
+     */
+    const onSearch = (searchText, by) => {
+        if(searchText && searchText !== ""){
+            list_models({search: {by : by, text: searchText}})
+            setLastSearch({text: searchText, by:by})
+        }else if(lastReach.text){
+            list_models()
+            setLastSearch({text: searchText, by:by})
+        }
+    }
 
     return (
         <React.Fragment>
+            <TableSearchBar
+                onSearch={onSearch}
+                by={true}
+                byOptions={[
+                            {value : "researcher_id", name: "Researcher ID"},
+                            {value : "model_status", name: "Status"},
+                            {value : "description", name: "Description"},
+                            {value : "model_type", name: "Model Type"},
+                            {value : "date_last_action", name: "Last Action Data"},
+                            {value : "date_registered", name: "Registration Date"},
+                            ]}
+            />
             <EntryTable>
                 <TableHead>
                     <TableRow>
@@ -46,7 +82,7 @@ const ModelsList = (props) => {
                         <TableCol>Description</TableCol>
                         <TableCol>Last Action</TableCol>
                         <TableCol>Date Requested/Registered</TableCol>
-                        <TableCol onClick={ () => sortyBy("status")}>Status<SortIcon style={{width: 15}}/></TableCol>
+                        <TableCol>Status</TableCol>
                         <TableCol>Display</TableCol>
                     </TableRow>
                 </TableHead>
