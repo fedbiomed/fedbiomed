@@ -14,6 +14,7 @@ class Database:
     def db(self):
         """ Getter for db """
         self._db = TinyDB(app.config['NODE_DB_PATH'])
+
         return self
 
     def query(self):
