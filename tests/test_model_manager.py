@@ -23,12 +23,9 @@ class TestModelManager(unittest.TestCase):
     Unit tests for class `ModelManager` (from fedbiomed.node.model_manager)
     """
 
-    def raise_fbmm_error(*args, **kwargs):
-        """Raise a model manager error, whatever the conditions and parameters.
-
-        Used for mocking, when you want to have an error on some function.
-        """
-        raise FedbiomedModelManagerError('my error message')
+    # Raise a model manager error, whatever the conditions and parameters.
+    # Used for mocking, when you want to have an error on some function.
+    raise_fbmm_error = FedbiomedModelManagerError('my error message')
 
     # dummy class for testing typing of parameters
     class Dummy():
@@ -1089,6 +1086,8 @@ class TestModelManager(unittest.TestCase):
 
         self.patcher_db_get.stop()    
 
+    def test_model_manager_22_reply_model_approval_request(self):
+        pass
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
