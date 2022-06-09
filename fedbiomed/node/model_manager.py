@@ -63,6 +63,7 @@ class ModelManager:
             path: Model file path
 
         Raises:
+            FedbiomedModelManagerError: bad parameter type
             FedbiomedModelManagerError: file cannot be open
             FedbiomedModelManagerError: file cannot be minified
             FedbiomedModelManagerError: Hashing algorithm does not exist in HASH_FUNCTION table
@@ -172,7 +173,8 @@ class ModelManager:
                 elif hash is None:
                     models_hash_get = self._db.get(self._database.algorithm == algorithm)
                 else:
-                    models_hash_get = self._db.get((self._database.hash == hash) & (self._database.algorithm == algorithm))
+                    models_hash_get = self._db.get((self._database.hash == hash) &
+                                                   (self._database.algorithm == algorithm))
             except Exception as err:
                 error = ErrorNumbers.FB606.value + ": search request on database failed." + \
                                                    f" Details: {str(err)}"
@@ -332,6 +334,7 @@ class ModelManager:
                     returns None instead.
 
         Raises:
+            FedbiomedModelManagerError: bad parameter type or value
             FedbiomedModelManagerError: database access problem
         """
         # Create hash for requested model
@@ -384,6 +387,7 @@ class ModelManager:
             model entry found in the database matching `model_name`. Otherwise, returns None.
 
         Raises:
+            FedbiomedModelManagerError: bad parameter type
             FedbiomedModelManagerError: cannot read database.
         """
         self._db.clear_cache()
@@ -418,7 +422,7 @@ class ModelManager:
             None.
 
         Raises:
-            FedbiomedModelManagerError: triggered if [`model_path`] is not found in database entry
+            FedbiomedModelManagerError: bad parameter type
             FedbiomedModelManagerError: database access problem
         """
         self._db.clear_cache()
@@ -445,32 +449,43 @@ class ModelManager:
     def get_model_by_id(self, model_id: str, secure: bool = True, content: bool = False) -> Union[Dict[str, Any], None]:
         """Get a model in database given his `model_id`
 
+        Also add a `content` key to the returned dictionary.
+
         Args:
-            model_id: TODO
-            secure: TODO
-            content: TODO
+            model_id: id of the model to pick from the database
+            secure: if `True` then strip some security sensitive fields
+            content: if `True` add content of model in `content` key of returned model. If `False` then
+                `content` key value is `None`
+
 
         Returns:
             model entry from database through a query based on the model_id.
             If there is no model matching [`model_id`], returns None
 
         Raises:
+            FedbiomedModelManagerError: bad parameter type
             FedbiomedModelManagerError: database access problem
         """
+        if not isinstance(model_id, str):
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f': model_id {model_id} is not a string')
+
         try:
             model = self._db.get(self._database.model_id == model_id)
         except Exception as e:
             raise FedbiomedModelManagerError(
                 ErrorNumbers.FB606.value + f"database get operation failed, with following error: {str(e)}")
 
-        if content:
-            with open(model["model_path"], 'r') as file:
-                model_content = file.read()
+        if isinstance(model, dict):
+            if content:
+                with open(model["model_path"], 'r') as file:
+                    model_content = file.read()
+            else:
+                model_content = None
 
-        if secure and model is not None:
-            self._remove_sensible_keys_from_request(model)
+            if secure and model is not None:
+                self._remove_sensible_keys_from_request(model)
 
-        model.update({"content": model_content})
+            model.update({"content": model_content})
 
         return model
 

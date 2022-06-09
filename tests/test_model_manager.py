@@ -1007,7 +1007,7 @@ class TestModelManager(unittest.TestCase):
         self.patcher_db_get.stop()    
 
     def test_model_manager_20_get_model_from_database(self):
-        """Test `get_model_by_name` function
+        """Test `get_model_from_database` function
         """
 
         model_name = 'mymodel_name'
@@ -1041,6 +1041,51 @@ class TestModelManager(unittest.TestCase):
 
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.get_model_from_database(model_path)
+
+        self.patcher_db_get.stop()    
+
+    def test_model_manager_21_get_model_by_id(self):
+        """Test `get_model_by_id` function
+        """
+
+        model_name = 'mymodel_name'
+        model_path = os.path.join(self.testdir, 'test-model-1.txt')
+        model_id = 'mymodel_id_for_test'
+
+        # default models in database (not directly used, but to search among multiple entries)
+        self.model_manager.register_update_default_models()
+
+        # add one registered model in database
+        self.model_manager.register_model(model_name, 'mymodel_description', model_path, model_id = model_id)
+
+        # Test 1 : look for existing model
+        for secure in [True, False]:
+            for content in [True, False]:
+                model = self.model_manager.get_model_by_id(model_id, secure, content)
+                self.assertTrue(isinstance(model, dict))
+                self.assertEqual(model['name'], model_name)
+                self.assertEqual(model['model_id'], model_id)
+                if not secure:
+                    self.assertEqual(model['model_path'], model_path)
+
+        # Test 2 : look for non existing model
+        for secure in [True, False]:
+            for content in [True, False]:
+                model = self.model_manager.get_model_by_id('NON_EXISTING_MODEL_ID', secure, content)
+                self.assertEqual(model, None)
+
+        # Test 3 : bad parameter errors
+        for secure in [True, False]:
+            for content in [True, False]:
+                for mid in [None, 3, {}, { 'model_id': model_id }, [], [model_id], self.Dummy, self.Dummy()]:
+                    with self.assertRaises(FedbiomedModelManagerError):
+                        self.model_manager.get_model_by_id(mid, secure, content)            
+
+        # Test 4 : database access error
+        self.patcher_db_get.start()
+
+        with self.assertRaises(FedbiomedModelManagerError):
+            self.model_manager.get_model_by_id(model_id, secure, content)
 
         self.patcher_db_get.stop()    
 
