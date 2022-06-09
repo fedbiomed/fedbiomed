@@ -30,6 +30,10 @@ class TestModelManager(unittest.TestCase):
         """
         raise FedbiomedModelManagerError('my error message')
 
+    # dummy class for testing typing of parameters
+    class Dummy():
+        pass
+
     # before the tests
     def setUp(self):
 
@@ -133,21 +137,21 @@ class TestModelManager(unittest.TestCase):
         """
         model_path = os.path.join(self.testdir, 'test-model-1.txt')
         # test 1 : test case where model file has not been found
-        
+
         # action 
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager._create_hash("a/path/that/should/not/exist/on/your/computer")
-        
+
         # test 2: test case where model file cannot be read (due to a lack of privilege)
         with patch.object(builtins, 'open') as builtin_open_mock:
             builtin_open_mock.side_effect = PermissionError("mimicking a PermissionError")
             with self.assertRaises(FedbiomedModelManagerError):
                 self.model_manager._create_hash(model_path)
-                
+
         # test 3: test where model file cannot be open and read
         with patch.object(builtins, 'open') as builtin_open_mock:
             builtin_open_mock.side_effect = OSError("mimicking a OSError")
-            
+
             with self.assertRaises(FedbiomedModelManagerError):
                 self.model_manager._create_hash(model_path)
 
@@ -156,12 +160,19 @@ class TestModelManager(unittest.TestCase):
         """Tests that `_create_hash` method is catching exception coming
         from `minify` package"""
         model_path = os.path.join(self.testdir, 'test-model-1.txt')
-        
+
         minify_patch.side_effect = Exception('Mimicking an Exception triggered by `minify` package')
-        
+
         # action
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager._create_hash(model_path)
+
+    def test_model_manager_04_create_hash_param_exception(self):
+        """"Tests `_create_patch` with incorrect parameters"""
+
+        for mpath in [None, 18, -2.4, True, {}, { 'clef': 'valeur' }, [], ['un'], self.Dummy, self.Dummy()]:
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager._create_hash(mpath)
 
     def test_model_manager_05_update_default_hashes_when_algo_is_changed(self):
         """  Testing method for update/register default models when hashing
@@ -186,7 +197,7 @@ class TestModelManager(unittest.TestCase):
         has been deleted
         """
         file_path = os.path.join(self.testdir, 'test-model-1.txt')
-        new_default_model_path = os.path.join(self.testdir, 'test-model-1-2.txt')
+        new_default_model_path = os.path.join(environ['TMP_DIR'], 'test-model-1-2.txt')
         shutil.copy(file_path, new_default_model_path)
 
         # update database
@@ -302,7 +313,7 @@ class TestModelManager(unittest.TestCase):
         # Cannot access corrupted database
         with open(environ['DB_PATH'], 'w') as f:
             f.write('CORRUPTED DATABASE CONTENT')
- 
+
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.register_model(
                 name='test-model-3',
@@ -322,7 +333,7 @@ class TestModelManager(unittest.TestCase):
         - Test 2: models are registered and are stored on computer
         - Test 3: model is no longer stored on computer.
         """
-        ## patch
+        # patch
         def create_hash_side_effect(path):
             return f'a correct unique hash {path}', 'a correct hashing algo'
         create_hash_patch.side_effect = create_hash_side_effect
@@ -463,7 +474,7 @@ class TestModelManager(unittest.TestCase):
             txt_model_path = self.model_manager.create_txt_model_from_py(file)
 
             # checks
-            ## tests if `txt_model` has a *.txt extension
+            # tests if `txt_model` has a *.txt extension
             _, ext = os.path.splitext(txt_model_path)
             self.assertEqual(ext, '.txt')
 
@@ -573,26 +584,26 @@ class TestModelManager(unittest.TestCase):
         # Check with verbose
         models = self.model_manager.list_models(verbose=True)
         self.assertIsInstance(models, list, 'Could not get list of models properly in verbose mode')
-        
+
         # do some tests on the first model of models contained in database
         self.assertNotIn('model_path', models[0])
         self.assertNotIn('hash', models[0])
         self.assertNotIn('date_modified', models[0])
         self.assertNotIn('date_created', models[0])
-        
+
         # check by sorting results ()
-        ## list of fields we are going to sort in alphabetical order
+        # list of fields we are going to sort in alphabetical order
         sort_by_fields = ['date_last_action',
                           'model_type',
                           'model_status',
                           'algorithm', 
                           'researcher_id']
-        
+
         for sort_by_field in sort_by_fields:
             models_sorted_by_modified_date = self.model_manager.list_models(sort_by=sort_by_field,
                                                                             )
             for i in range(len(models_sorted_by_modified_date) - 1):
-                
+
                 # do not compare if values extracted are set to None
                 if models_sorted_by_modified_date[i][sort_by_field] is not None \
                    and models_sorted_by_modified_date[i + 1][sort_by_field] is not None:
@@ -600,7 +611,7 @@ class TestModelManager(unittest.TestCase):
                                          models_sorted_by_modified_date[i + 1][sort_by_field])
 
         # check with results filtered on `model_status` field
-        ## first, register a model
+        # first, register a model
         model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
 
         self.model_manager.register_model(
@@ -609,13 +620,13 @@ class TestModelManager(unittest.TestCase):
             model_type='registered',
             description='desc'
         )
-        ## second, reject it 
+        # second, reject it 
         _, model_to_reject = self.model_manager.check_model_status(model_file_path, ModelTypes.REGISTERED)
         self.model_manager.reject_model(model_to_reject['model_id'])
-        
+
         # action: gather only rejected models
         rejected_models = self.model_manager.list_models(select_status=ModelApprovalStatus.REJECTED)
-        
+
         self.assertIn('test-model-1', [x['name'] for x in rejected_models])
         self.assertNotIn(ModelApprovalStatus.APPROVED.value,
                          [x['model_status'] for x in rejected_models])
@@ -624,8 +635,8 @@ class TestModelManager(unittest.TestCase):
         pending_models = self.model_manager.list_models(select_status=ModelApprovalStatus.PENDING,
                                                         verbose=False)
         self.assertEqual(pending_models, [])
-        
-        ## filtering with more than one status (get only REJECTED and APPROVAL model)
+
+        # filtering with more than one status (get only REJECTED and APPROVAL model)
         rejected_and_approved_models = self.model_manager.list_models(select_status=[ModelApprovalStatus.REJECTED,
                                                                                      ModelApprovalStatus.APPROVED],
                                                                       verbose=False)
@@ -769,7 +780,7 @@ class TestModelManager(unittest.TestCase):
         }
 
         download_err_msg = ErrorNumbers.FB604.value + ': An error occured when downloading model file.' + \
-                           f' {msg["model_url"]} , {str(download_exception)}'
+            f' {msg["model_url"]} , {str(download_exception)}'
 
         # action
         self.model_manager.reply_model_status_request(msg, messaging)
@@ -820,8 +831,8 @@ class TestModelManager(unittest.TestCase):
         checking_model_exception_t3 = Exception("mimicking an exception happening when calling "
                                                 "'check_model_status'")
 
-        checking_model_err_msg_t3 = ErrorNumbers.FB606.value + ': An unknown error occured when downloading model file.' +\
-            f' {msg["model_url"]} , {str(checking_model_exception_t3)}'
+        checking_model_err_msg_t3 = ErrorNumbers.FB606.value + ': An unknown error occured when downloading model ' +\
+            f'file. {msg["model_url"]} , {str(checking_model_exception_t3)}'
 
         mock_get_model.side_effect = checking_model_exception_t3
         # action
@@ -885,7 +896,7 @@ class TestModelManager(unittest.TestCase):
         for n in [None, model_name]:
             for p in [None, model_path]:
                 for h, a in [(None, None), (model_hash, model_algorithm)]:
-                    if all(i == None for i in (n, p, h, a)):
+                    if all(i is None for i in (n, p, h, a)):
                         # no error occurs if we don't check against any condition ...
                         continue
                     with self.assertRaises(FedbiomedModelManagerError):
@@ -900,7 +911,7 @@ class TestModelManager(unittest.TestCase):
             for p in [None, 'dummy_path']:
                 for h in [None, 'dummy_hash']:
                     for a in [None, 'dummy_algorithm']:
-                        if all(i == None for i in (n, p, h, a)):
+                        if all(i is None for i in (n, p, h, a)):
                             continue
                         with self.assertRaises(FedbiomedModelManagerError):
                             self.model_manager._check_model_not_existing(n, p, h, a)
@@ -940,7 +951,8 @@ class TestModelManager(unittest.TestCase):
             self.assertEqual(model['model_path'], model_path)
 
         # Test 2 : unsuccessful search for registered model
-        for status in [ModelTypes.REQUESTED, ModelTypes.DEFAULT, ModelApprovalStatus.PENDING, ModelApprovalStatus.REJECTED]:
+        for status in [ModelTypes.REQUESTED, ModelTypes.DEFAULT,
+                       ModelApprovalStatus.PENDING, ModelApprovalStatus.REJECTED]:
             is_present, model = self.model_manager.check_model_status(model_path, status)
             self.assertTrue(isinstance(is_present, bool))
             self.assertFalse(is_present)
@@ -966,6 +978,9 @@ class TestModelManager(unittest.TestCase):
         model_name = 'mymodel_name'
         model_path = os.path.join(self.testdir, 'test-model-1.txt')
 
+        # default models in database (not directly used, but to search among multiple entries)
+        self.model_manager.register_update_default_models()
+
         # add one registered model in database
         self.model_manager.register_model(model_name, 'mymodel_description', model_path)
 
@@ -978,11 +993,54 @@ class TestModelManager(unittest.TestCase):
         model = self.model_manager.get_model_by_name('ANY DUMMY YUMMY')
         self.assertEqual(model, None)
 
-        # Test 3 : database access error
+        # Test 3 : bad parameter errors
+        for mpath in [None, 3, {}, { 'clef': model_path }, [], [model_path], self.Dummy, self.Dummy()]:
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager.get_model_by_name(mpath)            
+
+        # Test 4 : database access error
         self.patcher_db_get.start()
 
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.get_model_by_name(model_name)
+
+        self.patcher_db_get.stop()    
+
+    def test_model_manager_20_get_model_from_database(self):
+        """Test `get_model_by_name` function
+        """
+
+        model_name = 'mymodel_name'
+        model_path = os.path.join(self.testdir, 'test-model-1.txt')
+        same_model_path = os.path.join(environ['TMP_DIR'], 'test-model-1-2.txt')
+        shutil.copy(model_path, same_model_path)
+
+        # default models in database (not directly used, but to search among multiple entries)
+        self.model_manager.register_update_default_models()
+
+        # add one registered model in database
+        self.model_manager.register_model(model_name, 'mymodel_description', model_path)
+
+        # Test 1 : look for existing model
+        for mpath in [model_path, same_model_path]:
+            model = self.model_manager.get_model_from_database(mpath)
+            self.assertTrue(isinstance(model, dict))
+            self.assertEqual(model['name'], model_name) 
+
+        # Test 2 : look for non existing model
+        model = self.model_manager.get_model_from_database(os.path.join(self.testdir, 'test-model-2.txt'))
+        self.assertEqual(model, None)
+
+        # Test 3 : bad parameter errors
+        for mpath in [None, 3, {}, { 'clef': model_path }, [], [model_path], self.Dummy, self.Dummy()]:
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager.get_model_from_database(mpath)            
+
+        # Test 4 : database access error
+        self.patcher_db_get.start()
+
+        with self.assertRaises(FedbiomedModelManagerError):
+            self.model_manager.get_model_from_database(model_path)
 
         self.patcher_db_get.stop()    
 

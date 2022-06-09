@@ -69,16 +69,19 @@ class ModelManager:
         """
         hash_algo = environ['HASHING_ALGORITHM']
 
+        if not isinstance(path, str):
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f': {path} is not a path')
+
         try:
             with open(path, "r") as model:
                 content = model.read()
         except FileNotFoundError:
-            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f" model file {path} not found on system")
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f": model file {path} not found on system")
         except PermissionError:
-            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f" cannot open model file {path} due" +
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f": cannot open model file {path} due" +
                                                                         " to unsatisfactory privilege")
         except OSError:
-            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f" cannot open model file {path} " +
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f": cannot open model file {path} " +
                                              "(file might have been corrupted)")
 
         # Minify model file using python_minifier module
@@ -92,13 +95,13 @@ class ModelManager:
                                   rename_locals=False)
         except Exception as err:
             # minify doesn't provide any specific exception
-            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f"cannot minify file {path}"
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f": cannot minify file {path}"
                                              f"details: {err}")
         # Hash model content based on active hashing algorithm
         if hash_algo in HashingAlgorithms.list():
             hashing = HASH_FUNCTIONS[hash_algo]()
         else:
-            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 'Unknown hashing algorithm in the `environ`' +
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ': unknown hashing algorithm in the `environ`' +
                                              f' {environ["HASHING_ALGORITHM"]}')
 
         # Create hash from model minified model content and encoded as `utf-8`
@@ -385,6 +388,9 @@ class ModelManager:
         """
         self._db.clear_cache()
 
+        if not isinstance(model_name, str):
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f': model name {model_name} is not a string')
+
         # TODO: more robust implementation
         # names in database should be unique, but we don't verify it
         # (and do we properly enforce it ?)
@@ -417,9 +423,8 @@ class ModelManager:
         """
         self._db.clear_cache()
 
-        if model_path is None:
-            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : model_path not found in database entry" 
-                                             f" ({model_path})")
+        if not isinstance(model_path, str):
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : no model_path specified")
         req_model_hash, _ = self._create_hash(model_path)
 
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
