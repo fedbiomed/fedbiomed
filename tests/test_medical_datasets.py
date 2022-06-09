@@ -4,6 +4,7 @@ import tempfile
 import random
 import shutil
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 from random import randint, choice
 from pathlib import PosixPath
@@ -11,6 +12,7 @@ import itk
 import numpy as np
 import pandas as pd
 import torch
+import monai.transforms
 from torch.utils.data import DataLoader
 from monai.data import ITKReader
 from monai.transforms import LoadImage, ToTensor, Compose, Identity, PadListDataCollate
@@ -35,14 +37,26 @@ class TestNIFTIFolderDataset(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.root)
 
-    def test_instantiation_correct(self):
+    def test_nifti_folder_dataset_1_instantiation_correct(self):
         # correct instantiations
-        NIFTIFolderDataset(self.root)
-        NIFTIFolderDataset(self.root, None, None)
-        NIFTIFolderDataset(self.root, transform=Identity(), target_transform=None)
-        NIFTIFolderDataset(self.root, transform=None, target_transform=Identity())
+        # here we test that each instantation is a `NIFTIFolderDataset`
+        # object, but the true goal of the test is to check that parameters
+        # are accepted when initializing object
 
-    def test_instantiation_incorrect(self):
+        self.assertIsInstance(NIFTIFolderDataset(self.root), 
+                              NIFTIFolderDataset)
+
+        self.assertIsInstance(
+            NIFTIFolderDataset(self.root, None, None),
+            NIFTIFolderDataset)
+        self.assertIsInstance(
+            NIFTIFolderDataset(self.root, transform=Identity(),
+                               target_transform=None),
+            NIFTIFolderDataset)
+        self.assertIsInstance(NIFTIFolderDataset(self.root, transform=None, target_transform=Identity()),
+                              NIFTIFolderDataset)
+
+    def test_nifti_folder_dataset_2_instantiation_incorrect(self):
         # incorrect instantiations
 
         # incorrect path - type or values
@@ -80,7 +94,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             NIFTIFolderDataset(self.root, None, test_transform)
 
-    def test_indexation_correct(self):
+    def test_nifti_folder_dataset_3_indexation_correct(self):
         dataset = NIFTIFolderDataset(self.root)
 
         img, target = dataset[0]
@@ -90,7 +104,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
         self.assertTrue(isinstance(target, int))
 
-    def test_indexation_incorrect(self):
+    def test_nifti_folder_dataset_4_indexation_incorrect(self):
         dataset = NIFTIFolderDataset(self.root)
 
         # type error
@@ -124,13 +138,13 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             dataset[0]
 
-    def test_len(self):
+    def test_nifti_folder_dataset_5_len(self):
         dataset = NIFTIFolderDataset(self.root)
         n_samples = len(dataset)
 
         self.assertEqual(n_samples, sum(self.n_samples))
 
-    def test_labels(self):
+    def test_nifti_folder_dataset_6_labels(self):
         dataset = NIFTIFolderDataset(self.root)
 
         # verify type of returned labels
@@ -142,7 +156,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
         # compare label list content
         self.assertEqual(sorted(labels), sorted(self.class_names))
 
-    def test_files(self):
+    def test_nifti_folder_dataset_7_files(self):
         dataset = NIFTIFolderDataset(self.root)
 
         # verify type of returned files
