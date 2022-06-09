@@ -23,6 +23,13 @@ class TestModelManager(unittest.TestCase):
     Unit tests for class `ModelManager` (from fedbiomed.node.model_manager)
     """
 
+    def raise_fbmm_error(*args, **kwargs):
+        """Raise a model manager error, whatever the conditions and parameters.
+
+        Used for mocking, when you want to have an error on some function.
+        """
+        raise FedbiomedModelManagerError('my error message')
+
     # before the tests
     def setUp(self):
 
@@ -47,6 +54,14 @@ class TestModelManager(unittest.TestCase):
 
         self.environ_model.__getitem__.side_effect = side_effect
         self.environ_model.__setitem__.side_effect = side_effect_set_item
+
+        # patchers for causing database access errors
+        # need to be (de)activated only for some pieces of test code
+        self.patcher_db_get = patch('tinydb.table.Table.get', MagicMock(side_effect=self.raise_fbmm_error))
+        self.patcher_db_search = patch('tinydb.table.Table.search', MagicMock(side_effect=self.raise_fbmm_error))
+        self.patcher_db_update = patch('tinydb.table.Table.update', MagicMock(side_effect=self.raise_fbmm_error))
+        self.patcher_db_remove = patch('tinydb.table.Table.remove', MagicMock(side_effect=self.raise_fbmm_error))
+
         # ---------------------------------------------------------------------------
 
         # handle case where previous test did not properly clean
@@ -380,18 +395,13 @@ class TestModelManager(unittest.TestCase):
             return f'a correct unique hash {path}', 'a correct hashing algo'
         create_hash_patch.side_effect = create_hash_side_effect
 
-        def raise_fbmm_error(*args, **kwargs):
-            raise FedbiomedModelManagerError('my error message')
-
         # Test 1: no model registered, cannot read database
-
-        patcher_db_search = patch('tinydb.table.Table.search', MagicMock(side_effect=raise_fbmm_error))
-        patcher_db_search.start()
+        self.patcher_db_search.start()
 
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.check_hashes_for_registered_models()
 
-        patcher_db_search.stop()
+        self.patcher_db_search.stop()
 
         # Test 2: one model registered, but cannot update database
 
@@ -413,26 +423,24 @@ class TestModelManager(unittest.TestCase):
                                            'algorithm': "different_hashing_algorithm"},
                                           self.model_manager._database.model_id.all(model["model_id"]))
 
-        patcher_db_update = patch('tinydb.table.Table.update', MagicMock(side_effect=raise_fbmm_error))
-        patcher_db_update.start()
+        self.patcher_db_update.start()
 
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.check_hashes_for_registered_models()
 
-        patcher_db_update.stop()
+        self.patcher_db_update.stop()
 
         # Test 3 : one registered model, but file has been removed
 
         # remove the model file stored on the system
         os.remove(model_file_copied_path)
 
-        patcher_db_remove = patch('tinydb.table.Table.remove', MagicMock(side_effect=raise_fbmm_error))
-        patcher_db_remove.start()
+        self.patcher_db_remove.start()
 
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.check_hashes_for_registered_models()
 
-        patcher_db_remove.stop()
+        self.patcher_db_remove.stop()
 
     def test_model_manager_12_create_txt_model_from_py(self):
         """Test_model_manager_12: tests if txt file can be created from py file"""
@@ -925,13 +933,16 @@ class TestModelManager(unittest.TestCase):
         # Test 1 : successful search for registered model
         for status in [None, ModelTypes.REGISTERED, ModelApprovalStatus.APPROVED]:
             is_present, model = self.model_manager.check_model_status(model_path, status)
+            self.assertTrue(isinstance(is_present, bool))
             self.assertTrue(is_present)
+            self.assertTrue(isinstance(model, dict))
             self.assertEqual(model['name'], model_name)
             self.assertEqual(model['model_path'], model_path)
 
         # Test 2 : unsuccessful search for registered model
         for status in [ModelTypes.REQUESTED, ModelTypes.DEFAULT, ModelApprovalStatus.PENDING, ModelApprovalStatus.REJECTED]:
             is_present, model = self.model_manager.check_model_status(model_path, status)
+            self.assertTrue(isinstance(is_present, bool))
             self.assertFalse(is_present)
             self.assertEqual(model, None)      
 
@@ -941,15 +952,39 @@ class TestModelManager(unittest.TestCase):
                 self.model_manager.check_model_status(model_path, status)
 
         # Test 4 : error in database access
-        def raise_fbmm_error(*args, **kwargs):
-            raise FedbiomedModelManagerError('my error message')
-        patcher_db_get = patch('tinydb.table.Table.get', MagicMock(side_effect=raise_fbmm_error))
-        patcher_db_get.start()
+        self.patcher_db_get.start()
 
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.check_model_status(model_path, None)
 
-        patcher_db_get.stop()
+        self.patcher_db_get.stop()
+
+    def test_model_manager_19_get_model_by_name(self):
+        """Test `get_model_by_name` function
+        """
+
+        model_name = 'mymodel_name'
+        model_path = os.path.join(self.testdir, 'test-model-1.txt')
+
+        # add one registered model in database
+        self.model_manager.register_model(model_name, 'mymodel_description', model_path)
+
+        # Test 1 : look for existing model
+        model = self.model_manager.get_model_by_name(model_name)
+        self.assertTrue(isinstance(model, dict))
+        self.assertEqual(model['name'], model_name)
+
+        # Test 2 : look for non existing model
+        model = self.model_manager.get_model_by_name('ANY DUMMY YUMMY')
+        self.assertEqual(model, None)
+
+        # Test 3 : database access error
+        self.patcher_db_get.start()
+
+        with self.assertRaises(FedbiomedModelManagerError):
+            self.model_manager.get_model_by_name(model_name)
+
+        self.patcher_db_get.stop()    
 
 
 if __name__ == '__main__':  # pragma: no cover
