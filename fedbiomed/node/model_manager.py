@@ -18,7 +18,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.repository import Repository
-
+from fedbiomed.common.validator import SchemeValidator, ValidateError
 from fedbiomed.node.environ import environ
 
 # Collect provided hashing function into a dict
@@ -32,6 +32,9 @@ HASH_FUNCTIONS = {
     HashingAlgorithms.BLAKE2B.value: hashlib.blake2s,
     HashingAlgorithms.BLAKE2S.value: hashlib.blake2s,
 }
+
+modelsSearchScheme = SchemeValidator({"by": {"rules": [str], "required": True},
+                                      "text": {"rules": [str], "required": True}})
 
 
 class ModelManager:
@@ -894,8 +897,10 @@ class ModelManager:
                                              f"contains `text` and `by` (that indicates field to search on)")
 
         if search:
-            by = search.get('by', 'name')
-            text = search.get('text', 'Fed-BioMed')
+            try:
+                modelsSearchScheme.validate(search)
+            except ValidateError as e:
+                raise FedbiomedModelManagerError(f"{ErrorNumbers.FB606.value}: `search` argument is not valid. {e}")
 
         if isinstance(select_status, (ModelApprovalStatus, list)):
             # filtering model based on their status
@@ -907,7 +912,7 @@ class ModelManager:
             try:
                 if search:
                     models = self._db.search(self._database.model_status.one_of(select_status) &
-                                             self._database[by].matches(text, flags=re.IGNORECASE))
+                                             self._database[search["by"]].matches(search["text"], flags=re.IGNORECASE))
                 else:
                     models = self._db.search(self._database.model_status.one_of(select_status))
             except RuntimeError as rerr:
@@ -917,7 +922,7 @@ class ModelManager:
 
         else:
             if search:
-                models = self._db.search(self._database[by].matches(text, flags=re.IGNORECASE))
+                models = self._db.search(self._database[search["by"]].matches(search["text"], flags=re.IGNORECASE))
             else:
                 models = self._db.all()
 
