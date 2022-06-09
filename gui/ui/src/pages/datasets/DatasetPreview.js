@@ -189,7 +189,7 @@ export const DatasetPreview = (props) => {
                             ) : null
 
                         }
-                         <ButtonsWrapper className={"float-right"}>
+                         <ButtonsWrapper alignment={"right"}>
                             { edit ? (
                                <>
                                 <Button type={"negative"} onClick={editCanceled}>Cancel</Button>
