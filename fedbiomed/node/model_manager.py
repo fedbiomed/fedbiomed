@@ -530,12 +530,11 @@ class ModelManager:
         try:
             # model_id = str(uuid.uuid4())
             model_name = "model_" + str(uuid.uuid4())
-            status, _ = self._repo.download_file(msg['model_url'], model_name + '.py')
+            status, tmp_file = self._repo.download_file(msg['model_url'], model_name + '.py')
 
             reply['status'] = status
 
             # check if model has already been registered into database
-            tmp_file = os.path.join(environ["TMP_DIR"], model_name + '.py')
             model_to_check = self.create_txt_model_from_py(tmp_file)
             is_existant, _ = self.check_model_status(model_to_check, None)
 
@@ -628,7 +627,7 @@ class ModelManager:
 
             # Create model file with id and download
             model_name = 'my_model_' + str(uuid.uuid4().hex)
-            status, _ = self._repo.download_file(msg['model_url'], model_name + '.py')
+            status, model_file = self._repo.download_file(msg['model_url'], model_name + '.py')
             if status != 200:
                 # FIXME: should 'approval_obligation' be always false when model cannot be downloaded,
                 #  regardless of environment variable "MODEL_APPROVAL"?
@@ -638,7 +637,6 @@ class ModelManager:
                          'status': 'Error',
                          'msg': f'Can not download model file. {msg["model_url"]}'}
             else:
-                model_file = os.path.join(environ["TMP_DIR"], model_name + '.py')
                 model = self.get_model_from_database(model_file)
                 if model is not None:
                     model_status = model.get('model_status', 'Not Registered')
