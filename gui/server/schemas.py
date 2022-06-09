@@ -147,9 +147,9 @@ class ListModelRequest(Validator):
     schema = JsonSchema(
         {'type': "object",
          "properties": {
-             "sort_by": {'type': 'string'},
+             "sort_by": {'type': ['string', 'null']},
              "select_status": {'type': 'string'},
-             "search": {'type': 'object',
+             "search": {'type': ['object', 'null'],
                         'properties': {
                             "by": {"type": "string"},
                             "text": {"type": "string"}

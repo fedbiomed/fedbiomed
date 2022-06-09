@@ -12,7 +12,8 @@ import TableSearchBar from "../../components/common/TableSearchBar";
 const ModelsList = (props) => {
 
     const {list_models} = props
-    const [lastReach, setLastSearch] = React.useState({text: null, by: null})
+    const [search, setLastSearch] = React.useState({text: null, by: null})
+    const [sortBy, setSortBy] = React.useState(null)
     React.useEffect(() => {
         list_models()
     }, [list_models])
@@ -51,20 +52,40 @@ const ModelsList = (props) => {
      */
     const onSearch = (searchText, by) => {
         if(searchText && searchText !== ""){
-            list_models({search: {by : by, text: searchText}})
+            list_models({search: {by : by, text: searchText}, sort_by: sortBy})
             setLastSearch({text: searchText, by:by})
-        }else if(lastReach.text){
+        }else if(search.text){
             list_models()
             setLastSearch({text: searchText, by:by})
         }
+    }
+
+    const onSort = (sortBy) => {
+        setSortBy(sortBy)
+        console.log()
+        list_models({
+            search: search.text ? {by : search.by, text: search.text} : null,
+            sort_by : sortBy})
     }
 
     return (
         <React.Fragment>
             <TableSearchBar
                 onSearch={onSearch}
+                onSort={onSort}
                 by={true}
                 byOptions={[
+                            {value : "name", name: "Name"},
+                            {value : "researcher_id", name: "Researcher ID"},
+                            {value : "model_status", name: "Status"},
+                            {value : "description", name: "Description"},
+                            {value : "model_type", name: "Model Type"},
+                            {value : "date_last_action", name: "Last Action Date"},
+                            {value : "date_registered", name: "Registration Date"},
+                            ]}
+                sortOptions = {[
+                            {value : null , name: "None"},
+                            {value : "name", name: "Name"},
                             {value : "researcher_id", name: "Researcher ID"},
                             {value : "model_status", name: "Status"},
                             {value : "description", name: "Description"},

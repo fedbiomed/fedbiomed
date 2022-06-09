@@ -39,6 +39,11 @@ const TableSearchBar = (props) => {
         props.onSearch(search, byS)
     }
 
+    const onSortChange = (e) => {
+        let sortBy = e.target.value
+        props.onSort(sortBy)
+    }
+
     return (
             <div className={styles.wrapper}>
                 <div>
@@ -48,7 +53,7 @@ const TableSearchBar = (props) => {
                         onChange={onSearchChange}
                     />
                 </div>
-                {props.by ? (
+                {props.byOptions ? (
                     <React.Fragment>
                         <div className={styles.by}>
                             On
@@ -59,6 +64,20 @@ const TableSearchBar = (props) => {
                                 options={props.byOptions}
                                 className={styles.fields}
                                 onChange={onByChange}
+                            />
+                        </div>
+                    </React.Fragment>
+                ) : null}
+                {props.sortOptions ? (
+                    <React.Fragment>
+                        <div className={styles.by}>
+                            Sort By
+                        </div>
+                        <div>
+                            <Select
+                                options={props.sortOptions}
+                                className={styles.fields}
+                                onChange={onSortChange}
                             />
                         </div>
                     </React.Fragment>
