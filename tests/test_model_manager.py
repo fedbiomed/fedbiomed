@@ -1086,8 +1086,71 @@ class TestModelManager(unittest.TestCase):
 
         self.patcher_db_get.stop()    
 
-    def test_model_manager_22_reply_model_approval_request(self):
-        pass
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    def test_model_manager_22_reply_model_approval_request(self, download_file_patch):
+        """Test model manager `reply_model_approval_request` function.
+        """
+
+        # patch
+        messaging = MagicMock()
+        messaging.send_message.return_value = None
+
+        def download_file_side_effect(url, file):
+            # remove leading file: url: if any
+            srcfile = url.split(':', 1)[-1]
+            dstfile = os.path.join(environ['TMP_DIR'], file)
+            shutil.copyfile(srcfile, dstfile)
+            return 200, dstfile
+
+        download_file_patch.side_effect = download_file_side_effect
+
+        # note: dont test bad message formatting, this is the duty of the Message class
+
+        # Test 1 : model approval for non existing model
+
+        # prepare
+        model_researcher_id = 'the researcher :%!#><|[]"*&$@!\'\\'
+        model_description = 'the description :%!#><|[]"*&$@!\'\\'
+        model_sequence = -4
+        model_file = os.path.join(self.testdir, 'test-model-1.txt')
+        msg = {
+            'researcher_id': model_researcher_id,
+            'description': model_description,
+            'sequence': model_sequence,
+            'model_url': 'file:' + model_file,
+            'command': 'approval'
+        }
+
+        # test
+        model_before = self.model_manager.get_model_from_database(model_file)
+
+        self.model_manager.reply_model_approval_request(msg, messaging)
+
+        model_after = self.model_manager.get_model_from_database(model_file)
+
+        # check
+        messaging.send_message.assert_called_once_with({
+            'researcher_id': model_researcher_id,
+            'node_id': environ['NODE_ID'],
+            'sequence': model_sequence,
+            'status': 200,
+            'command': 'approval',
+            'success': True
+        })
+        self.assertEqual(model_before, None)
+        self.assertTrue(isinstance(model_after, dict))
+        self.assertEqual(model_after['description'], model_description)
+        self.assertEqual(model_after['researcher_id'], model_researcher_id)
+        self.assertEqual(model_after['model_type'], ModelTypes.REQUESTED.value)
+        self.assertEqual(model_after['model_status'], ModelApprovalStatus.PENDING.value)
+
+        # clean
+        messaging.reset_mock()
+
+        # Test 2 : model approval for existing model
+
+        # Test 3 : model approval with errors
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
