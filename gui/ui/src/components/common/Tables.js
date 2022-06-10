@@ -194,18 +194,22 @@ export const SelectiveTable = (props) => {
 
 
     React.useEffect( () => {
-        if(tableRef.current){
-            tableRef.current.addEventListener('mouseover', handleTableHover);
-            tableRef.current.addEventListener('mouseout', handleTableUnHover);
-            tableRef.current.addEventListener('mousedown', handleTableColumnClick);
+
+        let table = tableRef.current
+
+        if(table){
+            table.addEventListener('mouseover', handleTableHover);
+            table.addEventListener('mouseout', handleTableUnHover);
+            table.addEventListener('mousedown', handleTableColumnClick);
         }
 
         return () => {
           setHoverColIndex(null)
-            if(tableRef.current){
-              tableRef.current.removeEventListener('mouseover', handleTableHover);
-              tableRef.current.removeEventListener('mouseout', handleTableHover);
-              tableRef.current.removeEventListener('mousedown', handleTableColumnClick);
+
+            if(table){
+              table.removeEventListener('mouseover', handleTableHover);
+              table.removeEventListener('mouseout', handleTableHover);
+              table.removeEventListener('mousedown', handleTableColumnClick);
             }
         };
 

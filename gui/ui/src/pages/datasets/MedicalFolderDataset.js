@@ -35,9 +35,6 @@ const withRouter = (Component) =>  {
 
 export class MedicalFolderDataset extends React.Component {
 
-    constructor(props) {
-        super(props);
-    }
 
     setDataPath = (path) => {
         this.props.setFolderPath(path)

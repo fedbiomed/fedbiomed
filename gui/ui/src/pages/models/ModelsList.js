@@ -4,7 +4,6 @@ import {ReactComponent as LaunchIcon} from '../../assets/img/launch.svg'
 import {Link} from "react-router-dom";
 import {TableHead, TableRow, TableCol, TableBody, EntryTable} from "../../components/common/Tables";
 import {list_models} from "../../store/actions/modelsActions";
-import {ReactComponent as SortIcon} from "../../assets/img/sort.svg";
 import Moment from 'react-moment';
 import styles from "./Models.module.css"
 import TableSearchBar from "../../components/common/TableSearchBar";
@@ -35,14 +34,6 @@ const ModelsList = (props) => {
             default:
                 return null
         }
-    }
-
-    /**
-     * Send list request by giving fields
-     * @param by
-     */
-    const sortyBy = (by) => {
-        list_models({sort_by : by})
     }
 
     /**
