@@ -296,7 +296,7 @@ const Index = (props) => {
             </div> 
             <div className="frame-footer">
                 { props.mode === "file-browser" ? (
-                    <ButtonsWrapper className={"float-right"}>
+                    <ButtonsWrapper alignment={"right"}>
                     {
                         selected ? (
                             <Button

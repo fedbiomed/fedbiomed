@@ -41,13 +41,15 @@ def list_models():
     req = request.json
     sort_by = req.get('sort_by', None)
     select_status = req.get('select_status', None)
+    search = req.get('search', None)
 
     if select_status is not None:
         select_status = ModelApprovalStatus.str2enum(select_status)
 
     res = MODEL_MANAGER.list_models(sort_by=sort_by, 
                                     select_status=select_status,
-                                    verbose=False)
+                                    verbose=False,
+                                    search=search)
     return response(res), 200
 
 
@@ -73,10 +75,12 @@ def approve_model():
     """
     req = request.json
     model_id = req.get('model_id')
+    model_note = req.get('notes', None)
+
     if model_id is None:
         return error("missing model_id"), 400
     try:
-        res = MODEL_MANAGER.approve_model(model_id)
+        res = MODEL_MANAGER.approve_model(model_id, model_note)
     except FedbiomedModelManagerError as fed_err:
         return error(str(fed_err)), 400
     return success(f"model {model_id} has been approved"), 200
@@ -104,10 +108,12 @@ def reject_model():
     """
     req = request.json
     model_id = req.get('model_id')
+    model_note = req.get('notes', None)
+
     if model_id is None:
         return error("missing model_id"), 400
     try:
-        res = MODEL_MANAGER.reject_model(model_id)
+        res = MODEL_MANAGER.reject_model(model_id, extra_notes=model_note)
     except FedbiomedModelManagerError as fed_err:
         return error(str(fed_err)), 400
     return success(f"model {model_id} has been rejected"), 200
@@ -117,7 +123,7 @@ def reject_model():
 @validate_request_data(schema=DeleteModelRequest)
 def delete_model():
     """API endpoint for deleting model
-    
+
     ----
     Request {application/json}:
             model_id  : model id that should be deleted (required)
@@ -148,7 +154,7 @@ def delete_model():
 def preview_model():
     """API endpoint for getting a specific model entry through [`model_id`]
     ---
-    
+
     Request {application/json}:
             model_id  : model id to look for in the database
 
@@ -175,35 +181,3 @@ def preview_model():
     else:
         return response(res), 200
 
-
-@api.route('/model/update-list-model', methods=["GET"])
-def update_list_model():
-    """API endpoint for getting only newly added model in database
-    (avoid returning model list each time for performance sake).
-    Returns either models that have been added after the last call to
-    `update_list_model` or modified (through `date_last_action` field) or 
-    which have missing dates
-    ---
-    Response {application/json}:
-        200:
-            success: True
-            result: list of newly added models
-            message: null
-    """
-    global TIME_OF_LAST_CALL
-    print("LAST CALL", TIME_OF_LAST_CALL)
-    models = MODEL_MANAGER.list_models(sort_by='date_last_action', verbose=False)
-    updated_models = []
-    # we sort list from the more recent updated models to the less recent ones (list_model
-    # returns from the older to newer)
-    for model in models[::-1]:
-        date = model.get('date_last_action', datetime.now())
-        if isinstance(date, str):
-            date = datetime.strptime(date, "%d-%m-%Y %H:%M:%S.%f")
-        if date is None or TIME_OF_LAST_CALL < date:
-            # Append to list only recent models
-            updated_models.append(model)
-
-    TIME_OF_LAST_CALL = datetime.now()
-    
-    return response(updated_models), 200

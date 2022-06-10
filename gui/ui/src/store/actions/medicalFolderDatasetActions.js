@@ -7,6 +7,7 @@ import {
     EP_ADD_MEDICAL_FOLDER_DATASET,
     EP_PREVIEW_MEDICAL_FOLDER_DATASET
 } from "../../constants";
+import {displayError} from "./actions";
 
 /**
  * Sets Folder Path
@@ -200,22 +201,3 @@ const getSubDirectories = (path) => {
     }
 }
 
-
-/**
- * Dispatch action the display global error modal window
- * @param error
- * @param message
- * @returns {(function(*): void)|*}
- */
-const displayError = (error, message = "") => {
-    return (dispatch) => {
-        dispatch({type:'SET_LOADING', payload: {status: false}})
-        if(error.response){
-            if(error.response.data.message){
-                dispatch({type: 'ERROR_MODAL', payload: message + error.response.data.message})
-            }else{
-                dispatch({type: 'ERROR_MODAL', payload: 'Undefined error: ' + error.toString()})
-            }
-        }
-    }
-}

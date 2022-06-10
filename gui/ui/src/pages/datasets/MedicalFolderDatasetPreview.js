@@ -1,6 +1,6 @@
 import React from 'react';
 import {connect} from "react-redux"
-import {Table, TableRows, TableHead } from "../../components/common/Tables";
+import {DataTableRows, DataTableHead, TableWrapper, TableData} from "../../components/common/Tables";
 import {getMedicalFolderPreview} from "../../store/actions/medicalFolderDatasetActions";
 import {ReactComponent as TickIcon} from '../../assets/img/tick.svg'
 import {ReactComponent as XIcon} from '../../assets/img/x.svg'
@@ -29,10 +29,12 @@ const MedicalFolderDatasetPreview = (props) => {
     if(props.medical_folder_dataset.subject_table){
         return (
             <React.Fragment>
-                <Table style={{maxHeight:350,textAlign:'center'}}>
-                    <TableHead table={props.medical_folder_dataset.subject_table} showIndex={true} hoverColumns={false} indexName={"Subjects"}/>
-                    <TableRows table={props.medical_folder_dataset.subject_table} showIndex={true} hoverColumns={false} transformation={transform}/>
-                </Table>
+                <TableWrapper maxHeight={350}>
+                    <TableData style={{textAlign:'center'}}>
+                        <DataTableHead table={props.medical_folder_dataset.subject_table} showIndex={true} hoverColumns={false} indexName={"Subjects"}/>
+                        <DataTableRows table={props.medical_folder_dataset.subject_table} showIndex={true} hoverColumns={false} transformation={transform}/>
+                    </TableData>
+                </TableWrapper>
             </React.Fragment>
         );
     }else{
