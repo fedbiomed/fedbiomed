@@ -123,7 +123,7 @@ def reject_model():
 @validate_request_data(schema=DeleteModelRequest)
 def delete_model():
     """API endpoint for deleting model
-    
+
     ----
     Request {application/json}:
             model_id  : model id that should be deleted (required)
@@ -154,7 +154,7 @@ def delete_model():
 def preview_model():
     """API endpoint for getting a specific model entry through [`model_id`]
     ---
-    
+
     Request {application/json}:
             model_id  : model id to look for in the database
 

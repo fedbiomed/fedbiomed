@@ -18,7 +18,7 @@ const SingleModelActions = (props) => {
      * Globally handles approval/rejection operation
      * @param action
      */
-    const handelModalApprove = (action) => {
+    const handleModalApprove = (action) => {
 
         setModal({...modal, show:false})
         console.log(notes)
@@ -119,7 +119,7 @@ const SingleModelActions = (props) => {
                     ): null}
                 </Modal.Content>
                 <Modal.Footer>
-                    <Button type={modal.approveAction?.type} onClick={() => handelModalApprove(modal.approveAction?.action)}>
+                    <Button type={modal.approveAction?.type} onClick={() => handleModalApprove(modal.approveAction?.action)}>
                         {modal.approveAction?.text}
                     </Button>
                     <Button type={modal.cancelAction?.type} onClick={handleClose}>

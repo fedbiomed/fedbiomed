@@ -105,6 +105,7 @@ export const DatasetPreview = (props) => {
      */
     const parseShape = (shape) => {
         let content = ""
+        // display shape of the dataset
         if(Array.isArray(shape)){
             content  =  shape.join(' x ')
         }else{

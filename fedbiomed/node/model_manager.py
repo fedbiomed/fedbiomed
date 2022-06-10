@@ -399,6 +399,16 @@ class ModelManager:
     def get_model_by_id(self, model_id: str, secure: bool = True, content: bool = False) -> Union[Dict[str, Any], None]:
         """Returns model entry from database through a query based on the model_id.
         If there is no model matching [`model_id`], returns None
+        
+        Args:
+            model_id: id of the model
+            secure: whether to remove sensible information when displaying entry or not
+            content: whether file content of the model should be outputed or not
+            
+        Returns:
+            model entry matching [`model_id`]. Content/fields of the model depend(s) of [`secure`] 
+            and [`content`] arguments.
+            
         """
         model = self._db.get(self._database.model_id == model_id)
 
@@ -869,7 +879,7 @@ class ModelManager:
     def list_models(self, sort_by: Union[str, None] = None,
                     select_status: Union[None, ModelApprovalStatus, List[ModelApprovalStatus]] = None,
                     verbose: bool = True,
-                    search: Union[dict, None] = None) -> List:
+                    search: Union[dict, None] = None) -> List[Dict[str, Any]]:
         """Lists approved model files
 
         Args:
