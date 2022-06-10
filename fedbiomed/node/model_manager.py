@@ -380,7 +380,7 @@ class ModelManager:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : model_path not found in database entry" 
                                              f" ({model_path})")
         req_model_hash, _ = self._create_hash(model_path)
-        
+
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
 
         # TODO: more robust implementation
@@ -685,7 +685,7 @@ class ModelManager:
                     # else we have error because this model exists in database with same hash
                     if hash != model_info['hash']:
                         # Verify no such model already exists in DB
-                        self._check_model_not_existing(None, None , hash, algorithm)
+                        self._check_model_not_existing(None, None, hash, algorithm)
 
                     logger.info(f"Modified default model file has been detected. Hashing will be updated for: {model}")
                     self._db.update({'hash': hash, 'algorithm': algorithm,
