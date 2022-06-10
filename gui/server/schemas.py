@@ -147,8 +147,15 @@ class ListModelRequest(Validator):
     schema = JsonSchema(
         {'type': "object",
          "properties": {
-             "sort_by": {'type': 'string'},
-             "select_status": {'type': 'string'}
+             "sort_by": {'type': ['string', 'null']},
+             "select_status": {'type': 'string'},
+             "search": {'type': ['object', 'null'],
+                        'properties': {
+                            "by": {"type": "string"},
+                            "text": {"type": "string"}
+                        },
+                        "required": ["by", "text"]}
+
          },
          "required": []
          },
@@ -164,7 +171,7 @@ class ApproveRejectModelRequest(Validator):
                           "minLength": 1,
                           'errorMessages': {"minLength": "model_id must have at least one character"},
                           },
-             "notes": {"type": "string"}
+             "notes": {"type": ["string", "null"], "default": "No notes available"}
          },
          "required": ["model_id"]
          }

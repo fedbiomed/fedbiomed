@@ -1,11 +1,10 @@
 """Manages model approval for a node.
 """
 
-
 from datetime import datetime
 import hashlib
 import os
-
+import re
 from python_minifier import minify
 import shutil
 from tabulate import tabulate
@@ -19,9 +18,8 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.repository import Repository
-
+from fedbiomed.common.validator import SchemeValidator, ValidateError
 from fedbiomed.node.environ import environ
-
 
 # Collect provided hashing function into a dict
 HASH_FUNCTIONS = {
@@ -35,10 +33,14 @@ HASH_FUNCTIONS = {
     HashingAlgorithms.BLAKE2S.value: hashlib.blake2s,
 }
 
+modelsSearchScheme = SchemeValidator({"by": {"rules": [str], "required": True},
+                                      "text": {"rules": [str], "required": True}})
+
 
 class ModelManager:
     """Manages model approval for a node.
     """
+
     def __init__(self):
         """Class constructor for ModelManager.
 
@@ -142,9 +144,9 @@ class ModelManager:
                 models_name_get = self._db.get(self._database.name == name)
             except Exception as err:
                 error = ErrorNumbers.FB606.value + ": search request on database failed." + \
-                                                   f" Details: {str(err)}"
+                    f" Details: {str(err)}"
                 logger.critical(error)
-                raise FedbiomedModelManagerError(error)        
+                raise FedbiomedModelManagerError(error)
             if models_name_get:
                 error = ErrorNumbers.FB606.value + \
                     f': there is already a existing model with same name: "{name}"' + \
@@ -157,7 +159,7 @@ class ModelManager:
                 models_path_get = self._db.get(self._database.model_path == path)
             except Exception as err:
                 error = ErrorNumbers.FB606.value + ": search request on database failed." + \
-                                                   f" Details: {str(err)}"
+                    f" Details: {str(err)}"
                 logger.critical(error)
                 raise FedbiomedModelManagerError(error)
             if models_path_get:
@@ -177,7 +179,7 @@ class ModelManager:
                                                    (self._database.algorithm == algorithm))
             except Exception as err:
                 error = ErrorNumbers.FB606.value + ": search request on database failed." + \
-                                                   f" Details: {str(err)}"
+                    f" Details: {str(err)}"
                 logger.critical(error)
                 raise FedbiomedModelManagerError(error)
             if models_hash_get:
@@ -255,7 +257,7 @@ class ModelManager:
             self._db.insert(model_object)
         except Exception as err:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : database insertion failed with"
-                                             f" following error: {str(err)}")
+                                                                        f" following error: {str(err)}")
         return True
 
     def check_hashes_for_registered_models(self):
@@ -286,7 +288,7 @@ class ModelManager:
                         hashing, algorithm = self._create_hash(model['model_path'])
 
                         # Verify no such model already exists in DB
-                        self._check_model_not_existing(None, None , hashing, algorithm)
+                        self._check_model_not_existing(None, None, hashing, algorithm)
 
                         rtime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
                         try:
@@ -351,7 +353,7 @@ class ModelManager:
         elif isinstance(state, ModelTypes):
             _all_models_with_status = (self._database.model_type == state.value)
         else:
-            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : status should be either" + 
+            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : status should be either" +
                                              f" ModelApprovalStatus or ModelTypes, but got {type(state)}")
         _all_models_which_have_req_hash = (self._database.hash == req_model_hash)
 
@@ -676,14 +678,14 @@ class ModelManager:
                      'approval_obligation': False,
                      'status': 'Error',
                      'msg': ErrorNumbers.FB604.value + ': An error occured when downloading model file.'
-                     f' {msg["model_url"]} , {fed_err}'}
+                                                       f' {msg["model_url"]} , {fed_err}'}
         except Exception as e:
             reply = {**header,
                      'success': False,
                      'approval_obligation': False,
                      'status': 'Error',
                      'msg': ErrorNumbers.FB606.value + ': An unknown error occured when downloading model file.'
-                     f' {msg["model_url"]} , {e}'}
+                                                       f' {msg["model_url"]} , {e}'}
         # finally:
         #     # Send check model status answer to researcher
         messaging.send_message(NodeMessages.reply_create(reply).get_dict())
@@ -741,7 +743,7 @@ class ModelManager:
                 self._db.remove(doc_ids=[model_doc.doc_id])
             except Exception as err:
                 raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": failed to update database, "
-                                                 f" with error {str(err)}")
+                                                                            f" with error {str(err)}")
         # Update models
         for model in models_exists:
             path = os.path.join(environ['DEFAULT_MODELS_DIR'], model)
@@ -754,11 +756,11 @@ class ModelManager:
                                                  f"Details : {str(err)}")
             # Check if hashing algorithm has changed
             try:
-                hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_MODELS_DIR'], model))               
+                hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_MODELS_DIR'], model))
 
                 if model_info['algorithm'] != environ['HASHING_ALGORITHM']:
                     # Verify no such model already exists in DB
-                    self._check_model_not_existing(None, None , hash, algorithm) 
+                    self._check_model_not_existing(None, None, hash, algorithm)
 
                     logger.info(f'Recreating hashing for : {model_info["name"]} \t {model_info["model_id"]}')
                     self._db.update({'hash': hash, 'algorithm': algorithm,
@@ -770,7 +772,7 @@ class ModelManager:
                     # else we have error because this model exists in database with same hash
                     if hash != model_info['hash']:
                         # Verify no such model already exists in DB
-                        self._check_model_not_existing(None, None , hash, algorithm)
+                        self._check_model_not_existing(None, None, hash, algorithm)
 
                     logger.info(f"Modified default model file has been detected. Hashing will be updated for: {model}")
                     self._db.update({'hash': hash, 'algorithm': algorithm,
@@ -780,7 +782,7 @@ class ModelManager:
             except Exception as err:
                 # triggered if database update failed (see `update` method in tinydb code)
                 raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": Failed to update database, with error: "
-                                                 f"{str(err)}")
+                                                                            f"{str(err)}")
 
     def update_model_hash(self, model_id: str, path: str) -> True:
         """Updates an existing model entry in model database. 
@@ -809,11 +811,11 @@ class ModelManager:
             model = self._db.get(self._database.model_id == model_id)
         except Exception as err:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": get request on database failed."
-                                             f" Details: {str(err)}")
+                                                                        f" Details: {str(err)}")
         if model['model_type'] != ModelTypes.DEFAULT.value:
             hash, algorithm = self._create_hash(path)
             # Verify no such model already exists in DB
-            self._check_model_not_existing(None, path , hash, algorithm)
+            self._check_model_not_existing(None, path, hash, algorithm)
 
             # Get modification date
             mtime = datetime.fromtimestamp(os.path.getmtime(path))
@@ -831,15 +833,16 @@ class ModelManager:
                 raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": update database failed. Details :"
                                                  f"{str(err)}")
         else:
-            raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 'You cannot update default models. Please '
-                                             'update them through their files saved in `default_models` directory '
-                                             'and restart your node')
+            raise FedbiomedModelManagerError(
+                ErrorNumbers.FB606.value + 'You cannot update default models. Please '
+                'update them through their files saved in `default_models` directory '
+                'and restart your node')
 
         return True
 
     def _update_model_status(self,
                              model_id: str,
-                             model_status: ModelApprovalStatus, 
+                             model_status: ModelApprovalStatus,
                              notes: Union[str, None] = None) -> True:
         """Updates model entry ([`model_status`] field) for a given [`model_id`] in the database
 
@@ -860,7 +863,7 @@ class ModelManager:
             model = self._db.get(self._database.model_id == model_id)
         except Exception as err:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": get request on database failed."
-                                             f" Details: {str(err)}")
+                                                                        f" Details: {str(err)}")
         if model is None:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value +
                                              f": no model matches provided model_id {model_id}")
@@ -963,7 +966,8 @@ class ModelManager:
 
     def list_models(self, sort_by: Union[str, None] = None,
                     select_status: Union[None, ModelApprovalStatus, List[ModelApprovalStatus]] = None,
-                    verbose: bool = True) -> List:
+                    verbose: bool = True,
+                    search: Union[dict, None] = None) -> List[Dict[str, Any]]:
         """Lists approved model files
 
         Args:
@@ -972,7 +976,8 @@ class ModelManager:
             select_status: filter list by model status or list of model statuses
             verbose: When it is True, print list of model in tabular format.
                 Default is True.
-
+            search: Dictionary that contains `text` property to declare the text that wil be search and `by`
+                property to declare text will be search on which field
         Returns:
             A list of models that have
                 been found as `registered`. Each model is in fact a dictionary
@@ -985,6 +990,16 @@ class ModelManager:
 
         self._db.clear_cache()
 
+        if search and not isinstance(search, dict):
+            raise FedbiomedModelManagerError(f"{ErrorNumbers.FB606.value}: `search` argument should be dictionary that "
+                                             f"contains `text` and `by` (that indicates field to search on)")
+
+        if search:
+            try:
+                modelsSearchScheme.validate(search)
+            except ValidateError as e:
+                raise FedbiomedModelManagerError(f"{ErrorNumbers.FB606.value}: `search` argument is not valid. {e}")
+
         if isinstance(select_status, (ModelApprovalStatus, list)):
             # filtering model based on their status
             if not isinstance(select_status, list):
@@ -993,20 +1008,27 @@ class ModelManager:
             select_status = [x.value for x in select_status if isinstance(x, ModelApprovalStatus)]
             # extract value from ModelApprovalStatus
             try:
-                models = self._db.search(self._database.model_status.one_of(select_status))
+                if search:
+                    models = self._db.search(self._database.model_status.one_of(select_status) &
+                                             self._database[search["by"]].matches(search["text"], flags=re.IGNORECASE))
+                else:
+                    models = self._db.search(self._database.model_status.one_of(select_status))
             except Exception as err:
-                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 
+                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value +
                                                  ": request failed when looking for a model into database with" +
                                                  f" error: {err}")
 
         else:
             try:
-                models = self._db.all()
+                if search:
+                    models = self._db.search(self._database[search["by"]].matches(search["text"], flags=re.IGNORECASE))
+                else:
+                    models = self._db.all()
             except Exception as e:
                 raise FedbiomedModelManagerError(
                     ErrorNumbers.FB606.value + f"database full read operation failed, with following error: {str(e)}")
-        # Drop some keys for security reasons
 
+        # Drop some keys for security reasons
         for doc in models:
             self._remove_sensible_keys_from_request(doc)
 
@@ -1018,7 +1040,7 @@ class ModelManager:
                 raise FedbiomedModelManagerError(
                     ErrorNumbers.FB606.value + f"database search operation failed, with following error: {str(e)}")
             if is_entry_exists and sort_by not in self._tags_to_remove:
-                models = sorted(models, key= lambda x: (x[sort_by] is None, x[sort_by]))
+                models = sorted(models, key=lambda x: (x[sort_by] is None, x[sort_by]))
             else:
                 logger.warning(f"Field {sort_by} is not available in dataset")
 
