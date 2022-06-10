@@ -552,7 +552,7 @@ class TestModelManager(unittest.TestCase):
             self.assertEqual(code, code_source)
 
     def test_model_manager_13_update_model_normal_case(self, ):
-        """Tests method `update_model` in the normal case scenario"""
+        """Tests method `update_model_hash` in the normal case scenario"""
 
         # database initialisation
         default_model_file_1 = os.path.join(self.testdir, 'test-model-1.txt')
@@ -592,8 +592,11 @@ class TestModelManager(unittest.TestCase):
         self.assertEqual(updated_model['date_created'], file_creation_date_literal)
         self.assertEqual(updated_model['model_path'], default_model_file_2)
 
-    def test_model_manager_14_update_model_exception(self):
-        """Tests method `update_model` """
+    def test_model_manager_14_update_model_exception1(self):
+        """Tests method `update_model_hash` in error cases """
+
+        # Test 1 : update of a default model
+
         # database preparation
         default_model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
         self.model_manager.register_model(
@@ -606,6 +609,36 @@ class TestModelManager(unittest.TestCase):
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager.update_model_hash(model_id='test-model-id',
                                                  path=default_model_file_path)
+
+    def test_model_manager_14_update_model_exception2(self):
+        """Tests method `update_model_hash` in error cases continued """
+
+        # Test 2 : database access error
+
+        # prepare
+        for patch_start, patch_stop in [
+                (self.patcher_db_get.start, self.patcher_db_get.stop),
+                (self.patcher_db_update.start, self.patcher_db_update.stop)]: 
+            for model_type in [ModelTypes.REGISTERED.value, ModelTypes.REQUESTED.value]:
+                default_model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
+                self.model_manager.register_model(
+                    name='test-model',
+                    path=default_model_file_path,
+                    model_type=model_type,
+                    description='desc',
+                    model_id='test-model-id'
+                )
+
+                patch_start()
+
+                # test + check
+                with self.assertRaises(FedbiomedModelManagerError):
+                    self.model_manager.update_model_hash(model_id='test-model-id',
+                                                         path=default_model_file_path)
+
+                # clean
+                patch_stop()
+                self.model_manager.delete_model('test-model-id')
 
     def test_model_manager_15_delete_registered_models(self):
         """ Testing delete operation for model manager """
@@ -1242,8 +1275,7 @@ class TestModelManager(unittest.TestCase):
         for approval_action, approval_status in [
                 (noaction_model, ModelApprovalStatus.PENDING.value),
                 (self.model_manager.approve_model, ModelApprovalStatus.APPROVED.value),
-                (self.model_manager.reject_model, ModelApprovalStatus.REJECTED.value)
-            ]:
+                (self.model_manager.reject_model, ModelApprovalStatus.REJECTED.value)]:
             # also update status
             approval_action(model_id, 'dummy notes')
 

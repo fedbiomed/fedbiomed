@@ -785,20 +785,22 @@ class ModelManager:
                                                  f"{str(err)}")
 
     def update_model_hash(self, model_id: str, path: str) -> True:
-        """Updates model file entry in model database.
+        """Updates an existing model entry in model database. 
 
-        Updates model hash value for provided model file. It also updates
-        `data_modified`, `date_created` and
-        `model_path` in case the provided model file is different from the currently registered one.
+        Model entry cannot be a default model.
+
+        The model entry to update is indicated by its `model_id`
+        The new model file for the model is specified from `path`.
 
         Args:
-            model_id: Id of the model
-            path: The path where model file is stored
+            model_id: id of the model to update
+            path: path where new model file is stored
 
         Returns:
             Currently always returns True.
 
         Raises:
+            FedbiomedModelManagerError: try to update a default model
             FedbiomedModelManagerError: cannot read or update the model in database
         """
 
