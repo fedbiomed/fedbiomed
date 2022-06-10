@@ -18,6 +18,9 @@ import {connect, useDispatch} from 'react-redux'
 import Button, {ButtonsWrapper} from "./components/common/Button";
 import CommonStandards from "./pages/datasets/CommonStandards";
 import MedicalFolderDataset from "./pages/datasets/MedicalFolderDataset";
+import Models from "./pages/models/Models";
+import SingleModel from "./pages/models/SingleModel";
+
 
 function App(props) {
 
@@ -41,12 +44,14 @@ function App(props) {
                     <Route exact path="/" element={<Home/>} />
                     <Route path="/configuration/" element={<Configuration/>} />
                     <Route path="/repository/" element={<Repository/>} />
+                    <Route path="/models/" element={<Models/>} />
+                    <Route path="/models/preview/:model_id" element={<SingleModel />} />
                     <Route path="/datasets/" element={<Datasets/>} />
+                    <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview />} />
                     <Route path="/datasets/add-dataset/" element={<AddDataset/>} >
                         <Route index element={<CommonStandards/>} />
                         <Route path="medical-folder-dataset" element={<MedicalFolderDataset/>} />
                     </Route>
-                    <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview />} />
                   </Routes>
                   <div className={`loader-frame ${props.result.loading ?  'active' : ''}`}>
                       <div style={{width:"100%"}}>
@@ -74,7 +79,7 @@ function App(props) {
             {props.result.message}
         </Modal.Content>
         <Modal.Footer>
-               <ButtonsWrapper className={"float-right"}>
+               <ButtonsWrapper alignment={"right"}>
                         <Button onClick={onResultModalClose}>Close</Button>
                 </ButtonsWrapper>
         </Modal.Footer>

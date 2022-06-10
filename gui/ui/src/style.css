@@ -127,70 +127,6 @@ hr {
     color: #fff;
 }
 
-/* Butons CSS Start----------------------------------------------------------------------------------*/
-.button {
-  display: flex;
-  align-items: center;
-  max-width: 150px;
-  background: #eee;
-  padding: 5px;
-  text-align: center;
-  justify-content: center;
-  border-radius: 5px;
-  cursor:pointer
-}
-
-.button div.icon , .button div.text {
-  text-align: center;
-  margin: 5px;  /* and that, will result in a 10px gap */
-}
-
-.button .icon {
-  width: 25px !important;
-}
-
-.button {
-  width: auto;
-  padding: 10px;
-  color: #fff;
-  background-color: #0b6881;
-  cursor: pointer;
-  margin: 5px;  
-  border-radius: 5px;
-}
-
-.button:hover {
-  background-color: #888;
-}
-
-.button.negative {
-  background-color: #da334f;
-}
-
-.button.negative:hover {
-  background-color: #d3586d;
-}
-
-
-.buttons-wrapper {
-  display: flex;
-}
-
-.buttons-wrapper.float-right {
-  justify-content: flex-end;
-}
-.select-sm-button {
-  padding: 5px 5px 5px 5px;
-  background: var(--primary-color);
-  color: #fff;
-  border-radius: 5px;
-  font-size:10px;
-  text-align: center;
-  }
-
-/* Butons CSS END----------------------------------------------------------------------------------*/
-
-
 /* Header CSS START ------------------------------------------------------------------------------------*/
 
 .header {
@@ -206,6 +142,20 @@ hr {
 
 
 /* Header CSS END ------------------------------------------------------------------------------------*/
+
+
+/* ----- Button */
+
+.select-sm-button {
+  padding: 5px 5px 5px 5px;
+  background: var(--primary-color);
+  color: #fff;
+  border-radius: 5px;
+  font-size:10px;
+  text-align: center;
+  }
+
+
 
 
 /* Side Bar Navigation -------------------------------------------------------------------------------*/
@@ -526,107 +476,6 @@ table.repository-table tr td .name .icon{
   width: 25px;
 }
 
-/* Repository CSS Ends ---------------------------------------------------------------------------------*/
-
-
-/* Datasets CSS Starts =-----------------------------------------------------------------------------------*/
-
-table.datasets, table.data, table.info {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-table.datasets tr, table.data tr, table.info tr{
-  border-bottom: 1px solid #e6e4e4;
-  padding : 10px 0px;
-}
-
-table.datasets tr td, th{
-  text-align: left;
-  padding : 10px 10px;
-}
-
-table.datasets tr:hover {
-  background: #eee;
-  
-}
-table.datasets tr td .icon {
-  width: 100%;
-  text-align: center;
-  cursor:pointer
-}
-
-
-table.datasets tr td .icon{
-  width: 20px;
-}
-table.datasets tr td.center {
-  display: flex;
-  justify-content: center;
-}
-
-table.datasets tr td .icon  {
-  cursor:pointer
-}
-table.datasets tr td .icon.delete:hover  {
-  fill : red
-}
-
-table td .action-buttons {
-  display: flex;
-  justify-content: space-evenly;
-  align-items: center;
-  width: 100%;
-}
-
-div.tag {
-  display: inline-block;
-  width: auto;
-  padding:3px;
-  font-size: 12px;
-  background: #0099cc;
-  color:#fff;
-  border-radius: 3px;
-  margin: 3px;
-}
-
-
-table.data tr td, table.data tr th {
-  padding : 10px;
-  min-width: 100px;
-  max-width: 100px;
-  text-align: center;
-}
-
-table.data tbody tr:nth-child(1) {
-  border-bottom:3px solid var(--primary-color)
-}
-
-table.data tr th {
-  background-color: #eee;
-}
-
-table.info tr td{
-  padding : 10px;
-}
-
-table.info tr td.title{
-  background: #003366;
-  color:#fff
-}
-
-
-div.table {
-  width: 100%;
-  overflow-x: scroll;
-  margin: 10px 0px
-}
-
-
-
-
-
-
 /* Datasets CSS Ends =-----------------------------------------------------------------------------------*/
 
 
@@ -882,7 +731,7 @@ textarea.input {
   padding: 20px;
       padding-left: 20px;
   border-radius: 10px;
-  padding-left: 35px;
+  padding-left: 45px;
   margin: 10px 0px 10px 0px;
 }
 
