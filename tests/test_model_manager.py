@@ -792,24 +792,31 @@ class TestModelManager(unittest.TestCase):
         # test 2: case where status code of HTTP request equals 200 AND model has
         # not been approved
         msg['researcher_id'] = 'dddd'
-        mock_get_model.return_value = {'model_status': ModelApprovalStatus.REJECTED.value}
-        messaging.reset_mock()
-        # action
-        self.model_manager.reply_model_status_request(msg, messaging)
 
-        # check
-        messaging.send_message.assert_called_once_with({'researcher_id': 'dddd',
-                                                        'node_id': environ['NODE_ID'],
-                                                        'job_id': 'xxx',
-                                                        'success': True,
-                                                        'approval_obligation': True,
-                                                        'status': ModelApprovalStatus.REJECTED.value,
-                                                        'msg': "Model has been rejected by the node," +
-                                                        " training is not possible",
-                                                        'model_url': msg['model_url'],
-                                                        'command': 'model-status'
-                                                        })
+        for model_status, message in [
+                (ModelApprovalStatus.REJECTED.value, 'Model has been rejected by the node, training is not possible'),
+                (ModelApprovalStatus.PENDING.value, 'Model is pending: waiting for a review')]:
+            # prepare
+            mock_get_model.return_value = {'model_status': model_status}
+            messaging.reset_mock()
+
+            # test
+            self.model_manager.reply_model_status_request(msg, messaging)
+
+            # check
+            messaging.send_message.assert_called_once_with({'researcher_id': 'dddd',
+                                                            'node_id': environ['NODE_ID'],
+                                                            'job_id': 'xxx',
+                                                            'success': True,
+                                                            'approval_obligation': True,
+                                                            'status': model_status,
+                                                            'msg': message,
+                                                            'model_url': msg['model_url'],
+                                                            'command': 'model-status'
+                                                            })
+
         # test 3: case where "MODEL_APPROVAL" has not been set 
+        mock_get_model.return_value = {'model_status': ModelApprovalStatus.REJECTED.value}
         messaging.reset_mock()
 
         self.values["MODEL_APPROVAL"] = False
@@ -847,6 +854,42 @@ class TestModelManager(unittest.TestCase):
                                                         'model_url': msg['model_url'],
                                                         'command': 'model-status'
                                                         })
+
+        # test 5: case where model is not registered
+
+        for approval, message in [
+                (False, 'This node does not require model approval (maybe for debuging purposes).'),
+                (True, "Unknown model / model not in database (status Not Registered)")]:
+
+            # prepare
+            msg = {
+                'researcher_id': 'ssss',
+                'job_id': 'xxx',
+                'model_url': 'file:/' + os.path.join(self.testdir, 'test-model-1.txt'),
+                'command': 'model-status'
+            }
+            self.values["MODEL_APPROVAL"] = approval
+
+            mock_download.return_value = 200, None
+            mock_get_model.return_value = None
+            messaging.reset_mock()
+
+            # test
+            self.model_manager.reply_model_status_request(msg, messaging)
+
+            # check
+            messaging.send_message.assert_called_once_with({
+                'researcher_id': msg['researcher_id'],
+                'node_id': environ['NODE_ID'],
+                'job_id': 'xxx',
+                'success': True,
+                'approval_obligation': approval,
+                'status': 'Not Registered',
+                'msg': message,
+                'model_url': msg['model_url'],
+                'command': 'model-status'})
+
+
 
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('fedbiomed.node.model_manager.ModelManager.get_model_from_database')

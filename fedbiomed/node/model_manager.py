@@ -624,7 +624,6 @@ class ModelManager:
         }
 
         try:
-
             # Create model file with id and download
             model_name = 'my_model_' + str(uuid.uuid4().hex)
             status, model_file = self._repo.download_file(msg['model_url'], model_name + '.py')
@@ -671,7 +670,6 @@ class ModelManager:
                      'status': 'Error',
                      'msg': ErrorNumbers.FB606.value +
                      f': Cannot check if model has been registered. Details {fed_err}'}
-
         except FedbiomedRepositoryError as fed_err:
             reply = {**header,
                      'success': False,
