@@ -7,6 +7,7 @@ import {ReactComponent as LaunchIcon} from '../../assets/img/launch.svg'
 import Modal from '../../components/common/Modal';
 import Button from '../../components/common/Button'
 import {Text} from '../../components/common/Inputs'
+import {EntryTable, TableBody} from "../../components/common/Tables";
 
 
 export const Datasets = (props) => {
@@ -163,7 +164,7 @@ export const Datasets = (props) => {
                     </p>
                     {
                         defaultDataStatus() === false ? (
-                            <Button style={{marginLeft:'auto'}} onClick={onAddDefaultDataset}>
+                            <Button wrapperStyle={{marginLeft:'auto'}} onClick={onAddDefaultDataset}>
                                 Add MNIST Dataset
                             </Button>
                         ) : null
@@ -189,15 +190,12 @@ export const Datasets = (props) => {
                              style={{ visibility: searchRT === "" ? 'hidden' : 'visible'}}
                              onClick={clearSearch}
                         >X</div>
-                        {/*<Button style={{}} onClick={onAddDefaultDataset}>*/}
-                        {/*        Search*/}
-                        {/*</Button>*/}
                     </div>
                 </div>
             </div>
             <div className="frame-content">
-                <table className="datasets">
-                    <tbody>
+                <EntryTable>
+                    <TableBody>
                         <tr>
                             <th>Name</th>
                             <th>Type</th>
@@ -249,9 +247,8 @@ export const Datasets = (props) => {
                                     </tr> )
                         }))}
 
-                    </tbody>
-                </table>
-
+                    </TableBody>
+                </EntryTable>
             </div>
             <div className="frame-footer">
                  <Link to="/datasets/add-dataset">
