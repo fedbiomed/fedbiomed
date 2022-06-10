@@ -169,7 +169,6 @@ export const TableData = (props) => {
     }
 }
 
-
 export const SelectiveTable = (props) => {
     const tableRef = React.createRef()
     const [hoverColIndex, setHoverColIndex] = React.useState(null)
@@ -193,27 +192,24 @@ export const SelectiveTable = (props) => {
     }, []);
 
 
-    React.useEffect( () => {
+    const setTableRef = React.useCallback( node => {
 
-        let table = tableRef.current
-
-        if(table){
-            table.addEventListener('mouseover', handleTableHover);
-            table.addEventListener('mouseout', handleTableUnHover);
-            table.addEventListener('mousedown', handleTableColumnClick);
+        if(tableRef.current){
+              tableRef.current.removeEventListener('mouseover', handleTableHover);
+              tableRef.current.removeEventListener('mouseout', handleTableHover);
+              tableRef.current.removeEventListener('mousedown', handleTableColumnClick);
         }
 
-        return () => {
-          setHoverColIndex(null)
+        if(node){
+            node.addEventListener('mouseover', handleTableHover);
+            node.addEventListener('mouseout', handleTableUnHover);
+            node.addEventListener('mousedown', handleTableColumnClick);
+        }
 
-            if(table){
-              table.removeEventListener('mouseover', handleTableHover);
-              table.removeEventListener('mouseout', handleTableHover);
-              table.removeEventListener('mousedown', handleTableColumnClick);
-            }
-        };
+        tableRef.current = node
 
-    }, [handleTableUnHover, handleTableHover, handleTableColumnClick])
+    }, [handleTableUnHover, handleTableHover, handleTableColumnClick, tableRef])
+
 
     const getIndex = (event) => {
         let target = event.target
@@ -224,7 +220,7 @@ export const SelectiveTable = (props) => {
     return (
         <React.Fragment>
             <TableWrapper maxHeight={props.maxHeight}>
-                <Table tableRef={tableRef}>
+                <Table tableRef={setTableRef}>
                         <DataTableHead
                             table={props.table}
                             hoverColumns={true}
