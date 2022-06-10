@@ -11,10 +11,6 @@ from zipfile import ZipFile
 import shutil
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from tinydb import TinyDB, Query
-
-FEDBIOMED_ROOT = str(pathlib.Path(__file__).parent.resolve().parent)
-print('Root for Fed-BioMed:', FEDBIOMED_ROOT)
 
 config_file = """
 [default]
@@ -67,26 +63,26 @@ def download_file(url, filename):
 
 def download_and_extract_ixi_sample(root_folder):
     url = 'https://md-datasets-cache-zipfiles-prod.s3.eu-west-1.amazonaws.com/7kd5wj7v7p-3.zip'
-    zip_filename = os.path.join(root_folder, '7kd5wj7v7p-3.zip')
-    data_folder = os.path.join(root_folder, '7kd5wj7v7p-3', 'IXI_sample')
-
-    # Check if extracted folder exists
-    if os.path.isdir(data_folder):
-        print(f'Dataset folder already exists in {data_folder}')
-        return data_folder
+    zip_filename = os.path.join(root_folder, 'notebooks', 'data', '7kd5wj7v7p-3.zip')
+    data_folder = os.path.join(root_folder, 'notebooks', 'data' )
+    extracted_folder = os.path.join(data_folder, '7kd5wj7v7p-3', 'IXI_sample')
 
     # Extract if ZIP exists but not folder
     if not os.path.exists(zip_filename):
         # Download if it does not exist
         download_file(url, zip_filename)
+        
+    # Check if extracted folder exists
+    if os.path.isdir(extracted_folder):
+        print(f'Dataset folder already exists in {extracted_folder}')
+        return extracted_folder
 
     assert has_correct_checksum_md5(zip_filename, 'eecb83422a2685937a955251fa45cb03')
-    if not os.path.isdir(data_folder):
-        with ZipFile(zip_filename, 'r') as zip_obj:
-            zip_obj.extractall(root_folder)
+    with ZipFile(zip_filename, 'r') as zip_obj:
+        zip_obj.extractall(data_folder)
 
-    assert os.path.isdir(data_folder)
-    return data_folder
+    assert os.path.isdir(extracted_folder)
+    return extracted_folder
 
 
 if __name__ == '__main__':
@@ -98,7 +94,7 @@ if __name__ == '__main__':
     centralized_data_folder = download_and_extract_ixi_sample(root_folder)
 
     # Federated Dataset
-    federated_data_folder = os.path.join(root_folder, 'UniCancer-Centers')
+    federated_data_folder = os.path.join(root_folder, 'notebooks', 'data', 'UniCancer-Centers')
     shutil.rmtree(federated_data_folder, ignore_errors=True)
 
     csv_global = os.path.join(centralized_data_folder, 'participants.csv')
@@ -109,7 +105,7 @@ if __name__ == '__main__':
     center_dfs = list()
 
     for center_name in center_names:
-        cfg_folder = os.path.join(FEDBIOMED_ROOT, 'etc')
+        cfg_folder = os.path.join(args.root_folder, 'etc')
         os.makedirs(cfg_folder, exist_ok=True)
         cfg_file = os.path.join(cfg_folder, f'{center_name.lower()}.ini')
 
@@ -146,30 +142,6 @@ if __name__ == '__main__':
                 dirs_exist_ok=True
             )
         test.to_csv(os.path.join(holdout_folder, 'participants.csv'))
-
-        # # Populate node Does not work yet
-        # print('Populating nodes...')
-        # db_folder = os.path.join(FEDBIOMED_ROOT, 'var')
-        # os.makedirs(db_folder, exist_ok=True)
-        # db_file = os.path.join(db_folder, f'db_{center_name}.json')
-        # db = TinyDB(db_file)
-        # db.insert({
-        #     "name": "IXI",
-        #     "data_type": "bids",
-        #     "tags": ["bids-train"],
-        #     "description": "IXI",
-        #     "shape": {
-        #         "label": [83, 44, 55],
-        #         "T1": [83, 44, 55], "T2": [83, 44, 55],
-        #         "demographics": [len(train), 14],
-        #         "num_modalities": 3},
-        #     "path": train_folder,
-        #     "dataset_id": f"dataset_{uuid.uuid4()}",
-        #     "dtypes": [],
-        #     "dataset_parameters": {
-        #         "tabular_file": train_participants_csv,
-        #         "index_col": 14
-        #     }})
 
     print(f'Centralized dataset located at: {centralized_data_folder}')
     print(f'Federated dataset located at: {federated_data_folder}')
