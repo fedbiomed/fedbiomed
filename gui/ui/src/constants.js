@@ -1,20 +1,27 @@
 
 // API Endpoints
-export const EP_DATASET_PREVIEW = '/api/datasets/preview'
-export const EP_DATASETS_LIST   = '/api/datasets/list'
-export const EP_DATASET_REMOVE   = '/api/datasets/remove'
-export const EP_REPOSITORY_LIST = '/api/repository/list'
-export const EP_DATASET_UPDATE  = '/api/datasets/update'
-export const EP_DATASET_ADD     = '/api/datasets/add'
-export const EP_DEFAULT_DATASET_ADD  = '/api/datasets/add-default-dataset'
-export const EP_CONFIG_NODE_ENVIRON = '/api/config/node-environ'
-export const EP_LOAD_CSV_DATA = '/api/datasets/get-csv-data'
+export const EP_DATASET_PREVIEW         = '/api/datasets/preview'
+export const EP_DATASETS_LIST           = '/api/datasets/list'
+export const EP_DATASET_REMOVE          = '/api/datasets/remove'
+export const EP_REPOSITORY_LIST         = '/api/repository/list'
+export const EP_DATASET_UPDATE          = '/api/datasets/update'
+export const EP_DATASET_ADD             = '/api/datasets/add'
+export const EP_DEFAULT_DATASET_ADD     = '/api/datasets/add-default-dataset'
+export const EP_CONFIG_NODE_ENVIRON     = '/api/config/node-environ'
+export const EP_LOAD_CSV_DATA           = '/api/datasets/get-csv-data'
 
 // MedicalFolder Dataset Endpoints
 export const EP_VALIDATE_MEDICAL_FOLDER_ROOT    = '/api/datasets/medical-folder-dataset/validate-root'
 export const EP_VALIDATE_REFERENCE_COLUMN       = '/api/datasets/medical-folder-dataset/validate-reference-column'
 export const EP_ADD_MEDICAL_FOLDER_DATASET      = '/api/datasets/medical-folder-dataset/add'
 export const EP_PREVIEW_MEDICAL_FOLDER_DATASET  = '/api/datasets/medical-folder-dataset/preview'
+
+//Models
+export const EP_LIST_MODELS     = '/api/model/list'
+export const EP_APPROVE_MODEL   = '/api/model/approve'
+export const EP_REJECT_MODEL    = '/api/model/reject'
+export const EP_DELETE_MODEL    = '/api/model/delete'
+export const EP_PREVIEW_MODEL   = '/api/model/preview'
 
 // Messages
 export const DATA_NOTFOUND = 'There is no data found for the dataset. It might be deleted'

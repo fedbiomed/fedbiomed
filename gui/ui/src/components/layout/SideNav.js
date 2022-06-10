@@ -7,6 +7,7 @@ import {ReactComponent as DataIcon}  from '../../assets/img/database.svg'
 import {ReactComponent as FolderIcon}  from '../../assets/img/folder.svg'
 import {ReactComponent as HomeIcon}  from '../../assets/img/home.svg'
 import {ReactComponent as PlusIcon}  from '../../assets/img/plus.svg'
+import {ReactComponent as FileIcon}  from '../../assets/img/file.svg'
 import {useLocation} from "react-router-dom";
 
 
@@ -14,9 +15,10 @@ import {useLocation} from "react-router-dom";
 const items = [
     { key: '1', label: 'Home', path: '/', icon: HomeIcon},
     { key: '2', label: 'List Data Files', path: '/repository/', icon: FolderIcon},
-    { key: '3', label: 'Manage Datasets', path: '/datasets/', icon: DataIcon },
+    { key: '3', label: 'TrainingPlans/Models', path: '/models/', icon: FileIcon},
+    { key: '4', label: 'Manage Datasets', path: '/datasets/', icon: DataIcon },
     { key: '5', label: 'Add New Dataset', path: '/datasets/add-dataset/', icon: PlusIcon },
-    { key: '4', label: 'Node Configuration', path: '/configuration/', icon: ConfIcon },
+    { key: '6', label: 'Node Configuration', path: '/configuration/', icon: ConfIcon },
   ]
 
 
@@ -27,11 +29,11 @@ const SideNav  = (props) => {
     const [selectedKey, setSelectedKey] = React.useState(items.find(_item => location.pathname.startsWith(_item.path)).key)
 
     React.useEffect(() => {
-        let item = items.find(_item => location.pathname === _item.path)
+        let item = items.find(_item => location.pathname === _item.path )
         if(item){
             setSelectedKey(item.key)
         }
-    }, [setSelectedKey, location.pathname, ])
+    }, [setSelectedKey, location.pathname ])
 
     return (
         <div className="side-nav">

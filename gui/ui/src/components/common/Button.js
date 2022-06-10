@@ -1,16 +1,24 @@
 import React from 'react'
+import styles from "./Button.module.css"
 
 export const Button = (props) => {
     return (
-        <div style={props.style} className={`button ${props.type ? props.type : ''}`} onClick={props.onClick}>
-            {props.children}
-        </div>
+        <span style={{cursor: props.disable ? "not-allowed" : "pointer", ...props.wrapperStyle}}>
+            <div style={props.style} className={`${styles.button} 
+                                                 ${styles[props.type]} 
+                                                 ${props.disable ? styles.buttonDisable : ""} `}
+                 onClick={props.onClick}>
+                    {props.children}
+            </div>
+        </span>
     )
 }
 
 export const ButtonsWrapper = (props) => {
     return(
-        <div className={`buttons-wrapper ${props.className}`}>
+        <div className={`${styles.buttonsWrapper} 
+                         ${styles[props.alignment]} 
+                         ${props.className}`}>
             {props.children}
         </div>
     )

@@ -6,6 +6,7 @@ import { ReactComponent as LaunchIcon} from '../../assets/img/launch.svg'
 import {Link, useNavigate} from "react-router-dom";
 import {useDispatch} from "react-redux";
 import {ALLOWED_EXTENSIONS} from "../../constants";
+import Button from "../../components/common/Button";
 
 export const RepositoryListRow = (props) => {
      const navigator = useNavigate()
@@ -74,14 +75,14 @@ export const RepositoryListRow = (props) => {
             <td className={"date"}>{props.item.created}</td>
             <td className={"action"}>
                 { displayAdd(props.item) && !props.item.registered ? (
-                        <div title="Add as dataset" style={{width:'auto'}} className="icon right action-add"
+                        <Button title="Add as dataset" style={{margin:0}}
                              onClick={(event) => onAdd(event,props.item)}>
                             <div className={"button"}>
                                 {
                                     props.item.type === 'dir' ? 'Add Dataset' : 'Add Dataset'
                                 }
                             </div>
-                        </div>
+                        </Button>
                     ) : null
                 }
             </td>

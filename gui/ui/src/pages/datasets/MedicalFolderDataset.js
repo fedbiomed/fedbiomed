@@ -35,9 +35,6 @@ const withRouter = (Component) =>  {
 
 export class MedicalFolderDataset extends React.Component {
 
-    constructor(props) {
-        super(props);
-    }
 
     setDataPath = (path) => {
         this.props.setFolderPath(path)
@@ -120,7 +117,7 @@ export class MedicalFolderDataset extends React.Component {
                         desc={'Please select to column that represent subject folders in MedicalFolder root directory.'}
                     >
                         <SelectiveTable
-                            style={{maxHeight:350}}
+                            maxHeight={350}
                             table={this.props.medicalFolderDataset.reference_csv.data}
                             onSelect={this.setReferenceFolderIDColumn}
                             selectedLabel={"Folder Name"}

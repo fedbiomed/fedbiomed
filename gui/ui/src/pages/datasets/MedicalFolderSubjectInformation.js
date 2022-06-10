@@ -12,6 +12,7 @@ const MedicalFolderSubjectInformation = (props) => {
                     label={props.subjects.available_subjects.length.toString() + " subject available for training"}
                 >
                     <TableData
+                        maxHeight={250}
                         table={{
                             columns: ["Available Subjects"],
                             data : Array.from(props.subjects.available_subjects, x => [x]),
@@ -27,6 +28,7 @@ const MedicalFolderSubjectInformation = (props) => {
                         "directory but not in the reference tabular data"}
                 >
                     <TableData
+                        maxHeight={250}
                         table={{
                             columns: ["Missing Entries"],
                             data : Array.from(props.subjects.missing_entries, x => [x]),
@@ -40,6 +42,7 @@ const MedicalFolderSubjectInformation = (props) => {
                         "CSV does not exist in the MedicalFolder Dataset root folder  for training"}
                 >
                     <TableData
+                        maxHeight={250}
                         table={{
                             columns: ["Missing Folders"],
                             data : Array.from(props.subjects.missing_folders, x => [x]),
