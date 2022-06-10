@@ -6,7 +6,7 @@ import {Link} from "react-router-dom"
 import {useNavigate} from "react-router-dom";
 import {connect} from 'react-redux'
 import {ALLOWED_EXTENSIONS} from "../../constants";
-
+import Button from "../../components/common/Button"
 
 export const RepositoryItem = (props) => {
 
@@ -82,12 +82,12 @@ export const RepositoryItem = (props) => {
                     <div className="dot empty"/>
                 </div>
             ) : displayAdd(props.item) ? (
-                        <div title="Add as dataset" style={{width:'auto'}} className="icon right action-add"
+                        <Button title="Add as dataset" style={{width:'auto'}} className="icon right action-add"
                              onClick={(event) => onAdd(event,props.item)}>
                             <div className={"select-sm-button"}>
                                 {props.actionText}
                             </div>
-                        </div>
+                        </Button>
                     ) : null
             }
         </div>

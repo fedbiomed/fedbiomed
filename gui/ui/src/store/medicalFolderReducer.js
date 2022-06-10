@@ -35,10 +35,7 @@ export const medicalFolderReducer = (state = initialState, action) => {
 
     switch (action.type){
         case "SET_MEDICAL_FOLDER_ROOT":
-            return {
-                ...state,
-                medical_folder_root: action.payload.root_path,
-                modalities: action.payload.modalities,
+            return {...state, medical_folder_root: action.payload.root_path, modalities: action.payload.modalities,
             }
         case "RESET_MEDICAL_FOLDER_ROOT":
             return {
@@ -52,11 +49,7 @@ export const medicalFolderReducer = (state = initialState, action) => {
 
             }
         case "SET_FORMAT":
-
-            return {
-                ...state,
-                patient_folders: action.payload
-            }
+            return { ...state, patient_folders: action.payload}
 
         case "SET_REFERENCE_CSV":
             return {
@@ -116,6 +109,12 @@ const medicalFolderPreviewInitialState = {
     dataset_id : null,
 }
 
+/**
+ * State reducer for Medical Folder Dataset preview
+ * @param state
+ * @param action
+ * @returns {{modalities: null, dataset_id: null, subject_table: null}|*}
+ */
 export const medicalFolderPreviewReducer = (state = medicalFolderPreviewInitialState, action) => {
 
     switch (action.type){

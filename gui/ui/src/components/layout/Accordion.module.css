@@ -30,7 +30,7 @@
 }
 
 .dropdownContentActive {
-    max-height : 250px;
+    max-height : 350px;
 }
 
 .green {
@@ -38,5 +38,5 @@
 }
 
 .red {
-    background: var(--attetion-color);
+    background: var(--attention-color);
 }

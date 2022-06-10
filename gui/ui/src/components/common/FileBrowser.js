@@ -7,7 +7,7 @@ import Button from "./Button";
 
 const FileBrowser = (props) => {
 
-    const [show, setShow] = React.useState(false)
+    const [show, setShow] = React.useState(false)  // define object `setShow` using hook
 
 
     /**
