@@ -62,6 +62,7 @@ class TestModelManager(unittest.TestCase):
         self.patcher_db_search = patch('tinydb.table.Table.search', MagicMock(side_effect=self.raise_fbmm_error))
         self.patcher_db_update = patch('tinydb.table.Table.update', MagicMock(side_effect=self.raise_fbmm_error))
         self.patcher_db_remove = patch('tinydb.table.Table.remove', MagicMock(side_effect=self.raise_fbmm_error))
+        self.patcher_db_upsert = patch('tinydb.table.Table.upsert', MagicMock(side_effect=self.raise_fbmm_error))
 
         # ---------------------------------------------------------------------------
 
@@ -1147,6 +1148,7 @@ class TestModelManager(unittest.TestCase):
         # clean
         messaging.reset_mock()
 
+
         # Test 2 : model approval for existing model
 
         # prepare
@@ -1200,7 +1202,64 @@ class TestModelManager(unittest.TestCase):
             # clean
             messaging.reset_mock()
 
+
         # Test 3 : model approval with errors
+
+        # prepare
+        raise_filenotfound_error = FileNotFoundError('some additional information')
+        self.patcher_shutil_move = patch('shutil.move', MagicMock(side_effect=raise_filenotfound_error))
+
+        self.model_manager.delete_model(model_id)
+
+        for error in ['download', 'db_get', 'db_upsert', 'file_move']:
+
+            # test-specific prepare
+            if error == 'download':
+                download_file_patch.side_effect = FedbiomedRepositoryError('any error message')
+                model3_status = 0
+
+            # test
+            model3_before = self.model_manager.get_model_from_database(model_file)
+
+            # test-specific prepare
+            if error == 'db_get':
+                self.patcher_db_get.start()
+            elif error == 'db_upsert':
+                self.patcher_db_upsert.start()
+            elif error == 'file_move':
+                self.patcher_shutil_move.start()
+
+            self.model_manager.reply_model_approval_request(msg, messaging)
+
+            # test-specific clean
+            if error == 'db_get':
+                self.patcher_db_get.stop()
+            elif error == 'db_upsert':
+                self.patcher_db_upsert.stop()
+            elif error == 'file_move':
+                self.patcher_shutil_move.stop()
+
+            model3_after = self.model_manager.get_model_from_database(model_file)
+
+            # check
+            messaging.send_message.assert_called_once_with({
+                'researcher_id': model_researcher_id,
+                'node_id': environ['NODE_ID'],
+                'sequence': model_sequence,
+                'status': model3_status,
+                'command': 'approval',
+                'success': False
+            })
+            self.assertEqual(model3_before, None)
+            self.assertEqual(model3_after, None)
+
+            # clean
+            messaging.reset_mock()
+
+            # test-specific clean
+            if error == 'download':
+                download_file_patch.side_effect = download_file_side_effect
+                model3_status = 200
 
 
 if __name__ == '__main__':  # pragma: no cover
