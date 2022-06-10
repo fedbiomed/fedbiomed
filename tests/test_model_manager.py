@@ -620,25 +620,27 @@ class TestModelManager(unittest.TestCase):
                 (self.patcher_db_get.start, self.patcher_db_get.stop),
                 (self.patcher_db_update.start, self.patcher_db_update.stop)]: 
             for model_type in [ModelTypes.REGISTERED.value, ModelTypes.REQUESTED.value]:
-                default_model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
+                model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
                 self.model_manager.register_model(
                     name='test-model',
-                    path=default_model_file_path,
+                    path=model_file_path,
                     model_type=model_type,
                     description='desc',
                     model_id='test-model-id'
                 )
+                model_file_path_new = os.path.join(self.testdir, 'test-model-2.txt')
 
                 patch_start()
 
                 # test + check
                 with self.assertRaises(FedbiomedModelManagerError):
                     self.model_manager.update_model_hash(model_id='test-model-id',
-                                                         path=default_model_file_path)
+                                                         path=model_file_path_new)
 
                 # clean
                 patch_stop()
                 self.model_manager.delete_model('test-model-id')
+
 
     def test_model_manager_15_delete_registered_models(self):
         """ Testing delete operation for model manager """

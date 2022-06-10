@@ -828,7 +828,7 @@ class ModelManager:
                                  'model_path': path},
                                 self._database.model_id == model_id)
             except Exception as err:
-                raise FedbiomedModelManagerError(ErrorNumbers.value + ": update database failed. Details :"
+                raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + ": update database failed. Details :"
                                                  f"{str(err)}")
         else:
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + 'You cannot update default models. Please '
