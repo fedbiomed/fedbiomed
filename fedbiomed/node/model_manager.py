@@ -525,7 +525,7 @@ class ModelManager:
         }
 
         is_existant = False
-        non_downaloadable = False
+        downloadable_checkable = True
 
         try:
             # model_id = str(uuid.uuid4())
@@ -540,12 +540,12 @@ class ModelManager:
 
         except FedbiomedRepositoryError as fed_err:
             logger.error(f"Cannot download model from server due to error: {fed_err}")
-            reply['success'] = False
-            non_downaloadable = True
+            downloadable_checkable = False
         except FedbiomedModelManagerError as fed_err:
             logger.error(f"Can not check whether model has already be registered or not due to error: {fed_err}")
+            downloadable_checkable = False
 
-        if not is_existant  and not non_downaloadable:
+        if not is_existant  and downloadable_checkable:
             # move model into corresponding directory (from TMP_DIR to MODEL_DIR)
             try:
                 logger.debug("Storing TrainingPlan into requested model directory")
@@ -586,7 +586,7 @@ class ModelManager:
                     reply['success'] = True
                     logger.debug(f"Model '{msg['description']}' successfully received by Node for approval")
 
-        elif is_existant and not non_downaloadable:
+        elif is_existant and downloadable_checkable:
             if self.check_model_status(model_to_check, ModelApprovalStatus.PENDING)[0]:
                 logger.info(f"Model '{msg['description']}' already sent for Approval (status Pending). "
                             "Please wait for Node approval.")
@@ -596,7 +596,7 @@ class ModelManager:
                 logger.warning(f"Model '{msg['description']}' already exists in database. Aborting")
             reply['success'] = True
         else:
-            # case where model is non-downloadable
+            # case where model is non-downloadable or non-checkable
             reply['success'] = False
 
         # Send model approval acknowledge answer to researcher
