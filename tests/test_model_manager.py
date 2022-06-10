@@ -1149,6 +1149,57 @@ class TestModelManager(unittest.TestCase):
 
         # Test 2 : model approval for existing model
 
+        # prepare
+
+        # different message : check that existing entry in database is not updated
+        model2_researcher_id = 'another researcher id'
+        model2_description = 'another description'
+        model2_sequence = -4
+        model2_file = model_file
+        model_id = model_after['model_id']
+        msg2 = {
+            'researcher_id': model2_researcher_id,
+            'description': model2_description,
+            'sequence': model2_sequence,
+            'model_url': 'file:' + model2_file,
+            'command': 'approval'
+        }
+
+        def noaction_model(model_id, extra_notes):
+            pass
+
+        for approval_action, approval_status in [
+                (noaction_model, ModelApprovalStatus.PENDING.value),
+                (self.model_manager.approve_model, ModelApprovalStatus.APPROVED.value),
+                (self.model_manager.reject_model, ModelApprovalStatus.REJECTED.value)
+            ]:
+            # also update status
+            approval_action(model_id, 'dummy notes')
+
+            # test
+            self.model_manager.reply_model_approval_request(msg2, messaging)
+
+            model2_after = self.model_manager.get_model_from_database(model_file)
+
+            # check
+            messaging.send_message.assert_called_once_with({
+                'researcher_id': model2_researcher_id,
+                'node_id': environ['NODE_ID'],
+                'sequence': model2_sequence,
+                'status': 200,
+                'command': 'approval',
+                'success': True
+            })
+            # verify existing model in database did not change
+            self.assertTrue(isinstance(model2_after, dict))
+            self.assertEqual(model2_after['description'], model_description)
+            self.assertEqual(model2_after['researcher_id'], model_researcher_id)
+            self.assertEqual(model2_after['model_type'], ModelTypes.REQUESTED.value)
+            self.assertEqual(model2_after['model_status'], approval_status)
+
+            # clean
+            messaging.reset_mock()
+
         # Test 3 : model approval with errors
 
 
