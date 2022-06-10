@@ -338,7 +338,7 @@ class DatasetManager:
                     raise FedbiomedDatasetManagerError(f'Path {dataset_parameters["tabular_file"]} does not '
                                                        f'correspond a file.')
                 if "index_col" not in dataset_parameters:
-                    raise FedbiomedDatasetManagerError(f'Index column is not provided')
+                    raise FedbiomedDatasetManagerError('Index column is not provided')
 
             try:
                 # load using the MedicalFolderController to ensure all available modalities are inspected

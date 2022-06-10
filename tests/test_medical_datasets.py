@@ -1,11 +1,11 @@
 import unittest
 import os
 import random
+from random import randint, choice
+
 import shutil
 import tempfile
-
 from pathlib import Path, PosixPath
-from random import randint, choice
 from uuid import uuid4
 
 import itk
@@ -16,12 +16,9 @@ import torch
 from monai.data import ITKReader
 from monai.transforms import Compose, GaussianSmooth, Identity, LoadImage, PadListDataCollate, ToTensor
 from torch.utils.data import DataLoader
-from torchvision.transforms import Lambda
-
 from fedbiomed.common.data import NIFTIFolderDataset
 from fedbiomed.common.exceptions import FedbiomedDatasetError
 from torchvision.transforms import Lambda
-from monai.transforms import GaussianSmooth
 from fedbiomed.common.data import MedicalFolderDataset, MedicalFolderBase
 
 
@@ -164,7 +161,8 @@ class TestNIFTIFolderDataset(unittest.TestCase):
             self.assertTrue(isinstance(file, Path))
 
         # compare label list content
-        self.assertEqual(sorted([str(f) for f in files]), sorted([str(Path(f).expanduser().resolve()) for f in self.sample_paths]))
+        self.assertEqual(sorted([str(f) for f in files]),
+                         sorted([str(Path(f).expanduser().resolve()) for f in self.sample_paths]))
 
 
     def test_nifti_folder_dataset_08_getitem(self):
@@ -202,7 +200,6 @@ class TestNIFTIFolderDataset(unittest.TestCase):
             self.assertEqual(index + 1, sum(self.n_samples))
 
 
-    # not really a unit test belonging to this class, but nice to have it => ok ?
     def test_nifti_folder_dataset_09_dataloader(self):
         dataset = NIFTIFolderDataset(self.root)
         batch_size = len(dataset) // 2

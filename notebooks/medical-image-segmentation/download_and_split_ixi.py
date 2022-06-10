@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 import hashlib
 import os
-import pathlib
-import uuid
-
 import requests
 from tqdm import tqdm
 import argparse
@@ -147,13 +144,11 @@ if __name__ == '__main__':
     print(f'Federated dataset located at: {federated_data_folder}')
 
     print()
-    print(f'Please add the data to your nodes executing and using the `bids-train` tag:')
+    print('Please add the data to your nodes executing and using the `bids-train` tag:')
     for center_name in center_names:
         print(f'\t./scripts/fedbiomed_run node config {center_name.lower()}.ini add')
 
     print()
-    print(f'Then start your nodes by executing:')
+    print('Then start your nodes by executing:')
     for center_name in center_names:
         print(f'\t./scripts/fedbiomed_run node config {center_name.lower()}.ini start')
-
-

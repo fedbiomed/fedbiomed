@@ -477,7 +477,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                     f"{ErrorNumbers.FB613.value}: Cannot apply demographics transformation to "
                     f"sample number {item} from dataset. Error message: {repr(e)}. "
                     f"If the dataset was loaded without a demographics file, please ensure that the provided "
-                    f"demographics transform immediately returns an empty dict when an empty dict is provided as input.")
+                    f"demographics transform immediately returns an empty dict when an empty dict is given as input.")
 
         # Try to convert demographics to tensor one last time
         if isinstance(demographics, dict) and len(demographics) == 0:
@@ -486,10 +486,11 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             try:
                 demographics = torch.as_tensor(demographics)
             except Exception as e:
-                raise FedbiomedDatasetError(f'{ErrorNumbers.FB310.value}: Could not convert demographics to torch Tensor. '
-                                        f'Please use demographics_transformation argument of BIDSDataset to convert '
-                                        f'the results manually or provide a data type that can be easily converted.\n'
-                                        f'Reason for failed conversion: {e}')
+                raise FedbiomedDatasetError(
+                    f'{ErrorNumbers.FB310.value}: Could not convert demographics to torch Tensor. '
+                    f'Please use demographics_transformation argument of BIDSDataset to convert '
+                    f'the results manually or provide a data type that can be easily converted.\n'
+                    f'Reason for failed conversion: {e}')
 
         # Apply transform to target elements
         if self._target_transform is not None:
