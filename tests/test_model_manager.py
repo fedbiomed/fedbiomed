@@ -219,6 +219,75 @@ class TestModelManager(unittest.TestCase):
         removed_model = self.model_manager._db.get(self.model_manager._database.model_path == new_default_model_path)
         self.assertIsNone(removed_model)
 
+    def test_model_manager_06_update_errors(self):
+        """Testing error cases in function `register_update_default_models`.
+        """
+
+        # prepare
+
+        algo_initial = self.values['HASHING_ALGORITHM']
+        for a in HashingAlgorithms.list():
+            if a != algo_initial:
+                algo_tempo = a
+                break
+
+        new_default_model_path = os.path.join(environ['DEFAULT_MODELS_DIR'], 'my_default_model.txt')
+
+        for error in ['db_search', 'db_get-delete', 'db_remove-delete', 'db_get-exists', 'db_update-exists']:
+
+            # prepare
+            #
+            # some test may manage update database or files, or leave them in an unclean state
+            # so we need to prepare at each test
+
+            shutil.copy(os.path.join(self.testdir, 'test-model-1.txt'), new_default_model_path)
+            self.model_manager.register_update_default_models()
+            models_before = self.model_manager._db.all()
+
+            # test-specific prepare
+            if error == 'db_search':
+                self.patcher_db_search.start()
+            elif error == 'db_get-delete':
+                self.patcher_db_get.start()
+                os.remove(new_default_model_path)
+            elif error == 'db_remove-delete':
+                self.patcher_db_remove.start()
+                os.remove(new_default_model_path)
+            elif error == 'db_get-exists':
+                self.patcher_db_get.start()
+                self.values['HASHING_ALGORITHM'] = algo_tempo
+            elif error == 'db_update-exists':
+                self.patcher_db_update.start()
+                self.values['HASHING_ALGORITHM'] = algo_tempo
+
+            # test and check
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager.register_update_default_models()
+
+            # test-specific clean
+            if error == 'db_search':
+                self.patcher_db_search.stop()
+            elif error == 'db_get-delete':
+                self.patcher_db_get.stop()
+            elif error == 'db_remove-delete':
+                self.patcher_db_remove.stop()
+            elif error == 'db_get-exists':
+                self.patcher_db_get.stop()
+                self.values['HASHING_ALGORITHM'] = algo_initial
+            elif error == 'db_update-exists':
+                self.patcher_db_update.stop()
+                self.values['HASHING_ALGORITHM'] = algo_initial
+
+            # check models where not modified by failed operation
+            models_after = self.model_manager._db.all()
+            self.assertEqual(models_before, models_after)
+
+        # clean
+        if os.path.exists(new_default_model_path):
+            os.remove(new_default_model_path)
+        self.model_manager.register_update_default_models()
+
+
     def test_model_manager_07_update_modified_model_files(self):
         """ Testing update of modified default models """
 
