@@ -36,8 +36,8 @@ export  const getFilesFromRepository = (data, fresh = false) => {
                 let f = data.files.filter(file => file.type === 'file')
                 d.sort((a, b) => a.name.localeCompare(b.name))
                 f.sort((a, b) => a.name.localeCompare(b.name))
-                d.push(...f)
-                data.files = d
+                f.push(...d)
+                data.files = f
 
                 if (currentLevels.length === 0){
                     files[level] = data.files
