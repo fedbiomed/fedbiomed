@@ -41,3 +41,6 @@ dependencies:
       - openpyxl >= 3.0.9,<3.1
       - scikit-learn <= 0.24.2
       - python-minifier ==2.5.0
+#### Notebook-specific packages ####
+# This section contains packages that are needed only to run specific notebooks
+      - unet == 0.7.7

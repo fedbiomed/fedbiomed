@@ -135,6 +135,35 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                      f"gpu_only={node_args['gpu_only']}, "
                      f"use_gpu={use_gpu}, gpu_num={node_args['gpu_num']})")
 
+    def send_to_device(self,
+                       to_send: Union[torch.Tensor, list, tuple, dict],
+                       device: torch.device
+                       ):
+        """Send inputs to correct device for training.
+
+        Recursively traverses lists, tuples and dicts until it meets a torch Tensor, then sends the Tensor
+        to the specified device.
+
+        Args:
+            to_send: the data to be sent to the device.
+            device: the device to send the data to.
+
+        Raises:
+           FedbiomedTrainingPlanError: when to_send is not the correct type
+        """
+        if isinstance(to_send, torch.Tensor):
+            return to_send.to(device)
+        elif isinstance(to_send, dict):
+            return {key: self.send_to_device(val, device) for key, val in to_send.items()}
+        elif isinstance(to_send, tuple):
+            return tuple(self.send_to_device(d, device) for d in to_send)
+        elif isinstance(to_send, list):
+            return [self.send_to_device(d, device) for d in to_send]
+        else:
+            raise FedbiomedTrainingPlanError(f'{ErrorNumbers.FB310.value} cannot send data to device. '
+                                             f'Data must be a torch Tensor or a list, tuple or dict '
+                                             f'ultimately containing Tensors.')
+
     def training_step(self):
         """All subclasses must provide a training_step the purpose of this actual code is to detect that it
         has been provided
@@ -219,7 +248,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 batch_ = batch_idx + 1
 
                 self.train()  # model training
-                data, target = data.to(self.device), target.to(self.device)
+                data, target = self.send_to_device(data, self.device), self.send_to_device(target, self.device)
                 self.optimizer.zero_grad()
 
                 res = self.training_step(data, target)  # raises an exception if not provided
