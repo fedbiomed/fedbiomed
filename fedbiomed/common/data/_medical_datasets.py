@@ -401,6 +401,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                  transform: Union[Callable, Dict[str, Callable]] = None,
                  target_modalities: Optional[Union[str, Iterable[str]]] = 'label',
                  target_transform: Union[Callable, Dict[str, Callable]] = None,
+                 demographics_transform: Optional[Callable] = None,
                  tabular_file: Union[str, PathLike, Path, None] = None,
                  index_col: Union[int, str, None] = None,
                  ):
@@ -426,6 +427,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         self._transform = self._check_and_reformat_transforms(transform, data_modalities)
         self._target_transform = self._check_and_reformat_transforms(target_transform, target_modalities)
+        self._demographics_transform = demographics_transform
 
         # Image loader
         self._reader = Compose([
@@ -433,7 +435,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             ToTensor()
         ])
 
-    def __getitem__(self, item):
+    def get_nontransformed_item(self, item):
         # For the first item retrieve complete subject folders
         subjects = self.subject_folders()
 
@@ -451,6 +453,10 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         # Demographics
         demographics = self._get_from_demographics(subject_id=subject_folder.name)
+        return (data, demographics), targets
+
+    def __getitem__(self, item):
+        (data, demographics), targets = self.get_nontransformed_item(item)
 
         # Apply transforms to data elements
         if self._transform is not None:
@@ -462,6 +468,30 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                         f"{ErrorNumbers.FB613.value}: Cannot apply transformation to modality `{modality}` in "
                         f"sample number {item} from dataset, error message is {e}.")
 
+        # Apply transforms to demographics elements
+        if self._demographics_transform is not None:
+            try:
+                demographics = self._demographics_transform(demographics)
+            except Exception as e:
+                raise FedbiomedDatasetError(
+                    f"{ErrorNumbers.FB613.value}: Cannot apply demographics transformation to "
+                    f"sample number {item} from dataset. Error message: {repr(e)}. "
+                    f"If the dataset was loaded without a demographics file, please ensure that the provided "
+                    f"demographics transform immediately returns an empty dict when an empty dict is given as input.")
+
+        # Try to convert demographics to tensor one last time
+        if isinstance(demographics, dict) and len(demographics) == 0:
+            demographics = torch.empty(0)  # handle case where demographics is an empty dict
+        else:
+            try:
+                demographics = torch.as_tensor(demographics)
+            except Exception as e:
+                raise FedbiomedDatasetError(
+                    f'{ErrorNumbers.FB310.value}: Could not convert demographics to torch Tensor. '
+                    f'Please use demographics_transformation argument of BIDSDataset to convert '
+                    f'the results manually or provide a data type that can be easily converted.\n'
+                    f'Reason for failed conversion: {e}')
+
         # Apply transform to target elements
         if self._target_transform is not None:
             for modality, target_transform in self._target_transform.items():
@@ -469,10 +499,10 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                     targets[modality] = target_transform(targets[modality])
                 except Exception as e:
                     raise FedbiomedDatasetError(
-                        f"{ErrorNumbers.FB613.value}: Cannot apply transformation to modality `{modality}` in target "
-                        f"sample number {item} from dataset, error message is {e}.")
+                        f"{ErrorNumbers.FB613.value}: Cannot apply target transformation to modality `{modality}`"
+                        f"in sample number {item} from dataset, error message is {e}.")
 
-        return dict(data=data, target=targets, demographics=demographics)
+        return (data, demographics), targets
 
     def __len__(self):
         """ Length method to get number of samples
@@ -640,8 +670,8 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         # Get all modalities
         modalities = list(set(self._data_modalities + self._target_modalities))
-        sample = self[0]
-        result = {modality: list(sample["data"][modality].shape) for modality in modalities}
+        (image, _), _ = self.get_nontransformed_item(0)
+        result = {modality: list(image[modality].shape) for modality in modalities}
 
         num_modalities = len(modalities)
         demographics_shape = self.demographics.shape if self.demographics is not None else None
