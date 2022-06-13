@@ -50,3 +50,6 @@ dependencies:
       # for nbconvert
       - jupyter_contrib_nbextensions
       - pathvalidate
+#### Notebook-specific packages ####
+# This section contains packages that are needed only to run specific notebooks
+      - unet == 0.7.7

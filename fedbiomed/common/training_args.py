@@ -202,6 +202,12 @@ class TrainingArgs():
                 "rules": [ dict ],
                 "required": False,
                 "default": {}
+            },
+
+            # log_interval
+            "log_interval": {
+                "rules": [int],
+                "required": False,
             }
 
         }
