@@ -127,6 +127,11 @@ class ModelManager:
         it is checked whether database contains an entry that both matches
         hash and algorithm.
 
+        The current implementation of model database is based on the fact that:
+        - model name is unique and
+        - model path is unique and
+        - pair of model hash plus hash algorithm is unique
+
         Args:
             name: Model name
             path: Model file path
