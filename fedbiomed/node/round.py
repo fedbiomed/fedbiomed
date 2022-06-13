@@ -119,7 +119,6 @@ class Round:
                     if not approved:
                         error_message = f'Requested model is not approved by the node: {environ["NODE_ID"]}'
                         return self._send_round_reply(success=False, message=error_message)
-                        
                     else:
                         logger.info(f'Model has been approved by the node {model["name"]}')
 
@@ -402,9 +401,9 @@ class Round:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Error while loading data manager; {str(e)}")
 
         # Get dataset property
-        dataset_parameters = self.dataset.get("dataset_parameters", {})
-        if hasattr(data_manager.dataset, "set_dataset_params"):
-            data_manager.dataset.set_dataset_params(dataset_parameters)
+        if hasattr(data_manager.dataset, "set_dataset_parameters"):
+            dataset_parameters = self.dataset.get("dataset_parameters", {})
+            data_manager.dataset.set_dataset_parameters(dataset_parameters)
 
         # All Framework based data managers have the same methods
         # If testing ratio is 0,
