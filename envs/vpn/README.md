@@ -579,7 +579,7 @@ Before using a GPU for Fed-BioMed in a `node` docker container, you need to meet
   - not supported on MacOS (few Nvidia cards, docker virtualized)
 * **Nvidia drivers and CUDA >= 11.5.0** (the version used by Fed-BioMed container with GPU support)
 * **[Nvidia container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)**
-* **`docker-compose` version 1.27.0 or higher** (already installed for container support)
+* **`docker-compose` version >= 1.27.0 and < 2.0** (already installed for container support)
 
 
 Installation guidelines for requirements:
