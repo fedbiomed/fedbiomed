@@ -25,7 +25,7 @@ Supported operating systems for using containers :
 Pre-requisites for using containers :
 
 * **`docker >= 20.10.0`** is needed to build mqtt, see [there](https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2). With older docker version it fails with a `make: sh: Operation not permitted`
-* **`docker-compose` >= 1.27.0** is needed for extended file format for [GPU support in docker](https://docs.docker.com/compose/gpu-support/) even if you're not using GPU in container.
+* **`docker-compose` >= 1.27.0 and < 2.0** is needed for extended file format for [GPU support in docker](https://docs.docker.com/compose/gpu-support/) even if you're not using GPU in container.
   -  some distributions (eg Ubuntu 20.04) don't provide a package with a recent enough version.
   - Type `docker-compose --version` to check installed version.
   - You can use your usual package manager to  install up-to-date version (eg: `sudo apt-get update && sudo apt-get install docker-compose` for apt, `sudo dnf clean metadata && sudo dnf update docker-compose` for dnf).
