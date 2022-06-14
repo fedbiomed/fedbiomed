@@ -53,3 +53,5 @@ dependencies:
 #### Notebook-specific packages ####
 # This section contains packages that are needed only to run specific notebooks
       - unet == 0.7.7
+      - matplotlib == 3.4.3
+      - matplotlib-inline == 0.1.2
