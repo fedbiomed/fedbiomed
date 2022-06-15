@@ -221,6 +221,7 @@ containers_clean() {
 
     # specific to node
     /bin/rm -rf ./node/run_mounts/data/* 2> /dev/null
+    /bin/rm -rf ./node/run_mounts/envs/*  2> /dev/null
     /bin/rm -rf ./node/run_mounts/etc/*  2> /dev/null
     /bin/rm -rf ./node/run_mounts/var/*  2> /dev/null
 
