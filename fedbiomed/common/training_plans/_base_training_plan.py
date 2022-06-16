@@ -185,8 +185,8 @@ class BaseTrainingPlan(object):
             metric = list(metric)
 
         # If it is single int/float metric value
-        if isinstance(metric, (int, float, np.integer)) and not isinstance(metric, bool):
-            return {metric_name: metric}
+        if isinstance(metric, (int, float, np.integer, np.floating)) and not isinstance(metric, bool):
+            return {metric_name: float(metric)}
 
         # If metric function returns multiple values
         elif isinstance(metric, list) or isinstance(metric, dict):
