@@ -25,7 +25,7 @@ class BaseTrainingPlan(object):
         dataset_path: The path that indicates where dataset has been stored
         pre_process: Preprocess method that will be applied before training loop
         training_data_loader: Data loader for training routine/loop
-        testing_data_loader: Data loader for testing routine
+        testing_data_loader: Data loader for validation routine
     """
     def __init__(self):
         """Construct base training plan"""
@@ -65,7 +65,7 @@ class BaseTrainingPlan(object):
 
         Args:
             train_data_loader: Data loader for training routine/loop
-            test_data_loader: Data loader for testing routine
+            test_data_loader: Data loader for validation routine
         """
         self.training_data_loader = train_data_loader
         self.testing_data_loader = test_data_loader

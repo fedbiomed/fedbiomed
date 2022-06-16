@@ -186,7 +186,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          history_monitor: Any = None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
-        # FIXME 2: remove parameters specific for testing specified in the
+        # FIXME 2: remove parameters specific for validation specified in the
         # training routine
         """Training routine procedure.
 
@@ -309,16 +309,16 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         metric_args: Dict[str, Any],
                         history_monitor: Any,
                         before_train: Union[bool, None] = None):
-        """Performs testing routine on testing partition of the dataset
+        """Performs validation routine on validation partition of the dataset
 
-        Testing routine can be run any time after train and test split is done. Method sends testing result
+        Validation routine can be run any time after train and validation split is done. Method sends validation result
         back to researcher component as real-time.
 
         Args:
-            metric: Metric that will be used for evaluation
+            metric: Metric that will be used for validation
             metric_args: The arguments for corresponding metric function.
                 Please see [`sklearn.metrics`][sklearn.metrics]
-            history_monitor: Real-time feed-back handler for evaluation results
+            history_monitor: Real-time feed-back handler for validation results
             before_train: Declares whether is performed before training model or not.
 
         Raises:
@@ -328,7 +328,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # TODO: Add preprocess option for testing_data_loader
 
         if self.testing_data_loader is None:
-            msg = ErrorNumbers.FB605.value + ": can not find dataset for testing."
+            msg = ErrorNumbers.FB605.value + ": can not find dataset for validation."
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
@@ -336,7 +336,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         metric_controller = Metrics()
         tot_samples = len(self.testing_data_loader.dataset)
 
-        self.eval()  # pytorch switch for model evaluation
+        self.eval()  # pytorch switch for model validation
         # Complete prediction over batches
         with torch.no_grad():
             # Data Loader for testing partition includes entire dataset in the first batch
@@ -357,7 +357,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         logger.critical(msg)
                         raise FedbiomedTrainingPlanError(msg)
 
-                    # If custom evaluation step returns None
+                    # If custom validation step returns None
                     if m_value is None:
                         msg = ErrorNumbers.FB605.value + \
                             ": metric function returned None"
@@ -375,11 +375,11 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         metric = MetricTypes.ACCURACY
                         logger.info(f"No `testing_step` method found in TrainingPlan and `test_metric` is not defined "
                                     f"in the training arguments `: using default metric {metric.name}"
-                                    " for model evaluation")
+                                    " for model validation")
                     else:
                         logger.info(
                             f"No `testing_step` method found in TrainingPlan: using defined metric {metric.name}"
-                            " for model evaluation.")
+                            " for model validation.")
 
                     metric_name = metric.name
 
@@ -402,7 +402,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
 
-                logger.debug('Testing: Batch {} [{}/{}] | Metric[{}]: {}'.format(
+                logger.debug('Validation: Batch {} [{}/{}] | Metric[{}]: {}'.format(
                     str(batch_), batch_ * len(target), tot_samples, metric_name, m_value))
 
                 # Send scalar values via general/feedback topic
