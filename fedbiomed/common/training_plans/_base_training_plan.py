@@ -164,7 +164,7 @@ class BaseTrainingPlan(object):
         """Create metric result dictionary.
 
         Args:
-            metric: Array-like metric values, dictionary or single-value
+            metric: Array-like metric values or dictionary
             metric_name: Name of the metric. If `metric` is of type list, metric names will be in format of
                 (`metric_name_1`, ..., `metric_name_n`), where `n` is the size of the list.
                 If the `metric` argument is  provided as dict the argument `metric_name` will be ignored and
@@ -178,16 +178,18 @@ class BaseTrainingPlan(object):
             FedbiomedTrainingPlanError: triggered if metric is not of type dict, list, int, float, torch.Tensor,
                 or np.ndarray.
         """
+        if isinstance(metric, torch.Tensor):
+            metric = metric.numpy()
+            metric = list(metric) if metric.shape else float(metric)
+        elif isinstance(metric, np.ndarray):
+            metric = list(metric)
 
-        try:
-            metric = utils.convert_to_python_float(metric)
+        # If it is single int/float metric value
+        if isinstance(metric, (int, float, np.integer, np.floating)) and not isinstance(metric, bool):
             return {metric_name: float(metric)}
-        except FedbiomedError:
-            # Means that `metric` is array-like or unsupported type of value, pass to next controller
-            pass
 
         # If metric function returns multiple values
-        if isinstance(metric, list) or isinstance(metric, dict):
+        elif isinstance(metric, list) or isinstance(metric, dict):
 
             if isinstance(metric, list):
                 metric_names = [f"{metric_name}_{i + 1}" for i, val in enumerate(metric)]
@@ -209,8 +211,8 @@ class BaseTrainingPlan(object):
             msg = ErrorNumbers.FB605.value + \
                 " : metric value should be one of type" + \
                 " int, float, np.integer, torch.Tensor," + \
-                "list of int/float/np.integer/torch.Tensor or " + \
-                "dict of key: value as type int/float/np.integer/torch.Tensor, but got " + \
+                "list of int/float/np.integer/torch.Tensor or" + \
+                "dict of key (int/float/np.integer/torch.Tensor) instead of " + \
                 str(type(metric))
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)

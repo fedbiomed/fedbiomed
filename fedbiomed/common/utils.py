@@ -116,7 +116,7 @@ def convert_to_python_float(value: Union[torch.Tensor, np.integer, np.floating, 
         Python float
     """
 
-    if not isinstance(value, (torch.Tensor, np.floating, np.integer, float, int)):
+    if not isinstance(value, (torch.Tensor, np.integer, np.floating, float, int)):
         raise FedbiomedError(f"Converting {type(value)} to python to float is not supported.")
 
     # if the result is a tensor, convert it back to numpy
