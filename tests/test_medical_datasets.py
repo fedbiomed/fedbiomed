@@ -6,6 +6,7 @@ from random import randint, choice
 import shutil
 import tempfile
 from pathlib import Path, PosixPath
+from unittest.mock import patch
 from uuid import uuid4
 from random import randint, choice
 
@@ -15,7 +16,9 @@ import numpy as np
 import pandas as pd
 import torch
 
+from torch.utils.data import DataLoader
 from monai.data import ITKReader
+from monai.transforms import LoadImage, ToTensor, Compose, Identity, PadListDataCollate
 from monai.transforms import Compose, GaussianSmooth, Identity, LoadImage, PadListDataCollate, ToTensor
 from torch.utils.data import DataLoader
 from fedbiomed.common.data import NIFTIFolderDataset
