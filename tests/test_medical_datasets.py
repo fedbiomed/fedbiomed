@@ -20,6 +20,7 @@ from monai.transforms import Compose, GaussianSmooth, Identity, LoadImage, PadLi
 from torch.utils.data import DataLoader
 from fedbiomed.common.data import NIFTIFolderDataset
 from fedbiomed.common.exceptions import FedbiomedDatasetError
+from torch.utils.data import Dataset
 from torchvision.transforms import Lambda
 from fedbiomed.common.data import MedicalFolderDataset, MedicalFolderBase
 
@@ -248,14 +249,14 @@ class TestNIFTIFolderDataset(unittest.TestCase):
 
 
 
-def _create_synthetic_dataset(root: str, n_samples: int, tabular_file: str, index_col: int):
+def _create_synthetic_dataset(root: str, n_samples: int, tabular_file: str, index_col: str):
     """Creates synthetic dataset for test purposes
 
     Args:
         root (str): path to dataset
         n_samples (int): number of samples
         tabular_file (str): path to demographic dataset
-        index_col (int): coloumn containing subject data location on system
+        index_col (str): column name for subject id
     """
     # Image and target data
     fake_img_data = np.random.rand(10, 10, 10)
@@ -283,10 +284,17 @@ def _create_synthetic_dataset(root: str, n_samples: int, tabular_file: str, inde
         # Add demographics information
         demographics.loc[subject_id, 'AGE'] = randint(15, 90)
         demographics.loc[subject_id, 'CENTER'] = choice(centers)
+    print(demographics)
     demographics.to_csv(tabular_file)
 
 
 def _create_wrong_formatted_folder_for_medical_folder(root: str, n_samples: int):
+    """Creates medical folder without any modalities
+
+    Args:
+        root (str): root path file
+        n_samples (int): number of samples (ie number of subjects)
+    """
 
     subject_ids = [str(uuid4()) for _ in range(n_samples)]
     for subject_id in subject_ids:
@@ -326,6 +334,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
 
     def test_medical_folder_dataset_02_cached_properties(self):
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
+        self.assertIsInstance(dataset, Dataset)  # check that instantiation has been completed
         print(dataset.demographics.head())
         print(dataset.demographics.head())
 
@@ -381,10 +390,17 @@ class TestMedicalFolderDataset(unittest.TestCase):
         self.assertIsInstance(demographics, torch.Tensor)
         self.assertTrue(demographics.numel() == 0)
 
+    def _assert_batch_types_and_sizes(self, dataset: Dataset):
+        """Asserts first batches correct types and lengths
 
-    def _assert_batch_types_and_sizes(self, dataset):
+        Args:
+            dataset (Dataset): a Dataset object that should have 
+                correct types (dict, dict, torch.Tensor) and correct batch size
+        Raises:
+            AssertionError if test fails
+        """
         data_loader = DataLoader(dataset, batch_size=self.batch_size)
-        (images, demographics), targets = iter(data_loader).next()
+        (images, demographics), targets = iter(data_loader).next()  # get the first iteration of dataloader
 
         self.assertIsInstance(images, dict)
         self.assertIsInstance(targets, dict)
@@ -417,7 +433,7 @@ class TestMedicalFolderBase(unittest.TestCase):
     def tearDown(self) -> None:
 
         if 'IXI' not in self.root:
-            shutil.rmtree(self.root)
+            shutil.rmtree(self.root)  #is that useful since temporary folder will be deleted
         pass
 
     def test_medical_folder_base_01_init(self):
@@ -463,6 +479,32 @@ class TestMedicalFolderBase(unittest.TestCase):
         self.assertIsInstance(all_modalities, list, "All modalities are not as expected")
         unique_modalities.sort()
         self.assertListEqual(unique_modalities, ["T1", "T2", "label"])
+        
+    def test_medical_folder_base_03_modalities_existing(self):
+        self.medical_folder_base = MedicalFolderBase(root=self.root)
+        demographics = pd.read_csv(self.tabular_file)
+        for subject in demographics[self.index_col]:
+            
+            logical = all(self.medical_folder_base.is_modalities_existing(subject,
+                                                                          ['T1', 'T2', 'label']))
+            self.assertTrue(logical)
+            
+        # remove one modality to each subject
+        for subject in demographics[self.index_col]:
+            modalities_folders_path = os.listdir(os.path.join(self.root, subject))
+            modality_to_remove = choice(modalities_folders_path)
+            shutil.rmtree(os.path.join(self.root, subject, modality_to_remove))
+            
+            # action
+            logical = self.medical_folder_base.is_modalities_existing(subject, 
+                                                                      ['T1', 'T2', 'label'])
+            # checks
+            self.assertFalse(all(logical))
+            self.assertTrue(any(logical))
+            
+        with self.assertRaises(FedbiomedDatasetError):
+            # incorrect type for modality (expecting list, but pass a string)
+            self.medical_folder_base.is_modalities_existing(subject, "this is not a list")
 
     def test_medical_folder_base_03_available_subjects(self):
         """Testing the method that extract available subjects for training"""
