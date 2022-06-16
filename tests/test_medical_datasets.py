@@ -7,6 +7,8 @@ import shutil
 import tempfile
 from pathlib import Path, PosixPath
 from uuid import uuid4
+from random import randint, choice
+
 
 import itk
 import numpy as np
@@ -37,14 +39,24 @@ class TestNIFTIFolderDataset(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.root)
 
-
     def test_nifti_folder_dataset_01_instantiation_correct(self):
         # correct instantiations
-        NIFTIFolderDataset(self.root)
-        NIFTIFolderDataset(self.root, None, None)
-        NIFTIFolderDataset(self.root, transform=Identity(), target_transform=None)
-        NIFTIFolderDataset(self.root, transform=None, target_transform=Identity())
+        # here we test that each instantation is a `NIFTIFolderDataset`
+        # object, but the true goal of the test is to check that parameters
+        # are accepted when initializing object
 
+        self.assertIsInstance(NIFTIFolderDataset(self.root), 
+                              NIFTIFolderDataset)
+
+        self.assertIsInstance(
+            NIFTIFolderDataset(self.root, None, None),
+            NIFTIFolderDataset)
+        self.assertIsInstance(
+            NIFTIFolderDataset(self.root, transform=Identity(),
+                               target_transform=None),
+            NIFTIFolderDataset)
+        self.assertIsInstance(NIFTIFolderDataset(self.root, transform=None, target_transform=Identity()),
+                              NIFTIFolderDataset)
 
     def test_nifti_folder_dataset_02_instantiation_incorrect(self):
         # incorrect instantiations
@@ -199,6 +211,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
             # check we read all the samples
             self.assertEqual(index + 1, sum(self.n_samples))
 
+    # not really a unit test belonging to this class, but nice to have it => ok ?
 
     def test_nifti_folder_dataset_09_dataloader(self):
         dataset = NIFTIFolderDataset(self.root)
@@ -234,7 +247,16 @@ class TestNIFTIFolderDataset(unittest.TestCase):
                 self.sample_class.append(self.class_names.index(class_name))
 
 
-def _create_synthetic_dataset(root, n_samples, tabular_file, index_col):
+
+def _create_synthetic_dataset(root: str, n_samples: int, tabular_file: str, index_col: int):
+    """Creates synthetic dataset for test purposes
+
+    Args:
+        root (str): path to dataset
+        n_samples (int): number of samples
+        tabular_file (str): path to demographic dataset
+        index_col (int): coloumn containing subject data location on system
+    """
     # Image and target data
     fake_img_data = np.random.rand(10, 10, 10)
     img = itk.image_from_array(fake_img_data)
@@ -264,7 +286,7 @@ def _create_synthetic_dataset(root, n_samples, tabular_file, index_col):
     demographics.to_csv(tabular_file)
 
 
-def _create_wrong_formatted_folder_for_medical_folder(root, n_samples):
+def _create_wrong_formatted_folder_for_medical_folder(root: str, n_samples: int):
 
     subject_ids = [str(uuid4()) for _ in range(n_samples)]
     for subject_id in subject_ids:
