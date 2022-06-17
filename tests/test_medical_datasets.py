@@ -12,6 +12,7 @@ from random import randint, choice
 
 
 import itk
+import monai
 import numpy as np
 import pandas as pd
 import torch
@@ -336,10 +337,60 @@ class TestMedicalFolderDataset(unittest.TestCase):
             dataset = MedicalFolderDataset(self.root, target_transform="Invalid")
 
     def test_medical_folder_dataset_02_cached_properties(self):
-        dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
+        dataset = MedicalFolderDataset(self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col)
         self.assertIsInstance(dataset, Dataset)  # check that instantiation has been completed
         print(dataset.demographics.head())
         print(dataset.demographics.head())
+
+    def test_medical_folder_dataset_03_getitem(self):
+        # test correct indexation
+        
+        # test errors
+        self.patcher = patch('monai.transforms.GaussianSmooth', side_effect=RuntimeError)
+        self.patcher.start()
+        dataset = MedicalFolderDataset(self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col,
+                                       transform= monai.transforms.GaussianSmooth,
+                                       )
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset[0]
+        
+        
+        # test case where demographic transform raises error
+
+        dataset = MedicalFolderDataset(self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col,
+                                       demographics_transform= monai.transforms.GaussianSmooth,
+                                       )
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset[0]
+        
+        self.patcher.stop()
+        
+        # test case where `demographics` type is not correct
+        
+        dataset = MedicalFolderDataset(self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col,
+                                       transform= Lambda(lambda x: 'this is a bad type for demographics'),
+                                       )
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset[0]
+            
+        self.patcher.start()
+        # test case where transformation  cannot be applied on modality
+        dataset = MedicalFolderDataset(self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col,
+                                       target_transform={"label": monai.transforms.GaussianSmooth},
+                                       )
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset[0]
+        self.patcher.stop()
 
     def test_medical_folder_dataset_03_instantiation_with_demographics(self):
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col,
@@ -348,8 +399,13 @@ class TestMedicalFolderDataset(unittest.TestCase):
 
     def test_medical_folder_dataset_04_data_transforms(self):
         dataset = MedicalFolderDataset(self.root, transform=self.transform)
-        (images, demographics), targets = dataset[0]
-        self.assertTrue(images['T1'].dim() == 1)
+        
+        for i, ((images, demographics), targets) in enumerate(dataset):
+            # test indexation
+            self.assertTrue(images['T1'].dim() == 1)
+            # test iteration
+            (images_indxed, _), _ = dataset[i] 
+            self.assertTrue(images_indxed['T1'].dim() == 1)
 
     def test_medical_folder_dataset_05_target_transform(self):
         dataset = MedicalFolderDataset(self.root, target_transform=self.target_transform)
@@ -369,9 +425,15 @@ class TestMedicalFolderDataset(unittest.TestCase):
     def test_medical_folder_dataset_07_demographics_transform(self):
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col,
                                        demographics_transform=lambda x: torch.as_tensor(x['AGE']))
+        
+        # check indexation
         (images, demographics), targets = dataset[0]
         csv_data = pd.read_csv(self.tabular_file)
         self.assertTrue(demographics.numpy() in csv_data.AGE.values)
+        
+        # check over a loop
+        for (images, demographics), targets in dataset:
+            self.assertTrue(demographics.numpy() in csv_data.AGE.values)
 
         dataset = MedicalFolderDataset(self.root, demographics_transform=lambda x: torch.as_tensor(x['AGE']))
         with self.assertRaises(FedbiomedDatasetError):
@@ -470,6 +532,10 @@ class TestMedicalFolderBase(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             self.medical_folder_base.root = dummy_root_2
 
+        # create temporary file and check if MedicalFolderBase triggers error if file is passed instead a folder
+        Path(os.path.join(dummy_root_2, 'test_file')).touch()
+        with self.assertRaises(FedbiomedDatasetError):
+            MedicalFolderBase(root=os.path.join(dummy_root_2, 'test_file'))
         # Remove tmp folder
         shutil.rmtree(dummy_root_2)
 
@@ -531,6 +597,22 @@ class TestMedicalFolderBase(unittest.TestCase):
         df = self.medical_folder_base.read_demographics(os.path.join(self.root, 'toto.csv'), index_col=1)
         self.assertIsInstance(df, pd.DataFrame)
 
+    def test_medical_folder_base_05_deographic_column_names(self):
+        self.medical_folder_base = MedicalFolderBase(root=self.root)
 
+        variable_names = ['var_1', 'var_2', 'var_3']
+
+        test_csv = pd.DataFrame({v: np.random.randn(10) for v in variable_names})
+        test_csv.to_csv(os.path.join(self.root, 'toto.csv'), index=False)
+
+        # action
+        col = self.medical_folder_base.demographics_column_names(os.path.join(self.root, 'toto.csv'))
+
+        # check
+        self.assertListEqual(col.tolist(), variable_names)
+
+
+
+     
 if __name__ == '__main__':
     unittest.main()
