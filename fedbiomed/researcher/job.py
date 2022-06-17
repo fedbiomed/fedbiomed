@@ -298,7 +298,7 @@ class Job:
         Args:
             round: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
-            do_training: if False, skip training in this round (do only test/evaluation). Defaults to True.
+            do_training: if False, skip training in this round (do only validation). Defaults to True.
         """
         headers = {'researcher_id': self._researcher_id,
                    'job_id': self._id,
@@ -314,7 +314,7 @@ class Job:
             if not do_training:
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
-                            f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final testing on '
+                            f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
                             f'aggregated parameters \n {5 * "-------------"}')
             else:
                 logger.info(f'\033[1mSending request\033[0m \n'
@@ -606,8 +606,8 @@ class localJob:
         if training_args is not None:
             if training_args.get('test_on_local_updates', False) \
                     or training_args.get('test_on_global_updates', False):
-                # if user wants to perform testing, display this message
-                logger.warning("Cannot perform testing, not supported for LocalJob")
+                # if user wants to perform validation, display this message
+                logger.warning("Cannot perform validation, not supported for LocalJob")
 
         # handle case when model is in a file
         if model_path is not None:

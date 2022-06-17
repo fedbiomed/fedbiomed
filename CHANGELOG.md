@@ -8,7 +8,7 @@
 
 - add FedProx optimization scheme support for PyTorch in training plan
 - data manager to provide robust solution on managing node datasets before training on the node side
-- model evaluation/testing on the node side over locally updated and aggregated model parameters
+- model evaluation/validation on the node side over locally updated and aggregated model parameters
 - add NIFTI folder dataset type
 - add option to load MedNIST dataset in node
 - update docstrings for API documentation support
