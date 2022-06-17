@@ -427,13 +427,14 @@ class TestMedicalFolderDataset(unittest.TestCase):
                                        demographics_transform=lambda x: torch.as_tensor(x['AGE']))
         
         # check indexation
-        (images, demographics), targets = dataset[0]
+        
         csv_data = pd.read_csv(self.tabular_file)
-        self.assertTrue(demographics.numpy() in csv_data.AGE.values)
         
         # check over a loop
-        for (images, demographics), targets in dataset:
+        for i, ((images, demographics), targets) in enumerate(dataset):
             self.assertTrue(demographics.numpy() in csv_data.AGE.values)
+            (images, demographics_indxed), targets = dataset[i]
+            self.assertTrue(demographics_indxed.numpy() in csv_data.AGE.values)
 
         dataset = MedicalFolderDataset(self.root, demographics_transform=lambda x: torch.as_tensor(x['AGE']))
         with self.assertRaises(FedbiomedDatasetError):
