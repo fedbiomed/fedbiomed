@@ -25,7 +25,6 @@ Nodes Global Variables:
 - MODEL_DIR               : Path of directory for storing registered models
 - MODEL_APPROVAL          : True if the node enables model approval
 - ALLOW_DEFAULT_MODELS    : True if the node enables default models for model approval
-- NODE_EDITOR             : command name for editor to use
 
 Common Global Variables:
 
@@ -308,7 +307,7 @@ class Environ(metaclass=SingletonMeta):
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
-        self._values['NODE_EDITOR'] = os.getenv('NODE_EDITOR', os.getenv('EDITOR'))
+        self._values['EDITOR'] = os.getenv('EDITOR')
 
         # ========= PATCH MNIST Bug torchvision 0.9.0 ===================
         # https://github.com/pytorch/vision/issues/1938
