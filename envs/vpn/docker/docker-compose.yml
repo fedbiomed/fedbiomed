@@ -109,6 +109,8 @@ services:
       - ./node/run_mounts/data:/data # datasets can be added here
       - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
       - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
+      - ./node/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default models...
+
   # not using gpu
   node:
     << : *standard-node
@@ -155,6 +157,7 @@ services:
       - ./node/run_mounts/data:/data # datasets can be added here
       - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
       - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
+      - ./node/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default models...
   #
   # researcher component
   researcher:

@@ -14,6 +14,7 @@ ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
 RUN apt-get update && apt-get install -y apt-utils wget
+RUN apt-get -y install rsync
 
 # read config.env in interactive shells & setup for reading it in entrypoint
 COPY ./envs/vpn/docker/node/build_files/bashrc_append /tmp
@@ -39,6 +40,7 @@ RUN mkdir -p /fedbiomed/envs /data
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
 COPY envs/vpn /fedbiomed/envs/vpn
 COPY envs/common /fedbiomed/envs/common
+COPY envs/common /fedbiomed/envs/common_reference
 COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
 # Alternative option : git clone & strip unused dirs

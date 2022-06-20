@@ -128,9 +128,9 @@ class AddScalarReply(Message):
         researcher_id: ID of the researcher that receives the reply
         job_id: ID of the Job that is sent by researcher
         train: Declares whether scalar value is for training
-        test: Declares whether scalar value is for testing
-        test_on_local_updates: Declares whether testing is performed over locally updated parameters
-        test_on_global_updates: Declares whether testing is performed over aggregated parameters
+        test: Declares whether scalar value is for validation
+        test_on_local_updates: Declares whether validation is performed over locally updated parameters
+        test_on_global_updates: Declares whether validation is performed over aggregated parameters
         metric: Evaluation metroc
         epoch: Scalar is received at
         total_samples: Number of all samples in dataset

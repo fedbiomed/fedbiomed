@@ -120,11 +120,14 @@ class TestRound(unittest.TestCase):
         self.assertEqual(msg_test1.get('params_url', False), TestRound.URL_MSG)
         self.assertEqual(msg_test1.get('command', False), 'train')
 
-        # timing test
-        self.assertAlmostEqual(
+        # timing test - does not always work with self.assertAlmostEqual
+        self.assertGreaterEqual(
             msg_test1.get('timing', {'rtime_training': 0}).get('rtime_training'),
-            FakeModel.SLEEPING_TIME,
-            places=1
+            FakeModel.SLEEPING_TIME
+        )
+        self.assertLess(
+            msg_test1.get('timing', {'rtime_training': 0}).get('rtime_training'),
+            FakeModel.SLEEPING_TIME * 1.1
         )
 
         # test 2: redo test 1 but with the case where `model_kwargs` != None

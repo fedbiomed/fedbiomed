@@ -437,19 +437,19 @@ class Experiment(object):
 
     @exp_exceptions
     def test_ratio(self) -> float:
-        """Retrieves the ratio for test partition of entire dataset.
+        """Retrieves the ratio for validation partition of entire dataset.
 
         Please see also [`set_test_ratio`][fedbiomed.researcher.experiment.Experiment.set_test_ratio] to change/set `test_ratio`
 
         Returns:
-            The ratio for testing part, `1 - test_ratio` is ratio for training set.
+            The ratio for validation part, `1 - test_ratio` is ratio for training set.
         """
 
         return self._training_args['test_ratio']
 
     @exp_exceptions
     def test_metric(self) -> Union[MetricTypes, str, None]:
-        """Retrieves the metric for testing routine.
+        """Retrieves the metric for validation routine.
 
         Please see also [`set_test_metric`][fedbiomed.researcher.experiment.Experiment.set_test_metric] to change/set `test_metric`
 
@@ -476,27 +476,27 @@ class Experiment(object):
 
     @exp_exceptions
     def test_on_local_updates(self) -> bool:
-        """Retrieves the status of whether testing will be performed on locally updated parameters by
+        """Retrieves the status of whether validation will be performed on locally updated parameters by
         the nodes at the end of each round.
 
         Please see also [`set_test_on_local_updates`][fedbiomed.researcher.experiment.Experiment.set_test_on_local_updates].
 
         Returns:
-            True, if testing is active on locally updated parameters. False for vice versa.
+            True, if validation is active on locally updated parameters. False for vice versa.
         """
 
         return self._training_args['test_on_local_updates']
 
     @exp_exceptions
     def test_on_global_updates(self) -> bool:
-        """ Retrieves the status of whether testing will be performed on globally updated (aggregated)
+        """ Retrieves the status of whether validation will be performed on globally updated (aggregated)
         parameters by the nodes at the beginning of each round.
 
         Please see also [`set_test_on_global_updates`]
         [fedbiomed.researcher.experiment.Experiment.set_test_on_global_updates].
 
         Returns:
-            True, if testing is active on globally updated (aggregated) parameters. False for vice versa.
+            True, if validation is active on globally updated (aggregated) parameters. False for vice versa.
         """
         return self._training_args['test_on_global_updates']
 
@@ -525,7 +525,7 @@ class Experiment(object):
     def monitor(self) -> Monitor:
         """Retrieves the monitor object
 
-        Monitor is responsible for receiving and parsing real-time training and testing feed-back from each node
+        Monitor is responsible for receiving and parsing real-time training and validation feed-back from each node
         participate to federated training. See [`Monitor`][fedbiomed.researcher.monitor.Monitor]
 
         Returns:
@@ -1197,17 +1197,17 @@ class Experiment(object):
 
     @exp_exceptions
     def set_test_ratio(self, ratio: float) -> float:
-        """ Sets testing ratio for model evaluation.
+        """ Sets validation ratio for model validation.
 
         When setting test_ratio, nodes will allocate (1 - `test_ratio`) fraction of data for training and the
-        remaining for testing model. This could be useful for evaluating the model, once every round, as well as
+        remaining for validating model. This could be useful for validating the model, once every round, as well as
         controlling overfitting, doing early stopping, ....
 
         Args:
-            ratio: testing ratio. Must be within interval [0,1].
+            ratio: validation ratio. Must be within interval [0,1].
 
         Returns:
-            Test ratio that is set
+            Validation ratio that is set
 
         Raises:
             FedbiomedExperimentError: bad data type
@@ -1225,7 +1225,7 @@ class Experiment(object):
     @exp_exceptions
     def set_test_metric(self, metric: Union[MetricTypes, str, None], **metric_args: dict) -> \
             Tuple[Union[str, None], Dict[str, Any]]:
-        """ Sets a metric for federated model evaluation
+        """ Sets a metric for federated model validation
 
         Args:
             metric: A class as an instance of [`MetricTypes`][fedbiomed.common.metrics.MetricTypes]. [`str`][str] for
@@ -1255,11 +1255,11 @@ class Experiment(object):
     @exp_exceptions
     def set_test_on_local_updates(self, flag: bool = True) -> bool:
         """
-        Setter for `test_on_local_updates`, that indicates whether to perform a testing on the federated model on the
+        Setter for `test_on_local_updates`, that indicates whether to perform a validation on the federated model on the
         node side where model parameters are updated locally after training in each node.
 
         Args:
-            flag (bool, optional): whether to perform model evaluation on local updates. Defaults to True.
+            flag (bool, optional): whether to perform model validation on local updates. Defaults to True.
 
         Returns:
             value of the flag `test_on_local_updates`
@@ -1279,11 +1279,11 @@ class Experiment(object):
     @exp_exceptions
     def set_test_on_global_updates(self, flag: bool = True) -> bool:
         """
-        Setter for test_on_global_updates, that indicates whether to  perform a testing on the federated model
+        Setter for test_on_global_updates, that indicates whether to  perform a validation on the federated model
         updates on the node side before training model locally where aggregated model parameters are received.
 
         Args:
-            flag (bool, optional): whether to perform model evaluation on global updates. Defaults to True.
+            flag (bool, optional): whether to perform model validation on global updates. Defaults to True.
 
         Returns:
             Value of the flag `test_on_global_updates`.
@@ -1408,7 +1408,7 @@ class Experiment(object):
         Args:
             increase: automatically increase the `round_limit` of the experiment if needed. Does nothing if
                 `round_limit` is `None`. Defaults to False
-            test_after: if True, do a second request to the nodes after the round, only for testing on aggregated
+            test_after: if True, do a second request to the nodes after the round, only for validation on aggregated
                 params. Intended to be used after the last training round of an experiment. Defaults to False.
 
         Returns:
@@ -1479,7 +1479,7 @@ class Experiment(object):
         if self._save_breakpoints:
             self.breakpoint()
 
-        # do final evaluation after saving breakpoint :
+        # do final validation after saving breakpoint :
         # not saved in breakpoint for current round, but more simple
         if test_after:
             # FIXME: should we sample nodes here too?
@@ -1586,8 +1586,8 @@ class Experiment(object):
         for _ in range(rounds):
             if isinstance(self._round_limit, int) and self._round_current == (self._round_limit - 1) \
                     and self._training_args['test_on_global_updates'] is True:
-                # Do "testing after a round" only if this a round limit is defined and we reached it
-                # and testing is active on global params
+                # Do "validation after a round" only if this a round limit is defined and we reached it
+                # and validation is active on global params
                 # When this condition is met, it also means we are running the last of
                 # the `rounds` rounds in this function
                 test_after = True
