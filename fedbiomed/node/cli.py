@@ -740,8 +740,8 @@ def view_model():
                     with open(model_tmpfile) as m:
                         model_source = highlight(''.join(m.readlines()), PythonLexer() ,Terminal256Formatter())
                         logger.info(f'\n\n{model_source}\n\n')
-                except Exception:
-                    logger.critical('Cannot display model via logger. Aborting.')
+                except Exception as err:
+                    logger.critical(f'Cannot display model via logger. Aborting. Error message is: {err}')
 
             os.remove(model_tmpfile)
             return
