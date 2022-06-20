@@ -696,10 +696,10 @@ def delete_model():
 def view_model():
     """Views source code for a model in the database
 
-    If `environ[NODE_EDITOR]` is set then use this editor to view a copy of the model source code, so that
+    If `environ[EDITOR]` is set then use this editor to view a copy of the model source code, so that
     any modification are not saved to the model,
 
-    If `environ[NODE_EDITOR]` is unset or cannot be used to view the model, then print the model to the logger.
+    If `environ[EDITOR]` is unset or cannot be used to view the model, then print the model to the logger.
 
     If model cannot be displayed to the logger, then abort.
     """
@@ -731,7 +731,7 @@ def view_model():
             shutil.copyfile(model["model_path"], model_tmpfile)
 
             # first try to view using system editor
-            editor = environ['NODE_EDITOR']
+            editor = environ['EDITOR']
             result = os.system(f'{editor} {model_tmpfile} 2>/dev/null')
             if result != 0:
                 logger.info(f'Cannot view model with editor "{editor}", display via logger')
