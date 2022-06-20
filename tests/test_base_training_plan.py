@@ -120,7 +120,6 @@ class TestBaseTrainingPlan(unittest.TestCase):
         with self.assertRaises(FedbiomedTrainingPlanError):
             metric = True
             result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
-            print(result)
 
         with self.assertRaises(FedbiomedTrainingPlanError):
             metric = 'True'
@@ -172,9 +171,18 @@ class TestBaseTrainingPlan(unittest.TestCase):
         result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
         self.assertDictEqual(result, {'Custom_1': 14.5, 'Custom_2': 14.5, 'Custom_3': 14.5})
 
+        metric = np.array([14.5, 14.5, 14.5], dtype=np.floating)
+        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        self.assertDictEqual(result, {'Custom_1': 14.5, 'Custom_2': 14.5, 'Custom_3': 14.5})
+
         with self.assertRaises(FedbiomedTrainingPlanError):
             metric = {"m1": np.array([14.5, 14.5]), "m2": np.array([14.5, 14.5])}
             BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+
+        metric = np.float64(4.5)
+        result = BaseTrainingPlan._create_metric_result_dict(metric=metric, metric_name='Custom')
+        self.assertDictEqual(result, {'Custom': 4.5})
+        self.assertIsInstance(result["Custom"], float)
 
     def test_base_training_plan_07_training_data(self):
         """ Test training_data method whether raises error """

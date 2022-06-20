@@ -129,7 +129,7 @@ class TestMonitor(unittest.TestCase):
             'epoch': 1,
             'command': 'add_scalar'
         })
-        mock_summary_writer.assert_called_once_with(header='TESTING ON GLOBAL UPDATES',
+        mock_summary_writer.assert_called_once_with(header='VALIDATION ON GLOBAL UPDATES',
                                                     node='asd123',
                                                     metric={'metric_1': 12, 'metric_2': 13},
                                                     cum_iter=1)
@@ -202,7 +202,7 @@ class TestMonitor(unittest.TestCase):
     def test_monitor_07_close_writers(self, mock_close):
         """  Testing closing writers """
 
-        self.monitor._summary_writer(header='TESTING ON GLOBAL PARAMETERS',
+        self.monitor._summary_writer(header='VALIDATION ON GLOBAL PARAMETERS',
                                      node='asd123',
                                      metric={'metric_1': 12, 'metric_2': 13},
                                      cum_iter=1)

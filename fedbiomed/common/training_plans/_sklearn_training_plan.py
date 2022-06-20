@@ -202,18 +202,18 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                         history_monitor,
                         before_train: bool):
         """
-        Testing routine for SGDSkLearnModel. This method is called by the Round class if testing
+        Validation routine for SGDSkLearnModel. This method is called by the Round class if validation
         is activated for the Federated training round
 
         Args:
-            metric (MetricType, None): The metric that is going to be used for evaluation. Should be
+            metric (MetricType, None): The metric that is going to be used for validation. Should be
                 an instance of MetricTypes. If it is None and there is no `testing_step` is defined
                 by researcher method will raise an Exception. Defaults to ACCURACY.
 
-            history_monitor (HistoryMonitor): History monitor class of node side to send evaluation results
+            history_monitor (HistoryMonitor): History monitor class of node side to send validation results
                 to researcher.
 
-            before_train (bool): If True, this means testing is going to be performed after loading model parameters
+            before_train (bool): If True, this means validation is going to be performed after loading model parameters
               without training. Otherwise, after training.
 
         """
@@ -222,11 +222,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             metric = MetricTypes.ACCURACY
 
         if self.testing_data_loader is None:
-            msg = ErrorNumbers.FB605.value + ": can not find dataset for testing."
+            msg = ErrorNumbers.FB605.value + ": can not find dataset for validation."
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
-        # Check testing data loader is exists
+        # Check validation data loader is exists
         data, target = self.testing_data_loader
 
         # At the first round model won't have classes_ attribute
@@ -238,7 +238,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         metric_controller = Metrics()
         tot_samples = len(data)
 
-        # Use testing method defined by user
+        # Use validation method defined by user
         if hasattr(self, 'testing_step') and callable(self.testing_step):
             try:
                 m_value = self.testing_step(data, target)
@@ -249,7 +249,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
 
-            # If custom evaluation step returns None
+            # If custom validation step returns None
             if m_value is None:
                 msg = ErrorNumbers.FB605.value + \
                       ": metric function has returned None"
@@ -258,23 +258,23 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
 
             metric_name = 'Custom'
 
-        # If metric is defined use pre-defined evaluation for Fed-BioMed
+        # If metric is defined use pre-defined validation for Fed-BioMed
         else:
             if metric is None:
                 metric = MetricTypes.ACCURACY
                 logger.info(f"No `testing_step` method found in TrainingPlan and `test_metric` is not defined "
                             f"in the training arguments `: using default metric {metric.name}"
-                            " for model evaluation")
+                            " for model validation")
             else:
                 logger.info(
                     f"No `testing_step` method found in TrainingPlan: using defined metric {metric.name}"
-                    " for model evaluation.")
+                    " for model validation.")
 
             try:
                 pred = self.model.predict(data)
             except Exception as e:
                 msg = ErrorNumbers.FB605.value + \
-                      ": error during predicting test data set - " + \
+                      ": error during predicting validation data set - " + \
                       str(e)
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
@@ -285,7 +285,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
 
         # For logging in node console
-        logger.debug('Testing: [{}/{}] | Metric[{}]: {}'.format(len(target), tot_samples,
+        logger.debug('Validation: [{}/{}] | Metric[{}]: {}'.format(len(target), tot_samples,
                                                                 metric.name, m_value))
 
         # Send scalar values via general/feedback topic
@@ -293,7 +293,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             history_monitor.add_scalar(metric=metric_dict,
                                        iteration=1,  # since there is only one
                                        epoch=None,  # no epoch
-                                       test=True,  # means that for sending test metric
+                                       test=True,  # means that for sending validation metric
                                        test_on_local_updates=False if before_train else True,
                                        test_on_global_updates=before_train,
                                        total_samples=tot_samples,
@@ -302,11 +302,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
 
     def _classes_from_concatenated_train_test(self) -> np.ndarray:
         """
-        Method for getting all classes from test and target dataset. This action is required
-        in case of some class only exist in training subset or testing subset
+        Method for getting all classes from validatino and target dataset. This action is required
+        in case of some class only exist in training subset or validation subset
 
         Returns:
-            np.ndarray: numpy array containing unique values from the whole dataset (training + testing dataset)
+            np.ndarray: numpy array containing unique values from the whole dataset (training + validation dataset)
         """
 
         target_test = self.testing_data_loader[1] if self.testing_data_loader is not None else np.array([])

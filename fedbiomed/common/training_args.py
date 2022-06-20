@@ -20,7 +20,7 @@ class TrainingArgs():
 
     This class uses the Validator and SchemeValidator classes
     and provides a default scheme, which describes the arguments
-    necessary to train/test a TrainingPlan.
+    necessary to train/validate a TrainingPlan.
 
     It also permits to extend the TrainingArgs then testing new features
     by supplying an extra_scheme at TraininfArgs instanciation.
