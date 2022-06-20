@@ -7,6 +7,8 @@ import tempfile
 import unittest
 import inspect
 from unittest.mock import patch, MagicMock
+# why call this in model_manager ?
+#from wsgiref.util import setup_testing_defaults
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 
@@ -1406,6 +1408,63 @@ class TestModelManager(unittest.TestCase):
             if error == 'download':
                 download_file_patch.side_effect = download_file_side_effect
                 model3_status = 200
+
+    def test_model_manager_23_update_model_status(self):
+        """Test model manager `_update_model_status` function.
+        """
+
+        model_name = 'mymodel_name'
+        model_path = os.path.join(self.testdir, 'test-model-1.txt')
+        model_id = 'mymodel_id_for_test'
+
+        # add one registered model in database
+        self.model_manager.register_model(model_name, 'mymodel_description', model_path, model_id = model_id)
+
+
+        # Test 1 : do correct update in existing model
+        for status in [
+            ModelApprovalStatus.PENDING, 
+            ModelApprovalStatus.REJECTED,
+            ModelApprovalStatus.APPROVED, # update 2x with same status to cover this case
+            ModelApprovalStatus.APPROVED]:
+            note = str(status)
+            self.model_manager._update_model_status(model_id, status, note)
+            model = self.model_manager.get_model_by_id(model_id)
+
+            self.assertEqual(model['model_status'], status.value)
+            self.assertEqual(model['notes'], note)
+
+
+        # Test 2 : do update in non-existing model
+        with self.assertRaises(FedbiomedModelManagerError):
+            self.model_manager._update_model_status('non_existing_model', ModelApprovalStatus.REJECTED, 'new_notes')
+
+
+        # Test 3 : bad parameters
+        for bad_id in [None, 3, ['my_model'], [], {}, {'model_id': 'my_model'}]:
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager._update_model_status(bad_id, ModelApprovalStatus.REJECTED, 'new notes')
+
+        for bad_status in [None, 5, [], ['mt_status'], {}, {'model_status': 'my_status'}, 'Approved']:
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager._update_model_status(model_id, bad_status, 'new notes')
+
+        for bad_notes in [5, [], ['mt_status'], {}, {'model_status': 'my_status'}]:
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager._update_model_status(model_id, ModelApprovalStatus.REJECTED, bad_notes)
+
+
+        # Test 4 : database access error
+        for patch_start, patch_stop in [
+                (self.patcher_db_get.start, self.patcher_db_get.stop),
+                (self.patcher_db_update.start, self.patcher_db_update.stop)]:
+            patch_start()
+
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager._update_model_status(model_id, ModelApprovalStatus.REJECTED, 'new_notes')
+
+            patch_stop()    
+
 
 
 if __name__ == '__main__':  # pragma: no cover

@@ -861,8 +861,22 @@ class ModelManager:
             True: currently always returns True
 
         Raises:
+            FedbiomedModelManagerError: bad type for parameter
             FedbiomedModelManagerError: database access error
         """
+        if not isinstance(model_id, str):
+            raise FedbiomedModelManagerError(
+                ErrorNumbers.FB606.value + ": parameter model_id (str) has bad "
+                f"type {type(model_id)}")       
+        if not isinstance(model_status, ModelApprovalStatus):
+            raise FedbiomedModelManagerError(
+                ErrorNumbers.FB606.value + ": parameter model_status (ModelApprovalStatus) has bad "
+                f"type {type(model_status)}")            
+        if notes is not None and not isinstance(notes, str):
+            raise FedbiomedModelManagerError(
+                ErrorNumbers.FB606.value + ": parameter note (Union[str, None]) has bad "
+                f"type {type(notes)}")  
+
         self._db.clear_cache()
         try:
             model = self._db.get(self._database.model_id == model_id)
