@@ -738,7 +738,7 @@ def view_model():
                 # second try to print via logger (default output)
                 try:
                     with open(model_tmpfile) as m:
-                        model_source = highlight(''.join(m.readlines()), PythonLexer() ,Terminal256Formatter())
+                        model_source = highlight(''.join(m.readlines()), PythonLexer(), Terminal256Formatter())
                         logger.info(f'\n\n{model_source}\n\n')
                 except Exception:
                     logger.critical('Cannot display model via logger. Aborting.')
