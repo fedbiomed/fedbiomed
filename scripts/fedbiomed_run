@@ -53,10 +53,10 @@ node      : a second argument is mandatory
             - update-model    | --update-model      : Update model file (for a model registered from a local file)
             - delete-model    | --delete-model  | -dml  : Delete a model from database (not for default models)
 
-            - list-models     | --list-models   | -lms  : List all models
-            - view-model      | --view-model    | -vml  : View a model source code (for any type of model)
-            - approve-model   | --approve-model | -aml  : Approve a model (for any type of model)
-            - reject-model    | --reject-model  | -rjml : Reject a model (for any type of model)
+            - list-models     | --list-models   | -lms  : List all models (requested, default or registered)
+            - view-model      | --view-model    | -vml  : View a model source code (requested, default or registered)
+            - approve-model   | --approve-model | -aml  : Approve a model (requested, default or registered)
+            - reject-model    | --reject-model  | -rjml : Reject a model (requested, default or registered)
 
 
             an optional config file CONFIG_NAME can be given it will be used instead of the default one (config.ini)

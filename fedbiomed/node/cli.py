@@ -696,10 +696,10 @@ def delete_model():
 def view_model():
     """Views source code for a model in the database
 
-    If `environ[NODE_EDITOR]` is set then use this editor to view a copy of the model source code, so that
+    If `environ[EDITOR]` is set then use this editor to view a copy of the model source code, so that
     any modification are not saved to the model,
 
-    If `environ[NODE_EDITOR]` is unset or cannot be used to view the model, then print the model to the logger.
+    If `environ[EDITOR]` is unset or cannot be used to view the model, then print the model to the logger.
 
     If model cannot be displayed to the logger, then abort.
     """
@@ -731,7 +731,7 @@ def view_model():
             shutil.copyfile(model["model_path"], model_tmpfile)
 
             # first try to view using system editor
-            editor = environ['NODE_EDITOR']
+            editor = environ['EDITOR']
             result = os.system(f'{editor} {model_tmpfile} 2>/dev/null')
             if result != 0:
                 logger.info(f'Cannot view model with editor "{editor}", display via logger')
@@ -740,8 +740,8 @@ def view_model():
                     with open(model_tmpfile) as m:
                         model_source = highlight(''.join(m.readlines()), PythonLexer(), Terminal256Formatter())
                         logger.info(f'\n\n{model_source}\n\n')
-                except Exception:
-                    logger.critical('Cannot display model via logger. Aborting.')
+                except Exception as err:
+                    logger.critical(f'Cannot display model via logger. Aborting. Error message is: {err}')
 
             os.remove(model_tmpfile)
             return
@@ -788,10 +788,10 @@ def launch_cli():
                         help='Register and approve a model from a local file.',
                         action='store_true')
     parser.add_argument('-aml', '--approve-model',
-                        help='Approve a model (for any type of model)',
+                        help='Approve a model (requested, default or registered)',
                         action='store_true')
     parser.add_argument('-rjml', '--reject-model',
-                        help='Reject a model (for any type of model)',
+                        help='Reject a model (requested, default or registered)',
                         action='store_true')
     parser.add_argument('-uml', '--update-model',
                         help='Update model file (for a model registered from a local file)',
@@ -800,10 +800,10 @@ def launch_cli():
                         help='Delete a model from database (not for default models)',
                         action='store_true')
     parser.add_argument('-lms', '--list-models',
-                        help='List all models',
+                        help='List all models (requested, default or registered)',
                         action='store_true')
     parser.add_argument('-vml', '--view-model',
-                        help='View a model source code (for any type of model)',
+                        help='View a model source code (requested, default or registered)',
                         action='store_true')
     parser.add_argument('-g', '--gpu',
                         help='Use of a GPU device, if any available (default: dont use GPU)',
