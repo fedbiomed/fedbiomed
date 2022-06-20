@@ -1465,6 +1465,63 @@ class TestModelManager(unittest.TestCase):
 
             patch_stop()    
 
+    def test_model_manager_23_delete_model(self):
+        """Test model manager `delete_model` function.
+        """
+
+        model_name = 'mymodel_name'
+        model_path = os.path.join(self.testdir, 'test-model-1.txt')
+        model_id = 'mymodel_id_for_test'
+
+
+        # Test 1 : correct model removal from database
+
+        # add one registered model in database
+        self.model_manager.register_model(model_name, 'mymodel_description', model_path, model_id = model_id)
+        model1 = self.model_manager.get_model_by_name(model_name)
+
+        # test
+        self.model_manager.delete_model(model_id)
+        model2 = self.model_manager.get_model_by_name(model_name)
+
+        # check
+        self.assertNotEqual(model1, None)
+        self.assertEqual(model2, None)
+
+
+        # Test 2 : try remove non existing model
+        with self.assertRaises(FedbiomedModelManagerError):
+            self.model_manager.delete_model('non_existing_model')
+
+
+        # Test 3 : bad parameter type
+        self.model_manager.register_model(model_name, 'mymodel_description', model_path, model_id = model_id)
+        model1 = self.model_manager.get_model_by_name(model_name)
+
+        # test + check        
+        self.assertNotEqual(model1, None)
+
+        for bad_id in [None, 3, ['my_model'], [], {}, {'model_id': 'my_model'}]:
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager.delete_model(bad_id)
+
+
+        # Test 4 : database access error
+        model1 = self.model_manager.get_model_by_name(model_name)
+
+        # test + check
+        self.assertNotEqual(model1, None)
+
+        for patch_start, patch_stop in [
+                (self.patcher_db_get.start, self.patcher_db_get.stop),
+                (self.patcher_db_remove.start, self.patcher_db_remove.stop)]:
+            patch_start()
+
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager.delete_model(model_id)
+
+            patch_stop()    
+        
 
 
 if __name__ == '__main__':  # pragma: no cover

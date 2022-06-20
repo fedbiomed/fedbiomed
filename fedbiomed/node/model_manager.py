@@ -959,6 +959,10 @@ class ModelManager:
             FedbiomedModelManagerError: cannot read or remove model from the database
             FedbiomedModelManagerError: model is not a `registered` model (thus a `default` model)
         """
+        if not isinstance(model_id, str):
+            raise FedbiomedModelManagerError(
+                ErrorNumbers.FB606.value + ": parameter model_id (str) has bad "
+                f"type {type(model_id)}")               
 
         self._db.clear_cache()
         try:
