@@ -1589,6 +1589,26 @@ class TestModelManager(unittest.TestCase):
 
             patch_stop()    
 
+    def test_model_manager_24_remove_sensible_keys_from_request(self):
+        """Test model manager `_remove_sensible_keys_from_request` function.
+        """
+
+        # prepare
+        key_sensible = 'model_path'
+        key_notsensible = 'model_id' 
+
+        doc = { 
+            key_sensible: 'valeur clef',
+            key_notsensible: 'autre valeur'
+        }
+        doc2 = copy.deepcopy(doc)
+
+        # test
+        self.model_manager._remove_sensible_keys_from_request(doc2)
+
+        # check
+        self.assertEqual(doc2[key_notsensible], doc[key_notsensible])
+        self.assertFalse(key_sensible in doc2)
 
 
 if __name__ == '__main__':  # pragma: no cover
