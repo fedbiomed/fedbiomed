@@ -307,6 +307,8 @@ class Environ(metaclass=SingletonMeta):
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
+        self._values['EDITOR'] = os.getenv('EDITOR')
+
         # ========= PATCH MNIST Bug torchvision 0.9.0 ===================
         # https://github.com/pytorch/vision/issues/1938
 
