@@ -788,10 +788,10 @@ def launch_cli():
                         help='Register and approve a model from a local file.',
                         action='store_true')
     parser.add_argument('-aml', '--approve-model',
-                        help='Approve a model (for any type of model)',
+                        help='Approve a model (requested, default or registered)',
                         action='store_true')
     parser.add_argument('-rjml', '--reject-model',
-                        help='Reject a model (for any type of model)',
+                        help='Reject a model (requested, default or registered)',
                         action='store_true')
     parser.add_argument('-uml', '--update-model',
                         help='Update model file (for a model registered from a local file)',
@@ -800,10 +800,10 @@ def launch_cli():
                         help='Delete a model from database (not for default models)',
                         action='store_true')
     parser.add_argument('-lms', '--list-models',
-                        help='List all models',
+                        help='List all models (requested, default or registered)',
                         action='store_true')
     parser.add_argument('-vml', '--view-model',
-                        help='View a model source code (for any type of model)',
+                        help='View a model source code (requested, default or registered)',
                         action='store_true')
     parser.add_argument('-g', '--gpu',
                         help='Use of a GPU device, if any available (default: dont use GPU)',
