@@ -956,6 +956,7 @@ class ModelManager:
             Currently always returns True.
 
         Raises:
+            FedbiomedModelManagerError: bad type for parameter
             FedbiomedModelManagerError: cannot read or remove model from the database
             FedbiomedModelManagerError: model is not a `registered` model (thus a `default` model)
         """
@@ -1001,6 +1002,7 @@ class ModelManager:
                 Default is True.
             search: Dictionary that contains `text` property to declare the text that wil be search and `by`
                 property to declare text will be search on which field
+
         Returns:
             A list of models that have
                 been found as `registered`. Each model is in fact a dictionary
@@ -1008,14 +1010,25 @@ class ModelManager:
                 'hash', dates due to privacy reasons).
 
         Raises:
+            FedbiomedModelManagerError: bad type for parameter
             FedbiomedModelManagerError: database access error
         """
-
-        self._db.clear_cache()
-
-        if search and not isinstance(search, dict):
+        if sort_by is not None and not isinstance(sort_by, str):
+            raise FedbiomedModelManagerError(
+                ErrorNumbers.FB606.value + f": parameter sort_by has bad type {type(sort_by)}")  
+        if not isinstance(verbose, bool):
+            raise FedbiomedModelManagerError(
+                ErrorNumbers.FB606.value + f": parameter verbose has bad type {type(verbose)}")  
+        # in case select_status is a list, we filter later with elements are ModelApprovalStatus
+        if select_status is not None and not isinstance(select_status, ModelApprovalStatus) and \
+                not isinstance(select_status, list):
+            raise FedbiomedModelManagerError(
+                ErrorNumbers.FB606.value + f": parameter select_status has bad type {type(select_status)}")  
+        if search is not None and not isinstance(search, dict):
             raise FedbiomedModelManagerError(f"{ErrorNumbers.FB606.value}: `search` argument should be dictionary that "
                                              f"contains `text` and `by` (that indicates field to search on)")
+
+        self._db.clear_cache()
 
         if search:
             try:

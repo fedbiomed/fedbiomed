@@ -65,6 +65,7 @@ class TestModelManager(unittest.TestCase):
         self.patcher_db_update = patch('tinydb.table.Table.update', MagicMock(side_effect=self.raise_fbmm_error))
         self.patcher_db_remove = patch('tinydb.table.Table.remove', MagicMock(side_effect=self.raise_fbmm_error))
         self.patcher_db_upsert = patch('tinydb.table.Table.upsert', MagicMock(side_effect=self.raise_fbmm_error))
+        self.patcher_db_all = patch('tinydb.table.Table.all', MagicMock(side_effect=self.raise_fbmm_error))
 
         # ---------------------------------------------------------------------------
 
@@ -522,8 +523,8 @@ class TestModelManager(unittest.TestCase):
 
         self.patcher_db_remove.stop()
 
-    def test_model_manager_12_create_txt_model_from_py(self):
-        """Test_model_manager_12: tests if txt file can be created from py file"""
+    def test_model_manager_10_create_txt_model_from_py(self):
+        """Test model manager: tests if txt file can be created from py file"""
         # initialisation: creating a *.py file
         randomfolder = tempfile.mkdtemp()
         if not os.access(randomfolder, os.W_OK):
@@ -553,7 +554,7 @@ class TestModelManager(unittest.TestCase):
 
             self.assertEqual(code, code_source)
 
-    def test_model_manager_13_update_model_normal_case(self, ):
+    def test_model_manager_11_update_model_normal_case(self, ):
         """Tests method `update_model_hash` in the normal case scenario"""
 
         # database initialisation
@@ -594,7 +595,7 @@ class TestModelManager(unittest.TestCase):
         self.assertEqual(updated_model['date_created'], file_creation_date_literal)
         self.assertEqual(updated_model['model_path'], default_model_file_2)
 
-    def test_model_manager_14_update_model_exception1(self):
+    def test_model_manager_12_update_model_exception1(self):
         """Tests method `update_model_hash` in error cases """
 
         # Test 1 : update of a default model
@@ -612,7 +613,7 @@ class TestModelManager(unittest.TestCase):
             self.model_manager.update_model_hash(model_id='test-model-id',
                                                  path=default_model_file_path)
 
-    def test_model_manager_14_update_model_exception2(self):
+    def test_model_manager_12_update_model_exception2(self):
         """Tests method `update_model_hash` in error cases continued """
 
         # Test 2 : database access error
@@ -644,7 +645,7 @@ class TestModelManager(unittest.TestCase):
                 self.model_manager.delete_model('test-model-id')
 
 
-    def test_model_manager_15_delete_registered_models(self):
+    def test_model_manager_13_delete_registered_models(self):
         """ Testing delete operation for model manager """
 
         model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
@@ -678,8 +679,65 @@ class TestModelManager(unittest.TestCase):
             with self.assertRaises(FedbiomedModelManagerError):
                 self.model_manager.delete_model(model['model_id'])
 
-    def test_model_manager_14_list_models(self):
-        """ Testing list method of model manager """
+    def test_model_manager_13_delete_model_more_cases(self):
+        """Test model manager `delete_model` function: more cases.
+        """
+
+        model_name = 'mymodel_name'
+        model_path = os.path.join(self.testdir, 'test-model-1.txt')
+        model_id = 'mymodel_id_for_test'
+
+
+        # Test 1 : correct model removal from database
+
+        # add one registered model in database
+        self.model_manager.register_model(model_name, 'mymodel_description', model_path, model_id = model_id)
+        model1 = self.model_manager.get_model_by_name(model_name)
+
+        # test
+        self.model_manager.delete_model(model_id)
+        model2 = self.model_manager.get_model_by_name(model_name)
+
+        # check
+        self.assertNotEqual(model1, None)
+        self.assertEqual(model2, None)
+
+
+        # Test 2 : try remove non existing model
+        with self.assertRaises(FedbiomedModelManagerError):
+            self.model_manager.delete_model('non_existing_model')
+
+
+        # Test 3 : bad parameter type
+        self.model_manager.register_model(model_name, 'mymodel_description', model_path, model_id = model_id)
+        model1 = self.model_manager.get_model_by_name(model_name)
+
+        # test + check        
+        self.assertNotEqual(model1, None)
+
+        for bad_id in [None, 3, ['my_model'], [], {}, {'model_id': 'my_model'}]:
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager.delete_model(bad_id)
+
+
+        # Test 4 : database access error
+        model1 = self.model_manager.get_model_by_name(model_name)
+
+        # test + check
+        self.assertNotEqual(model1, None)
+
+        for patch_start, patch_stop in [
+                (self.patcher_db_get.start, self.patcher_db_get.stop),
+                (self.patcher_db_remove.start, self.patcher_db_remove.stop)]:
+            patch_start()
+
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager.delete_model(model_id)
+
+            patch_stop()
+
+    def test_model_manager_14_list_models_correct(self):
+        """ Testing list method of model manager for correct request cases """
 
         self.model_manager.register_update_default_models()
         models = self.model_manager.list_models(verbose=False)
@@ -741,16 +799,82 @@ class TestModelManager(unittest.TestCase):
         self.assertEqual(pending_models, [])
 
         # filtering with more than one status (get only REJECTED and APPROVAL model)
-        rejected_and_approved_models = self.model_manager.list_models(select_status=[ModelApprovalStatus.REJECTED,
-                                                                                     ModelApprovalStatus.APPROVED],
-                                                                      verbose=False)
-        for model in rejected_and_approved_models:
-            # Model status should be either Rejected or Approved...
-            self.assertIn(model['model_status'],
-                          [ModelApprovalStatus.REJECTED.value,
-                           ModelApprovalStatus.APPROVED.value])
-            # ... but not Pending
-            self.assertNotEqual(model['model_status'], ModelApprovalStatus.PENDING.value)
+        # plus sorting
+        for sort_by in [None, 'model_id', 'NON_EXISTING_KEY']:
+            rejected_and_approved_models = self.model_manager.list_models(sort_by=sort_by,
+                                                                          select_status=[ModelApprovalStatus.REJECTED,
+                                                                                         ModelApprovalStatus.APPROVED],
+                                                                          verbose=False)
+            for model in rejected_and_approved_models:
+                # Model status should be either Rejected or Approved...
+                self.assertIn(model['model_status'],
+                              [ModelApprovalStatus.REJECTED.value,
+                               ModelApprovalStatus.APPROVED.value])
+                # ... but not Pending
+                self.assertNotEqual(model['model_status'], ModelApprovalStatus.PENDING.value)
+
+
+    def test_model_manager_14_list_models_errors(self):
+        """Test model manager `list_models` function for error cases.
+        """
+
+        # default models in database (not directly used, but to search among multiple entries)
+        self.model_manager.register_update_default_models()
+
+        model_name = 'mymodel_name'
+        model_path = os.path.join(self.testdir, 'test-model-1.txt')
+
+        # add one registered model in database
+        self.model_manager.register_model(model_name, 'mymodel_description', model_path)
+
+
+        # Test 1 : bad parameters
+        for bad_sort in [True, 7, [], ['model_type'], {}, {'model_type': 'model_type'}]:
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager.list_models(bad_sort, None, True, None)
+
+        for bad_status in [True, 7, {}, {'model_status': 'model_status'}]:
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager.list_models(None, bad_status, True, None)
+
+        for bad_verbose in [None, 7, {}, [], ['model_verbose'], {'model_verbose': 'model_verbose'}]:
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager.list_models(None, None, bad_verbose, None)
+
+        # {} is ok, not search by criterion is performed
+        for bad_search in [False, 7, [], ['model_search'], { 'dummy': 'model_id'},
+                { 'by': 'model_id'}, { 'text': 'search text'}]:
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager.list_models(None, None, True, bad_search)
+
+
+        # Test 2 : database access error
+        self.patcher_db_search.start()
+        self.patcher_db_all.start()
+
+        for status in [
+                None,
+                ModelApprovalStatus.PENDING,
+                [],
+                [ModelApprovalStatus.REJECTED, ModelApprovalStatus.APPROVED]]:
+            for search in [None, {}, {'by': 'model_type', 'text': 'Registered'}]:
+                for sort_by in [None, 'colonne']: # non existing entry
+                    for verbose in [True, False]:
+                        with self.assertRaises(FedbiomedModelManagerError):
+                            self.model_manager.list_models(sort_by, status, verbose, search)
+
+        self.patcher_db_search.stop()
+        self.patcher_db_all.stop()
+
+        # remaining uncovered case
+        self.patcher_db_search.start()
+
+        for verbose in [True, False]:
+            with self.assertRaises(FedbiomedModelManagerError):
+                self.model_manager.list_models('colonne', None, verbose, None)       
+
+        self.patcher_db_search.stop()
+
 
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('fedbiomed.node.model_manager.ModelManager.get_model_from_database')
@@ -1465,63 +1589,6 @@ class TestModelManager(unittest.TestCase):
 
             patch_stop()    
 
-    def test_model_manager_23_delete_model(self):
-        """Test model manager `delete_model` function.
-        """
-
-        model_name = 'mymodel_name'
-        model_path = os.path.join(self.testdir, 'test-model-1.txt')
-        model_id = 'mymodel_id_for_test'
-
-
-        # Test 1 : correct model removal from database
-
-        # add one registered model in database
-        self.model_manager.register_model(model_name, 'mymodel_description', model_path, model_id = model_id)
-        model1 = self.model_manager.get_model_by_name(model_name)
-
-        # test
-        self.model_manager.delete_model(model_id)
-        model2 = self.model_manager.get_model_by_name(model_name)
-
-        # check
-        self.assertNotEqual(model1, None)
-        self.assertEqual(model2, None)
-
-
-        # Test 2 : try remove non existing model
-        with self.assertRaises(FedbiomedModelManagerError):
-            self.model_manager.delete_model('non_existing_model')
-
-
-        # Test 3 : bad parameter type
-        self.model_manager.register_model(model_name, 'mymodel_description', model_path, model_id = model_id)
-        model1 = self.model_manager.get_model_by_name(model_name)
-
-        # test + check        
-        self.assertNotEqual(model1, None)
-
-        for bad_id in [None, 3, ['my_model'], [], {}, {'model_id': 'my_model'}]:
-            with self.assertRaises(FedbiomedModelManagerError):
-                self.model_manager.delete_model(bad_id)
-
-
-        # Test 4 : database access error
-        model1 = self.model_manager.get_model_by_name(model_name)
-
-        # test + check
-        self.assertNotEqual(model1, None)
-
-        for patch_start, patch_stop in [
-                (self.patcher_db_get.start, self.patcher_db_get.stop),
-                (self.patcher_db_remove.start, self.patcher_db_remove.stop)]:
-            patch_start()
-
-            with self.assertRaises(FedbiomedModelManagerError):
-                self.model_manager.delete_model(model_id)
-
-            patch_stop()    
-        
 
 
 if __name__ == '__main__':  # pragma: no cover
