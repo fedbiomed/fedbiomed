@@ -366,38 +366,74 @@ class TestMedicalFolderDataset(unittest.TestCase):
                                        index_col=self.index_col,
                                        demographics_transform= monai.transforms.GaussianSmooth,
                                        )
-        with self.assertRaises(FedbiomedDatasetError):
-            dataset[0]
-        
-        self.patcher.stop()
+        try:
+            with self.assertRaises(FedbiomedDatasetError):
+                dataset[0]
+        finally:
+            self.patcher.stop()  # make sure patcher is stopped (in order to avid propegating patch to other tests)
         
         # test case where `demographics` type is not correct
         
         dataset = MedicalFolderDataset(self.root,
                                        tabular_file=self.tabular_file,
                                        index_col=self.index_col,
-                                       transform= Lambda(lambda x: 'this is a bad type for demographics'),
+                                       transform= Lambda(lambda x: 'this is a bad type for demographics '
+                                                         '( expecting a dict but passing a str)'),
                                        )
         with self.assertRaises(FedbiomedDatasetError):
             dataset[0]
-            
+           
         self.patcher.start()
-        # test case where transformation  cannot be applied on modality
-        dataset = MedicalFolderDataset(self.root,
+
+        dataset = MedicalFolderDataset(root=self.root,
                                        tabular_file=self.tabular_file,
                                        index_col=self.index_col,
                                        target_transform={"label": monai.transforms.GaussianSmooth},
+                                       demographics_transform=lambda x: torch.as_tensor(x['AGE'])
                                        )
-        with self.assertRaises(FedbiomedDatasetError):
-            dataset[0]
-        self.patcher.stop()
+        try:
+            with self.assertRaises(FedbiomedDatasetError):
+                dataset[0]
+        finally:
+            self.patcher.stop()   # make sure patcher is stopped (in order to avoid propagating patch to other tests)
 
-    def test_medical_folder_dataset_03_instantiation_with_demographics(self):
+    def test_medical_folder_dataset_04_len(self):
+        dataset = MedicalFolderDataset(self.root)
+        
+        # check correct use of number of smaples
+        self.assertEquals(len(dataset), self.n_samples)
+        
+        # check __len__ behaviour when self.subject_folder returns an empty list
+        patcher = patch('fedbiomed.common.data._medical_datasets.MedicalFolderDataset.subject_folders',
+                        return_value = [])
+        patcher.start()
+        dataset = MedicalFolderDataset(self.root)
+        try:
+            with self.assertRaises(FedbiomedDatasetError):
+                len(dataset)
+        finally:
+            patcher.stop()  # make sure patcher is stopped (otherwise will propagate error)
+
+    def test_medical_folder_dataset_05_setter(self):
+        dataset = MedicalFolderDataset(self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col,)
+        
+        # check error if incorrect type is passed
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset.tabular_file = 1233
+ 
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset.tabular_file = []
+        
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset.tabular_file = True
+    def test_medical_folder_dataset_06_instantiation_with_demographics(self):
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col,
                                        demographics_transform=lambda x: torch.as_tensor(x['AGE']))
         self._assert_batch_types_and_sizes(dataset)
 
-    def test_medical_folder_dataset_04_data_transforms(self):
+    def test_medical_folder_dataset_07_data_transforms(self):
         dataset = MedicalFolderDataset(self.root, transform=self.transform)
         
         for i, ((images, demographics), targets) in enumerate(dataset):
@@ -407,12 +443,12 @@ class TestMedicalFolderDataset(unittest.TestCase):
             (images_indxed, _), _ = dataset[i] 
             self.assertTrue(images_indxed['T1'].dim() == 1)
 
-    def test_medical_folder_dataset_05_target_transform(self):
+    def test_medical_folder_dataset_08_target_transform(self):
         dataset = MedicalFolderDataset(self.root, target_transform=self.target_transform)
         (images, demographics), targets = dataset[0]
         self.assertEqual(images['T1'].shape, targets['label'].shape)
 
-    def test_medical_folder_dataset_06_set_dataset_parameters(self):
+    def test_medical_folder_dataset_09_set_dataset_parameters(self):
         dataset = MedicalFolderDataset(self.root)
 
         with self.assertRaises(FedbiomedDatasetError):
@@ -422,7 +458,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
         self.assertEqual(str(dataset.tabular_file), str(Path(self.tabular_file).expanduser().resolve()))
         self.assertEqual(dataset.index_col, self.index_col)
 
-    def test_medical_folder_dataset_07_demographics_transform(self):
+    def test_medical_folder_dataset_10_demographics_transform(self):
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col,
                                        demographics_transform=lambda x: torch.as_tensor(x['AGE']))
         
