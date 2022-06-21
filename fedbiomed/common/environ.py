@@ -99,7 +99,7 @@ class Environ(metaclass=SingletonMeta):
             FedbiomedEnvironError: If the key does not exist
         """
         if key not in self._values:
-            _msg = ErrorNumbers.FB600.value + ": config file doe not contain the key: " + str(key)
+            _msg = ErrorNumbers.FB600.value + ": config file does not contain the key: " + str(key)
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
         return self._values[key]
