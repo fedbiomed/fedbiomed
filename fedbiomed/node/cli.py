@@ -721,33 +721,34 @@ def view_model():
             opt_idx = int(input(msg)) - 1
             assert opt_idx in range(len(models))
             model_name = models[opt_idx]['name']
-
-            # TODO: more robust (when refactor whole CLI)
-            # - check `model` though it should never be None, as we just checked for it
-            # - check after file copy though it should work
-            # - etc.
-            model = model_manager.get_model_by_name(model_name)
-            model_tmpfile = os.path.join(environ['TMP_DIR'], 'model_tmpfile_' + str(uuid.uuid4()))
-            shutil.copyfile(model["model_path"], model_tmpfile)
-
-            # first try to view using system editor
-            editor = environ['EDITOR']
-            result = os.system(f'{editor} {model_tmpfile} 2>/dev/null')
-            if result != 0:
-                logger.info(f'Cannot view model with editor "{editor}", display via logger')
-                # second try to print via logger (default output)
-                try:
-                    with open(model_tmpfile) as m:
-                        model_source = highlight(''.join(m.readlines()), PythonLexer(), Terminal256Formatter())
-                        logger.info(f'\n\n{model_source}\n\n')
-                except Exception as err:
-                    logger.critical(f'Cannot display model via logger. Aborting. Error message is: {err}')
-
-            os.remove(model_tmpfile)
-            return
-
         except (ValueError, IndexError, AssertionError):
             logger.error('Invalid option. Please, try again.')
+            continue
+
+        # TODO: more robust (when refactor whole CLI)
+        # - check `model` though it should never be None, as we just checked for it
+        # - check after file copy though it should work
+        # - etc.
+        model = model_manager.get_model_by_name(model_name)
+        model_tmpfile = os.path.join(environ['TMP_DIR'], 'model_tmpfile_' + str(uuid.uuid4()))
+        shutil.copyfile(model["model_path"], model_tmpfile)
+
+        # first try to view using system editor
+        editor = environ['EDITOR']
+        result = os.system(f'{editor} {model_tmpfile} 2>/dev/null')
+        if result != 0:
+            logger.info(f'Cannot view model with editor "{editor}", display via logger')
+            # second try to print via logger (default output)
+            try:
+                with open(model_tmpfile) as m:
+                    model_source = highlight(''.join(m.readlines()), PythonLexer() ,Terminal256Formatter())
+                    logger.info(f'\n\n{model_source}\n\n')
+            except Exception as err:
+                logger.critical(f'Cannot display model via logger. Aborting. Error message is: {err}')
+
+        os.remove(model_tmpfile)
+        return
+
 
 
 def launch_cli():
