@@ -4,12 +4,15 @@ Command line user interface for the node component
 
 import json
 import os
+import shutil
 import signal
 import sys
 import time
 from multiprocessing import Process
 from typing import Union
 from types import FrameType
+from shutil import copyfile
+import uuid
 
 import warnings
 import readline
@@ -18,6 +21,9 @@ import argparse
 import tkinter.filedialog
 import tkinter.messagebox
 from tkinter import _tkinter
+from pygments import highlight
+from pygments.lexers import PythonLexer
+from pygments.formatters import Terminal256Formatter
 
 from fedbiomed.common.constants  import ModelApprovalStatus, ModelTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError, FedbiomedDatasetManagerError
@@ -453,7 +459,7 @@ def delete_database(interactive: bool = True):
         try:
             if interactive is True:
                 opt_idx = int(input(msg)) - 1
-                assert opt_idx >= 0
+                assert opt_idx in range(len(my_data))
 
                 tags = my_data[opt_idx]['tags']
             else:
@@ -549,7 +555,7 @@ def update_model():
 
             # Get the selection
             opt_idx = int(input(msg)) - 1
-            assert opt_idx >= 0
+            assert opt_idx in range(len(models))
             model_id = models[opt_idx]['model_id']
 
             if not model_id:
@@ -601,6 +607,7 @@ def approve_model(sort_by_date: bool = True):
     while True:
         try:
             opt_idx = int(input(msg)) - 1
+            assert opt_idx in range(len(non_approved_models))
             model_id = non_approved_models[opt_idx]['model_id']
             model_manager.approve_model(model_id)
             logger.info(f"Model {model_id} has been approved. Researchers can now train the Training Plan" +
@@ -632,6 +639,7 @@ def reject_model():
     while True:
         try:
             opt_idx = int(input(msg)) - 1
+            assert opt_idx in range(len(approved_models))
             model_id = approved_models[opt_idx]['model_id']
             notes = input("Please give a note to explain why model has been rejected: \n")
             model_manager.reject_model(model_id, notes)
@@ -668,7 +676,7 @@ def delete_model():
         try:
 
             opt_idx = int(input(msg)) - 1
-            assert opt_idx >= 0
+            assert opt_idx in range(len(models))
             model_id = models[opt_idx]['model_id']
 
             if not model_id:
@@ -683,6 +691,64 @@ def delete_model():
 
         except (ValueError, IndexError, AssertionError):
             logger.error('Invalid option. Please, try again.')
+
+
+def view_model():
+    """Views source code for a model in the database
+
+    If `environ[EDITOR]` is set then use this editor to view a copy of the model source code, so that
+    any modification are not saved to the model,
+
+    If `environ[EDITOR]` is unset or cannot be used to view the model, then print the model to the logger.
+
+    If model cannot be displayed to the logger, then abort.
+    """
+    models = model_manager.list_models(verbose=False)
+    if not models:
+        logger.warning("No model has been registered... aborting")
+        return
+
+    options = [m['name'] + '\t Model ID ' + m['model_id'] + '\t model status ' +
+               m['model_status'] for m in models]
+
+    msg = "Select the model to view:\n"
+    msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
+    msg += "\n\nDon't try to modify the model with this viewer, modifications will be dropped."
+    msg += "\nSelect: "
+
+    while True:
+        try:
+            opt_idx = int(input(msg)) - 1
+            assert opt_idx in range(len(models))
+            model_name = models[opt_idx]['name']
+        except (ValueError, IndexError, AssertionError):
+            logger.error('Invalid option. Please, try again.')
+            continue
+
+        # TODO: more robust (when refactor whole CLI)
+        # - check `model` though it should never be None, as we just checked for it
+        # - check after file copy though it should work
+        # - etc.
+        model = model_manager.get_model_by_name(model_name)
+        model_tmpfile = os.path.join(environ['TMP_DIR'], 'model_tmpfile_' + str(uuid.uuid4()))
+        shutil.copyfile(model["model_path"], model_tmpfile)
+
+        # first try to view using system editor
+        editor = environ['EDITOR']
+        result = os.system(f'{editor} {model_tmpfile} 2>/dev/null')
+        if result != 0:
+            logger.info(f'Cannot view model with editor "{editor}", display via logger')
+            # second try to print via logger (default output)
+            try:
+                with open(model_tmpfile) as m:
+                    model_source = highlight(''.join(m.readlines()), PythonLexer() ,Terminal256Formatter())
+                    logger.info(f'\n\n{model_source}\n\n')
+            except Exception as err:
+                logger.critical(f'Cannot display model via logger. Aborting. Error message is: {err}')
+
+        os.remove(model_tmpfile)
+        return
+
 
 
 def launch_cli():
@@ -723,10 +789,10 @@ def launch_cli():
                         help='Register and approve a model from a local file.',
                         action='store_true')
     parser.add_argument('-aml', '--approve-model',
-                        help='Approve a model (for any type of model)',
+                        help='Approve a model (requested, default or registered)',
                         action='store_true')
     parser.add_argument('-rjml', '--reject-model',
-                        help='Reject a model (for any type of model)',
+                        help='Reject a model (requested, default or registered)',
                         action='store_true')
     parser.add_argument('-uml', '--update-model',
                         help='Update model file (for a model registered from a local file)',
@@ -735,7 +801,10 @@ def launch_cli():
                         help='Delete a model from database (not for default models)',
                         action='store_true')
     parser.add_argument('-lms', '--list-models',
-                        help='List all models',
+                        help='List all models (requested, default or registered)',
+                        action='store_true')
+    parser.add_argument('-vml', '--view-model',
+                        help='View a model source code (requested, default or registered)',
                         action='store_true')
     parser.add_argument('-g', '--gpu',
                         help='Use of a GPU device, if any available (default: dont use GPU)',
@@ -830,6 +899,8 @@ def launch_cli():
         delete_model()
     elif args.list_models:
         model_manager.list_models(verbose = True)
+    elif args.view_model:
+        view_model()
     elif args.start_node:
         # convert to node arguments structure format expected in Round()
         node_args = {
