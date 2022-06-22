@@ -230,7 +230,7 @@ function start_gui() {
     fi
 
     # Activate Fed-BioMed GUI environment
-    source ./scripts/fedbiomed_environment gui
+    source ${basedir}/scripts/fedbiomed_environment gui
 
     # Install npm modules
     echo -e "${YLW}INFO${NC}: Controlling react bundle and modules"
@@ -278,14 +278,14 @@ case $1 in
         #
         case $2 in
             stop)
-                source ./scripts/fedbiomed_environment network
+                source ${basedir}/scripts/fedbiomed_environment network
                 docker-compose down
                 ;;
             help|-h|--help)
                 usage network
                 ;;
             *)
-                source ./scripts/fedbiomed_environment network
+                source ${basedir}/scripts/fedbiomed_environment network
                 CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
                              CONTAINER_USER=$(id -un) CONTAINER_GROUP=$(id -gn) \
                              docker-compose build restful mqtt
@@ -418,66 +418,66 @@ case $1 in
             case $2 in
 
                 list|--list|-l)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --list $PARAMS
                     ;;
 
                 del|delete|--del|--delete|-d)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --delete $PARAMS
                     ;;
 
                 del-all|delete-all|--del-all|--delete-all|-da)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --delete-all $PARAMS
                     ;;
 
                 delete-mnist|--delete-mnist|-dm)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --delete-mnist $PARAMS
                     ;;
 
                 add|--add|-a)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --add $PARAMS
                     ;;
 
                 add-mnist|--add-mnist|-am)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --add-mnist $PARAMS
                     ;;
 
                 add-dataset-from-file|--add-dataset-from-file|-adff)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli -adff $PARAMS
                     ;;
 
                 register-model|--register-model|-rml)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --register-model $PARAMS
                     ;;
 
                 approve-model|--approve-model|-aml)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --approve-model $PARAMS
                     ;;
 
                 reject-model|--reject-model|-rjml)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --reject-model $PARAMS
                     ;;
                 update-model|--update-model|-uml)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --update-model $PARAMS
                     ;;
 
                 list-models|--list-models|-lms)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --list-models $PARAMS
                     ;;
 
                 delete-model|--delete-model|-dml)
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --delete-model $PARAMS
                     ;;
 
@@ -485,7 +485,7 @@ case $1 in
                     #export MQTT_BROKER=localhost
                     #export MQTT_BROKER_PORT=1883
                     #export UPLOADS_URL='http://localhost:8844/upload/'
-                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --start $PARAMS
                     ;;
                 *)
@@ -523,7 +523,7 @@ case $1 in
             esac
         done
 
-        source ./scripts/fedbiomed_environment researcher $IP_ADDRESS
+        source ${basedir}/scripts/fedbiomed_environment researcher $IP_ADDRESS
         cd notebooks
 
         # Windows WSL and others cannot handle using redirect file for securing notebook launch
