@@ -428,7 +428,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         self._transform = self._check_and_reformat_transforms(transform, data_modalities)
         self._target_transform = self._check_and_reformat_transforms(target_transform, target_modalities)
         self._demographics_transform = demographics_transform
-
+        print("demoraphic init", self._demographics_transform)
         # Image loader
         self._reader = Compose([
             LoadImage(ITKReader(), image_only=True),
@@ -665,11 +665,12 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         return [self._root.joinpath(folder) for folder in complete_subject_folders]
 
-    def shape(self):
+    def shape(self) -> dict:
         """Retrieves shape information for modalities and demographics csv"""
 
         # Get all modalities
         modalities = list(set(self._data_modalities + self._target_modalities))
+        print("MODALITY", modalities)
         (image, _), _ = self.get_nontransformed_item(0)
         result = {modality: list(image[modality].shape) for modality in modalities}
 
