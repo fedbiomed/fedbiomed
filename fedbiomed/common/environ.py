@@ -99,7 +99,7 @@ class Environ(metaclass=SingletonMeta):
             FedbiomedEnvironError: If the key does not exist
         """
         if key not in self._values:
-            _msg = ErrorNumbers.FB600.value + ": config file doe not contain the key: " + str(key)
+            _msg = ErrorNumbers.FB600.value + ": config file does not contain the key: " + str(key)
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
         return self._values[key]
@@ -306,6 +306,8 @@ class Environ(metaclass=SingletonMeta):
             _msg = ErrorNumbers.FB600.value + ": unknown hashing algorithm: " + str(hashing_algorithm)
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
+
+        self._values['EDITOR'] = os.getenv('EDITOR')
 
         # ========= PATCH MNIST Bug torchvision 0.9.0 ===================
         # https://github.com/pytorch/vision/issues/1938

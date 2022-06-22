@@ -49,13 +49,14 @@ node      : a second argument is mandatory
             - delete-mnist non-interactively un-registers a mnist dataset
             - delete-all non interactively un-registers all node datasets
 
-            - register-model  | --register-model    : To register new model files
-            - update-model    | --update-model      : To update registered models
-            - delete-model    | --delete-model  | -dml  : To delete models (requested or registered)
+            - register-model  | --register-model    : Register and approve a model from a local file.
+            - update-model    | --update-model      : Update model file (for a model registered from a local file)
+            - delete-model    | --delete-model  | -dml  : Delete a model from database (not for default models)
 
-            - list-models     | --list-models   | -lms  : To list all the models (requested, default, or registered)
-            - approve-model   | --approve-model | -aml  : To approve requested models
-            - reject-model    | --reject-model  | -rjml : To reject requested models
+            - list-models     | --list-models   | -lms  : List all models (requested, default or registered)
+            - view-model      | --view-model    | -vml  : View a model source code (requested, default or registered)
+            - approve-model   | --approve-model | -aml  : Approve a model (requested, default or registered)
+            - reject-model    | --reject-model  | -rjml : Reject a model (requested, default or registered)
 
 
             an optional config file CONFIG_NAME can be given it will be used instead of the default one (config.ini)
@@ -121,7 +122,7 @@ function usage() {
         node)
             cat <<EOF
 usage: fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-model-approval | disable-model-approval | allow-default-models | disable-default-models ]
-                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | register-model | delete-model | update-model) PARAMS
+                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | view-model | register-model | delete-model | update-model) PARAMS
 
 
 Runs the fedbiomed node component after properly initializing the environments.
@@ -162,7 +163,7 @@ EOF
 usage: fedbiomed_run network (stop)
        fedbiomed_run researcher [ip_address IP_ADDRESS]
        fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-model-approval | disable-model-approval | allow-default-models | disable-default-models ]
-                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | register-model | delete-model | update-model) PARAMS
+                         (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | view-model | register-model | delete-model | update-model) PARAMS
         febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | host IP_ADDRESS | port PORT | --recreate]
                          (start)
 
@@ -479,6 +480,11 @@ case $1 in
                 delete-model|--delete-model|-dml)
                     source ${basedir}/scripts/fedbiomed_environment node $IP_ADDRESS
                     python -m fedbiomed.node.cli --delete-model $PARAMS
+                    ;;
+
+                view-model|--view-model|-vml)
+                    source ./scripts/fedbiomed_environment node $IP_ADDRESS
+                    python -m fedbiomed.node.cli --view-model $PARAMS
                     ;;
 
                 start|--start|-s)
