@@ -288,7 +288,6 @@ def _create_synthetic_dataset(root: str, n_samples: int, tabular_file: str, inde
         # Add demographics information
         demographics.loc[subject_id, 'AGE'] = randint(15, 90)
         demographics.loc[subject_id, 'CENTER'] = choice(centers)
-    print(demographics)
     demographics.to_csv(tabular_file)
 
 
@@ -401,7 +400,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
         dataset = MedicalFolderDataset(self.root)
         
         # check correct use of number of smaples
-        self.assertEquals(len(dataset), self.n_samples)
+        self.assertEqual(len(dataset), self.n_samples)
         
         # check __len__ behaviour when self.subject_folder returns an empty list
         patcher = patch('fedbiomed.common.data._medical_datasets.MedicalFolderDataset.subject_folders',
@@ -423,7 +422,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
 
         tmp_file = tempfile.NamedTemporaryFile()
         dataset.tabular_file = tmp_file.name
-        self.assertEquals(str(dataset.tabular_file), tmp_file.name)
+        self.assertEqual(str(dataset.tabular_file), tmp_file.name)
 
         # check error is triggered if incorrect type is passed
         with self.assertRaises(FedbiomedDatasetError):
@@ -450,7 +449,8 @@ class TestMedicalFolderDataset(unittest.TestCase):
                                        index_col=self.index_col,)
 
         # test with a index col string
-        index_col_str = '1234'
+        index_col_str = '1234'    #def _check_modality_exists(self, modality: List[str]) -> bool:
+        
         dataset.index_col = index_col_str
 
         self.assertEqual(dataset.index_col, index_col_str)
@@ -535,7 +535,11 @@ class TestMedicalFolderDataset(unittest.TestCase):
     def test_medical_folder_dataset_09_shape(self):
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
         shape = dataset.shape()
-        print(shape)
+        
+        self.assertEqual(shape, {'T1': [10, 10, 10],
+                                 'label': [10, 10, 10],
+                                 'demographics': (10, 2),
+                                 'num_modalities': 2})
 
     def test_medical_folder_dataset_07_data_transforms(self):
         dataset = MedicalFolderDataset(self.root, transform=self.transform)
