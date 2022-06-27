@@ -423,7 +423,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         self._index_col = index_col
 
         self._data_modalities = [data_modalities] if isinstance(data_modalities, str) else data_modalities
-        self._target_modalities = [target_modalities] if isinstance(data_modalities, str) else target_modalities
+        self._target_modalities = [target_modalities] if isinstance(target_modalities, str) else target_modalities
 
         self._transform = self._check_and_reformat_transforms(transform, data_modalities)
         self._target_transform = self._check_and_reformat_transforms(target_transform, target_modalities)
