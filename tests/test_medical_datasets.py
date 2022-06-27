@@ -26,7 +26,7 @@ from fedbiomed.common.data import NIFTIFolderDataset
 from fedbiomed.common.exceptions import FedbiomedDatasetError
 from torch.utils.data import Dataset
 from torchvision.transforms import Lambda
-from fedbiomed.common.data import MedicalFolderDataset, MedicalFolderBase
+from fedbiomed.common.data import MedicalFolderDataset, MedicalFolderBase, MedicalFolderController
 
 
 class TestNIFTIFolderDataset(unittest.TestCase):
@@ -471,12 +471,12 @@ class TestMedicalFolderDataset(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             dataset.index_col = {}
         
-    def test_medical_folder_dataset_06_instantiation_with_demographics(self):
+    def test_medical_folder_dataset_07_instantiation_with_demographics(self):
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col,
                                        demographics_transform=lambda x: torch.as_tensor(x['AGE']))
         self._assert_batch_types_and_sizes(dataset)
         
-    def test_medical_folder_dataset_07_demographics_getter(self):
+    def test_medical_folder_dataset_08_demographics_getter(self):
         # test getter
         ## test case where tabular file is None
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file,)
@@ -525,23 +525,36 @@ class TestMedicalFolderDataset(unittest.TestCase):
                 df = dataset.demographics
         finally:
             patcher.stop()   
-        
-    def test_medical_folder_dataset_08_demographics_setter(self):
+
+    def test_medical_folder_dataset_09_demographics_setter(self):
         # check that it is not possible to set demographic attribute
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file,)
         with self.assertRaises(AttributeError):
             dataset.demographics = pd.DataFrame({"A": [1, 2, 3, 4], "B": ['a', 'b', 'c', 'c']})
 
-    def test_medical_folder_dataset_09_shape(self):
+    def test_medical_folder_dataset_10_shape(self):
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
         shape = dataset.shape()
-        
+
         self.assertEqual(shape, {'T1': [10, 10, 10],
                                  'label': [10, 10, 10],
                                  'demographics': (10, 2),
                                  'num_modalities': 2})
-
-    def test_medical_folder_dataset_07_data_transforms(self):
+        
+        # check shape with 2 modalities + labels
+        dataset = MedicalFolderDataset(self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col,
+                                       data_modalities=['T1', 'T2'])
+        
+        shape = dataset.shape()
+        self.assertEqual(shape, {'T1': [10, 10, 10],
+                                 'T2': [10, 10, 10],
+                                 'label': [10, 10, 10],
+                                 'demographics': (10, 2),
+                                 'num_modalities': 3})
+        
+    def test_medical_folder_dataset_11_data_transforms(self):
         dataset = MedicalFolderDataset(self.root, transform=self.transform)
         
         for i, ((images, demographics), targets) in enumerate(dataset): 
@@ -551,12 +564,12 @@ class TestMedicalFolderDataset(unittest.TestCase):
             (images_indxed, _), _ = dataset[i] 
             self.assertTrue(images_indxed['T1'].dim() == 1)
 
-    def test_medical_folder_dataset_08_target_transform(self):
+    def test_medical_folder_dataset_12_target_transform(self):
         dataset = MedicalFolderDataset(self.root, target_transform=self.target_transform)
         (images, demographics), targets = dataset[0]
         self.assertEqual(images['T1'].shape, targets['label'].shape)
 
-    def test_medical_folder_dataset_09_set_dataset_parameters(self):
+    def test_medical_folder_dataset_13_set_dataset_parameters(self):
         dataset = MedicalFolderDataset(self.root)
 
         with self.assertRaises(FedbiomedDatasetError):
@@ -566,7 +579,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
         self.assertEqual(str(dataset.tabular_file), str(Path(self.tabular_file).expanduser().resolve()))
         self.assertEqual(dataset.index_col, self.index_col)
 
-    def test_medical_folder_dataset_10_demographics_transform(self):
+    def test_medical_folder_dataset_14_demographics_transform(self):
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col,
                                        demographics_transform=lambda x: torch.as_tensor(x['AGE']))
 
@@ -622,6 +635,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
 
         # Assert for batch size on modalities and demographics
         self.assertTrue(len(set(lengths)) == 1)           
+
 
 class TestMedicalFolderBase(unittest.TestCase):
 
@@ -756,7 +770,41 @@ class TestMedicalFolderBase(unittest.TestCase):
         self.assertListEqual(col.tolist(), variable_names)
 
 
+class TestMedicalFolderController(unittest.TestCase):
+    def setUp(self) -> None:
+        self.root = tempfile.mkdtemp()
+        self.tabular_file = os.path.join(self.root, 'participants.csv')
+        self.index_col = 'FOLDER_NAME'
+        self.n_samples = 20
 
-     
+        _create_synthetic_dataset(self.root, self.n_samples, self.tabular_file, self.index_col)
+
+    def tearDown(self) -> None:
+        pass
+
+    def test_medical_folder_controller_01_subject_modality_status(self):
+        medical_folder_controller = MedicalFolderController(self.root)
+
+        # check method when index set to None
+        res = medical_folder_controller.subject_modality_status()
+
+        self.assertListEqual(sorted(res['columns']), sorted(['T1', 'T2', 'label']))
+        self.assertTrue(any(res['data']))
+
+        csv_data = pd.read_csv(self.tabular_file)
+        self.assertListEqual(sorted(csv_data[self.index_col].tolist()),
+                             sorted(res['index']))
+
+        # in the folowing, we will run 5 tests with different size of patient_id
+        patient_ids = csv_data[self.index_col].tolist()
+        for _ in range(5):
+            random.shuffle(patient_ids)
+            len_sample = random.randint(1, self.n_samples)
+            patient_selected = patient_ids[0: len_sample]
+            res = medical_folder_controller.subject_modality_status(patient_selected)
+            self.assertListEqual(sorted(patient_ids),
+                                 sorted(res['index']))
+
+
 if __name__ == '__main__':
     unittest.main()

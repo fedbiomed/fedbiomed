@@ -423,7 +423,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         self._index_col = index_col
 
         self._data_modalities = [data_modalities] if isinstance(data_modalities, str) else data_modalities
-        self._target_modalities = [target_modalities] if isinstance(data_modalities, str) else target_modalities
+        self._target_modalities = [target_modalities] if isinstance(target_modalities, str) else target_modalities
 
         self._transform = self._check_and_reformat_transforms(transform, data_modalities)
         self._target_transform = self._check_and_reformat_transforms(target_transform, target_modalities)
@@ -671,10 +671,11 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         # Get all modalities
         data_modalities = list(set(self._data_modalities))
         target_modalities = list(set(self._target_modalities))
+        print("MODALITIES", self._target_modalities, self._data_modalities)
         modalities = list(set(self._data_modalities + self._target_modalities))
-
         (image, _), targets = self.get_nontransformed_item(0)
 
+        print("DATA MODALITIES", data_modalities)
         result = {modality: list(image[modality].shape) for modality in data_modalities}
 
         result.update({modality: list(targets[modality].shape) for modality in target_modalities})
