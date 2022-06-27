@@ -7,7 +7,7 @@ from schemas import ListDataFolder
 
 from . import api
 from utils import success, error, validate_json, validate_request_data, response, file_stats
-from db import database
+from db import node_database
 
 
 @api.route('/repository/list', methods=['POST'])
@@ -57,8 +57,8 @@ def list_data_path():
 
         files = files if len(files) <= 1000 else files[0:1000]
 
-        table = database.db().table('_default')
-        query = database.query()
+        table = node_database.db().table('_default')
+        query = node_database.query()
         table.clear_cache()
 
         for file in files:

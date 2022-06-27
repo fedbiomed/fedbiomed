@@ -4,7 +4,7 @@ import re
 
 from cache import cached
 from flask import jsonify, request, g
-from db import database
+from db import node_database
 from . import api
 from app import app
 from middlewares import middleware, medical_folder_dataset, common
@@ -27,8 +27,8 @@ mf_controller = MedicalFolderController()
 DATA_PATH_RW = app.config['DATA_PATH_RW']
 
 # Database table (default datasets table of TinyDB) and query object
-table = database.db().table()
-query = database.query()
+table = node_database.db().table()
+query = node_database.query()
 
 
 @api.route('/datasets/medical-folder-dataset/validate-reference-column', methods=['POST'])

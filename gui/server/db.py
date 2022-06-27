@@ -1,19 +1,19 @@
 from app import app
 from tinydb import TinyDB, Query
 
+
 class Database:
 
-    def __init__(self):
+    def __init__(self, name: str):
         """ Database class for TinyDB. It is general wrapper for
             TinyDB. It can be extended in the future, if Fed-BioMed
             support a=other persistent databases.
         """
-        self._db = None
+        self._db = TinyDB(name)
         self._query = Query()
 
     def db(self):
         """ Getter for db """
-        self._db = TinyDB(app.config['NODE_DB_PATH'])
 
         return self
 
@@ -41,4 +41,5 @@ class Database:
         self._db.close()
 
 
-database = Database()
+node_database = Database(app.config['NODE_DB_PATH'])
+gui_database = Database(app.config['GUI_DB_PATH'])

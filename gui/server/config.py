@@ -70,6 +70,12 @@ class Config:
                          'var',
                          'db_' + self.configuration['NODE_ID'] + '.json')
 
+        # Set GUI_PATH based on given node id
+        self.configuration['GUI_DB_PATH'] = \
+            os.path.join(self.configuration["NODE_FEDBIOMED_ROOT"],
+                         'var',
+                         'gui_db_' + self.configuration['NODE_ID'] + '.json')
+
         # Enable debug mode
         self.configuration['DEBUG'] = os.getenv('DEBUG', 'True').lower() in \
                                       ('true', 1, True, 'yes')

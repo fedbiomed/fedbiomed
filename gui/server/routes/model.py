@@ -6,7 +6,7 @@ from . import api
 
 from flask import jsonify, request
 from app import app
-from db import database
+from db import node_database
 from utils import success, error, validate_json, validate_request_data, response
 
 from fedbiomed.node.model_manager import ModelManager
