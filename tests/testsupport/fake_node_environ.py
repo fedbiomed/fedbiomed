@@ -41,6 +41,7 @@ class EnvironNode(metaclass = SingletonMeta):
         self._values['UPLOADS_URL']             = "http://localhost:8888/upload/"
         self._values['TIMEOUT']                 = 10
         self._values['DEFAULT_MODELS_DIR']      = '/tmp/_nod_/default_models'
+        self._values['MODEL_DIR']               = '/tmp/_nod_/registered_models'
 
         # TODO: create random directory paths like for test_taskqueue.py
         os.makedirs(self._values['ROOT_DIR']               , exist_ok=True)
@@ -49,6 +50,7 @@ class EnvironNode(metaclass = SingletonMeta):
         os.makedirs(self._values['CACHE_DIR']              , exist_ok=True)
         os.makedirs(self._values['TMP_DIR']                , exist_ok=True)
         os.makedirs(self._values['DEFAULT_MODELS_DIR']     , exist_ok=True)
+        os.makedirs(self._values['MODEL_DIR']     , exist_ok=True)
 
 
         #  Copy default model files to tmp directory for test
