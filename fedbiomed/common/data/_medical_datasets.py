@@ -413,6 +413,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             transform: A function or dict of function transform(s) that preprocess each data source.
             target_modalities: (str, Iterable): Modality or modalities to be used as target sources.
             target_transform: A function or dict of function transform(s) that preprocess each target source.
+            demographics_transform: TODO
             tabular_file: Path to a CSV or Excel file containing the demographic information from the patients.
             index_col: Column name in the tabular file containing the subject ids which mush match the folder names.
         """
