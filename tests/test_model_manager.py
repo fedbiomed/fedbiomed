@@ -709,21 +709,17 @@ class TestModelManager(unittest.TestCase):
 
 
         # Test 3 : bad parameter type
-        self.model_manager.register_model(model_name, 'mymodel_description', model_path, model_id = model_id)
-        model1 = self.model_manager.get_model_by_name(model_name)
-
-        # test + check        
-        self.assertNotEqual(model1, None)
-
+        # test + check
         for bad_id in [None, 3, ['my_model'], [], {}, {'model_id': 'my_model'}]:
             with self.assertRaises(FedbiomedModelManagerError):
                 self.model_manager.delete_model(bad_id)
 
 
         # Test 4 : database access error
+        self.model_manager.register_model(model_name, 'mymodel_description', model_path, model_id = model_id)
         model1 = self.model_manager.get_model_by_name(model_name)
 
-        # test + check
+        # test + check        
         self.assertNotEqual(model1, None)
 
         for patch_start, patch_stop in [
