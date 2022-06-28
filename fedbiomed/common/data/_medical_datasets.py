@@ -450,7 +450,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         # Load target modalities
         targets = self.load_images(subject_folder, modalities=self._target_modalities)
-        #print("TARGETS", targets)
+
         # Demographics
         demographics = self._get_from_demographics(subject_id=subject_folder.name)
         return (data, demographics), targets
@@ -671,11 +671,9 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         # Get all modalities
         data_modalities = list(set(self._data_modalities))
         target_modalities = list(set(self._target_modalities))
-        print("MODALITIES", self._target_modalities, self._data_modalities)
         modalities = list(set(self._data_modalities + self._target_modalities))
         (image, _), targets = self.get_nontransformed_item(0)
 
-        print("DATA MODALITIES", data_modalities)
         result = {modality: list(image[modality].shape) for modality in data_modalities}
 
         result.update({modality: list(targets[modality].shape) for modality in target_modalities})
