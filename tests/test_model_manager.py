@@ -168,14 +168,14 @@ class TestModelManager(unittest.TestCase):
         with self.assertRaises(FedbiomedModelManagerError):
             self.model_manager._create_hash(model_path)
 
-    def test_model_manager_04_create_hash_param_exception(self):
+    def test_model_manager_05_create_hash_param_exception(self):
         """"Tests `_create_patch` with incorrect parameters"""
 
         for mpath in [None, 18, -2.4, True, {}, { 'clef': 'valeur' }, [], ['un'], self.Dummy, self.Dummy()]:
             with self.assertRaises(FedbiomedModelManagerError):
                 self.model_manager._create_hash(mpath)
 
-    def test_model_manager_05_update_default_hashes_when_algo_is_changed(self):
+    def test_model_manager_06_update_default_hashes_when_algo_is_changed(self):
         """  Testing method for update/register default models when hashing
              algorithm has changed
         """
@@ -193,7 +193,7 @@ class TestModelManager(unittest.TestCase):
             self.assertEqual(doc["algorithm"], algo,
                              'Hashes are not properly updated after hashing algorithm is changed')  # noqa
 
-    def test_model_manager_06_update_default_model_deleted(self):
+    def test_model_manager_07_update_default_model_deleted(self):
         """Tests `update_default_model` when a model file that had been registered 
         has been deleted
         """
@@ -222,11 +222,12 @@ class TestModelManager(unittest.TestCase):
         removed_model = self.model_manager._db.get(self.model_manager._database.model_path == new_default_model_path)
         self.assertIsNone(removed_model)
 
-    def test_model_manager_06_update_errors(self):
+    def test_model_manager_08_update_errors(self):
         """Testing error cases in function `register_update_default_models`.
         """
 
-        # prepare
+        # prepare: first select a hashing algorithm that is not the one set in ENVIRON
+        # (first one that is different in the list)
 
         algo_initial = self.values['HASHING_ALGORITHM']
         for a in HashingAlgorithms.list():
@@ -291,7 +292,7 @@ class TestModelManager(unittest.TestCase):
         self.model_manager.register_update_default_models()
 
 
-    def test_model_manager_07_update_modified_model_files(self):
+    def test_model_manager_09_update_modified_model_files(self):
         """ Testing update of modified default models """
 
         default_models = os.listdir(environ['DEFAULT_MODELS_DIR'])
@@ -315,7 +316,7 @@ class TestModelManager(unittest.TestCase):
 
             self.assertNotEqual(doc['hash'], docAfter['hash'], "Hash couldn't updated after file has modified")
 
-    def test_model_manager_08_register_model(self):
+    def test_model_manager_10_register_model(self):
         """ Testing registering method for new models """
 
         # We should import environ to get fake values
@@ -372,8 +373,8 @@ class TestModelManager(unittest.TestCase):
                 description='desc')
 
     @patch('fedbiomed.node.model_manager.ModelManager._check_model_not_existing')
-    def test_model_manager_08_register_model_DB_error(self, check_model_not_existing_patch):
-        """ Testing registering method for new models continued """
+    def test_model_manager_11_register_model_DB_error(self, check_model_not_existing_patch):
+        """ Testing registering method for new models continued, case where model is corrupted"""
 
         # patch
         check_model_not_existing_patch.value = None
@@ -395,7 +396,7 @@ class TestModelManager(unittest.TestCase):
             f.write('') 
 
     @patch('fedbiomed.node.model_manager.ModelManager._create_hash')
-    def test_model_manager_09_check_hashes_for_registerd_models(self,
+    def test_model_manager_12_check_hashes_for_registerd_models(self,
                                                                 create_hash_patch):
         """
         Tests `hashes_for_registered_models` method, with 3 settings
@@ -464,7 +465,7 @@ class TestModelManager(unittest.TestCase):
         self.assertIsNone(removed_model)
 
     @patch('fedbiomed.node.model_manager.ModelManager._create_hash')
-    def test_model_manager_09_check_hashes_for_registerd_models_DB_error(self, create_hash_patch):
+    def test_model_manager_13_check_hashes_for_registerd_models_DB_error(self, create_hash_patch):
         """
         Tests `hashes_for_registered_models` method, with 3 settings, causing database access errors
         - Test 1: no model registered, cannot read database
@@ -523,7 +524,7 @@ class TestModelManager(unittest.TestCase):
 
         self.patcher_db_remove.stop()
 
-    def test_model_manager_10_create_txt_model_from_py(self):
+    def test_model_manager_14_create_txt_model_from_py(self):
         """Test model manager: tests if txt file can be created from py file"""
         # initialisation: creating a *.py file
         randomfolder = tempfile.mkdtemp()
@@ -554,7 +555,7 @@ class TestModelManager(unittest.TestCase):
 
             self.assertEqual(code, code_source)
 
-    def test_model_manager_11_update_model_normal_case(self, ):
+    def test_model_manager_15_update_model_normal_case(self, ):
         """Tests method `update_model_hash` in the normal case scenario"""
 
         # database initialisation
@@ -595,7 +596,7 @@ class TestModelManager(unittest.TestCase):
         self.assertEqual(updated_model['date_created'], file_creation_date_literal)
         self.assertEqual(updated_model['model_path'], default_model_file_2)
 
-    def test_model_manager_12_update_model_exception1(self):
+    def test_model_manager_16_update_model_exception1(self):
         """Tests method `update_model_hash` in error cases """
 
         # Test 1 : update of a default model
@@ -613,7 +614,7 @@ class TestModelManager(unittest.TestCase):
             self.model_manager.update_model_hash(model_id='test-model-id',
                                                  path=default_model_file_path)
 
-    def test_model_manager_12_update_model_exception2(self):
+    def test_model_manager_17_update_model_exception2(self):
         """Tests method `update_model_hash` in error cases continued """
 
         # Test 2 : database access error
@@ -645,7 +646,7 @@ class TestModelManager(unittest.TestCase):
                 self.model_manager.delete_model('test-model-id')
 
 
-    def test_model_manager_13_delete_registered_models(self):
+    def test_model_manager_18_delete_registered_models(self):
         """ Testing delete operation for model manager """
 
         model_file_path = os.path.join(self.testdir, 'test-model-1.txt')
@@ -679,7 +680,7 @@ class TestModelManager(unittest.TestCase):
             with self.assertRaises(FedbiomedModelManagerError):
                 self.model_manager.delete_model(model['model_id'])
 
-    def test_model_manager_13_delete_model_more_cases(self):
+    def test_model_manager_19_delete_model_more_cases(self):
         """Test model manager `delete_model` function: more cases.
         """
 
@@ -736,7 +737,7 @@ class TestModelManager(unittest.TestCase):
 
             patch_stop()
 
-    def test_model_manager_14_list_models_correct(self):
+    def test_model_manager_20_list_models_correct(self):
         """ Testing list method of model manager for correct request cases """
 
         self.model_manager.register_update_default_models()
@@ -814,7 +815,7 @@ class TestModelManager(unittest.TestCase):
                 self.assertNotEqual(model['model_status'], ModelApprovalStatus.PENDING.value)
 
 
-    def test_model_manager_14_list_models_errors(self):
+    def test_model_manager_21_list_models_errors(self):
         """Test model manager `list_models` function for error cases.
         """
 
@@ -878,7 +879,7 @@ class TestModelManager(unittest.TestCase):
 
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('fedbiomed.node.model_manager.ModelManager.get_model_from_database')
-    def test_model_manager_15_reply_model_status_request(self,
+    def test_model_manager_22_reply_model_status_request(self,
                                                          mock_get_model,
                                                          mock_download):
         """Tests model manager `reply_model_status_request` method (normal case scenarii)"""
@@ -1021,7 +1022,7 @@ class TestModelManager(unittest.TestCase):
 
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('fedbiomed.node.model_manager.ModelManager.get_model_from_database')
-    def test_model_manager_16_reply_model_status_request_exception(self,
+    def test_model_manager_23_reply_model_status_request_exception(self,
                                                                    mock_get_model,
                                                                    mock_download):
         """
@@ -1138,7 +1139,7 @@ class TestModelManager(unittest.TestCase):
             for p in [None, 'dummy_path']:
                 for h in [None, 'dummy_hash']:
                     for a in [None, 'dummy_algorithm']:
-                        self.model_manager._check_model_not_existing(n, p, h, a)
+                        self.assertIsNone(self.model_manager._check_model_not_existing(n, p, h, a))
 
 
         # Inter-test : add model in database for next tests
@@ -1161,7 +1162,7 @@ class TestModelManager(unittest.TestCase):
             for p in [None, 'dummy_path']:
                 for h in [None, 'dummy_hash']:
                     for a in [None, 'dummy_algorithm']:
-                        self.model_manager._check_model_not_existing(n, p, h, a)        
+                        self.assertIsNone(self.model_manager._check_model_not_existing(n, p, h, a))        
 
         # Test 3 : test with 1 model in database, check with existing value, error raised
         for n in [None, model_name]:
@@ -1193,7 +1194,7 @@ class TestModelManager(unittest.TestCase):
 
     @patch('os.path.getctime')
     @patch('os.path.getmtime')
-    def test_model_manager_18_check_model_status(self,
+    def test_model_manager_24_check_model_status(self,
                                                  getmtime_patch,
                                                  getctime_patch):
         """Test `check_model_status` function
@@ -1215,9 +1216,9 @@ class TestModelManager(unittest.TestCase):
         # Test 1 : successful search for registered model
         for status in [None, ModelTypes.REGISTERED, ModelApprovalStatus.APPROVED]:
             is_present, model = self.model_manager.check_model_status(model_path, status)
-            self.assertTrue(isinstance(is_present, bool))
+            self.assertIsInstance(is_present, bool)
             self.assertTrue(is_present)
-            self.assertTrue(isinstance(model, dict))
+            self.assertIsInstance(model, dict)
             self.assertEqual(model['name'], model_name)
             self.assertEqual(model['model_path'], model_path)
 
@@ -1225,7 +1226,7 @@ class TestModelManager(unittest.TestCase):
         for status in [ModelTypes.REQUESTED, ModelTypes.DEFAULT,
                        ModelApprovalStatus.PENDING, ModelApprovalStatus.REJECTED]:
             is_present, model = self.model_manager.check_model_status(model_path, status)
-            self.assertTrue(isinstance(is_present, bool))
+            self.assertIsInstance(is_present, bool)
             self.assertFalse(is_present)
             self.assertEqual(model, None)      
 
@@ -1242,7 +1243,7 @@ class TestModelManager(unittest.TestCase):
 
         self.patcher_db_get.stop()
 
-    def test_model_manager_19_get_model_by_name(self):
+    def test_model_manager_25_get_model_by_name(self):
         """Test `get_model_by_name` function
         """
 
@@ -1257,7 +1258,7 @@ class TestModelManager(unittest.TestCase):
 
         # Test 1 : look for existing model
         model = self.model_manager.get_model_by_name(model_name)
-        self.assertTrue(isinstance(model, dict))
+        self.assertIsInstance(model, dict)
         self.assertEqual(model['name'], model_name)
 
         # Test 2 : look for non existing model
@@ -1277,7 +1278,7 @@ class TestModelManager(unittest.TestCase):
 
         self.patcher_db_get.stop()    
 
-    def test_model_manager_20_get_model_from_database(self):
+    def test_model_manager_26_get_model_from_database(self):
         """Test `get_model_from_database` function
         """
 
@@ -1300,7 +1301,7 @@ class TestModelManager(unittest.TestCase):
 
         # Test 2 : look for non existing model
         model = self.model_manager.get_model_from_database(os.path.join(self.testdir, 'test-model-2.txt'))
-        self.assertEqual(model, None)
+        self.assertIsNone(model)
 
         # Test 3 : bad parameter errors
         for mpath in [None, 3, {}, { 'clef': model_path }, [], [model_path], self.Dummy, self.Dummy()]:
@@ -1315,7 +1316,7 @@ class TestModelManager(unittest.TestCase):
 
         self.patcher_db_get.stop()    
 
-    def test_model_manager_21_get_model_by_id(self):
+    def test_model_manager_27_get_model_by_id(self):
         """Test `get_model_by_id` function
         """
 
@@ -1333,7 +1334,7 @@ class TestModelManager(unittest.TestCase):
         for secure in [True, False]:
             for content in [True, False]:
                 model = self.model_manager.get_model_by_id(model_id, secure, content)
-                self.assertTrue(isinstance(model, dict))
+                self.assertIsInstance(model, dict)
                 self.assertEqual(model['name'], model_name)
                 self.assertEqual(model['model_id'], model_id)
                 if not secure:
@@ -1343,7 +1344,7 @@ class TestModelManager(unittest.TestCase):
         for secure in [True, False]:
             for content in [True, False]:
                 model = self.model_manager.get_model_by_id('NON_EXISTING_MODEL_ID', secure, content)
-                self.assertEqual(model, None)
+                self.assertIsNone(model)
 
         # Test 3 : bad parameter errors
         for secure in [True, False]:
@@ -1361,7 +1362,7 @@ class TestModelManager(unittest.TestCase):
         self.patcher_db_get.stop()    
 
     @patch('fedbiomed.common.repository.Repository.download_file')
-    def test_model_manager_22_reply_model_approval_request(self, download_file_patch):
+    def test_model_manager_28_reply_model_approval_request(self, download_file_patch):
         """Test model manager `reply_model_approval_request` function.
         """
 
@@ -1430,7 +1431,7 @@ class TestModelManager(unittest.TestCase):
         model2_researcher_id = 'another researcher id'
         model2_description = 'another description'
         model2_sequence = -4
-        model2_file = model_file
+        model2_file = model_file  # re-using model_id from test 1 for test 2
         model_id = model_after['model_id']
         msg2 = {
             'researcher_id': model2_researcher_id,
@@ -1533,7 +1534,7 @@ class TestModelManager(unittest.TestCase):
                 download_file_patch.side_effect = download_file_side_effect
                 model3_status = 200
 
-    def test_model_manager_23_update_model_status(self):
+    def test_model_manager_29_update_model_status(self):
         """Test model manager `_update_model_status` function.
         """
 
@@ -1589,7 +1590,7 @@ class TestModelManager(unittest.TestCase):
 
             patch_stop()    
 
-    def test_model_manager_24_remove_sensible_keys_from_request(self):
+    def test_model_manager_30_remove_sensible_keys_from_request(self):
         """Test model manager `_remove_sensible_keys_from_request` function.
         """
 
