@@ -413,6 +413,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             transform: A function or dict of function transform(s) that preprocess each data source.
             target_modalities: (str, Iterable): Modality or modalities to be used as target sources.
             target_transform: A function or dict of function transform(s) that preprocess each target source.
+            demographics_transform: TODO
             tabular_file: Path to a CSV or Excel file containing the demographic information from the patients.
             index_col: Column name in the tabular file containing the subject ids which mush match the folder names.
         """
@@ -428,7 +429,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         self._transform = self._check_and_reformat_transforms(transform, data_modalities)
         self._target_transform = self._check_and_reformat_transforms(target_transform, target_modalities)
         self._demographics_transform = demographics_transform
-
+        
         # Image loader
         self._reader = Compose([
             LoadImage(ITKReader(), image_only=True),
@@ -626,7 +627,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             else:
                 logger.warning(f"Trying to set undefined attribute {key} ti MedicalFolderDataset")
 
-    def load_images(self, subject_folder: Path, modalities: list):
+    def load_images(self, subject_folder: Path, modalities: list) -> Dict[str, torch.Tensor]:
         """Loads modality images in given subject folder
 
         Args:
@@ -665,14 +666,18 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         return [self._root.joinpath(folder) for folder in complete_subject_folders]
 
-    def shape(self):
+    def shape(self) -> dict:
         """Retrieves shape information for modalities and demographics csv"""
 
         # Get all modalities
+        data_modalities = list(set(self._data_modalities))
+        target_modalities = list(set(self._target_modalities))
         modalities = list(set(self._data_modalities + self._target_modalities))
-        (image, _), _ = self.get_nontransformed_item(0)
-        result = {modality: list(image[modality].shape) for modality in modalities}
+        (image, _), targets = self.get_nontransformed_item(0)
 
+        result = {modality: list(image[modality].shape) for modality in data_modalities}
+
+        result.update({modality: list(targets[modality].shape) for modality in target_modalities})
         num_modalities = len(modalities)
         demographics_shape = self.demographics.shape if self.demographics is not None else None
         result.update({"demographics": demographics_shape, "num_modalities": num_modalities})

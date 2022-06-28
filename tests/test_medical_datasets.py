@@ -6,20 +6,23 @@ from random import randint, choice
 import shutil
 import tempfile
 from pathlib import Path, PosixPath
+from unittest.mock import patch
 from uuid import uuid4
 
 import itk
+import monai
 import numpy as np
 import pandas as pd
 import torch
 
-from monai.data import ITKReader
-from monai.transforms import Compose, GaussianSmooth, Identity, LoadImage, PadListDataCollate, ToTensor
 from torch.utils.data import DataLoader
+from monai.data import ITKReader
+from monai.transforms import LoadImage, ToTensor, Compose, Identity, PadListDataCollate, GaussianSmooth
 from fedbiomed.common.data import NIFTIFolderDataset
 from fedbiomed.common.exceptions import FedbiomedDatasetError
+from torch.utils.data import Dataset
 from torchvision.transforms import Lambda
-from fedbiomed.common.data import MedicalFolderDataset, MedicalFolderBase
+from fedbiomed.common.data import MedicalFolderDataset, MedicalFolderBase, MedicalFolderController
 
 
 class TestNIFTIFolderDataset(unittest.TestCase):
@@ -37,14 +40,24 @@ class TestNIFTIFolderDataset(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.root)
 
-
     def test_nifti_folder_dataset_01_instantiation_correct(self):
         # correct instantiations
-        NIFTIFolderDataset(self.root)
-        NIFTIFolderDataset(self.root, None, None)
-        NIFTIFolderDataset(self.root, transform=Identity(), target_transform=None)
-        NIFTIFolderDataset(self.root, transform=None, target_transform=Identity())
+        # here we test that each instantation is a `NIFTIFolderDataset`
+        # object, but the true goal of the test is to check that parameters
+        # are accepted when initializing object
 
+        self.assertIsInstance(NIFTIFolderDataset(self.root), 
+                              NIFTIFolderDataset)
+
+        self.assertIsInstance(
+            NIFTIFolderDataset(self.root, None, None),
+            NIFTIFolderDataset)
+        self.assertIsInstance(
+            NIFTIFolderDataset(self.root, transform=Identity(),
+                               target_transform=None),
+            NIFTIFolderDataset)
+        self.assertIsInstance(NIFTIFolderDataset(self.root, transform=None, target_transform=Identity()),
+                              NIFTIFolderDataset)
 
     def test_nifti_folder_dataset_02_instantiation_incorrect(self):
         # incorrect instantiations
@@ -199,6 +212,7 @@ class TestNIFTIFolderDataset(unittest.TestCase):
             # check we read all the samples
             self.assertEqual(index + 1, sum(self.n_samples))
 
+    # not really a unit test belonging to this class, but nice to have it => ok ?
 
     def test_nifti_folder_dataset_09_dataloader(self):
         dataset = NIFTIFolderDataset(self.root)
@@ -234,7 +248,16 @@ class TestNIFTIFolderDataset(unittest.TestCase):
                 self.sample_class.append(self.class_names.index(class_name))
 
 
-def _create_synthetic_dataset(root, n_samples, tabular_file, index_col):
+
+def _create_synthetic_dataset(root: str, n_samples: int, tabular_file: str, index_col: str):
+    """Creates synthetic dataset for test purposes
+
+    Args:
+        root (str): path to dataset
+        n_samples (int): number of samples
+        tabular_file (str): path to demographic dataset
+        index_col (str): column name for subject id
+    """
     # Image and target data
     fake_img_data = np.random.rand(10, 10, 10)
     img = itk.image_from_array(fake_img_data)
@@ -264,7 +287,13 @@ def _create_synthetic_dataset(root, n_samples, tabular_file, index_col):
     demographics.to_csv(tabular_file)
 
 
-def _create_wrong_formatted_folder_for_medical_folder(root, n_samples):
+def _create_wrong_formatted_folder_for_medical_folder(root: str, n_samples: int):
+    """Creates medical folder without any modalities
+
+    Args:
+        root (str): root path file
+        n_samples (int): number of samples (ie number of subjects)
+    """
 
     subject_ids = [str(uuid4()) for _ in range(n_samples)]
     for subject_id in subject_ids:
@@ -303,26 +332,240 @@ class TestMedicalFolderDataset(unittest.TestCase):
             dataset = MedicalFolderDataset(self.root, target_transform="Invalid")
 
     def test_medical_folder_dataset_02_cached_properties(self):
-        dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
+        dataset = MedicalFolderDataset(self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col)
+        self.assertIsInstance(dataset, Dataset)  # check that instantiation has been completed
         print(dataset.demographics.head())
         print(dataset.demographics.head())
 
-    def test_medical_folder_dataset_03_instantiation_with_demographics(self):
+    def test_medical_folder_dataset_03_getitem(self):
+        # test correct indexation
+
+        # test errors
+        self.patcher = patch('monai.transforms.GaussianSmooth', side_effect=RuntimeError)
+        self.patcher.start()
+        dataset = MedicalFolderDataset(self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col,
+                                       transform= monai.transforms.GaussianSmooth,
+                                       )
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset[0]
+
+
+        # test case where demographic transform raises error
+
+        dataset = MedicalFolderDataset(self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col,
+                                       demographics_transform= monai.transforms.GaussianSmooth,
+                                       )
+        try:
+            with self.assertRaises(FedbiomedDatasetError):
+                dataset[0]
+        finally:
+            self.patcher.stop()  # make sure patcher is stopped (in order to avid propegating patch to other tests)
+
+        # test case where `demographics` type is not correct
+
+        dataset = MedicalFolderDataset(self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col,
+                                       transform= Lambda(lambda x: 'this is a bad type for demographics '
+                                                         '( expecting a dict but passing a str)'),
+                                       )
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset[0]
+
+        self.patcher.start()
+
+        dataset = MedicalFolderDataset(root=self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col,
+                                       target_transform={"label": monai.transforms.GaussianSmooth},
+                                       demographics_transform=lambda x: torch.as_tensor(x['AGE'])
+                                       )
+        try:
+            with self.assertRaises(FedbiomedDatasetError):
+                dataset[0]
+        finally:
+            self.patcher.stop()   # make sure patcher is stopped (in order to avoid propagating patch to other tests)
+
+    def test_medical_folder_dataset_04_len(self):
+        dataset = MedicalFolderDataset(self.root)
+
+        # check correct use of number of smaples
+        self.assertEqual(len(dataset), self.n_samples)
+
+        # check __len__ behaviour when self.subject_folder returns an empty list
+        patcher = patch('fedbiomed.common.data._medical_datasets.MedicalFolderDataset.subject_folders',
+                        return_value = [])
+        patcher.start()
+        dataset = MedicalFolderDataset(self.root)
+        try:
+            with self.assertRaises(FedbiomedDatasetError):
+                len(dataset)
+        finally:
+            patcher.stop()  # make sure patcher is stopped (otherwise will propagate error)
+
+    def test_medical_folder_dataset_05_tabular_data_setter(self):
+        dataset = MedicalFolderDataset(self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col,)
+
+        # test with a temporary file
+
+        tmp_file = tempfile.NamedTemporaryFile()
+        dataset.tabular_file = tmp_file.name
+        self.assertEqual(str(dataset.tabular_file), tmp_file.name)
+
+        # check error is triggered if incorrect type is passed
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset.tabular_file = 1233
+
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset.tabular_file = []
+
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset.tabular_file = True
+
+        # check error is triggered if path is not existing
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset.tabular_file = '/a/non/existing/file'
+
+        # check error is triggered if a folder is passed instead of a file
+        temp_dir = tempfile.mkdtemp() 
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset.tabular_file = temp_dir
+
+    def test_medical_folder_dataset_06_index_col_setter(self):
+        dataset = MedicalFolderDataset(self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col,)
+
+        # test with a index col string
+        index_col_str = '1234'  # def _check_modality_exists(self, modality: List[str]) -> bool:
+
+        dataset.index_col = index_col_str
+
+        self.assertEqual(dataset.index_col, index_col_str)
+
+        # test with a index col integer
+        index_col_int = 1234
+        dataset.index_col = index_col_int
+
+        self.assertEqual(dataset.index_col, dataset.index_col)
+
+        # check error is triggered if incorrect type is passed
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset.index_col = 2.
+
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset.index_col = [1, 2]
+
+        with self.assertRaises(FedbiomedDatasetError):
+            dataset.index_col = {}
+
+    def test_medical_folder_dataset_07_instantiation_with_demographics(self):
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col,
                                        demographics_transform=lambda x: torch.as_tensor(x['AGE']))
         self._assert_batch_types_and_sizes(dataset)
 
-    def test_medical_folder_dataset_04_data_transforms(self):
-        dataset = MedicalFolderDataset(self.root, transform=self.transform)
-        (images, demographics), targets = dataset[0]
-        self.assertTrue(images['T1'].dim() == 1)
+    def test_medical_folder_dataset_08_demographics_getter(self):
+        # test getter
+        # # test case where tabular file is None
+        dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file,)
 
-    def test_medical_folder_dataset_05_target_transform(self):
+        df = dataset.demographics
+        self.assertIsNone(df)
+
+        # # test case where index_col is None
+        dataset = MedicalFolderDataset(self.root, index_col=self.index_col)
+        df = dataset.demographics
+        self.assertIsNone(df)
+
+        # # test normal case scenario: loading demographics file
+        dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
+        self.assertIsInstance(dataset.demographics, pd.DataFrame)
+
+        # # create dataset with duplicated patients, and check if duplicated values are removed
+        values = {"A": [1, 2, 3, 4],
+                  "B": ['patient_1', 'patient_2', 'patient_1', 'patient_3'],
+                  "C": ['a', 'b', 'c', 'd']}
+        df = pd.DataFrame(values)
+        tmp_file = tempfile.mkdtemp()
+        csv_name = os.path.join(tmp_file, 'test_csv.csv')
+        df.to_csv(csv_name)
+
+        dataset = MedicalFolderDataset(self.root, tabular_file=csv_name, index_col=2)
+
+        values = {"A": [1, 2, 4],
+                  "B": ['patient_1', 'patient_2', 'patient_3'],
+                  "C": ['a', 'b', 'd']}
+        demographics_without_index = dataset.demographics[["A", "C"]].reset_index(drop=True)
+        # compare demograhics without index first
+        self.assertTrue(demographics_without_index.equals(pd.DataFrame(values)[["A", "C"]]))
+        # compare index of dataframe
+
+        self.assertListEqual(dataset.demographics.index.tolist(), values["B"])
+
+        # # test if error is raised when unable to load demographic file
+        dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
+
+        patcher = patch('fedbiomed.common.data._medical_datasets.MedicalFolderDataset.read_demographics',
+                        side_effect=OSError)
+        patcher.start()
+        try:
+            with self.assertRaises(FedbiomedDatasetError):
+                df = dataset.demographics
+        finally:
+            patcher.stop()   
+
+    def test_medical_folder_dataset_09_demographics_setter(self):
+        # check that it is not possible to set demographic attribute
+        dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file,)
+        with self.assertRaises(AttributeError):
+            dataset.demographics = pd.DataFrame({"A": [1, 2, 3, 4], "B": ['a', 'b', 'c', 'c']})
+
+    def test_medical_folder_dataset_10_shape(self):
+        dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col)
+        shape = dataset.shape()
+
+        self.assertEqual(shape, {'T1': [10, 10, 10],
+                                 'label': [10, 10, 10],
+                                 'demographics': (10, 2),
+                                 'num_modalities': 2})
+
+        # check shape with 2 modalities + labels
+        dataset = MedicalFolderDataset(self.root,
+                                       tabular_file=self.tabular_file,
+                                       index_col=self.index_col,
+                                       data_modalities=['T1', 'T2'])
+
+        shape = dataset.shape()
+        self.assertEqual(shape, {'T1': [10, 10, 10],
+                                 'T2': [10, 10, 10],
+                                 'label': [10, 10, 10],
+                                 'demographics': (10, 2),
+                                 'num_modalities': 3})
+
+    def test_medical_folder_dataset_11_data_transforms(self):
+        dataset = MedicalFolderDataset(self.root, transform=self.transform)
+
+        for i, ((images, demographics), targets) in enumerate(dataset): 
+            # test indexation
+            self.assertTrue(images['T1'].dim() == 1)
+            # test iteration
+            (images_indxed, _), _ = dataset[i] 
+            self.assertTrue(images_indxed['T1'].dim() == 1)
+
+    def test_medical_folder_dataset_12_target_transform(self):
         dataset = MedicalFolderDataset(self.root, target_transform=self.target_transform)
         (images, demographics), targets = dataset[0]
         self.assertEqual(images['T1'].shape, targets['label'].shape)
 
-    def test_medical_folder_dataset_06_set_dataset_parameters(self):
+    def test_medical_folder_dataset_13_set_dataset_parameters(self):
         dataset = MedicalFolderDataset(self.root)
 
         with self.assertRaises(FedbiomedDatasetError):
@@ -332,12 +575,19 @@ class TestMedicalFolderDataset(unittest.TestCase):
         self.assertEqual(str(dataset.tabular_file), str(Path(self.tabular_file).expanduser().resolve()))
         self.assertEqual(dataset.index_col, self.index_col)
 
-    def test_medical_folder_dataset_07_demographics_transform(self):
+    def test_medical_folder_dataset_14_demographics_transform(self):
         dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col,
                                        demographics_transform=lambda x: torch.as_tensor(x['AGE']))
-        (images, demographics), targets = dataset[0]
+
+        # check indexation
+
         csv_data = pd.read_csv(self.tabular_file)
-        self.assertTrue(demographics.numpy() in csv_data.AGE.values)
+
+        # check over a loop
+        for i, ((images, demographics), targets) in enumerate(dataset):
+            self.assertTrue(demographics.numpy() in csv_data.AGE.values)
+            (images, demographics_indxed), targets = dataset[i]
+            self.assertTrue(demographics_indxed.numpy() in csv_data.AGE.values)
 
         dataset = MedicalFolderDataset(self.root, demographics_transform=lambda x: torch.as_tensor(x['AGE']))
         with self.assertRaises(FedbiomedDatasetError):
@@ -359,10 +609,17 @@ class TestMedicalFolderDataset(unittest.TestCase):
         self.assertIsInstance(demographics, torch.Tensor)
         self.assertTrue(demographics.numel() == 0)
 
+    def _assert_batch_types_and_sizes(self, dataset: Dataset):
+        """Asserts first batches correct types and lengths
 
-    def _assert_batch_types_and_sizes(self, dataset):
+        Args:
+            dataset (Dataset): a Dataset object that should have 
+                correct types (dict, dict, torch.Tensor) and correct batch size
+        Raises:
+            AssertionError if test fails
+        """
         data_loader = DataLoader(dataset, batch_size=self.batch_size)
-        (images, demographics), targets = iter(data_loader).next()
+        (images, demographics), targets = iter(data_loader).next()  # get the first iteration of dataloader
 
         self.assertIsInstance(images, dict)
         self.assertIsInstance(targets, dict)
@@ -373,7 +630,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
         lengths += [demographics.shape[0]]
 
         # Assert for batch size on modalities and demographics
-        self.assertTrue(len(set(lengths)) == 1)
+        self.assertTrue(len(set(lengths)) == 1)           
 
 
 class TestMedicalFolderBase(unittest.TestCase):
@@ -395,7 +652,7 @@ class TestMedicalFolderBase(unittest.TestCase):
     def tearDown(self) -> None:
 
         if 'IXI' not in self.root:
-            shutil.rmtree(self.root)
+            shutil.rmtree(self.root)  # is that useful since temporary folder will be deleted
         pass
 
     def test_medical_folder_base_01_init(self):
@@ -429,6 +686,10 @@ class TestMedicalFolderBase(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             self.medical_folder_base.root = dummy_root_2
 
+        # create temporary file and check if MedicalFolderBase triggers error if file is passed instead a folder
+        Path(os.path.join(dummy_root_2, 'test_file')).touch()
+        with self.assertRaises(FedbiomedDatasetError):
+            MedicalFolderBase(root=os.path.join(dummy_root_2, 'test_file'))
         # Remove tmp folder
         shutil.rmtree(dummy_root_2)
 
@@ -441,6 +702,32 @@ class TestMedicalFolderBase(unittest.TestCase):
         self.assertIsInstance(all_modalities, list, "All modalities are not as expected")
         unique_modalities.sort()
         self.assertListEqual(unique_modalities, ["T1", "T2", "label"])
+
+    def test_medical_folder_base_03_modalities_existing(self):
+        self.medical_folder_base = MedicalFolderBase(root=self.root)
+        demographics = pd.read_csv(self.tabular_file)
+        for subject in demographics[self.index_col]:
+
+            logical = all(self.medical_folder_base.is_modalities_existing(subject,
+                                                                          ['T1', 'T2', 'label']))
+            self.assertTrue(logical)
+
+        # remove one modality to each subject
+        for subject in demographics[self.index_col]:
+            modalities_folders_path = os.listdir(os.path.join(self.root, subject))
+            modality_to_remove = choice(modalities_folders_path)
+            shutil.rmtree(os.path.join(self.root, subject, modality_to_remove))
+
+            # action
+            logical = self.medical_folder_base.is_modalities_existing(subject, 
+                                                                      ['T1', 'T2', 'label'])
+            # checks
+            self.assertFalse(all(logical))
+            self.assertTrue(any(logical))
+
+        with self.assertRaises(FedbiomedDatasetError):
+            # incorrect type for modality (expecting list, but pass a string)
+            self.medical_folder_base.is_modalities_existing(subject, "this is not a list")
 
     def test_medical_folder_base_03_available_subjects(self):
         """Testing the method that extract available subjects for training"""
@@ -463,6 +750,56 @@ class TestMedicalFolderBase(unittest.TestCase):
         test_csv.to_csv(os.path.join(self.root, 'toto.csv'))
         df = self.medical_folder_base.read_demographics(os.path.join(self.root, 'toto.csv'), index_col=1)
         self.assertIsInstance(df, pd.DataFrame)
+
+    def test_medical_folder_base_05_deographic_column_names(self):
+        self.medical_folder_base = MedicalFolderBase(root=self.root)
+
+        variable_names = ['var_1', 'var_2', 'var_3']
+
+        test_csv = pd.DataFrame({v: np.random.randn(10) for v in variable_names})
+        test_csv.to_csv(os.path.join(self.root, 'toto.csv'), index=False)
+
+        # action
+        col = self.medical_folder_base.demographics_column_names(os.path.join(self.root, 'toto.csv'))
+
+        # check
+        self.assertListEqual(col.tolist(), variable_names)
+
+
+class TestMedicalFolderController(unittest.TestCase):
+    def setUp(self) -> None:
+        self.root = tempfile.mkdtemp()
+        self.tabular_file = os.path.join(self.root, 'participants.csv')
+        self.index_col = 'FOLDER_NAME'
+        self.n_samples = 20
+
+        _create_synthetic_dataset(self.root, self.n_samples, self.tabular_file, self.index_col)
+
+    def tearDown(self) -> None:
+        pass
+
+    def test_medical_folder_controller_01_subject_modality_status(self):
+        medical_folder_controller = MedicalFolderController(self.root)
+
+        # check method when index set to None
+        res = medical_folder_controller.subject_modality_status()
+
+        self.assertListEqual(sorted(res['columns']), sorted(['T1', 'T2', 'label']))
+        self.assertTrue(any(res['data']))
+
+        csv_data = pd.read_csv(self.tabular_file)
+        self.assertListEqual(sorted(csv_data[self.index_col].tolist()),
+                             sorted(res['index']))
+
+        # in the folowing, we will run 5 tests with different size of patient_id
+        patient_ids = csv_data[self.index_col].tolist()
+        for _ in range(5):
+            random.shuffle(patient_ids)
+            len_sample = random.randint(1, self.n_samples)
+            patient_selected = patient_ids[0: len_sample]
+            res = medical_folder_controller.subject_modality_status(patient_selected)
+            self.assertListEqual(sorted(patient_ids),
+                                 sorted(res['index']))
 
 
 if __name__ == '__main__':
