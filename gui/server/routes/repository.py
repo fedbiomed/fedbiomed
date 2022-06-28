@@ -2,6 +2,7 @@ import os
 import datetime
 
 from flask import jsonify, request
+from flask_login import login_required
 from app import app
 from schemas import ListDataFolder
 
@@ -11,6 +12,7 @@ from db import node_database
 
 
 @api.route('/repository/list', methods=['POST'])
+@login_required
 @validate_request_data(schema=ListDataFolder)
 def list_data_path():
     """ API endpoint to list folders in the data path of the node.

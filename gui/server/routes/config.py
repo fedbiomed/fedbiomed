@@ -3,6 +3,8 @@ import copy
 import re
 from importlib import reload
 
+from flask_login import login_required
+
 from . import api
 from app import app, db_prefix
 from flask import request, jsonify
@@ -36,6 +38,7 @@ def node_id():
 
 
 @api.route('/config/node-environ', methods=['GET'])
+@login_required
 def fedbiomed_environ():
     """ Endpoint that return current configuration for node
 

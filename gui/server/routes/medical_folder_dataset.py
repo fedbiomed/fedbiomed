@@ -2,6 +2,8 @@ import os
 import uuid
 import re
 
+from flask_login import login_required
+
 from cache import cached
 from flask import jsonify, request, g
 from db import node_database
@@ -32,6 +34,7 @@ query = node_database.query()
 
 
 @api.route('/datasets/medical-folder-dataset/validate-reference-column', methods=['POST'])
+@login_required
 @validate_request_data(schema=ValidateMedicalFolderReferenceCSV)
 @middleware(middlewares=[medical_folder_dataset.read_medical_folder_reference,
                          medical_folder_dataset.validate_available_subjects])
@@ -42,6 +45,7 @@ def validate_reference_csv_column():
 
 
 @api.route('/datasets/medical-folder-dataset/validate-root', methods=['POST'])
+@login_required
 @validate_request_data(schema=ValidateMedicalFolderRoot)
 @middleware(middlewares=[medical_folder_dataset.validate_medical_folder_root])
 def validate_root_path():
@@ -50,6 +54,7 @@ def validate_root_path():
 
 
 @api.route('/datasets/medical-folder-dataset/add', methods=['POST'])
+@login_required
 @validate_request_data(schema=ValidateMedicalFolderAddRequest)
 @middleware(middlewares=[common.check_tags_already_registered,
                          medical_folder_dataset.validate_medical_folder_root,
@@ -95,6 +100,7 @@ def add_medical_folder_dataset():
 
 
 @api.route('/datasets/medical-folder-dataset/preview', methods=['POST'])
+@login_required
 @validate_request_data(schema=PreviewDatasetRequest)
 @cached(key="dataset_id", prefix="medical_folder_dataset-preview", timeout=600)
 def medical_folder_preview():

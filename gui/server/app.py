@@ -1,12 +1,16 @@
 import os
 from flask import Flask, render_template, send_from_directory
 from config import Config
+from flask_login import LoginManager
+# from user import login
 
 
 build_dir = os.getenv('BUILD_DIR', '../ui/gui-build')
 
 # Create Flask Application
 app = Flask(__name__, static_folder=build_dir)
+
+login_manager = LoginManager()
 
 # Configure Flask app
 db_prefix = os.getenv('DB_PREFIX', 'db_')
@@ -37,6 +41,9 @@ def index(path):
 
 # Run the application
 if __name__ == '__main__':
+    # Link the login instance to our app
+    login_manager.init_app(app)
+    # login.login_view = 'login'
     # Start Flask
     app.run(host=app.config['HOST'],
             port=app.config['PORT'],
