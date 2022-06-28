@@ -306,7 +306,7 @@ class ModelManager:
                                                              ": database update failed, with error "
                                                              f" {str(err)}")
                 else:
-                    # Remove doc because model file is not exist anymore
+                    # Remove doc because model file is not existing anymore
                     logger.info(f'Model : {model["name"]} could not found in : {model["model_path"]}, will be removed')
                     try:
                         self._db.remove(doc_ids=[model.doc_id])
