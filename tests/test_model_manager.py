@@ -25,9 +25,9 @@ class TestModelManager(unittest.TestCase):
     Unit tests for class `ModelManager` (from fedbiomed.node.model_manager)
     """
 
-    # Raise a model manager error, whatever the conditions and parameters.
+    # Raise an arbitrary error (eg: SystemError), whatever the conditions and parameters.
     # Used for mocking, when you want to have an error on some function.
-    raise_fbmm_error = FedbiomedModelManagerError('my error message')
+    raise_some_error = SystemError('my error message')
 
     # dummy class for testing typing of parameters
     class Dummy():
@@ -60,12 +60,12 @@ class TestModelManager(unittest.TestCase):
 
         # patchers for causing database access errors
         # need to be (de)activated only for some pieces of test code
-        self.patcher_db_get = patch('tinydb.table.Table.get', MagicMock(side_effect=self.raise_fbmm_error))
-        self.patcher_db_search = patch('tinydb.table.Table.search', MagicMock(side_effect=self.raise_fbmm_error))
-        self.patcher_db_update = patch('tinydb.table.Table.update', MagicMock(side_effect=self.raise_fbmm_error))
-        self.patcher_db_remove = patch('tinydb.table.Table.remove', MagicMock(side_effect=self.raise_fbmm_error))
-        self.patcher_db_upsert = patch('tinydb.table.Table.upsert', MagicMock(side_effect=self.raise_fbmm_error))
-        self.patcher_db_all = patch('tinydb.table.Table.all', MagicMock(side_effect=self.raise_fbmm_error))
+        self.patcher_db_get = patch('tinydb.table.Table.get', MagicMock(side_effect=self.raise_some_error))
+        self.patcher_db_search = patch('tinydb.table.Table.search', MagicMock(side_effect=self.raise_some_error))
+        self.patcher_db_update = patch('tinydb.table.Table.update', MagicMock(side_effect=self.raise_some_error))
+        self.patcher_db_remove = patch('tinydb.table.Table.remove', MagicMock(side_effect=self.raise_some_error))
+        self.patcher_db_upsert = patch('tinydb.table.Table.upsert', MagicMock(side_effect=self.raise_some_error))
+        self.patcher_db_all = patch('tinydb.table.Table.all', MagicMock(side_effect=self.raise_some_error))
 
         # ---------------------------------------------------------------------------
 
@@ -710,21 +710,17 @@ class TestModelManager(unittest.TestCase):
 
 
         # Test 3 : bad parameter type
-        self.model_manager.register_model(model_name, 'mymodel_description', model_path, model_id = model_id)
-        model1 = self.model_manager.get_model_by_name(model_name)
-
-        # test + check        
-        self.assertNotEqual(model1, None)
-
+        # test + check
         for bad_id in [None, 3, ['my_model'], [], {}, {'model_id': 'my_model'}]:
             with self.assertRaises(FedbiomedModelManagerError):
                 self.model_manager.delete_model(bad_id)
 
 
         # Test 4 : database access error
+        self.model_manager.register_model(model_name, 'mymodel_description', model_path, model_id = model_id)
         model1 = self.model_manager.get_model_by_name(model_name)
 
-        # test + check
+        # test + check        
         self.assertNotEqual(model1, None)
 
         for patch_start, patch_stop in [
