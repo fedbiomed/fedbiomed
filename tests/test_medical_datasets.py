@@ -8,8 +8,6 @@ import tempfile
 from pathlib import Path, PosixPath
 from unittest.mock import patch
 from uuid import uuid4
-from random import randint, choice
-
 
 import itk
 import monai
@@ -19,9 +17,7 @@ import torch
 
 from torch.utils.data import DataLoader
 from monai.data import ITKReader
-from monai.transforms import LoadImage, ToTensor, Compose, Identity, PadListDataCollate
-from monai.transforms import Compose, GaussianSmooth, Identity, LoadImage, PadListDataCollate, ToTensor
-from torch.utils.data import DataLoader
+from monai.transforms import LoadImage, ToTensor, Compose, Identity, PadListDataCollate, GaussianSmooth
 from fedbiomed.common.data import NIFTIFolderDataset
 from fedbiomed.common.exceptions import FedbiomedDatasetError
 from torch.utils.data import Dataset
