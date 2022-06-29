@@ -1,15 +1,17 @@
+import uuid
+import jwt
+import re
+
 from functools import wraps
 from hashlib import sha512
-import uuid
 from flask import make_response, request
 from datetime import datetime, timedelta
-from typing import Boolean
-import jwt
 
 from fedbiomed.common.constants import UserRoleType
-
+from gui.server.utils import validate_request_data
+from gui.server.schemas import RegisterNewUserRequest
 from . import api
-from utils import success, error, response
+from utils import error, response
 from db import gui_database
 from app import app
 
@@ -23,10 +25,10 @@ def set_password_hash(password: str) -> str:
 
             password    (str): Password of the user
     """
-    return sha512(password.encode)
+    return sha512(password.encode('utf-8')).hexdigest()
 
 
-def check_password_hash(password: str, user_password_hash: str) -> Boolean:
+def check_password_hash(password: str, user_password_hash: str) -> bool:
     """ Method used to compare password hashes. 
         Used to verify the user password
     Args: 
@@ -37,20 +39,30 @@ def check_password_hash(password: str, user_password_hash: str) -> Boolean:
         True if the password hash matches the user password one
         False otherwise
     """
-    password_hash = sha512(password.encode)
-    return password_hash.digest() == user_password_hash.digest()
+    password_hash = sha512(password.encode('utf-8'))
+    print(password_hash.hexdigest())
+    print(user_password_hash)
+    return str(password_hash.digest()) == user_password_hash
 
 
-def get_user_by_mail(user_mail: str):
+def get_user_by_mail(user_email: str):
     """ Method used to retrieve a user from the database based on its email
     Args: 
 
         user_mail (str): The mail of the user to retrieve from the database
     """
-    # TODO: Use specific user table in gui_database
-    table = gui_database.db().table('_default')
-    query = gui_database.query()
-    return table.get(query.user_mail == user_mail)
+    return table.search(query.user_email == user_email)
+
+
+def check_mail_format(user_mail: str) -> bool:
+    """ Method used to check the format of the user email
+    Args: 
+
+        user_mail (str): The mail to check
+    """
+    # TODO : Add checks for min number of characters and so on
+    regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+    return re.fullmatch(regex, user_mail)
 
 
 def token_required(f):
@@ -77,8 +89,8 @@ def token_required(f):
     return decorated
 
 
-# TODO: add validators in schemas
 @api.route('/register', methods=['POST'])
+@validate_request_data(schema=RegisterNewUserRequest)
 def register():
     """ API endpoint to register new user in the database.
 
@@ -109,9 +121,11 @@ def register():
     email = req['email']
     password = req['password']
 
+    if not check_mail_format(email):
+        return error('Wrong email format'), 400
+
     if get_user_by_mail(email):
         return error('Email already Present. Please log in'), 409
-
     try :
         # Create unique id for the user
         user_id = 'user_' + str(uuid.uuid4())
@@ -119,10 +133,14 @@ def register():
             "user_email": email,
             "password_hash": set_password_hash(password),
             "user_role": UserRoleType.USER,
-            "creation_date": datetime.utcnow(),
+            "creation_date": datetime.utcnow().ctime(),
             "user_id": user_id
         })
-        return success('User successfully registered'), 201
+        res = table.get(query.user_id == user_id)
+        return response({
+            'user_id': res['user_id'], 
+            'user_email': res['user_email']
+        }, 'User successfully registered'), 201
     except Exception as e:
         return error(str(e)), 400
 
@@ -164,7 +182,8 @@ def login():
             {'WWW-Authenticate' : 'Basic realm ="User does not exist"'}
         ), 401
 
-    if check_password_hash(password, user['password_hash']):
+    # Should send back only one item
+    if check_password_hash(password, user[0]['password_hash']):
         # Generate JWT Token
         token = jwt.encode({
             'user_id': user['user_id'],
@@ -173,7 +192,7 @@ def login():
         }, app.config['SECRET_KEY'])
         data = {'token': token}
         return response(data), 200
-
+    
     return make_response(
         'Could not verify',
         {'WWW-Authenticate' : 'Basic realm ="Wrong Password"'}

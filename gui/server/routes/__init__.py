@@ -11,3 +11,4 @@ from .datasets import *
 from .repository import *
 from .medical_folder_dataset import *
 from .model import *
+from .authentication import *

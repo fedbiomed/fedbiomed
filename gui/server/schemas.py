@@ -22,6 +22,18 @@ datasetDesc = {'type': 'string', "minLength": 4, "maxLength": 256,
                    'maxLength': 'Description must be max 256 character'
                }}
 
+# userEmail = {'type': 'string', "minLength": 4, "maxLength": 128,
+#                'errorMessages': {
+#                    'minLength': 'Dataset name must have at least 4 character',
+#                    'maxLength': 'Dataset name must be max 128 character'
+#                }}
+
+# userPassword = {'type': 'string', "minLength": 8, "maxLength": 20,
+#                 'errorMessages': {
+#                     'minLength': 'Password must have at least 8 characters',
+#                     'maxLength': 'Password must be max 20 characters long'
+#                }}
+
 
 def extend_validator(validator_class):
     """ Extending json validator to set default values
@@ -159,7 +171,7 @@ class ListModelRequest(Validator):
          },
          "required": []
          },
-        )
+    )
 
 
 class ApproveRejectModelRequest(Validator):
@@ -397,3 +409,20 @@ class ValidateMedicalFolderAddRequest(Validator):
         },
         "required": ["medical_folder_root", "name", "tags", "desc"]
     })
+
+
+class RegisterNewUserRequest(Validator):
+    """ Json Schema for reqeust of adding new datasets """
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'email': {
+                'type': 'string',
+                'description': 'Email of the user',
+                'format': 'email'
+            },
+            'password': {'type': 'string'}
+        },
+        'required': ['email', 'password'],
+    }, message=None)

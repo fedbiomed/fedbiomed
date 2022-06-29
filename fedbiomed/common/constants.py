@@ -168,7 +168,7 @@ class ErrorNumbers(_BaseEnum):
     FB999: str = "FB999: unknown error code sent by the node"
 
 
-class UserRoleType(_BaseEnum):
+class UserRoleType(int, _BaseEnum):
     """Enumeration class, used to characterize the type of component of the fedbiomed architecture
 
     Attributes:
