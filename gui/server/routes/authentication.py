@@ -40,9 +40,7 @@ def check_password_hash(password: str, user_password_hash: str) -> bool:
         False otherwise
     """
     password_hash = sha512(password.encode('utf-8'))
-    print(password_hash.hexdigest())
-    print(user_password_hash)
-    return str(password_hash.digest()) == user_password_hash
+    return password_hash.hexdigest() == user_password_hash
 
 
 def get_user_by_mail(user_email: str):
@@ -80,7 +78,7 @@ def token_required(f):
 
         try:
             # decoding the payload to fetch the stored details
-            data = jwt.decode(token, app.config['SECRET_KEY'])
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
             current_user = table.get(query.user_id == data['user_id'])
         except Exception as e:
             return error(str(e)), 401
@@ -175,15 +173,16 @@ def login():
     email = req['email']
     password = req['password']
 
-    user = get_user_by_mail(email)
-    if not user:
+    user_db = get_user_by_mail(email)
+    if not user_db:
         return make_response(
             'Could not verify',
             {'WWW-Authenticate' : 'Basic realm ="User does not exist"'}
         ), 401
 
     # Should send back only one item
-    if check_password_hash(password, user[0]['password_hash']):
+    user = user_db[0]
+    if check_password_hash(password, user['password_hash']):
         # Generate JWT Token
         token = jwt.encode({
             'user_id': user['user_id'],
@@ -192,7 +191,7 @@ def login():
         }, app.config['SECRET_KEY'])
         data = {'token': token}
         return response(data), 200
-    
+
     return make_response(
         'Could not verify',
         {'WWW-Authenticate' : 'Basic realm ="Wrong Password"'}
