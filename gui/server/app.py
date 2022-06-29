@@ -10,12 +10,14 @@ build_dir = os.getenv('BUILD_DIR', '../ui/gui-build')
 # Create Flask Application
 app = Flask(__name__, static_folder=build_dir)
 
-login_manager = LoginManager()
-
 # Configure Flask app
 db_prefix = os.getenv('DB_PREFIX', 'db_')
 config = Config()
 app.config.update(config.generate_config())
+
+# encryption relies on secret keys
+# TODO: change it to use environment variable
+app.config['SECRET_KEY'] = 'CHANGE ME'
 
 
 # Import api route blueprint before importing routes
@@ -42,7 +44,7 @@ def index(path):
 # Run the application
 if __name__ == '__main__':
     # Link the login instance to our app
-    login_manager.init_app(app)
+    # login_manager.init_app(app)
     # login.login_view = 'login'
     # Start Flask
     app.run(host=app.config['HOST'],

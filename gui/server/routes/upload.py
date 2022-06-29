@@ -1,4 +1,3 @@
-from flask_login import login_required
 from app import app
 from flask import request, jsonify
 import pandas as pd
@@ -7,11 +6,12 @@ import os
 import uuid
 
 from db import node_database
+from gui.server.routes.authentication import token_required
 
 
 # TODO: Support upload function for user
 @app.route('/upload-csv', methods=['POST'])
-@login_required
+@token_required
 def upload_file():
 
     if request.method == 'POST':
