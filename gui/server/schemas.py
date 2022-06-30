@@ -22,18 +22,6 @@ datasetDesc = {'type': 'string', "minLength": 4, "maxLength": 256,
                    'maxLength': 'Description must be max 256 character'
                }}
 
-# userEmail = {'type': 'string', "minLength": 4, "maxLength": 128,
-#                'errorMessages': {
-#                    'minLength': 'Dataset name must have at least 4 character',
-#                    'maxLength': 'Dataset name must be max 128 character'
-#                }}
-
-# userPassword = {'type': 'string', "minLength": 8, "maxLength": 20,
-#                 'errorMessages': {
-#                     'minLength': 'Password must have at least 8 characters',
-#                     'maxLength': 'Password must be max 20 characters long'
-#                }}
-
 
 def extend_validator(validator_class):
     """ Extending json validator to set default values
@@ -127,7 +115,7 @@ class JsonSchema(object):
             # Raise custom error messages
             message = None
             if e.relative_schema_path[0] == 'required':
-                message = 'Please make sure all required fields has been filled'
+                message = 'Please make sure all required fields have been filled'
             elif e.relative_schema_path[0] == 'properties':
                 field = e.relative_schema_path[1]
                 reason = e.relative_schema_path[2]
@@ -411,8 +399,8 @@ class ValidateMedicalFolderAddRequest(Validator):
     })
 
 
-class RegisterNewUserRequest(Validator):
-    """ Json Schema for reqeust of adding new datasets """
+class ValidateUserFormRequest(Validator):
+    """ Json Schema for user registration and login requests"""
     type = 'json'
     schema = JsonSchema({
         'type': 'object',

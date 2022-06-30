@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 from fedbiomed.common.constants import UserRoleType
 from gui.server.utils import validate_request_data
-from gui.server.schemas import RegisterNewUserRequest
+from gui.server.schemas import ValidateUserFormRequest
 from . import api
 from utils import error, response
 from db import gui_database
@@ -58,9 +58,20 @@ def check_mail_format(user_mail: str) -> bool:
 
         user_mail (str): The mail to check
     """
-    # TODO : Add checks for min number of characters and so on
     regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
     return re.fullmatch(regex, user_mail)
+
+
+def check_password_format(user_password: str) -> bool:
+    """ Method used to check the format of the user password
+    Args: 
+
+        user_password (str): The password to check. It should be 
+        - at least 8 character long
+        - with at least one uppercase letter, one lowercase letter and one number
+    """
+    regex = r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9]).{8,}$'
+    return re.fullmatch(regex, user_password)
 
 
 def token_required(f):
@@ -74,7 +85,7 @@ def token_required(f):
             token = request.headers['x-access-token']
         # return 401 if token is not passed
         if not token:
-            return error('Token is missing'), 401
+            return error('Unhautorized, please log in'), 401
 
         try:
             # decoding the payload to fetch the stored details
@@ -88,7 +99,7 @@ def token_required(f):
 
 
 @api.route('/register', methods=['POST'])
-@validate_request_data(schema=RegisterNewUserRequest)
+@validate_request_data(schema=ValidateUserFormRequest)
 def register():
     """ API endpoint to register new user in the database.
 
@@ -122,6 +133,9 @@ def register():
     if not check_mail_format(email):
         return error('Wrong email format'), 400
 
+    if not check_password_format(password):
+        return error('Password should be at least 8 character long, with at least one uppercase letter, one lowercase letter and one number'), 400
+
     if get_user_by_mail(email):
         return error('Email already Present. Please log in'), 409
     try :
@@ -144,6 +158,7 @@ def register():
 
 
 @api.route('/login', methods=['POST'])
+@validate_request_data(schema=ValidateUserFormRequest)
 def login():
     """ API endpoint for logging user in
 
@@ -190,7 +205,7 @@ def login():
             'exp': datetime.utcnow() + timedelta(minutes = 30)
         }, app.config['SECRET_KEY'])
         data = {'token': token}
-        return response(data), 200
+        return response(data, 'User successfully logged in'), 200
 
     return make_response(
         'Could not verify',
