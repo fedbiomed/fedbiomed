@@ -151,8 +151,11 @@ class Round:
                 self.model = train_class()
             else:
                 # case where args have been found  (and passed)
-               self.model = train_class(self.model_kwargs)
- 
+                self.model = train_class(self.model_kwargs)
+            if 'dp_args' in self.training_kwargs:
+                self.model.validate_and_fix_model()
+
+
         except Exception as e:
             error_message = f"Cannot instantiate model object: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
