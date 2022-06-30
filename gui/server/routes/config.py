@@ -2,7 +2,6 @@ import os
 import copy
 import re
 from importlib import reload
-
 from gui.server.routes.authentication import token_required
 
 from . import api
@@ -17,6 +16,7 @@ import fedbiomed.node.dataset_manager
 
 
 @api.route('/config/node-id', methods=['GET'])
+@token_required
 def node_id():
     """ API enpoint to get node id which GUI will be working for
 

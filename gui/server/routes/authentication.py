@@ -1,14 +1,20 @@
-import uuid
-import jwt
-import re
-
 from functools import wraps
+import uuid
+import re
+import jwt
+
 from hashlib import sha512
 from flask import make_response, request
+from flask_jwt_extended import (
+    create_access_token, verify_jwt_in_request, 
+    create_refresh_token, get_jwt_identity,
+    set_access_cookies, set_refresh_cookies, 
+    unset_jwt_cookies
+)
 from datetime import datetime, timedelta
 
 from fedbiomed.common.constants import UserRoleType
-from gui.server.utils import validate_request_data
+from gui.server.utils import success, validate_request_data
 from gui.server.schemas import ValidateUserFormRequest
 from . import api
 from utils import error, response
@@ -90,12 +96,13 @@ def token_required(f):
         try:
             # decoding the payload to fetch the stored details
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            current_user = table.get(query.user_id == data['user_id'])
+            current_user = table.get(query.user_id == data['sub'])
         except Exception as e:
             return error(str(e)), 401
         return f(current_user, *args, **kwargs)
 
     return decorated
+
 
 
 @api.route('/register', methods=['POST'])
@@ -157,7 +164,7 @@ def register():
         return error(str(e)), 400
 
 
-@api.route('/login', methods=['POST'])
+@api.route('/token/auth', methods=['POST'])
 @validate_request_data(schema=ValidateUserFormRequest)
 def login():
     """ API endpoint for logging user in
@@ -198,14 +205,12 @@ def login():
     # Should send back only one item
     user = user_db[0]
     if check_password_hash(password, user['password_hash']):
-        # Generate JWT Token
-        token = jwt.encode({
-            'user_id': user['user_id'],
-            # TODO: Discuss about session duration for a user
-            'exp': datetime.utcnow() + timedelta(minutes = 30)
-        }, app.config['SECRET_KEY'])
-        data = {'token': token}
-        return response(data, 'User successfully logged in'), 200
+        access_token = create_access_token(identity=user['user_id'], fresh=True)
+        refresh_token = create_refresh_token(identity=user['user_id'])
+        resp = make_response(success('User successfully logged in'))
+        set_access_cookies(resp, access_token)
+        set_refresh_cookies(resp, refresh_token)
+        return resp, 200
 
     return make_response(
         'Could not verify',
@@ -213,8 +218,25 @@ def login():
     ), 401
 
 
-@api.route('/logout')
-@token_required
+# TODO: Does not work yet
+# @api.route('/token/refresh', methods=['POST'])
+# @token_required
+# # Should we use refresh any token which is about to expire or let the frontend call the endpoint
+# def refresh_expiring_jwts(response):
+#     """ API endpoint for refreshing JWT token
+#     """
+#     verify_jwt_in_request(optional=True)
+#     access_token = create_access_token(identity=get_jwt_identity())
+#     resp = make_response(success('Access token successfully refreshed'))
+#     set_access_cookies(response, access_token)
+#     return resp, 200
+
+
+@api.route('/token/remove', methods=['POST'])
 def logout():
-    # TODO: Implement
-    pass
+    resp = make_response(success('User successfully logged out'))
+    unset_jwt_cookies(resp)
+    return resp, 200
+
+
+# TODO : Implement method to retrieve user password

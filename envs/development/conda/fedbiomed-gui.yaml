@@ -31,3 +31,4 @@ dependencies:
       - python-minifier ==2.5.0
       - scikit-learn <= 0.24.2
       - PyJWT == 2.4.0
+      - Flask-JWT-Extended == 4.4.2
