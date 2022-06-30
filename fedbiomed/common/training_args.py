@@ -208,7 +208,13 @@ class TrainingArgs():
             "log_interval": {
                 "rules": [int],
                 "required": False,
-            }
+            },
+
+            # dp_args
+            "dp_args": {
+                "rules": [dict],
+                "required": False,
+            },
 
         }
 

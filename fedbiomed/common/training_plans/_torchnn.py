@@ -2,7 +2,7 @@
 TrainingPlan definition for torchnn ML framework
 '''
 
-from typing import Any, Dict, Union, Callable
+from typing import Any, Dict, Union, Callable, Optional
 from copy import deepcopy
 
 import torch
@@ -70,10 +70,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         self.device = self.device_init
         if not isinstance(model_args, dict):
             self.use_gpu = False
-            self.dp_args = False
         else:
             self.use_gpu = model_args.get('use_gpu', False)
-            self.dp_args = model_args.get('dp_args', False)
 
         # list dependencies of the model
         self.add_dependency(["import torch",
@@ -88,6 +86,9 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         # Aggregated model parameters
         self.init_params = None
+
+        # Differential Privacy support
+        self.dp_args = None
 
     def type(self) -> TrainingPlans.TorchTrainingPlan:
         """ Gets training plan type"""
@@ -188,7 +189,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          dry_run: bool = False,
                          use_gpu: Union[bool, None] = None,
                          fedprox_mu: float = None,
-                         dp_args: dict = {},
+                         dp_args: Optional[dict] = None,
                          history_monitor: Any = None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
@@ -222,7 +223,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     doesn't request for using a GPU. Default False.
         """
 
-        if (self.dp_args):
+        if dp_args is not None:
             self.initialize_dp(dp_args)
 
         # set correct type for node args
@@ -504,29 +505,30 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         Args:
             dp_args (dict, optional): DP parameters provided by the user
         """
+        assert 'type' in dp_args,  "DP 'type' not provided"
+        assert 'sigma' in dp_args, "DP 'sigma' parameter not provided"
+        assert 'clip' in dp_args,  "DP 'clip' parameter not provided"
+        assert dp_args['type'] in ['central','local'], "DP strategy unknown"
 
-        assert 'type' in self.dp_args,  "DP 'type' not provided"
-        assert 'sigma' in self.dp_args, "DP 'sigma' parameter not provided"
-        assert 'clip' in self.dp_args,  "DP 'clip' parameter not provided"
-        assert  self.dp_args['type'] in ['central','local'], "DP strategy unknown"
-
-        if self.dp_args['type'] == 'local':
+        if dp_args['type'] == 'local':
             try:
-                float(self.dp_args['sigma'])
+                float(dp_args['sigma'])
             except ValueError:
                 msg = ErrorNumbers.FB605.value + ": 'sigma'  parameter requested is not a float"
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
         else:
-            self.dp_args.update(sigma_CDP=self.dp_args['sigma'])
-            self.dp_args['sigma'] = 0. 
+            dp_args.update(sigma_CDP=dp_args['sigma'])
+            dp_args['sigma'] = 0.
+
         try:
-            float(self.dp_args['clip'])
+            float(dp_args['clip'])
         except ValueError:
             msg = ErrorNumbers.FB605.value + ": 'clip'  parameter requested is not a float"
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
+        self.dp_args = dp_args
 
     def postprocess_dp(self, params: dict) -> dict:
         """
