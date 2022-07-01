@@ -135,6 +135,9 @@ class Job:
             # also handle case where model is an instance of a class
             self.model_instance = model
 
+        if 'dp_args' in self.training_args.dict():
+            self.model_instance.validate_and_fix_model()
+
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
         self._model_class = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
