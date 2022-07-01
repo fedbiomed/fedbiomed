@@ -223,8 +223,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                     doesn't request for using a GPU. Default False.
         """
 
-        if dp_args is not None:
-            self.initialize_dp(dp_args)
 
         # set correct type for node args
         if not isinstance(node_args, dict):
@@ -233,9 +231,15 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         if self.optimizer is None:
             self.make_optimizer(lr)
 
-        if self.dp_args:
-            # Add __preprocess_ldp as preprocess 
-            self.add_preprocess(method=self.__preprocess_ldp, process_type=ProcessTypes.DATA_LOADER)
+        if dp_args is not None:
+            self.initialize_dp(dp_args)
+            self.privacy_engine = PrivacyEngine()
+            self.model, self.optimizer, self.training_data_loader = \
+                self.privacy_engine.make_private(module=self.model,  # assumes researcher already defined self.model
+                                                 optimizer=self.optimizer,
+                                                 data_loader=self.training_data_loader,
+                                                 noise_multiplier=self.dp_args.get('sigma'),
+                                                 max_grad_norm=self.dp_args.get('clip'))
 
         # Run preprocess when everything is ready before the training
         self.__preprocess()
@@ -626,35 +630,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         if not ModuleValidator.is_valid(self.model):
             print('######################################## Fixing Model ########################################')
             self.model = ModuleValidator.fix(self.model)
-
-
-    def __preprocess_ldp(self, data_loader):
-        """
-        Method to enable DP training using Opacus.
-        
-        This method is executed before starting the training epochs loop any time
-        the DP training is enabled. DP training is done here by using the `Opacus`
-        `PrivacyEngine`. Further information are available in the 
-        [Opacus webpage](https://opacus.ai/api/privacy_engine.html)
-
-        Args:
-            data_loader
-
-        Returns:
-            data_loader
-        """
-
-        # enter PrivacyEngine
-        self.privacy_engine = PrivacyEngine()
-        self.model, self.optimizer, data_loader = self.privacy_engine.make_private(module=self.model,
-                                                                              optimizer=self.optimizer,
-                                                                              data_loader = data_loader,
-                                                                              noise_multiplier=self.dp_args.get('sigma'),
-                                                                              max_grad_norm=self.dp_args.get('clip')
-                                                                    )
-        
-        return data_loader
-
 
     def __process_data_loader(self, method: Callable):
         """Process handler for data loader kind processes.
