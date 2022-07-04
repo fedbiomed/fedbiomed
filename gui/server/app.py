@@ -1,9 +1,13 @@
-from datetime import timedelta
 import os
+from datetime import timedelta
+
 from flask import Flask, render_template, send_from_directory
 from flask_jwt_extended import JWTManager
-from config import Config
 
+from config import Config
+# Import api route blueprint before importing routes
+# and register as blueprint
+from routes import api
 
 build_dir = os.getenv('BUILD_DIR', '../ui/gui-build')
 
@@ -21,28 +25,16 @@ app.config.update(config.generate_config())
 app.config['JWT_TOKEN_LOCATION'] = ['headers', 'cookies']
 
 app.config['JWT_COOKIE_SECURE'] = True
-
-# Set the cookie paths, so that you are only sending your access token
-# cookie to the access endpoints, and only sending your refresh token
-# to the refresh endpoint.
 app.config['JWT_ACCESS_COOKIE_PATH'] = '/api/'
 app.config['JWT_REFRESH_COOKIE_PATH'] = '/token/refresh'
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
-
-# Disable CSRF protection for this example. In almost every case,
-# this is a bad idea. See examples/csrf_protection_with_cookies.py
-# for how safely store JWTs in cookies
 app.config['JWT_COOKIE_CSRF_PROTECT'] = True
+
 # encryption relies on secret keys
-# TODO: change it to use environment variable
-app.config['SECRET_KEY'] = 'CHANGE ME'
+# TODO: Provide secret key in production securely
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'CHANGE ME')
 
 jwt = JWTManager(app)
-
-
-# Import api route blueprint before importing routes
-# and register as blueprint
-from routes import api
 app.register_blueprint(api)
 
 

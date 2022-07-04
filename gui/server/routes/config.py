@@ -1,22 +1,13 @@
-import os
-import copy
 import re
-from importlib import reload
-from gui.server.routes.authentication import token_required
 
-from . import api
-from app import app, db_prefix
-from flask import request, jsonify
-from utils import get_node_id
-from utils import success, error, response
+from app import app
+from utils import response
 
 from fedbiomed.node.environ import environ
-import fedbiomed.common.environ
-import fedbiomed.node.dataset_manager
+from . import api
 
 
 @api.route('/config/node-id', methods=['GET'])
-@token_required
 def node_id():
     """ API enpoint to get node id which GUI will be working for
 
@@ -38,7 +29,6 @@ def node_id():
 
 
 @api.route('/config/node-environ', methods=['GET'])
-@token_required
 def fedbiomed_environ():
     """ Endpoint that return current configuration for node
 

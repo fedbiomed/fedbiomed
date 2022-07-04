@@ -1,25 +1,22 @@
-from functools import wraps
-import uuid
 import re
-import jwt
-
+import uuid
+from datetime import datetime
+from functools import wraps
 from hashlib import sha512
+
+import jwt
+from app import app
+from db import gui_database
 from flask import make_response, request
-from flask_jwt_extended import (
-    create_access_token, verify_jwt_in_request, 
-    create_refresh_token, get_jwt_identity,
-    set_access_cookies, set_refresh_cookies, 
-    unset_jwt_cookies
-)
-from datetime import datetime, timedelta
+from flask_jwt_extended import (jwt_required,
+    create_access_token, create_refresh_token, get_jwt_identity,
+    set_access_cookies, set_refresh_cookies, unset_jwt_cookies)
+from utils import error, response
 
 from fedbiomed.common.constants import UserRoleType
-from gui.server.utils import success, validate_request_data
 from gui.server.schemas import ValidateUserFormRequest
+from gui.server.utils import success, validate_request_data
 from . import api
-from utils import error, response
-from db import gui_database
-from app import app
 
 table = gui_database.db().table('_default')
 query = gui_database.query()
@@ -29,7 +26,7 @@ def set_password_hash(password: str) -> str:
     """ Method for setting password hash 
     Args: 
 
-            password    (str): Password of the user
+        password (str): Password of the user
     """
     return sha512(password.encode('utf-8')).hexdigest()
 
@@ -49,7 +46,7 @@ def check_password_hash(password: str, user_password_hash: str) -> bool:
     return password_hash.hexdigest() == user_password_hash
 
 
-def get_user_by_mail(user_email: str):
+def get_user_by_email(user_email: str):
     """ Method used to retrieve a user from the database based on its email
     Args: 
 
@@ -78,31 +75,6 @@ def check_password_format(user_password: str) -> bool:
     """
     regex = r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9]).{8,}$'
     return re.fullmatch(regex, user_password)
-
-
-def token_required(f):
-    """ Decorator for verifying the JWT token
-    """
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = None
-        # jwt is passed in the request header
-        if 'x-access-token' in request.headers:
-            token = request.headers['x-access-token']
-        # return 401 if token is not passed
-        if not token:
-            return error('Unhautorized, please log in'), 401
-
-        try:
-            # decoding the payload to fetch the stored details
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            current_user = table.get(query.user_id == data['sub'])
-        except Exception as e:
-            return error(str(e)), 401
-        return f(current_user, *args, **kwargs)
-
-    return decorated
-
 
 
 @api.route('/register', methods=['POST'])
@@ -143,7 +115,7 @@ def register():
     if not check_password_format(password):
         return error('Password should be at least 8 character long, with at least one uppercase letter, one lowercase letter and one number'), 400
 
-    if get_user_by_mail(email):
+    if get_user_by_email(email):
         return error('Email already Present. Please log in'), 409
     try :
         # Create unique id for the user
@@ -195,7 +167,7 @@ def login():
     email = req['email']
     password = req['password']
 
-    user_db = get_user_by_mail(email)
+    user_db = get_user_by_email(email)
     if not user_db:
         return make_response(
             'Could not verify',
@@ -218,22 +190,28 @@ def login():
     ), 401
 
 
-# TODO: Does not work yet
-# @api.route('/token/refresh', methods=['POST'])
-# @token_required
-# # Should we use refresh any token which is about to expire or let the frontend call the endpoint
-# def refresh_expiring_jwts(response):
-#     """ API endpoint for refreshing JWT token
-#     """
-#     verify_jwt_in_request(optional=True)
-#     access_token = create_access_token(identity=get_jwt_identity())
-#     resp = make_response(success('Access token successfully refreshed'))
-#     set_access_cookies(response, access_token)
-#     return resp, 200
+@api.route('/token/refresh', methods=['POST'])
+@jwt_required(refresh=True)
+def refresh_expiring_jwts():
+    """ API endpoint for refreshing JWT token
+    """
+    access_token = create_access_token(identity=get_jwt_identity())
+    resp = make_response(success('Access token successfully refreshed'))
+    set_access_cookies(resp, access_token)
+    return resp, 200
+
+
+@api.route('/protected', methods=['GET'])
+@jwt_required()
+def protected_test():
+    return make_response(success('You rock !')), 200
 
 
 @api.route('/token/remove', methods=['POST'])
 def logout():
+    """ Method used to logout current user.
+        It removes the jwt set in cookies
+    """
     resp = make_response(success('User successfully logged out'))
     unset_jwt_cookies(resp)
     return resp, 200

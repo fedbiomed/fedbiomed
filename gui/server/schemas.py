@@ -1,5 +1,5 @@
-from flask import request
 import jsonschema
+from flask import request
 from jsonschema import Draft7Validator, validators
 
 # Constant validators settings

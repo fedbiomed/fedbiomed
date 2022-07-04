@@ -1,10 +1,11 @@
 import os
-from functools import cache
+
+from app import app
+from flask import request, g
+from utils import error, response
+
 from fedbiomed.common.data import MedicalFolderController
 from fedbiomed.common.exceptions import FedbiomedError
-from flask import request, g
-from app import app
-from utils import error, response
 
 mf_controller = MedicalFolderController()
 DATA_PATH_RW = app.config['DATA_PATH_RW']

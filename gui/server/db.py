@@ -1,5 +1,6 @@
-from app import app
 from tinydb import TinyDB, Query
+
+from app import app
 
 
 class Database:

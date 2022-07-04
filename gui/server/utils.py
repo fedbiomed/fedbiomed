@@ -1,10 +1,11 @@
-import os
-import shutil
-import datetime
 import configparser
-from cache import RepositoryCache
-from flask import jsonify, request
+import datetime
+import os
 from functools import wraps
+
+from flask import jsonify, request
+
+from cache import RepositoryCache
 from schemas import Validator
 
 
@@ -208,5 +209,3 @@ def parse_size(size):
         size /= 1024.0
 
     return formatter % (size, 'BB')
-
-

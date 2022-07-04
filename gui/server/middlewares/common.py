@@ -1,5 +1,5 @@
-from flask import request, g
 from db import node_database
+from flask import request
 from utils import error
 
 

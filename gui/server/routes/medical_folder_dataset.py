@@ -1,24 +1,23 @@
 import os
-import uuid
 import re
+import uuid
 
-from cache import cached
-from flask import jsonify, request, g
-from db import node_database
-from gui.server.routes.authentication import token_required
-from . import api
 from app import app
+from cache import cached
+from db import node_database
+from flask import request, g
 from middlewares import middleware, medical_folder_dataset, common
-
-from utils import success, error, validate_json, validate_request_data, response
 from schemas import ValidateMedicalFolderReferenceCSV, \
     ValidateMedicalFolderRoot, \
     ValidateMedicalFolderAddRequest, \
     PreviewDatasetRequest
+from utils import error, validate_request_data, response
 
 from fedbiomed.common.data import MedicalFolderController
-from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.node.dataset_manager import DatasetManager
+from . import api
+
 dataset_manager = DatasetManager()
 
 # Medical Folder Controller
@@ -33,7 +32,6 @@ query = node_database.query()
 
 
 @api.route('/datasets/medical-folder-dataset/validate-reference-column', methods=['POST'])
-@token_required
 @validate_request_data(schema=ValidateMedicalFolderReferenceCSV)
 @middleware(middlewares=[medical_folder_dataset.read_medical_folder_reference,
                          medical_folder_dataset.validate_available_subjects])
@@ -44,7 +42,6 @@ def validate_reference_csv_column():
 
 
 @api.route('/datasets/medical-folder-dataset/validate-root', methods=['POST'])
-@token_required
 @validate_request_data(schema=ValidateMedicalFolderRoot)
 @middleware(middlewares=[medical_folder_dataset.validate_medical_folder_root])
 def validate_root_path():
@@ -53,7 +50,6 @@ def validate_root_path():
 
 
 @api.route('/datasets/medical-folder-dataset/add', methods=['POST'])
-@token_required
 @validate_request_data(schema=ValidateMedicalFolderAddRequest)
 @middleware(middlewares=[common.check_tags_already_registered,
                          medical_folder_dataset.validate_medical_folder_root,
@@ -99,7 +95,6 @@ def add_medical_folder_dataset():
 
 
 @api.route('/datasets/medical-folder-dataset/preview', methods=['POST'])
-@token_required
 @validate_request_data(schema=PreviewDatasetRequest)
 @cached(key="dataset_id", prefix="medical_folder_dataset-preview", timeout=600)
 def medical_folder_preview():

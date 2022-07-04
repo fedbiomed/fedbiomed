@@ -1,15 +1,11 @@
 import os
-import uuid
 import re
-from flask import jsonify, request
+import uuid
+
 from app import app
 from db import node_database
-from gui.server.routes.authentication import token_required
-
-from . import api
-from utils import success, error, validate_json, validate_request_data, response
+from flask import request
 from middlewares import middleware, common
-
 from schemas import AddDataSetRequest, \
     RemoveDatasetRequest, \
     UpdateDatasetRequest, \
@@ -17,8 +13,10 @@ from schemas import AddDataSetRequest, \
     AddDefaultDatasetRequest, \
     ListDatasetRequest, \
     GetCsvData
+from utils import success, error, validate_request_data, response
 
 from fedbiomed.node.dataset_manager import DatasetManager
+from . import api
 
 # Initialize Fed-BioMed DatasetManager
 dataset_manager = DatasetManager()
@@ -27,7 +25,6 @@ DATA_PATH_RW = app.config['DATA_PATH_RW']
 
 
 @api.route('/datasets/list', methods=['POST'])
-@token_required
 @validate_request_data(schema=ListDatasetRequest)
 def list_datasets():
     """
@@ -67,7 +64,6 @@ def list_datasets():
 
 
 @api.route('/datasets/remove', methods=['POST'])
-@token_required
 @validate_request_data(schema=RemoveDatasetRequest)
 def remove_dataset():
     """ API endpoint to remove single dataset from database.
@@ -108,7 +104,6 @@ def remove_dataset():
 
 
 @api.route('/datasets/add', methods=['POST'])
-@token_required
 @validate_request_data(schema=AddDataSetRequest)
 @middleware(middlewares=[common.check_tags_already_registered])
 def add_dataset():
@@ -197,7 +192,6 @@ def add_dataset():
 
 
 @api.route('/datasets/update', methods=['POST'])
-@token_required
 @validate_request_data(schema=UpdateDatasetRequest)
 def update_dataset():
     """API endpoint for updating dataset
@@ -234,7 +228,6 @@ def update_dataset():
 
 
 @api.route('/datasets/preview', methods=['POST'])
-@token_required
 @validate_request_data(schema=PreviewDatasetRequest)
 def get_preview_dataset():
     """API endpoint for getting preview information for dataset
@@ -288,7 +281,6 @@ def get_preview_dataset():
 
 
 @api.route('/datasets/add-default-dataset', methods=['POST'])
-@token_required
 @validate_request_data(schema=AddDefaultDatasetRequest)
 def add_default_dataset():
     """API endpoint for adding default dataset
@@ -371,7 +363,6 @@ def add_default_dataset():
 
 
 @api.route('/datasets/get-csv-data', methods=['POST'])
-@token_required
 @validate_request_data(schema=GetCsvData)
 def get_csv_data():
     """

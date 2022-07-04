@@ -1,18 +1,15 @@
 import os
-import datetime
 
-from flask import jsonify, request
 from app import app
-from gui.server.routes.authentication import token_required
+from db import node_database
+from flask import request
 from schemas import ListDataFolder
+from utils import error, validate_request_data, response, file_stats
 
 from . import api
-from utils import success, error, validate_json, validate_request_data, response, file_stats
-from db import node_database
 
 
 @api.route('/repository/list', methods=['POST'])
-@token_required
 @validate_request_data(schema=ListDataFolder)
 def list_data_path():
     """ API endpoint to list folders in the data path of the node.

@@ -1,17 +1,13 @@
 from datetime import datetime
 
+from flask import request
+from utils import success, error, validate_request_data, response
+
 from fedbiomed.common.constants import ModelApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedModelManagerError
-from gui.server.routes.authentication import token_required
+from fedbiomed.node.model_manager import ModelManager
 from gui.server.schemas import DeleteModelRequest, ListModelRequest, ApproveRejectModelRequest, ModelPreviewRequest
 from . import api
-
-from flask import jsonify, request
-from app import app
-from db import node_database
-from utils import success, error, validate_json, validate_request_data, response
-
-from fedbiomed.node.model_manager import ModelManager
 
 MODEL_MANAGER = ModelManager()
 
@@ -19,7 +15,6 @@ TIME_OF_LAST_CALL = datetime.now()
 
 
 @api.route('/model/list', methods=['POST'])
-@token_required
 @validate_request_data(schema=ListModelRequest)
 def list_models():
     """API endpoint for listing model contained in database
@@ -57,7 +52,6 @@ def list_models():
 
 
 @api.route('/model/approve', methods=["POST"])
-@token_required
 @validate_request_data(schema=ApproveRejectModelRequest)
 def approve_model():
     """API endpoint for approving model
@@ -91,7 +85,6 @@ def approve_model():
 
 
 @api.route('/model/reject', methods=["POST"])
-@token_required
 @validate_request_data(schema=ApproveRejectModelRequest)
 def reject_model():
     """API endpoint for rejecting model
@@ -125,7 +118,6 @@ def reject_model():
 
 
 @api.route('/model/delete', methods=["POST"])
-@token_required
 @validate_request_data(schema=DeleteModelRequest)
 def delete_model():
     """API endpoint for deleting model
@@ -156,7 +148,6 @@ def delete_model():
 
 
 @api.route('/model/preview', methods=["POST"])
-@token_required
 @validate_request_data(schema=ModelPreviewRequest)
 def preview_model():
     """API endpoint for getting a specific model entry through [`model_id`]
@@ -187,4 +178,3 @@ def preview_model():
         return error(f"No model with provided model id {model_id} found in database"), 400
     else:
         return response(res), 200
-
