@@ -1,16 +1,12 @@
 import re
 import uuid
 from datetime import datetime
-from functools import wraps
 from hashlib import sha512
 
-import jwt
-from app import app
 from db import gui_database
 from flask import make_response, request
-from flask_jwt_extended import (jwt_required,
-    create_access_token, create_refresh_token, get_jwt_identity,
-    set_access_cookies, set_refresh_cookies, unset_jwt_cookies)
+from flask_jwt_extended import (jwt_required, create_access_token, create_refresh_token, get_jwt_identity,
+                                set_access_cookies, set_refresh_cookies, unset_jwt_cookies)
 from utils import error, response
 
 from fedbiomed.common.constants import UserRoleType
@@ -177,8 +173,13 @@ def login():
     # Should send back only one item
     user = user_db[0]
     if check_password_hash(password, user['password_hash']):
-        access_token = create_access_token(identity=user['user_id'], fresh=True)
-        refresh_token = create_refresh_token(identity=user['user_id'])
+        user_identity = {
+            "id": user["user_id"],
+            "email": user["user_email"],
+            "role": user["user_role"]
+        }
+        access_token = create_access_token(identity=user_identity, fresh=True)
+        refresh_token = create_refresh_token(identity=user_identity)
         resp = make_response(success('User successfully logged in'))
         set_access_cookies(resp, access_token)
         set_refresh_cookies(resp, refresh_token)
