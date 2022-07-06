@@ -219,3 +219,4 @@ def logout():
 
 
 # TODO : Implement method to retrieve user password
+# TODO : Implement method for permissions management 
