@@ -1,12 +1,13 @@
 import re
 import uuid
 from datetime import datetime
+from functools import wraps
 from hashlib import sha512
 
 from db import gui_database
 from flask import make_response, request
-from flask_jwt_extended import (jwt_required, create_access_token, create_refresh_token, get_jwt_identity,
-                                set_access_cookies, set_refresh_cookies, unset_jwt_cookies)
+from flask_jwt_extended import (jwt_required, create_access_token, create_refresh_token, set_access_cookies, 
+                                set_refresh_cookies, unset_jwt_cookies, verify_jwt_in_request, get_jwt)
 from utils import error, response
 
 from fedbiomed.common.constants import UserRoleType
@@ -71,6 +72,20 @@ def check_password_format(user_password: str) -> bool:
     """
     regex = r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9]).{8,}$'
     return re.fullmatch(regex, user_password)
+
+
+def admin_required(func):
+    """Decorator used to protect endpoints that require admin role"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        verify_jwt_in_request()
+        claims = get_jwt()
+        if claims['role'] != UserRoleType.ADMIN:
+            return error("You don't have permission to perform this action !"), 403
+        else:
+            return func(*args, **kwargs)
+    return wrapper
+
 
 
 @api.route('/register', methods=['POST'])
@@ -173,13 +188,12 @@ def login():
     # Should send back only one item
     user = user_db[0]
     if check_password_hash(password, user['password_hash']):
-        user_identity = {
-            "id": user["user_id"],
+        additional_claims = {
             "email": user["user_email"],
             "role": user["user_role"]
         }
-        access_token = create_access_token(identity=user_identity, fresh=True)
-        refresh_token = create_refresh_token(identity=user_identity)
+        access_token = create_access_token(identity=user["user_id"], fresh=True, additional_claims=additional_claims)
+        refresh_token = create_refresh_token(identity=user["user_id"], additional_claims=additional_claims)
         resp = make_response(success('User successfully logged in'))
         set_access_cookies(resp, access_token)
         set_refresh_cookies(resp, refresh_token)
@@ -196,7 +210,12 @@ def login():
 def refresh_expiring_jwts():
     """ API endpoint for refreshing JWT token
     """
-    access_token = create_access_token(identity=get_jwt_identity())
+    jwt = get_jwt()
+    additional_claims = {
+        "email": jwt["email"],
+        "role": jwt["role"]
+    }
+    access_token = create_access_token(identity=jwt["sub"], additional_claims=additional_claims)
     resp = make_response(success('Access token successfully refreshed'))
     set_access_cookies(resp, access_token)
     return resp, 200
@@ -206,6 +225,13 @@ def refresh_expiring_jwts():
 @jwt_required()
 def protected_test():
     return make_response(success('You rock !')), 200
+
+
+@api.route('/admin', methods=['GET'])
+@jwt_required()
+@admin_required
+def admin_test():
+    return make_response(success('Only if you are an admin')), 200
 
 
 @api.route('/token/remove', methods=['POST'])
@@ -219,4 +245,4 @@ def logout():
 
 
 # TODO : Implement method to retrieve user password
-# TODO : Implement method for permissions management 
+# TODO : Add salt to encrypted passwords
