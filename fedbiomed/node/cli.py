@@ -36,6 +36,8 @@ from fedbiomed.node.node import Node
 
 from fedbiomed.common.logger import logger
 
+from fedbiomed.node.flamby_utils import get_flamby_datasets, get_key_from_value
+
 
 #
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
@@ -63,12 +65,12 @@ readline.parse_and_bind("tab: complete")
 
 def validated_data_type_input() -> str:
     """Picks data type to use from user input on command line.
-
     Returns:
         A string keyword for one of the possible data type
             ('csv', 'default', 'mednist', 'images', 'medical-folder').
+        or a function which allows the user to choose from different flamby datasets.
     """
-    valid_options = ['csv', 'default', 'mednist', 'images', 'medical-folder']
+    valid_options = ['csv', 'default', 'mednist', 'images', 'medical-folder', 'flamby']
     valid_options = {i: val for i, val in enumerate(valid_options, 1)}
 
     msg = "Please select the data type that you're configuring:\n"
@@ -79,11 +81,40 @@ def validated_data_type_input() -> str:
         try:
             t = int(input(msg))
             assert t in valid_options.keys()
+            if valid_options[t] == 'flamby':
+                return validated_flamby_dataset_input()
             break
         except Exception:
             warnings.warn('\n[ERROR] Please, enter a valid option')
 
     return valid_options[t]
+
+
+def validated_flamby_dataset_input() -> str:
+    """Picks flamby dataset option to use from user input on command line. Allows to user to go back in the previous
+    selection menu.
+    Returns:
+        A string keyword for one of the possible data type
+            (all names identifying the detected flamby datasets).
+    """
+    _, valid_flamby_options = get_flamby_datasets()
+    msg = "Please select the FLamby dataset that you're configuring (enter 'b' to go back):\n"
+    msg += "\n".join([f"\t{i}) {val}" for i, val in valid_flamby_options.items()])
+    msg += "\nselect: "
+
+    while True:
+        try:
+            t = input(msg)
+            if t == 'b':
+                return validated_data_type_input()
+            else:
+                t = int(t)
+            assert t in valid_flamby_options.keys()
+            break
+        except Exception:
+            warnings.warn('\n[ERROR] Please, enter a valid option')
+
+    return valid_flamby_options[t]
 
 
 def pick_with_tkinter(mode: str = 'file') -> str:
@@ -233,6 +264,7 @@ def add_database(interactive: bool = True,
             description = 'MEDNIST dataset'
         else:
 
+            available_flamby_datasets, valid_flamby_options = get_flamby_datasets()
             name = input('Name of the database: ')
 
             tags = input('Tags (separate them by comma and no spaces): ')
@@ -265,6 +297,17 @@ def add_database(interactive: bool = True,
                 dataset_parameters = {} if dataset_parameters is None else dataset_parameters
                 dataset_parameters['tabular_file'] = tabular_file_path
                 dataset_parameters['index_col'] = index_col
+
+            elif data_type in list(valid_flamby_options.values()):
+                print(f'Please select the root folder of {data_type} dataset')
+                path = validated_path_input(type='dir')
+                flamby_dataset_index = get_key_from_value(valid_flamby_options, data_type)
+                module = __import__(available_flamby_datasets[flamby_dataset_index], fromlist='dummy')
+                n_centers = module.NUM_CLIENTS
+                dataset_parameters = {}
+                center_id = int(input(f"Give a center id between 0 and {str(n_centers-1)}: "))
+                dataset_parameters["center_id"] = center_id
+                dataset_parameters["fed_class"] = available_flamby_datasets[flamby_dataset_index]
             else:
                 path = validated_path_input(data_type)
 
