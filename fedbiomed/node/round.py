@@ -442,6 +442,9 @@ class Round:
         """
         module = __import__(self.dataset['dataset_parameters']['fed_class'], fromlist='dummy')
         center_id = self.dataset['dataset_parameters']['center_id']
-        fed_class_train = module.FedClass(transform=self.transform_compose_flamby, center=center_id, train=True, pooled=False) # FLamby pytorch dataloader
+        try:
+            fed_class_train = module.FedClass(transform=self.transform_compose_flamby, center=center_id, train=True, pooled=False) # FLamby pytorch dataloader
+        except Exception: # Some flamby datasets don't have a transform parameter, so we need to ignore it in this case
+            fed_class_train = module.FedClass(center=center_id, train=True, pooled=False)
         return DataLoader(fed_class_train, batch_size=self.batch_size_flamby, shuffle=True), None
         
