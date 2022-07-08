@@ -248,13 +248,14 @@ class TestTorchnn(unittest.TestCase):
         x_train = torch.Tensor(custom_dataset.X_train)
         y_train = torch.Tensor(custom_dataset.Y_train)
         num_batches = 2
-        batch_size = x_train.shape[0]
+        batch_size = 3
+        dataset_size = 7
         fake_data = {'modality1': x_train, 'modality2': x_train}
         fake_target = (y_train, y_train)
         tp.training_data_loader.__iter__.return_value = num_batches*[(fake_data, fake_target)]
         tp.training_data_loader.__len__.return_value = num_batches
         tp.training_data_loader.batch_size = batch_size
-        tp.training_data_loader.dataset.__len__.return_value = batch_size*num_batches
+        tp.training_data_loader.dataset.__len__.return_value = dataset_size
 
         with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
             tp.training_routine(epochs=1,
@@ -265,8 +266,8 @@ class TestTorchnn(unittest.TestCase):
                 logged_num_processed_samples = int(logging_message.split('[')[1].split('/')[0])
                 logged_total_num_samples = int(logging_message.split('/')[1].split()[0])
                 logged_percent_progress = float(logging_message.split('(')[1].split('%')[0])
-                self.assertEqual(logged_num_processed_samples, (i+1)*batch_size)
-                self.assertEqual(logged_total_num_samples, batch_size*num_batches)
+                self.assertEqual(logged_num_processed_samples, min((i+1)*batch_size, dataset_size))
+                self.assertEqual(logged_total_num_samples, dataset_size)
                 self.assertAlmostEqual(logged_percent_progress, 100*(i+1)/num_batches, delta=0.1)
 
 
