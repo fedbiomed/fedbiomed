@@ -236,6 +236,16 @@ class TestTorchnn(unittest.TestCase):
                                    before_train=True)
 
     def test_torch_nn_04_logging_progress_computation(self):
+        """Test logging bug #313
+
+        Create a DataLoader within a TrainingPlan with the following characteristics:
+        - batch size = 3
+        - total num samples = 5
+        - therefore, 2 batches will be processed
+
+        The expected behaviour is that the first iteration should report a progress of 3/5 (60%),
+        while the second iteration should report a progress of 5/5 (100%).
+        """
         tp = TorchTrainingPlan()
         tp.optimizer = MagicMock()
         tp.training_data_loader = MagicMock()
@@ -249,7 +259,7 @@ class TestTorchnn(unittest.TestCase):
         y_train = torch.Tensor(custom_dataset.Y_train)
         num_batches = 2
         batch_size = 3
-        dataset_size = 7
+        dataset_size = 5
         fake_data = {'modality1': x_train, 'modality2': x_train}
         fake_target = (y_train, y_train)
         tp.training_data_loader.__iter__.return_value = num_batches*[(fake_data, fake_target)]
