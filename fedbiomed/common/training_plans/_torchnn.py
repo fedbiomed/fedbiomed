@@ -273,9 +273,9 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 if batch_ % log_interval == 0:
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
-                        batch_idx * len(data),
+                        batch_ * len(data),
                         len(self.training_data_loader.dataset),
-                        100 * batch_idx / len(self.training_data_loader),
+                        100 * batch_ / len(self.training_data_loader),
                         res.item()))
 
                     # Send scalar values via general/feedback topic
