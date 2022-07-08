@@ -299,8 +299,7 @@ def add_database(interactive: bool = True,
                 dataset_parameters['index_col'] = index_col
 
             elif data_type in list(valid_flamby_options.values()):
-                print(f'Please select the root folder of {data_type} dataset')
-                path = validated_path_input(type='dir')
+                path = '/' # no path needs to be defined in the case of FLamby, as it is already internally handled on FLamby side.
                 flamby_dataset_index = get_key_from_value(valid_flamby_options, data_type)
                 module = __import__(available_flamby_datasets[flamby_dataset_index], fromlist='dummy')
                 n_centers = module.NUM_CLIENTS
