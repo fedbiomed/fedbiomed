@@ -7,7 +7,7 @@ def get_flamby_datasets():
     Returns:
         A tuple containing 2 elements :
             - the first is a dictionary with integers as keys (1 to X, X being the number of flamby datasets)
-            and values being the absolute path of the module containing the federated class of the dataset
+            and values being the absolute path of the folder which contains the federated class of the dataset
             - the second is also a dictionary, with same keys as the first dictionary, and values being a short name identifying
             each dataset, to display in the interface all the options of flamby datasets in a convenient way in the selection menu.
 
