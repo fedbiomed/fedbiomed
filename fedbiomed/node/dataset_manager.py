@@ -28,6 +28,8 @@ from fedbiomed.common.data import MedicalFolderController
 
 from fedbiomed.common.logger import logger
 
+from fedbiomed.node.flamby_utils import get_flamby_datasets, get_key_from_value
+
 
 class DatasetManager:
     """Interfaces with the node component database.
@@ -301,12 +303,27 @@ class DatasetManager:
         assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
 
         dtypes = []  # empty list for Image datasets
-        data_types = ['csv', 'default', 'mednist', 'images', 'medical-folder']
+        available_flamby_datasets, valid_flamby_options = get_flamby_datasets()
+        flamby_datasets = list(valid_flamby_options.values())
+        data_types = ['csv', 'default', 'mednist', 'images', 'medical-folder', *flamby_datasets]
+
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
                                       ' a compatible data type. '
                                       f'Compatible data types are: {data_types}')
 
+        elif data_type in flamby_datasets: # data_type corresponds to one flamby dataset (e.g. IXITiny, Kits19)
+            if not os.path.isdir(path):
+                raise FedbiomedDatasetManagerError(f'Folder {path} for {data_type} FLamby dataset does not exist.')
+            try:
+                flamby_dataset_index = get_key_from_value(valid_flamby_options, data_type)
+                module = __import__(available_flamby_datasets[flamby_dataset_index], fromlist='dummy')
+                center_id = dataset_parameters.get('center_id')
+                dataset = module.FedClass(center=center_id, train=True, pooled=False)
+            except FedbiomedError as e:
+                raise FedbiomedDatasetManagerError(f"Can not create {data_type} FLamby dataset. {e}")
+            else:
+                shape = self.get_torch_dataset_shape(dataset)
 
         if data_type == 'default':
             assert os.path.isdir(path), f'Folder {path} for Default Dataset does not exist.'
