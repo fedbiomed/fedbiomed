@@ -271,9 +271,11 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 # do not take into account more than batch_maxnum
                 # batches from the dataset
                 if batch_ % log_interval == 0:
+                    batch_size = self.training_data_loader.batch_size
+                    num_samples_till_now = min(batch_*batch_size, len(self.training_data_loader.dataset))
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
-                        batch_ * len(data),
+                        num_samples_till_now,
                         len(self.training_data_loader.dataset),
                         100 * batch_ / len(self.training_data_loader),
                         res.item()))
@@ -286,7 +288,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                                                    train=True,
                                                    num_batches=len(self.training_data_loader),
                                                    total_samples=len(self.training_data_loader.dataset),
-                                                   batch_samples=len(data))
+                                                   batch_samples=batch_size)
 
                     if dry_run:
                         self.to(self.device_init)
