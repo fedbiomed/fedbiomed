@@ -270,11 +270,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 # do not take into account more than batch_maxnum
                 # batches from the dataset
-                if (batch_maxnum > 0) and (batch_ >= batch_maxnum):
-                    # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    break
-
                 if batch_ % log_interval == 0:
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
@@ -297,6 +292,11 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         self.to(self.device_init)
                         torch.cuda.empty_cache()
                         return
+
+                if (batch_maxnum > 0) and (batch_ >= batch_maxnum):
+                    # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    break
 
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
