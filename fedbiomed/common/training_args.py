@@ -208,7 +208,13 @@ class TrainingArgs():
             "log_interval": {
                 "rules": [int],
                 "required": False,
-            }
+            },
+
+            # train_transform_flamby
+            "train_transform_flamby": {
+                "rules": [ list ],
+                "required": False,
+            },
 
         }
 

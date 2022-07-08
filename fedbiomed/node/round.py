@@ -20,6 +20,8 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.model_manager import ModelManager
 
+from torch.utils.data import DataLoader
+
 
 class Round:
     """
@@ -73,7 +75,18 @@ class Round:
             training_kwargs.pop(arg, None)
 
         self.batch_size = training_kwargs.get('batch_size', 48)
+        self.batch_size_flamby = training_kwargs.get('batch_size', 2)
         training_kwargs.pop('batch_size', None)
+
+        self.train_transform_flamby = training_kwargs.get('train_transform_flamby', None)
+        self.transform_compose_flamby = None
+        if self.train_transform_flamby != None:
+            for i, e in enumerate(self.train_transform_flamby):
+                if i == 0:
+                    exec(e)
+                if i == 1:
+                    self.transform_compose_flamby = eval(e)
+        training_kwargs.pop('train_transform_flamby', None)
 
         # Set training arguments after removing validation arguments
         self.training_kwargs = training_kwargs
@@ -334,10 +347,14 @@ class Round:
 
         if test_ratio == 0 and (test_local_updates is False or test_global_updates is False):
             logger.warning('There is no validation activated for the round. Please set flag for `test_on_global_updates`'
-                           ', `test_on_local_updates`, or both. Splitting dataset for validation will be ignored')
-
-        # Setting validation and train subsets based on test_ratio
-        training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
+                           ', `test_on_loc_set_training_testing_data_loadersal_updates`, or both. Splitting dataset for validation will be ignored')
+        
+        # If dataset_parameters is defined and has a key 'center_id' we are dealing with a flamby dataset and the split has to be handled differently
+        if type(self.dataset['dataset_parameters']) is dict and 'center_id' in self.dataset['dataset_parameters'].keys():
+            training_data_loader, testing_data_loader = self._split_train_and_test_data_flamby()
+        else:
+            # Setting validation and train subsets based on test_ratio
+            training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
         # Set models validatino and training parts for model
         self.model.set_data_loaders(train_data_loader=training_data_loader,
                                     test_data_loader=testing_data_loader)
@@ -415,3 +432,16 @@ class Round:
 
         # Split dataset as train and test
         return data_manager.split(test_ratio=test_ratio)
+
+    def _split_train_and_test_data_flamby(self):
+        """Method for splitting training and validation data for a flamby dataset.
+        In flamby use cases, we don't need to define validation data during training so we return it as null.
+
+        Returns:
+            Tuple containing the DataLoader for the train federated flamby dataset, and null value.
+        """
+        module = __import__(self.dataset['dataset_parameters']['fed_class'], fromlist='dummy')
+        center_id = self.dataset['dataset_parameters']['center_id']
+        fed_class_train = module.FedClass(transform=self.transform_compose_flamby, center=center_id, train=True, pooled=False) # FLamby pytorch dataloader
+        return DataLoader(fed_class_train, batch_size=self.batch_size_flamby, shuffle=True), None
+        
