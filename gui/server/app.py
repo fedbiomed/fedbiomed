@@ -33,8 +33,8 @@ app.config['JWT_COOKIE_CSRF_PROTECT'] = True
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'CHANGE ME')
 
 # Add certificate and private key paths for HTTPS
-CERTIFICATE_PATH = os.getenv('CERTIFICATE_PATH', None)
-PRIVATE_KEY_PATH = os.getenv('PRIVATE_KEY_PATH', None)
+CERTIFICATE_NAME = os.getenv('CERTIFICATE_NAME', None)
+PRIVATE_KEY_NAME = os.getenv('PRIVATE_KEY_NAME', None)
 
 jwt = JWTManager(app)
 app.register_blueprint(api)
@@ -68,8 +68,9 @@ def before_request():
 # Run the application
 if __name__ == '__main__':
     # Start Flask
-    if CERTIFICATE_PATH and PRIVATE_KEY_PATH:
-        context = (CERTIFICATE_PATH, PRIVATE_KEY_PATH)
+    print(CERTIFICATE_NAME, PRIVATE_KEY_NAME)
+    if CERTIFICATE_NAME and PRIVATE_KEY_NAME:
+        context = ('../../etc/' + CERTIFICATE_NAME, '../../etc/' + PRIVATE_KEY_NAME)
     else:
         context = "adhoc"
     app.run(host=app.config['HOST'],

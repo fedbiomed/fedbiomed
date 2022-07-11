@@ -268,8 +268,8 @@ function start_gui() {
           HOST="$GUI_HOST" \
           PORT="$GUI_PORT" \
           DEBUG="$GUI_DEBUG" \
-          CERTIFICATE_PATH="../../etc/$CERTIFICATE_NAME" \
-          PRIVATE_KEY_PATH="../../etc/$PRIVATE_KEY_NAME" \
+          CERTIFICATE_NAME="$CERTIFICATE_NAME" \
+          PRIVATE_KEY_NAME="$PRIVATE_KEY_NAME" \
           FLASK_ENV="development" \
           python app.py
     fi
