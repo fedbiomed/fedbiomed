@@ -1,7 +1,7 @@
 import os
 from datetime import timedelta
 
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, render_template, send_from_directory, request, redirect
 from flask_jwt_extended import JWTManager
 
 from config import Config
@@ -53,6 +53,16 @@ def index(path):
         return send_from_directory(app.static_folder, 'index.html')
 
     return render_template('index.html')
+
+
+@app.before_request
+def before_request():
+    print(request)
+    # redirect connections from HTTP to HTTPS
+    if not request.is_secure:
+        print("REDIRECTION")
+        url = request.url.replace('http://', 'https://', 1)
+        return redirect(url, code=301)
 
 
 # Run the application
