@@ -1,13 +1,14 @@
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from hashlib import sha512
 
 from db import gui_database
 from flask import make_response, request
 from flask_jwt_extended import (jwt_required, create_access_token, create_refresh_token, set_access_cookies, 
-                                set_refresh_cookies, unset_jwt_cookies, verify_jwt_in_request, get_jwt)
+                                set_refresh_cookies, unset_jwt_cookies, get_jwt_identity,
+                                verify_jwt_in_request, get_jwt)
 from utils import error, response
 
 from fedbiomed.common.constants import UserRoleType
@@ -198,7 +199,7 @@ def login():
         set_access_cookies(resp, access_token)
         set_refresh_cookies(resp, refresh_token)
         return resp, 200
-
+    print("OK for registration")
     return make_response(
         'Could not verify',
         {'WWW-Authenticate' : 'Basic realm ="Wrong Password"'}
@@ -215,9 +216,11 @@ def refresh_expiring_jwts():
         "email": jwt["email"],
         "role": jwt["role"]
     }
+
     access_token = create_access_token(identity=jwt["sub"], additional_claims=additional_claims)
     resp = make_response(success('Access token successfully refreshed'))
     set_access_cookies(resp, access_token)
+    set_refresh_cookies(resp, access_token)
     return resp, 200
 
 
@@ -242,3 +245,20 @@ def logout():
     resp = make_response(success('User successfully logged out'))
     unset_jwt_cookies(resp)
     return resp, 200
+
+# @api.after_request
+# def refresh_expiring_jwts(response):
+#     try:
+#         exp_timestamp = get_jwt()["exp"]
+#         now = datetime.now(timezone.utc)
+#         target_timestamp = datetime.timestamp(now + timedelta(minutes=30))
+#         if target_timestamp > exp_timestamp:
+#             access_token = create_access_token(identity=get_jwt_identity())
+#             set_access_cookies(response, access_token)
+#         return response
+#     except (RuntimeError, KeyError):
+#         # Case where there is not a valid JWT. Just return the original response
+#         return response
+
+# TODO : Implement method to retrieve user password
+# TODO : Add salt to encrypted passwords

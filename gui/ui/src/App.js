@@ -20,6 +20,7 @@ import CommonStandards from "./pages/datasets/CommonStandards";
 import MedicalFolderDataset from "./pages/datasets/MedicalFolderDataset";
 import Models from "./pages/models/Models";
 import SingleModel from "./pages/models/SingleModel";
+import Login from "./pages/Login";
 
 
 function App(props) {
@@ -42,6 +43,7 @@ function App(props) {
                 <div className="inner"> 
                   <Routes>
                     <Route exact path="/" element={<Home/>} />
+                    <Route path="/login/" element={<Login/>} />
                     <Route path="/configuration/" element={<Configuration/>} />
                     <Route path="/repository/" element={<Repository/>} />
                     <Route path="/models/" element={<Models/>} />
