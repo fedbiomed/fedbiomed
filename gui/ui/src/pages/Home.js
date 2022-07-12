@@ -53,7 +53,7 @@ const Home = (props) => {
 
     return (
         <React.Fragment>
-            <div className="frame-header" style={{textAlign:'center'}}>
+            <div>
                 <h2>Fed-BioMed Node GUI</h2>
                 <p>Welcome to Fed-BioMed Node application. In this application, you can manage your data
                     files that are deployed in the node or load new datasets into the node.  </p>

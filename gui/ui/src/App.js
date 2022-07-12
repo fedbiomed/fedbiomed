@@ -43,7 +43,7 @@ function App(props) {
                 <div className="inner"> 
                   <Routes>
                     <Route exact path="/" element={<Home/>} />
-                    <Route path="/login" element={<Login/>} />
+                    <Route path="/login/" element={<Login/>} />
                     <Route path="/configuration/" element={<Configuration/>} />
                     <Route path="/repository/" element={<Repository/>} />
                     <Route path="/models/" element={<Models/>} />

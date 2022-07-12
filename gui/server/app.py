@@ -57,7 +57,6 @@ def index(path):
     return render_template('index.html')
 
 
-<<<<<<< HEAD
 # functions for HTTP to HTTPS redirections
 @app.before_request
 def before_request(req=None):
@@ -96,8 +95,6 @@ def hsts_header():
 
 
 #def context()
-=======
->>>>>>> 98a8f6a0e14c38743fe78be90c4589fe0a479e2d
 # Run the application
 if __name__ == '__main__':
 
