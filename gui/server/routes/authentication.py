@@ -242,7 +242,3 @@ def logout():
     resp = make_response(success('User successfully logged out'))
     unset_jwt_cookies(resp)
     return resp, 200
-
-
-# TODO : Implement method to retrieve user password
-# TODO : Add salt to encrypted passwords

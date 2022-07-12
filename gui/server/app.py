@@ -24,8 +24,6 @@ app.config.update(config.generate_config())
 # access or refresh JWT via a cookie or an Authorization Bearer header.
 app.config['JWT_TOKEN_LOCATION'] = ['headers', 'cookies']
 app.config['JWT_COOKIE_SECURE'] = True
-app.config['JWT_ACCESS_COOKIE_PATH'] = '/api/'
-app.config['JWT_REFRESH_COOKIE_PATH'] = '/token/refresh'
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
 app.config['JWT_COOKIE_CSRF_PROTECT'] = True
 
@@ -55,20 +53,9 @@ def index(path):
     return render_template('index.html')
 
 
-@app.before_request
-def before_request():
-    print(request)
-    # redirect connections from HTTP to HTTPS
-    if not request.is_secure:
-        print("REDIRECTION")
-        url = request.url.replace('http://', 'https://', 1)
-        return redirect(url, code=301)
-
-
 # Run the application
 if __name__ == '__main__':
     # Start Flask
-    print(CERTIFICATE_NAME, PRIVATE_KEY_NAME)
     if CERTIFICATE_NAME and PRIVATE_KEY_NAME:
         context = ('../../etc/' + CERTIFICATE_NAME, '../../etc/' + PRIVATE_KEY_NAME)
     else:
@@ -77,3 +64,8 @@ if __name__ == '__main__':
             port=app.config['PORT'],
             debug=app.config['DEBUG'],
             ssl_context=context)
+
+# TODO : Implement method to retrieve user password
+# TODO : Add refresh token as cookie and change remember me token validity
+# TODO : Update Readme for SSL option
+# TODO : Callback refresh token at Flask server level vs refresh token endpoint call from frontend
