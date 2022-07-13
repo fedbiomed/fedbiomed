@@ -314,7 +314,8 @@ class Monitor:
                     "\t\t\t\t\t ---------".format(header.upper(),
                                                   message['node_id'],
                                                   '' if message['epoch'] is None else f" Epoch: {message['epoch']} |",
-                                                  message['iteration'] * message['batch_samples'],
+                                                  min(message['iteration'] * message['batch_samples'],
+                                                      message['total_samples']),
                                                   message['total_samples'],
                                                   100 * message['iteration'] / message['num_batches'],
                                                   metric_result))
