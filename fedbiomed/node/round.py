@@ -9,7 +9,7 @@ import inspect
 from typing import Union, Any
 import uuid
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, ModelApprovalStatus
 from fedbiomed.common.data import DataManager
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
@@ -65,7 +65,7 @@ class Round:
                              'test_metric_args')
 
         self.model_kwargs = model_kwargs
-        # Split testing and training arguments
+        # Split validation and training arguments
 
         self.testing_arguments = {}
         for arg in testing_args_keys:
@@ -75,7 +75,7 @@ class Round:
         self.batch_size = training_kwargs.get('batch_size', 48)
         training_kwargs.pop('batch_size', None)
 
-        # Set training arguments after removing testing arguments
+        # Set training arguments after removing validation arguments
         self.training_kwargs = training_kwargs
 
         self.dataset = dataset
@@ -113,8 +113,9 @@ class Round:
                 return self._send_round_reply(success=False, message=error_message)
             else:
                 if environ["MODEL_APPROVAL"]:
-                    approved, model = self.model_manager.check_is_model_approved(os.path.join(environ["TMP_DIR"],
-                                                                                              import_module + '.py'))
+                    approved, model = self.model_manager.check_model_status(os.path.join(environ["TMP_DIR"],
+                                                                            import_module + '.py'),
+                                                                            ModelApprovalStatus.APPROVED)
                     if not approved:
                         error_message = f'Requested model is not approved by the node: {environ["NODE_ID"]}'
                         return self._send_round_reply(success=False, message=error_message)
@@ -178,15 +179,15 @@ class Round:
                 logger.warning(f'Researcher trying to set node-side training parameter {arg}. '
                                f' Maybe a malicious researcher attack.')
 
-        # Split training and testing data
+        # Split training and validation data
         try:
             self._set_training_testing_data_loaders()
         except FedbiomedError as e:
-            error_message = f"Can not create test/train data: {str(e)}"
+            error_message = f"Can not create validation/train data: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
         except Exception as e:
-            error_message = f"Undetermined error while creating data for training/test. Can not create " \
-                            f"test/train data: {str(e)}"
+            error_message = f"Undetermined error while creating data for training/validation. Can not create " \
+                            f"validation/train data: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
         training_kwargs_with_history = dict(history_monitor=self.history_monitor,
@@ -194,10 +195,10 @@ class Round:
                                             **self.training_kwargs)
         logger.info(f'training with arguments {training_kwargs_with_history}')
 
-        # Testing Before Training
+        # Validation Before Training
         if self.testing_arguments.get('test_on_global_updates', False) is not False:
 
-            # Last control to make sure testing data loader is set.
+            # Last control to make sure validation data loader is set.
             if self.model.testing_data_loader is not None:
                 try:
                     self.model.testing_routine(metric=self.testing_arguments.get('test_metric', None),
@@ -205,13 +206,13 @@ class Round:
                                                history_monitor=self.history_monitor,
                                                before_train=True)
                 except FedbiomedError as e:
-                    logger.error(f"{ErrorNumbers.FB314}: During the testing phase on global parameter updates; "
+                    logger.error(f"{ErrorNumbers.FB314}: During the validation phase on global parameter updates; "
                                  f"{str(e)}")
                 except Exception as e:
                     logger.error(f"Undetermined error during the testing phase on global parameter updates: "
                                  f"{e}")
             else:
-                logger.error(f"{ErrorNumbers.FB314}: Can not execute testing routine due to missing testing dataset"
+                logger.error(f"{ErrorNumbers.FB314}: Can not execute validation routine due to missing testing dataset"
                              f"Please make sure that `test_ratio` has been set correctly")
         #
         # If training is activated.
@@ -228,7 +229,7 @@ class Round:
                     error_message = f"Cannot train model in round: {str(e)}"
                     return self._send_round_reply(success=False, message=error_message)
 
-            # Testing after training
+            # Validation after training
             if self.testing_arguments.get('test_on_local_updates', False) is not False:
 
                 if self.model.testing_data_loader is not None:
@@ -239,14 +240,14 @@ class Round:
                                                    before_train=False)
                     except FedbiomedError as e:
                         logger.error(
-                            f"{ErrorNumbers.FB314.value}: During the testing phase on local parameter updates; "
+                            f"{ErrorNumbers.FB314.value}: During the validation phase on local parameter updates; "
                             f"{str(e)}")
                     except Exception as e:
-                        logger.error(f"Undetermined error during the testing phase on local parameter updates"
+                        logger.error(f"Undetermined error during the validation phase on local parameter updates"
                                      f"{e}")
                 else:
                     logger.error(
-                        f"{ErrorNumbers.FB314.value}: Can not execute testing routine due to missing testing "
+                        f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing "
                         f"dataset please make sure that test_ratio has been set correctly")
 
             # Upload results
@@ -255,7 +256,7 @@ class Round:
             results['model_params'] = self.model.after_training_params()
             results['node_id'] = environ['NODE_ID']
             try:
-                # TODO : should test status code but not yet returned
+                # TODO : should validation status code but not yet returned
                 # by upload_file
                 filename = environ['TMP_DIR'] + '/node_params_' + str(uuid.uuid4()) + '.pt'
                 self.model.save(filename, results)
@@ -279,7 +280,7 @@ class Round:
                                                   'ptime_training': ptime_after - ptime_before},
                                           params_url=res['file'])
         else:
-            # Only for testing
+            # Only for validation
             return self._send_round_reply(success=True)
 
     def _send_round_reply(self,
@@ -288,12 +289,12 @@ class Round:
                           params_url: Union[str, None] = '',
                           timing: dict = {}):
         """
-        Private method for sending reply to researcher after training/testing. Message content changes
+        Private method for sending reply to researcher after training/validation. Message content changes
         based on success status.
 
         Args:
             message: Message regarding the process.
-            success: Declares whether training/testing is successful
+            success: Declares whether training/validation is successful
             params_url: URL where parameters are uploaded
             timing: Timing statistics
         """
@@ -314,41 +315,41 @@ class Round:
 
     def _set_training_testing_data_loaders(self):
         """
-        Method for setting training and testing data loaders based on the training and testing
+        Method for setting training and validation data loaders based on the training and validation
         arguments.
         """
 
-        # Set requested data path for model training and testing
+        # Set requested data path for model training and validation
         self.model.set_dataset_path(self.dataset['path'])
 
-        # Get testing parameters
+        # Get validation parameters
         test_ratio = self.testing_arguments.get('test_ratio', 0)
         test_global_updates = self.testing_arguments.get('test_on_global_updates', False)
         test_local_updates = self.testing_arguments.get('test_on_local_updates', False)
 
         # Inform user about mismatch arguments settings
         if test_ratio != 0 and test_local_updates is False and test_global_updates is False:
-            logger.warning("Testing will not be perform for the round, since there is no test activated. "
+            logger.warning("Validation will not be perform for the round, since there is no validation activated. "
                            "Please set `test_on_global_updates`, `test_on_local_updates`, or both in the "
                            "experiment.")
 
         if test_ratio == 0 and (test_local_updates is False or test_global_updates is False):
-            logger.warning('There is no test activated for the round. Please set flag for `test_on_global_updates`'
-                           ', `test_on_local_updates`, or both. Splitting dataset for testing will be ignored')
+            logger.warning('There is no validation activated for the round. Please set flag for `test_on_global_updates`'
+                           ', `test_on_local_updates`, or both. Splitting dataset for validation will be ignored')
 
-        # Setting test and train subsets based on test_ratio
+        # Setting validation and train subsets based on test_ratio
         training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
-        # Set models testing and training parts for model
+        # Set models validatino and training parts for model
         self.model.set_data_loaders(train_data_loader=training_data_loader,
                                     test_data_loader=testing_data_loader)
 
     def _split_train_and_test_data(self, test_ratio: float = 0):
         """
-        Method for splitting training and testing data based on training plan type. It sets
+        Method for splitting training and validation data based on training plan type. It sets
         `dataset_path` for model and calls `training_data` method of training plan.
 
         Args:
-            test_ratio: The ratio that represent test partition. Default is 0, means that
+            test_ratio: The ratio that represent validatino partition. Default is 0, means that
                             all the samples will be used for training.
 
         Raises:
@@ -385,6 +386,7 @@ class Round:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
                                       f"{str(training_plan_type.value)} has failed: {str(e)}")
 
+
         # Check whether training_data returns proper instance
         # it should be always Fed-BioMed DataManager
         if not isinstance(data_manager, DataManager):
@@ -398,6 +400,11 @@ class Round:
             data_manager.load(tp_type=training_plan_type)
         except FedbiomedError as e:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Error while loading data manager; {str(e)}")
+
+        # Get dataset property
+        if hasattr(data_manager.dataset, "set_dataset_parameters"):
+            dataset_parameters = self.dataset.get("dataset_parameters", {})
+            data_manager.dataset.set_dataset_parameters(dataset_parameters)
 
         # All Framework based data managers have the same methods
         # If testing ratio is 0,

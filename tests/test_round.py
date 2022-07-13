@@ -74,7 +74,7 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('builtins.eval')
     @patch('builtins.exec')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_01_run_model_training_normal_case(self,
@@ -120,11 +120,14 @@ class TestRound(unittest.TestCase):
         self.assertEqual(msg_test1.get('params_url', False), TestRound.URL_MSG)
         self.assertEqual(msg_test1.get('command', False), 'train')
 
-        # timing test
-        self.assertAlmostEqual(
+        # timing test - does not always work with self.assertAlmostEqual
+        self.assertGreaterEqual(
             msg_test1.get('timing', {'rtime_training': 0}).get('rtime_training'),
-            FakeModel.SLEEPING_TIME,
-            places=1
+            FakeModel.SLEEPING_TIME
+        )
+        self.assertLess(
+            msg_test1.get('timing', {'rtime_training': 0}).get('rtime_training'),
+            FakeModel.SLEEPING_TIME * 1.1
         )
 
         # test 2: redo test 1 but with the case where `model_kwargs` != None
@@ -144,7 +147,7 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('builtins.eval')
     @patch('builtins.exec')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_02_run_model_training_correct_model_calls(self,
@@ -226,7 +229,7 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_03_test_run_model_training_with_real_model(self,
@@ -291,7 +294,7 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_rounds_04_run_model_training_bad_http_status(self,
@@ -395,7 +398,7 @@ class TestRound(unittest.TestCase):
             msg_test_3.get('msg'))
         self.assertFalse(msg_test_3.get('success', True))
 
-    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_05_run_model_training_model_not_approved(self,
@@ -421,7 +424,7 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_06_run_model_training_import_error(self,
@@ -535,7 +538,7 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.reply_create')
     @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_07_run_model_training_upload_file_fails(self,
@@ -582,7 +585,7 @@ class TestRound(unittest.TestCase):
     @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('builtins.eval')
     @patch('builtins.exec')
-    @patch('fedbiomed.node.model_manager.ModelManager.check_is_model_approved')
+    @patch('fedbiomed.node.model_manager.ModelManager.check_model_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_08_run_model_training_bad_training_argument(self,

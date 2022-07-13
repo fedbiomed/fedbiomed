@@ -35,7 +35,7 @@ To ensure fedbiomed will work fine, you need to install before :
 
 ### clone repo
 
-Clone the FedBiomed repository for running the software :
+Clone the Fed-BioMed repository for running the software :
 
 ```
 git clone https://gitlab.inria.fr/fedbiomed/fedbiomed.git

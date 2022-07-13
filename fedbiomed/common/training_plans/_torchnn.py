@@ -140,6 +140,35 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                      f"gpu_only={node_args['gpu_only']}, "
                      f"use_gpu={use_gpu}, gpu_num={node_args['gpu_num']})")
 
+    def send_to_device(self,
+                       to_send: Union[torch.Tensor, list, tuple, dict],
+                       device: torch.device
+                       ):
+        """Send inputs to correct device for training.
+
+        Recursively traverses lists, tuples and dicts until it meets a torch Tensor, then sends the Tensor
+        to the specified device.
+
+        Args:
+            to_send: the data to be sent to the device.
+            device: the device to send the data to.
+
+        Raises:
+           FedbiomedTrainingPlanError: when to_send is not the correct type
+        """
+        if isinstance(to_send, torch.Tensor):
+            return to_send.to(device)
+        elif isinstance(to_send, dict):
+            return {key: self.send_to_device(val, device) for key, val in to_send.items()}
+        elif isinstance(to_send, tuple):
+            return tuple(self.send_to_device(d, device) for d in to_send)
+        elif isinstance(to_send, list):
+            return [self.send_to_device(d, device) for d in to_send]
+        else:
+            raise FedbiomedTrainingPlanError(f'{ErrorNumbers.FB310.value} cannot send data to device. '
+                                             f'Data must be a torch Tensor or a list, tuple or dict '
+                                             f'ultimately containing Tensors.')
+
     def training_step(self):
         """All subclasses must provide a training_step the purpose of this actual code is to detect that it
         has been provided
@@ -163,7 +192,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          history_monitor: Any = None,
                          node_args: Union[dict, None] = None):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
-        # FIXME 2: remove parameters specific for testing specified in the
+        # FIXME 2: remove parameters specific for validation specified in the
         # training routine
         """Training routine procedure.
 
@@ -171,8 +200,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
         - a `training_data()` function defining how sampling / handling data in node's dataset is done. It should
             return a generator able to output tuple (batch_idx, (data, targets)) that is iterable for each batch.
-        - a `training_step()` function defining how cost is computed. It should output model error for model
-        backpropagation.
+        - a `training_step()` function defining how cost is computed. It should output loss values for backpropagation.
 
         Args:
             epochs: Number of epochs (complete pass on data).
@@ -234,7 +262,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 batch_ = batch_idx + 1
 
                 self.train()  # model training
-                data, target = data.to(self.device), target.to(self.device)
+                data, target = self.send_to_device(data, self.device), self.send_to_device(target, self.device)
                 self.optimizer.zero_grad()
 
                 res = self.training_step(data, target)  # raises an exception if not provided
@@ -260,17 +288,14 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 # do not take into account more than batch_maxnum
                 # batches from the dataset
-                if (batch_maxnum > 0) and (batch_ >= batch_maxnum):
-                    # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
-                    break
-
                 if batch_ % log_interval == 0:
+                    batch_size = self.training_data_loader.batch_size
+                    num_samples_till_now = min(batch_*batch_size, len(self.training_data_loader.dataset))
                     logger.debug('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch,
-                        batch_idx * len(data),
+                        num_samples_till_now,
                         len(self.training_data_loader.dataset),
-                        100 * batch_idx / len(self.training_data_loader),
+                        100 * batch_ / len(self.training_data_loader),
                         res.item()))
 
                     # Send scalar values via general/feedback topic
@@ -281,12 +306,17 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                                                    train=True,
                                                    num_batches=len(self.training_data_loader),
                                                    total_samples=len(self.training_data_loader.dataset),
-                                                   batch_samples=len(data))
+                                                   batch_samples=batch_size)
 
                     if dry_run:
                         self.to(self.device_init)
                         torch.cuda.empty_cache()
                         return
+
+                if (batch_maxnum > 0) and (batch_ >= batch_maxnum):
+                    # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    logger.info('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
+                    break
 
         # release gpu usage as much as possible though:
         # - it should be done by deleting the object
@@ -299,16 +329,16 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         metric_args: Dict[str, Any],
                         history_monitor: Any,
                         before_train: Union[bool, None] = None):
-        """Performs testing routine on testing partition of the dataset
+        """Performs validation routine on validation partition of the dataset
 
-        Testing routine can be run any time after train and test split is done. Method sends testing result
+        Validation routine can be run any time after train and validation split is done. Method sends validation result
         back to researcher component as real-time.
 
         Args:
-            metric: Metric that will be used for evaluation
+            metric: Metric that will be used for validation
             metric_args: The arguments for corresponding metric function.
                 Please see [`sklearn.metrics`][sklearn.metrics]
-            history_monitor: Real-time feed-back handler for evaluation results
+            history_monitor: Real-time feed-back handler for validation results
             before_train: Declares whether is performed before training model or not.
 
         Raises:
@@ -318,7 +348,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         # TODO: Add preprocess option for testing_data_loader
 
         if self.testing_data_loader is None:
-            msg = ErrorNumbers.FB605.value + ": can not find dataset for testing."
+            msg = ErrorNumbers.FB605.value + ": can not find dataset for validation."
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
@@ -326,7 +356,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
         metric_controller = Metrics()
         tot_samples = len(self.testing_data_loader.dataset)
 
-        self.eval()  # pytorch switch for model evaluation
+        self.eval()  # pytorch switch for model validation
         # Complete prediction over batches
         with torch.no_grad():
             # Data Loader for testing partition includes entire dataset in the first batch
@@ -347,7 +377,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         logger.critical(msg)
                         raise FedbiomedTrainingPlanError(msg)
 
-                    # If custom evaluation step returns None
+                    # If custom validation step returns None
                     if m_value is None:
                         msg = ErrorNumbers.FB605.value + \
                             ": metric function returned None"
@@ -365,11 +395,11 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         metric = MetricTypes.ACCURACY
                         logger.info(f"No `testing_step` method found in TrainingPlan and `test_metric` is not defined "
                                     f"in the training arguments `: using default metric {metric.name}"
-                                    " for model evaluation")
+                                    " for model validation")
                     else:
                         logger.info(
                             f"No `testing_step` method found in TrainingPlan: using defined metric {metric.name}"
-                            " for model evaluation.")
+                            " for model validation.")
 
                     metric_name = metric.name
 
@@ -392,7 +422,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
 
-                logger.debug('Testing: Batch {} [{}/{}] | Metric[{}]: {}'.format(
+                logger.debug('Validation: Batch {} [{}/{}] | Metric[{}]: {}'.format(
                     str(batch_), batch_ * len(target), tot_samples, metric_name, m_value))
 
                 # Send scalar values via general/feedback topic

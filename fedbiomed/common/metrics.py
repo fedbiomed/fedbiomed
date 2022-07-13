@@ -1,5 +1,5 @@
 """
-???
+Provide test metrics, both MetricTypes to use in TrainingArgs but also calculation routines.
 """
 
 
@@ -52,7 +52,7 @@ class MetricTypes(_BaseEnum):
 
 
 class Metrics(object):
-    """Class of performance metrics used in testing evaluation."""
+    """Class of performance metrics used in validation evaluation."""
 
     def __init__(self):
         """Constructs metric class with provided metric types: metric function
@@ -345,7 +345,7 @@ class Metrics(object):
         guarantees that the y_true and y_pred will have same shape.
 
         Args:
-            y_true: True values (lablels) of test dataset
+            y_true: True values (lablels) of validation dataset
             y_pred: Predicted values
             metric: Metric that is going to be used for evaluation
 
@@ -452,7 +452,7 @@ class Metrics(object):
                                          metric: str) -> Tuple[np.ndarray, np.ndarray, str, int]:
         """Re-format data giving the size of y_true and y_pred,
 
-        In order to compute classification testing metric. If multiclass dataset, returns one hot encoding dataset.
+        In order to compute classification validation metric. If multiclass dataset, returns one hot encoding dataset.
         else returns binary class dataset
 
         Args:

@@ -39,5 +39,9 @@ dependencies:
       - pytorch-ignite >=0.4.4,<0.5.0
       - torchvision >=0.9.0,<0.10.0
       - pandas >=1.2.3,<2.0.0
+      - openpyxl >= 3.0.9,<3.1
       - JSON-log-formatter
       - python-minifier ==2.5.0
+#### Notebook-specific packages ####
+# This section contains packages that are needed only to run specific notebooks
+      - unet == 0.7.7

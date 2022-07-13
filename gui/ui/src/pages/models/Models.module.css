@@ -1,0 +1,50 @@
+@import "../../assets/var.css";
+
+.tag {
+    padding: 10px;
+    color: #fff;
+    border-radius: 10px;
+    margin: 10px 0px;
+    display: block;
+    width: fit-content;
+}
+
+.tagPending {
+    background: var(--attention-color);
+}
+
+.tagDeclined {
+    background: var(--error-color);
+}
+
+.tagApproved {
+    background: var(--positive-color);
+}
+
+.tagInfo, .tagDesc {
+    background: var(--attention-color);
+    display: inline-block;
+    margin: 3px 0px;
+    border-radius: 0px;
+}
+
+.tagInfo {
+    width: 100px;
+}
+
+.tagDesc {
+    background: #eee;
+    color: #333;
+    max-height: 70px;
+    overflow-y: scroll;
+}
+
+.infoWrapper {
+    display: flex;
+    align-items: flex-start;
+}
+
+.tagInline {
+    display: inline-block;
+    margin: 0px 5px;
+}

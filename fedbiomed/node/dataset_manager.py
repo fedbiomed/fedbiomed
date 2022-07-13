@@ -22,8 +22,9 @@ from torchvision import transforms
 
 from fedbiomed.node.environ import environ
 
-from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
-from fedbiomed.common.constants  import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.data import MedicalFolderController
 
 from fedbiomed.common.logger import logger
 
@@ -247,9 +248,10 @@ class DatasetManager:
             dataset = datasets.ImageFolder(folder_path,
                                            transform=transforms.ToTensor())
         except Exception as e:
-            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading dataset from the selected" \
+            _msg = ErrorNumbers.FB315.value +\
+                "\nThe following error was raised while loading dataset from the selected" \
                 " path:  " + str(e) + "\nPlease make sure that the selected folder is not empty \
-                   and doesn't have any empty class folder"
+                and doesn't have any empty class folder"
             logger.error(_msg)
             raise FedbiomedDatasetManagerError(_msg)
 
@@ -275,7 +277,8 @@ class DatasetManager:
                      tags: Union[tuple, list],
                      description: str,
                      path: str,
-                     dataset_id: str = None):
+                     dataset_id: str = None,
+                     dataset_parameters : Union[dict, None] = None):
         """Adds a new dataset contained in a file to node's database.
 
         Args:
@@ -289,6 +292,7 @@ class DatasetManager:
 
         Raises:
             NotImplementedError: `data_type` is not supported.
+            FedbiomedDatasetManagerError: path does not exist or dataset was not saved properly.
         """
         # Accept tilde as home folder
         path = os.path.expanduser(path)
@@ -297,7 +301,7 @@ class DatasetManager:
         assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
 
         dtypes = []  # empty list for Image datasets
-        data_types = ['csv', 'default', 'mednist', 'images']
+        data_types = ['csv', 'default', 'mednist', 'images', 'medical-folder']
         if data_type not in data_types:
             raise NotImplementedError(f'Data type {data_type} is not'
                                       ' a compatible data type. '
@@ -323,12 +327,43 @@ class DatasetManager:
             assert os.path.isdir(path), f'Folder {path} for Images Dataset does not exist.'
             shape = self.load_images_dataset(path)
 
+        elif data_type == 'medical-folder':
+            if not os.path.isdir(path):
+                raise FedbiomedDatasetManagerError(f'Folder {path} for Medical Folder Dataset does not exist.')
+
+            if "tabular_file" not in dataset_parameters:
+                logger.info("Medical Folder Dataset will be loaded without reference/demographics data.")
+            else:
+                if not os.path.isfile(dataset_parameters['tabular_file']):
+                    raise FedbiomedDatasetManagerError(f'Path {dataset_parameters["tabular_file"]} does not '
+                                                       f'correspond a file.')
+                if "index_col" not in dataset_parameters:
+                    raise FedbiomedDatasetManagerError('Index column is not provided')
+
+            try:
+                # load using the MedicalFolderController to ensure all available modalities are inspected
+                controller = MedicalFolderController(root=path)
+                dataset = controller.load_MedicalFolder(tabular_file=dataset_parameters.get('tabular_file', None),
+                                                        index_col=dataset_parameters.get('index_col', None))
+            except FedbiomedError as e:
+                raise FedbiomedDatasetManagerError(f"Can not create Medical Folder dataset. {e}")
+            else:
+                shape = dataset.shape()
+
+            # try to read one sample and raise if it doesn't work
+            try:
+                _ = dataset.get_nontransformed_item(0)
+            except Exception as e:
+                raise FedbiomedDatasetManagerError(f'Medical Folder Dataset was not saved properly and '
+                                                   f'cannot be read. {e}')
+
         if not dataset_id:
             dataset_id = 'dataset_' + str(uuid.uuid4())
 
         new_database = dict(name=name, data_type=data_type, tags=tags,
                             description=description, shape=shape,
-                            path=path, dataset_id=dataset_id, dtypes=dtypes)
+                            path=path, dataset_id=dataset_id, dtypes=dtypes,
+                            dataset_parameters=dataset_parameters)
         self.db.insert(new_database)
 
         return dataset_id

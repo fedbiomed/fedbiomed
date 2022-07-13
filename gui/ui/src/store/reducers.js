@@ -4,7 +4,8 @@ const resultState = {
     success : false,
     message : null,
     show : false,
-    loading: false,
+    loading:  false,
+    text: ""
 
 }
 export const resultReducer = ( state = resultState, action) => {
@@ -13,7 +14,9 @@ export const resultReducer = ( state = resultState, action) => {
         case "SET_LOADING":
             return {
                 ...state,
-                loading: action.payload
+                loading: action.payload.status,
+                text : action.payload.text ? action.payload.text : ""
+
             }
         case "ERROR_MODAL":
             return {

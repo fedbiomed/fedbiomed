@@ -1,6 +1,4 @@
-'''
-???
-'''
+"""Manage the training part of the experiment."""
 
 import atexit
 import copy
@@ -12,6 +10,8 @@ import shutil
 import tempfile
 import time
 import uuid
+from fedbiomed.common.constants import ModelApprovalStatus
+from fedbiomed.common.exceptions import FedbiomedRepositoryError
 import validators
 
 from typing import Union, Callable, List, Dict, Type
@@ -19,7 +19,7 @@ from typing import Union, Callable, List, Dict, Type
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.repository import Repository
-from fedbiomed.common.training_plans import TorchTrainingPlan, SGDSkLearnModel  # noqa
+from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan  # noqa
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
@@ -219,7 +219,7 @@ class Job:
     def training_args(self, training_args: dict):
         self._training_args = training_args
 
-    def check_model_is_approved_by_nodes(self):
+    def check_model_is_approved_by_nodes(self) -> List:
 
         """ Checks whether model is approved or not.
 
@@ -254,15 +254,16 @@ class Job:
 
             if resp.get('success') is True:
                 if resp.get('approval_obligation') is True:
-                    if resp.get('is_approved') is True:
+                    if resp.get('status') == ModelApprovalStatus.APPROVED.value:
                         logger.info(f'Model has been approved by the node: {resp.get("node_id")}')
                     else:
-                        logger.warning(f'Model has NOT been approved by the node: {resp.get("node_id")}')
+                        logger.warning(f'Model has NOT been approved by the node: {resp.get("node_id")}.' +
+                                       f'Model status : {resp.get("status")}')
                 else:
                     logger.info(f'Model approval is not required by the node: {resp.get("node_id")}')
             else:
                 logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
-
+        
         # Get the nodes that haven't replied model-status request
         non_replied_nodes = list(set(node_ids) - set(replied_nodes))
         if non_replied_nodes:
@@ -297,7 +298,7 @@ class Job:
         Args:
             round: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
-            do_training: if False, skip training in this round (do only test/evaluation). Defaults to True.
+            do_training: if False, skip training in this round (do only validation). Defaults to True.
         """
         headers = {'researcher_id': self._researcher_id,
                    'job_id': self._id,
@@ -313,7 +314,7 @@ class Job:
             if not do_training:
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
-                            f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final testing on '
+                            f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
                             f'aggregated parameters \n {5 * "-------------"}')
             else:
                 logger.info(f'\033[1mSending request\033[0m \n'
@@ -361,8 +362,13 @@ class Job:
                 # TODO : handle error depending on status
                 if do_training:
                     logger.info(f"Downloading model params after training on {m['node_id']} - from {m['params_url']}")
-                    _, params_path = self.repo.download_file(m['params_url'],
-                                                             'node_params_' + str(uuid.uuid4()) + '.pt')
+                    try:
+                        _, params_path = self.repo.download_file(m['params_url'],
+                                                                 'node_params_' + str(uuid.uuid4()) + '.pt')
+                    except FedbiomedRepositoryError as err:
+                        logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
+                                     f" stops working (details: {err})")
+                        return
                     params = self.model_instance.load(params_path, to_params=True)['model_params']
                 else:
                     params_path = None
@@ -600,8 +606,8 @@ class localJob:
         if training_args is not None:
             if training_args.get('test_on_local_updates', False) \
                     or training_args.get('test_on_global_updates', False):
-                # if user wants to perform testing, display this message
-                logger.warning("Cannot perform testing, not supported for LocalJob")
+                # if user wants to perform validation, display this message
+                logger.warning("Cannot perform validation, not supported for LocalJob")
 
         # handle case when model is in a file
         if model_path is not None:

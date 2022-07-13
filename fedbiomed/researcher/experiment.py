@@ -8,6 +8,7 @@ import json
 import inspect
 import traceback
 
+from copy import deepcopy
 from re import findall
 from tabulate import tabulate
 from typing import Callable, Tuple, Union, Dict, Any, TypeVar, Type, List
@@ -19,8 +20,8 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.utils import is_ipython
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, \
     FedbiomedSilentTerminationError
-from fedbiomed.common.training_plans import SGDSkLearnModel
-from fedbiomed.common.training_plans import TorchTrainingPlan
+from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -39,12 +40,10 @@ _E = TypeVar("Experiment")  # only for typing
 
 # for checking class passed to experiment
 # TODO : should we move this to common/constants.py ?
-
-training_plans = (TorchTrainingPlan, SGDSkLearnModel)
-
-TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SGDSkLearnModel)
-
-Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SGDSkLearnModel])
+training_plans = (TorchTrainingPlan, SKLearnTrainingPlan)
+# for typing only
+TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
+Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
 
 
 # Exception handling at top lever for researcher
@@ -82,7 +81,7 @@ def exp_exceptions(function):
                 '--------------------',
                 sep=os.linesep)
             # redundant, should be already logged when raising exception
-            logger.critical(f'Fed-BioMed researcher stopped due to exception:\n{str(e)}')
+            # logger.critical(f'Fed-BioMed researcher stopped due to exception:\n{str(e)}')
         except BaseException as e:
             code = 3
             print(
@@ -127,7 +126,7 @@ class Experiment(object):
                  model_class: Union[Type_TrainingPlan, str, None] = None,
                  model_path: Union[str, None] = None,
                  model_args: dict = {},
-                 training_args: dict = {},
+                 training_args: Union[TypeVar("TrainingArgs"), dict, None] = None,
                  save_breakpoints: bool = False,
                  tensorboard: bool = False,
                  experimentation_folder: Union[str, None] = None
@@ -438,19 +437,19 @@ class Experiment(object):
 
     @exp_exceptions
     def test_ratio(self) -> float:
-        """Retrieves the ratio for test partition of entire dataset.
+        """Retrieves the ratio for validation partition of entire dataset.
 
         Please see also [`set_test_ratio`][fedbiomed.researcher.experiment.Experiment.set_test_ratio] to change/set `test_ratio`
 
         Returns:
-            The ratio for testing part, `1 - test_ratio` is ratio for training set.
+            The ratio for validation part, `1 - test_ratio` is ratio for training set.
         """
 
-        return self._training_args.get('test_ratio')
+        return self._training_args['test_ratio']
 
     @exp_exceptions
     def test_metric(self) -> Union[MetricTypes, str, None]:
-        """Retrieves the metric for testing routine.
+        """Retrieves the metric for validation routine.
 
         Please see also [`set_test_metric`][fedbiomed.researcher.experiment.Experiment.set_test_metric] to change/set `test_metric`
 
@@ -460,7 +459,7 @@ class Experiment(object):
                 None, if it isn't declared yet.
         """
 
-        return self._training_args.get('test_metric')
+        return self._training_args['test_metric']
 
     @exp_exceptions
     def test_metric_args(self) -> Dict[str, Any]:
@@ -473,33 +472,33 @@ class Experiment(object):
             A dictionary that contains arguments for metric function. See [`set_test_metric`]
                 [fedbiomed.researcher.experiment.Experiment.set_test_metric]
         """
-        return self._training_args.get('test_metric_args')
+        return self._training_args['test_metric_args']
 
     @exp_exceptions
     def test_on_local_updates(self) -> bool:
-        """Retrieves the status of whether testing will be performed on locally updated parameters by
+        """Retrieves the status of whether validation will be performed on locally updated parameters by
         the nodes at the end of each round.
 
         Please see also [`set_test_on_local_updates`][fedbiomed.researcher.experiment.Experiment.set_test_on_local_updates].
 
         Returns:
-            True, if testing is active on locally updated parameters. False for vice versa.
+            True, if validation is active on locally updated parameters. False for vice versa.
         """
 
-        return self._training_args.get('test_on_local_updates')
+        return self._training_args['test_on_local_updates']
 
     @exp_exceptions
     def test_on_global_updates(self) -> bool:
-        """ Retrieves the status of whether testing will be performed on globally updated (aggregated)
+        """ Retrieves the status of whether validation will be performed on globally updated (aggregated)
         parameters by the nodes at the beginning of each round.
 
         Please see also [`set_test_on_global_updates`]
         [fedbiomed.researcher.experiment.Experiment.set_test_on_global_updates].
 
         Returns:
-            True, if testing is active on globally updated (aggregated) parameters. False for vice versa.
+            True, if validation is active on globally updated (aggregated) parameters. False for vice versa.
         """
-        return self._training_args.get('test_on_global_updates')
+        return self._training_args['test_on_global_updates']
 
     @exp_exceptions
     def job(self) -> Union[Job, None]:
@@ -526,7 +525,7 @@ class Experiment(object):
     def monitor(self) -> Monitor:
         """Retrieves the monitor object
 
-        Monitor is responsible for receiving and parsing real-time training and testing feed-back from each node
+        Monitor is responsible for receiving and parsing real-time training and validation feed-back from each node
         participate to federated training. See [`Monitor`][fedbiomed.researcher.monitor.Monitor]
 
         Returns:
@@ -766,10 +765,6 @@ class Experiment(object):
                     experiment is not fully initialized and cannot be launched)
             from_tags: Specificities; If True, query nodes for datasets when no `training_data` is provided.
                 Not used when `training_data` is provided.
-
-        !!! info "Info"
-            If `training_data` object does contain `test_ratio`, training_args will update its value by the
-            value set in the `training_data` argument.
 
         Returns:
             Nodes and dataset with meta-data
@@ -1191,102 +1186,33 @@ class Experiment(object):
         Raises:
             FedbiomedExperimentError : bad training_args type
         """
-        if isinstance(training_args, dict):
-            if reset or self._training_args is None:
-                # (re)start from minimal training arguments
-                self.clean_training_args()
-            self._training_args.update(training_args)
 
-            # verify the content of training args items with setters/validators,
-            # when the item and the validator exist
-            if 'test_ratio' in training_args:
-                self.set_test_ratio(training_args['test_ratio'])
-            if 'test_on_local_updates' in training_args:
-                self.set_test_on_local_updates(training_args['test_on_local_updates'])
-            if 'test_on_global_updates' in training_args:
-                self.set_test_on_global_updates(training_args['test_on_global_updates'])
-            if 'test_metric_args' in training_args and 'test_metric' not in training_args:
-                msg = ErrorNumbers.FB410.value + ' `test_metric_args` cannot be set ' + \
-                    'without setting a `test_metric`'
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
-            if 'test_metric' in training_args:
-                test_metric_args = training_args.get('test_metric_args', {})
-                try:
-                    self.set_test_metric(training_args['test_metric'], **test_metric_args)
-                except TypeError:
-                    msg = ErrorNumbers.FB410.value + ' `test_metric_args` expected a dict, ' + \
-                        f'got a {type(test_metric_args)}'
-                    logger.critical(msg)
-                    raise FedbiomedExperimentError(msg)
+        if isinstance(training_args, TrainingArgs):
+            self._training_args = deepcopy(training_args)
         else:
-            # bad type
-            msg = ErrorNumbers.FB410.value + f' `training_args` : {type(training_args)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-            # self._training_args always exist at this point
-
-        if self._job is not None:
-            # job setter function exists, use it
-            self._job.training_args = self._training_args
-            logger.debug('Experimentation training_args updated for `job`')
+            self._training_args = TrainingArgs(training_args, only_required = False)
 
         return self._training_args
 
-    @exp_exceptions
-    def clean_training_args(self):
-        """ Cleans / resets training arguments `training_args` with default values.
-
-        !!! info "Default values after cleaning"
-
-            This method cleans training args by setting default value for required parameters. :
-             - test_ratio: 0.
-             - test_on_local_updates: False
-             - test_on_global_updates: False
-             - test_metric: None
-             - test_metric_args: to an empty dictionary
-        """
-        # minimal content for the training args
-        self._training_args = {
-            'test_ratio': .0,
-            'test_on_local_updates': False,
-            'test_on_global_updates': False,
-            # TODO: better default value ?
-            'test_metric': None,
-            'test_metric_args': {}
-        }
 
     @exp_exceptions
     def set_test_ratio(self, ratio: float) -> float:
-        """ Sets testing ratio for model evaluation.
+        """ Sets validation ratio for model validation.
 
         When setting test_ratio, nodes will allocate (1 - `test_ratio`) fraction of data for training and the
-        remaining for testing model. This could be useful for evaluating the model, once every round, as well as
+        remaining for validating model. This could be useful for validating the model, once every round, as well as
         controlling overfitting, doing early stopping, ....
 
         Args:
-            ratio: testing ratio. Must be within interval [0,1].
+            ratio: validation ratio. Must be within interval [0,1].
 
         Returns:
-            Test ratio that is set
+            Validation ratio that is set
 
         Raises:
             FedbiomedExperimentError: bad data type
             FedbiomedExperimentError: ratio is not within interval [0, 1]
         """
-        # data type checks
-        if not isinstance(ratio, (int, float)):
-            msg = ErrorNumbers.FB410.value + ": incorrect argument `ratios` type:" + \
-                f" {type(ratio)} expected integer or float"
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        if 0 > ratio or ratio > 1:
-            msg = ErrorNumbers.FB410.value + ": incorrect argument `ratios` value, " + \
-                f"should be between 0 and 1, but got {ratio}"
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
         self._training_args['test_ratio'] = ratio
 
         if self._job is not None:
@@ -1299,7 +1225,7 @@ class Experiment(object):
     @exp_exceptions
     def set_test_metric(self, metric: Union[MetricTypes, str, None], **metric_args: dict) -> \
             Tuple[Union[str, None], Dict[str, Any]]:
-        """ Sets a metric for federated model evaluation
+        """ Sets a metric for federated model validation
 
         Args:
             metric: A class as an instance of [`MetricTypes`][fedbiomed.common.metrics.MetricTypes]. [`str`][str] for
@@ -1314,18 +1240,6 @@ class Experiment(object):
         Raises:
             FedbiomedExperimentError: Invalid type for `metric` argument
         """
-        if not (metric is None or isinstance(metric, str) or isinstance(metric, MetricTypes)):
-            _msg = ErrorNumbers.FB410.value + ": incorrect argument metric, got type " + \
-                f"{type(metric)}, but expected Callable or str"
-            raise FedbiomedExperimentError(_msg)
-
-        # at this point, metric is a str, MetricTypes or None
-        if isinstance(metric, str):
-            metric = metric.upper()
-            if metric not in MetricTypes.get_all_metrics():
-                raise FedbiomedExperimentError(f"Metric {metric} is not a default Metric Type supprted by Fedbiomed."
-                                               f" Please use {MetricTypes.get_all_metrics()} or define your"
-                                               " `testing_step` method in the TrainingPlan")
         self._training_args['test_metric'] = metric
 
         # using **metric_args, we know `test_metric_args` is a Dict[str, Any]
@@ -1341,11 +1255,11 @@ class Experiment(object):
     @exp_exceptions
     def set_test_on_local_updates(self, flag: bool = True) -> bool:
         """
-        Setter for `test_on_local_updates`, that indicates whether to perform a testing on the federated model on the
+        Setter for `test_on_local_updates`, that indicates whether to perform a validation on the federated model on the
         node side where model parameters are updated locally after training in each node.
 
         Args:
-            flag (bool, optional): whether to perform model evaluation on local updates. Defaults to True.
+            flag (bool, optional): whether to perform model validation on local updates. Defaults to True.
 
         Returns:
             value of the flag `test_on_local_updates`
@@ -1353,11 +1267,6 @@ class Experiment(object):
         Raises:
             FedbiomedExperimentError: bad flag type
         """
-        if not isinstance(flag, bool):
-            msg = ErrorNumbers.FB410.value + f' `flag` : got {type(flag)} but expected a boolean'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
         self._training_args['test_on_local_updates'] = flag
 
         if self._job is not None:
@@ -1370,11 +1279,11 @@ class Experiment(object):
     @exp_exceptions
     def set_test_on_global_updates(self, flag: bool = True) -> bool:
         """
-        Setter for test_on_global_updates, that indicates whether to  perform a testing on the federated model
+        Setter for test_on_global_updates, that indicates whether to  perform a validation on the federated model
         updates on the node side before training model locally where aggregated model parameters are received.
 
         Args:
-            flag (bool, optional): whether to perform model evaluation on global updates. Defaults to True.
+            flag (bool, optional): whether to perform model validation on global updates. Defaults to True.
 
         Returns:
             Value of the flag `test_on_global_updates`.
@@ -1382,11 +1291,6 @@ class Experiment(object):
         Raises:
             FedbiomedExperimentError : bad flag type
         """
-        if not isinstance(flag, bool):
-            msg = ErrorNumbers.FB410.value + f' `flag` : got {type(flag)} but expected a boolean'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
         self._training_args['test_on_global_updates'] = flag
 
         if self._job is not None:
@@ -1504,7 +1408,7 @@ class Experiment(object):
         Args:
             increase: automatically increase the `round_limit` of the experiment if needed. Does nothing if
                 `round_limit` is `None`. Defaults to False
-            test_after: if True, do a second request to the nodes after the round, only for testing on aggregated
+            test_after: if True, do a second request to the nodes after the round, only for validation on aggregated
                 params. Intended to be used after the last training round of an experiment. Defaults to False.
 
         Returns:
@@ -1575,7 +1479,7 @@ class Experiment(object):
         if self._save_breakpoints:
             self.breakpoint()
 
-        # do final evaluation after saving breakpoint :
+        # do final validation after saving breakpoint :
         # not saved in breakpoint for current round, but more simple
         if test_after:
             # FIXME: should we sample nodes here too?
@@ -1682,8 +1586,8 @@ class Experiment(object):
         for _ in range(rounds):
             if isinstance(self._round_limit, int) and self._round_current == (self._round_limit - 1) \
                     and self._training_args['test_on_global_updates'] is True:
-                # Do "testing after a round" only if this a round limit is defined and we reached it
-                # and testing is active on global params
+                # Do "validation after a round" only if this a round limit is defined and we reached it
+                # and validation is active on global params
                 # When this condition is met, it also means we are running the last of
                 # the `rounds` rounds in this function
                 test_after = True
@@ -1832,7 +1736,7 @@ class Experiment(object):
 
         state = {
             'training_data': self._fds.data(),
-            'training_args': self._training_args,
+            'training_args': self._training_args.dict(),
             'model_args': self._model_args,
             'model_path': self._job.model_file,  # only in Job we always model saved to a file
             # with current version
@@ -2148,3 +2052,39 @@ class Experiment(object):
         # note: exceptions for `load_state` should be handled in training plan
 
         return object_instance
+
+
+
+    @exp_exceptions
+    def model_approve(self,
+                      model,
+                      description: str = "no description provided",
+                      nodes: list = [],
+                      timeout: int = 5) -> dict:
+        """Send a model and a ApprovalRequest message to node(s).
+
+        This is a simple redirect to the Requests.model_approve() method.
+
+        If a list of node id(s) is provided, the message will be individually sent
+        to all nodes of the list.
+        If the node id(s) list is None (default), the message is broadcast to all nodes.
+
+        Args:
+            model: the model to upload and send to the nodes for approval.
+                   It can be:
+                   - a path_name (str)
+                   - a model (class)
+                   - an instance of a model (TrainingPlan instance)
+            nodes: list of nodes (specified by their UUID)
+            timeout: maximum waiting time for the answers
+
+        Returns:
+            a dictionary of pairs (node_id: status), where status indicates to the researcher
+            that the model has been correctly downloaded on the node side.
+            Warning: status does not mean that the model is approved, only that it has been added
+            to the "approval queue" on the node side.
+        """
+        return self._reqs.model_approve(model,
+                                        description,
+                                        nodes,
+                                        timeout)
