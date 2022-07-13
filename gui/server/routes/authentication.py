@@ -195,11 +195,13 @@ def login():
         }
         access_token = create_access_token(identity=user["user_id"], fresh=True, additional_claims=additional_claims)
         refresh_token = create_refresh_token(identity=user["user_id"], additional_claims=additional_claims)
-        resp = make_response(success('User successfully logged in'))
-        set_access_cookies(resp, access_token)
-        set_refresh_cookies(resp, refresh_token)
-        return resp, 200
-    print("OK for registration")
+        # set_access_cookies(resp, access_token)
+        # set_refresh_cookies(resp, refresh_token)
+        return response(
+            data={
+                "access_token": access_token, 
+                "refresh_token": refresh_token}, 
+            message='User successfully logged in'), 200
     return make_response(
         'Could not verify',
         {'WWW-Authenticate' : 'Basic realm ="Wrong Password"'}
@@ -216,12 +218,16 @@ def refresh_expiring_jwts():
         "email": jwt["email"],
         "role": jwt["role"]
     }
-
     access_token = create_access_token(identity=jwt["sub"], additional_claims=additional_claims)
-    resp = make_response(success('Access token successfully refreshed'))
-    set_access_cookies(resp, access_token)
-    set_refresh_cookies(resp, access_token)
-    return resp, 200
+    refresh_token = create_refresh_token(identity=jwt["sub"], additional_claims=additional_claims)
+    # set_access_cookies(resp, access_token)
+    # set_refresh_cookies(resp, access_token)
+    # TODO: Invalidate old refresh tokens; they should be used only once
+    return response(
+        data={
+            "access_token": access_token, 
+            "refresh_token": refresh_token}, 
+        message='Access token successfully refreshed'), 200
 
 
 @api.route('/protected', methods=['GET'])
@@ -242,7 +248,7 @@ def logout():
     """ Method used to logout current user.
         It removes the jwt set in cookies
     """
-    resp = make_response(success('User successfully logged out'))
+    resp = response(msg='User successfully logged out')
     unset_jwt_cookies(resp)
     return resp, 200
 
@@ -260,5 +266,6 @@ def logout():
 #         # Case where there is not a valid JWT. Just return the original response
 #         return response
 
+# TODO : Generate secret key server randomly
 # TODO : Implement method to retrieve user password
 # TODO : Add salt to encrypted passwords
