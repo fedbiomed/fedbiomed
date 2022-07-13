@@ -257,9 +257,9 @@ class TestTorchnn(unittest.TestCase):
         custom_dataset = self.CustomDataset()
         x_train = torch.Tensor(custom_dataset.X_train)
         y_train = torch.Tensor(custom_dataset.Y_train)
-        num_batches = 2
-        batch_size = 3
-        dataset_size = 5
+        num_batches = 3
+        batch_size = 5
+        dataset_size = num_batches * batch_size
         fake_data = {'modality1': x_train, 'modality2': x_train}
         fake_target = (y_train, y_train)
         tp.training_data_loader.__iter__.return_value = num_batches*[(fake_data, fake_target)]
@@ -278,7 +278,7 @@ class TestTorchnn(unittest.TestCase):
                 logged_percent_progress = float(logging_message.split('(')[1].split('%')[0])
                 self.assertEqual(logged_num_processed_samples, min((i+1)*batch_size, dataset_size))
                 self.assertEqual(logged_total_num_samples, dataset_size)
-                self.assertAlmostEqual(logged_percent_progress, 100*(i+1)/num_batches, delta=0.1)
+                self.assertEqual(logged_percent_progress, round(100*(i+1)/num_batches))
 
 
 class TestSendToDevice(unittest.TestCase):
