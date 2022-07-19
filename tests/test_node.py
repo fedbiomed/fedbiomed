@@ -66,7 +66,7 @@ class TestNode(unittest.TestCase):
         self.messaging_patcher = self.messaging_patch.start()
 
         # mocks
-        mock_dataset_manager = MagicMock()
+        mock_dataset_manager = DatasetManager()
         mock_dataset_manager.search_by_tags = MagicMock(return_value=self.database_val)
         mock_dataset_manager.list_my_data = MagicMock(return_value=self.database_list)
         mock_model_manager = MagicMock()
