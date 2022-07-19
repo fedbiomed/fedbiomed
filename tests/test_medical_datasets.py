@@ -418,7 +418,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
 
         tmp_file = tempfile.NamedTemporaryFile()
         dataset.tabular_file = tmp_file.name
-        self.assertEqual(str(dataset.tabular_file), tmp_file.name)
+        self.assertEqual(str(dataset.tabular_file), str(Path(tmp_file.name).expanduser().resolve()))
 
         # check error is triggered if incorrect type is passed
         with self.assertRaises(FedbiomedDatasetError):
