@@ -16,6 +16,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
+from fedbiomed.node.dataset_manager import DatasetManager
 
 
 
@@ -833,6 +834,36 @@ class TestNode(unittest.TestCase):
         msg_send_error_patch.assert_called_once_with(errnum,
                                                      extra_msg=extra_msg,
                                                      researcher_id=researcher_id)
+
+    @patch('fedbiomed.common.messaging.Messaging.send_message')
+    def test_node_24_on_message_search_privacy_obfuscation(self,
+                                                           messaging_send_msg_patch
+                                                           ):
+        """Tests that privacy-sensitive information is not revealed"""
+
+        databases = [dict(
+            data_type='medical-folder',
+            dataset_parameters={'tabular_file': 'path/to/tabular/file',
+                                'index_col': 0},
+            **self.database_val[0]
+        )]
+
+        dataset_manager = DatasetManager()
+        dataset_manager.search_by_tags = MagicMock(return_value=databases)
+        n3 = Node(dataset_manager, self.model_manager_mock)
+
+        search_msg = {
+            'command': 'search',
+            'researcher_id': 'researcher_id_1234',
+            'tags': ['#some_tags']
+        }
+        # action
+        n3.on_message(search_msg)
+
+        # check privacy-sensitive info a case-by-case basis
+        database_info = messaging_send_msg_patch.call_args[0][0]['databases'][0]
+        self.assertNotIn('path', database_info)
+        self.assertNotIn('tabular_file', database_info['dataset_parameters'])
 
 
 if __name__ == '__main__':  # pragma: no cover
