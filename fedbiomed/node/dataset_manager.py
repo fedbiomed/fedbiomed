@@ -488,9 +488,10 @@ class DatasetManager:
             # common obfuscations
             d.pop('path', None)
             # obfuscations specific for each data type
-            if d['data_type'] == 'medical-folder':
-                if 'dataset_parameters' in d:
-                    d['dataset_parameters'].pop('tabular_file', None)
+            if 'data_type' in d:
+                if d['data_type'] == 'medical-folder':
+                    if 'dataset_parameters' in d:
+                        d['dataset_parameters'].pop('tabular_file', None)
         return database_metadata
 
 
