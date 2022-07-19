@@ -78,12 +78,12 @@ def before_request(req=None):
 
 @app.after_request
 def set_hsts_header(response):
-        """Adds HSTS header to each response."""
-        # Should we add STS header?
-        if request.is_secure:
-            response.headers.setdefault(
-                'Strict-Transport-Security', hsts_header)
-        return response
+    """Adds HSTS header to each response."""
+    # Should we add STS header?
+    if request.is_secure:
+        response.headers.setdefault(
+            'Strict-Transport-Security', hsts_header)
+    return response
 
 
 def hsts_header():

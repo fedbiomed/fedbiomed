@@ -20,10 +20,14 @@ import CommonStandards from "./pages/datasets/CommonStandards";
 import MedicalFolderDataset from "./pages/datasets/MedicalFolderDataset";
 import Models from "./pages/models/Models";
 import SingleModel from "./pages/models/SingleModel";
-import Login from "./pages/Login";
+import Login from "./pages/authentication/Login";
+import useToken from './pages/authentication/useToken';
+import PocEndpoints from './pages/authentication/PocEndpoints';
 
 
 function App(props) {
+
+  const { accessToken, removeToken, setToken } = useToken();
 
   const dispatch = useDispatch()
 
@@ -41,9 +45,36 @@ function App(props) {
           <div className="main-frame">
               <div className="router-frame">
                 <div className="inner"> 
-                  <Routes>
+                  {/* If the user is not logged in, redirect towards login page */}
+                  {!accessToken && accessToken!=="" && accessToken!== undefined?  
+                  <Login setToken={setToken} />
+                  :(
+                    <>
+                      <Routes>
+                        <Route exact path="/" element={<Home/>} />
+                        {/* <Route path="/login/" element={<Login/>} /> */}
+                        {/* <Route path="/pocEndpoints/" element = {<pocEndpoints/>} /> */}
+                        <Route path="/configuration/" element={<Configuration/>} />
+                        <Route path="/repository/" element={<Repository/>} />
+                        <Route path="/models/" element={<Models/>} />
+                        <Route path="/models/preview/:model_id" element={<SingleModel />} />
+                        <Route path="/datasets/" element={<Datasets/>} />
+                        <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview />} />
+                        <Route path="/datasets/add-dataset/" element={<AddDataset/>} >
+                          <Route index element={<CommonStandards/>} />
+                          <Route path="medical-folder-dataset" element={<MedicalFolderDataset/>} />
+                        </Route>
+                        {/* Go to pocEndpoints page with the access token set */}
+                        <Route path="/pocEndpoints/" element={<PocEndpoints accessToken={accessToken}
+                                                                          removeToken={removeToken} 
+                                                                          setToken={setToken}/>} />
+                      </Routes>
+                    </>
+                  )}
+                  {/* <Routes>
                     <Route exact path="/" element={<Home/>} />
                     <Route path="/login/" element={<Login/>} />
+                    <Route path="/pocEndpoints/" element = {<pocEndpoints/>} />
                     <Route path="/configuration/" element={<Configuration/>} />
                     <Route path="/repository/" element={<Repository/>} />
                     <Route path="/models/" element={<Models/>} />
@@ -54,7 +85,7 @@ function App(props) {
                         <Route index element={<CommonStandards/>} />
                         <Route path="medical-folder-dataset" element={<MedicalFolderDataset/>} />
                     </Route>
-                  </Routes>
+                  </Routes> */}
                   <div className={`loader-frame ${props.result.loading ?  'active' : ''}`}>
                       <div style={{width:"100%"}}>
                           <div className="lds-ring">

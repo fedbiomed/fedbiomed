@@ -1,13 +1,12 @@
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from functools import wraps
 from hashlib import sha512
 
 from db import gui_database
-from flask import make_response, request
-from flask_jwt_extended import (jwt_required, create_access_token, create_refresh_token, set_access_cookies, 
-                                set_refresh_cookies, unset_jwt_cookies, get_jwt_identity,
+from flask import request
+from flask_jwt_extended import (jwt_required, create_access_token, create_refresh_token, unset_jwt_cookies,
                                 verify_jwt_in_request, get_jwt)
 from utils import error, response
 
@@ -181,10 +180,7 @@ def login():
 
     user_db = get_user_by_email(email)
     if not user_db:
-        return make_response(
-            'Could not verify',
-            {'WWW-Authenticate' : 'Basic realm ="User does not exist"'}
-        ), 401
+        return error('Please register before to log in'), 401
 
     # Should send back only one item
     user = user_db[0]
@@ -195,17 +191,12 @@ def login():
         }
         access_token = create_access_token(identity=user["user_id"], fresh=True, additional_claims=additional_claims)
         refresh_token = create_refresh_token(identity=user["user_id"], additional_claims=additional_claims)
-        # set_access_cookies(resp, access_token)
-        # set_refresh_cookies(resp, refresh_token)
         return response(
             data={
                 "access_token": access_token, 
                 "refresh_token": refresh_token}, 
             message='User successfully logged in'), 200
-    return make_response(
-        'Could not verify',
-        {'WWW-Authenticate' : 'Basic realm ="Wrong Password"'}
-    ), 401
+    return error('Please verify your email or/and your password'), 401
 
 
 @api.route('/token/refresh', methods=['POST'])
@@ -220,8 +211,6 @@ def refresh_expiring_jwts():
     }
     access_token = create_access_token(identity=jwt["sub"], additional_claims=additional_claims)
     refresh_token = create_refresh_token(identity=jwt["sub"], additional_claims=additional_claims)
-    # set_access_cookies(resp, access_token)
-    # set_refresh_cookies(resp, access_token)
     # TODO: Invalidate old refresh tokens; they should be used only once
     return response(
         data={
@@ -233,14 +222,14 @@ def refresh_expiring_jwts():
 @api.route('/protected', methods=['GET'])
 @jwt_required()
 def protected_test():
-    return make_response(success('You rock !')), 200
+    return response('You rock !'), 200
 
 
 @api.route('/admin', methods=['GET'])
 @jwt_required()
 @admin_required
 def admin_test():
-    return make_response(success('Only if you are an admin')), 200
+    return response('Only if you are an admin'), 200
 
 
 @api.route('/token/remove', methods=['POST'])
