@@ -481,3 +481,16 @@ class DatasetManager:
             else:
                 raise NotImplementedError(f'Mode `{mode}` has not been'
                                           ' implemented on this version.')
+
+    @staticmethod
+    def obfuscate_private_information(database_metadata: list) -> list:
+        for d in database_metadata:
+            # common obfuscations
+            d.pop('path', None)
+            # obfuscations specific for each data type
+            if d['data_type'] == 'medical-folder':
+                if 'dataset_parameters' in d:
+                    d['dataset_parameters'].pop('tabular_file', None)
+        return database_metadata
+
+
