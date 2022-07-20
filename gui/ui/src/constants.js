@@ -10,6 +10,16 @@ export const EP_DEFAULT_DATASET_ADD     = '/api/datasets/add-default-dataset'
 export const EP_CONFIG_NODE_ENVIRON     = '/api/config/node-environ'
 export const EP_LOAD_CSV_DATA           = '/api/datasets/get-csv-data'
 
+// Authentication endpoints
+export const EP_LOGIN                   = '/api/token/auth'
+export const EP_REFRESH                 = '/api/token/refresh'
+export const EP_LOGOUT                  = 'api/token/remove'
+export const EP_REGISTER                = 'api/register'
+
+// Temporary endpoints
+export const EP_PROTECTED               = '/api/protected'
+export const EP_ADMIN                   = '/api/admin'
+
 // MedicalFolder Dataset Endpoints
 export const EP_VALIDATE_MEDICAL_FOLDER_ROOT    = '/api/datasets/medical-folder-dataset/validate-root'
 export const EP_VALIDATE_REFERENCE_COLUMN       = '/api/datasets/medical-folder-dataset/validate-reference-column'
