@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { Component }  from 'react';
 import logo from "../../assets/img/fedbiomed-logo-small.png"
 import NavItem from './NavItem';
 import {ReactComponent as ConfIcon}  from '../../assets/img/configuration.svg'
@@ -22,11 +22,13 @@ const items = [
   ]
 
 
-const SideNav  = (props) => {
+const SideNav= (props) => {
 
     const location = useLocation()
 
     const [selectedKey, setSelectedKey] = React.useState(items.find(_item => location.pathname.startsWith(_item.path)).key)
+
+    const displayed = props.displayed;
 
     React.useEffect(() => {
         let item = items.find(_item => location.pathname === _item.path )

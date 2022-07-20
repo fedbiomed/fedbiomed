@@ -30,12 +30,16 @@ function App(props) {
   const onResultModalClose = () => {
     dispatch({type:'RESET_GLOBAL_MODAL'})
   }
+  let style = {
+  //   display: "none"
+  };
 
   return (
+    <React.Fragment>
     <div className="App">
       <Router>
         <div className="layout-wrapper">
-          <div className="main-side-bar">
+          <div className="main-side-bar" id="#my_id" style={style}>
             <SideNav/>
           </div>
           <div className="main-frame">
@@ -87,6 +91,7 @@ function App(props) {
         </Modal.Footer>
       </Modal>
     </div>
+    </React.Fragment>
   );
 }
 
