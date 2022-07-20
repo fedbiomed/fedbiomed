@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { EP_LOGIN } from '../../constants';
 
@@ -39,7 +39,31 @@ function Login(props) {
           ...prevNote, [name]: value})
       )}
 
+    const handleSubmit = (event) => {
+        // Prevent page reload
+        event.preventDefault();
+      };
+
+
+    const { my_id_html, data } = props;
+
+    useEffect(() => {
+        // we hide the navigation tab for the login page
+        var my_id_html = document.getElementById("#my_id");  // get the side_nav through its id
+        my_id_html.style.display = "none";
+        console.log("inside use effect")
+        console.log(my_id_html)
+        
+    }, [data])
+
     return (
+      <React.Fragment>
+      <div>
+          <h2>Fed-BioMed Node GUI</h2>
+          <p>Welcome to Fed-BioMed Node application. In this application, you can manage your data
+              files that are deployed in the node or load new datasets into the node.  </p>
+          <p>Please Login using your username and password</p>
+      </div>
       <div>
         <h1>Login</h1>
           <form className='login' onSubmit={logMeIn}>
@@ -72,6 +96,12 @@ function Login(props) {
           </div>
         </form>
       </div>
+      <div>
+          <p> 
+              Forgot your password? <a>Please reach here</a>
+          </p>
+        </div>
+      </React.Fragment>
     );
 }
 
