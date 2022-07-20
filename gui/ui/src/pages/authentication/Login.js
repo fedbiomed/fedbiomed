@@ -3,14 +3,15 @@ import axios from 'axios';
 import { EP_LOGIN } from '../../constants';
 
 
-function Login(props) {
+const Login = (props) => {
 
     const [loginForm, setloginForm] = useState({
       email: '',
       password: ''
     })
-
-    function logMeIn(event) {
+    const [error, setError] = useState(null)
+    const [side_nav, setSideNav] = useState(null)
+    const logMeIn = (event) => {
       axios({
         method: 'POST',
         url: EP_LOGIN,
@@ -20,10 +21,22 @@ function Login(props) {
          }
       })
       .then((response) => {
+        console.log("recieved request")
+
         props.setToken(response.data.result.access_token, response.data.result.refresh_token)
+        setError(false)
+        side_nav.style.display = "block";
       }).catch((error) => {
         // How to display error message to user ?
+        console.log("found error!")
         console.log(error)
+        if (error.response) {
+          setError(error.response.data.message)
+        }else{
+          setError('Unexpected Error : ' + error.toString())
+        }
+        
+
       })
 
       setloginForm(({
@@ -33,7 +46,8 @@ function Login(props) {
       event.preventDefault()
     }
 
-    function handleChange(event) { 
+    const handleChange = (event) => { 
+      console.log("into handle change")
       const {value, name} = event.target
       setloginForm(prevNote => ({
           ...prevNote, [name]: value})
@@ -42,6 +56,8 @@ function Login(props) {
     const handleSubmit = (event) => {
         // Prevent page reload
         event.preventDefault();
+        console.log("into handle submit")
+
       };
 
 
@@ -53,6 +69,9 @@ function Login(props) {
         my_id_html.style.display = "none";
         console.log("inside use effect")
         console.log(my_id_html)
+        console.log(error)
+        console.log(side_nav)
+        setSideNav(my_id_html)
         
     }, [data])
 
@@ -92,7 +111,7 @@ function Login(props) {
             />
           </div>
           <div className='button-container'>
-            <input type='submit' />
+            <input type='submit' onClick={handleSubmit}/>
           </div>
         </form>
       </div>
@@ -100,7 +119,8 @@ function Login(props) {
           <p> 
               Forgot your password? <a>Please reach here</a>
           </p>
-        </div>
+        
+      </div>
       </React.Fragment>
     );
 }
