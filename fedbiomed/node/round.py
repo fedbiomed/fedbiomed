@@ -352,7 +352,8 @@ class Round:
                            ', `test_on_loc_set_training_testing_data_loadersal_updates`, or both. Splitting dataset for validation will be ignored')
         
         # If dataset_parameters is defined and has a key 'center_id' we are dealing with a flamby dataset and the split has to be handled differently
-        if type(self.dataset['dataset_parameters']) is dict and 'center_id' in self.dataset['dataset_parameters'].keys():
+        is_flamby_dataset = (self.dataset.get("dataset_parameters", {}).get("center_id", None) != None)
+        if is_flamby_dataset:
             training_data_loader, testing_data_loader = self._split_train_and_test_data_flamby(test_ratio=test_ratio)
         else:
             # Setting validation and train subsets based on test_ratio
