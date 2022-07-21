@@ -196,7 +196,7 @@ def login():
                 "access_token": access_token, 
                 "refresh_token": refresh_token}, 
             message='User successfully logged in'), 200
-    return error('Please verify your email or/and your password'), 401
+    return error('Please verify your email and/or your password'), 401
 
 
 @api.route('/token/refresh', methods=['POST'])

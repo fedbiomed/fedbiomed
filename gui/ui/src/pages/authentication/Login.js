@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { EP_LOGIN } from '../../constants';
+import { EP_LOGIN, EP_REGISTER, LOGIN, REGISTER } from '../../constants';
 import Modal from '../../components/common/Modal';
 import Button from "../../components/common/Button";
 
@@ -11,12 +11,12 @@ const Login = (props) => {
       email: '',
       password: ''
     })
-    const [error, setError] = useState({show: false, msg: ""})
+    const [message, SetMessage] = useState({show: false, header:"", msg: ""})
     const [side_nav, setSideNav] = useState(null)
-    const logMeIn = (event) => {
+    const logMeIn = (event, url, action) => {
       axios({
         method: 'POST',
-        url: EP_LOGIN,
+        url: url,
         data:{
           email: loginForm.email,
           password: loginForm.password
@@ -24,19 +24,19 @@ const Login = (props) => {
       })
       .then((response) => {
         console.log("recieved request")
-
-        props.setToken(response.data.result.access_token, response.data.result.refresh_token)
-        //setError(false)
-        side_nav.style.display = "block"; // now display nav_bar if login is successful
+        if (action === LOGIN && response.status === 200) {
+          props.setToken(response.data.result.access_token, response.data.result.refresh_token)
+          side_nav.style.display = "block"; // now display nav_bar if login is successful
+        } else if (action === REGISTER && response.status === 201) {
+          SetMessage({show:true, header: 'Successfully registered', msg: 'You can now log in !'})
+        }
       }).catch((error) => {
-        // How to display error message to user ?
         console.log("found error!")
         console.log(error)
-        alert(error.response.data.message)
         if (error.response) {
-          setError({show:true, msg: error.response.data.message})
+          SetMessage({show:true, header: 'An error occured', msg: error.response.data.message})
         }else{
-          setError({show:true, msg:'Unexpected Error : ' + error.toString()})
+          SetMessage({show:true, header: 'Unexpected Error', msg:error.toString()})
         }
       })
 
@@ -54,23 +54,11 @@ const Login = (props) => {
           ...prevNote, [name]: value})
       )}
 
-    const handleSubmit = (event) => {
-        // Prevent page reload
-        event.preventDefault();
-        console.log("into handle submit")
-
-      };
-
-
-    const displayErrorMessage = (action) => {
-      // display error message
-    }
-
     /**
      * Handles modal window close action
      */
      const handleClose = () => {
-      setError({show:false, msg:""})
+      SetMessage({show:false, msg:""})
   }
 
   // ------------ getting side bar/nav_bar object ----------------
@@ -82,7 +70,7 @@ const Login = (props) => {
         my_id_html.style.display = "none";
         console.log("inside use effect")
         console.log(my_id_html)
-        console.log(error)
+        console.log(message)
         console.log(side_nav)
         setSideNav(my_id_html)
         
@@ -124,7 +112,18 @@ const Login = (props) => {
             />
           </div>
           <div className='button-container'>
-            <input type='submit'/>
+            {/* <input type='submit'/> */}
+            <button type="submit" onClick={(e) => {
+              logMeIn(e, EP_LOGIN, LOGIN);
+              }}
+            >Sign in</button>
+          </div>
+          <div className='button-container'>
+            <p>Not Yet registered ? Please sign up !</p>
+            <button type="submit" onClick={(e) => {
+              logMeIn(e, EP_REGISTER, REGISTER);
+              }}
+            >Sign up</button>
           </div>
         </form>
       </div>
@@ -135,13 +134,14 @@ const Login = (props) => {
         
       </div>
       {/* Error messsage in case of incorrect login (using Modal component) */}
-      <Modal show={error.show} onModalClose={handleClose}>
+      <Modal show={message.show} onModalClose={handleClose}>
         <Modal.Header>
-          Error: uncorrect password or login. 
+          {message.header}
         </Modal.Header>
         <Modal.Content>
-            If first connection, please register.
-            Please contact your local administrator for further details
+            {/* If first connection, please register.
+            Please contact your local administrator for further details */}
+            {message.msg}
         </Modal.Content>
         <Modal.Footer>
           <Button onClick={handleClose}>
@@ -154,60 +154,3 @@ const Login = (props) => {
 }
 
 export default Login;
-
-
-
-// const Login = (props) => {
-
-//     const [errorMessages, setErrorMessages] = useState({});
-//     const renderErrorMessage = (name) =>
-//         { name === errorMessages.name && (
-//             <div className='error'>{errorMessages.message}</div>)
-//         };
-//     console.log('is active')
-//     const computedClassName = props.active ? 'active' : 'muted';
-//     console.log(computedClassName)
-//     const handleSubmit = (event) => {
-//         // Prevent page reload
-//         event.preventDefault();
-//     };
-
-//     const hideMainSideBar = () => {
-//         return <div className='main-side-bar' style={{'display': 'none'}}/>
-
-
-//     }
-//     return (
-//         <React.Fragment>
-//             <div>
-//                 <h2>Fed-BioMed Node GUI</h2>
-//                 <p>Welcome to Fed-BioMed Node application. In this application, you can manage your data
-//                     files that are deployed in the node or load new datasets into the node.  </p>
-//             </div>
-//             {hideMainSideBar}
-//             <div className='form'>
-//                     <form onSubmit={handleSubmit}>
-//                         <div className='input-container'>
-//                         <label>Username </label>
-//                         <input type='text' name='username' required />
-//                         {renderErrorMessage('username')}
-//                         </div>
-//                         <div className='input-container'>
-//                         <label>Password </label>
-//                         <input type='password' name='pass' required />
-//                         {renderErrorMessage('pass')}
-//                         </div>
-//                         <div className='button-container'>
-//                         <input type='submit' />
-//                         </div>
-//                     </form>
-//             </div>
-
-            
-//         </React.Fragment>
-//     )
-// }
-
-
-
-// export default Login

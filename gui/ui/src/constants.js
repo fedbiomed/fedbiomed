@@ -18,7 +18,7 @@ export const EP_REGISTER                = 'api/register'
 
 // Authentication actions
 export const LOGIN                      = 'LOGIN'
-export const register                   = 'LOGOUT'
+export const REGISTER                   = 'REGISTER'
 
 // Temporary endpoints
 export const EP_PROTECTED               = '/api/protected'
