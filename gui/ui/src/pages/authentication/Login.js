@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { EP_LOGIN } from '../../constants';
+import Modal from '../../components/common/Modal';
+import Button from "../../components/common/Button";
 
 
 const Login = (props) => {
@@ -9,7 +11,7 @@ const Login = (props) => {
       email: '',
       password: ''
     })
-    const [error, setError] = useState(null)
+    const [error, setError] = useState({show: false, msg: ""})
     const [side_nav, setSideNav] = useState(null)
     const logMeIn = (event) => {
       axios({
@@ -24,17 +26,17 @@ const Login = (props) => {
         console.log("recieved request")
 
         props.setToken(response.data.result.access_token, response.data.result.refresh_token)
-        setError(false)
-        side_nav.style.display = "block";
+        //setError(false)
+        side_nav.style.display = "block"; // now display nav_bar if login is successful
       }).catch((error) => {
         // How to display error message to user ?
         console.log("found error!")
         console.log(error)
         alert(error.response.data.message)
         if (error.response) {
-          setError(error.response.data.message)
+          setError({show:true, msg: error.response.data.message})
         }else{
-          setError('Unexpected Error : ' + error.toString())
+          setError({show:true, msg:'Unexpected Error : ' + error.toString()})
         }
       })
 
@@ -60,6 +62,18 @@ const Login = (props) => {
       };
 
 
+    const displayErrorMessage = (action) => {
+      // display error message
+    }
+
+    /**
+     * Handles modal window close action
+     */
+     const handleClose = () => {
+      setError({show:false, msg:""})
+  }
+
+  // ------------ getting side bar/nav_bar object ----------------
     const { my_id_html, data } = props;
 
     useEffect(() => {
@@ -106,7 +120,7 @@ const Login = (props) => {
                 name='password' 
                 placeholder='Password' 
                 value={loginForm.password} 
-                required 
+                required
             />
           </div>
           <div className='button-container'>
@@ -120,6 +134,21 @@ const Login = (props) => {
           </p>
         
       </div>
+      {/* Error messsage in case of incorrect login (using Modal component) */}
+      <Modal show={error.show} onModalClose={handleClose}>
+        <Modal.Header>
+          Error: uncorrect password or login. 
+        </Modal.Header>
+        <Modal.Content>
+            If first connection, please register.
+            Please contact your local administrator for further details
+        </Modal.Content>
+        <Modal.Footer>
+          <Button onClick={handleClose}>
+              close
+          </Button>
+        </Modal.Footer>
+      </Modal>
       </React.Fragment>
     );
 }
