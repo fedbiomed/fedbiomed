@@ -1,4 +1,5 @@
 import builtins
+import inspect
 import logging
 import os
 from typing import Any, Dict
@@ -14,6 +15,8 @@ from testsupport.fake_uuid import FakeUuid
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
 from fedbiomed.common.logger import logger
+from fedbiomed.common.data import DataManager
+from fedbiomed.common.data.data_loading_plan import DataPipeline, DataLoadingPlanMixin, DataLoadingPlan
 
 
 class TestRound(unittest.TestCase):
@@ -622,6 +625,65 @@ class TestRound(unittest.TestCase):
 
         self.assertFalse(self.r1.training_kwargs.get('history_monitor', False))
         self.assertFalse(self.r1.training_kwargs.get('node_args', False))
+
+    @patch('inspect.signature')
+    def test_round_09_data_loading_plan(self,
+                                        patch_inspect_signature,
+                                        ):
+        class ModifyGetItemDP(DataPipeline):
+            def __init__(self):
+                super().__init__()
+                self.type_id = 'modify-getitem'
+
+            def modify_getitem_output(self):
+                return 'modified-value'
+
+        class MyDatasetDataLoadingPlanMixin(DataLoadingPlanMixin):
+            def __init__(self):
+                super().__init__()
+
+            def modify_getitem_dp(self, item, value):
+                if self._dlp is not None and 'modify-getitem' in self._dlp:
+                    return self._dlp['modify-getitem'].modify_getitem_output()
+                else:
+                    return value
+
+        class MyDataset(MyDatasetDataLoadingPlanMixin):
+            def __init__(self):
+                super().__init__()
+
+            def __getitem__(self, item):
+                value = self.modify_getitem_dp(item, 'orig-value')
+                return value
+
+        patch_inspect_signature.return_value = inspect.Signature(parameters={})
+
+        my_dataset = MyDataset()
+        data_loader_mock = MagicMock()
+        data_loader_mock.dataset = my_dataset
+
+        data_manager_mock = MagicMock(spec=DataManager)
+        data_manager_mock.split = MagicMock()
+        data_manager_mock.split.return_value = (data_loader_mock, None)
+        data_manager_mock.dataset = my_dataset
+
+        r3 = Round(training_kwargs={})
+        r3.model = MagicMock()
+        r3.model.training_data.return_value = data_manager_mock
+
+        training_data_loader, _ = r3._split_train_and_test_data(test_ratio=0.)
+        dataset = training_data_loader.dataset
+        self.assertEqual(dataset[0], 'orig-value')
+
+        r4 = Round(training_kwargs={},
+                   dlp=DataLoadingPlan([ModifyGetItemDP()])
+                   )
+        r4.model = MagicMock()
+        r4.model.training_data.return_value = data_manager_mock
+
+        training_data_loader, _ = r4._split_train_and_test_data(test_ratio=0.)
+        dataset = training_data_loader.dataset
+        self.assertEqual(dataset[0], 'modified-value')
 
 
 if __name__ == '__main__':  # pragma: no cover

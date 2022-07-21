@@ -6,11 +6,12 @@ import os
 import sys
 import time
 import inspect
-from typing import Union, Any
+from typing import Union, Any, Optional
 import uuid
 
 from fedbiomed.common.constants import ErrorNumbers, ModelApprovalStatus
 from fedbiomed.common.data import DataManager
+from fedbiomed.common.data.data_loading_plan import DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
@@ -37,7 +38,8 @@ class Round:
                  job_id: str = None,
                  researcher_id: str = None,
                  history_monitor: HistoryMonitor = None,
-                 node_args: Union[dict, None] = None):
+                 node_args: Union[dict, None] = None,
+                 dlp: Optional[DataLoadingPlan] = None):
 
         """Constructor of the class
 
@@ -90,6 +92,7 @@ class Round:
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
         self.model = None
         self.training = training
+        self._dlp = dlp
 
     def run_model_training(self) -> dict[str, Any]:
         """This method downloads model file; then runs the training of a model
@@ -404,6 +407,9 @@ class Round:
         if hasattr(data_manager.dataset, "set_dataset_parameters"):
             dataset_parameters = self.dataset.get("dataset_parameters", {})
             data_manager.dataset.set_dataset_parameters(dataset_parameters)
+
+        if self._dlp is not None:
+            data_manager.dataset.set_dlp(self._dlp)
 
         # All Framework based data managers have the same methods
         # If testing ratio is 0,

@@ -12,6 +12,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import TasksQueue
+from fedbiomed.common.data.data_loading_plan import DataLoadingPlan
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -220,6 +221,10 @@ class Node:
                          'extra_msg': "Did not found proper data in local datasets"}
                     ).get_dict())
                 else:
+                    dlp = None
+                    if 'dlp_id' in data:
+                        dlp_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
+                        dlp = DataLoadingPlan().load(dlp_metadata)
                     self.rounds.append(Round(model_kwargs,
                                              training_kwargs,
                                              training_status,
@@ -230,7 +235,8 @@ class Node:
                                              job_id,
                                              researcher_id,
                                              hist_monitor,
-                                             self.node_args))
+                                             self.node_args,
+                                             dlp=dlp))
 
     def task_manager(self):
         """Manages training tasks in the queue.
