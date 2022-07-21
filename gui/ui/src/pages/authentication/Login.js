@@ -58,7 +58,7 @@ const Login = (props) => {
      * Handles modal window close action
      */
      const handleClose = () => {
-      SetMessage({show:false, msg:""})
+      SetMessage({show:false, header: '', msg:''})
   }
 
   // ------------ getting side bar/nav_bar object ----------------
