@@ -19,11 +19,10 @@ function Login(props) {
           password: loginForm.password
          }
       })
-      .then((response) => {
-        props.setToken(response.data.result.access_token, response.data.result.refresh_token)
+      .then( response => {
+          props.setToken(response.data.result.access_token, response.data.result.refresh_token)
       }).catch((error) => {
-        // How to display error message to user ?
-        console.log(error)
+        alert(error.response.data.message)
       })
 
       setloginForm(({
@@ -39,10 +38,10 @@ function Login(props) {
           ...prevNote, [name]: value})
       )}
 
-    const handleSubmit = (event) => {
-        // Prevent page reload
-        event.preventDefault();
-      };
+    // const handleSubmit = (event) => {
+    //     // Prevent page reload
+    //     event.preventDefault();
+    //   };
 
 
     const { my_id_html, data } = props;

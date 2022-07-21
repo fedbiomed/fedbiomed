@@ -12,14 +12,10 @@ const PocEndpoints = (props) => {
             }
         })
             .then( response => {
-                if (response.status === 200){
-                    console.log(response) 
-                }else{
-                    alert(response.data.message)
-                }
+                console.log(response) 
             })
             .catch( (error) => {
-                console.log(error)
+                alert(error.response.data.message)
             })
     }
 
@@ -30,14 +26,10 @@ const PocEndpoints = (props) => {
             }
         })
             .then( response => {
-                if (response.status === 200){
-                    console.log(response) 
-                }else{
-                    alert(response.data.message)
-                }
+                console.log(response) 
             })
             .catch( (error) => {
-                console.log(error)
+                alert(error.response.data.message)
             })
     }
 
