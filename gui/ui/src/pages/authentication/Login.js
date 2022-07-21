@@ -30,13 +30,12 @@ const Login = (props) => {
         // How to display error message to user ?
         console.log("found error!")
         console.log(error)
+        alert(error.response.data.message)
         if (error.response) {
           setError(error.response.data.message)
         }else{
           setError('Unexpected Error : ' + error.toString())
         }
-        
-
       })
 
       setloginForm(({
@@ -90,7 +89,7 @@ const Login = (props) => {
             <label>Email</label>
             <input 
                 onChange={handleChange} 
-                type='email'
+                type='email'     
                 text={loginForm.email} 
                 name='email' 
                 placeholder='Email' 
@@ -111,7 +110,7 @@ const Login = (props) => {
             />
           </div>
           <div className='button-container'>
-            <input type='submit' onClick={handleSubmit}/>
+            <input type='submit'/>
           </div>
         </form>
       </div>
