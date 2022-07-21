@@ -5,7 +5,7 @@ Interfaces with the node component database.
 
 import csv
 import os.path
-from typing import Union, List, Any
+from typing import Union, List, Any, Optional
 import uuid
 
 from urllib.request import urlretrieve
@@ -25,6 +25,7 @@ from fedbiomed.node.environ import environ
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.data import MedicalFolderController
+from fedbiomed.common.data.data_loading_plan import DataLoadingPlan
 
 from fedbiomed.common.logger import logger
 
@@ -55,6 +56,12 @@ class DatasetManager:
         self.db.clear_cache()
         result = self.db.get(self.database.dataset_id == dataset_id)
 
+        return result
+
+    def get_dlp_by_id(self, dlp_id: str) -> dict:
+        self.db.clear_cache()
+        table = self.db.table('Data_Loading_Plans')
+        result = table.get(self.database.dlp_id == dlp_id)
         return result
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
@@ -278,7 +285,8 @@ class DatasetManager:
                      description: str,
                      path: str,
                      dataset_id: str = None,
-                     dataset_parameters : Union[dict, None] = None):
+                     dataset_parameters : Optional[dict] = None,
+                     data_loading_plan: Optional[dict] = None):
         """Adds a new dataset contained in a file to node's database.
 
         Args:
@@ -364,6 +372,7 @@ class DatasetManager:
                             description=description, shape=shape,
                             path=path, dataset_id=dataset_id, dtypes=dtypes,
                             dataset_parameters=dataset_parameters)
+        new_database = self._handle_save_data_loading_plan(new_database, data_loading_plan)
         self.db.insert(new_database)
 
         return dataset_id
@@ -481,3 +490,15 @@ class DatasetManager:
             else:
                 raise NotImplementedError(f'Mode `{mode}` has not been'
                                           ' implemented on this version.')
+
+    def _handle_save_data_loading_plan(self,
+                                       current_dataset_metadata: dict,
+                                       data_loading_plan: DataLoadingPlan
+                                       ):
+        if data_loading_plan is None:
+            return current_dataset_metadata
+
+        table = self.db.table('Data_Loading_Plans')
+        table.insert(data_loading_plan.serialize())
+        current_dataset_metadata['dlp_id'] = data_loading_plan.dlp_id
+        return current_dataset_metadata

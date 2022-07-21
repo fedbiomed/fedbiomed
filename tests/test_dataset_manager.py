@@ -20,6 +20,7 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.dataset_manager import DatasetManager
 
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
+from fedbiomed.common.data.data_loading_plan import DataLoadingPlan, DataPipeline
 from PIL import Image
 from torchvision import transforms, datasets
 
@@ -979,6 +980,52 @@ class TestDatasetManager(unittest.TestCase):
             # action: we are here passing an empty directory
             # and checking if method raises FedbiomedDatasetManagerError
             self.dataset_manager.load_mednist_database(self.tempdir)
+
+    @patch('os.path.isdir')
+    def test_dataset_manager_30_data_loading_plan_save(self, patch_isdir):
+        patch_isdir.return_value = True
+        from test_data_loading_plan import PipelineForTesting
+
+        dp1 = PipelineForTesting()
+        dp2 = PipelineForTesting()
+        dp2.type_id = 'other_testing_pipeline'
+        dp2.data = {'some': 'other data'}
+
+        dlp = DataLoadingPlan()
+        dlp.append(dp1)
+        dlp.append(dp2)
+
+        dataset_manager = DatasetManager()
+        dataset_manager.load_default_database = MagicMock(return_value=(1, 1))
+        dataset_manager.add_database(
+            name='dlp-test-db',
+            data_type='default',
+            tags=['test-tags'],
+            description='',
+            dataset_id='test-id-dlp-1234',
+            path='some/test/path',
+            data_loading_plan=dlp
+        )
+
+        self.assertIn('Data_Loading_Plans', dataset_manager.db.tables())
+        dataset = dataset_manager.get_by_id('test-id-dlp-1234')
+        self.assertEqual(dataset['dlp_id'], dlp.dlp_id)
+
+        dlp_metadata = dataset_manager.get_dlp_by_id(dataset['dlp_id'])
+        self.assertEqual(dlp_metadata['dlp_id'], dlp.dlp_id)
+        new_dlp = DataLoadingPlan().load(dlp_metadata)
+        self.assertIn(dp1, new_dlp)
+        self.assertIn(dp1.type_id, new_dlp)
+        self.assertIn(dp2, new_dlp)
+        self.assertIn(dp2.type_id, new_dlp)
+
+        dataset_manager.db.close()
+
+
+
+
+
+
 
 
 if __name__ == '__main__':  # pragma: no cover
