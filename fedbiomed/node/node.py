@@ -12,7 +12,6 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import TasksQueue
-from fedbiomed.common.data.data_loading_plan import DataLoadingPlan
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -221,7 +220,7 @@ class Node:
                          'extra_msg': "Did not found proper data in local datasets"}
                     ).get_dict())
                 else:
-                    dlp = None
+                    dlp_metadata = None
                     if 'dlp_id' in data:
                         dlp_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
                     self.rounds.append(Round(model_kwargs,

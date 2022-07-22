@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, List, Optional
+from typing import Any, List
 from abc import ABC, abstractmethod
 
 
@@ -268,6 +268,3 @@ class DataLoadingPlanMixin:
             return self._dlp[dp_type_id].apply(*args, **kwargs)
         else:
             return default_ret_value
-
-
-
