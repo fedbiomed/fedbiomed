@@ -224,7 +224,6 @@ class Node:
                     dlp = None
                     if 'dlp_id' in data:
                         dlp_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
-                        dlp = DataLoadingPlan().load(dlp_metadata)
                     self.rounds.append(Round(model_kwargs,
                                              training_kwargs,
                                              training_status,
@@ -236,7 +235,7 @@ class Node:
                                              researcher_id,
                                              hist_monitor,
                                              self.node_args,
-                                             dlp=dlp))
+                                             dlp_metadata=dlp_metadata))
 
     def task_manager(self):
         """Manages training tasks in the queue.

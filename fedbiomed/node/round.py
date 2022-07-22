@@ -39,7 +39,7 @@ class Round:
                  researcher_id: str = None,
                  history_monitor: HistoryMonitor = None,
                  node_args: Union[dict, None] = None,
-                 dlp: Optional[DataLoadingPlan] = None):
+                 dlp_metadata: Optional[dict] = None):
 
         """Constructor of the class
 
@@ -92,7 +92,7 @@ class Round:
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
         self.model = None
         self.training = training
-        self._dlp = dlp
+        self._dlp_metadata = dlp_metadata
 
     def run_model_training(self) -> dict[str, Any]:
         """This method downloads model file; then runs the training of a model
@@ -408,8 +408,14 @@ class Round:
             dataset_parameters = self.dataset.get("dataset_parameters", {})
             data_manager.dataset.set_dataset_parameters(dataset_parameters)
 
-        if self._dlp is not None:
-            data_manager.dataset.set_dlp(self._dlp)
+        if self._dlp_metadata is not None:
+            if hasattr(data_manager.dataset, 'set_dlp'):
+                dlp = DataLoadingPlan().load(self._dlp_metadata)
+                data_manager.dataset.set_dlp(dlp)
+            else:
+                raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Attempting to set DataLoadingPlan "
+                                          f"{self._dlp.name} on dataset of type "
+                                          f"{data_manager.dataset.__class__.__name__} which is not enabled.")
 
         # All Framework based data managers have the same methods
         # If testing ratio is 0,
