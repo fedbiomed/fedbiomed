@@ -19,6 +19,7 @@ from torch.utils.data import Dataset
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.data.data_loading_plan import DataLoadingPlanMixin
 
 
 class NIFTIFolderDataset(Dataset):
@@ -370,7 +371,7 @@ class MedicalFolderBase:
         return path
 
 
-class MedicalFolderDataset(Dataset, MedicalFolderBase):
+class MedicalFolderDataset(Dataset, MedicalFolderBase, DataLoadingPlanMixin):
     """Torch dataset following the Medical Folder Structure.
 
     The Medical Folder structure is loosely inspired by the (BIDS standard)[https://bids.neuroimaging.io/] [1].
@@ -417,9 +418,10 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             tabular_file: Path to a CSV or Excel file containing the demographic information from the patients.
             index_col: Column name in the tabular file containing the subject ids which mush match the folder names.
         """
-        super(MedicalFolderDataset, self).__init__(root=root)
+        super(MedicalFolderDataset, self).__init__()
+        super(Dataset, self).__init__(root=root)
+        super(MedicalFolderBase, self).__init__()
 
-        self._root = Path(root).expanduser().resolve()
         self._tabular_file = tabular_file
         self._index_col = index_col
 
@@ -429,7 +431,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         self._transform = self._check_and_reformat_transforms(transform, data_modalities)
         self._target_transform = self._check_and_reformat_transforms(target_transform, target_modalities)
         self._demographics_transform = demographics_transform
-        
+
         # Image loader
         self._reader = Compose([
             LoadImage(ITKReader(), image_only=True),
@@ -640,7 +642,10 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         subject_data = {}
 
         for modality in modalities:
-            image_folder = subject_folder.joinpath(modality)
+            modality_folder = self.apply_dp(default_ret_value=modality,
+                                            dp_type_id='modalities_to_folders',
+                                            key=modality)
+            image_folder = subject_folder.joinpath(modality_folder)
             nii_files = [p.resolve() for p in image_folder.glob("**/*")
                          if ''.join(p.suffixes) in self.ALLOWED_EXTENSIONS]
 
