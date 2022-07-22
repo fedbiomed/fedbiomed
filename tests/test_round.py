@@ -16,7 +16,8 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
 from fedbiomed.common.logger import logger
 from fedbiomed.common.data import DataManager
-from fedbiomed.common.data.data_loading_plan import DataPipeline, DataLoadingPlanMixin, DataLoadingPlan
+from fedbiomed.common.data.data_loading_plan import DataLoadingPlanMixin, DataLoadingPlan
+from tests.testsupport.testing_data_pipeline import ModifyGetItemDP
 
 
 class TestRound(unittest.TestCase):
@@ -630,31 +631,12 @@ class TestRound(unittest.TestCase):
     def test_round_09_data_loading_plan(self,
                                         patch_inspect_signature,
                                         ):
-        class ModifyGetItemDP(DataPipeline):
-            def __init__(self):
-                super().__init__()
-                self.type_id = 'modify-getitem'
-
-            def modify_getitem_output(self):
-                return 'modified-value'
-
-        class MyDatasetDataLoadingPlanMixin(DataLoadingPlanMixin):
-            def __init__(self):
-                super().__init__()
-
-            def modify_getitem_dp(self, item, value):
-                if self._dlp is not None and 'modify-getitem' in self._dlp:
-                    return self._dlp['modify-getitem'].modify_getitem_output()
-                else:
-                    return value
-
-        class MyDataset(MyDatasetDataLoadingPlanMixin):
+        class MyDataset(DataLoadingPlanMixin):
             def __init__(self):
                 super().__init__()
 
             def __getitem__(self, item):
-                value = self.modify_getitem_dp(item, 'orig-value')
-                return value
+                return self.apply_dp('orig-value', 'modify-getitem')
 
         patch_inspect_signature.return_value = inspect.Signature(parameters={})
 
@@ -675,8 +657,9 @@ class TestRound(unittest.TestCase):
         dataset = training_data_loader.dataset
         self.assertEqual(dataset[0], 'orig-value')
 
+        dlp = DataLoadingPlan([ModifyGetItemDP()])
         r4 = Round(training_kwargs={},
-                   dlp=DataLoadingPlan([ModifyGetItemDP()])
+                   dlp_metadata=dlp.serialize()
                    )
         r4.model = MagicMock()
         r4.model.training_data.return_value = data_manager_mock
