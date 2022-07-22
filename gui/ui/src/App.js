@@ -23,11 +23,16 @@ import SingleModel from "./pages/models/SingleModel";
 import Login from "./pages/authentication/Login";
 import useToken from './pages/authentication/useToken';
 import PocEndpoints from './pages/authentication/PocEndpoints';
+import Logout from "./pages/authentication/Logout";
 
 
 function App(props) {
 
   const { accessToken, removeToken, setToken } = useToken();
+
+  const logOut = useCallback(() => {
+    dispatch(logout());
+  }, [dispatch]);
 
   const dispatch = useDispatch()
 
@@ -106,7 +111,7 @@ function App(props) {
           </div>
         </div>
       </Router>
-      <Modal show={props.result.show} class="info-box" onModalClose={onResultModalClose}>
+      <Modal show={props.result.show} class="info-box" id="message" onModalClose={onResultModalClose}>
          <Modal.Header>
            { props.result.error ? (
                "Error"
@@ -122,6 +127,24 @@ function App(props) {
         </Modal.Footer>
       </Modal>
     </div>
+    <div>
+    <Modal show={false} class="token-expired" id="msg-token-expired" onModalClose={onResultModalClose}>
+         <Modal.Header>
+           { 
+               "Error"
+            }
+         </Modal.Header>
+        <Modal.Content>
+            {props.result.message}
+        </Modal.Content>
+        <Modal.Footer>
+               <ButtonsWrapper alignment={"right"}>
+                        <Button onClick={onResultModalClose}>Close</Button>
+                </ButtonsWrapper>
+        </Modal.Footer>
+      </Modal>
+    </div>
+
     </React.Fragment>
   );
 }

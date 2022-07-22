@@ -45,7 +45,7 @@ const Login = (props) => {
         password: ''}))
 
       event.preventDefault()
-    }
+    } 
 
     const handleChange = (event) => { 
       console.log("into handle change")
@@ -79,12 +79,12 @@ const Login = (props) => {
     useEffect(() => {
         // we hide the navigation tab for the login page
         var my_id_html = document.getElementById("#my_id");  // get the side_nav through its id
-        my_id_html.style.display = "none";
+        my_id_html.style.display = "none";  // hide side_nav bar when login in
         console.log("inside use effect")
         console.log(my_id_html)
         console.log(error)
         console.log(side_nav)
-        setSideNav(my_id_html)
+        setSideNav(my_id_html)  // save ref to object through a hook
         
     }, [data])
 
