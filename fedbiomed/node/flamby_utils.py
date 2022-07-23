@@ -26,6 +26,7 @@ def get_key_from_value(my_dict: dict, val: str):
     Args:
         my_dict: dictionary
         val: value
+
     Returns:
         The key as a string if the value is found, or a string indicating that the key doesn't exist.
     """
@@ -33,3 +34,22 @@ def get_key_from_value(my_dict: dict, val: str):
         if val == value:
             return key
     return "key doesn't exist"
+
+
+def get_transform_compose_flamby(train_transform_flamby: list):
+    """Function allowing to retrieve a Compose function to perform some transformation on a flamby dataset.
+
+    Args:
+        train_transform_flamby: It has to be defined as a list containing two string elements:
+        - the first is the imports needed to perform the transformation
+        - the second is the Compose object that will be used to input the transform parameter of the flamby dataset federated class
+    
+    Returns:
+        A Compose object to input the transform parameter
+    """
+    for i, e in enumerate(train_transform_flamby):
+        if i == 0:
+            exec(e)
+        if i == 1:
+            transform_compose_flamby = eval(e)
+    return transform_compose_flamby
