@@ -75,11 +75,8 @@ class Round:
         for arg in testing_args_keys:
             self.testing_arguments[arg] = training_kwargs.get(arg, None)
             training_kwargs.pop(arg, None)
-
         self.batch_size = training_kwargs.get('batch_size', 48)
-
         training_kwargs.pop('batch_size', None)
-
         self.train_transform_flamby = training_kwargs.get('train_transform_flamby', None)
         self.transform_compose_flamby = None
         if self.train_transform_flamby != None:
@@ -105,7 +102,10 @@ class Round:
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
         self.model = None
         self.training = training
-        self.is_flamby_dataset = (self.dataset.get("dataset_parameters", {}).get("center_id", None) != None)
+        self.is_flamby_dataset = False
+        dataset_parameters = self.dataset.get("dataset_parameters")
+        if type(dataset_parameters) is dict and dataset_parameters.get("flamby", None) == True:
+            self.is_flamby_dataset = True
 
     def run_model_training(self) -> dict[str, Any]:
         """This method downloads model file; then runs the training of a model
