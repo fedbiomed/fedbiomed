@@ -304,9 +304,17 @@ def add_database(interactive: bool = True,
                 module = __import__(available_flamby_datasets[flamby_dataset_index], fromlist='dummy')
                 n_centers = module.NUM_CLIENTS
                 dataset_parameters = {}
-                center_id = int(input(f"Give a center id between 0 and {str(n_centers-1)}: "))
+                keep_asking_for_input = True
+                while keep_asking_for_input:
+                    try:
+                        center_id = int(input(f"Give a center id between 0 and {str(n_centers-1)}: "))
+                        if center_id >= 0 and center_id < n_centers:
+                            keep_asking_for_input = False
+                    except ValueError:
+                        warnings.warn(f'Please input a numeric value (integer) between 0 and {str(n_centers-1)}')
                 dataset_parameters["center_id"] = center_id
                 dataset_parameters["fed_class"] = available_flamby_datasets[flamby_dataset_index]
+                dataset_parameters["flamby"] = True
             else:
                 path = validated_path_input(data_type)
 
