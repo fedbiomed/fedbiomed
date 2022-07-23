@@ -23,6 +23,7 @@ from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.common.constants import TrainingPlans
 
 from fedbiomed.node.flamby_split import _set_training_testing_data_loaders_flamby
+from fedbiomed.node.flamby_utils import get_transform_compose_flamby
 
 
 class Round:
@@ -77,19 +78,7 @@ class Round:
             training_kwargs.pop(arg, None)
         self.batch_size = training_kwargs.get('batch_size', 48)
         training_kwargs.pop('batch_size', None)
-        self.train_transform_flamby = training_kwargs.get('train_transform_flamby', None)
-        self.transform_compose_flamby = None
-        if self.train_transform_flamby != None:
-            for i, e in enumerate(self.train_transform_flamby):
-                if i == 0:
-                    exec(e)
-                if i == 1:
-                    self.transform_compose_flamby = eval(e)
-        training_kwargs.pop('train_transform_flamby', None)
-
-        # Set training arguments after removing validation arguments
-        self.training_kwargs = training_kwargs
-
+        
         self.dataset = dataset
         self.model_url = model_url
         self.model_class = model_class
@@ -103,9 +92,19 @@ class Round:
         self.model = None
         self.training = training
         self.is_flamby_dataset = False
-        dataset_parameters = self.dataset.get("dataset_parameters")
+        dataset_parameters = self.dataset.get("dataset_parameters", None)
         if type(dataset_parameters) is dict and dataset_parameters.get("flamby", None) == True:
             self.is_flamby_dataset = True
+            train_transform_flamby = training_kwargs.get('train_transform_flamby', None)
+            self.transform_compose_flamby = None
+            if train_transform_flamby != None:
+                self.transform_compose_flamby = get_transform_compose_flamby(train_transform_flamby)
+                training_kwargs.pop('train_transform_flamby', None)
+        
+        # Set training arguments after removing validation arguments
+        self.training_kwargs = training_kwargs
+
+
 
     def run_model_training(self) -> dict[str, Any]:
         """This method downloads model file; then runs the training of a model
