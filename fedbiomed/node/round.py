@@ -20,9 +20,9 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.model_manager import ModelManager
 
-from torch.utils.data import DataLoader
-
 from fedbiomed.common.constants import TrainingPlans
+
+from fedbiomed.node.flamby_split import _set_training_testing_data_loaders_flamby
 
 
 class Round:
@@ -77,7 +77,7 @@ class Round:
             training_kwargs.pop(arg, None)
 
         self.batch_size = training_kwargs.get('batch_size', 48)
-        self.batch_size_flamby = training_kwargs.get('batch_size', 2)
+
         training_kwargs.pop('batch_size', None)
 
         self.train_transform_flamby = training_kwargs.get('train_transform_flamby', None)
@@ -105,6 +105,7 @@ class Round:
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
         self.model = None
         self.training = training
+        self.is_flamby_dataset = (self.dataset.get("dataset_parameters", {}).get("center_id", None) != None)
 
     def run_model_training(self) -> dict[str, Any]:
         """This method downloads model file; then runs the training of a model
@@ -195,7 +196,12 @@ class Round:
 
         # Split training and validation data
         try:
-            self._set_training_testing_data_loaders()
+            # Here, a verification of the nature of the dataset is required to determine which dataloader setting process will be
+            # choosed between the particular one needed by FLamby, and the standard one.
+            if self.is_flamby_dataset:
+                self.model = _set_training_testing_data_loaders_flamby(self.dataset, self.model, self.testing_arguments, self.transform_compose_flamby, self.batch_size)
+            else:
+                self._set_training_testing_data_loaders()
         except FedbiomedError as e:
             error_message = f"Can not create validation/train data: {str(e)}"
             return self._send_round_reply(success=False, message=error_message)
@@ -351,13 +357,8 @@ class Round:
             logger.warning('There is no validation activated for the round. Please set flag for `test_on_global_updates`'
                            ', `test_on_loc_set_training_testing_data_loadersal_updates`, or both. Splitting dataset for validation will be ignored')
         
-        # If dataset_parameters is defined and has a key 'center_id' we are dealing with a flamby dataset and the split has to be handled differently
-        is_flamby_dataset = (self.dataset.get("dataset_parameters", {}).get("center_id", None) != None)
-        if is_flamby_dataset:
-            training_data_loader, testing_data_loader = self._split_train_and_test_data_flamby(test_ratio=test_ratio)
-        else:
-            # Setting validation and train subsets based on test_ratio
-            training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
+        training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
+
         # Set models validatino and training parts for model
         self.model.set_data_loaders(train_data_loader=training_data_loader,
                                     test_data_loader=testing_data_loader)
@@ -435,36 +436,3 @@ class Round:
 
         # Split dataset as train and test
         return data_manager.split(test_ratio=test_ratio)
-
-    # /!\ The naming of some methods seems still to be ambiguous
-    # I keep it as it is, but test data refers here to validation data
-    def _split_train_and_test_data_flamby(self, test_ratio: float = 0):
-        """Method for splitting training and validation data for a flamby dataset.
-
-        Returns:
-            Tuple containing the DataLoaders for the train and the validation federated flamby dataset.
-            Validation should be used to perform hyperparameter tuning. That's why the validation set is a subset of the FLamby training set.
-            FLamby test set is accessible by setting train=False in the federated class. This test set should be used to perform the final evaluation
-            of the model, and the performance reached will be the one retained in the benchmark.
-        """
-        training_plan_type = TrainingPlans.TorchTrainingPlan # FLamby dataloaders are all and always based on PyTorch
-        module = __import__(self.dataset['dataset_parameters']['fed_class'], fromlist='dummy')
-        center_id = self.dataset['dataset_parameters']['center_id']
-
-        try:
-            fed_class_train = module.FedClass(transform=self.transform_compose_flamby, center=center_id, train=True, pooled=False) # FLamby pytorch dataloader
-        except Exception: # Some flamby datasets don't have a transform parameter, so we need to ignore it in this case
-            fed_class_train = module.FedClass(center=center_id, train=True, pooled=False)
-
-        train_kwargs = {'batch_size': self.batch_size_flamby, 'shuffle': True}
-        data_manager = DataManager(fed_class_train, **train_kwargs)
-
-        # Specific datamanager based on training plan
-        try:
-            data_manager.load(tp_type=training_plan_type)
-        except FedbiomedError as e:
-            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Error while loading data manager; {str(e)}")
-
-        # Split dataset as train and validation
-        return data_manager.split(test_ratio=test_ratio)
-    
