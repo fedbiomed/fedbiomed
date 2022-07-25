@@ -1,3 +1,4 @@
+import functools
 import unittest
 import os
 import random
@@ -764,6 +765,35 @@ class TestMedicalFolderBase(unittest.TestCase):
 
         # check
         self.assertListEqual(col.tolist(), variable_names)
+
+    def test_medical_folder_base_06_modalities_existing_multiple_names(self):
+        medical_folder_base = MedicalFolderBase(root=self.root)
+
+        modalities_to_folders = {
+            'T1': ['T1siemens', 'T1philips'],
+            'T2': ['T2'],
+            'label': ['label']
+        }
+        all_folder_names = [folder for folders in modalities_to_folders.values() for folder in folders]
+
+        def patch_is_modality_dir(x):
+            """Mock the situation where:
+                subj1 has philips but not siemens,
+                subj2 has siemens but not philips
+            """
+            if x.name == 'T1siemens' and x.match('*/subj1/*'):
+                return False
+            elif x.name == 'T1philips' and x.match('*/subj2/*'):
+                return False
+            elif x.name in all_folder_names:
+                return True
+            else:
+                return False
+
+        with patch('pathlib.Path.is_dir', new=patch_is_modality_dir):
+            complete_subjects = medical_folder_base.complete_subjects(['subj1', 'subj2'],
+                                                                      ['T1', 'T2', 'label'])
+            self.assertTrue(complete_subjects)
 
 
 class TestMedicalFolderController(unittest.TestCase):
