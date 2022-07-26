@@ -496,13 +496,17 @@ class DatasetManager:
              the updated iterable of metadata information objects without privacy-sensitive information
         """
         for d in database_metadata:
-            # common obfuscations
-            d.pop('path', None)
-            # obfuscations specific for each data type
-            if 'data_type' in d:
-                if d['data_type'] == 'medical-folder':
-                    if 'dataset_parameters' in d:
-                        d['dataset_parameters'].pop('tabular_file', None)
+            try:
+                # common obfuscations
+                d.pop('path', None)
+                # obfuscations specific for each data type
+                if 'data_type' in d:
+                    if d['data_type'] == 'medical-folder':
+                        if 'dataset_parameters' in d:
+                            d['dataset_parameters'].pop('tabular_file', None)
+            except AttributeError:
+                raise FedbiomedDatasetManagerError(f"Object of type {type(d)} does not support pop or getitem method "
+                                                   f"in obfuscate_private_information.")
         return database_metadata
 
 
