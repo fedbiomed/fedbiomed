@@ -20,15 +20,13 @@ class DataPipeline(ABC):
     The DataPipeline class is not intended to be instantiated directly.
 
     Subclasses of DataPipline must respect the following conditions:
-    1. implement a default constructor taking no arguments
-    2. the implemented constructor must call super().__init__()
-    3. overwrite self.type_id with a string that identifies the
-       type of functionality expressed by the subclass
-    4. extend the serialize(self) and a load(self, load_from: dict) function
-    5. both serialize and load must call super's serialize and load respectively
-    6. the load function must always return self
-    7. the serialize function must update the dict returned by super's serialize
-    8. implement an apply function that takes arbitrary arguments and applies
+    1. implement a constructor taking exactly one argument, a type_id string
+    2. the implemented constructor must call super().__init__(type_id)
+    3. extend the serialize(self) and a load(self, load_from: dict) function
+    4. both serialize and load must call super's serialize and load respectively
+    5. the load function must always return self
+    6. the serialize function must update the dict returned by super's serialize
+    7. implement an apply function that takes arbitrary arguments and applies
        the logic of the pipeline
     """
     def __init__(self, type_id: str):
