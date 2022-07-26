@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback, useEffect } from 'react'
 import './App.css';
 import {
   BrowserRouter as Router,
@@ -24,21 +24,30 @@ import Login from "./pages/authentication/Login";
 import useToken from './pages/authentication/useToken';
 import PocEndpoints from './pages/authentication/PocEndpoints';
 import Logout from "./pages/authentication/Logout";
+import EventBus from './store/eventBus';
 
 
 function App(props) {
 
-  const { accessToken, removeToken, setToken } = useToken();
+  const { accessToken, removeToken, setToken, getToken } = useToken();
 
-  const logOut = useCallback(() => {
-    dispatch(logout());
-  }, [dispatch]);
+  // const logOut = useCallback(() => {
+  //   dispatch(Logout());
+  // }, [dispatch]);
 
   const dispatch = useDispatch()
 
   const onResultModalClose = () => {
-    dispatch({type:'RESET_GLOBAL_MODAL'})
+    dispatch({type:'RESET_GLOBAL_MODAL'});
   }
+
+// useEffect(() => {
+//   console.log("trying to log out")
+//   EventBus.on("logout", () => { Logout()});
+//   return () => {EventBus.remove("logout");};
+
+// }, [logOut]);
+  console.log("APP")
   let style = {
   //   display: "none"
   };
@@ -77,24 +86,11 @@ function App(props) {
                         <Route path="/pocEndpoints/" element={<PocEndpoints accessToken={accessToken}
                                                                           removeToken={removeToken} 
                                                                           setToken={setToken}/>} />
+                        <Route path="/login/" element={<Login setToken={setToken}/>} />
                       </Routes>
                     </>
                   )}
-                  {/* <Routes>
-                    <Route exact path="/" element={<Home/>} />
-                    <Route path="/login/" element={<Login/>} />
-                    <Route path="/pocEndpoints/" element = {<pocEndpoints/>} />
-                    <Route path="/configuration/" element={<Configuration/>} />
-                    <Route path="/repository/" element={<Repository/>} />
-                    <Route path="/models/" element={<Models/>} />
-                    <Route path="/models/preview/:model_id" element={<SingleModel />} />
-                    <Route path="/datasets/" element={<Datasets/>} />
-                    <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview />} />
-                    <Route path="/datasets/add-dataset/" element={<AddDataset/>} >
-                        <Route index element={<CommonStandards/>} />
-                        <Route path="medical-folder-dataset" element={<MedicalFolderDataset/>} />
-                    </Route>
-                  </Routes> */}
+
                   <div className={`loader-frame ${props.result.loading ?  'active' : ''}`}>
                       <div style={{width:"100%"}}>
                           <div className="lds-ring">

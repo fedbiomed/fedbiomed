@@ -1,9 +1,15 @@
-import {} from "./useToken";
+import useToken from "./useToken";
+import Login from "./Login";
 
 const Logout = (props) => {
     // logOut user
-    props.removeToken();
+    const { accessToken, removeToken, setToken } = useToken();
+
+    //removeToken();
     console.log("user log out!")
+    
+
+  
   };
 
 

@@ -9,21 +9,32 @@ import {ReactComponent as HomeIcon}  from '../../assets/img/home.svg'
 import {ReactComponent as PlusIcon}  from '../../assets/img/plus.svg'
 import {ReactComponent as FileIcon}  from '../../assets/img/file.svg'
 import {useLocation} from "react-router-dom";
+import useToken from '../../pages/authentication/useToken';
 
+// const removeToken = () => {
 
+// sessionStorage.removeItem('accessToken');
+//     sessionStorage.removeItem('refreshToken');
+//     console.log("token removed")
+// }
 // Define menu items
-const items = [
-    { key: '1', label: 'Home', path: '/', icon: HomeIcon},
-    { key: '2', label: 'List Data Files', path: '/repository/', icon: FolderIcon},
-    { key: '3', label: 'TrainingPlans/Models', path: '/models/', icon: FileIcon},
-    { key: '4', label: 'Manage Datasets', path: '/datasets/', icon: DataIcon },
-    { key: '5', label: 'Add New Dataset', path: '/datasets/add-dataset/', icon: PlusIcon },
-    { key: '6', label: 'Node Configuration', path: '/configuration/', icon: ConfIcon },
-  ]
 
 
 const SideNav= (props) => {
 
+    const { removeToken } = useToken();
+
+    const items = [
+        { key: '1', label: 'Home', path: '/', icon: HomeIcon, action: null},
+        { key: '2', label: 'List Data Files', path: '/repository/', icon: FolderIcon, action: null},
+        { key: '3', label: 'TrainingPlans/Models', path: '/models/', icon: FileIcon, action: null},
+        { key: '4', label: 'Manage Datasets', path: '/datasets/', icon: DataIcon, action: null },
+        { key: '5', label: 'Add New Dataset', path: '/datasets/add-dataset/', icon: PlusIcon, action: null },
+        { key: '6', label: 'Node Configuration', path: '/configuration/', icon: ConfIcon, action: null },
+        { key: '7', label: 'Logout', path: '/login/', icon: ConfIcon, action: removeToken}
+      ]
+    
+    
     const location = useLocation()
 
     const [selectedKey, setSelectedKey] = React.useState(items.find(_item => location.pathname.startsWith(_item.path)).key)
@@ -48,12 +59,18 @@ const SideNav= (props) => {
                     {
                         items.map((item,key) => {
                             return (
+                                <React.Fragment>
                                 <NavItem
                                     key={item.key}
                                     label={item.label}
                                     active={selectedKey === item.key ? true : false}
                                     path={item.path} icon={item.icon}
+                                    action={item.action}
                                 />
+                                <p>
+                                
+                                </p>
+                                </React.Fragment>
                             )
                         })
                     }
