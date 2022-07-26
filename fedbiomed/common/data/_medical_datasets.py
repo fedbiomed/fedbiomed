@@ -207,7 +207,7 @@ class NIFTIFolderDataset(Dataset):
         return len(self._files)
 
 
-class MedicalFolderBase:
+class MedicalFolderBase(DataLoadingPlanMixin):
     """Controller class for Medical Folder dataset.
 
     Contains methods to validate the MedicalFolder folder hierarchy and extract folder-base metadata
@@ -220,6 +220,8 @@ class MedicalFolderBase:
         Args:
             root: path to Medical Folder root folder.
         """
+        super(MedicalFolderBase, self).__init__()
+
         if root is not None:
             root = self.validate_MedicalFolder_root_folder(root)
 
@@ -240,8 +242,8 @@ class MedicalFolderBase:
         path = self.validate_MedicalFolder_root_folder(path)
         self._root = path
 
-    def modalities(self) -> Tuple[list, list]:
-        """ Gets all available modalities under root directory
+    def _modalities_candidates_from_subfolders(self) -> Tuple[list, list]:
+        """ Gets all possible modalities under root directory
 
         Returns:
              List of unique available modalities appearing at least once
@@ -251,6 +253,20 @@ class MedicalFolderBase:
         # Accept only folders that don't start with "." and "_"
         modalities = [f.name for f in self._root.glob("*/*") if f.is_dir() and not f.name.startswith((".", "_"))]
         return list(set(modalities)), modalities
+
+    def modalities(self) -> Tuple[list, list]:
+        """Gets all modalities based either on all possible candidates or those provided by the DataLoadingPlan.
+
+        Returns:
+             List of unique available modalities
+             List of all encountered modalities in each subject folder, appearing once per folder
+        """
+        modality_candidates, modality_folders_list = self._modalities_candidates_from_subfolders()
+        if self._dlp is not None and 'modalities_to_folders' in self._dlp:
+            modalities = list(self._dlp['modalities_to_folders'].map.keys())
+            return modalities, modality_folders_list
+        else:
+            return modality_candidates, modality_folders_list
 
     def is_modalities_existing(self, subject: str, modalities: List[str]) -> List[bool]:
         """Checks whether given modalities exists in the subject directory
@@ -264,7 +280,39 @@ class MedicalFolderBase:
         """
         if not isinstance(modalities, list):
             raise FedbiomedDatasetError(f"Expected a list for modalities, but got {type(modalities)}")
-        return [self._root.joinpath(subject, modality).is_dir() for modality in modalities]
+        are_modalities_existing = list()
+        for modality in modalities:
+            modality_folder = self._subject_modality_folder(subject, modality)
+            are_modalities_existing.append(bool(modality_folder) and
+                                           self._root.joinpath(subject, modality_folder).is_dir())
+        return are_modalities_existing
+
+    def _subject_modality_folder(self,
+                                 subject_or_folder: Union[str, Path],
+                                 modality: str) -> Optional[Path]:
+        """Get the folder containing the modality image for a subject.
+
+        It returns the intersection of two sets:
+        - the modality folder names as returned by the DataLoadingPlan (or as inferred by the modality itself)
+        - the first-level subfolders of the subject folder
+
+        :warning: this function will not work properly if the modality images are in nested subfolders!
+
+        Args:
+            subject_or_folder: the Path to the subject folder, or the name of the subject as a str
+            modality: (str) the name of the modality
+        Returns:
+            a Path to the (unique) folder with the modality image, or None. None is returned if no folders
+            were found, or if more than one matching folder was found.
+        """
+        if isinstance(subject_or_folder, str):
+            subject_or_folder = self._root.joinpath(subject_or_folder)
+        modality_folders = set(self.apply_dp([modality], 'modalities_to_folders', modality))
+        subject_subfolders = set([x.name for x in subject_or_folder.iterdir() if x.is_dir() and not x.name.startswith('.')])
+        folder = modality_folders.intersection(subject_subfolders)
+        if len(folder) == 0 or len(folder) > 1:
+            return None
+        return Path(folder.pop())
 
     def complete_subjects(self, subjects: List[str], modalities: List[str]) -> List[str]:
         """Retrieves subjects that have given all the modalities.
@@ -371,7 +419,7 @@ class MedicalFolderBase:
         return path
 
 
-class MedicalFolderDataset(Dataset, MedicalFolderBase, DataLoadingPlanMixin):
+class MedicalFolderDataset(Dataset, MedicalFolderBase):
     """Torch dataset following the Medical Folder Structure.
 
     The Medical Folder structure is loosely inspired by the (BIDS standard)[https://bids.neuroimaging.io/] [1].
@@ -420,7 +468,6 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase, DataLoadingPlanMixin):
         """
         super(MedicalFolderDataset, self).__init__()
         super(Dataset, self).__init__(root=root)
-        super(MedicalFolderBase, self).__init__()
 
         self._tabular_file = tabular_file
         self._index_col = index_col
@@ -588,7 +635,6 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase, DataLoadingPlanMixin):
         return demographics.loc[~demographics.index.duplicated(keep="first")]
 
     @property
-    @cache
     def subjects_has_all_modalities(self):
         """Gets only the subject has required modalities"""
 
@@ -642,9 +688,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase, DataLoadingPlanMixin):
         subject_data = {}
 
         for modality in modalities:
-            modality_folder = self.apply_dp(default_ret_value=modality,
-                                            dp_type_id='modalities_to_folders',
-                                            key=modality)
+            modality_folder = self._subject_modality_folder(subject_folder, modality)
             image_folder = subject_folder.joinpath(modality_folder)
             nii_files = [p.resolve() for p in image_folder.glob("**/*")
                          if ''.join(p.suffixes) in self.ALLOWED_EXTENSIONS]
@@ -857,4 +901,6 @@ class MedicalFolderController(MedicalFolderBase):
         except FedbiomedError as e:
             raise FedbiomedDatasetError(f"Can not create Medical Folder dataset. {e}")
 
+        if self._dlp is not None:
+            dataset.set_dlp(self._dlp)
         return dataset
