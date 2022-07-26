@@ -980,6 +980,28 @@ class TestDatasetManager(unittest.TestCase):
             # and checking if method raises FedbiomedDatasetManagerError
             self.dataset_manager.load_mednist_database(self.tempdir)
 
+    def test_dataset_manager_30_obfuscate_private_information(self):
+        metadata_with_private_info  = [{
+            'path': 'private/info',
+            'nonprivate': 'info',
+            'data_type': 'medical-folder',
+            'dataset_parameters': {
+                'tabular_file': 'private/info',
+                'nonprivate': 'info'
+                                   }
+        }]
+        private_metadata = DatasetManager.obfuscate_private_information(metadata_with_private_info)
+        expected_private_metadata = [{
+            'nonprivate': 'info',
+            'data_type': 'medical-folder',
+            'dataset_parameters': {
+                'nonprivate': 'info'
+            }
+        }]
+        self.assertEqual(private_metadata, expected_private_metadata)
+        with self.assertRaises(FedbiomedDatasetManagerError):
+            _ = DatasetManager.obfuscate_private_information([*metadata_with_private_info, 'non-dict-like'])
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
