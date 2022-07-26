@@ -5,7 +5,7 @@ Interfaces with the node component database.
 
 import csv
 import os.path
-from typing import Union, List, Any
+from typing import Iterable, Union, List, Any
 import uuid
 
 from urllib.request import urlretrieve
@@ -483,7 +483,7 @@ class DatasetManager:
                                           ' implemented on this version.')
 
     @staticmethod
-    def obfuscate_private_information(database_metadata: List[dict]) -> List[dict]:
+    def obfuscate_private_information(database_metadata: Iterable[dict]) -> Iterable[dict]:
         """Remove privacy-sensitive information, to prepare for sharing with a researcher.
 
         Removes any information that could be considered privacy-sensitive by the node. The typical use-case is to
