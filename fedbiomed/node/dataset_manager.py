@@ -483,7 +483,18 @@ class DatasetManager:
                                           ' implemented on this version.')
 
     @staticmethod
-    def obfuscate_private_information(database_metadata: list) -> list:
+    def obfuscate_private_information(database_metadata: List[dict]) -> List[dict]:
+        """Remove privacy-sensitive information, to prepare for sharing with a researcher.
+
+        Removes any information that could be considered privacy-sensitive by the node. The typical use-case is to
+        prevent sharing this information with a researcher through a reply message.
+
+        Args:
+            database_metadata: an iterable of metadata information objects, one per dataset. Each metadata object
+                should be in the format af key-value pairs, such as e.g. a dict.
+        Returns:
+             the updated iterable of metadata information objects without privacy-sensitive information
+        """
         for d in database_metadata:
             # common obfuscations
             d.pop('path', None)
