@@ -15,8 +15,7 @@ from testsupport.fake_uuid import FakeUuid
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
 from fedbiomed.common.logger import logger
-from fedbiomed.common.data import DataManager
-from fedbiomed.common.data.data_loading_plan import DataLoadingPlanMixin, DataLoadingPlan
+from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
 from tests.testsupport.testing_data_pipeline import ModifyGetItemDP
 
 

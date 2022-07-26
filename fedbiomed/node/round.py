@@ -10,8 +10,7 @@ from typing import Union, Any, Optional
 import uuid
 
 from fedbiomed.common.constants import ErrorNumbers, ModelApprovalStatus
-from fedbiomed.common.data import DataManager
-from fedbiomed.common.data.data_loading_plan import DataLoadingPlan
+from fedbiomed.common.data import DataManager, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages

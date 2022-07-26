@@ -24,8 +24,7 @@ from fedbiomed.node.environ import environ
 
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.data import MedicalFolderController
-from fedbiomed.common.data.data_loading_plan import DataLoadingPlan
+from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan
 
 from fedbiomed.common.logger import logger
 

@@ -1,6 +1,5 @@
 import unittest
-from unittest.mock import MagicMock
-from fedbiomed.common.data.data_loading_plan import DataLoadingPlan, DataLoadingPlanMixin, MapperDP
+from fedbiomed.common.data import DataLoadingPlan, DataLoadingPlanMixin, MapperDP
 from tests.testsupport.testing_data_pipeline import PipelineForTesting
 
 

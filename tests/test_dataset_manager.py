@@ -17,10 +17,9 @@ import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 from testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.dataset_manager import DatasetManager, DataLoadingPlan
 
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
-from fedbiomed.common.data.data_loading_plan import DataLoadingPlan, DataPipeline
 from PIL import Image
 from torchvision import transforms, datasets
 

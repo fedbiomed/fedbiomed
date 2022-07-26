@@ -1,4 +1,4 @@
-from fedbiomed.common.data.data_loading_plan import DataPipeline
+from fedbiomed.common.data import DataPipeline
 
 
 class PipelineForTesting(DataPipeline):
