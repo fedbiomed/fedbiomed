@@ -7,7 +7,7 @@ from random import randint, choice
 import shutil
 import tempfile
 from pathlib import Path, PosixPath
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from uuid import uuid4
 
 import itk
@@ -24,6 +24,7 @@ from fedbiomed.common.exceptions import FedbiomedDatasetError
 from torch.utils.data import Dataset
 from torchvision.transforms import Lambda
 from fedbiomed.common.data import MedicalFolderDataset, MedicalFolderBase, MedicalFolderController
+from fedbiomed.common.data.data_loading_plan import DataLoadingPlan, MapperDP
 
 
 class TestNIFTIFolderDataset(unittest.TestCase):
@@ -300,6 +301,49 @@ def _create_wrong_formatted_folder_for_medical_folder(root: str, n_samples: int)
     for subject_id in subject_ids:
         subject_folder = os.path.join(root, subject_id)
         os.makedirs(subject_folder)
+
+## Utilities for testin DataLoadingPlan
+modalities_to_folders = {
+    'T1': ['T1siemens', 'T1philips'],
+    'T2': ['T2'],
+    'label': ['label']
+}
+all_folder_names = [folder for folders in modalities_to_folders.values() for folder in folders]
+
+def patch_is_modality_dir(x):
+    """Mock the situation where:
+        subj1 has philips but not siemens,
+        subj2 has siemens but not philips
+    """
+    if x.name == 'T1siemens' and x.match('*/subj1/*'):
+        return False
+    elif x.name == 'T1philips' and x.match('*/subj2/*'):
+        return False
+    elif x.match('*/subj3/*'):
+        return x.name == 'non-existing-modality'
+    return True
+
+
+def patch_modality_iterdir(x):
+    if x.match('*/subj1'):
+        return [Path('T1philips'), Path('T2'), Path('label')]
+    if x.match('*/subj2'):
+        return [Path('T1siemens'), Path('T2'), Path('label')]
+    if x.match('*/subj3'):
+        return [Path('non-existing-modality')]
+    return [Path('subj1'), Path('subj2'), Path('subj3')]
+
+
+def patch_modality_glob(self, x):
+    if self.name not in all_folder_names:
+        # We are globbing all subject folders
+        for f in [Path('T1philips'), Path('T2'), Path('label')] + \
+                 [Path('T1siemens'), Path('T2'), Path('label')] + \
+                 [Path('non-existing-modality')]:
+            yield f
+    else:
+        # We are globbing one specific modality folder
+        yield Path(self.name + '_test.nii')
 
 
 class TestMedicalFolderDataset(unittest.TestCase):
@@ -631,7 +675,58 @@ class TestMedicalFolderDataset(unittest.TestCase):
         lengths += [demographics.shape[0]]
 
         # Assert for batch size on modalities and demographics
-        self.assertTrue(len(set(lengths)) == 1)           
+        self.assertTrue(len(set(lengths)) == 1)
+
+    @patch('pathlib.Path.iterdir', new=patch_modality_iterdir)
+    @patch('pathlib.Path.is_dir', new=patch_is_modality_dir)
+    @patch('pathlib.Path.glob', new=patch_modality_glob)
+    def test_medical_folder_dataset_15_data_loading_plan(self):
+        medical_folder_controller = MedicalFolderController(root=self.root)
+        dataset = medical_folder_controller.load_MedicalFolder()
+        self.assertFalse(dataset.subject_folders())
+
+        # with DataLoadingPlan
+        medical_folder_controller = MedicalFolderController(root=self.root)
+        dp = MapperDP()
+        dp.type_id = 'modalities_to_folders'
+        dp.map = modalities_to_folders
+        medical_folder_controller.set_dlp(DataLoadingPlan([dp]))
+        dataset = medical_folder_controller.load_MedicalFolder()
+        expected_subject_folders = [Path(self.root).joinpath('subj1'),
+                                    Path(self.root).joinpath('subj2')]
+        self.assertEqual(dataset.subject_folders(), expected_subject_folders)
+        dataset._reader = MagicMock()
+        dataset._reader.side_effect = lambda x: x
+        images_dict = dataset.load_images(Path(self.root).joinpath('subj1'), ['T1', 'T2'])
+        expected_images_dict = {
+            'T1': Path('T1philips_test.nii').resolve(),
+            'T2': Path('T2_test.nii').resolve()
+        }
+        self.assertEqual(images_dict, expected_images_dict)
+        images_dict = dataset.load_images(Path(self.root).joinpath('subj2'), ['T1', 'T2'])
+        expected_images_dict = {
+            'T1': Path('T1siemens_test.nii').resolve(),
+            'T2': Path('T2_test.nii').resolve()
+        }
+        self.assertEqual(images_dict, expected_images_dict)
+        with self.assertRaises(KeyError):
+            _ = dataset.load_images(Path(self.root).joinpath('subj1'), ['non-existing-modality'])
+
+        dataset = MedicalFolderDataset(root=self.root,
+                                       tabular_file=None,
+                                       index_col=None,
+                                       data_modalities=['T1', 'T2'],
+                                       target_modalities=['label'])
+        dataset._reader = MagicMock()
+        dataset._reader.side_effect = lambda x: x
+        with self.assertRaises(FedbiomedDatasetError):
+            _ = dataset[0]
+
+        dataset.set_dlp(DataLoadingPlan([dp]))
+        (data, demographics), label = dataset[0]
+        self.assertEqual(data, {'T1': Path('T1philips_test.nii').resolve(), 'T2': Path('T2_test.nii').resolve()})
+        self.assertEqual(demographics.numel(), 0)
+        self.assertEqual(label, {'label': Path('label_test.nii').resolve()})
 
 
 class TestMedicalFolderBase(unittest.TestCase):
@@ -766,34 +861,49 @@ class TestMedicalFolderBase(unittest.TestCase):
         # check
         self.assertListEqual(col.tolist(), variable_names)
 
+    @patch('pathlib.Path.iterdir', new=patch_modality_iterdir)
+    @patch('pathlib.Path.is_dir', new=patch_is_modality_dir)
+    @patch('pathlib.Path.glob', new=patch_modality_glob)
     def test_medical_folder_base_06_modalities_existing_multiple_names(self):
         medical_folder_base = MedicalFolderBase(root=self.root)
 
-        modalities_to_folders = {
-            'T1': ['T1siemens', 'T1philips'],
-            'T2': ['T2'],
-            'label': ['label']
-        }
-        all_folder_names = [folder for folders in modalities_to_folders.values() for folder in folders]
+        self.assertEqual(
+            medical_folder_base._subject_modality_folder('subj1', 'T1philips'),
+            Path('T1philips'))
+        self.assertIsNone(medical_folder_base._subject_modality_folder('subj1', 'T1siemens'))
 
-        def patch_is_modality_dir(x):
-            """Mock the situation where:
-                subj1 has philips but not siemens,
-                subj2 has siemens but not philips
-            """
-            if x.name == 'T1siemens' and x.match('*/subj1/*'):
-                return False
-            elif x.name == 'T1philips' and x.match('*/subj2/*'):
-                return False
-            elif x.name in all_folder_names:
-                return True
-            else:
-                return False
+        all_modalities = ['T1philips', 'T1siemens', 'T2', 'label', 'non-existing-modality']
+        is_modalities_existing = medical_folder_base.is_modalities_existing('subj1', all_modalities)
+        self.assertEqual(is_modalities_existing, [True, False, True, True, False])
+        is_modalities_existing = medical_folder_base.is_modalities_existing('subj2', all_modalities)
+        self.assertEqual(is_modalities_existing, [False, True, True, True, False])
+        is_modalities_existing = medical_folder_base.is_modalities_existing('subj3', all_modalities)
+        self.assertEqual(is_modalities_existing, [False, False, False, False, True])
 
-        with patch('pathlib.Path.is_dir', new=patch_is_modality_dir):
-            complete_subjects = medical_folder_base.complete_subjects(['subj1', 'subj2'],
-                                                                      ['T1', 'T2', 'label'])
-            self.assertTrue(complete_subjects)
+        complete_subjects = medical_folder_base.complete_subjects(['subj1', 'subj2', 'subj3'], all_modalities)
+        self.assertFalse(complete_subjects)
+
+        # with DataLoadingPlan
+        dp = MapperDP()
+        dp.type_id = 'modalities_to_folders'
+        dp.map = modalities_to_folders
+        medical_folder_base.set_dlp(DataLoadingPlan([dp]))
+
+        self.assertEqual(
+            medical_folder_base._subject_modality_folder('subj1', 'T1'),
+            Path('T1philips'))
+        self.assertIsNone(medical_folder_base._subject_modality_folder('subj3', 'T1'))
+
+        is_modalities_existing = medical_folder_base.is_modalities_existing('subj1', ['T1', 'T2', 'label'])
+        self.assertEqual(is_modalities_existing, [True, True, True])
+        is_modalities_existing = medical_folder_base.is_modalities_existing('subj2', ['T1', 'T2', 'label'])
+        self.assertEqual(is_modalities_existing, [True, True, True])
+        is_modalities_existing = medical_folder_base.is_modalities_existing('subj3', ['T1', 'T2', 'label'])
+        self.assertEqual(is_modalities_existing, [False, False, False])
+
+        complete_subjects = medical_folder_base.complete_subjects(['subj1', 'subj2', 'subj3'],
+                                                                  ['T1', 'T2', 'label'])
+        self.assertEqual(complete_subjects, ['subj1', 'subj2'])
 
 
 class TestMedicalFolderController(unittest.TestCase):
@@ -830,6 +940,33 @@ class TestMedicalFolderController(unittest.TestCase):
             res = medical_folder_controller.subject_modality_status(patient_selected)
             self.assertListEqual(sorted(patient_ids),
                                  sorted(res['index']))
+
+
+    @patch('pathlib.Path.iterdir', new=patch_modality_iterdir)
+    @patch('pathlib.Path.is_dir', new=patch_is_modality_dir)
+    @patch('pathlib.Path.glob', new=patch_modality_glob)
+    def test_medical_folder_controller_02_modalities(self):
+        medical_folder_controller = MedicalFolderController(self.root)
+        unique_modalities, modalities = medical_folder_controller.modalities()
+        expected_unique_modalities = set(['T1philips', 'label', 'T2', 'non-existing-modality', 'T1siemens'])
+        expected_modalities = ['T1philips', 'T2', 'label', 'T1siemens', 'T2', 'label', 'non-existing-modality']
+        self.assertEqual(set(unique_modalities), expected_unique_modalities)
+        self.assertEqual(modalities, expected_modalities)
+
+        dp = MapperDP()
+        dp.type_id = 'modalities_to_folders'
+        dp.map = modalities_to_folders
+        medical_folder_controller.set_dlp(DataLoadingPlan([dp]))
+        unique_modalities, modalities = medical_folder_controller.modalities()
+        expected_unique_modalities = set(['T1', 'T2', 'label'])
+        self.assertEqual(set(unique_modalities), expected_unique_modalities)
+        self.assertEqual(modalities, expected_modalities)
+
+
+
+
+
+
 
 
 if __name__ == '__main__':
