@@ -631,6 +631,7 @@ class TestRound(unittest.TestCase):
     def test_round_09_data_loading_plan(self,
                                         patch_inspect_signature,
                                         ):
+        """Test that Round correctly handles a DataLoadingPlan during training"""
         class MyDataset(DataLoadingPlanMixin):
             def __init__(self):
                 super().__init__()
@@ -657,7 +658,7 @@ class TestRound(unittest.TestCase):
         dataset = training_data_loader.dataset
         self.assertEqual(dataset[0], 'orig-value')
 
-        dlp = DataLoadingPlan([ModifyGetItemDP()])
+        dlp = DataLoadingPlan([ModifyGetItemDP('modify-getitem')])
         r4 = Round(training_kwargs={},
                    dlp_metadata=dlp.serialize()
                    )

@@ -11,6 +11,7 @@ class TestDataPipeline(unittest.TestCase):
         self.dp2 = PipelineForTesting('pipeline_for_testing')
 
     def test_data_pipeline_01_equality(self):
+        """Tests checking equality of DataPipeline"""
         dp3 = MapperDP('testing-mapper')
         self.assertEqual(self.dp1, self.dp2)
         self.assertEqual(self.dp1, 'pipeline_for_testing')
@@ -22,6 +23,7 @@ class TestDataPipeline(unittest.TestCase):
         self.assertFalse(self.dp1.data == self.dp2.data)
 
     def test_data_pipeline_02_serialize_and_load(self):
+        """Tests that DataPipeline is serialized and loaded correctly"""
         self.dp1.data = self.changed_data
         self.assertFalse(self.dp1.data == self.dp2.data)
         serialized = self.dp1.serialize()
@@ -45,6 +47,7 @@ class TestDataPipeline(unittest.TestCase):
         self.assertEqual('testing-mapper', dp5)
 
     def test_data_pipeline_03_apply(self):
+        """Tests that the apply function of DataPipeline works as intended"""
         self.dp2.data = self.changed_data
         dp3 = MapperDP('testing-mapper')
         dp3.map = self.changed_data
@@ -66,7 +69,8 @@ class TestDataLoadingPlan(unittest.TestCase):
         self.assertDictEqual(self.dp1.data, self.dp2.data)
         self.dp2.data = {'my': 'different-data'}
 
-    def test_data_loading_plan_01_list_and_str_interface(self):
+    def test_data_loading_plan_01_interface(self):
+        """Tests that DataLoadingPlan exposes the correct interface to the developer"""
         dlp = DataLoadingPlan()
         dlp.append(self.dp1)
         dlp.append(self.dp2)
@@ -91,6 +95,7 @@ class TestDataLoadingPlan(unittest.TestCase):
         self.assertIn('other_testing_pipeline', str_repr)
 
     def test_data_loading_plan_02_serialize_and_load(self):
+        """Tests that a DataLoadingPlan can be serialized and loaded correctly"""
         dlp = DataLoadingPlan()
         dlp.append(self.dp1)
         dlp.append(self.dp2)
@@ -109,6 +114,7 @@ class TestDataLoadingPlan(unittest.TestCase):
             self.assertEqual(v1, v2)
 
     def test_data_loading_plan_03_mixin_functionality(self):
+        """Tests that the DataLoadingPlanMixin class provides the intended functionality"""
         class MyDataset(DataLoadingPlanMixin):
             def __init__(self):
                 super(MyDataset, self).__init__()
@@ -127,6 +133,7 @@ class TestDataLoadingPlan(unittest.TestCase):
         self.assertIn('other_testing_pipeline', tp._dlp)
 
     def test_data_loading_plan_04_apply(self):
+        """Tests application of a DataLoadingPlan's DataPipeline"""
         class MyDataset(DataLoadingPlanMixin):
             def __init__(self):
                 super(MyDataset, self).__init__()

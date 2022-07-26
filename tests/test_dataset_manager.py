@@ -983,12 +983,12 @@ class TestDatasetManager(unittest.TestCase):
 
     @patch('os.path.isdir')
     def test_dataset_manager_30_data_loading_plan_save(self, patch_isdir):
+        """Tests that DatasetManager correctly saves a DataLoadingPlan"""
         patch_isdir.return_value = True
         from test_data_loading_plan import PipelineForTesting
 
-        dp1 = PipelineForTesting()
-        dp2 = PipelineForTesting()
-        dp2.type_id = 'other_testing_pipeline'
+        dp1 = PipelineForTesting('pipeline_for_testing')
+        dp2 = PipelineForTesting('other_testing_pipeline')
         dp2.data = {'some': 'other data'}
 
         dlp = DataLoadingPlan()
@@ -1015,9 +1015,9 @@ class TestDatasetManager(unittest.TestCase):
         self.assertEqual(dlp_metadata['dlp_id'], dlp.dlp_id)
         new_dlp = DataLoadingPlan().load(dlp_metadata)
         self.assertIn(dp1, new_dlp)
-        self.assertIn(dp1.type_id, new_dlp)
+        self.assertIn('pipeline_for_testing', new_dlp)
         self.assertIn(dp2, new_dlp)
-        self.assertIn(dp2.type_id, new_dlp)
+        self.assertIn('other_testing_pipeline', new_dlp)
 
         dataset_manager.db.close()
 
