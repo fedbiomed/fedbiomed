@@ -31,15 +31,15 @@ class DataPipeline(ABC):
     8. implement an apply function that takes arbitrary arguments and applies
        the logic of the pipeline
     """
-    def __init__(self):
+    def __init__(self, type_id: str):
         super(DataPipeline, self).__init__()
-        self.type_id = "abstract data pipeline"
+        self.__type_id = type_id
 
     def __eq__(self, other):
         if isinstance(other, str):
-            return self.type_id == other
+            return self.__type_id == other
         elif isinstance(other, DataPipeline):
-            return self.type_id == other.type_id
+            return self.__type_id == other.__type_id
         return False
 
     def serialize(self):
@@ -52,7 +52,7 @@ class DataPipeline(ABC):
         return dict(
             pipeline_class=self.__class__.__name__,
             pipeline_module=self.__module__,
-            type_id=self.type_id
+            type_id=self.__type_id
         )
 
     def load(self, load_from: dict):
@@ -63,7 +63,7 @@ class DataPipeline(ABC):
         Returns:
             the self instance
         """
-        self.type_id = load_from['type_id']
+        self.__type_id = load_from['type_id']
         return self
 
     @abstractmethod
@@ -89,9 +89,8 @@ class MapperDP(DataPipeline):
     Multiple instances of this pipeline may be used in the same DataLoadingPlan,
     provided that they are given different type_id via the constructor.
     """
-    def __init__(self):
-        super(MapperDP, self).__init__()
-        self.type_id = 'default mapper pipeline'
+    def __init__(self, type_id: str):
+        super(MapperDP, self).__init__(type_id)
         self.map = {}
 
     def serialize(self):
@@ -211,14 +210,14 @@ class DataLoadingPlan(List[DataPipeline]):
         self.name = load_from['dlp_name']
         for pipeline in load_from['pipelines']:
             exec(f"import {pipeline['pipeline_module']}")
-            dp = eval(f"{pipeline['pipeline_module']}.{pipeline['pipeline_class']}()")
+            dp = eval(f"{pipeline['pipeline_module']}.{pipeline['pipeline_class']}('{pipeline['type_id']}')")
             self.append(dp.load(pipeline))
         return self
 
     def __str__(self):
         """User-friendly string representation"""
         return f"Data Loading Plan {self.name} id: {self.dlp_id} "\
-               f"containing: {'; '.join([p.type_id for p in self.__iter__()])}"
+               f"containing: {'; '.join([p.serialize()['type_id'] for p in self.__iter__()])}"
 
 
 class DataLoadingPlanMixin:

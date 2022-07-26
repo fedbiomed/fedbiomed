@@ -2,8 +2,8 @@ from fedbiomed.common.data.data_loading_plan import DataPipeline
 
 
 class PipelineForTesting(DataPipeline):
-    def __init__(self):
-        self.type_id = 'pipeline_for_testing'
+    def __init__(self, type_id: str):
+        super(PipelineForTesting, self).__init__(type_id)
         self.data = {'my': 'data'}
 
     def serialize(self):
@@ -21,8 +21,8 @@ class PipelineForTesting(DataPipeline):
 
 
 class ModifyGetItemDP(DataPipeline):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, type_id: str):
+        super(ModifyGetItemDP, self).__init__(type_id)
         self.type_id = 'modify-getitem'
 
     def apply(self):

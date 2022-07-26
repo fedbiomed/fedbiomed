@@ -5,60 +5,54 @@ from tests.testsupport.testing_data_pipeline import PipelineForTesting
 
 
 class TestDataPipeline(unittest.TestCase):
-    changed_data = {'my': 'different-data'}
+    def setUp(self):
+        self.changed_data = {'my': 'different-data'}
+        self.dp1 = PipelineForTesting('pipeline_for_testing')
+        self.dp2 = PipelineForTesting('pipeline_for_testing')
 
     def test_data_pipeline_01_equality(self):
-        dp1 = PipelineForTesting()
-        dp2 = PipelineForTesting()
-        dp3 = MapperDP()
-        dp3.type_id = 'testing-mapper'
-        self.assertEqual(dp1, dp2)
-        self.assertEqual(dp1, 'pipeline_for_testing')
+        dp3 = MapperDP('testing-mapper')
+        self.assertEqual(self.dp1, self.dp2)
+        self.assertEqual(self.dp1, 'pipeline_for_testing')
         self.assertEqual(dp3, 'testing-mapper')
-        self.assertNotEqual(dp1, dp3)
-        self.assertNotEqual(dp2, dp3)
-        dp2.data = self.changed_data
-        self.assertEqual(dp1, dp2)  # Equality is based only on type_id, not data!
-        self.assertFalse(dp1.data == dp2.data)
+        self.assertNotEqual(self.dp1, dp3)
+        self.assertNotEqual(self.dp2, dp3)
+        self.dp2.data = self.changed_data
+        self.assertEqual(self.dp1, self.dp2)  # Equality is based only on type_id, not data!
+        self.assertFalse(self.dp1.data == self.dp2.data)
 
     def test_data_pipeline_02_serialize_and_load(self):
-        dp1 = PipelineForTesting()
-        dp2 = PipelineForTesting()
-        dp2.data = self.changed_data
-        self.assertFalse(dp1.data == dp2.data)
-        serialized = dp1.serialize()
-        dp2.load(serialized)
-        self.assertDictEqual(dp1.data, dp2.data)
+        self.dp1.data = self.changed_data
+        self.assertFalse(self.dp1.data == self.dp2.data)
+        serialized = self.dp1.serialize()
+        self.dp2.load(serialized)
+        self.assertDictEqual(self.dp1.data, self.dp2.data)
 
         exec(f"import {serialized['pipeline_module']}")
-        dp3 = eval(f"{serialized['pipeline_module']}.{serialized['pipeline_class']}()")
+        dp3 = eval(f"{serialized['pipeline_module']}.{serialized['pipeline_class']}('{serialized['type_id']}')")
         dp3.load(serialized)
-        self.assertEqual(dp1.type_id, dp3.type_id)
-        self.assertDictEqual(dp1.data, dp3.data)
+        self.assertEqual(self.dp1, dp3)
+        self.assertDictEqual(self.dp1.data, dp3.data)
 
-        dp4 = MapperDP()
-        dp4.type_id = 'testing-mapper'
+        dp4 = MapperDP('testing-mapper')
         self.assertEqual(dp4, 'testing-mapper')
         serialized = dp4.serialize()
         exec(f"import {serialized['pipeline_module']}")
-        dp5 = eval(f"{serialized['pipeline_module']}.{serialized['pipeline_class']}()")
+        dp5 = eval(f"{serialized['pipeline_module']}.{serialized['pipeline_class']}('{serialized['type_id']}')")
         dp5.load(serialized)
         self.assertEqual('testing-mapper', dp5)
         dp5 = dp5.load(serialized)
         self.assertEqual('testing-mapper', dp5)
 
     def test_data_pipeline_03_apply(self):
-        dp1 = PipelineForTesting()
-        dp2 = PipelineForTesting()
-        dp2.data = self.changed_data
-        dp3 = MapperDP()
-        dp3.type_id = 'testing-mapper'
+        self.dp2.data = self.changed_data
+        dp3 = MapperDP('testing-mapper')
         dp3.map = self.changed_data
 
-        apply_1 = dp1.apply()
+        apply_1 = self.dp1.apply()
         self.assertEqual(len(apply_1), 1)
         self.assertIn('data', apply_1)
-        apply_2 = dp2.apply()
+        apply_2 = self.dp2.apply()
         self.assertEqual(len(apply_2), 1)
         self.assertIn('different-data', apply_2)
         apply_3 = dp3.apply('my')
@@ -67,11 +61,10 @@ class TestDataPipeline(unittest.TestCase):
 
 class TestDataLoadingPlan(unittest.TestCase):
     def setUp(self):
-        self.dp1 = PipelineForTesting()
-        self.dp2 = PipelineForTesting()
+        self.dp1 = PipelineForTesting('pipeline_for_testing')
+        self.dp2 = PipelineForTesting('other_testing_pipeline')
         self.assertDictEqual(self.dp1.data, self.dp2.data)
-        self.dp2.type_id = 'other_testing_pipeline'
-        self.dp2.data = TestDataPipeline.changed_data
+        self.dp2.data = {'my': 'different-data'}
 
     def test_data_loading_plan_01_list_and_str_interface(self):
         dlp = DataLoadingPlan()
@@ -94,8 +87,8 @@ class TestDataLoadingPlan(unittest.TestCase):
 
         str_repr = str(dlp)
         self.assertIn(dlp.dlp_id, str_repr)
-        self.assertIn(self.dp1.type_id, str_repr)
-        self.assertIn(self.dp2.type_id, str_repr)
+        self.assertIn('pipeline_for_testing', str_repr)
+        self.assertIn('other_testing_pipeline', str_repr)
 
     def test_data_loading_plan_02_serialize_and_load(self):
         dlp = DataLoadingPlan()
@@ -144,8 +137,7 @@ class TestDataLoadingPlan(unittest.TestCase):
 
         tp = MyDataset()
         dlp = DataLoadingPlan()
-        dp = MapperDP()
-        dp.type_id = 'testing-mapper'
+        dp = MapperDP('testing-mapper')
         dp.map = {'orig-key': 'new-key'}
         dlp.append(dp)
 
