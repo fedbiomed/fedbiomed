@@ -308,7 +308,8 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         if isinstance(subject_or_folder, str):
             subject_or_folder = self._root.joinpath(subject_or_folder)
         modality_folders = set(self.apply_dp([modality], 'modalities_to_folders', modality))
-        subject_subfolders = set([x.name for x in subject_or_folder.iterdir() if x.is_dir() and not x.name.startswith('.')])
+        subject_subfolders = set(
+            [x.name for x in subject_or_folder.iterdir() if x.is_dir() and not x.name.startswith('.')])
         folder = modality_folders.intersection(subject_subfolders)
         if len(folder) == 0 or len(folder) > 1:
             return None
