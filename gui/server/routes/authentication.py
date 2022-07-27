@@ -88,7 +88,7 @@ def admin_required(func):
 
 
 
-@api.route('/register', methods=['POST'])
+@api.route('/register', methods=['POST', 'GET'])
 @validate_request_data(schema=ValidateUserFormRequest)
 def register():
     """ API endpoint to register new user in the database.
