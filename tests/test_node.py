@@ -839,7 +839,7 @@ class TestNode(unittest.TestCase):
     def test_node_24_on_message_search_privacy_obfuscation(self,
                                                            messaging_send_msg_patch
                                                            ):
-        """Tests that privacy-sensitive information is not revealed"""
+        """Tests that privacy-sensitive information is not revealed (here path files)"""
 
         databases = [dict(
             data_type='medical-folder',

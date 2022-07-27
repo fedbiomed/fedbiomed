@@ -981,6 +981,7 @@ class TestDatasetManager(unittest.TestCase):
             self.dataset_manager.load_mednist_database(self.tempdir)
 
     def test_dataset_manager_30_obfuscate_private_information(self):
+        """Tests if error is raised if dataset is not parsable when calling `obfuscate_privte_information"""
         metadata_with_private_info  = [{
             'path': 'private/info',
             'nonprivate': 'info',
