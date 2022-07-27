@@ -687,8 +687,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
 
         # with DataLoadingPlan
         medical_folder_controller = MedicalFolderController(root=self.root)
-        dp = MapperDP()
-        dp.type_id = 'modalities_to_folders'
+        dp = MapperDP('modalities_to_folders')
         dp.map = modalities_to_folders
         medical_folder_controller.set_dlp(DataLoadingPlan([dp]))
         dataset = medical_folder_controller.load_MedicalFolder()
@@ -884,8 +883,7 @@ class TestMedicalFolderBase(unittest.TestCase):
         self.assertFalse(complete_subjects)
 
         # with DataLoadingPlan
-        dp = MapperDP()
-        dp.type_id = 'modalities_to_folders'
+        dp = MapperDP('modalities_to_folders')
         dp.map = modalities_to_folders
         medical_folder_base.set_dlp(DataLoadingPlan([dp]))
 
@@ -953,8 +951,7 @@ class TestMedicalFolderController(unittest.TestCase):
         self.assertEqual(set(unique_modalities), expected_unique_modalities)
         self.assertEqual(modalities, expected_modalities)
 
-        dp = MapperDP()
-        dp.type_id = 'modalities_to_folders'
+        dp = MapperDP('modalities_to_folders')
         dp.map = modalities_to_folders
         medical_folder_controller.set_dlp(DataLoadingPlan([dp]))
         unique_modalities, modalities = medical_folder_controller.modalities()
