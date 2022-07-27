@@ -28,6 +28,9 @@ class DataPipeline(ABC):
     6. the serialize function must update the dict returned by super's serialize
     7. implement an apply function that takes arbitrary arguments and applies
        the logic of the pipeline
+
+    Attributes:
+        __type_id: (str) identifies the type of customization implemented by the DataPipeline
     """
     def __init__(self, type_id: str):
         super(DataPipeline, self).__init__()
@@ -48,7 +51,7 @@ class DataPipeline(ABC):
              the DataPipeline.
         """
         return dict(
-            pipeline_class=self.__class__.__name__,
+            pipeline_class=self.__class__.__qualname__,
             pipeline_module=self.__module__,
             type_id=self.__type_id
         )
