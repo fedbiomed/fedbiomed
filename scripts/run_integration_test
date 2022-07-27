@@ -183,9 +183,9 @@ cleaning() {
     # clean running node processes
     if [ -z "$ALL_PIDS" ]
     then
-        echo "** INFO: no node process to kill"
+        echo "== INFO: no node process to kill"
     else
-        echo "** INFO: killing node processes: $ALL_PIDS"
+        echo "== INFO: killing node processes: $ALL_PIDS"
         kill -15 $ALL_PIDS
         sleep 3
         kill -9 $ALL_PIDS 2> /dev/null
@@ -215,7 +215,7 @@ cleaning() {
     # clean files
     if [ ! -z "$FILES_TO_CLEAN" ]
     then
-        echo "** INFO: cleaning file(s): $FILES_TO_CLEAN"
+        echo "== INFO: cleaning file(s): $FILES_TO_CLEAN"
         /bin/rm -f $FILES_TO_CLEAN
     fi
 
@@ -231,8 +231,36 @@ cleaning_trap() {
 
     banner "integration test interrupted"
     cleaning
-    echo "** Failure: script was interrupted"
+    echo "== Failure: script was interrupted"
     exit 1
+}
+
+find_gtimeout() {
+    #
+    # as it's name explains
+    #
+    case $(uname) in
+        Linux )
+            CMD_TIMEOUT="/usr/bin/timeout"
+            return
+            ;;
+        Darwin )
+            for c in /usr/local/bin/gtimeout /opt/homebrew/bin/gtimeout
+            do
+                if [ -x "$c" ]
+                then
+                    CMD_TIMEOUT=$c
+                    return
+                fi
+            done
+            echo "== ERROR Please install gtimeout using: brew install coreutils"
+            exit 1
+            ;;
+        *)
+            echo "== ERROR This script is only supported on Linux and Apple Mac OSX"
+            exit 1
+            ;;
+    esac
 }
 
 
@@ -252,23 +280,7 @@ banner "decoding & verifying arguments"
 CURRENT_DIR=$(pwd)
 
 # prerequisite: OS specific commands
-case $(uname) in
-    Linux )
-        CMD_TIMEOUT=/usr/bin/timeout
-        ;;
-    Darwin )
-        CMD_TIMEOUT=/usr/local/bin/gtimeout
-        if [ ! -x "${CMD_TIMEOUT}" ]
-        then
-            echo "** ERROR Please install ${CMD_TIMEOUT} using: brew install coreutils"
-            exit 1
-        fi
-        ;;
-    *)
-        echo "** ERROR This script is only supported on Linux and Apple Mac OSX"
-        exit 1
-        ;;
-esac
+find_gtimeout
 
 # argument decoding
 SCRIPT=""          # script to run as a researcher
@@ -347,7 +359,7 @@ i=0
 while [ $i -lt ${#DATASETS[@]} ]
 do
     dataset=${DATASETS[$i]}
-    [[ -f $dataset ]] || { echo "** ERROR dataset does not exist: $dataset" ; exit 1 ;}
+    [[ -f $dataset ]] || { echo "== ERROR dataset does not exist: $dataset" ; exit 1 ;}
     i=$(( $i + 1 ))
 done
 
@@ -361,9 +373,9 @@ CMD_TO_RUN=$(script_executor $SCRIPT)
 # if CMD_TO_RUN is an ipython script, we should clean the file at the end
 case $CMD_TO_RUN in
     ERROR*)
-      echo "** $CMD_TO_RUN"  # this is an error message in fact
+      echo "== $CMD_TO_RUN"  # this is an error message in fact
       cleaning
-      echo "** $CMD_TO_RUN"  # repeat at the end of the script for lisibility
+      echo "== $CMD_TO_RUN"  # repeat at the end of the script for lisibility
       exit 1
     ;;
     ipython*)
@@ -391,7 +403,7 @@ do
 
     if [ ! -f "$dataset" ]
     then
-        echo "** ERROR: dataset $dataset is not a valid"
+        echo "== ERROR: dataset $dataset is not a valid"
         cleaning
         exit 1
     fi
@@ -403,11 +415,11 @@ do
     ALL_CONFIG+=("$config")
 
     # populate node
-    echo "** INFO: populating fedbiomed node"
+    echo "== INFO: populating fedbiomed node"
     $basedir/scripts/fedbiomed_run node config ${config} -adff $dataset
 
     # launch node
-    echo "** INFO: launching fedbiomed node"
+    echo "== INFO: launching fedbiomed node"
     $basedir/scripts/fedbiomed_run node config ${config} start &
     pid=$!
     sleep 10
@@ -430,9 +442,9 @@ cleaning
 banner "quitting"
 if [ $status -eq 0 ]
 then
-    echo "** Success"
+    echo "== Success"
     exit 0
 else
-    echo "** Failure with status: $status"
+    echo "== Failure with status: $status"
     exit 1
 fi
