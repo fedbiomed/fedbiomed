@@ -29,24 +29,26 @@ import EventBus from './store/eventBus';
 
 function App(props) {
 
-  const { accessToken, removeToken, setToken, getToken } = useToken();
+  const { accessToken, removeToken, setToken, getToken, checkIsTokenActive } = useToken();
 
-  // const logOut = useCallback(() => {
-  //   dispatch(Logout());
-  // }, [dispatch]);
+  const dispatch = useDispatch();
+  const logOut = useCallback(() => {
+    dispatch(Logout());
+  }, [dispatch]);
 
-  const dispatch = useDispatch()
 
   const onResultModalClose = () => {
     dispatch({type:'RESET_GLOBAL_MODAL'});
   }
 
-// useEffect(() => {
-//   console.log("trying to log out")
-//   EventBus.on("logout", () => { Logout()});
-//   return () => {EventBus.remove("logout");};
+useEffect(() => {
+  console.log("into use effect")
+  console.log(checkIsTokenActive())
+  EventBus.on("logout", () => { logOut()});
+  return () => {EventBus.remove("logout");};
+});
 
-// }, [logOut]);
+
   console.log("APP")
   let style = {
   //   display: "none"

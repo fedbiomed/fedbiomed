@@ -26,6 +26,7 @@ const useToken = () => {
     sessionStorage.removeItem('refreshToken');
     console.log("TOKEN REMOVED")
     setToken(null);
+    alert("User deconnected")
   }
   
   const checkIsTokenActive = () => {
@@ -34,14 +35,15 @@ const useToken = () => {
 
     const token = getToken();
       
-    const decoded_token = null;
+    let decoded_token = null;
     try {
        decoded_token = JSON.parse(atob(token.split(".")[1]));
     } catch (e) {
       decoded_token =  null;
     };
+    console.log(decoded_token)
     
-    if ((decoded_token !== null) && (decoded_token.exp * 1000 < Date.now())) {
+    if ((decoded_token !== null) && (decoded_token.exp > Date.now())) {
       return true
     } else {
       return false

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from "react-router-dom";
 import axios from 'axios';
 import { EP_LOGIN, EP_REGISTER, LOGIN, REGISTER } from '../../constants';
 import Modal from '../../components/common/Modal';
@@ -7,6 +8,7 @@ import Button from "../../components/common/Button";
 
 const Login = (props) => {
 
+  const navigate = useNavigate();
     const [loginForm, setloginForm] = useState({
       email: '',
       password: ''
@@ -30,6 +32,7 @@ const Login = (props) => {
         } else if (action === REGISTER && response.status === 201) {
           SetMessage({show:true, header: 'Successfully registered', msg: 'You can now log in !'})
         }
+        navigate('/')  // redirect to home
       }).catch((error) => {
         console.log("found error!")
         console.log(error)
@@ -52,6 +55,7 @@ const Login = (props) => {
       const {value, name} = event.target
       setloginForm(prevNote => ({
           ...prevNote, [name]: value})
+
       )}
 
     /**
