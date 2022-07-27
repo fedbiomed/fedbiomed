@@ -5,7 +5,7 @@ Interfaces with the node component database.
 
 import csv
 import os.path
-from typing import Union, List, Any
+from typing import Iterable, Union, List, Any
 import uuid
 
 from urllib.request import urlretrieve
@@ -481,3 +481,32 @@ class DatasetManager:
             else:
                 raise NotImplementedError(f'Mode `{mode}` has not been'
                                           ' implemented on this version.')
+
+    @staticmethod
+    def obfuscate_private_information(database_metadata: Iterable[dict]) -> Iterable[dict]:
+        """Remove privacy-sensitive information, to prepare for sharing with a researcher.
+
+        Removes any information that could be considered privacy-sensitive by the node. The typical use-case is to
+        prevent sharing this information with a researcher through a reply message.
+
+        Args:
+            database_metadata: an iterable of metadata information objects, one per dataset. Each metadata object
+                should be in the format af key-value pairs, such as e.g. a dict.
+        Returns:
+             the updated iterable of metadata information objects without privacy-sensitive information
+        """
+        for d in database_metadata:
+            try:
+                # common obfuscations
+                d.pop('path', None)
+                # obfuscations specific for each data type
+                if 'data_type' in d:
+                    if d['data_type'] == 'medical-folder':
+                        if 'dataset_parameters' in d:
+                            d['dataset_parameters'].pop('tabular_file', None)
+            except AttributeError:
+                raise FedbiomedDatasetManagerError(f"Object of type {type(d)} does not support pop or getitem method "
+                                                   f"in obfuscate_private_information.")
+        return database_metadata
+
+
