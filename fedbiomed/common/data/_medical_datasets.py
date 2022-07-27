@@ -292,6 +292,11 @@ class MedicalFolderBase(DataLoadingPlanMixin):
                                  modality: str) -> Optional[Path]:
         """Get the folder containing the modality image for a subject.
 
+        When we interrogate the DataLoadingPlan for the folder names corresponding to a given modality, we obtain
+        a list of possibilities. But which one is right depends on which one actually exists among the subject's
+        subfolders. This function is responsible for finding this, by inspecting all the subfolders and comparing
+        their names to the list of possibilities provided by the DataLoadingPlan.
+
         It returns the intersection of two sets:
         - the modality folder names as returned by the DataLoadingPlan (or as inferred by the modality itself)
         - the first-level subfolders of the subject folder
