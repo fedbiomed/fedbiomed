@@ -4,6 +4,7 @@ from datetime import timedelta
 from flask import Flask, render_template, send_from_directory, request, redirect, url_for
 from flask_jwt_extended import JWTManager
 from http import HTTPStatus
+#from routes.authentication import bp_auth
 
 from config import Config
 # Import api route blueprint before importing routes
@@ -38,9 +39,12 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'CHANGE ME')
 CERTIFICATE_NAME = os.getenv('CERTIFICATE_NAME', None)
 PRIVATE_KEY_NAME = os.getenv('PRIVATE_KEY_NAME', None)
 
+
+
+
 jwt = JWTManager(app)
 app.register_blueprint(api)
-
+#app.register_blueprint(bp_auth)
 
 # Routes for react build directory
 @app.route('/', defaults={'path': ''}, methods=['GET'])
@@ -88,7 +92,7 @@ def set_hsts_header(response):
 
 def hsts_header():
     """Returns the proper HSTS policy."""
-    hsts_age = 100000
+    hsts_age = 100_000
     hsts_policy = 'max-age={0}'.format(hsts_age)
 
     if self.hsts_include_subdomains:

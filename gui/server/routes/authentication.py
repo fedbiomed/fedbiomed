@@ -5,9 +5,9 @@ from functools import wraps
 from hashlib import sha512
 
 from db import gui_database
-from flask import request
+from flask import request, Blueprint
 from flask_jwt_extended import (jwt_required, create_access_token, create_refresh_token, unset_jwt_cookies,
-                                verify_jwt_in_request, get_jwt)
+                                verify_jwt_in_request, get_jwt, set_access_cookies, set_refresh_cookies)
 from utils import error, response
 
 from fedbiomed.common.constants import UserRoleType
@@ -15,9 +15,12 @@ from gui.server.schemas import ValidateUserFormRequest
 from gui.server.utils import success, validate_request_data
 from . import api
 
+
+
 table = gui_database.db().table('_default')
 query = gui_database.query()
 
+#bp_auth = Blueprint('bp_auth', 'bp_auth',  url_prefix='/api')
 
 def set_password_hash(password: str) -> str:
     """ Method for setting password hash 
@@ -212,11 +215,14 @@ def refresh_expiring_jwts():
     access_token = create_access_token(identity=jwt["sub"], additional_claims=additional_claims)
     refresh_token = create_refresh_token(identity=jwt["sub"], additional_claims=additional_claims)
     # TODO: Invalidate old refresh tokens; they should be used only once
-    return response(
+    resp = response(
         data={
             "access_token": access_token, 
             "refresh_token": refresh_token}, 
-        message='Access token successfully refreshed'), 200
+        message='Access token successfully refreshed')
+    set_access_cookies(resp, access_token)
+    set_refresh_cookies(resp, refresh_token)
+    return resp, 200
 
 
 @api.route('/protected', methods=['GET'])

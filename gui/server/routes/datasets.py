@@ -2,9 +2,10 @@ import os
 import re
 import uuid
 
+
 from app import app
 from db import node_database
-from flask import request
+from flask import request, current_app
 from middlewares import middleware, common
 from schemas import AddDataSetRequest, \
     RemoveDatasetRequest, \
@@ -14,7 +15,7 @@ from schemas import AddDataSetRequest, \
     ListDatasetRequest, \
     GetCsvData
 from utils import success, error, validate_request_data, response
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt, verify_jwt_in_request
 from fedbiomed.node.dataset_manager import DatasetManager
 from . import api
 
@@ -25,8 +26,8 @@ DATA_PATH_RW = app.config['DATA_PATH_RW']
 
 
 @api.route('/datasets/list', methods=['POST'])
-@validate_request_data(schema=ListDatasetRequest)
-@jwt_required()
+#@validate_request_data(schema=ListDatasetRequest)
+@jwt_required(optional=True)
 def list_datasets():
     """
     List Datasets saved into Node DB
@@ -47,10 +48,12 @@ def list_datasets():
             message: The message for response
     """
     req = request.json
+    #print("current app", current_app.__dict__)
     search = req.get('search', None)
     table = node_database.db().table('_default')
     query = node_database.query()
-
+    print('verif', verify_jwt_in_request(optional=True))
+    print("REQUEST")
     table.clear_cache()
     if search is not None and search != "":
         res = table.search(query.name.search(search + '+') | query.description.search(search + '+'))
@@ -66,7 +69,7 @@ def list_datasets():
 
 @api.route('/datasets/remove', methods=['POST'])
 @validate_request_data(schema=RemoveDatasetRequest)
-@jwt_required()
+#@jwt_required(optional=True)
 def remove_dataset():
     """ API endpoint to remove single dataset from database.
     This method removed dataset from database not from file system.
@@ -108,7 +111,7 @@ def remove_dataset():
 @api.route('/datasets/add', methods=['POST'])
 @validate_request_data(schema=AddDataSetRequest)
 @middleware(middlewares=[common.check_tags_already_registered])
-@jwt_required()
+#@jwt_required(optional=True)
 def add_dataset():
     """ API endpoint to add single dataset to the database. Currently it
         uses some methods of data set manager.
@@ -196,7 +199,7 @@ def add_dataset():
 
 @api.route('/datasets/update', methods=['POST'])
 @validate_request_data(schema=UpdateDatasetRequest)
-@jwt_required()
+#@jwt_required(optional=True)
 def update_dataset():
     """API endpoint for updating dataset
 
@@ -233,7 +236,7 @@ def update_dataset():
 
 @api.route('/datasets/preview', methods=['POST'])
 @validate_request_data(schema=PreviewDatasetRequest)
-@jwt_required()
+#@jwt_required(optional=True)
 def get_preview_dataset():
     """API endpoint for getting preview information for dataset
     ----
@@ -287,7 +290,7 @@ def get_preview_dataset():
 
 @api.route('/datasets/add-default-dataset', methods=['POST'])
 @validate_request_data(schema=AddDefaultDatasetRequest)
-@jwt_required()
+#@jwt_required(optional=True)
 def add_default_dataset():
     """API endpoint for adding default dataset
 
@@ -370,7 +373,7 @@ def add_default_dataset():
 
 @api.route('/datasets/get-csv-data', methods=['POST'])
 @validate_request_data(schema=GetCsvData)
-@jwt_required()
+#@jwt_required(optional=True)
 def get_csv_data():
     """
     Loads csv from given path

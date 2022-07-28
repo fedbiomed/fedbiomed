@@ -4,7 +4,7 @@ from app import app
 from utils import response
 
 from fedbiomed.node.environ import environ
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, verify_jwt_in_request
 from . import api
 
 
@@ -25,6 +25,7 @@ def node_id():
     result = {
         'node_id': app.config['NODE_ID']
     }
+    print('verif', verify_jwt_in_request())
 
     return response(result), 200
 
