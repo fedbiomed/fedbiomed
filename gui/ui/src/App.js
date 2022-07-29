@@ -22,7 +22,7 @@ import Models from "./pages/models/Models";
 import SingleModel from "./pages/models/SingleModel";
 import Login from "./pages/authentication/Login";
 import useToken from './pages/authentication/useToken';
-import PocEndpoints from './pages/authentication/PocEndpoints';
+import PocEndpoints from './pages/authentication/PocEndpoints'; //for testing purposes
 import Logout from "./pages/authentication/Logout";
 import EventBus from './store/eventBus';
 
@@ -44,8 +44,8 @@ function App(props) {
 useEffect(() => {
   console.log("into use effect")
   console.log(checkIsTokenActive())
-  EventBus.on("logout", () => { logOut()});
-  return () => {EventBus.remove("logout");};
+  EventBus.on("logOut", () => { logOut()});
+  return () => {EventBus.remove("logOut");};
 });
 
 
@@ -74,7 +74,9 @@ useEffect(() => {
                         <Route exact path="/" element={<Home/>} />
                         {/* <Route path="/login/" element={<Login/>} /> */}
                         {/* <Route path="/pocEndpoints/" element = {<pocEndpoints/>} /> */}
-                        <Route path="/configuration/" element={<Configuration/>} />
+                        <Route path="/configuration/" element={<Configuration/>}
+                        render={({ staticContext }) => {
+                          console.log("UNAUTH")}} />
                         <Route path="/repository/" element={<Repository/>} />
                         <Route path="/models/" element={<Models/>} />
                         <Route path="/models/preview/:model_id" element={<SingleModel />} />
@@ -89,7 +91,18 @@ useEffect(() => {
                                                                           removeToken={removeToken} 
                                                                           setToken={setToken}/>} />
                         <Route path="/login/" element={<Login setToken={setToken}/>} />
-                      </Routes>
+                        {/* Dealing with inexistant paths TODO: render message into a erro box + add redirection*/}
+                        {/*path="*" stands for all others routes */}
+                        <Route
+                              path="*" 
+                              status={404} 
+                              element={
+                                <main style={{ padding: "1rem" }}>
+                                  <p>Error 404: there is nothing here</p>
+                                </main>
+                              }
+                            />
+                    </Routes>
                     </>
                   )}
 

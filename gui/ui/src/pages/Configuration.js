@@ -1,7 +1,9 @@
 import React from 'react';
-import axios from 'axios';
+import axios from '../AxiosErrorHandler';
 import  {TableInfo} from "../components/common/Tables"
 import {EP_CONFIG_NODE_ENVIRON} from '../constants'
+
+
 const Configuration = (props) => {
 
     const [config, setConfig] = React.useState(null)

@@ -1,5 +1,6 @@
 
 // API Endpoints
+export const API_ROOT                   = '/api'
 export const EP_DATASET_PREVIEW         = '/api/datasets/preview'
 export const EP_DATASETS_LIST           = '/api/datasets/list'
 export const EP_DATASET_REMOVE          = '/api/datasets/remove'

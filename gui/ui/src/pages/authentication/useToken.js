@@ -1,17 +1,12 @@
 import { useState } from 'react';
 
+import { getToken, checkIsTokenActive } from './tokenFunc';
+
 const useToken = () => {
 
   //const [accessToken, setToken] = useState(null);
 
-  const getToken = () => {
-    const accessToken = sessionStorage.getItem('accessToken');
-    // const refreshToken = sessionStorage.getItem('refreshToken');
-    console.log("token")
-    console.log(accessToken)
-    return accessToken && accessToken
-  };
-
+  
   const [accessToken, setToken] = useState(getToken()); 
 
   const saveToken = (accessToken, refreshToken) => {
@@ -29,26 +24,6 @@ const useToken = () => {
     alert("User deconnected")
   }
   
-  const checkIsTokenActive = () => {
-    // checks if session token is still active (has not expired)
-    // returns false if token has expired (meaning user should login again)
-
-    const token = getToken();
-      
-    let decoded_token = null;
-    try {
-       decoded_token = JSON.parse(atob(token.split(".")[1]));
-    } catch (e) {
-      decoded_token =  null;
-    };
-    console.log(decoded_token)
-    
-    if ((decoded_token !== null) && (decoded_token.exp > Date.now())) {
-      return true
-    } else {
-      return false
-    }
-  }
 
   return {
     setToken: saveToken,
