@@ -16,10 +16,11 @@ import fedbiomed.common.__init__
 import fedbiomed.common.constants
 import fedbiomed.common.data.__init__
 import fedbiomed.common.data._data_manager
-import fedbiomed.common.data._sklearn_data_manager
-import fedbiomed.common.data._torch_data_manager
-import fedbiomed.common.data._tabular_dataset
 import fedbiomed.common.data._medical_datasets
+import fedbiomed.common.data._sklearn_data_manager
+import fedbiomed.common.data._tabular_dataset
+import fedbiomed.common.data._torch_data_manager
+import fedbiomed.common.data.data_loading_plan
 import fedbiomed.common.environ
 import fedbiomed.common.exceptions
 import fedbiomed.common.json
@@ -41,7 +42,7 @@ import fedbiomed.common.validator
 import fedbiomed.node.__init__
 import fedbiomed.node.cli
 import fedbiomed.node.dataset_manager
-#import fedbiomed.node.environ
+import fedbiomed.node.environ
 import fedbiomed.node.history_monitor
 import fedbiomed.node.model_manager
 import fedbiomed.node.node
@@ -52,7 +53,7 @@ import fedbiomed.researcher.aggregators.aggregator
 import fedbiomed.researcher.aggregators.fedavg
 import fedbiomed.researcher.aggregators.functional
 import fedbiomed.researcher.datasets
-#import fedbiomed.researcher.environ
+import fedbiomed.researcher.environ
 import fedbiomed.researcher.experiment
 import fedbiomed.researcher.filetools
 import fedbiomed.researcher.job

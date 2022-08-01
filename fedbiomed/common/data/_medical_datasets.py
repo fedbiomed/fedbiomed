@@ -259,7 +259,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
 
         # Accept only folders that don't start with "." and "_"
         modalities = [f.name for f in self._root.glob("*/*") if f.is_dir() and not f.name.startswith((".", "_"))]
-        return list(set(modalities)), modalities
+        return sorted(list(set(modalities))), modalities
 
     def modalities(self) -> Tuple[list, list]:
         """Gets all modalities based either on all possible candidates or those provided by the DataLoadingPlan.
@@ -927,27 +927,30 @@ def load_medical_folder_dataset_from_cli(interactive: bool,
     path = validated_path_input(type='dir')
     controller = MedicalFolderController(path)
     dlp = None  # placeholder for DataLoadingPlan
-    # get tabular file
-    print('Please select the demographics file (must be CSV or TSV)')
-    tabular_file_path = validated_path_input(type='csv')
-    # get index col from user
-    column_values = controller.demographics_column_names(tabular_file_path)
-    print("\nHere are all the columns contained in demographics file:\n")
-    for i, col in enumerate(column_values):
-        print(f'{i:3} : {col}')
-    if interactive:
-        keep_asking_for_input = True
-        while keep_asking_for_input:
-            try:
-                index_col = input('\nPlease input the (numerical) index of the column containing '
-                                  'the subject ids corresponding to image folder names \n')
-                index_col = int(index_col)
-                keep_asking_for_input = False
-            except ValueError:
-                warnings.warn('Please input a numeric value (integer)')
     dataset_parameters = {} if dataset_parameters is None else dataset_parameters
-    dataset_parameters['tabular_file'] = tabular_file_path
-    dataset_parameters['index_col'] = index_col
+
+    choice = input('\nWould you like to select a demographics csv file? [y/N]\n')
+    if choice.lower() == 'y':
+        # get tabular file
+        print('Please select the demographics file (must be CSV or TSV)')
+        tabular_file_path = validated_path_input(type='csv')
+        # get index col from user
+        column_values = controller.demographics_column_names(tabular_file_path)
+        print("\nHere are all the columns contained in demographics file:\n")
+        for i, col in enumerate(column_values):
+            print(f'{i:3} : {col}')
+        if interactive:
+            keep_asking_for_input = True
+            while keep_asking_for_input:
+                try:
+                    index_col = input('\nPlease input the (numerical) index of the column containing '
+                                      'the subject ids corresponding to image folder names \n')
+                    index_col = int(index_col)
+                    keep_asking_for_input = False
+                except ValueError:
+                    warnings.warn('Please input a numeric value (integer)')
+        dataset_parameters['tabular_file'] = tabular_file_path
+        dataset_parameters['index_col'] = index_col
     modality_folder_names, _ = controller.modalities_candidates_from_subfolders()
     print("\nThe following modalities were detected:\n", "\n".join([m for m in modality_folder_names]))
     if interactive:
@@ -992,6 +995,6 @@ def get_map_modalities2folders_from_cli(modality_folder_names: List[str]):
                     map_modalities_to_folders[modality_names[modality_idx]].append(modality_folder)
                     keep_asking_for_this_modality = False
     dp = MapperDP('modalities_to_folders')
-    dp.map = map_modalities_to_folders
+    dp.map = dict(map_modalities_to_folders)
     return dp
 
