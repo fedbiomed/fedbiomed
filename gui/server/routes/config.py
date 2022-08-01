@@ -5,10 +5,12 @@ from utils import response
 
 from fedbiomed.node.environ import environ
 from flask_jwt_extended import jwt_required, verify_jwt_in_request
+from .authentication import admin_required
 from . import api
 
 
 @api.route('/config/node-id', methods=['GET'])
+@jwt_required()
 def node_id():
     """ API enpoint to get node id which GUI will be working for
 
@@ -25,12 +27,14 @@ def node_id():
     result = {
         'node_id': app.config['NODE_ID']
     }
-    print('verif', verify_jwt_in_request())
+
 
     return response(result), 200
 
 
 @api.route('/config/node-environ', methods=['GET'])
+@jwt_required()
+@admin_required
 def fedbiomed_environ():
     """ Endpoint that return current configuration for node
 

@@ -194,11 +194,15 @@ def login():
         }
         access_token = create_access_token(identity=user["user_id"], fresh=True, additional_claims=additional_claims)
         refresh_token = create_refresh_token(identity=user["user_id"], additional_claims=additional_claims)
-        return response(
+        resp =  response(
             data={
                 "access_token": access_token, 
-                "refresh_token": refresh_token}, 
-            message='User successfully logged in'), 200
+                "refresh_token": refresh_token,
+                }, 
+            message='User successfully logged in')
+        # set_access_cookies(resp, access_token)
+        # set_refresh_cookies(resp, refresh_token)
+        return resp, 200
     return error('Please verify your email and/or your password'), 401
 
 
@@ -220,8 +224,8 @@ def refresh_expiring_jwts():
             "access_token": access_token, 
             "refresh_token": refresh_token}, 
         message='Access token successfully refreshed')
-    set_access_cookies(resp, access_token)
-    set_refresh_cookies(resp, refresh_token)
+    # set_access_cookies(resp, access_token)
+    # set_refresh_cookies(resp, refresh_token)
     return resp, 200
 
 

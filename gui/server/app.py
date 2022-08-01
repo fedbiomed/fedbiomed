@@ -26,7 +26,7 @@ app.config.update(config.generate_config())
 # access or refresh JWT via a cookie or an Authorization Bearer header.
 app.config['JWT_TOKEN_LOCATION'] = ['headers', 'cookies']
 app.config['JWT_COOKIE_SECURE'] = True
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] =  timedelta(hours=1)
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
 app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=15)
 app.config['JWT_COOKIE_CSRF_PROTECT'] = True
 app.config['JWT_ENCODE_ISSUER'] = app.config['NODE_ID']

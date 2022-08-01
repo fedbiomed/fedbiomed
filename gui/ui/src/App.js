@@ -25,28 +25,31 @@ import useToken from './pages/authentication/useToken';
 import PocEndpoints from './pages/authentication/PocEndpoints'; //for testing purposes
 import Logout from "./pages/authentication/Logout";
 import EventBus from './store/eventBus';
+//import { createBrowserHistory } from 'history';
+
 
 
 function App(props) {
 
+  //const history = new createBrowserHistory();
   const { accessToken, removeToken, setToken, getToken, checkIsTokenActive } = useToken();
 
   const dispatch = useDispatch();
-  const logOut = useCallback(() => {
-    dispatch(Logout());
-  }, [dispatch]);
+  // const logOut = useCallback(() => {
+  //   dispatch(Logout());
+  // }, [dispatch]);
 
 
   const onResultModalClose = () => {
     dispatch({type:'RESET_GLOBAL_MODAL'});
   }
 
-useEffect(() => {
-  console.log("into use effect")
-  console.log(checkIsTokenActive())
-  EventBus.on("logOut", () => { logOut()});
-  return () => {EventBus.remove("logOut");};
-});
+// useEffect(() => {
+//   console.log("into use effect")
+//   console.log(checkIsTokenActive())
+//   EventBus.on("logOut", () => { logOut()});
+//   return () => {EventBus.remove("logOut");};
+// });
 
 
   console.log("APP")
@@ -56,7 +59,7 @@ useEffect(() => {
 
   return (
     <React.Fragment>
-    <div className="App">
+    <div className="App" last_url_visited="lolo">
       <Router>
         <div className="layout-wrapper">
           <div className="main-side-bar" id="#my_id" style={style}>

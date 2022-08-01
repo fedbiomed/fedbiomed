@@ -26,8 +26,8 @@ DATA_PATH_RW = app.config['DATA_PATH_RW']
 
 
 @api.route('/datasets/list', methods=['POST'])
-#@validate_request_data(schema=ListDatasetRequest)
-@jwt_required(optional=True)
+@validate_request_data(schema=ListDatasetRequest)
+@jwt_required()
 def list_datasets():
     """
     List Datasets saved into Node DB
