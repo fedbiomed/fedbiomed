@@ -3,10 +3,12 @@
 Provides classes managing dataset for common cases of use in healthcare:
 - NIFTI: For NIFTI medical images
 """
+import warnings
 from os import PathLike
 from pathlib import Path
 from typing import Union, Tuple, Dict, Iterable, Optional, List, Callable
 from enum import Enum
+from collections import defaultdict
 
 import torch
 import pandas as pd
@@ -20,7 +22,7 @@ from torch.utils.data import Dataset
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
 from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlocks
-from ._data_loading_plan import DataLoadingPlanMixin
+from ._data_loading_plan import DataLoadingPlanMixin, DataLoadingPlan, MapperDP
 
 
 class MedicalFolderLoadingBlocks(DataLoadingBlocks, Enum):
@@ -216,7 +218,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
     """Controller class for Medical Folder dataset.
 
     Contains methods to validate the MedicalFolder folder hierarchy and extract folder-base metadata
-    in formation such as modalities number of subject etc.
+    information such as modalities, number of subject etc.
     """
 
     def __init__(self, root: Union[str, Path, None] = None):
@@ -247,7 +249,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         path = self.validate_MedicalFolder_root_folder(path)
         self._root = path
 
-    def _modalities_candidates_from_subfolders(self) -> Tuple[list, list]:
+    def modalities_candidates_from_subfolders(self) -> Tuple[list, list]:
         """ Gets all possible modalities under root directory
 
         Returns:
@@ -915,3 +917,81 @@ class MedicalFolderController(MedicalFolderBase):
         if self._dlp is not None:
             dataset.set_dlp(self._dlp)
         return dataset
+
+
+def load_medical_folder_dataset_from_cli(interactive: bool,
+                                         dataset_parameters: Optional[dict],
+                                         dlp: Optional[DataLoadingPlan]):
+    from fedbiomed.node.cli import validated_path_input
+    print('Please select the root folder of the Medical Folder dataset')
+    path = validated_path_input(type='dir')
+    controller = MedicalFolderController(path)
+    dlp = None  # placeholder for DataLoadingPlan
+    # get tabular file
+    print('Please select the demographics file (must be CSV or TSV)')
+    tabular_file_path = validated_path_input(type='csv')
+    # get index col from user
+    column_values = controller.demographics_column_names(tabular_file_path)
+    print("\nHere are all the columns contained in demographics file:\n")
+    for i, col in enumerate(column_values):
+        print(f'{i:3} : {col}')
+    if interactive:
+        keep_asking_for_input = True
+        while keep_asking_for_input:
+            try:
+                index_col = input('\nPlease input the (numerical) index of the column containing '
+                                  'the subject ids corresponding to image folder names \n')
+                index_col = int(index_col)
+                keep_asking_for_input = False
+            except ValueError:
+                warnings.warn('Please input a numeric value (integer)')
+    dataset_parameters = {} if dataset_parameters is None else dataset_parameters
+    dataset_parameters['tabular_file'] = tabular_file_path
+    dataset_parameters['index_col'] = index_col
+    modality_folder_names, _ = controller.modalities_candidates_from_subfolders()
+    print("\nThe following modalities were detected:\n", "\n".join([m for m in modality_folder_names]))
+    if interactive:
+        choice = input('\nWould you like to associate the detected modalities with other modality names? [y/N]\n')
+        if choice.lower() == 'y':
+            dp = get_map_modalities2folders_from_cli(modality_folder_names)
+            if dlp is None:
+                dlp = DataLoadingPlan([dp])
+            else:
+                dlp.append(dp)
+    return path, dataset_parameters, dlp
+
+
+def get_map_modalities2folders_from_cli(modality_folder_names: List[str]):
+    modality_names = ['Manually insert new modality name', 'T1', 'T2', 'label']
+    map_modalities_to_folders = defaultdict(list)
+    for modality_folder in modality_folder_names:
+        keep_asking_for_this_modality = True
+        while keep_asking_for_this_modality:
+            for i, m in enumerate(modality_names):
+                print(f"{i:3} : {m}")
+            try:
+                modality_idx = input(f"\nPlease choose the modality corresponding to\n {modality_folder} \nby inserting"
+                                     f" the index number from the list above\n")
+                modality_idx = int(modality_idx)
+            except ValueError:
+                warnings.warn('Please input a numeric value (integer)')
+            else:
+                # Only execute this branch if a numeric value was correctly inserted
+                if modality_idx == 0:
+                    keep_asking = True
+                    while keep_asking:
+                        new_modality_name = input('\nPlease input the new modality name\n')
+                        confirm = input(f'\nThe new modality {new_modality_name} will be added to the list. Do'
+                                        f'you confirm? [Y/n]')
+                        if confirm.lower() == 'y' or confirm == '':
+                            modality_names.append(new_modality_name)
+                            keep_asking = False
+                elif modality_idx >= len(modality_names):
+                    warnings.warn('Please input a number equal to one of the indices in the list above.')
+                else:
+                    map_modalities_to_folders[modality_names[modality_idx]].append(modality_folder)
+                    keep_asking_for_this_modality = False
+    dp = MapperDP('modalities_to_folders')
+    dp.map = map_modalities_to_folders
+    return dp
+
