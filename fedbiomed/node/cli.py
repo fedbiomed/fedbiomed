@@ -27,7 +27,7 @@ from pygments.formatters import Terminal256Formatter
 
 from fedbiomed.common.constants  import ModelApprovalStatus, ModelTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError, FedbiomedDatasetManagerError
-from fedbiomed.common.data import MedicalFolderController
+from fedbiomed.common.data._medical_datasets import load_medical_folder_dataset_from_cli
 
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.environ import environ
@@ -195,6 +195,9 @@ def add_database(interactive: bool = True,
         data_type: Keyword for the data type of the dataset.
     """
 
+    dataset_parameters = None
+    data_loading_plan = None
+
     # if all args are provided, just try to load the data
     # if not, ask the user more informations
     if interactive or \
@@ -211,8 +214,6 @@ def add_database(interactive: bool = True,
             data_type = validated_data_type_input()
         else:
             data_type = 'default'
-
-        dataset_parameters = None
 
         if data_type == 'default':
             tags = ['#MNIST', "#dataset"]
@@ -241,30 +242,9 @@ def add_database(interactive: bool = True,
             description = input('Description: ')
 
             if data_type == 'medical-folder':
-                # get medical-folder root
-                print('Please select the root folder of the Medical Folder dataset')
-                path = validated_path_input(type='dir')
-                # get tabular file
-                print('Please select the demographics file (must be CSV or TSV)')
-                tabular_file_path = validated_path_input(type='csv')
-                # get index col from user
-                column_values = MedicalFolderController.demographics_column_names(tabular_file_path)
-                print("\nHere are all the columns contained in demographics file:\n")
-                for i, col in enumerate(column_values):
-                    print(f'{i:3} : {col}')
-                if interactive:
-                    keep_asking_for_input = True
-                    while keep_asking_for_input:
-                        try:
-                            index_col = input('\nPlease input the (numerical) index of the column containing '
-                                              'the subject ids corresponding to image folder names \n')
-                            index_col = int(index_col)
-                            keep_asking_for_input = False
-                        except ValueError:
-                            warnings.warn('Please input a numeric value (integer)')
-                dataset_parameters = {} if dataset_parameters is None else dataset_parameters
-                dataset_parameters['tabular_file'] = tabular_file_path
-                dataset_parameters['index_col'] = index_col
+                path, dataset_parameters, data_loading_plan = load_medical_folder_dataset_from_cli(interactive,
+                                                                                                   dataset_parameters,
+                                                                                                   data_loading_plan)
             else:
                 path = validated_path_input(data_type)
 
@@ -285,8 +265,9 @@ def add_database(interactive: bool = True,
         if not os.path.exists(path):
             logger.critical("provided path does not exists: " + path)
 
-        # quick fix, but is this what we expect on the line just after ????
-        dataset_parameters = None
+    if interactive and data_loading_plan is not None:
+        print(f'The {data_loading_plan} will be saved.')
+        data_loading_plan.name = input('Optionally input a name to help you identify the data loading plan:\n')
 
     # Add database
     try:
@@ -295,7 +276,8 @@ def add_database(interactive: bool = True,
                                      data_type=data_type,
                                      description=description,
                                      path=path,
-                                     dataset_parameters=dataset_parameters)
+                                     dataset_parameters=dataset_parameters,
+                                     data_loading_plan=data_loading_plan)
     except (AssertionError, FedbiomedDatasetManagerError) as e:
         if interactive is True:
             try:
