@@ -5,7 +5,6 @@ from utils import response
 
 from fedbiomed.node.environ import environ
 from flask_jwt_extended import jwt_required, verify_jwt_in_request
-from .authentication import admin_required
 from . import api
 
 
@@ -34,7 +33,6 @@ def node_id():
 
 @api.route('/config/node-environ', methods=['GET'])
 @jwt_required()
-@admin_required
 def fedbiomed_environ():
     """ Endpoint that return current configuration for node
 

@@ -14,8 +14,8 @@ export const EP_LOAD_CSV_DATA           = '/api/datasets/get-csv-data'
 // Authentication endpoints
 export const EP_LOGIN                   = '/api/token/auth'
 export const EP_REFRESH                 = '/api/token/refresh'
-export const EP_LOGOUT                  = 'api/token/remove'
-export const EP_REGISTER                = 'api/register'
+export const EP_LOGOUT                  = '/api/token/remove'
+export const EP_REGISTER                = '/api/register'
 
 // Authentication actions
 export const LOGIN                      = 'LOGIN'

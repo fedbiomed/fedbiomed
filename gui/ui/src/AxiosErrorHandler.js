@@ -4,6 +4,7 @@ import { get } from 'lodash';
 import axios from 'axios';
 import { getToken, checkIsTokenActive }  from './pages/authentication/tokenFunc';
 import { createBrowserHistory } from 'history';
+import { configure } from '@testing-library/react';
 //import GetLastWebpageUrl from './utils';
 
 // const ErrorHandler = ({ children }) => {
@@ -34,6 +35,11 @@ import { createBrowserHistory } from 'history';
   axios.interceptors.request.use(function (req) {
       // Do something before request is sent
       console.log("GOT RESPONSE DATA")
+      const token = getToken();
+      if (token){
+        req.headers.Authorization = `Bearer ${token}`;
+        console.log(req.headers.Authorization)
+      }
       return req;
     }, function (error) {
       // Do something with request error
@@ -56,7 +62,6 @@ import { createBrowserHistory } from 'history';
       // Any status codes that falls outside the range of 2xx cause this function to trigger
       // Do something with response error
       const history = new createBrowserHistory();
-      console.log()
       switch (error.request.status){
         case 404:
           // should be handled by React's Router (see App.js)
@@ -76,14 +81,13 @@ import { createBrowserHistory } from 'history';
               
             }
             else{
-              alert("Unsufficient privieleges")
+              alert("Unsufficient privileges")
               //redirect to previous page
-              //var previous_url = document.referrer;
-              //window.location.href = history;
               history.back()
             }
           }else{
-            if (window.location.href.toString().split(window.location.host)[1] !== '/login'){
+            let link = window.location.href.toString().split(window.location.host)[1];
+            if ( (link !== '/login') && ( link !== '/login/')){
               handleTokenExpiration()
             }
 

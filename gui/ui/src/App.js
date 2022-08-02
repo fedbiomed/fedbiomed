@@ -23,6 +23,7 @@ import SingleModel from "./pages/models/SingleModel";
 import Login from "./pages/authentication/Login";
 import useToken from './pages/authentication/useToken';
 import PocEndpoints from './pages/authentication/PocEndpoints'; //for testing purposes
+import LogUserLayout, {ProtectedRoute} from './components/layout/LogUserLayout'
 import Logout from "./pages/authentication/Logout";
 import EventBus from './store/eventBus';
 //import { createBrowserHistory } from 'history';
@@ -59,106 +60,85 @@ function App(props) {
 
   return (
     <React.Fragment>
-    <div className="App" last_url_visited="lolo">
-      <Router>
-        <div className="layout-wrapper">
-          <div className="main-side-bar" id="#my_id" style={style}>
-            <SideNav/>
-          </div>
-          <div className="main-frame">
-              <div className="router-frame">
-                <div className="inner"> 
-                  {/* If the user is not logged in, redirect towards login page */}
-                  {!accessToken && accessToken!=="" && accessToken!== undefined?  
-                  <Login setToken={setToken} />
-                  :(
-                    <>
-                      <Routes>
-                        <Route exact path="/" element={<Home/>} />
-                        {/* <Route path="/login/" element={<Login/>} /> */}
-                        {/* <Route path="/pocEndpoints/" element = {<pocEndpoints/>} /> */}
-                        <Route path="/configuration/" element={<Configuration/>}
-                        render={({ staticContext }) => {
-                          console.log("UNAUTH")}} />
-                        <Route path="/repository/" element={<Repository/>} />
-                        <Route path="/models/" element={<Models/>} />
-                        <Route path="/models/preview/:model_id" element={<SingleModel />} />
-                        <Route path="/datasets/" element={<Datasets/>} />
-                        <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview />} />
-                        <Route path="/datasets/add-dataset/" element={<AddDataset/>} >
-                          <Route index element={<CommonStandards/>} />
-                          <Route path="medical-folder-dataset" element={<MedicalFolderDataset/>} />
-                        </Route>
-                        {/* Go to pocEndpoints page with the access token set */}
-                        <Route path="/pocEndpoints/" element={<PocEndpoints accessToken={accessToken}
-                                                                          removeToken={removeToken} 
-                                                                          setToken={setToken}/>} />
-                        <Route path="/login/" element={<Login setToken={setToken}/>} />
-                        {/* Dealing with inexistant paths TODO: render message into a erro box + add redirection*/}
-                        {/*path="*" stands for all others routes */}
-                        <Route
-                              path="*" 
-                              status={404} 
-                              element={
-                                <main style={{ padding: "1rem" }}>
-                                  <p>Error 404: there is nothing here</p>
-                                </main>
-                              }
-                            />
-                    </Routes>
-                    </>
-                  )}
-
-                  <div className={`loader-frame ${props.result.loading ?  'active' : ''}`}>
-                      <div style={{width:"100%"}}>
-                          <div className="lds-ring">
-                                <div></div>
-                                <div></div>
-                                <div></div>
-                                <div></div>
-                          </div>
-                          <span style={{textAlign: "center", display:"block"}}>{props.result.text}</span>
-                      </div>
-                  </div>
-                </div>
+      <div className="App" >
+        <Router>
+              <Routes>
+                <Route path="/login/" element={<Login setToken={setToken}/>} />
+                <Route path="/" element={<LogUserLayout/>} >
+                  <Route path="/" element={<Home/>} />
+                  <Route path="/configuration/" element={<Configuration/>} />
+                  <Route path="/repository/" element={<Repository/>} />
+                  <Route path="/models/" element={<Models/>} />
+                  <Route path="/models/preview/:model_id" element={<SingleModel />} />
+                  <Route path="/datasets/" element={<Datasets/>} />
+                  <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview />} />
+                  <Route path="/datasets/add-dataset/" element={<AddDataset/>} >
+                    <Route index element={<CommonStandards/>} />
+                    <Route path="medical-folder-dataset" element={<MedicalFolderDataset/>} />
+                  </Route>
+                  {/* Go to pocEndpoints page with the access token set */}
+                  <Route path="/pocEndpoints/" element={<PocEndpoints accessToken={accessToken}
+                                                                    removeToken={removeToken} 
+                                                                    setToken={setToken}/>} />
+                  {/* Dealing with inexistant paths TODO: render message into a erro box + add redirection*/}
+                  {/*path="*" stands for all others routes */}
+                  <Route
+                        path="*" 
+                        status={404} 
+                        element={
+                          <main style={{ padding: "1rem" }}>
+                            <p>Error 404: there is nothing here</p>
+                          </main>
+                        }
+                      />
+                    
+                </Route>
+                {/* <Route path="/login/" element={<Login/>} /> */}
+                {/* <Route path="/pocEndpoints/" element = {<pocEndpoints/>} /> */}
+            </Routes>
+        </Router>
+        <Modal show={props.result.show} class="info-box" id="message" onModalClose={onResultModalClose}>
+            <Modal.Header>
+              { props.result.error ? (
+                  "Error"
+              ) : "Success"}
+            </Modal.Header>
+          <Modal.Content>
+              {props.result.message}
+          </Modal.Content>
+          <Modal.Footer>
+                  <ButtonsWrapper alignment={"right"}>
+                          <Button onClick={onResultModalClose}>Close</Button>
+                  </ButtonsWrapper>
+          </Modal.Footer>
+        </Modal>
+        <Modal show={false} class="token-expired" id="msg-token-expired" onModalClose={onResultModalClose}>
+            <Modal.Header>
+              { 
+                  "Error"
+                }
+            </Modal.Header>
+            <Modal.Content>
+                {props.result.message}
+            </Modal.Content>
+            <Modal.Footer>
+                  <ButtonsWrapper alignment={"right"}>
+                            <Button onClick={onResultModalClose}>Close</Button>
+                    </ButtonsWrapper>
+            </Modal.Footer>
+          </Modal>
+      </div>
+      <div className={`loader-frame ${props.result.loading ?  'active' : ''}`}>
+          <div style={{width:"100%"}}>
+              <div className="lds-ring">
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
               </div>
+              <span style={{textAlign: "center", display:"block"}}>{props.result.text}</span>
           </div>
-        </div>
-      </Router>
-      <Modal show={props.result.show} class="info-box" id="message" onModalClose={onResultModalClose}>
-         <Modal.Header>
-           { props.result.error ? (
-               "Error"
-           ) : "Success"}
-         </Modal.Header>
-        <Modal.Content>
-            {props.result.message}
-        </Modal.Content>
-        <Modal.Footer>
-               <ButtonsWrapper alignment={"right"}>
-                        <Button onClick={onResultModalClose}>Close</Button>
-                </ButtonsWrapper>
-        </Modal.Footer>
-      </Modal>
-    </div>
-    <div>
-    <Modal show={false} class="token-expired" id="msg-token-expired" onModalClose={onResultModalClose}>
-         <Modal.Header>
-           { 
-               "Error"
-            }
-         </Modal.Header>
-        <Modal.Content>
-            {props.result.message}
-        </Modal.Content>
-        <Modal.Footer>
-               <ButtonsWrapper alignment={"right"}>
-                        <Button onClick={onResultModalClose}>Close</Button>
-                </ButtonsWrapper>
-        </Modal.Footer>
-      </Modal>
-    </div>
-
+      </div>
     </React.Fragment>
   );
 }

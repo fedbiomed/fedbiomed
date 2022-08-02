@@ -16,19 +16,18 @@ const Login = (props) => {
     const [message, SetMessage] = useState({show: false, header:"", msg: ""})
     const [side_nav, setSideNav] = useState(null)
     const logMeIn = (event, url, action) => {
-      axios({
-        method: 'POST',
-        url: url,
-        data:{
+      axios.post(
+        url,
+        {
           email: loginForm.email,
           password: loginForm.password
          }
-      })
+      )
       .then((response) => {
         console.log("recieved request")
         if (action === LOGIN && response.status === 200) {
           props.setToken(response.data.result.access_token, response.data.result.refresh_token)
-          side_nav.style.display = "block"; // now display nav_bar if login is successful
+          //side_nav.style.display = "block"; // now display nav_bar if login is successful
         } else if (action === REGISTER && response.status === 201) {
           SetMessage({show:true, header: 'Successfully registered', msg: 'You can now log in !'})
         }
@@ -68,17 +67,17 @@ const Login = (props) => {
   // ------------ getting side bar/nav_bar object ----------------
     const { my_id_html, data } = props;
 
-    useEffect(() => {
-        // we hide the navigation tab for the login page
-        var my_id_html = document.getElementById("#my_id");  // get the side_nav through its id
-        my_id_html.style.display = "none";  // hide side_nav bar when login in
-        console.log("inside use effect")
-        console.log(my_id_html)
-        console.log(message)
-        console.log(side_nav)
-        setSideNav(my_id_html)  // save ref to object through a hook
+    // useEffect(() => {
+    //     // we hide the navigation tab for the login page
+    //     var my_id_html = document.getElementById("#my_id");  // get the side_nav through its id
+    //     my_id_html.style.display = "none";  // hide side_nav bar when login in
+    //     console.log("inside use effect")
+    //     console.log(my_id_html)
+    //     console.log(message)
+    //     console.log(side_nav)
+    //     setSideNav(my_id_html)  // save ref to object through a hook
         
-    }, [data])
+    // }, [data])
 
     return (
       <React.Fragment>
