@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Union, Tuple, Dict, Iterable, Optional, List, Callable
 from enum import Enum
 from collections import defaultdict
+from copy import copy
 
 import torch
 import pandas as pd
@@ -220,6 +221,8 @@ class MedicalFolderBase(DataLoadingPlanMixin):
     Contains methods to validate the MedicalFolder folder hierarchy and extract folder-base metadata
     information such as modalities, number of subject etc.
     """
+
+    default_modality_names = ['Manually insert new modality name', 'T1', 'T2', 'label']
 
     def __init__(self, root: Union[str, Path, None] = None):
         """Constructs MedicalFolderBase
@@ -965,7 +968,7 @@ def load_medical_folder_dataset_from_cli(interactive: bool,
 
 
 def get_map_modalities2folders_from_cli(modality_folder_names: List[str]):
-    modality_names = ['Manually insert new modality name', 'T1', 'T2', 'label']
+    modality_names = copy(MedicalFolderBase.default_modality_names)
     map_modalities_to_folders = defaultdict(list)
     for modality_folder in modality_folder_names:
         keep_asking_for_this_modality = True
