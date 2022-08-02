@@ -3,6 +3,9 @@ import sys, io
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 
+import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
+from fedbiomed.node.environ import environ
+
 import fedbiomed.node.cli
 from fedbiomed.node.cli import add_database
 from fedbiomed.common.data import DataLoadingPlan, MapperDP
