@@ -48,8 +48,6 @@ dependencies:
       - nibabel
       # TCGA BRCA
       - lifelines
-      # LIDC IDRI: problem to load data due to torch version compatibility
-      # - dask
       # ISIC
       - albumentations
       - efficientnet-pytorch
