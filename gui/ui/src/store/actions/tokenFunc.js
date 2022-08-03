@@ -8,7 +8,14 @@ const getToken = () => {
     return accessToken && accessToken
   };
 
-  const checkIsTokenActive = () => {
+
+const getRefreshToken = () => {
+  const refreshToken = sessionStorage.getItem('refreshToken');
+  return refreshToken && refreshToken
+};
+
+
+const checkIsTokenActive = () => {
     // checks if session token is still active (has not expired)
     // returns false if token has expired (meaning user should login again)
 
@@ -34,3 +41,4 @@ const getToken = () => {
 
   export  {getToken};
   export  {checkIsTokenActive};
+  export {getRefreshToken};

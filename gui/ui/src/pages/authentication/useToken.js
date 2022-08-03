@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { getToken, checkIsTokenActive } from './tokenFunc';
+import { getToken, checkIsTokenActive } from '../../store/actions/tokenFunc';
 
 const useToken = () => {
 

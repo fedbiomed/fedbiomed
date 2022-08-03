@@ -27,8 +27,9 @@ const Configuration = (props) => {
                         alert(res.data.message)
                     }
                 })
-                .catch( (error, res) => {
-                    alert(error.response.data.message)
+                .catch( (error) => {
+                    console.log(error)
+                    //alert(error.data.message)
                 })
     }
 

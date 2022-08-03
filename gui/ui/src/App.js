@@ -52,7 +52,7 @@ function App(props) {
 //   return () => {EventBus.remove("logOut");};
 // });
 
-
+  console.log(props.auth)
   console.log("APP")
   let style = {
   //   display: "none"
@@ -146,7 +146,8 @@ function App(props) {
 
 const mapStateToProps = (state) => {
   return {
-    result : state.resultModal
+    result : state.resultModal,
+    auth   : state.auth
   }
 }
 

@@ -210,14 +210,15 @@ def login():
 @api.route('/token/refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh_expiring_jwts():
-    """ API endpoint for refreshing JWT token
+    """ API endpoint for refreshing JWT token. Here we are using "explicit Refreshing", as 
+    defined in `jwt-extended` documentation (https://flask-jwt-extended.readthedocs.io/en/stable/refreshing_tokens/).
     """
     jwt = get_jwt()
     additional_claims = {
         "email": jwt["email"],
         "role": jwt["role"]
     }
-    access_token = create_access_token(identity=jwt["sub"], additional_claims=additional_claims)
+    access_token = create_access_token(identity=jwt["sub"], additional_claims=additional_claims, fresh=False)
     refresh_token = create_refresh_token(identity=jwt["sub"], additional_claims=additional_claims)
     # TODO: Invalidate old refresh tokens; they should be used only once
     resp = response(

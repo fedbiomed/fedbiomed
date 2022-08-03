@@ -27,7 +27,7 @@ const Login = (props) => {
         console.log("recieved request")
         if (action === LOGIN && response.status === 200) {
           props.setToken(response.data.result.access_token, response.data.result.refresh_token)
-          //side_nav.style.display = "block"; // now display nav_bar if login is successful
+
         } else if (action === REGISTER && response.status === 201) {
           SetMessage({show:true, header: 'Successfully registered', msg: 'You can now log in !'})
         }
