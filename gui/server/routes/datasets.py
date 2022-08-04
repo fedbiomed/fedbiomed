@@ -391,7 +391,7 @@ def get_csv_data():
     return response(data_preview), 200
 
 
-@api.route('/datasets/list-data-loading-plans', methods=['POST'])
+@api.route('/datasets/list-data-loading-plans', methods=['GET'])
 def list_data_loading_plans():
     table = database.db().table('Data_Loading_Plans')
     dlps = table.all()
