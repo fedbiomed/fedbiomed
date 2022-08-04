@@ -132,3 +132,8 @@ def medical_folder_preview():
         "modalities": modalities,
     }
     return response(data=data), 200
+
+@api.route('/datasets/medical-folder-dataset/default-modalities', methods=['GET'])
+def get_default_modalities():
+    formatted_modalities = [{'value': name, 'label': name} for name in MedicalFolderController.default_modality_names]
+    return response(data={'default_modalities': formatted_modalities}), 200

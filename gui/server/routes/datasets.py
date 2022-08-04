@@ -389,3 +389,21 @@ def get_csv_data():
                      f"is one of csv, tsv or txt: {e}"), 400
 
     return response(data_preview), 200
+
+
+@api.route('/datasets/list-data-loading-plans', methods=['POST'])
+def list_data_loading_plans():
+    table = database.db().table('Data_Loading_Plans')
+    dlps = table.all()
+
+    index = list(range(len(dlps)))
+    columns = ['name', 'id']
+    data = [[dlp['dlp_name'], dlp['dlp_id']] for dlp in dlps]
+
+    return response({'index': index, 'columns': columns, 'data': data}), 200
+
+@api.route('/datasets/save-data-loading-plan', methods=['POST'])
+def save_dlp():
+    from fedbiomed.common.data import DataLoadingPlan
+    req = request.json
+    return response(data={}), 200

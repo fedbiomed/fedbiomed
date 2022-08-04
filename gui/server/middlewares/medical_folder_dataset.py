@@ -58,7 +58,7 @@ def validate_available_subjects():
     mf_controller.root = os.path.join(DATA_PATH_RW, *req["medical_folder_root"])
     try:
         intersection, missing_folders, missing_entries = \
-            mf_controller.available_subjects(subjects_from_index=reference.index)
+            mf_controller.available_(subjects_from_index=reference.index)
     except Exception as e:
         return error("Can not get subjects"), 400
 
