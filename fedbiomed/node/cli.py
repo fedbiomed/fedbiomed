@@ -27,7 +27,7 @@ from pygments.formatters import Terminal256Formatter
 
 from fedbiomed.common.constants  import ModelApprovalStatus, ModelTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError, FedbiomedDatasetManagerError
-from fedbiomed.common.data._medical_datasets import load_medical_folder_dataset_from_cli
+from fedbiomed.common.data._medical_datasets import add_medical_folder_dataset_from_cli
 
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.environ import environ
@@ -242,9 +242,9 @@ def add_database(interactive: bool = True,
             description = input('Description: ')
 
             if data_type == 'medical-folder':
-                path, dataset_parameters, data_loading_plan = load_medical_folder_dataset_from_cli(interactive,
-                                                                                                   dataset_parameters,
-                                                                                                   data_loading_plan)
+                path, dataset_parameters, data_loading_plan = add_medical_folder_dataset_from_cli(interactive,
+                                                                                                  dataset_parameters,
+                                                                                                  data_loading_plan)
             else:
                 path = validated_path_input(data_type)
 

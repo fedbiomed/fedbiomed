@@ -922,14 +922,13 @@ class MedicalFolderController(MedicalFolderBase):
         return dataset
 
 
-def load_medical_folder_dataset_from_cli(interactive: bool,
-                                         dataset_parameters: Optional[dict],
-                                         dlp: Optional[DataLoadingPlan]):
+def add_medical_folder_dataset_from_cli(interactive: bool,
+                                        dataset_parameters: Optional[dict],
+                                        dlp: Optional[DataLoadingPlan]):
     from fedbiomed.node.cli import validated_path_input
     print('Please select the root folder of the Medical Folder dataset')
     path = validated_path_input(type='dir')
     controller = MedicalFolderController(path)
-    dlp = None  # placeholder for DataLoadingPlan
     dataset_parameters = {} if dataset_parameters is None else dataset_parameters
 
     choice = input('\nWould you like to select a demographics csv file? [y/N]\n')

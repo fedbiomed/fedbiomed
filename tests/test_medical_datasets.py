@@ -1022,7 +1022,7 @@ class TestMedicalFolderCliUtils(unittest.TestCase):
         #    - user wants to configure a data loading plan
         TestMedicalFolderCliUtils.inputs = ['y', '0', 'y', '1', '1', '2', '3', '0', 'Tnon-exist', 'y', '4']
 
-        path, dataset_parameters, dlp = load_medical_folder_dataset_from_cli(True, None, None)
+        path, dataset_parameters, dlp = add_medical_folder_dataset_from_cli(True, None, None)
         self.assertEqual(path, 'some/valid/path')
         self.assertDictEqual(dataset_parameters, {
             'tabular_file': 'some/valid/path',
@@ -1042,7 +1042,7 @@ class TestMedicalFolderCliUtils(unittest.TestCase):
         #    - user does not configure a data loading plan
         TestMedicalFolderCliUtils.inputs = ['y', '0', '']
 
-        path, dataset_parameters, dlp = load_medical_folder_dataset_from_cli(True, None, None)
+        path, dataset_parameters, dlp = add_medical_folder_dataset_from_cli(True, None, None)
         self.assertEqual(path, 'some/valid/path')
         self.assertDictEqual(dataset_parameters, {
             'tabular_file': 'some/valid/path',
@@ -1056,7 +1056,7 @@ class TestMedicalFolderCliUtils(unittest.TestCase):
         #    - user does not configure a data loading plan
         TestMedicalFolderCliUtils.inputs = ['n', '']
 
-        path, dataset_parameters, dlp = load_medical_folder_dataset_from_cli(True, None, None)
+        path, dataset_parameters, dlp = add_medical_folder_dataset_from_cli(True, None, None)
         self.assertEqual(path, 'some/valid/path')
         self.assertDictEqual(dataset_parameters, {})
         self.assertIsNone(dlp)
