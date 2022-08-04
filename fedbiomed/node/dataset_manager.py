@@ -301,7 +301,7 @@ class DatasetManager:
                      path: str,
                      dataset_id: str = None,
                      dataset_parameters : Optional[dict] = None,
-                     data_loading_plan: Optional[dict] = None):
+                     data_loading_plan: Optional[DataLoadingPlan] = None):
         """Adds a new dataset contained in a file to node's database.
 
         Args:
@@ -312,6 +312,8 @@ class DatasetManager:
             description: Human readable description of the dataset.
             path: Path to the dataset.
             dataset_id: Id of the dataset. Defaults to None.
+            dataset_parameters: a dictionary of additional (customized) parameters, or None
+            data_loading_plan: a DataLoadingPlan to be saved and linked to this dataset, or None
 
         Raises:
             NotImplementedError: `data_type` is not supported.
