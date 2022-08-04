@@ -216,7 +216,7 @@ class Node:
                 else:
                     dlp_metadata = None
                     if 'dlp_id' in data:
-                        dlp_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
+                        dlp_metadata = self.dataset_manager.get_aggregated_dlp_metadata(data['dlp_id'])
                     self.rounds.append(Round(model_kwargs,
                                              training_kwargs,
                                              training_status,

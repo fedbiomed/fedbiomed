@@ -659,7 +659,10 @@ class TestRound(unittest.TestCase):
 
         dlp = DataLoadingPlan([ModifyGetItemDP('modify-getitem')])
         r4 = Round(training_kwargs={},
-                   dlp_metadata=dlp.serialize()
+                   dlp_metadata=DataLoadingPlan.aggregate_serialized_metadata(
+                       dlp.serialize(),
+                       dlp.serialize_pipelines()
+                       )
                    )
         r4.model = MagicMock()
         r4.model.training_data.return_value = data_manager_mock

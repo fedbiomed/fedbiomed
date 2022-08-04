@@ -1022,7 +1022,7 @@ class TestDatasetManager(unittest.TestCase):
         dataset_manager.add_database(
             name='dlp-test-db',
             data_type='default',
-            tags=['test-tags'],
+            tags=['test'],
             description='',
             dataset_id='test-id-dlp-1234',
             path='some/test/path',
@@ -1033,9 +1033,9 @@ class TestDatasetManager(unittest.TestCase):
         dataset = dataset_manager.get_by_id('test-id-dlp-1234')
         self.assertEqual(dataset['dlp_id'], dlp.dlp_id)
 
-        dlp_metadata = dataset_manager.get_dlp_by_id(dataset['dlp_id'])
+        dlp_metadata = dataset_manager.get_aggregated_dlp_metadata(dataset['dlp_id'])
         self.assertEqual(dlp_metadata['dlp_id'], dlp.dlp_id)
-        new_dlp = DataLoadingPlan().load(dlp_metadata)
+        new_dlp = DataLoadingPlan().load_from_aggregated_serialized(dlp_metadata)
         self.assertIn(dp1, new_dlp)
         self.assertIn('pipeline_for_testing', new_dlp)
         self.assertIn(dp2, new_dlp)

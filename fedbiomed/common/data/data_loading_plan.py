@@ -35,15 +35,20 @@ class DataPipeline(ABC):
     def __init__(self, type_id: str):
         super(DataPipeline, self).__init__()
         self.__type_id = type_id
+        self.__serialization_id = 'serialized_dp_' + str(uuid.uuid4())
 
-    def __eq__(self, other):
+    @property
+    def serialization_id(self):
+        return self.__serialization_id
+
+    def __eq__(self, other) -> bool:
         if isinstance(other, str):
             return self.__type_id == other
         elif isinstance(other, DataPipeline):
             return self.__type_id == other.__type_id
         return False
 
-    def serialize(self):
+    def serialize(self) -> dict:
         """Serializes the class in a format similar to json.
 
         Returns:
@@ -53,10 +58,11 @@ class DataPipeline(ABC):
         return dict(
             pipeline_class=self.__class__.__qualname__,
             pipeline_module=self.__module__,
-            type_id=self.__type_id
+            type_id=self.__type_id,
+            pipeline_serialization_id=self.__serialization_id
         )
 
-    def load(self, load_from: dict):
+    def load(self, load_from: dict) -> 'DataPipeline':
         """Reconstruct the DataPipeline from a serialized version.
 
         Args:
@@ -94,7 +100,7 @@ class MapperDP(DataPipeline):
         super(MapperDP, self).__init__(type_id)
         self.map = {}
 
-    def serialize(self):
+    def serialize(self) -> dict:
         """Serializes the class in a format similar to json.
 
         Returns:
@@ -105,7 +111,7 @@ class MapperDP(DataPipeline):
         ret.update({'map': self.map})
         return ret
 
-    def load(self, load_from: dict):
+    def load(self, load_from: dict) -> DataPipeline:
         """Reconstruct the DataPipeline from a serialized version.
 
         Args:
@@ -149,7 +155,7 @@ class DataLoadingPlan(List[DataPipeline]):
         self.dlp_id = 'dlp_' + str(uuid.uuid4())
         self.name = ""
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -> DataPipeline:
         """Extend list's __getitem__ to string subscripts.
 
         Allows to quickly get a DataPipeline in a DataLoadingPlan by
@@ -176,7 +182,7 @@ class DataLoadingPlan(List[DataPipeline]):
         else:
             return super().__getitem__(item)
 
-    def serialize(self):
+    def serialize(self) -> dict:
         """Serializes the class in a format similar to json.
 
         Iteratively calls the serialize function of all its items.
@@ -191,11 +197,17 @@ class DataLoadingPlan(List[DataPipeline]):
             pipelines=[]
         )
         for pipeline in self.__iter__():
-            ret['pipelines'].append(pipeline.serialize())
+            ret['pipelines'].append(pipeline.serialization_id)
         return ret
 
-    def load(self, load_from: dict):
+    def serialize_pipelines(self) -> List[dict]:
+        return [dp.serialize() for dp in self.__iter__()]
+
+    def load_from_aggregated_serialized(self, load_from: dict) -> 'DataLoadingPlan':
         """Reconstruct the DataLoadingPlan from a serialized version.
+
+        The format of the input argument is expected to be an 'aggregated serialized' version, as defined by the output
+        of the 'DataLoadingPlan.aggregate_serialized_metadata` function.
 
         :warning: Calling this function will *clear* the contained
             DataPipelines. This function may not be used to "update"
@@ -219,6 +231,11 @@ class DataLoadingPlan(List[DataPipeline]):
         """User-friendly string representation"""
         return f"Data Loading Plan {self.name} id: {self.dlp_id} "\
                f"containing: {'; '.join([p.serialize()['type_id'] for p in self.__iter__()])}"
+
+    @staticmethod
+    def aggregate_serialized_metadata(dlp_metadata: dict, pipeline_metadata: List[dict]) -> dict:
+        dlp_metadata.update({'pipelines': pipeline_metadata})
+        return dlp_metadata
 
 
 class DataLoadingPlanMixin:
@@ -268,3 +285,8 @@ class DataLoadingPlanMixin:
             return self._dlp[dp_type_id].apply(*args, **kwargs)
         else:
             return default_ret_value
+
+
+
+
+

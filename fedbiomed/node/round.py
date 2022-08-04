@@ -409,7 +409,7 @@ class Round:
 
         if self._dlp_metadata is not None:
             if hasattr(data_manager.dataset, 'set_dlp'):
-                dlp = DataLoadingPlan().load(self._dlp_metadata)
+                dlp = DataLoadingPlan().load_from_aggregated_serialized(self._dlp_metadata)
                 data_manager.dataset.set_dlp(dlp)
             else:
                 raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Attempting to set DataLoadingPlan "

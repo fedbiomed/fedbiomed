@@ -26,6 +26,11 @@ class TestDataPipeline(unittest.TestCase):
         self.dp1.data = self.changed_data
         self.assertFalse(self.dp1.data == self.dp2.data)
         serialized = self.dp1.serialize()
+        self.assertIn('pipeline_class', serialized)
+        self.assertIn('pipeline_module', serialized)
+        self.assertIn('type_id', serialized)
+        self.assertIn('pipeline_serialization_id', serialized)
+
         self.dp2.load(serialized)
         self.assertDictEqual(self.dp1.data, self.dp2.data)
 
@@ -98,12 +103,13 @@ class TestDataLoadingPlan(unittest.TestCase):
         dlp = DataLoadingPlan()
         dlp.append(self.dp1)
         dlp.append(self.dp2)
-        serialized = dlp.serialize()
         dlp2 = DataLoadingPlan()
         self.assertNotEqual(dlp.dlp_id, dlp2.dlp_id)
         self.assertNotIn(self.dp1, dlp2)
         self.assertNotIn(self.dp2, dlp2)
-        dlp2.load(serialized)
+        aggregated_serialized = DataLoadingPlan.aggregate_serialized_metadata(dlp.serialize(),
+                                                                              dlp.serialize_pipelines())
+        dlp2.load_from_aggregated_serialized(aggregated_serialized)
         self.assertIn(self.dp1, dlp2)
         self.assertIn(self.dp2, dlp2)
         self.assertEqual(dlp.dlp_id, dlp2.dlp_id)
@@ -124,8 +130,9 @@ class TestDataLoadingPlan(unittest.TestCase):
         dlp = DataLoadingPlan()
         dlp.append(self.dp1)
         dlp.append(self.dp2)
-        serialized = dlp.serialize()
-        tp.set_dlp(DataLoadingPlan().load(serialized))
+        aggregated_serialized = DataLoadingPlan.aggregate_serialized_metadata(dlp.serialize(),
+                                                                              dlp.serialize_pipelines())
+        tp.set_dlp(DataLoadingPlan().load_from_aggregated_serialized(aggregated_serialized))
         self.assertIn(self.dp1, tp._dlp)
         self.assertIn('pipeline_for_testing', tp._dlp)
         self.assertIn(self.dp2, tp._dlp)

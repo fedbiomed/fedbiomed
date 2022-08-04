@@ -63,6 +63,14 @@ class DatasetManager:
         result = table.get(self.database.dlp_id == dlp_id)
         return result
 
+    def get_data_pipelines_by_ids(self, dp_ids: List[str]) -> List[dict]:
+        self.db.clear_cache()
+        table = self.db.table('Data_Loading_Plans')
+        result = list()
+        for dp_id in dp_ids:
+            result.append(table.get(self.database.pipeline_serialization_id == dp_id))
+        return result
+
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
 
@@ -371,7 +379,7 @@ class DatasetManager:
                             description=description, shape=shape,
                             path=path, dataset_id=dataset_id, dtypes=dtypes,
                             dataset_parameters=dataset_parameters)
-        new_database = self._handle_save_data_loading_plan(new_database, data_loading_plan)
+        new_database = self.save_data_loading_plan(new_database, data_loading_plan)
         self.db.insert(new_database)
 
         return dataset_id
@@ -490,17 +498,24 @@ class DatasetManager:
                 raise NotImplementedError(f'Mode `{mode}` has not been'
                                           ' implemented on this version.')
 
-    def _handle_save_data_loading_plan(self,
-                                       current_dataset_metadata: dict,
-                                       data_loading_plan: DataLoadingPlan
-                                       ):
+    def save_data_loading_plan(self,
+                               current_dataset_metadata: dict,
+                               data_loading_plan: Optional[DataLoadingPlan]
+                               ) -> dict:
         if data_loading_plan is None:
             return current_dataset_metadata
 
         table = self.db.table('Data_Loading_Plans')
+        for serialized_dp in data_loading_plan.serialize_pipelines():
+            table.insert(serialized_dp)
         table.insert(data_loading_plan.serialize())
         current_dataset_metadata['dlp_id'] = data_loading_plan.dlp_id
         return current_dataset_metadata
+
+    def get_aggregated_dlp_metadata(self, dlp_id: str) -> dict:
+        dlp_metadata = self.get_dlp_by_id(dlp_id)
+        pipelines_metadata = self.get_data_pipelines_by_ids(dlp_metadata['pipelines'])
+        return DataLoadingPlan.aggregate_serialized_metadata(dlp_metadata, pipelines_metadata)
 
     @staticmethod
     def obfuscate_private_information(database_metadata: Iterable[dict]) -> Iterable[dict]:
