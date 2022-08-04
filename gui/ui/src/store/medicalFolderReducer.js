@@ -21,6 +21,11 @@ const initialState = {
     },
     reference_csv: null,
     ignore_reference_csv: false,
+    use_preexisting_dlp: false,
+    existing_dlps: null,
+    selected_dlp_id: null,
+    default_modality_names: [],
+    modalities_mapping: {},
 }
 
 
@@ -95,6 +100,41 @@ export const medicalFolderReducer = (state = initialState, action) => {
             return {
                 ...state,
                 ignore_reference_csv : action.payload
+            }
+        case "SET_USE_PRE_EXISTING_DLP":
+            return {
+                ...state,
+                use_preexisting_dlp : action.payload
+            }
+        case "SET_EXISTING_DLPS":
+            return {
+                ...state,
+                existing_dlps : action.payload
+            }
+        case "SET_DLP":
+            let selected_dlp_id = state.existing_dlps.data[action.payload][1]
+            return {
+                ...state,
+                selected_dlp_id : selected_dlp_id
+            }
+        case "SET_DEFAULT_MODALITY_NAMES":
+            return {
+                ...state,
+                default_modality_names: action.payload
+            }
+        case "UPDATE_MODALITIES_MAPPING":
+            let mapping = state.modalities_mapping
+            mapping[action.payload.folder_name] = action.payload.modality_name
+            return {
+                ...state,
+                modalities_mapping: mapping
+            }
+        case "CLEAR_MODALITY_MAPPING":
+            let mod_mapping = state.modalities_mapping
+            delete mod_mapping[action.payload]
+            return {
+                ...state,
+                modalities_mapping: mod_mapping
             }
         case "RESET_MEDICAL_FOLDER":
             return initialState

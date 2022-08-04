@@ -5,7 +5,10 @@ import {
     EP_VALIDATE_MEDICAL_FOLDER_ROOT,
     EP_VALIDATE_REFERENCE_COLUMN,
     EP_ADD_MEDICAL_FOLDER_DATASET,
-    EP_PREVIEW_MEDICAL_FOLDER_DATASET
+    EP_PREVIEW_MEDICAL_FOLDER_DATASET,
+    EP_DLP_LIST,
+    EP_DEFAULT_MODALITY_NAMES,
+    EP_DLP_SAVE,
 } from "../../constants";
 import {displayError} from "./actions";
 
@@ -126,6 +129,56 @@ export const setIgnoreReferenceCsv = (data) => {
     }
 }
 
+export const setUsePreExistingDlp = (data) => {
+    return (dispatch) => {
+        dispatch({type: "SET_USE_PRE_EXISTING_DLP", payload: data})
+        dispatch({type:'SET_LOADING', payload: {status: true, text: "Fetching existing Data Loading Plans..."}})
+        axios.get(EP_DLP_LIST).then(response => {
+            dispatch({type: "SET_EXISTING_DLPS", payload: response.data.result})
+            dispatch({type:'SET_LOADING', payload: {status: false}})
+        })
+    }
+}
+
+export const setDLP = (index) => {
+    return (dispatch) => {
+        dispatch({type: 'SET_DLP', payload: index})
+    }
+}
+
+export const setCreateNewDlp = (index) => {
+    return (dispatch) => {
+        dispatch({type: 'SET_CREATE_DLP', payload: index})
+    }
+}
+
+export const getDefaultModalityNames = () => {
+    return (dispatch) => {
+        axios.get(EP_DEFAULT_MODALITY_NAMES).then(response => {
+            dispatch({type: 'SET_DEFAULT_MODALITY_NAMES', payload: response.data.result.default_modalities})
+        })
+    }
+}
+
+export const updateModalitiesMapping = (data) => {
+    return (dispatch) => {
+        dispatch({type: 'UPDATE_MODALITIES_MAPPING', payload: {folder_name: data.folder_name, modality_name: data.modality_name} })
+    }
+}
+
+export const clearModalityMapping = (folder_name) => {
+    return (dispatch) => {
+        dispatch({type: 'CLEAR_MODALITY_MAPPING', payload: folder_name})
+    }
+}
+
+export const saveDlp = (dlp) => {
+    return (dispatch) => {
+        axios.post(EP_DLP_SAVE, dlp).then( response => {
+            console.log(response)
+        })
+    }
+}
 /**
  * Sends Medical Folder dataset add request and validate result
  * @returns {(function(*))|*}
