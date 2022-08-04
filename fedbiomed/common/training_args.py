@@ -208,6 +208,12 @@ class TrainingArgs():
             "log_interval": {
                 "rules": [int],
                 "required": False,
+            },
+            
+            # fedprox_mu
+            "fedprox_mu": {
+                "rules": [float],
+                'required': False,
             }
 
         }
