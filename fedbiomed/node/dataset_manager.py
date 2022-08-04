@@ -58,12 +58,38 @@ class DatasetManager:
         return result
 
     def get_dlp_by_id(self, dlp_id: str) -> dict:
+        """Search for a DataLoadingPlan with a given id.
+
+        Note that in case of conflicting ids (which should not happen), this function will silently return a random
+        one with the sought id.
+
+        DataLoadingPlan IDs always start with 'dlp_' and should be unique in the database.
+
+        Args:
+            dlp_id: (str) the DataLoadingPlan id
+
+        Returns:
+            A dictionary with the DataLoadingPlan metadata corresponding to the given id.
+        """
         self.db.clear_cache()
         table = self.db.table('Data_Loading_Plans')
         result = table.get(self.database.dlp_id == dlp_id)
         return result
 
     def get_data_pipelines_by_ids(self, dp_ids: List[str]) -> List[dict]:
+        """Search for a list of DataPipelines, each corresponding to one given id.
+
+        Note that in case of conflicting ids (which should not happen), this function will silently return a random
+        one with the sought id.
+
+        DataPipeline IDs always start with 'serialized_dp_' and should be unique in the database.
+
+        Args:
+            dp_ids: (List[str]) a list of DataPipeline IDs
+
+        Returns:
+            A list of dictionaries, each one containing the DataPipeline metadata corresponding to one given id.
+        """
         self.db.clear_cache()
         table = self.db.table('Data_Loading_Plans')
         result = list()
@@ -502,6 +528,23 @@ class DatasetManager:
                                current_dataset_metadata: dict,
                                data_loading_plan: Optional[DataLoadingPlan]
                                ) -> dict:
+        """Save a DataLoadingPlan to the database.
+
+        This function saves a DataLoadingPlan to the database, and updates the dataset metadata with the correct ID
+        linking the dataset to the DataLoadingPlan.
+
+        If `data_loading_plan` is None, then the function will immediately return its `current_dataset_metadata`
+        argument unchanged.
+
+        Args:
+            current_dataset_metadata: the dictionary of metadata of the dataset that this data_loading_plan was
+                attached to
+            data_loading_plan: the DataLoadingPlan to be saved, or None.
+
+        Returns:
+            The `current_dataset_metadata` argument, optionally enriched with the DataLoadingPlan ID if a save operation
+            was indeeed performed.
+        """
         if data_loading_plan is None:
             return current_dataset_metadata
 
@@ -513,6 +556,18 @@ class DatasetManager:
         return current_dataset_metadata
 
     def get_aggregated_dlp_metadata(self, dlp_id: str) -> dict:
+        """Retrieve the aggregated DataLoadingPlan metadata from the database.
+
+        This function returns the metadata in aggregated format, meaning that it is ready to be used directly as an
+        argument to the DataLoadingPlan.load_from_aggregated_serialized function for instantiating a new
+        DataLoadingPlan.
+
+        Args:
+            dlp_id: (str) the id of the DataLoadingPlan as saved in the database.
+
+        Returns:
+            A dictionary of aggregated DataLoadingPlan metadata.
+        """
         dlp_metadata = self.get_dlp_by_id(dlp_id)
         pipelines_metadata = self.get_data_pipelines_by_ids(dlp_metadata['pipelines'])
         return DataLoadingPlan.aggregate_serialized_metadata(dlp_metadata, pipelines_metadata)

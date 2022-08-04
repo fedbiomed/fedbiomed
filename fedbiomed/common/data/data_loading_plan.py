@@ -31,6 +31,7 @@ class DataPipeline(ABC):
 
     Attributes:
         __type_id: (str) identifies the type of customization implemented by the DataPipeline
+        __serialization_id: (str) identifies *one serialized instance* of the DataPipeline
     """
     def __init__(self, type_id: str):
         super(DataPipeline, self).__init__()
@@ -39,6 +40,7 @@ class DataPipeline(ABC):
 
     @property
     def serialization_id(self):
+        """Expose serialization id as read-only"""
         return self.__serialization_id
 
     def __eq__(self, other) -> bool:
@@ -201,6 +203,11 @@ class DataLoadingPlan(List[DataPipeline]):
         return ret
 
     def serialize_pipelines(self) -> List[dict]:
+        """Serializes the DataPipelines contained in this DataLoadingPlan.
+
+        Returns:
+            a list of serialized pipelines.
+        """
         return [dp.serialize() for dp in self.__iter__()]
 
     def load_from_aggregated_serialized(self, load_from: dict) -> 'DataLoadingPlan':
@@ -234,6 +241,19 @@ class DataLoadingPlan(List[DataPipeline]):
 
     @staticmethod
     def aggregate_serialized_metadata(dlp_metadata: dict, pipeline_metadata: List[dict]) -> dict:
+        """Utility function to aggregate a serialized DataLoadingPlan and a list of serialized DataPipelines.
+
+        This function must be used before calling DataLoadingPlan.load_from_serialized to obtain the correct format
+        for its input parameter
+
+        Args:
+            dlp_metadata: (dict) the serialized DataLaodingPlan
+            pipeline_metadata: (List[dict]) a list of serialized DataPipeline
+
+        Returns:
+            a dictionary with the aggregated serialized information. This dictionary can be used to reconstruct a
+            DataLoadingPlan with the load_from_serialized function.
+        """
         dlp_metadata.update({'pipelines': pipeline_metadata})
         return dlp_metadata
 
