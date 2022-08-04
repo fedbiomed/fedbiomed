@@ -3,30 +3,17 @@ import { useLocation, useNavigate} from 'react-router-dom';
 import { get } from 'lodash';
 import axios from 'axios';
 import {EP_REFRESH} from './constants';
-import { getToken, checkIsTokenActive, getRefreshToken }  from './store/actions/tokenFunc';
+import { getAccessToken, checkIsTokenActive, getRefreshToken }  from './store/actions/tokenFunc';
 import { createBrowserHistory } from 'history';
 import { configure } from '@testing-library/react';
-import { store } from './index';
-//import GetLastWebpageUrl from './utils';
-
-// const ErrorHandler = ({ children }) => {
-//   const location = useLocation();
-
-//   switch (get(location.state, 'errorStatusCode')) {
-//     case 404:
-//       return <h1>error 404 bro!</h1>;
-    
-//     // ... cases for other types of errors
-      
-//     default:
-//       return children
-//   }
-// };
-
-// export default ErrorHandler;
+//import { store } from './index';
 
 
-  //let navigate = useNavigate();
+// this handler wraps axios logic request:
+// it does mainly 2 things:
+// 1. formats request with correct header (for token auth)
+// 2. contains logic for getting refresh tokens, and ensuring idle user are disconnected
+
   const handleTokenExpiration = (msg=null) =>
   {
     // logic for handling token expiration after a 401 HTTP error request (unauthorized)
@@ -44,7 +31,7 @@ import { store } from './index';
       // Do something before request is sent
       console.log("GOT RESPONSE DATA")
       console.log(req.url)
-      const token = getToken();
+      const token = getAccessToken();
       if (token && req.url !== EP_REFRESH){
         // set headers as required by jst_extended library
         // (flask server side)
@@ -66,8 +53,7 @@ import { store } from './index';
   axios.interceptors.response.use(function (response) {
       // Any status code that lie within the range of 2xx cause this function to trigger
       // Do something with response data
-      // var my_id_html = document.getElementById("#my_id"); 
-      // my_id_html.style.display = "block";
+
       return response;
     }, function (error) {
       // Any status codes that falls outside the range of 2xx cause this function to trigger
@@ -87,9 +73,9 @@ import { store } from './index';
   
           case 401:
             // we should differentiate case where token has epxired with case "unsufficient privileged"
-            store.dispatch({type: "LOGOUT"})
+            //store.dispatch({type: "LOGOUT"})
             console.log("UNAUTHORIZED");
-            let access_token = getToken();
+            let access_token = getAccessToken();
             let is_token_expired = checkIsTokenActive();
   
             // let s retrieve token (if any)
@@ -101,29 +87,28 @@ import { store } from './index';
                 console.log(refresh_token)
                 if (error.response.config.url !== EP_REFRESH){
                   const originalRequest = error.config;
-                  axios.post(EP_REFRESH,{'hello': 'you'}, {headers: 
+                  axios.post(EP_REFRESH,{'hello': 'you'}, // TODO: change that
+                   {headers: 
                     {
                       'Authorization':  `Bearer ${refresh_token}`
                     }
                   })
                   .then(res => {
-                    console.log("working")
-                    console.log(res)
+
                     let new_access_token = res.data.result.access_token;
                     let new_refresh_token = res.data.result.refresh_token;
                     sessionStorage.setItem('accessToken', new_access_token);
                     sessionStorage.setItem('refreshToken', new_refresh_token);
                     
 
-                    store.dispatch({type: "LOGIN"})
+                    //store.dispatch({type: "LOGIN"})
                     // window.location.reload();
                     resolve(axios(originalRequest))
                   })
                   .catch(rf_error => {
-                    
+                    // at this point, refresh token should have expired (as well as access token)
                     reject(rf_error);
-                    // send a refresh token
-                      alert(error.response.data.message)
+                    alert(error.response.data.message)
                   })
                 } else {
                   handleTokenExpiration(error.response.data.message)
@@ -141,6 +126,8 @@ import { store } from './index';
               let link = window.location.href.toString().split(window.location.host)[1];
               if ( (link !== '/login') && ( link !== '/login/')){
                 handleTokenExpiration(error.response.data.message)
+              } else{
+                reject(error)
               }
   
             }

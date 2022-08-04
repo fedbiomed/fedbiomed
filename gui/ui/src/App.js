@@ -23,7 +23,8 @@ import SingleModel from "./pages/models/SingleModel";
 import Login from "./pages/authentication/Login";
 import useToken from './pages/authentication/useToken';
 import PocEndpoints from './pages/authentication/PocEndpoints'; //for testing purposes
-import LogUserLayout, {ProtectedRoute} from './components/layout/LogUserLayout'
+import LogUserLayout, {ProtectedRoute} from './components/layout/LogUserLayout';
+import UserAccount from './pages/authentication/UserAccount';
 import Logout from "./pages/authentication/Logout";
 import EventBus from './store/eventBus';
 //import { createBrowserHistory } from 'history';
@@ -33,7 +34,7 @@ import EventBus from './store/eventBus';
 function App(props) {
 
   //const history = new createBrowserHistory();
-  const { accessToken, removeToken, setToken, getToken, checkIsTokenActive } = useToken();
+  const { accessToken, removeToken, setToken, getAccessToken, checkIsTokenActive, readToken } = useToken();
 
   const dispatch = useDispatch();
   // const logOut = useCallback(() => {
@@ -52,7 +53,7 @@ function App(props) {
 //   return () => {EventBus.remove("logOut");};
 // });
 
-  console.log(props.auth)
+  console.log( readToken())
   console.log("APP")
   let style = {
   //   display: "none"
@@ -67,6 +68,9 @@ function App(props) {
                 <Route path="/" element={<LogUserLayout/>} >
                   <Route path="/" element={<Home/>} />
                   <Route path="/configuration/" element={<Configuration/>} />
+                  <Route path="/user-account/" element={<UserAccount/>}>
+                    {/* add here other pages for admin management */}
+                  </Route>
                   <Route path="/repository/" element={<Repository/>} />
                   <Route path="/models/" element={<Models/>} />
                   <Route path="/models/preview/:model_id" element={<SingleModel />} />

@@ -31,7 +31,8 @@ const SideNav= (props) => {
         { key: '4', label: 'Manage Datasets', path: '/datasets/', icon: DataIcon, action: null },
         { key: '5', label: 'Add New Dataset', path: '/datasets/add-dataset/', icon: PlusIcon, action: null },
         { key: '6', label: 'Node Configuration', path: '/configuration/', icon: ConfIcon, action: null },
-        { key: '7', label: 'Logout', path: '/login/', icon: ConfIcon, action: removeToken}
+        { key: '7', label: 'User Account', path: '/user-account/', icon: ConfIcon, action: null},
+        { key: '8', label: 'Logout', path: '/login/', icon: ConfIcon, action: removeToken}
       ]
     
     

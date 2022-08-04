@@ -1,13 +1,13 @@
 import { useState } from 'react';
 
-import { getToken, checkIsTokenActive } from '../../store/actions/tokenFunc';
+import { getAccessToken, checkIsTokenActive, readToken } from '../../store/actions/tokenFunc';
 
 const useToken = () => {
 
   //const [accessToken, setToken] = useState(null);
 
   
-  const [accessToken, setToken] = useState(getToken()); 
+  const [accessToken, setToken] = useState(getAccessToken()); 
 
   const saveToken = (accessToken, refreshToken) => {
     sessionStorage.setItem('accessToken', accessToken);
@@ -29,8 +29,9 @@ const useToken = () => {
     setToken: saveToken,
     accessToken,
     removeToken,
-    getToken,
-    checkIsTokenActive
+    getAccessToken,
+    checkIsTokenActive,
+    readToken
   }
 }
 

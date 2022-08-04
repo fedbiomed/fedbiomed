@@ -4,7 +4,7 @@ import axios from 'axios';
 import { EP_LOGIN, EP_REGISTER, LOGIN, REGISTER } from '../../constants';
 import Modal from '../../components/common/Modal';
 import Button from "../../components/common/Button";
-
+import {connect, useDispatch} from 'react-redux';
 
 const Login = (props) => {
 
@@ -13,7 +13,8 @@ const Login = (props) => {
       email: '',
       password: ''
     })
-    const [message, SetMessage] = useState({show: false, header:"", msg: ""})
+    const dispatch = useDispatch();
+    const [message, SetMessage] = useState("Unknwon error")
     const [side_nav, setSideNav] = useState(null)
     const logMeIn = (event, url, action) => {
       axios.post(
@@ -29,17 +30,23 @@ const Login = (props) => {
           props.setToken(response.data.result.access_token, response.data.result.refresh_token)
 
         } else if (action === REGISTER && response.status === 201) {
-          SetMessage({show:true, header: 'Successfully registered', msg: 'You can now log in !'})
+
+          dispatch({type :'SUCCESS_MODAL', payload:'Successfully registered You can now log in !'})
         }
         navigate('/')  // redirect to home
       }).catch((error) => {
         console.log("found error!")
         console.log(error)
+        console.log(error.response.data.message)
         if (error.response) {
-          SetMessage({show:true, header: 'An error occured', msg: error.response.data.message})
+
+          dispatch({type :'ERROR_MODAL', payload: error.response.data.message})
         }else{
-          SetMessage({show:true, header: 'Unexpected Error', msg:error.toString()})
+          dispatch({type :'ERROR_MODAL', payload: error.toString()})
         }
+        console.log(message)
+        
+        
       })
 
       setloginForm(({
@@ -61,7 +68,7 @@ const Login = (props) => {
      * Handles modal window close action
      */
      const handleClose = () => {
-      SetMessage({show:false, header: '', msg:''})
+      
   }
 
   // ------------ getting side bar/nav_bar object ----------------
@@ -78,7 +85,7 @@ const Login = (props) => {
     //     setSideNav(my_id_html)  // save ref to object through a hook
         
     // }, [data])
-
+    console.log(message)
     return (
       <React.Fragment>
       <div>
@@ -132,26 +139,13 @@ const Login = (props) => {
       </div>
       <div>
           <p> 
-              Forgot your password? <a>Please reach here</a>
+              Forgot your password? <a href="there">Please reach here</a>
           </p>
         
       </div>
       {/* Error messsage in case of incorrect login (using Modal component) */}
-      <Modal show={message.show} onModalClose={handleClose}>
-        <Modal.Header>
-          {message.header}
-        </Modal.Header>
-        <Modal.Content>
-            {/* If first connection, please register.
-            Please contact your local administrator for further details */}
-            {message.msg}
-        </Modal.Content>
-        <Modal.Footer>
-          <Button onClick={handleClose}>
-              close
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      
+
       </React.Fragment>
     );
 }

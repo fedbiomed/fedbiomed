@@ -53,3 +53,6 @@ export const ADD_DATASET_ERROR_MESSAGES = {
 //Allowed file extensions for data loader
 export const ALLOWED_EXTENSIONS = ['.csv', '.txt']
 
+// role for authentication (User or admin)
+export const ROLE = {1: 'Admin',
+                     2: 'User'}

@@ -46,7 +46,7 @@ const Configuration = (props) => {
         <React.Fragment>
             {
                 config ? (
-                    <TableInfo info={parse_config(config)}/>
+                    <TableInfo info={parse_config(config)} mode={true}/>
                 ) : null
             }
         </React.Fragment>
