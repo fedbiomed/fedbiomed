@@ -16,6 +16,7 @@ from schemas import ValidateMedicalFolderReferenceCSV, \
     PreviewDatasetRequest
 
 from fedbiomed.common.data import MedicalFolderController
+from fedbiomed.common.data.data_loading_plan import DataLoadingPlan, MapperDP
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.common.exceptions import FedbiomedError
 dataset_manager = DatasetManager()
@@ -34,6 +35,7 @@ query = database.query()
 @api.route('/datasets/medical-folder-dataset/validate-reference-column', methods=['POST'])
 @validate_request_data(schema=ValidateMedicalFolderReferenceCSV)
 @middleware(middlewares=[medical_folder_dataset.read_medical_folder_reference,
+                         medical_folder_dataset.load_dlp,
                          medical_folder_dataset.validate_available_subjects])
 def validate_reference_csv_column():
     """ Validate selected reference CSV and column shows folder names """
@@ -52,6 +54,7 @@ def validate_root_path():
 @api.route('/datasets/medical-folder-dataset/add', methods=['POST'])
 @validate_request_data(schema=ValidateMedicalFolderAddRequest)
 @middleware(middlewares=[common.check_tags_already_registered,
+                         medical_folder_dataset.load_dlp,
                          medical_folder_dataset.validate_medical_folder_root,
                          medical_folder_dataset.read_medical_folder_reference,
                          medical_folder_dataset.validate_available_subjects])
@@ -72,6 +75,7 @@ def add_medical_folder_dataset():
         reference_csv = os.path.join(app.config['DATA_PATH_SAVE'], *req["reference_csv_path"])
         dataset_parameters = {"index_col": req["index_col"],
                               "tabular_file": reference_csv}
+
     try:
         dataset_manager.add_database(name=req["name"],
                                      data_type="medical-folder",
@@ -79,7 +83,8 @@ def add_medical_folder_dataset():
                                      description=req['desc'],
                                      path=data_path_save,
                                      dataset_id=dataset_id,
-                                     dataset_parameters=dataset_parameters)
+                                     dataset_parameters=dataset_parameters,
+                                     data_loading_plan=g.dlp)
     except FedbiomedError as e:
         return error(str(e)), 400
     except Exception as e:
@@ -133,7 +138,17 @@ def medical_folder_preview():
     }
     return response(data=data), 200
 
+
 @api.route('/datasets/medical-folder-dataset/default-modalities', methods=['GET'])
 def get_default_modalities():
     formatted_modalities = [{'value': name, 'label': name} for name in MedicalFolderController.default_modality_names]
     return response(data={'default_modalities': formatted_modalities}), 200
+
+
+@api.route('/datasets/medical-folder-dataset/create-modalities-to-folders-pipeline', methods=['POST'])
+def create_modalities_to_folders_pipeline():
+    req = request.json
+    dp = MapperDP('modalities_to_folders')
+    dp.map = req['mapping']
+    dataset_manager.save_data_pipeline(dp)
+    return response(data={'type_id': 'modalities_to_folders', 'serial_id': dp.serialization_id}), 200

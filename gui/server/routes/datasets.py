@@ -394,13 +394,14 @@ def get_csv_data():
 @api.route('/datasets/list-data-loading-plans', methods=['GET'])
 def list_data_loading_plans():
     table = database.db().table('Data_Loading_Plans')
-    dlps = table.all()
-
+    query = database.query()
+    dlps = table.search((query.dlp_id.exists()) & (query.dlp_id.matches('^dlp_*')))
     index = list(range(len(dlps)))
     columns = ['name', 'id']
     data = [[dlp['dlp_name'], dlp['dlp_id']] for dlp in dlps]
 
     return response({'index': index, 'columns': columns, 'data': data}), 200
+
 
 @api.route('/datasets/save-data-loading-plan', methods=['POST'])
 def save_dlp():

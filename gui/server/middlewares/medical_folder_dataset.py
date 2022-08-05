@@ -1,12 +1,13 @@
 import os
-from functools import cache
-from fedbiomed.common.data import MedicalFolderController
-from fedbiomed.common.exceptions import FedbiomedError
 from flask import request, g
 from app import app
 from utils import error, response
+from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan
+from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.node.dataset_manager import DatasetManager
 
 mf_controller = MedicalFolderController()
+dataset_manager = DatasetManager()
 DATA_PATH_RW = app.config['DATA_PATH_RW']
 
 
@@ -47,6 +48,22 @@ def validate_medical_folder_root():
     g.modalities = modalities
 
 
+def load_dlp():
+    g.dlp = None
+    req = request.json
+    dlp = None
+    if 'dlp_id' in req and req['dlp_id'] is not None:
+        dlp = DataLoadingPlan().load_from_aggregated_serialized(dataset_manager.get_aggregated_dlp_metadata(req['dlp_id']))
+    elif len(req['dlp_pipelines']) > 0:
+        pipelines_metadata = dataset_manager.get_data_pipelines_by_ids(req['dlp_pipelines'].values())
+        dlp = DataLoadingPlan()
+        dlp.load_serialized_pipelines(pipelines_metadata)
+
+    if 'dlp_name' in req:
+        dlp.name = req['dlp_name']
+    g.dlp = dlp
+
+
 def validate_available_subjects():
     """Retries available subjects for MedicalFolder Dataset"""
 
@@ -58,7 +75,7 @@ def validate_available_subjects():
     mf_controller.root = os.path.join(DATA_PATH_RW, *req["medical_folder_root"])
     try:
         intersection, missing_folders, missing_entries = \
-            mf_controller.available_(subjects_from_index=reference.index)
+            mf_controller.available_subjects(subjects_from_index=reference.index)
     except Exception as e:
         return error("Can not get subjects"), 400
 

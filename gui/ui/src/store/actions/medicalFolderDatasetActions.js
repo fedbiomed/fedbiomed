@@ -9,6 +9,7 @@ import {
     EP_DLP_LIST,
     EP_DEFAULT_MODALITY_NAMES,
     EP_DLP_SAVE,
+    EP_DP_MOD2FOL_CREATE,
 } from "../../constants";
 import {displayError} from "./actions";
 
@@ -58,13 +59,18 @@ export const setFolderRefColumn = (ref) => {
         let state = getState()
         let reference_csv = state.medicalFolderDataset.reference_csv.path
         let root = state.medicalFolderDataset.medical_folder_root
-
-        dispatch({type:'SET_LOADING', payload: {status: true, text: "Setting/validating MedicalFolder subject reference column..."}})
-        axios.post(EP_VALIDATE_REFERENCE_COLUMN, {
+        let validation_data =  {
             reference_csv_path: reference_csv,
             medical_folder_root: root,
             index_col: ref.index
-        }).then(response => {
+        }
+
+        validation_data['dlp_id'] = state.medicalFolderDataset.selected_dlp_index !== null ?
+            state.medicalFolderDataset.existing_dlps['data'][state.medicalFolderDataset.selected_dlp_index][1] : null
+        validation_data['dlp_pipelines'] = state.medicalFolderDataset.dlp_pipelines
+
+        dispatch({type:'SET_LOADING', payload: {status: true, text: "Setting/validating MedicalFolder subject reference column..."}})
+        axios.post(EP_VALIDATE_REFERENCE_COLUMN, validation_data).then(response => {
             let data = response.data.result
             if (data.valid) {
                 let payload = {
@@ -142,13 +148,27 @@ export const setUsePreExistingDlp = (data) => {
 
 export const setDLP = (index) => {
     return (dispatch) => {
+        dispatch({type: 'CLEAR_PIPELINES', payload: {}})
         dispatch({type: 'SET_DLP', payload: index})
     }
 }
 
-export const setCreateNewDlp = (index) => {
+export const setCreateModalitiesToFoldersPipeline = (value) => {
     return (dispatch) => {
-        dispatch({type: 'SET_CREATE_DLP', payload: index})
+        dispatch({type: 'SET_CREATE_DLP', payload: value})
+    }
+}
+
+export const CreateModalitiesToFoldersPipeline = (modalities_mapping) => {
+    return (dispatch) => {
+        dispatch({type: 'SET_DLP', payload: -1})
+        dispatch({type:'SET_LOADING', payload: {status: true, text: "Saving Association"}})
+        axios.post(EP_DP_MOD2FOL_CREATE, {mapping: modalities_mapping}).then(response => {
+            dispatch({type: 'ADD_PIPELINE',
+                      payload: {type_id: response.data.result.type_id,
+                                serial_id: response.data.result.serial_id}})
+            dispatch({type:'SET_LOADING', payload: {status: false}})
+        })
     }
 }
 
@@ -175,10 +195,16 @@ export const clearModalityMapping = (folder_name) => {
 export const saveDlp = (dlp) => {
     return (dispatch) => {
         axios.post(EP_DLP_SAVE, dlp).then( response => {
-            console.log(response)
         })
     }
 }
+
+export const setDLPName = (data) => {
+    return (dispatch) => {
+        dispatch({type: 'SET_DLP_NAME', payload: data})
+    }
+}
+
 /**
  * Sends Medical Folder dataset add request and validate result
  * @returns {(function(*))|*}
@@ -201,6 +227,12 @@ export const addMedicalFolderDataset = (navigator) => {
                 reference_csv_path: medical_folder.reference_csv ? medical_folder.reference_csv.path : null,
             }
         }
+
+        data['dlp_id'] = medical_folder.selected_dlp_index !== null ?
+                            medical_folder.existing_dlps['data'][medical_folder.selected_dlp_index][1] : null
+        data['dlp_pipelines'] = medical_folder.dlp_pipelines
+        data['dlp_name'] = medical_folder.dlp_name
+
         axios.post(EP_ADD_MEDICAL_FOLDER_DATASET, data).then( response => {
                 dispatch({type: 'SUCCESS_MODAL' , payload: "Dataset has been successfully added"})
                 dispatch({type:'SET_LOADING', payload: {status: false}})

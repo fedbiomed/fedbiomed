@@ -1,7 +1,7 @@
 import React from 'react';
 import {Label, Tag, Text, TextArea} from "../../components/common/Inputs";
 import {connect} from "react-redux"
-import {setMedicalFolderDatasetMetadata} from "../../store/actions/medicalFolderDatasetActions";
+import {setMedicalFolderDatasetMetadata, setDLPName} from "../../store/actions/medicalFolderDatasetActions";
 
 
 const MedicalFolderMetadata = (props) => {
@@ -47,19 +47,35 @@ const MedicalFolderMetadata = (props) => {
                         />
                     </div>
                 </div>
+
+                {props.use_new_dlp ?
+                    <div className={`row`}>
+                        <div className="form-control">
+                            <TextArea name="desc"
+                                      type="text"
+                                      placeholder="Please enter an optional name for the data loading customizations that you created."
+                                      onChange={(e) => { props.setDLPName(e.target.value)}}
+                                      value={props.dlp_name}
+                            />
+                        </div>
+                    </div> : null
+                }
         </div>
     );
 };
 
 const mapStateToProps = (state) => {
     return {
-        metadata : state.medicalFolderDataset.metadata
+        metadata : state.medicalFolderDataset.metadata,
+        use_new_dlp : state.medicalFolderDataset.use_new_dlp,
+        dlp_name : state.medicalFolderDataset.dlp_name,
     }
 }
 
 const mapDispatchToProps = (dispatch) => {
     return {
-        setMedicalFolderDatasetMetadata : (data) => dispatch(setMedicalFolderDatasetMetadata(data))
+        setMedicalFolderDatasetMetadata : (data) => dispatch(setMedicalFolderDatasetMetadata(data)),
+        setDLPName : (data) => dispatch(setDLPName(data))
     }
 }
 

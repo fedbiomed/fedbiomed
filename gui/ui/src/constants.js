@@ -18,6 +18,7 @@ export const EP_VALIDATE_REFERENCE_COLUMN       = '/api/datasets/medical-folder-
 export const EP_ADD_MEDICAL_FOLDER_DATASET      = '/api/datasets/medical-folder-dataset/add'
 export const EP_PREVIEW_MEDICAL_FOLDER_DATASET  = '/api/datasets/medical-folder-dataset/preview'
 export const EP_DEFAULT_MODALITY_NAMES          = '/api/datasets/medical-folder-dataset/default-modalities'
+export const EP_DP_MOD2FOL_CREATE               = '/api/datasets/medical-folder-dataset/create-modalities-to-folders-pipeline'
 
 //Models
 export const EP_LIST_MODELS     = '/api/model/list'

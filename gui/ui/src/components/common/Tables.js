@@ -248,6 +248,7 @@ export const SelectiveTable = (props) => {
                             theadClassName={`${props.theadClassName} ${styles.stickyHead}`}
                             theadStyle={props.theadStyle}
                             activeColIndex={props.selectedColIndex}
+                            activeRowIndex={props.selectedRowIndex}
                             selectedLabel={props.selectedLabel}
                         />
                         <DataTableRows
@@ -258,6 +259,7 @@ export const SelectiveTable = (props) => {
                             hoverColIndex={hoverColIndex}
                             hoverRowIndex={hoverRowIndex}
                             activeColIndex={props.selectedColIndex}
+                            activeRowIndex={props.selectedRowIndex}
                             tranformation={(data) => data.toString().substring(0,30)}
                         />
                 </Table>
@@ -327,7 +329,7 @@ export const DataTableRows = (props) => {
         <TableBody className={props.tbodyClassName} style={props.tbodyStyle} >
             {props.table.data.map((row, key) => {
                 return(
-                    <TableRow key={'row-'+key} className={!props.hoverColumns && (props.hoverRowIndex === key) ? styles.activeCol : props.className} >
+                    <TableRow key={'row-'+key} className={(!props.hoverColumns) && ((props.hoverRowIndex === key) || (props.activeRowIndex === key)) ? styles.activeCol : props.className} >
                         <React.Fragment>
                             { props.table.index && props.showIndex ? (
                                 <TableCol transformation={props.transformation} >
