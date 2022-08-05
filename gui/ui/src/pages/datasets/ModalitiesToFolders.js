@@ -37,15 +37,7 @@ const withRouter = (Component) =>  {
 
 export class ModalitiesToFolders extends React.Component {
     componentDidMount(){
-        this.getDefaultModalityNames()
-    }
-
-    getDefaultModalityNames = () => {
         this.props.getDefaultModalityNames()
-    }
-
-    usePreExistingDlp = (status) => {
-        this.props.usePreExistingDlp(status)
     }
 
     updateModalitiesMapping = (data, folder_name) => {
@@ -77,7 +69,7 @@ export class ModalitiesToFolders extends React.Component {
         return (
             <React.Fragment>
             { !this.props.use_new_dlp ?
-                <CheckBox onChange={this.usePreExistingDlp}
+                <CheckBox onChange={(status) => {this.props.usePreExistingDlp(status)}}
                 checked={this.props.use_preexisting_dlp}>
                     Use an existing Data Loading Plan. A Data Loading Plan is a set of customizations to
                     the way your data will be loaded and presented to the researcher during the federated
