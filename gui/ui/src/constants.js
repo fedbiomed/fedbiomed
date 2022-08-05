@@ -16,6 +16,7 @@ export const EP_LOGIN                   = '/api/token/auth'
 export const EP_REFRESH                 = '/api/token/refresh'
 export const EP_LOGOUT                  = '/api/token/remove'
 export const EP_REGISTER                = '/api/register'
+export const EP_UPDATE_PASSWORD         = '/api/update-password'
 
 // Authentication actions
 export const LOGIN                      = 'LOGIN'

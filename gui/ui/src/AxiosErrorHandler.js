@@ -1,11 +1,9 @@
-import React from 'react';
-import { useLocation, useNavigate} from 'react-router-dom';
-import { get } from 'lodash';
+
 import axios from 'axios';
 import {EP_REFRESH} from './constants';
 import { getAccessToken, checkIsTokenActive, getRefreshToken }  from './store/actions/tokenFunc';
 import { createBrowserHistory } from 'history';
-import { configure } from '@testing-library/react';
+
 //import { store } from './index';
 
 
@@ -41,8 +39,7 @@ import { configure } from '@testing-library/react';
       return req;
     }, function (error) {
       // Do something with request error
-      console.log("GOT ERROR")
-      console.log(error)
+
 
       return Promise.reject(error);
     });

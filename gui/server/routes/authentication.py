@@ -46,7 +46,7 @@ def check_password_hash(password: str, user_password_hash: str) -> bool:
     return password_hash.hexdigest() == user_password_hash
 
 
-def get_user_by_email(user_email: str):
+def get_user_by_email(user_email: str)  -> str:
     """ Method used to retrieve a user from the database based on its email
     Args: 
 
@@ -91,6 +91,59 @@ def admin_required(func):
     return wrapper
 
 
+@api.route('/update-password', methods=['POST'])
+@jwt_required()
+@validate_request_data(schema=ValidateUserFormRequest)
+def update_password():
+    """ API endpoint to update user's password.
+    Before changing password, checks if User email in JSON is the same stored in the JWT 
+    
+    Request {application/json}:
+        email (str): user's email
+        password (str): new password user wants to update
+    
+    Response {application/json}:
+        400:
+            error   : Boolean error status (False)
+            result  : null
+            message : Message about error. Can be validation error or
+                      error from TinyDB
+        201:
+            success : Boolean value indicates that the request is success
+            result  : null
+            message : The message for response
+    
+    """
+    req = request.json
+    if not req or not req['email'] or not req['password']:
+        return error('Email or password is missing'), 400
+    email, password = req['email'], req['password']
+
+    if not check_password_format(password):
+        return error('Password should be at least 8 character long, with at least one uppercase letter, one lowercase letter and one number'), 400
+    decoded_json = get_jwt()
+    
+    if decoded_json['email'] != email:
+        # TODO: allow also operation if user's role is admin
+        return error('Error invalid user id'), 400
+    
+    user_name = get_user_by_email(email)
+    if not user_name:
+        return error('Invalid operation: User does not belong to database'), 400
+    
+    try:
+        table.update({
+            "user_email": email,
+            "password_hash": set_password_hash(password)
+        })
+        res = table.get(query.user_email == email)
+
+        return response({
+            'user_id': res['user_id'], 
+            'user_email': email}, 'User password successfully updated'), 200
+
+    except Exception as e:
+        return error(str(e)), 400
 
 @api.route('/register', methods=['POST', 'GET'])
 @validate_request_data(schema=ValidateUserFormRequest)
@@ -208,7 +261,7 @@ def login():
 
 
 @api.route('/token/refresh', methods=['POST'])
-@jwt_required(refresh=True)
+@jwt_required(refresh=True)  # only put `refresh` = True here
 def refresh_expiring_jwts():
     """ API endpoint for refreshing JWT token. Here we are using "explicit Refreshing", as 
     defined in `jwt-extended` documentation (https://flask-jwt-extended.readthedocs.io/en/stable/refreshing_tokens/).

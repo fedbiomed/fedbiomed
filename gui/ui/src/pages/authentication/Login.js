@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import axios from 'axios';
 import { EP_LOGIN, EP_REGISTER, LOGIN, REGISTER } from '../../constants';
-import Modal from '../../components/common/Modal';
-import Button from "../../components/common/Button";
 import {connect, useDispatch} from 'react-redux';
 
 const Login = (props) => {
