@@ -219,7 +219,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
     information such as modalities, number of subject etc.
     """
 
-    default_modality_names = ['Manually insert new modality name', 'T1', 'T2', 'label']
+    default_modality_names = ['T1', 'T2', 'label']
 
     def __init__(self, root: Union[str, Path, None] = None):
         """Constructs MedicalFolderBase

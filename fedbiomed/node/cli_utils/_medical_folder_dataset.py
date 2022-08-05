@@ -50,7 +50,7 @@ def add_medical_folder_dataset_from_cli(interactive: bool,
 
 
 def get_map_modalities2folders_from_cli(modality_folder_names: List[str]):
-    modality_names = copy(MedicalFolderBase.default_modality_names)
+    modality_names = ['Manually insert new modality name', *copy(MedicalFolderBase.default_modality_names)]
     map_modalities_to_folders = defaultdict(list)
     for modality_folder in modality_folder_names:
         keep_asking_for_this_modality = True
