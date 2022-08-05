@@ -61,13 +61,16 @@ def federated_averaging(model_params: List[Dict[str, torch.Tensor]],
 
 def federated_standardization(model_params: List[Dict[str, torch.Tensor]],
                         weights: List[float]) -> Dict[str, torch.Tensor]:
-    """Defines Federated Averaging (FedAvg) strategy for model aggregation.
+    """Defines strategy for evaluating the global mean and standard deviation.
 
     Args:
         model_params: list that contains nodes' model parameters; each model is stored as an OrderedDict (maps
-            model layer name to the model weights)
-        weights: weights for performing weighted sum in FedAvg strategy (depending on the dataset size of each node).
-            Items in the list must always sum up to 1
+            model layer name to the model weights). Expected model parameters are:
+            - mean, a torch.Tensor containing the local mean (expected size = num features)
+            - std, a torch.Tensor containing the local std (expected size = num features)
+            - size, a torch.Tensor containing the number of locally observed samples per feature (expected size = num features)
+
+        weights: not needed here
 
     Returns:
         Final model with aggregated layers, as an OrderedDict object.
@@ -76,7 +79,6 @@ def federated_standardization(model_params: List[Dict[str, torch.Tensor]],
     assert len(weights) == len(model_params), 'List with number of observations must have ' \
                                               'the same number of elements that list of models.'
 
-
     # Recover lists of local means and local stds
     mean_cl = [mod_par['mean'] for mod_par in model_params]
     std_cl = [mod_par['std'] for mod_par in model_params]
@@ -84,15 +86,15 @@ def federated_standardization(model_params: List[Dict[str, torch.Tensor]],
 
     #Evaluate global mean and global std
     cl = len(N_cl)
-    #N_tot = sum(N_cl)
+    N_tot = sum([N_cl[c] for c in range(cl)])
+    fed_mean = sum([N_cl[i]*mean_cl[i]/N_tot for i in range(cl)])
+    fed_std = torch.sqrt(sum([((N_cl[i]-1)*(std_cl[i]**2)+N_cl[i]*(mean_cl[i]**2))/(N_tot-cl) for i in range(cl)])-(N_tot/(N_tot-cl))*(fed_mean**2))
+
+    # with np
     #fed_mean = sum([N_cl[i]*np.array(mean_cl[i])/N_tot for i in range(cl)])
     #fed_std = np.sqrt(sum([((N_cl[i]-1)*np.array(std_cl[i])**2+\
     #                            N_cl[i]*np.array(mean_cl[i])**2)/(N_tot-cl) for i in range(cl)])\
     #                        -(N_tot/(N_tot-cl))*fed_mean**2)
-
-    N_tot = sum([N_cl[c] for c in range(cl)])
-    fed_mean = sum([N_cl[i]*mean_cl[i]/N_tot for i in range(cl)])
-    fed_std = torch.sqrt(sum([((N_cl[i]-1)*(std_cl[i]**2)+N_cl[i]*(mean_cl[i]**2))/(N_tot-cl) for i in range(cl)])-(N_tot/(N_tot-cl))*(fed_mean**2))
 
     fed_standardization_params = {'fed_mean': fed_mean, 'fed_std': fed_std, 'N_tot': N_tot}
 
