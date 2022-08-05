@@ -8,7 +8,6 @@ import {
     EP_PREVIEW_MEDICAL_FOLDER_DATASET,
     EP_DLP_LIST,
     EP_DEFAULT_MODALITY_NAMES,
-    EP_DLP_SAVE,
     EP_DP_MOD2FOL_CREATE,
 } from "../../constants";
 import {displayError} from "./actions";
@@ -189,13 +188,6 @@ export const updateModalitiesMapping = (data) => {
 export const clearModalityMapping = (folder_name) => {
     return (dispatch) => {
         dispatch({type: 'CLEAR_MODALITY_MAPPING', payload: folder_name})
-    }
-}
-
-export const saveDlp = (dlp) => {
-    return (dispatch) => {
-        axios.post(EP_DLP_SAVE, dlp).then( response => {
-        })
     }
 }
 

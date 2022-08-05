@@ -401,10 +401,3 @@ def list_data_loading_plans():
     data = [[dlp['dlp_name'], dlp['dlp_id']] for dlp in dlps]
 
     return response({'index': index, 'columns': columns, 'data': data}), 200
-
-
-@api.route('/datasets/save-data-loading-plan', methods=['POST'])
-def save_dlp():
-    from fedbiomed.common.data import DataLoadingPlan
-    req = request.json
-    return response(data={}), 200

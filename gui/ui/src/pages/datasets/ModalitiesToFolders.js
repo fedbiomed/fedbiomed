@@ -15,7 +15,6 @@ import {
     getDefaultModalityNames,
     updateModalitiesMapping,
     clearModalityMapping,
-    saveDlp,
     } from "../../store/actions/medicalFolderDatasetActions"
 
 
@@ -158,7 +157,6 @@ const mapDispatchToProps = (dispatch) => {
         getDefaultModalityNames : () => dispatch(getDefaultModalityNames()),
         updateModalitiesMapping : (data) => dispatch(updateModalitiesMapping(data)),
         clearModalityMapping : (data) => dispatch(clearModalityMapping(data)),
-        saveDlp : (data) => dispatch(saveDlp(data)),
     }
 }
 
