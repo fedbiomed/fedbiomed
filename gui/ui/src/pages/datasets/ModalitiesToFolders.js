@@ -101,19 +101,19 @@ export class ModalitiesToFolders extends React.Component {
                         Create a new customized association between imaging modality names and folder names
                         in your local file system.
                     </CheckBox>
-                    { this.props.use_new_dlp ? (
+                    { this.props.use_new_mod2fol_association ? (
                         <React.Fragment>
                             <div className={styles.dlp_modalities_container}>
                                 {this.props.modalities.map((item, key) => {
                                     return(
-                                        <React.Fragment key={10000+key}>
-                                            <span className={styles.dlp_modalities} key={1000+key}>{item}</span>
-                                            <div className={styles.dlp_modality_selector} key={100+key}>
+                                        <React.Fragment key={`modfrag-${key}`}>
+                                            <span className={styles.dlp_modalities} key={`modspan-${key}`}>{item}</span>
+                                            <div className={styles.dlp_modality_selector} key={`modsel-${key}`}>
                                                 <CreatableSelect
                                                     isClearable
                                                     onChange={event => {this.updateModalitiesMapping(event, item)}}
                                                     options={this.props.default_modality_names}
-                                                    key={key}
+                                                    key={`modcreatsel-${key}`}
                                                 />
                                             </div>
                                         </React.Fragment>
@@ -130,11 +130,12 @@ export class ModalitiesToFolders extends React.Component {
     }
 }
 
+
 const mapStateToProps = (state) => {
     return {
         modalities  : state.medicalFolderDataset.modalities,
         use_preexisting_dlp  : state.medicalFolderDataset.use_preexisting_dlp,
-        use_new_dlp  : state.medicalFolderDataset.use_new_dlp,
+        use_new_mod2fol_association  : state.medicalFolderDataset.use_new_mod2fol_association,
         existing_dlps  : state.medicalFolderDataset.existing_dlps,
         default_modality_names : state.medicalFolderDataset.default_modality_names,
         modalities_mapping : state.medicalFolderDataset.modalities_mapping,

@@ -22,7 +22,7 @@ const initialState = {
     reference_csv: null,
     ignore_reference_csv: false,
     use_preexisting_dlp: false,
-    use_new_dlp: false,
+    use_new_mod2fol_association: false,
     existing_dlps: null,
     selected_dlp_index: null,
     default_modality_names: [],
@@ -128,7 +128,7 @@ export const medicalFolderReducer = (state = initialState, action) => {
         case "SET_CREATE_DLP":
             return {
                 ...state,
-                use_new_dlp : action.payload
+                use_new_mod2fol_association : action.payload
             }
         case "SET_DLP_NAME":
             return {
