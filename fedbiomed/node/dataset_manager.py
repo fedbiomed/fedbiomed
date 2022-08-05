@@ -540,6 +540,10 @@ class DatasetManager:
         current_dataset_metadata['dlp_id'] = data_loading_plan.dlp_id
         return current_dataset_metadata
 
+    def save_data_pipeline(self, dp: 'DataPipeline') -> None:
+        table = self.db.table('Data_Loading_Plans')
+        table.insert(dp.serialize())
+
     @staticmethod
     def obfuscate_private_information(database_metadata: Iterable[dict]) -> Iterable[dict]:
         """Remove privacy-sensitive information, to prepare for sharing with a researcher.
