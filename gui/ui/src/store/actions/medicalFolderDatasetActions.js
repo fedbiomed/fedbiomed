@@ -263,7 +263,7 @@ export const getMedicalFolderPreview = (dataset_id) => {
     }
 }
 
-/**
+/*
  * API call to get subdirectories in MedicalFolderDataset root folder
  * @param path
  * @returns {(function(*): void)|*}

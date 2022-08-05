@@ -1,5 +1,4 @@
 import React from 'react';
-import CreatableSelect from 'react-select/creatable';
 import styles from "./AddDataset.module.css"
 import Step from "../../components/layout/Step"
 import {connect} from "react-redux"
@@ -9,20 +8,13 @@ import {setFolderPath,
     setReferenceCSV,
     addMedicalFolderDataset,
     setIgnoreReferenceCsv,
-    setUsePreExistingDlp,
-    setDLP,
-    setCreateModalitiesToFoldersPipeline,
-    CreateModalitiesToFoldersPipeline,
-    getDefaultModalityNames,
-    updateModalitiesMapping,
-    clearModalityMapping,
-    saveDlp,
     } from "../../store/actions/medicalFolderDatasetActions"
 import {SelectiveTable} from "../../components/common/Tables";
 import MedicalFolderSubjectInformation from "./MedicalFolderSubjectInformation";
 import Button, {ButtonsWrapper} from "../../components/common/Button";
 import {useNavigate, useParams, useLocation} from "react-router-dom";
 import DatasetMetadata from "./MedicalFolderMetaData";
+import ModalitiesToFolders from "./ModalitiesToFolders";
 import {CheckBox} from "../../components/common/Inputs";
 
 
@@ -44,10 +36,6 @@ const withRouter = (Component) =>  {
 
 
 export class MedicalFolderDataset extends React.Component {
-    componentDidMount(){
-        this.getDefaultModalityNames()
-    }
-
     setDataPath = (path) => {
         this.props.setFolderPath(path)
     }
@@ -72,39 +60,6 @@ export class MedicalFolderDataset extends React.Component {
 
     ignoreReferenceCsv = (status) => {
         this.props.ignoreReferenceCsv(status)
-    }
-
-    getDefaultModalityNames = () => {
-        this.props.getDefaultModalityNames()
-    }
-
-    usePreExistingDlp = (status) => {
-        this.props.usePreExistingDlp(status)
-    }
-
-    updateModalitiesMapping = (data, folder_name) => {
-        if(data === null) {
-            this.props.clearModalityMapping(folder_name)
-        } else {
-            data.modality_name = data.value
-            data.folder_name = folder_name
-            this.props.updateModalitiesMapping(data)
-        }
-    }
-
-    CreateModalitiesToFoldersPipeline = (event) => {
-        // now need to invert the modalities_mapping to obtain a mapping of the form:
-        // { modality_name : [folder_1, folder_2, ...] }
-        let mod2fol = {}
-        let mapping = this.props.modalities_mapping
-        for(var key in mapping) {
-            if(mapping[key] in mod2fol) {
-                mod2fol[mapping[key]].push(key)
-            } else {
-                mod2fol[mapping[key]] = [key]
-            }
-        }
-        this.props.CreateModalitiesToFoldersPipeline(mod2fol)
     }
 
     render() {
@@ -134,59 +89,11 @@ export class MedicalFolderDataset extends React.Component {
 
                 {this.props.medical_folder_root ?
                     <React.Fragment>
-                   <Step key={2}
-                         step={2}
-                         desc={'Would you like to use an existing DLP?'}
-                   >
-                          { !this.props.use_new_dlp ?
-                          <CheckBox onChange={this.usePreExistingDlp}
-                                    checked={this.props.use_preexisting_dlp}>
-                                    Use an existing Data Loading Plan. A Data Loading Plan is a set of customizations to
-                                    the way your data will be loaded and presented to the researcher during the federated
-                                    training phase. For example, check this box if you wish to map your local folder names
-                                    to more generic imaging modality names.
-                          </CheckBox> : null }
-                           { this.props.use_preexisting_dlp && this.props.existing_dlps !== null ?
-                           <SelectiveTable
-                               maxHeight={350}
-                               table={this.props.existing_dlps}
-                               selectedLabel={"Folder Name"}
-                               hoverColumns={false}
-                               onSelect={this.props.setDLPTableSelectedRow}
-                               selectedRowIndex={this.props.selected_dlp_index}
-                           /> : null
-                            }
-                            { !this.props.use_preexisting_dlp ?
-                                <React.Fragment>
-                                <CheckBox
-                                    onChange={(event) => {this.props.setCreateModalitiesToFoldersPipeline(event)}}
-                                >
-                                    Create a new customized association between imaging modality names and folder names
-                                    in your local file system.
-                                </CheckBox>
-                                { this.props.use_new_dlp ? (
-                                  <React.Fragment>
-                                  <div className={styles.dlp_modalities_container}>
-                                  {this.props.medicalFolderDataset.modalities.map((item, key) => {
-                                        return(
-                                        <React.Fragment key={10000+key}>
-                                            <span className={styles.dlp_modalities} key={1000+key}>{item}</span>
-                                            <div className={styles.dlp_modality_selector} key={100+key}>
-                                                <CreatableSelect
-                                                    isClearable
-                                                    onChange={event => {this.updateModalitiesMapping(event, item)}}
-                                                    options={this.props.default_modality_names}
-                                                    key={key}
-                                                />
-                                            </div>
-                                        </React.Fragment>
-                                    )})}
-                                  </div>
-                                  <Button onClick={(event) => {this.CreateModalitiesToFoldersPipeline(event)}}>Save association</Button>
-                                  </React.Fragment>
-                                  ) : null }
-                                </React.Fragment> : null
-                            }
+                    <Step key={2}
+                          step={2}
+                          desc={'Would you like to use an existing DLP?'}
+                    >
+                        < ModalitiesToFolders />
                     </Step>
 
                     <Step
@@ -271,13 +178,6 @@ const mapStateToProps = (state) => {
         medical_folder_root : state.medicalFolderDataset.medical_folder_root,
         medicalFolderDataset : state.medicalFolderDataset,
         ignore_reference_csv : state.medicalFolderDataset.ignore_reference_csv,
-        use_preexisting_dlp  : state.medicalFolderDataset.use_preexisting_dlp,
-        use_new_dlp  : state.medicalFolderDataset.use_new_dlp,
-        existing_dlps  : state.medicalFolderDataset.existing_dlps,
-        default_modality_names : state.medicalFolderDataset.default_modality_names,
-        modalities_mapping : state.medicalFolderDataset.modalities_mapping,
-        dlp_pipelines : state.medicalFolderDataset.dlp_pipelines,
-        selected_dlp_index : state.medicalFolderDataset.selected_dlp_index,
     }
 }
 
@@ -291,16 +191,8 @@ const mapDispatchToProps = (dispatch) => {
         setFolderPath : (data) => dispatch(setFolderPath(data)),
         setReferenceCSV : (data) => dispatch(setReferenceCSV(data)),
         setFolderRefColumn : (data) => dispatch(setFolderRefColumn(data)),
-        setDLPTableSelectedRow : (data) => dispatch(setDLP(data)),
         addMedicalFolderDataset : (navigate) => dispatch(addMedicalFolderDataset(navigate)),
         ignoreReferenceCsv : (data) => dispatch(setIgnoreReferenceCsv(data)),
-        usePreExistingDlp : (data) => dispatch(setUsePreExistingDlp(data)),
-        setCreateModalitiesToFoldersPipeline : (data) => dispatch(setCreateModalitiesToFoldersPipeline(data)),
-        CreateModalitiesToFoldersPipeline : (data) => dispatch(CreateModalitiesToFoldersPipeline(data)),
-        getDefaultModalityNames : () => dispatch(getDefaultModalityNames()),
-        updateModalitiesMapping : (data) => dispatch(updateModalitiesMapping(data)),
-        clearModalityMapping : (data) => dispatch(clearModalityMapping(data)),
-        saveDlp : (data) => dispatch(saveDlp(data)),
     }
 }
 
