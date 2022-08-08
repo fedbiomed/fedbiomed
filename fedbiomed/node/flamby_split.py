@@ -54,7 +54,10 @@ def _split_train_and_test_data_flamby(dataset: dict, test_ratio: float = 0, tran
         of the model, and the performance reached will be the one retained in the benchmark.
     """
     training_plan_type = TrainingPlans.TorchTrainingPlan # FLamby dataloaders are all and always based on PyTorch
-    module = __import__(dataset['dataset_parameters']['fed_class'], fromlist='dummy')
+    try:
+        module = __import__(dataset['dataset_parameters']['fed_class'], fromlist='dummy')
+    except FedbiomedError as e:
+        raise FedbiomedRoundError(f"{ErrorNumbers.FB316.value}: Error while importing FLamby dataset package; {str(e)}")
     center_id = dataset['dataset_parameters']['center_id']
 
     try:
