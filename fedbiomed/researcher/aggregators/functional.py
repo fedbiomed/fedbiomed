@@ -73,7 +73,7 @@ def federated_standardization(model_params: List[Dict[str, torch.Tensor]],
         weights: not needed here
 
     Returns:
-        Final model with aggregated layers, as an OrderedDict object.
+        A dictionary containing federated mean, federated standard deviation and total number of samples.
     """
     assert len(model_params) > 0, 'An empty list of models was passed.'
     assert len(weights) == len(model_params), 'List with number of observations must have ' \
