@@ -162,6 +162,7 @@ class ErrorNumbers(_BaseEnum):
     FB611: str = "FB611: Error while trying to evaluate using the specified metric"
     FB612: str = "FB612: Torch based NIFTI dataset error"
     FB613: str = "FB613: Medical Folder dataset error"
+    FB614: str = "FB614: Selected FLamby dataset error"
 
 
     # oops
