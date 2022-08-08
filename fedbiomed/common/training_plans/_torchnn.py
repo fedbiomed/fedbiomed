@@ -268,8 +268,6 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 self.optimizer.step()
 
-                # do not take into account more than batch_maxnum
-                # batches from the dataset
                 if batch_ % log_interval == 0:
                     batch_size = self.training_data_loader.batch_size
                     num_samples_till_now = min(batch_*batch_size, len(self.training_data_loader.dataset))
@@ -295,6 +293,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                         torch.cuda.empty_cache()
                         return
 
+                # do not take into account more than batch_maxnum
+                # batches from the dataset
                 if (batch_maxnum > 0) and (batch_ >= batch_maxnum):
                     # print('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
                     logger.info('Reached {} batches for this epoch, ignore remaining data'.format(batch_maxnum))
