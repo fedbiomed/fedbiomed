@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect } from 'react'
 import './App.css';
+import '@elastic/eui/dist/eui_theme_light.css';
 import {
   BrowserRouter as Router,
   Routes,

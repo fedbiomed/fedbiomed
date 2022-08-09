@@ -50,7 +50,7 @@ const UserAccount = () => {
 
     const sendPassword = (new_password, url) => {
         // sends HTTP POST for updating password
-        var user_email  = userInfo['username'];
+        let user_email  = userInfo['username'];
         console.log(userInfo)
         console.log(new_password)
         axios.post(url, {email: user_email, 
