@@ -6,7 +6,6 @@ import {
     EP_VALIDATE_REFERENCE_COLUMN,
     EP_ADD_MEDICAL_FOLDER_DATASET,
     EP_PREVIEW_MEDICAL_FOLDER_DATASET,
-    EP_DLP_LIST,
     EP_DEFAULT_MODALITY_NAMES,
     EP_DP_MOD2FOL_CREATE,
 } from "../../constants";
@@ -134,27 +133,9 @@ export const setIgnoreReferenceCsv = (data) => {
     }
 }
 
-export const setUsePreExistingDlp = (data) => {
-    return (dispatch) => {
-        dispatch({type: "SET_USE_PRE_EXISTING_DLP", payload: data})
-        dispatch({type:'SET_LOADING', payload: {status: true, text: "Fetching existing Data Loading Plans..."}})
-        axios.get(EP_DLP_LIST).then(response => {
-            dispatch({type: "SET_EXISTING_DLPS", payload: response.data.result})
-            dispatch({type:'SET_LOADING', payload: {status: false}})
-        })
-    }
-}
-
-export const setDLP = (index) => {
-    return (dispatch) => {
-        dispatch({type: 'CLEAR_PIPELINES', payload: {}})
-        dispatch({type: 'SET_DLP', payload: index})
-    }
-}
-
 export const setCreateModalitiesToFoldersPipeline = (value) => {
     return (dispatch) => {
-        dispatch({type: 'SET_CREATE_DLP', payload: value})
+        dispatch({type: 'SET_CREATE_MOD2FOL', payload: value})
     }
 }
 
@@ -188,12 +169,6 @@ export const updateModalitiesMapping = (data) => {
 export const clearModalityMapping = (folder_name) => {
     return (dispatch) => {
         dispatch({type: 'CLEAR_MODALITY_MAPPING', payload: folder_name})
-    }
-}
-
-export const setDLPName = (data) => {
-    return (dispatch) => {
-        dispatch({type: 'SET_DLP_NAME', payload: data})
     }
 }
 

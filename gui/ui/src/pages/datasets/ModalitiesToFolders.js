@@ -8,14 +8,17 @@ import {useNavigate, useParams, useLocation} from "react-router-dom";
 import styles from "./AddDataset.module.css"
 
 import {
-    setUsePreExistingDlp,
-    setDLP,
     setCreateModalitiesToFoldersPipeline,
     CreateModalitiesToFoldersPipeline,
     getDefaultModalityNames,
     updateModalitiesMapping,
     clearModalityMapping,
     } from "../../store/actions/medicalFolderDatasetActions"
+
+import {
+    setUsePreExistingDlp,
+    setDLPIndex,
+    } from "../../store/actions/dataLoadingPlanActions"
 
 
 const withRouter = (Component) =>  {
@@ -74,7 +77,7 @@ export class ModalitiesToFolders extends React.Component {
                     Use an existing Data Loading Plan. A Data Loading Plan is a set of customizations to
                     the way your data will be loaded and presented to the researcher during the federated
                     training phase. For example, check this box if you wish to map your local folder names
-                    to more generic imaging modality names.
+                    to more generic imaging modality names. {String(this.props.use_preexisting_dlp)} {String(this.props.existing_dlps !== null)}
                 </CheckBox> : null
             }
             { this.props.use_preexisting_dlp && this.props.existing_dlps !== null ?
@@ -126,13 +129,13 @@ export class ModalitiesToFolders extends React.Component {
 const mapStateToProps = (state) => {
     return {
         modalities  : state.medicalFolderDataset.modalities,
-        use_preexisting_dlp  : state.medicalFolderDataset.use_preexisting_dlp,
+        use_preexisting_dlp  : state.dataLoadingPlan.use_preexisting_dlp,
         use_new_mod2fol_association  : state.medicalFolderDataset.use_new_mod2fol_association,
-        existing_dlps  : state.medicalFolderDataset.existing_dlps,
+        existing_dlps  : state.dataLoadingPlan.existing_dlps,
         default_modality_names : state.medicalFolderDataset.default_modality_names,
         modalities_mapping : state.medicalFolderDataset.modalities_mapping,
-        dlp_pipelines : state.medicalFolderDataset.dlp_pipelines,
-        selected_dlp_index : state.medicalFolderDataset.selected_dlp_index,
+        dlp_pipelines : state.dataLoadingPlan.dlp_pipelines,
+        selected_dlp_index : state.dataLoadingPlan.selected_dlp_index,
     }
 }
 
@@ -143,7 +146,7 @@ const mapStateToProps = (state) => {
  */
 const mapDispatchToProps = (dispatch) => {
     return {
-        setDLPTableSelectedRow : (data) => dispatch(setDLP(data)),
+        setDLPTableSelectedRow : (data) => dispatch(setDLPIndex(data)),
         usePreExistingDlp : (data) => dispatch(setUsePreExistingDlp(data)),
         setCreateModalitiesToFoldersPipeline : (data) => dispatch(setCreateModalitiesToFoldersPipeline(data)),
         CreateModalitiesToFoldersPipeline : (data) => dispatch(CreateModalitiesToFoldersPipeline(data)),

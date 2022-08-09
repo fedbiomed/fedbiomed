@@ -1,7 +1,8 @@
 import React from 'react';
 import {Label, Tag, Text, TextArea} from "../../components/common/Inputs";
 import {connect} from "react-redux"
-import {setMedicalFolderDatasetMetadata, setDLPName} from "../../store/actions/medicalFolderDatasetActions";
+import {setMedicalFolderDatasetMetadata} from "../../store/actions/medicalFolderDatasetActions";
+import {setDLPName} from "../../store/actions/dataLoadingPlanActions";
 
 
 const MedicalFolderMetadata = (props) => {

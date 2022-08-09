@@ -21,14 +21,9 @@ const initialState = {
     },
     reference_csv: null,
     ignore_reference_csv: false,
-    use_preexisting_dlp: false,
     use_new_mod2fol_association: false,
-    existing_dlps: null,
-    selected_dlp_index: null,
     default_modality_names: [],
     modalities_mapping: {},
-    dlp_pipelines: {},
-    dlp_name: ""
 }
 
 
@@ -104,36 +99,10 @@ export const medicalFolderReducer = (state = initialState, action) => {
                 ...state,
                 ignore_reference_csv : action.payload
             }
-        case "SET_USE_PRE_EXISTING_DLP":
-            return {
-                ...state,
-                use_preexisting_dlp : action.payload
-            }
-        case "SET_EXISTING_DLPS":
-            return {
-                ...state,
-                existing_dlps : action.payload
-            }
-        case "SET_DLP":
-            if (action.payload === -1){
-                return  {
-                    ...state,
-                    selected_dlp_index : null
-                }
-            }
-            return {
-                ...state,
-                selected_dlp_index : action.payload
-            }
-        case "SET_CREATE_DLP":
+        case "SET_CREATE_MOD2FOL":
             return {
                 ...state,
                 use_new_mod2fol_association : action.payload
-            }
-        case "SET_DLP_NAME":
-            return {
-                ...state,
-                dlp_name : action.payload
             }
         case "SET_DEFAULT_MODALITY_NAMES":
             return {
@@ -153,18 +122,6 @@ export const medicalFolderReducer = (state = initialState, action) => {
             return {
                 ...state,
                 modalities_mapping: mod_mapping
-            }
-        case "ADD_PIPELINE":
-            let pipelines = state.dlp_pipelines
-            pipelines[action.payload.type_id] = action.payload.serial_id
-            return {
-                ...state,
-                dlp_pipelines: pipelines
-            }
-        case "CLEAR_PIPELINES":
-            return {
-                ...state,
-                dlp_pipelines: {}
             }
         case "RESET_MEDICAL_FOLDER":
             return initialState

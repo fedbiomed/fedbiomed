@@ -1,21 +1,21 @@
 import React from 'react';
-import styles from "./AddDataset.module.css"
-import Step from "../../components/layout/Step"
+import {useNavigate, useParams, useLocation} from "react-router-dom";
 import {connect} from "react-redux"
-import FileBrowser from "../../components/common/FileBrowser";
 import {setFolderPath,
     setFolderRefColumn,
     setReferenceCSV,
     addMedicalFolderDataset,
     setIgnoreReferenceCsv,
     } from "../../store/actions/medicalFolderDatasetActions"
+import styles from "./AddDataset.module.css"
+import FileBrowser from "../../components/common/FileBrowser";
 import {SelectiveTable} from "../../components/common/Tables";
-import MedicalFolderSubjectInformation from "./MedicalFolderSubjectInformation";
 import Button, {ButtonsWrapper} from "../../components/common/Button";
-import {useNavigate, useParams, useLocation} from "react-router-dom";
+import Step from "../../components/layout/Step"
+import {CheckBox} from "../../components/common/Inputs";
+import MedicalFolderSubjectInformation from "./MedicalFolderSubjectInformation";
 import DatasetMetadata from "./MedicalFolderMetaData";
 import ModalitiesToFolders from "./ModalitiesToFolders";
-import {CheckBox} from "../../components/common/Inputs";
 
 
 const withRouter = (Component) =>  {
