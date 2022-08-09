@@ -73,11 +73,12 @@ export class ModalitiesToFolders extends React.Component {
             <React.Fragment>
             { !this.props.use_new_dlp ?
                 <CheckBox onChange={(status) => {this.props.usePreExistingDlp(status)}}
-                checked={this.props.use_preexisting_dlp}>
+                checked={this.props.use_preexisting_dlp}
+                >
                     Use an existing Data Loading Plan. A Data Loading Plan is a set of customizations to
                     the way your data will be loaded and presented to the researcher during the federated
                     training phase. For example, check this box if you wish to map your local folder names
-                    to more generic imaging modality names. {String(this.props.use_preexisting_dlp)} {String(this.props.existing_dlps !== null)}
+                    to more generic imaging modality names.
                 </CheckBox> : null
             }
             { this.props.use_preexisting_dlp && this.props.existing_dlps !== null ?
