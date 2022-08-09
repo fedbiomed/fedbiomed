@@ -63,9 +63,9 @@ export const setFolderRefColumn = (ref) => {
             index_col: ref.index
         }
 
-        validation_data['dlp_id'] = state.medicalFolderDataset.selected_dlp_index !== null ?
-            state.medicalFolderDataset.existing_dlps['data'][state.medicalFolderDataset.selected_dlp_index][1] : null
-        validation_data['dlp_pipelines'] = state.medicalFolderDataset.dlp_pipelines
+        validation_data['dlp_id'] = state.dataLoadingPlan.selected_dlp_index !== null ?
+            state.dataLoadingPlan.existing_dlps['data'][state.dataLoadingPlan.selected_dlp_index][1] : null
+        validation_data['dlp_pipelines'] = state.dataLoadingPlan.dlp_pipelines
 
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Setting/validating MedicalFolder subject reference column..."}})
         axios.post(EP_VALIDATE_REFERENCE_COLUMN, validation_data).then(response => {
@@ -180,6 +180,7 @@ export const addMedicalFolderDataset = (navigator) => {
     return (dispatch, getState) => {
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Adding MedicalFolder dataset by validating all the inputs..."}})
         let medical_folder = getState().medicalFolderDataset
+        let dlp = getState().dataLoadingPlan
         let data = {
             medical_folder_root : medical_folder.medical_folder_root,
             name : medical_folder.metadata.name,
@@ -195,16 +196,17 @@ export const addMedicalFolderDataset = (navigator) => {
             }
         }
 
-        data['dlp_id'] = medical_folder.selected_dlp_index !== null ?
-                            medical_folder.existing_dlps['data'][medical_folder.selected_dlp_index][1] : null
-        data['dlp_pipelines'] = medical_folder.dlp_pipelines
-        data['dlp_name'] = medical_folder.dlp_name
+        data['dlp_id'] = dlp.selected_dlp_index !== null ?
+                            dlp.existing_dlps['data'][dlp.selected_dlp_index][1] : null
+        data['dlp_pipelines'] = dlp.dlp_pipelines
+        data['dlp_name'] = dlp.dlp_name
 
         axios.post(EP_ADD_MEDICAL_FOLDER_DATASET, data).then( response => {
                 dispatch({type: 'SUCCESS_MODAL' , payload: "Dataset has been successfully added"})
                 dispatch({type:'SET_LOADING', payload: {status: false}})
                 navigator('/datasets')
                 dispatch({type:'RESET_MEDICAL_FOLDER'})
+                dispatch({type:'RESET_DATA_LOADING_PLAN'})
         }).catch(error => {
             dispatch({type:'SET_LOADING', payload: {status: false}})
             dispatch(displayError(error, "Error while adding MedicalFolder dataset: "))

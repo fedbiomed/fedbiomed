@@ -47,6 +47,8 @@ export const dataLoadingPlanReducer = (state = initialState, action) => {
                 ...state,
                 dlp_pipelines: {}
             }
+        case "RESET_DATA_LOADING_PLAN":
+            return initialState
         default:
             return state
     }
