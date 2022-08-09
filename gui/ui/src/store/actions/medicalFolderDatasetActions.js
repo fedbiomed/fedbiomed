@@ -196,21 +196,27 @@ export const addMedicalFolderDataset = (navigator) => {
             }
         }
 
-        data['dlp_id'] = dlp.selected_dlp_index !== null ?
-                            dlp.existing_dlps['data'][dlp.selected_dlp_index][1] : null
-        data['dlp_pipelines'] = dlp.dlp_pipelines
-        data['dlp_name'] = dlp.dlp_name
-
-        axios.post(EP_ADD_MEDICAL_FOLDER_DATASET, data).then( response => {
-                dispatch({type: 'SUCCESS_MODAL' , payload: "Dataset has been successfully added"})
-                dispatch({type:'SET_LOADING', payload: {status: false}})
-                navigator('/datasets')
-                dispatch({type:'RESET_MEDICAL_FOLDER'})
-                dispatch({type:'RESET_DATA_LOADING_PLAN'})
-        }).catch(error => {
+        if(medical_folder.use_new_mod2fol_association && !('modalities_to_folders' in dlp.dlp_pipelines)){
+            dispatch({type: 'ERROR_MODAL' , payload: "Error: please save an association of modalities to folders by clicking on the Save Association button"})
             dispatch({type:'SET_LOADING', payload: {status: false}})
-            dispatch(displayError(error, "Error while adding MedicalFolder dataset: "))
-        })
+
+        } else {
+            data['dlp_id'] = dlp.selected_dlp_index !== null ?
+                                dlp.existing_dlps['data'][dlp.selected_dlp_index][1] : null
+            data['dlp_pipelines'] = dlp.dlp_pipelines
+            data['dlp_name'] = dlp.dlp_name
+
+            axios.post(EP_ADD_MEDICAL_FOLDER_DATASET, data).then( response => {
+                    dispatch({type: 'SUCCESS_MODAL' , payload: "Dataset has been successfully added"})
+                    dispatch({type:'SET_LOADING', payload: {status: false}})
+                    navigator('/datasets')
+                    dispatch({type:'RESET_MEDICAL_FOLDER'})
+                    dispatch({type:'RESET_DATA_LOADING_PLAN'})
+            }).catch(error => {
+                dispatch({type:'SET_LOADING', payload: {status: false}})
+                dispatch(displayError(error, "Error while adding MedicalFolder dataset: "))
+            })
+        }
     }
 }
 
