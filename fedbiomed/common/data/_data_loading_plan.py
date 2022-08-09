@@ -1,6 +1,10 @@
 import uuid
-from typing import Any, List
+from typing import Any, List, TypeVar
 from abc import ABC, abstractmethod
+
+
+TDataLoadingPlan = TypeVar("TDataLoadingPlan", bound="DataLoadingPlan")
+TDataPipeline = TypeVar("TDataPipeline", bound="DataPipeline")
 
 
 class DataPipeline(ABC):
@@ -64,7 +68,7 @@ class DataPipeline(ABC):
             pipeline_serialization_id=self.__serialization_id
         )
 
-    def load(self, load_from: dict) -> 'DataPipeline':
+    def load(self, load_from: dict) -> TDataPipeline:
         """Reconstruct the DataPipeline from a serialized version.
 
         Args:
@@ -210,7 +214,7 @@ class DataLoadingPlan(List[DataPipeline]):
         """
         return [dp.serialize() for dp in self.__iter__()]
 
-    def load_from_aggregated_serialized(self, load_from: dict) -> 'DataLoadingPlan':
+    def load_from_aggregated_serialized(self, load_from: dict) -> TDataLoadingPlan:
         """Reconstruct the DataLoadingPlan from a serialized version.
 
         The format of the input argument is expected to be an 'aggregated serialized' version, as defined by the output

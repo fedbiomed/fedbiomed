@@ -92,10 +92,7 @@ class DatasetManager:
         """
         self.db.clear_cache()
         table = self.db.table('Data_Loading_Plans')
-        result = list()
-        for dp_id in dp_ids:
-            result.append(table.get(self.database.pipeline_serialization_id == dp_id))
-        return result
+        return table.search(self.database.pipeline_serialization_id.one_of(dp_ids))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
@@ -549,8 +546,7 @@ class DatasetManager:
             return current_dataset_metadata
 
         table = self.db.table('Data_Loading_Plans')
-        for serialized_dp in data_loading_plan.serialize_pipelines():
-            table.insert(serialized_dp)
+        table.insert_multiple(data_loading_plan.serialize_pipelines())
         table.insert(data_loading_plan.serialize())
         current_dataset_metadata['dlp_id'] = data_loading_plan.dlp_id
         return current_dataset_metadata
