@@ -75,21 +75,24 @@ export class ModalitiesToFolders extends React.Component {
                 <CheckBox onChange={(status) => {this.props.usePreExistingDlp(status)}}
                 checked={this.props.use_preexisting_dlp}
                 >
-                    Use an existing Data Loading Plan. A Data Loading Plan is a set of customizations to
-                    the way your data will be loaded and presented to the researcher during the federated
-                    training phase. For example, check this box if you wish to map your local folder names
+                    Use an existing already-existing set of customizations.
+                    The way your data is loaded and presented to the researcher during the federated
+                    training phase will be affected by all the customizations in the plan selected below.
+                    For example, check this box if you wish to map your local folder names
                     to more generic imaging modality names.
                 </CheckBox> : null
             }
             { this.props.use_preexisting_dlp && this.props.existing_dlps !== null ?
+                <React.Fragment>
+                <p className={styles.dlp_selection_table_title}>Please select one customization from the table below.</p>
                 <SelectiveTable
                     maxHeight={350}
                     table={this.props.existing_dlps}
-                    selectedLabel={"Folder Name"}
                     hoverColumns={false}
                     onSelect={this.props.setDLPTableSelectedRow}
                     selectedRowIndex={this.props.selected_dlp_index}
-                /> : null
+                />
+                </React.Fragment> : null
             }
             {!this.props.use_preexisting_dlp ?
                 <React.Fragment>
@@ -115,7 +118,19 @@ export class ModalitiesToFolders extends React.Component {
                                         </React.Fragment>
                                 )})}
                             </div>
-                            <Button onClick={(event) => {this.CreateModalitiesToFoldersPipeline(event)}}>Save association</Button>
+                            <div className={styles.saveAssociationsButtonContainer}>
+                            <Button
+                                onClick={(event) => {this.CreateModalitiesToFoldersPipeline(event)}}
+                            >
+                                Save association
+                            </Button>
+                            <button className={styles.helpCircle}>?</button>
+                                <span className={styles.saveAssociationHelpText} >
+                                    The last-saved association will be automatically linked to this dataset at the final
+                                    step of this page. To fix a mistake, simply click the button again to save a new
+                                    association and overwrite the previous one.
+                                </span>
+                            </div>
                         </React.Fragment>
                 ) : null
                 }

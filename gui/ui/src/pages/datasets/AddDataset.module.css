@@ -30,3 +30,35 @@
 .dlp_modality_selector {
     flex-basis: 60%;
 }
+
+.dlp_selection_table_title {
+    text-align: center;
+    font-weight: bold;
+}
+
+.saveAssociationsButtonContainer {
+    display: flex;
+}
+
+.helpCircle {
+    display: inline-block;
+    border-radius: 100%;
+    width: 25px;
+    height: 25px;
+    background-color: var(--button-color);
+    border-style: none;
+    color: #eee;
+}
+
+.saveAssociationHelpText {
+    visibility: hidden;
+    font-size: x-small;
+    font-style: italic;
+    display: inline-block;
+    width: 30%;
+    margin-left: 1%;
+}
+
+.helpCircle:hover ~ .saveAssociationHelpText {
+    visibility: visible;
+}

@@ -91,7 +91,7 @@ export class MedicalFolderDataset extends React.Component {
                     <React.Fragment>
                     <Step key={2}
                           step={2}
-                          desc={'Would you like to use an existing DLP?'}
+                          desc={'Would you like to associate your local folder names with other imaging modality names?'}
                     >
                         < ModalitiesToFolders />
                     </Step>
