@@ -12,6 +12,7 @@ dependencies:
   # common
   - python >=3.9,<3.10
   - nodejs == 16.13.1
+  - yarn >=1.22.19,<=1.22.99
   - pip
   - ipython
   - flask >= 2.0.0,<2.0.2
