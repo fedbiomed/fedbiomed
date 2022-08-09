@@ -100,7 +100,7 @@ nosetests --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed
 coverage html
 ```
 
-and open the **cover/index.html** file in your favorite browser.
+and open the **htmlcov/index.html** file in your favorite browser.
 
 Remark: then using --cover-html instead of --cover-xml, the HTML report does not
 contains files which have not been tested, which leads to a over-estimation of

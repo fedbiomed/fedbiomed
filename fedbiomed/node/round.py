@@ -371,7 +371,7 @@ class Round:
         args = list(parameters.keys())
 
         # Currently, training_data only accepts batch_size
-        if len(args) > 1 and 'batch_size' not in args:
+        if len(args) > 1 or (len(args) == 1 and 'batch_size' not in args):
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `the arguments of `training_data` of training "
                                       f"plan contains unsupported argument. ")
 
