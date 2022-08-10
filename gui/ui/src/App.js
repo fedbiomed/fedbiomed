@@ -26,12 +26,8 @@ import Login from "./pages/authentication/Login";
 import Register from "./pages/authentication/Register";
 import useToken from './pages/authentication/useToken';
 import PocEndpoints from './pages/authentication/PocEndpoints'; //for testing purposes
-import LogUserLayout, {ProtectedRoute} from './components/layout/LogUserLayout';
+import LogUserLayout from './components/layout/LogUserLayout';
 import UserAccount from './pages/authentication/UserAccount';
-import Logout from "./pages/authentication/Logout";
-import EventBus from './store/eventBus';
-//import { createBrowserHistory } from 'history';
-
 
 
 function App(props) {
@@ -105,6 +101,7 @@ function App(props) {
                 {/* <Route path="/pocEndpoints/" element = {<pocEndpoints/>} /> */}
             </Routes>
         </Router>
+
         <Modal show={props.result.show} class="info-box" id="message" onModalClose={onResultModalClose}>
             <Modal.Header>
               { props.result.error ? (

@@ -60,7 +60,6 @@ def list_datasets():
     else:
         try:
             res = table.all()
-            node_database.close()
         except Exception as e:
             return error(str(e)), 400
 
@@ -98,11 +97,9 @@ def remove_dataset():
 
         if dataset:
             table.remove(doc_ids=[dataset.doc_id])
-            node_database.close()
             return success('Dataset has been removed successfully'), 200
 
         else:
-            node_database.close()
             return error('Can not find specified dataset in the database'), 400
     else:
         return error('Missing `dataset_id` attribute.'), 400

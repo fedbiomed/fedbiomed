@@ -11,8 +11,11 @@ import {EuiTitle,
         EuiFieldText,
         EuiSpacer,
         EuiCallOut,
-        EuiIcon
+        EuiIcon,
+        EuiToast
 } from '@elastic/eui';
+
+
 import { EP_REGISTER} from '../../constants';
 import styles from "./Auth.module.css";
 import logo from "../../assets/img/fedbiomed-logo-small.png";
@@ -28,7 +31,10 @@ const Register = (props) => {
     const navigate = useNavigate();
     const [registerForm, setRegisterForm] = useState(initialRegisterForm)
     const dispatch = useDispatch();
+    const [error, setError] = useState({show : false, message : ''})
 
+
+   const errorClose = () => setError({show:false, message:''})
     /**
      * Registration form action
      * @param event
@@ -45,9 +51,9 @@ const Register = (props) => {
             navigate('/login')
         }).catch((error) => {
             if (error.response) {
-              dispatch({type :'ERROR_MODAL', payload: error.response.data.message})
+                setError({show:true, message: error.response.data.message})
             }else{
-              dispatch({type :'ERROR_MODAL', payload: error.toString()})
+                setError({show:true, message: error.toString()})
             }
         })
     }
@@ -61,7 +67,11 @@ const Register = (props) => {
         setRegisterForm(prevNote => ({
           ...prevNote, [name]: value})
         )
+
     }
+
+
+
 
     return (
         <AuthLayout>
@@ -84,6 +94,22 @@ const Register = (props) => {
                 <EuiFlexItem grow={false} style={{minWidth:400}}>
                     <EuiForm component="form"  onSubmit={register} >
                          <EuiFlexGroup direction="column" >
+                             <EuiFlexItem grow={false}>
+                                 {error.show ? (
+                                     <React.Fragment>
+                                         <EuiSpacer size="l" />
+                                         <EuiToast
+                                                title="Error"
+                                                color="danger"
+                                                iconType="alert"
+                                                onClose={errorClose}
+                                              >
+                                             <p>{error.message}</p>
+                                         </EuiToast>
+                                     </React.Fragment>
+
+                                 ) : null}
+                             </EuiFlexItem>
                               <EuiFlexItem grow={false}>
                                 <EuiFormRow label={"Name"} hasEmptyLabelSpace>
                                       <EuiFieldText
