@@ -11,8 +11,8 @@ class PipelineForTesting(DataPipeline):
         ret.update({'data': self.data})
         return ret
 
-    def load(self, load_from):
-        super(PipelineForTesting, self).load(load_from)
+    def deserialize(self, load_from):
+        super(PipelineForTesting, self).deserialize(load_from)
         self.data = load_from['data']
         return self
 

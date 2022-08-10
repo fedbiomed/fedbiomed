@@ -26,9 +26,9 @@ class DataPipeline(ABC):
     Subclasses of DataPipline must respect the following conditions:
     1. implement a constructor taking exactly one argument, a type_id string
     2. the implemented constructor must call super().__init__(type_id)
-    3. extend the serialize(self) and a load(self, load_from: dict) function
-    4. both serialize and load must call super's serialize and load respectively
-    5. the load function must always return self
+    3. extend the serialize(self) and the deserialize(self, load_from: dict) functions
+    4. both serialize and deserialize must call super's serialize and deserialize respectively
+    5. the deserialize function must always return self
     6. the serialize function must update the dict returned by super's serialize
     7. implement an apply function that takes arbitrary arguments and applies
        the logic of the pipeline
@@ -68,7 +68,7 @@ class DataPipeline(ABC):
             pipeline_serialization_id=self.__serialization_id
         )
 
-    def load(self, load_from: dict) -> TDataPipeline:
+    def deserialize(self, load_from: dict) -> TDataPipeline:
         """Reconstruct the DataPipeline from a serialized version.
 
         Args:
@@ -117,7 +117,7 @@ class MapperDP(DataPipeline):
         ret.update({'map': self.map})
         return ret
 
-    def load(self, load_from: dict) -> DataPipeline:
+    def deserialize(self, load_from: dict) -> DataPipeline:
         """Reconstruct the DataPipeline from a serialized version.
 
         Args:
@@ -125,7 +125,7 @@ class MapperDP(DataPipeline):
         Returns:
             the self instance
         """
-        super(MapperDP, self).load(load_from)
+        super(MapperDP, self).deserialize(load_from)
         self.map = load_from['map']
         return self
 
@@ -235,7 +235,7 @@ class DataLoadingPlan(List[DataPipeline]):
         for pipeline in load_from['pipelines']:
             exec(f"import {pipeline['pipeline_module']}")
             dp = eval(f"{pipeline['pipeline_module']}.{pipeline['pipeline_class']}('{pipeline['type_id']}')")
-            self.append(dp.load(pipeline))
+            self.append(dp.deserialize(pipeline))
         return self
 
     def __str__(self):

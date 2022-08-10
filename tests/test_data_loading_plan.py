@@ -31,12 +31,12 @@ class TestDataPipeline(unittest.TestCase):
         self.assertIn('type_id', serialized)
         self.assertIn('pipeline_serialization_id', serialized)
 
-        self.dp2.load(serialized)
+        self.dp2.deserialize(serialized)
         self.assertDictEqual(self.dp1.data, self.dp2.data)
 
         exec(f"import {serialized['pipeline_module']}")
         dp3 = eval(f"{serialized['pipeline_module']}.{serialized['pipeline_class']}('{serialized['type_id']}')")
-        dp3.load(serialized)
+        dp3.deserialize(serialized)
         self.assertEqual(self.dp1, dp3)
         self.assertDictEqual(self.dp1.data, dp3.data)
 
@@ -45,9 +45,9 @@ class TestDataPipeline(unittest.TestCase):
         serialized = dp4.serialize()
         exec(f"import {serialized['pipeline_module']}")
         dp5 = eval(f"{serialized['pipeline_module']}.{serialized['pipeline_class']}('{serialized['type_id']}')")
-        dp5.load(serialized)
+        dp5.deserialize(serialized)
         self.assertEqual('testing-mapper', dp5)
-        dp5 = dp5.load(serialized)
+        dp5 = dp5.deserialize(serialized)
         self.assertEqual('testing-mapper', dp5)
 
     def test_data_pipeline_03_apply(self):
