@@ -79,6 +79,26 @@ class DatasetManager:
         return dlp_metadata, self._dlp_table.search(
             self.database.loading_block_serialization_id.one_of(dlp_metadata['loading_blocks'].values()))
 
+    def get_data_pipelines_by_ids(self, dp_ids: List[str]) -> List[dict]:
+        """Search for a list of DataPipelines, each corresponding to one given id.
+
+        Note that in case of conflicting ids (which should not happen), this function will silently return a random
+        one with the sought id.
+
+        DataPipeline IDs always start with 'serialized_dp_' and should be unique in the database.
+
+        Args:
+            dp_ids: (List[str]) a list of DataPipeline IDs
+
+        Returns:
+            A list of dictionaries, each one containing the DataPipeline metadata corresponding to one given id.
+        """
+
+        self.db.clear_cache()
+        table = self.db.table('Data_Loading_Plans')
+        return table.search(self.database.pipeline_serialization_id.one_of(dp_ids))
+>>>>>>> d0c73ccb (Add functionalities useful for GUI to data loading plan)
+
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
 

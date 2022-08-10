@@ -167,9 +167,6 @@ class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
     def deserialize(self, serialized_dlp: dict, serialized_loading_blocks: List[dict]) -> TDataLoadingPlan:
         """Reconstruct the DataLoadingPlan from a serialized version.
 
-        The format of the input argument is expected to be an 'aggregated serialized' version, as defined by the output
-        of the 'DataLoadingPlan.aggregate_serialized_metadata` function.
-
         :warning: Calling this function will *clear* the contained
             DataLoadingBlocks. This function may not be used to "update"
             nor to "append to" a DataLoadingPlan.
@@ -194,6 +191,26 @@ class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
             exec(f"import {key_module}")
             loading_block_key = eval(f"{key_module}.{key_classname}('{loading_block_key_str}')")
             self[loading_block_key] = dp.deserialize(loading_block)
+        return self
+
+    def deserialize_pipelines_from_mapping(self, serialized_pipelines_mapping: Dict[str, dict]) -> TDataLoadingPlan:
+        """Reconstruct only the pipelines of the Data Loading Plan
+
+        The input argument must be of the form {str: dict} where the str key is a name that will identify each pipeline,
+        and the dict value is a dictionary of pipeline metadata used to deserialize the pipeline.
+
+        This function may be used to update an existing DataLoadingPlan by adding the deserialized pipelines.
+
+        Args:
+            serialized_pipelines_mapping : a dictionary of {name: metadata} pairs
+        Returns:
+            the self instance
+        """
+
+        for pipeline_key, pipeline in serialized_pipelines_mapping.items():
+            exec(f"import {pipeline['pipeline_module']}")
+            dp = eval(f"{pipeline['pipeline_module']}.{pipeline['pipeline_class']}()")
+            self[pipeline_key] = dp.deserialize(pipeline)
         return self
 
     def __str__(self):
