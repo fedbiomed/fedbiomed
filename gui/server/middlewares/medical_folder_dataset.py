@@ -53,11 +53,18 @@ def load_dlp():
     req = request.json
     dlp = None
     if 'dlp_id' in req and req['dlp_id'] is not None:
-        dlp = DataLoadingPlan().load_from_aggregated_serialized(dataset_manager.get_aggregated_dlp_metadata(req['dlp_id']))
+        # Case where a pre-existing dlp was selected, thus we directly load it
+        dlp = DataLoadingPlan().deserialize(*dataset_manager.get_dlp_by_id(req['dlp_id']))
     elif len(req['dlp_pipelines']) > 0:
+        # Case where a dlp is being configured by the node gui user.
+        # We need to create it on the fly from the pipeline metadata.
         pipelines_metadata = dataset_manager.get_data_pipelines_by_ids(req['dlp_pipelines'].values())
+        pipelines_metadata_mapping = {
+            key: next(filter(lambda x: x['pipeline_serialization_id'] == serial_id, pipelines_metadata))
+            for key, serial_id in req['dlp_pipelines'].items()
+        }
         dlp = DataLoadingPlan()
-        dlp.load_serialized_pipelines(pipelines_metadata)
+        dlp.deserialize_pipelines_from_mapping(pipelines_metadata_mapping)
 
     if 'dlp_name' in req:
         dlp.name = req['dlp_name']

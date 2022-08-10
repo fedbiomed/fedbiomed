@@ -139,13 +139,13 @@ export const setCreateModalitiesToFoldersPipeline = (value) => {
     }
 }
 
-export const CreateModalitiesToFoldersPipeline = (modalities_mapping) => {
+export const createModalitiesToFoldersPipeline = (modalities_mapping) => {
     return (dispatch) => {
         dispatch({type: 'SET_DLP', payload: -1})
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Saving Association"}})
         axios.post(EP_DP_MOD2FOL_CREATE, {mapping: modalities_mapping}).then(response => {
             dispatch({type: 'ADD_PIPELINE',
-                      payload: {type_id: response.data.result.type_id,
+                      payload: {type_id: 'modalities_to_folders',
                                 serial_id: response.data.result.serial_id}})
             dispatch({type:'SET_LOADING', payload: {status: false}})
         })

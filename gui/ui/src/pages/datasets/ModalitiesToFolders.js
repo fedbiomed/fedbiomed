@@ -9,7 +9,7 @@ import styles from "./AddDataset.module.css"
 
 import {
     setCreateModalitiesToFoldersPipeline,
-    CreateModalitiesToFoldersPipeline,
+    createModalitiesToFoldersPipeline,
     getDefaultModalityNames,
     updateModalitiesMapping,
     clearModalityMapping,
@@ -53,7 +53,7 @@ export class ModalitiesToFolders extends React.Component {
         }
     }
 
-    CreateModalitiesToFoldersPipeline = (event) => {
+    createModalitiesToFoldersPipeline = (event) => {
         // now need to invert the modalities_mapping to obtain a mapping of the form:
         // { modality_name : [folder_1, folder_2, ...] }
         let mod2fol = {}
@@ -65,7 +65,7 @@ export class ModalitiesToFolders extends React.Component {
                 mod2fol[mapping[key]] = [key]
             }
         }
-        this.props.CreateModalitiesToFoldersPipeline(mod2fol)
+        this.props.createModalitiesToFoldersPipeline(mod2fol)
     }
 
     render() {
@@ -120,7 +120,7 @@ export class ModalitiesToFolders extends React.Component {
                             </div>
                             <div className={styles.saveAssociationsButtonContainer}>
                             <Button
-                                onClick={(event) => {this.CreateModalitiesToFoldersPipeline(event)}}
+                                onClick={(event) => {this.createModalitiesToFoldersPipeline(event)}}
                             >
                                 Save association
                             </Button>
@@ -165,7 +165,7 @@ const mapDispatchToProps = (dispatch) => {
         setDLPTableSelectedRow : (data) => dispatch(setDLPIndex(data)),
         usePreExistingDlp : (data) => dispatch(setUsePreExistingDlp(data)),
         setCreateModalitiesToFoldersPipeline : (data) => dispatch(setCreateModalitiesToFoldersPipeline(data)),
-        CreateModalitiesToFoldersPipeline : (data) => dispatch(CreateModalitiesToFoldersPipeline(data)),
+        createModalitiesToFoldersPipeline : (data) => dispatch(createModalitiesToFoldersPipeline(data)),
         getDefaultModalityNames : () => dispatch(getDefaultModalityNames()),
         updateModalitiesMapping : (data) => dispatch(updateModalitiesMapping(data)),
         clearModalityMapping : (data) => dispatch(clearModalityMapping(data)),
