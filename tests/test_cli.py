@@ -7,6 +7,7 @@ import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 from fedbiomed.node.environ import environ
 
 import fedbiomed.node.cli
+import fedbiomed.node.cli_utils
 from fedbiomed.node.cli import add_database
 from fedbiomed.common.data import DataLoadingPlan, MapperDP
 
@@ -50,8 +51,18 @@ class TestCli(unittest.TestCase):
              patch('fedbiomed.node.cli_utils._medical_folder_dataset.input',
                    new=lambda x: medical_folder_inputs.pop(0)) as patched_medical_folder_input:
 
+            # Need to override equality test to enable assert_called_once_with to function properly
+            def test_mapper_eq(self, other):
+                return self.map == other.map
+            MapperDP.__eq__ = test_mapper_eq
+
             fedbiomed.node.cli_utils.dataset_manager.add_database = MagicMock()
             add_database()
+
+            dp = MapperDP()
+            dp.map = {'T1': ['T1philips', 'T1siemens'],
+                      'T2': ['T2'], 'label': ['label'],
+                      'Tnon-exist': ['non-existing-modality']}
 
             fedbiomed.node.cli_utils.dataset_manager.add_database.assert_called_once_with(
                 name='test-db-name',
@@ -63,17 +74,12 @@ class TestCli(unittest.TestCase):
                     'tabular_file': 'some/valid/path',
                     'index_col': 0
                 },
-                data_loading_plan=DataLoadingPlan([MapperDP('modalities_to_folders')])
+                data_loading_plan=DataLoadingPlan({'modalities_to_folders': dp})
             )
 
             dlp_arg = fedbiomed.node.cli_utils.dataset_manager.add_database.call_args[1]['data_loading_plan']
             self.assertIn('modalities_to_folders', dlp_arg)
-            self.assertDictEqual(dlp_arg['modalities_to_folders'].map, {
-                'T1': ['T1philips', 'T1siemens'],
-                'T2': ['T2'],
-                'Tnon-exist': ['non-existing-modality'],
-                'label': ['label']
-            })
+            self.assertDictEqual(dlp_arg['modalities_to_folders'].map, dp.map)
             self.assertEqual(dlp_arg.name, 'test-dlp-name')
 
 

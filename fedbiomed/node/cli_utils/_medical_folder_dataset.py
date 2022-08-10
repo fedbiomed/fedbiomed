@@ -43,9 +43,9 @@ def add_medical_folder_dataset_from_cli(interactive: bool,
         if choice.lower() == 'y':
             dp = get_map_modalities2folders_from_cli(modality_folder_names)
             if dlp is None:
-                dlp = DataLoadingPlan([dp])
+                dlp = DataLoadingPlan({'modalities_to_folders': dp})
             else:
-                dlp.append(dp)
+                dlp.update({'modalities_to_folders': dp})
     return path, dataset_parameters, dlp
 
 
@@ -79,7 +79,7 @@ def get_map_modalities2folders_from_cli(modality_folder_names: List[str]):
                 else:
                     map_modalities_to_folders[modality_names[modality_idx]].append(modality_folder)
                     keep_asking_for_this_modality = False
-    dp = MapperDP('modalities_to_folders')
+    dp = MapperDP()
     dp.map = dict(map_modalities_to_folders)
     return dp
 
