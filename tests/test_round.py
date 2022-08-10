@@ -657,12 +657,9 @@ class TestRound(unittest.TestCase):
         dataset = training_data_loader.dataset
         self.assertEqual(dataset[0], 'orig-value')
 
-        dlp = DataLoadingPlan([ModifyGetItemDP('modify-getitem')])
+        dlp = DataLoadingPlan({'modify-getitem': ModifyGetItemDP()})
         r4 = Round(training_kwargs={},
-                   dlp_metadata=DataLoadingPlan.aggregate_serialized_metadata(
-                       dlp.serialize(),
-                       dlp.serialize_pipelines()
-                       )
+                   dlp_and_pipeline_metadata=dlp.serialize()
                    )
         r4.model = MagicMock()
         r4.model.training_data.return_value = data_manager_mock

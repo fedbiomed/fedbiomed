@@ -1009,13 +1009,13 @@ class TestDatasetManager(unittest.TestCase):
         patch_isdir.return_value = True
         from test_data_loading_plan import PipelineForTesting
 
-        dp1 = PipelineForTesting('pipeline_for_testing')
-        dp2 = PipelineForTesting('other_testing_pipeline')
+        dp1 = PipelineForTesting()
+        dp2 = PipelineForTesting()
         dp2.data = {'some': 'other data'}
 
         dlp = DataLoadingPlan()
-        dlp.append(dp1)
-        dlp.append(dp2)
+        dlp['pipeline_for_testing'] = dp1
+        dlp['other_testing_pipeline'] = dp2
 
         dataset_manager = DatasetManager()
         dataset_manager.load_default_database = MagicMock(return_value=(1, 1))
@@ -1033,13 +1033,13 @@ class TestDatasetManager(unittest.TestCase):
         dataset = dataset_manager.get_by_id('test-id-dlp-1234')
         self.assertEqual(dataset['dlp_id'], dlp.dlp_id)
 
-        dlp_metadata = dataset_manager.get_aggregated_dlp_metadata(dataset['dlp_id'])
+        dlp_metadata, pipelines_metadata = dataset_manager.get_dlp_by_id(dataset['dlp_id'])
         self.assertEqual(dlp_metadata['dlp_id'], dlp.dlp_id)
-        new_dlp = DataLoadingPlan().load_from_aggregated_serialized(dlp_metadata)
-        self.assertIn(dp1, new_dlp)
+        new_dlp = DataLoadingPlan().deserialize(dlp_metadata, pipelines_metadata)
         self.assertIn('pipeline_for_testing', new_dlp)
-        self.assertIn(dp2, new_dlp)
         self.assertIn('other_testing_pipeline', new_dlp)
+        self.assertDictEqual(new_dlp['pipeline_for_testing'].data, dp1.data)
+        self.assertDictEqual(new_dlp['other_testing_pipeline'].data, dp2.data)
 
         dataset_manager.db.close()
 

@@ -6,7 +6,7 @@ import os
 import sys
 import time
 import inspect
-from typing import Union, Any, Optional
+from typing import Union, Any, Optional, Tuple, List
 import uuid
 
 from fedbiomed.common.constants import ErrorNumbers, ModelApprovalStatus
@@ -38,7 +38,7 @@ class Round:
                  researcher_id: str = None,
                  history_monitor: HistoryMonitor = None,
                  node_args: Union[dict, None] = None,
-                 dlp_metadata: Optional[dict] = None):
+                 dlp_and_pipeline_metadata: Optional[Tuple[dict, List[dict]]] = None):
 
         """Constructor of the class
 
@@ -91,7 +91,7 @@ class Round:
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
         self.model = None
         self.training = training
-        self._dlp_metadata = dlp_metadata
+        self._dlp_and_pipeline_metadata = dlp_and_pipeline_metadata
 
     def run_model_training(self) -> dict[str, Any]:
         """This method downloads model file; then runs the training of a model
@@ -387,7 +387,6 @@ class Round:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
                                       f"{str(training_plan_type.value)} has failed: {str(e)}")
 
-
         # Check whether training_data returns proper instance
         # it should be always Fed-BioMed DataManager
         if not isinstance(data_manager, DataManager):
@@ -407,13 +406,13 @@ class Round:
             dataset_parameters = self.dataset.get("dataset_parameters", {})
             data_manager.dataset.set_dataset_parameters(dataset_parameters)
 
-        if self._dlp_metadata is not None:
+        if self._dlp_and_pipeline_metadata is not None:
             if hasattr(data_manager.dataset, 'set_dlp'):
-                dlp = DataLoadingPlan().load_from_aggregated_serialized(self._dlp_metadata)
+                dlp = DataLoadingPlan().deserialize(*self._dlp_and_pipeline_metadata)
                 data_manager.dataset.set_dlp(dlp)
             else:
                 raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Attempting to set DataLoadingPlan "
-                                          f"{self._dlp.name} on dataset of type "
+                                          f"{self._dlp_and_pipeline_metadata['name']} on dataset of type "
                                           f"{data_manager.dataset.__class__.__name__} which is not enabled.")
 
         # All Framework based data managers have the same methods

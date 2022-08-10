@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, List, TypeVar
+from typing import Any, Dict, List, Tuple, TypeVar
 from abc import ABC, abstractmethod
 
 
@@ -34,25 +34,16 @@ class DataPipeline(ABC):
        the logic of the pipeline
 
     Attributes:
-        __type_id: (str) identifies the type of customization implemented by the DataPipeline
         __serialization_id: (str) identifies *one serialized instance* of the DataPipeline
     """
-    def __init__(self, type_id: str):
+    def __init__(self):
         super(DataPipeline, self).__init__()
-        self.__type_id = type_id
         self.__serialization_id = 'serialized_dp_' + str(uuid.uuid4())
 
     @property
     def serialization_id(self):
         """Expose serialization id as read-only"""
         return self.__serialization_id
-
-    def __eq__(self, other) -> bool:
-        if isinstance(other, str):
-            return self.__type_id == other
-        elif isinstance(other, DataPipeline):
-            return self.__type_id == other.__type_id
-        return False
 
     def serialize(self) -> dict:
         """Serializes the class in a format similar to json.
@@ -64,7 +55,6 @@ class DataPipeline(ABC):
         return dict(
             pipeline_class=self.__class__.__qualname__,
             pipeline_module=self.__module__,
-            type_id=self.__type_id,
             pipeline_serialization_id=self.__serialization_id
         )
 
@@ -76,7 +66,7 @@ class DataPipeline(ABC):
         Returns:
             the self instance
         """
-        self.__type_id = load_from['type_id']
+        self.__serialization_id = load_from['pipeline_serialization_id']
         return self
 
     @abstractmethod
@@ -102,8 +92,8 @@ class MapperDP(DataPipeline):
     Multiple instances of this pipeline may be used in the same DataLoadingPlan,
     provided that they are given different type_id via the constructor.
     """
-    def __init__(self, type_id: str):
-        super(MapperDP, self).__init__(type_id)
+    def __init__(self):
+        super(MapperDP, self).__init__()
         self.map = {}
 
     def serialize(self) -> dict:
@@ -133,88 +123,46 @@ class MapperDP(DataPipeline):
         return self.map[key]
 
 
-class DataLoadingPlan(List[DataPipeline]):
+class DataLoadingPlan(Dict[str, DataPipeline]):
     """Customizations to the way the data is loaded and presented for training.
 
-    A DataLoadingPlan is a list of DataPipelines. Each DataPipeline represents a
-    customization, defined by the node, to the Dataset class (which is itself
-    defined by the researcher).
+    A DataLoadingPlan is a dictionary of {name: DataPipeline} pairs. Each
+    DataPipeline represents a customization to the way data is loaded and
+    presented to the researcher. These customizations are defined by the node,
+    but they operate on a Dataset class, which is defined by the library and
+    instantiated by the researcher.
 
     To exploit this functionality, a Dataset must be modified to accept the
     customizations provided by the DataLoadingPlan. To simplify this process,
     we provide the DataLoadingPlanMixin class below.
 
     The DataLoadingPlan class should be instantiated directly, no subclassing
-    is needed. The DataLoadingPlan *is* a list, and exposes the same interface
-    as a list.
+    is needed. The DataLoadingPlan *is* a dict, and exposes the same interface
+    as a dict.
 
-    Additionally, the DataLoadingPlan overwrites the __getitem__ method to
-    enable subscription by strings, where the string must match the type_id
-    of the sought DataPipeline.
-
-    Attrs:
+    Attributes:
         dlp_id: str representing a unique plan id (auto-generated)
-        name: str representing an optional user-friendly name
+        desc: str representing an optional user-friendly short description
     """
     def __init__(self, *args, **kwargs):
         super(DataLoadingPlan, self).__init__(*args, **kwargs)
         self.dlp_id = 'dlp_' + str(uuid.uuid4())
-        self.name = ""
+        self.desc = ""
 
-    def __getitem__(self, item) -> DataPipeline:
-        """Extend list's __getitem__ to string subscripts.
-
-        Allows to quickly get a DataPipeline in a DataLoadingPlan by
-        the operation [item: str], where item must match the type_id of the
-        sought DataPipeline.
-
-        If item is not a str, simply forwards the call to the __getitem__ of
-        list.
-
-        Args:
-            item: a str matching the type_id of a DataPipeline, or anything that
-            can be passed to a list's __getitem__
-        Returns:
-            the sought-after element
-        Raises:
-            ValueError if item is a str but does not match any DataPipelines
-        """
-        if isinstance(item, str):
-            try:
-                ret = next(dp for dp in self.__iter__() if dp == item)
-            except StopIteration:
-                raise ValueError(f'{item} not in DataLoadingPlan')
-            return ret
-        else:
-            return super().__getitem__(item)
-
-    def serialize(self) -> dict:
+    def serialize(self) -> Tuple[dict, List]:
         """Serializes the class in a format similar to json.
-
-        Iteratively calls the serialize function of all its items.
 
         Returns:
              a dictionary of key-value pairs sufficient for reconstructing
              the DataLoadingPlan.
         """
-        ret = dict(
+        return dict(
             dlp_id=self.dlp_id,
-            dlp_name=self.name,
-            pipelines=[]
-        )
-        for pipeline in self.__iter__():
-            ret['pipelines'].append(pipeline.serialization_id)
-        return ret
+            dlp_name=self.desc,
+            pipelines={key: dp.serialization_id for key, dp in self.items()}
+        ), [dp.serialize() for dp in self.values()]
 
-    def serialize_pipelines(self) -> List[dict]:
-        """Serializes the DataPipelines contained in this DataLoadingPlan.
-
-        Returns:
-            a list of serialized pipelines.
-        """
-        return [dp.serialize() for dp in self.__iter__()]
-
-    def load_from_aggregated_serialized(self, load_from: dict) -> TDataLoadingPlan:
+    def deserialize(self, serialized_dlp: dict, serialized_pipelines: List[dict]) -> TDataLoadingPlan:
         """Reconstruct the DataLoadingPlan from a serialized version.
 
         The format of the input argument is expected to be an 'aggregated serialized' version, as defined by the output
@@ -225,41 +173,28 @@ class DataLoadingPlan(List[DataPipeline]):
             nor to "append to" a DataLoadingPlan.
 
         Args:
-            load_from: a dictionary as obtained by the serialize function.
+            serialized_dlp: a dictionary of data loading plan metadata, as obtained from the first output of the
+                            serialize function
+            serialized_pipelines: a list of dictionaries of pipeline metadata, as obtained from the second output of
+                                  the serialize function
         Returns:
             the self instance
         """
         self.clear()
-        self.dlp_id = load_from['dlp_id']
-        self.name = load_from['dlp_name']
-        for pipeline in load_from['pipelines']:
+        self.dlp_id = serialized_dlp['dlp_id']
+        self.desc = serialized_dlp['dlp_name']
+        for pipeline_key, pipeline_serialization_id in serialized_dlp['pipelines'].items():
+            pipeline = next(filter(lambda x: x['pipeline_serialization_id'] == pipeline_serialization_id,
+                                   serialized_pipelines))
             exec(f"import {pipeline['pipeline_module']}")
-            dp = eval(f"{pipeline['pipeline_module']}.{pipeline['pipeline_class']}('{pipeline['type_id']}')")
-            self.append(dp.deserialize(pipeline))
+            dp = eval(f"{pipeline['pipeline_module']}.{pipeline['pipeline_class']}()")
+            self[pipeline_key] = dp.deserialize(pipeline)
         return self
 
     def __str__(self):
         """User-friendly string representation"""
-        return f"Data Loading Plan {self.name} id: {self.dlp_id} "\
-               f"containing: {'; '.join([p.serialize()['type_id'] for p in self.__iter__()])}"
-
-    @staticmethod
-    def aggregate_serialized_metadata(dlp_metadata: dict, pipeline_metadata: List[dict]) -> dict:
-        """Utility function to aggregate a serialized DataLoadingPlan and a list of serialized DataPipelines.
-
-        This function must be used before calling DataLoadingPlan.load_from_serialized to obtain the correct format
-        for its input parameter
-
-        Args:
-            dlp_metadata: (dict) the serialized DataLaodingPlan
-            pipeline_metadata: (List[dict]) a list of serialized DataPipeline
-
-        Returns:
-            a dictionary with the aggregated serialized information. This dictionary can be used to reconstruct a
-            DataLoadingPlan with the load_from_serialized function.
-        """
-        dlp_metadata.update({'pipelines': pipeline_metadata})
-        return dlp_metadata
+        return f"Data Loading Plan {self.desc} id: {self.dlp_id} "\
+               f"containing: {'; '.join(self.keys())}"
 
 
 class DataLoadingPlanMixin:
@@ -280,8 +215,8 @@ class DataLoadingPlanMixin:
     def clear_dlp(self):
         self._dlp = None
 
-    def apply_dp(self, default_ret_value: Any, dp_type_id: str, *args, **kwargs):
-        """Apply one DataPipeline identified by its type_id.
+    def apply_dp(self, default_ret_value: Any, dp_key: str, *args, **kwargs):
+        """Apply one DataPipeline identified by its key.
 
         Note that we want to easily support the case where the DataLoadingPlan
         is not activated, or the requested pipeline is not contained in the
@@ -297,7 +232,7 @@ class DataLoadingPlanMixin:
         Args:
             default_ret_value: the value to be returned in case that the dlp
             functionality is not required
-            dp_type_id: the type_id of the DataPipeline to be applied
+            dp_key: the key of the DataPipeline to be applied
             args: forwarded to the DataPipeline's apply function
             kwargs: forwarded to the DataPipeline's apply function
         Returns:
@@ -305,8 +240,8 @@ class DataLoadingPlanMixin:
              the default_ret_value when dlp is None or it does not contain
              the requested pipeline
         """
-        if self._dlp is not None and dp_type_id in self._dlp:
-            return self._dlp[dp_type_id].apply(*args, **kwargs)
+        if self._dlp is not None and dp_key in self._dlp:
+            return self._dlp[dp_key].apply(*args, **kwargs)
         else:
             return default_ret_value
 

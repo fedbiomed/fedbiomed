@@ -444,7 +444,7 @@ class TestNode(unittest.TestCase):
                                        dict_msg_2_datasets['researcher_id'],
                                        unittest.mock.ANY,
                                        None,
-                                       dlp_metadata=None)
+                                       dlp_and_pipeline_metadata=None)
 
         # check if object `Round()` has been called twice
         self.assertEqual(round_patch.call_count, 2)
@@ -551,7 +551,7 @@ class TestNode(unittest.TestCase):
                                             dict_msg_1_dataset['researcher_id'],
                                             unittest.mock.ANY,  # FIXME: should be an history monitor object
                                             None,
-                                            dlp_metadata=None
+                                            dlp_and_pipeline_metadata=None
                                             )
 
     @patch('fedbiomed.node.round.Round.__init__')
@@ -599,7 +599,7 @@ class TestNode(unittest.TestCase):
                                             dict_msg_1_dataset['researcher_id'],
                                             unittest.mock.ANY,  # FIXME: should be an history_monitor object
                                             None,
-                                            dlp_metadata=None)
+                                            dlp_and_pipeline_metadata=None)
 
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__')
     @patch('fedbiomed.common.message.NodeMessages.request_create')

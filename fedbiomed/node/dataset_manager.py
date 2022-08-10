@@ -5,7 +5,7 @@ Interfaces with the node component database.
 
 import csv
 import os.path
-from typing import Iterable, Union, List, Any, Optional
+from typing import Iterable, Union, List, Any, Optional, Tuple
 import uuid
 
 from urllib.request import urlretrieve
@@ -57,7 +57,7 @@ class DatasetManager:
 
         return result
 
-    def get_dlp_by_id(self, dlp_id: str) -> dict:
+    def get_dlp_by_id(self, dlp_id: str) -> Tuple[dict, List[dict]]:
         """Search for a DataLoadingPlan with a given id.
 
         Note that in case of conflicting ids (which should not happen), this function will silently return a random
@@ -73,26 +73,9 @@ class DatasetManager:
         """
         self.db.clear_cache()
         table = self.db.table('Data_Loading_Plans')
-        result = table.get(self.database.dlp_id == dlp_id)
-        return result
-
-    def get_data_pipelines_by_ids(self, dp_ids: List[str]) -> List[dict]:
-        """Search for a list of DataPipelines, each corresponding to one given id.
-
-        Note that in case of conflicting ids (which should not happen), this function will silently return a random
-        one with the sought id.
-
-        DataPipeline IDs always start with 'serialized_dp_' and should be unique in the database.
-
-        Args:
-            dp_ids: (List[str]) a list of DataPipeline IDs
-
-        Returns:
-            A list of dictionaries, each one containing the DataPipeline metadata corresponding to one given id.
-        """
-        self.db.clear_cache()
-        table = self.db.table('Data_Loading_Plans')
-        return table.search(self.database.pipeline_serialization_id.one_of(dp_ids))
+        dlp_metadata = table.get(self.database.dlp_id == dlp_id)
+        return dlp_metadata, table.search(
+            self.database.pipeline_serialization_id.one_of(dlp_metadata['pipelines'].values()))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
@@ -540,33 +523,17 @@ class DatasetManager:
 
         Returns:
             The `current_dataset_metadata` argument, optionally enriched with the DataLoadingPlan ID if a save operation
-            was indeeed performed.
+            was indeed performed.
         """
         if data_loading_plan is None:
             return current_dataset_metadata
 
         table = self.db.table('Data_Loading_Plans')
-        table.insert_multiple(data_loading_plan.serialize_pipelines())
-        table.insert(data_loading_plan.serialize())
+        dlp_metadata, pipelines_metadata = data_loading_plan.serialize()
+        table.insert(dlp_metadata)
+        table.insert_multiple(pipelines_metadata)
         current_dataset_metadata['dlp_id'] = data_loading_plan.dlp_id
         return current_dataset_metadata
-
-    def get_aggregated_dlp_metadata(self, dlp_id: str) -> dict:
-        """Retrieve the aggregated DataLoadingPlan metadata from the database.
-
-        This function returns the metadata in aggregated format, meaning that it is ready to be used directly as an
-        argument to the DataLoadingPlan.load_from_aggregated_serialized function for instantiating a new
-        DataLoadingPlan.
-
-        Args:
-            dlp_id: (str) the id of the DataLoadingPlan as saved in the database.
-
-        Returns:
-            A dictionary of aggregated DataLoadingPlan metadata.
-        """
-        dlp_metadata = self.get_dlp_by_id(dlp_id)
-        pipelines_metadata = self.get_data_pipelines_by_ids(dlp_metadata['pipelines'])
-        return DataLoadingPlan.aggregate_serialized_metadata(dlp_metadata, pipelines_metadata)
 
     @staticmethod
     def obfuscate_private_information(database_metadata: Iterable[dict]) -> Iterable[dict]:
