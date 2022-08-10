@@ -19,7 +19,7 @@ from torch.utils.data import Dataset
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.data.data_loading_plan import DataLoadingPlanMixin
+from ._data_loading_plan import DataLoadingPlanMixin
 
 
 class NIFTIFolderDataset(Dataset):
