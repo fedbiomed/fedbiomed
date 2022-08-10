@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect } from 'react'
 import './App.css';
 import '@elastic/eui/dist/eui_theme_light.css';
+import { EuiProvider } from '@elastic/eui';
 import {
   BrowserRouter as Router,
   Routes,
@@ -22,6 +23,7 @@ import MedicalFolderDataset from "./pages/datasets/MedicalFolderDataset";
 import Models from "./pages/models/Models";
 import SingleModel from "./pages/models/SingleModel";
 import Login from "./pages/authentication/Login";
+import Register from "./pages/authentication/Register";
 import useToken from './pages/authentication/useToken';
 import PocEndpoints from './pages/authentication/PocEndpoints'; //for testing purposes
 import LogUserLayout, {ProtectedRoute} from './components/layout/LogUserLayout';
@@ -61,12 +63,13 @@ function App(props) {
   };
 
   return (
-    <React.Fragment>
+    <EuiProvider colorMode="light">
       <div className="App" >
         <Router>
               <Routes>
                 <Route path="/login/" element={<Login setToken={setToken}/>} />
-                <Route path="/" element={<LogUserLayout/>} >
+                <Route path="/register/" element={<Register/>} />
+                <Route path="/" element ={<LogUserLayout/>} >
                   <Route path="/" element={<Home/>} />
                   <Route path="/configuration/" element={<Configuration/>} />
                   <Route path="/user-account/" element={<UserAccount/>}>
@@ -144,7 +147,7 @@ function App(props) {
               <span style={{textAlign: "center", display:"block"}}>{props.result.text}</span>
           </div>
       </div>
-    </React.Fragment>
+    </EuiProvider>
   );
 }
 
