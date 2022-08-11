@@ -268,7 +268,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
              List of unique available modalities
              List of all encountered modalities in each subject folder, appearing once per folder
         """
-        modality_candidates, modality_folders_list = self._modalities_candidates_from_subfolders()
+        modality_candidates, modality_folders_list = self.modalities_candidates_from_subfolders()
         if self._dlp is not None and MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS in self._dlp:
             modalities = list(self._dlp[MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS].map.keys())
             return modalities, modality_folders_list

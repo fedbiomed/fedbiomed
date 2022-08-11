@@ -2,7 +2,8 @@ from typing import Optional, List
 import warnings
 from copy import copy
 from collections import defaultdict
-from fedbiomed.common.data import DataLoadingPlan, MedicalFolderController, MedicalFolderBase, MapperDP
+from fedbiomed.common.data import DataLoadingPlan, MedicalFolderController, MedicalFolderBase, MapperBlock, \
+    MedicalFolderLoadingBlocks
 from ._io import validated_path_input
 
 
@@ -43,9 +44,9 @@ def add_medical_folder_dataset_from_cli(interactive: bool,
         if choice.lower() == 'y':
             dp = get_map_modalities2folders_from_cli(modality_folder_names)
             if dlp is None:
-                dlp = DataLoadingPlan({'modalities_to_folders': dp})
+                dlp = DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dp})
             else:
-                dlp.update({'modalities_to_folders': dp})
+                dlp.update({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dp})
     return path, dataset_parameters, dlp
 
 
@@ -79,7 +80,7 @@ def get_map_modalities2folders_from_cli(modality_folder_names: List[str]):
                 else:
                     map_modalities_to_folders[modality_names[modality_idx]].append(modality_folder)
                     keep_asking_for_this_modality = False
-    dp = MapperDP()
+    dp = MapperBlock()
     dp.map = dict(map_modalities_to_folders)
     return dp
 

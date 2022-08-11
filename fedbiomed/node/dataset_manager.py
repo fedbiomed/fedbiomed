@@ -93,11 +93,7 @@ class DatasetManager:
         Returns:
             A list of dictionaries, each one containing the DataPipeline metadata corresponding to one given id.
         """
-
-        self.db.clear_cache()
-        table = self.db.table('Data_Loading_Plans')
-        return table.search(self.database.pipeline_serialization_id.one_of(dp_ids))
->>>>>>> d0c73ccb (Add functionalities useful for GUI to data loading plan)
+        return self._dlp_table.search(self.database.pipeline_serialization_id.one_of(dp_ids))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
