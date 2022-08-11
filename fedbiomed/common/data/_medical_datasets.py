@@ -6,6 +6,7 @@ Provides classes managing dataset for common cases of use in healthcare:
 from os import PathLike
 from pathlib import Path
 from typing import Union, Tuple, Dict, Iterable, Optional, List, Callable
+from enum import Enum
 
 import torch
 import pandas as pd
@@ -18,8 +19,12 @@ from torch.utils.data import Dataset
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlocks
 from ._data_loading_plan import DataLoadingPlanMixin
+
+
+class MedicalFolderLoadingBlocks(DataLoadingBlocks, Enum):
+    MODALITIES_TO_FOLDERS: str = 'modalities_to_folders'
 
 
 class NIFTIFolderDataset(Dataset):
@@ -262,8 +267,8 @@ class MedicalFolderBase(DataLoadingPlanMixin):
              List of all encountered modalities in each subject folder, appearing once per folder
         """
         modality_candidates, modality_folders_list = self._modalities_candidates_from_subfolders()
-        if self._dlp is not None and 'modalities_to_folders' in self._dlp:
-            modalities = list(self._dlp['modalities_to_folders'].map.keys())
+        if self._dlp is not None and MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS in self._dlp:
+            modalities = list(self._dlp[MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS].map.keys())
             return modalities, modality_folders_list
         else:
             return modality_candidates, modality_folders_list
@@ -312,7 +317,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         """
         if isinstance(subject_or_folder, str):
             subject_or_folder = self._root.joinpath(subject_or_folder)
-        modality_folders = set(self.apply_dp([modality], 'modalities_to_folders', modality))
+        modality_folders = set(self.apply_dp([modality], MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS, modality))
         subject_subfolders = set(
             [x.name for x in subject_or_folder.iterdir() if x.is_dir() and not x.name.startswith('.')])
         folder = modality_folders.intersection(subject_subfolders)

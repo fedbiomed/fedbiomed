@@ -24,7 +24,7 @@ from fedbiomed.common.exceptions import FedbiomedDatasetError
 from torch.utils.data import Dataset
 from torchvision.transforms import Lambda
 from fedbiomed.common.data import MedicalFolderDataset, MedicalFolderBase, MedicalFolderController,\
-                                  DataLoadingPlan, MapperDP
+                                  MedicalFolderLoadingBlocks, DataLoadingPlan, MapperBlock
 
 
 class TestNIFTIFolderDataset(unittest.TestCase):
@@ -687,9 +687,9 @@ class TestMedicalFolderDataset(unittest.TestCase):
 
         # with DataLoadingPlan
         medical_folder_controller = MedicalFolderController(root=self.root)
-        dp = MapperDP()
+        dp = MapperBlock()
         dp.map = modalities_to_folders
-        medical_folder_controller.set_dlp(DataLoadingPlan({'modalities_to_folders': dp}))
+        medical_folder_controller.set_dlp(DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dp}))
         dataset = medical_folder_controller.load_MedicalFolder()
         expected_subject_folders = [Path(self.root).joinpath('subj1'),
                                     Path(self.root).joinpath('subj2')]
@@ -721,7 +721,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             _ = dataset[0]
 
-        dataset.set_dlp(DataLoadingPlan({'modalities_to_folders': dp}))
+        dataset.set_dlp(DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dp}))
         (data, demographics), label = dataset[0]
         self.assertEqual(data, {'T1': Path('T1philips_test.nii').resolve(), 'T2': Path('T2_test.nii').resolve()})
         self.assertEqual(demographics.numel(), 0)
@@ -883,9 +883,9 @@ class TestMedicalFolderBase(unittest.TestCase):
         self.assertFalse(complete_subjects)
 
         # with DataLoadingPlan
-        dp = MapperDP()
+        dp = MapperBlock()
         dp.map = modalities_to_folders
-        medical_folder_base.set_dlp(DataLoadingPlan({'modalities_to_folders': dp}))
+        medical_folder_base.set_dlp(DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dp}))
 
         self.assertEqual(
             medical_folder_base._subject_modality_folder('subj1', 'T1'),
@@ -950,19 +950,13 @@ class TestMedicalFolderController(unittest.TestCase):
         self.assertEqual(set(unique_modalities), expected_unique_modalities)
         self.assertEqual(modalities, expected_modalities)
 
-        dp = MapperDP()
+        dp = MapperBlock()
         dp.map = modalities_to_folders
-        medical_folder_controller.set_dlp(DataLoadingPlan({'modalities_to_folders': dp}))
+        medical_folder_controller.set_dlp(DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dp}))
         unique_modalities, modalities = medical_folder_controller.modalities()
         expected_unique_modalities = {'T1', 'T2', 'label'}
         self.assertEqual(set(unique_modalities), expected_unique_modalities)
         self.assertEqual(modalities, expected_modalities)
-
-
-
-
-
-
 
 
 if __name__ == '__main__':
