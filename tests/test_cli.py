@@ -92,6 +92,10 @@ class TestMedicalFolderCliUtils(unittest.TestCase):
     def mock_input(x):
         return TestMedicalFolderCliUtils.inputs.pop(0)
 
+    @staticmethod
+    def mock_validated_input(type):
+        return 'some/valid/path'
+
     def setUp(self) -> None:
         sys.stdout = io.StringIO()
         sys.stderr = io.StringIO()
@@ -127,16 +131,16 @@ class TestMedicalFolderCliUtils(unittest.TestCase):
                                       'Tnew': ['Should map to Tnew'],
                                       'T2': ['Should map to T2']})
 
-    @patch('fedbiomed.common.data._medical_datasets.input', new=mock_input)
-    @patch('fedbiomed.node.cli.validated_path_input', return_value='some/valid/path')
-    @patch('fedbiomed.common.data.MedicalFolderBase.validate_MedicalFolder_root_folder', return_value=Path('some/valid/path'))
+    @patch('fedbiomed.node.cli_utils._medical_folder_dataset.input', new=mock_input.__func__)
+    @patch('fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input', new=mock_validated_input.__func__)
+    @patch('fedbiomed.common.data.MedicalFolderBase.validate_MedicalFolder_root_folder',
+           return_value=Path('some/valid/path'))
     @patch('fedbiomed.common.data.MedicalFolderBase.demographics_column_names', return_value=['col1', 'col2'])
     @patch('pathlib.Path.glob', new=patch_modality_glob)
     @patch('pathlib.Path.is_dir', new=patch_is_modality_dir)
     def test_medical_folder_cli_utils_02_load_medical_folder_dataset_from_cli(self,
                                                                               patch_validated_path_input,
-                                                                              patch_validate_root_folder,
-                                                                              patch_column_names):
+                                                                              patch_validate_root_folder):
         # Scenario 1:
         #    - no pre-existing dataset parameters or data loading plan
         #    - user selects a demographics file
