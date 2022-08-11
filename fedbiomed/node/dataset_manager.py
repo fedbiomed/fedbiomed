@@ -85,7 +85,7 @@ class DatasetManager:
         Note that in case of conflicting ids (which should not happen), this function will silently return a random
         one with the sought id.
 
-        DataLoadingBlock IDs always start with 'serialized_dp_' and should be unique in the database.
+        DataLoadingBlock IDs always start with 'serialized_data_loading_block_' and should be unique in the database.
 
         Args:
             dp_ids: (List[str]) a list of DataLoadingBlock IDs
