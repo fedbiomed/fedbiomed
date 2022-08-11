@@ -25,7 +25,7 @@ class DataLoadingBlock(ABC):
     Correct usage of this class requires creating ad-hoc subclasses.
     The DataLoadingBlock class is not intended to be instantiated directly.
 
-    Subclasses of DataPipline must respect the following conditions:
+    Subclasses of DataLoadingBlock must respect the following conditions:
     1. implement a constructor taking exactly one argument, a type_id string
     2. the implemented constructor must call super().__init__(type_id)
     3. extend the serialize(self) and the deserialize(self, load_from: dict) functions
@@ -164,7 +164,7 @@ class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
             key_paths={key.value: (f"{key.__module__}", f"{key.__class__.__qualname__}") for key in self.keys()}
         ), [dp.serialize() for dp in self.values()]
 
-    def deserialize(self, serialized_dlp: dict, serialized_pipelines: List[dict]) -> TDataLoadingPlan:
+    def deserialize(self, serialized_dlp: dict, serialized_loading_blocks: List[dict]) -> TDataLoadingPlan:
         """Reconstruct the DataLoadingPlan from a serialized version.
 
         The format of the input argument is expected to be an 'aggregated serialized' version, as defined by the output
@@ -177,23 +177,23 @@ class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
         Args:
             serialized_dlp: a dictionary of data loading plan metadata, as obtained from the first output of the
                             serialize function
-            serialized_pipelines: a list of dictionaries of pipeline metadata, as obtained from the second output of
-                                  the serialize function
+            serialized_loading_blocks: a list of dictionaries of loading_block metadata, as obtained from the second output
+            of the serialize function
         Returns:
             the self instance
         """
         self.clear()
         self.dlp_id = serialized_dlp['dlp_id']
         self.desc = serialized_dlp['dlp_name']
-        for pipeline_key_str, pipeline_serialization_id in serialized_dlp['pipelines'].items():
-            pipeline = next(filter(lambda x: x['pipeline_serialization_id'] == pipeline_serialization_id,
-                                   serialized_pipelines))
-            exec(f"import {pipeline['pipeline_module']}")
-            dp = eval(f"{pipeline['pipeline_module']}.{pipeline['pipeline_class']}()")
-            key_module, key_classname = serialized_dlp['key_paths'][pipeline_key_str]
+        for loading_block_key_str, loading_block_serialization_id in serialized_dlp['loading_blocks'].items():
+            loading_block = next(filter(lambda x: x['loading_block_serialization_id'] == loading_block_serialization_id,
+                                        serialized_loading_blocks))
+            exec(f"import {loading_block['loading_block_module']}")
+            dp = eval(f"{loading_block['loading_block_module']}.{loading_block['loading_block_class']}()")
+            key_module, key_classname = serialized_dlp['key_paths'][loading_block_key_str]
             exec(f"import {key_module}")
-            pipeline_key = eval(f"{key_module}.{key_classname}('{pipeline_key_str}')")
-            self[pipeline_key] = dp.deserialize(pipeline)
+            loading_block_key = eval(f"{key_module}.{key_classname}('{loading_block_key_str}')")
+            self[loading_block_key] = dp.deserialize(loading_block)
         return self
 
     def __str__(self):
@@ -220,16 +220,16 @@ class DataLoadingPlanMixin:
     def clear_dlp(self):
         self._dlp = None
 
-    def apply_dp(self, default_ret_value: Any, dp_key: str, *args, **kwargs):
+    def apply_dp(self, default_ret_value: Any, dp_key: DataLoadingBlocks, *args, **kwargs):
         """Apply one DataLoadingBlock identified by its key.
 
         Note that we want to easily support the case where the DataLoadingPlan
-        is not activated, or the requested pipeline is not contained in the
+        is not activated, or the requested loading block is not contained in the
         DataLoadingPlan. This is achieved by providing a default return value
         to be returned when the above conditions are met. Hence, most of the
         calls to apply_dp will look like this:
         ```
-        value = self.apply_dp(value, 'my-pipeline', my_pipeline_args)
+        value = self.apply_dp(value, 'my-loading-block', my_apply_args)
         ```
         This will ensure that value is not changed if the DataLoadingPlan is
         not active.

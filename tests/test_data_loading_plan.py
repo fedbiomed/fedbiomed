@@ -29,8 +29,8 @@ class TestDataLoadingBlock(unittest.TestCase):
         dp4 = MapperDP()
         dp4.map = {'test': 1, 1: 'test'}
         serialized = dp4.serialize()
-        exec(f"import {serialized['pipeline_module']}")
-        dp5 = eval(f"{serialized['pipeline_module']}.{serialized['pipeline_class']}()")
+        exec(f"import {serialized['loading_block_module']}")
+        dp5 = eval(f"{serialized['loading_block_module']}.{serialized['loading_block_class']}()")
         dp5.deserialize(serialized)
         self.assertEqual(dp4.get_serialization_id(), dp5.get_serialization_id())
         self.assertDictEqual(dp4.map, dp5.map)
@@ -90,6 +90,28 @@ class TestDataLoadingPlan(unittest.TestCase):
         self.assertNotEqual(dlp.dlp_id, dlp2.dlp_id)
         self.assertNotIn(LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING, dlp2)
         self.assertNotIn(LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING, dlp2)
+
+        serialized_dlp, serialized_loading_blocks = dlp.serialize()
+        self.assertIn('dlp_id', serialized_dlp)
+        self.assertIsInstance(serialized_dlp['dlp_id'], str)
+        self.assertIn('dlp_name', serialized_dlp)
+        self.assertIsInstance(serialized_dlp['dlp_name'], str)
+        self.assertIn('loading_blocks', serialized_dlp)
+        self.assertIsInstance(serialized_dlp['loading_blocks'], dict)
+        self.assertEqual(len(serialized_dlp['loading_blocks']), 2)
+        self.assertIn('key_paths', serialized_dlp)
+        self.assertIsInstance(serialized_dlp['key_paths'], dict)
+
+        self.assertIsInstance(serialized_loading_blocks, list)
+        self.assertEqual(len(serialized_loading_blocks), 2)
+        self.assertIn('loading_block_serialization_id', serialized_loading_blocks[0])
+        self.assertIn('loading_block_serialization_id', serialized_loading_blocks[1])
+
+        self.assertIn(serialized_loading_blocks[0]['loading_block_serialization_id'],
+                      serialized_dlp['loading_blocks'].values())
+        self.assertIn(serialized_loading_blocks[1]['loading_block_serialization_id'],
+                      serialized_dlp['loading_blocks'].values())
+
         dlp2.deserialize(*dlp.serialize())
         self.assertIn(LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING, dlp2)
         self.assertIn(LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING, dlp2)
