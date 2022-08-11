@@ -395,9 +395,9 @@ def get_csv_data():
 def list_data_loading_plans():
     table = database.db().table('Data_Loading_Plans')
     query = database.query()
-    dlps = table.search((query.dlp_id.exists()) & (query.dlp_id.matches('^dlp_*')))
+    dlps = table.search((query.dlp_id.exists()) & (query.dlp_id.matches('^dlp_*')) & (query.dlp_desc.exists()))
     index = list(range(len(dlps)))
     columns = ['name', 'id']
-    data = [[dlp['dlp_name'], dlp['dlp_id']] for dlp in dlps]
+    data = [[dlp['dlp_desc'], dlp['dlp_id']] for dlp in dlps]
 
     return response({'index': index, 'columns': columns, 'data': data}), 200

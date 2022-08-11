@@ -159,7 +159,7 @@ class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
         """
         return dict(
             dlp_id=self.dlp_id,
-            dlp_name=self.desc,
+            dlp_desc=self.desc,
             loading_blocks={key.value: dp.get_serialization_id() for key, dp in self.items()},
             key_paths={key.value: (f"{key.__module__}", f"{key.__class__.__qualname__}") for key in self.keys()}
         ), [dp.serialize() for dp in self.values()]
@@ -181,7 +181,7 @@ class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
         """
         self.clear()
         self.dlp_id = serialized_dlp['dlp_id']
-        self.desc = serialized_dlp['dlp_name']
+        self.desc = serialized_dlp['dlp_desc']
         for loading_block_key_str, loading_block_serialization_id in serialized_dlp['loading_blocks'].items():
             loading_block = next(filter(lambda x: x['loading_block_serialization_id'] == loading_block_serialization_id,
                                         serialized_loading_blocks))

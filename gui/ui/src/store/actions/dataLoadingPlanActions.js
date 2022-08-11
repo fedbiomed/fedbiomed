@@ -22,9 +22,9 @@ export const setDLPIndex = (index) => {
     }
 }
 
-export const setDLPName = (data) => {
+export const setDLPDesc = (data) => {
     return (dispatch) => {
-        dispatch({type: 'SET_DLP_NAME', payload: data})
+        dispatch({type: 'SET_DLP_DESC', payload: data})
     }
 }
 

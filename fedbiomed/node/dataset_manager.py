@@ -388,6 +388,7 @@ class DatasetManager:
                     controller.set_dlp(data_loading_plan)
                 dataset = controller.load_MedicalFolder(tabular_file=dataset_parameters.get('tabular_file', None),
                                                         index_col=dataset_parameters.get('index_col', None))
+
             except FedbiomedError as e:
                 raise FedbiomedDatasetManagerError(f"Can not create Medical Folder dataset. {e}")
             else:

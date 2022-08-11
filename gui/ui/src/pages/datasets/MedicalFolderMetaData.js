@@ -2,7 +2,7 @@ import React from 'react';
 import {Label, Tag, Text, TextArea} from "../../components/common/Inputs";
 import {connect} from "react-redux"
 import {setMedicalFolderDatasetMetadata} from "../../store/actions/medicalFolderDatasetActions";
-import {setDLPName} from "../../store/actions/dataLoadingPlanActions";
+import {setDLPDesc} from "../../store/actions/dataLoadingPlanActions";
 
 
 const MedicalFolderMetadata = (props) => {
@@ -55,8 +55,8 @@ const MedicalFolderMetadata = (props) => {
                             <TextArea name="desc"
                                       type="text"
                                       placeholder="Please enter an optional name for the data loading customizations that you created."
-                                      onChange={(e) => { props.setDLPName(e.target.value)}}
-                                      value={props.dlp_name}
+                                      onChange={(e) => { props.setDLPDesc(e.target.value)}}
+                                      value={props.dlp_desc}
                             />
                         </div>
                     </div> : null
@@ -69,14 +69,14 @@ const mapStateToProps = (state) => {
     return {
         metadata : state.medicalFolderDataset.metadata,
         use_new_mod2fol_association : state.medicalFolderDataset.use_new_mod2fol_association,
-        dlp_name : state.medicalFolderDataset.dlp_name,
+        dlp_desc : state.dataLoadingPlan.dlp_desc,
     }
 }
 
 const mapDispatchToProps = (dispatch) => {
     return {
         setMedicalFolderDatasetMetadata : (data) => dispatch(setMedicalFolderDatasetMetadata(data)),
-        setDLPName : (data) => dispatch(setDLPName(data))
+        setDLPDesc : (data) => dispatch(setDLPDesc(data))
     }
 }
 

@@ -3,7 +3,7 @@ const initialState = {
     selected_dlp_index: null,
     existing_dlps: null,
     dlp_loading_blocks: {},
-    dlp_name: ""
+    dlp_desc: ""
 }
 
 
@@ -30,10 +30,10 @@ export const dataLoadingPlanReducer = (state = initialState, action) => {
                 ...state,
                 selected_dlp_index : action.payload
             }
-        case "SET_DLP_NAME":
+        case "SET_DLP_DESC":
             return {
                 ...state,
-                dlp_name : action.payload
+                dlp_desc : action.payload
             }
         case "ADD_PIPELINE":
             let data_loading_blocks = state.dlp_loading_blocks
