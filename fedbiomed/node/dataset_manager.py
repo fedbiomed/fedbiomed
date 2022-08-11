@@ -75,10 +75,9 @@ class DatasetManager:
         Returns:
             A dictionary with the DataLoadingPlan metadata corresponding to the given id.
         """
-
         dlp_metadata = self._dlp_table.get(self.database.dlp_id == dlp_id)
         return dlp_metadata, self._dlp_table.search(
-            self.database.pipeline_serialization_id.one_of(dlp_metadata['pipelines'].values()))
+            self.database.loading_block_serialization_id.one_of(dlp_metadata['loading_blocks'].values()))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.

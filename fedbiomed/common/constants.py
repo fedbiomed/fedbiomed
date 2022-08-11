@@ -88,14 +88,14 @@ class ProcessTypes(_BaseEnum):
     PARAMS: int = 1
 
 
-class DataLoadingPipelineKeys(_BaseEnum):
+class DataLoadingBlocks(_BaseEnum):
     """Base class for typing purposes.
 
     Concrete enumeration types should be defined within the scope of their
     implementation or application. To define a concrete enumeration type,
     one must subclass this class as follows:
     ```python
-    class MyPipelineKeys(DataLoadingPipelineKeys, Enum):
+    class MyLoadingBlocks(DataLoadingBlocks, Enum):
         MY_KEY: str 'myKey'
         MY_OTHER_KEY: str 'myOtherKey'
     ```
@@ -110,13 +110,13 @@ class DataLoadingPipelineKeys(_BaseEnum):
     def __init__(self, *args):
         cls = self.__class__
         if not isinstance(self.value, str):
-            raise ValueError("all fields of DataLoadingPipelineKeys subclasses"
+            raise ValueError("all fields of DataLoadingBlocks subclasses"
                              " must be of str type")
         if any(self.value == e.value for e in cls):
             a = self.name
             e = cls(self.value).name
             raise ValueError(
-                f"duplicate values not allowed in DataLoadingPipelineKeys and "
+                f"duplicate values not allowed in DataLoadingBlocks and "
                 f"its subclasses: {a} --> {e}")
 
 

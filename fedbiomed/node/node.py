@@ -214,9 +214,9 @@ class Node:
                          'extra_msg': "Did not found proper data in local datasets"}
                     ).get_dict())
                 else:
-                    dlp_and_pipeline_metadata = None
+                    dlp_and_loading_block_metadata = None
                     if 'dlp_id' in data:
-                        dlp_and_pipeline_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
+                        dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
                     self.rounds.append(Round(model_kwargs,
                                              training_kwargs,
                                              training_status,
@@ -228,7 +228,7 @@ class Node:
                                              researcher_id,
                                              hist_monitor,
                                              self.node_args,
-                                             dlp_and_pipeline_metadata=dlp_and_pipeline_metadata))
+                                             dlp_and_loading_block_metadata=dlp_and_loading_block_metadata))
 
     def task_manager(self):
         """Manages training tasks in the queue.

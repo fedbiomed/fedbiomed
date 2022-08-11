@@ -17,7 +17,7 @@ from torchvision import transforms, datasets
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 from testsupport.fake_uuid import FakeUuid
-from testsupport.testing_data_pipeline import PipelineKeysForTesting
+from testsupport.testing_data_loading_block import LoadingBlockTypesForTesting
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.dataset_manager import DatasetManager, DataLoadingPlan
@@ -1007,15 +1007,15 @@ class TestDatasetManager(unittest.TestCase):
     def test_dataset_manager_31_data_loading_plan_save(self, patch_isdir):
         """Tests that DatasetManager correctly saves a DataLoadingPlan"""
         patch_isdir.return_value = True
-        from test_data_loading_plan import PipelineForTesting
+        from test_data_loading_plan import LoadingBlockForTesting
 
-        dp1 = PipelineForTesting()
-        dp2 = PipelineForTesting()
+        dp1 = LoadingBlockForTesting()
+        dp2 = LoadingBlockForTesting()
         dp2.data = {'some': 'other data'}
 
         dlp = DataLoadingPlan()
-        dlp[PipelineKeysForTesting.PIPELINE_FOR_TESTING] = dp1
-        dlp[PipelineKeysForTesting.OTHER_TESTING_PIPELINE] = dp2
+        dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING] = dp1
+        dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING] = dp2
 
         dataset_manager = DatasetManager()
         dataset_manager.load_default_database = MagicMock(return_value=(1, 1))
@@ -1033,13 +1033,13 @@ class TestDatasetManager(unittest.TestCase):
         dataset = dataset_manager.get_by_id('test-id-dlp-1234')
         self.assertEqual(dataset['dlp_id'], dlp.dlp_id)
 
-        dlp_metadata, pipelines_metadata = dataset_manager.get_dlp_by_id(dataset['dlp_id'])
+        dlp_metadata, loading_blocks_metadata = dataset_manager.get_dlp_by_id(dataset['dlp_id'])
         self.assertEqual(dlp_metadata['dlp_id'], dlp.dlp_id)
-        new_dlp = DataLoadingPlan().deserialize(dlp_metadata, pipelines_metadata)
-        self.assertIn(PipelineKeysForTesting.PIPELINE_FOR_TESTING, new_dlp)
-        self.assertIn(PipelineKeysForTesting.OTHER_TESTING_PIPELINE, new_dlp)
-        self.assertDictEqual(new_dlp[PipelineKeysForTesting.PIPELINE_FOR_TESTING].data, dp1.data)
-        self.assertDictEqual(new_dlp[PipelineKeysForTesting.OTHER_TESTING_PIPELINE].data, dp2.data)
+        new_dlp = DataLoadingPlan().deserialize(dlp_metadata, loading_blocks_metadata)
+        self.assertIn(LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING, new_dlp)
+        self.assertIn(LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING, new_dlp)
+        self.assertDictEqual(new_dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING].data, dp1.data)
+        self.assertDictEqual(new_dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING].data, dp2.data)
 
         dataset_manager.db.close()
 

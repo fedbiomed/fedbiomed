@@ -2,28 +2,28 @@ import uuid
 from typing import Any, Dict, List, Tuple, TypeVar
 from abc import ABC, abstractmethod
 
-from fedbiomed.common.constants import DataLoadingPipelineKeys
+from fedbiomed.common.constants import DataLoadingBlocks
 
 
 TDataLoadingPlan = TypeVar("TDataLoadingPlan", bound="DataLoadingPlan")
-TDataPipeline = TypeVar("TDataPipeline", bound="DataPipeline")
+TDataLoadingBlock = TypeVar("TDataLoadingBlock", bound="DataLoadingBlock")
 
 
-class DataPipeline(ABC):
+class DataLoadingBlock(ABC):
     """The building blocks of a DataLoadingPlan.
 
-    A DataPipeline describes an intermediary layer between the researcher
+    A DataLoadingBlock describes an intermediary layer between the researcher
     and the node's filesystem. It allows the node to specify a customization
     in the way data is "perceived" by the data loaders during training.
 
-    A DataPipeline is identified by its type_id attribute. Thus this
-    attribute should be unique among all DataPipelines in the same
+    A DataLoadingBlock is identified by its type_id attribute. Thus this
+    attribute should be unique among all DataLoadingBlocks in the same
     DataLoadingPlan. Moreover, we may test equality between a
-    DataPipeline and a string by checking its type_id, as a means of
-    easily testing whether a DataPipeline is contained in a collection.
+    DataLoadingBlock and a string by checking its type_id, as a means of
+    easily testing whether a DataLoadingBlock is contained in a collection.
 
     Correct usage of this class requires creating ad-hoc subclasses.
-    The DataPipeline class is not intended to be instantiated directly.
+    The DataLoadingBlock class is not intended to be instantiated directly.
 
     Subclasses of DataPipline must respect the following conditions:
     1. implement a constructor taking exactly one argument, a type_id string
@@ -33,13 +33,13 @@ class DataPipeline(ABC):
     5. the deserialize function must always return self
     6. the serialize function must update the dict returned by super's serialize
     7. implement an apply function that takes arbitrary arguments and applies
-       the logic of the pipeline
+       the logic of the loading_block
 
     Attributes:
-        __serialization_id: (str) identifies *one serialized instance* of the DataPipeline
+        __serialization_id: (str) identifies *one serialized instance* of the DataLoadingBlock
     """
     def __init__(self):
-        super(DataPipeline, self).__init__()
+        super(DataLoadingBlock, self).__init__()
         self.__serialization_id = 'serialized_dp_' + str(uuid.uuid4())
 
     def get_serialization_id(self):
@@ -51,46 +51,46 @@ class DataPipeline(ABC):
 
         Returns:
              a dictionary of key-value pairs sufficient for reconstructing
-             the DataPipeline.
+             the DataLoadingBlock.
         """
         return dict(
-            pipeline_class=self.__class__.__qualname__,
-            pipeline_module=self.__module__,
-            pipeline_serialization_id=self.__serialization_id
+            loading_block_class=self.__class__.__qualname__,
+            loading_block_module=self.__module__,
+            loading_block_serialization_id=self.__serialization_id
         )
 
-    def deserialize(self, load_from: dict) -> TDataPipeline:
-        """Reconstruct the DataPipeline from a serialized version.
+    def deserialize(self, load_from: dict) -> TDataLoadingBlock:
+        """Reconstruct the DataLoadingBlock from a serialized version.
 
         Args:
             load_from: a dictionary as obtained by the serialize function.
         Returns:
             the self instance
         """
-        self.__serialization_id = load_from['pipeline_serialization_id']
+        self.__serialization_id = load_from['loading_block_serialization_id']
         return self
 
     @abstractmethod
     def apply(self, *args, **kwargs):
-        """Abstract method representing an application of the DataPipeline
+        """Abstract method representing an application of the DataLoadingBlock
         """
         pass
 
 
-class MapperDP(DataPipeline):
-    """A DataPipeline for mapping values.
+class MapperDP(DataLoadingBlock):
+    """A DataLoadingBlock for mapping values.
 
-    This Datapipeline can be used whenever an "indirect mapping" is needed.
+    This Dataloading_block can be used whenever an "indirect mapping" is needed.
     For example, it can be used to implement a correspondence between a set
     of "logical" abstract names and a set of folder names on the filesystem.
 
-    The apply function of this DataPipeline takes a "key" as input (a str)
+    The apply function of this DataLoadingBlock takes a "key" as input (a str)
     and returns the mapped value corresponding to map[key].
     Note that while the constructor of this class sets a value for type_id,
     developers are recommended to set a more meaningful value that better
     speaks to their application.
 
-    Multiple instances of this pipeline may be used in the same DataLoadingPlan,
+    Multiple instances of this loading_block may be used in the same DataLoadingPlan,
     provided that they are given different type_id via the constructor.
     """
     def __init__(self):
@@ -102,14 +102,14 @@ class MapperDP(DataPipeline):
 
         Returns:
              a dictionary of key-value pairs sufficient for reconstructing
-             the DataPipeline.
+             the DataLoadingBlock.
         """
         ret = super(MapperDP, self).serialize()
         ret.update({'map': self.map})
         return ret
 
-    def deserialize(self, load_from: dict) -> DataPipeline:
-        """Reconstruct the DataPipeline from a serialized version.
+    def deserialize(self, load_from: dict) -> DataLoadingBlock:
+        """Reconstruct the DataLoadingBlock from a serialized version.
 
         Args:
             load_from: a dictionary as obtained by the serialize function.
@@ -124,11 +124,11 @@ class MapperDP(DataPipeline):
         return self.map[key]
 
 
-class DataLoadingPlan(Dict[DataLoadingPipelineKeys, DataPipeline]):
+class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
     """Customizations to the way the data is loaded and presented for training.
 
-    A DataLoadingPlan is a dictionary of {name: DataPipeline} pairs. Each
-    DataPipeline represents a customization to the way data is loaded and
+    A DataLoadingPlan is a dictionary of {name: DataLoadingBlock} pairs. Each
+    DataLoadingBlock represents a customization to the way data is loaded and
     presented to the researcher. These customizations are defined by the node,
     but they operate on a Dataset class, which is defined by the library and
     instantiated by the researcher.
@@ -160,7 +160,7 @@ class DataLoadingPlan(Dict[DataLoadingPipelineKeys, DataPipeline]):
         return dict(
             dlp_id=self.dlp_id,
             dlp_name=self.desc,
-            pipelines={key.value: dp.get_serialization_id() for key, dp in self.items()},
+            loading_blocks={key.value: dp.get_serialization_id() for key, dp in self.items()},
             key_paths={key.value: (f"{key.__module__}", f"{key.__class__.__qualname__}") for key in self.keys()}
         ), [dp.serialize() for dp in self.values()]
 
@@ -171,7 +171,7 @@ class DataLoadingPlan(Dict[DataLoadingPipelineKeys, DataPipeline]):
         of the 'DataLoadingPlan.aggregate_serialized_metadata` function.
 
         :warning: Calling this function will *clear* the contained
-            DataPipelines. This function may not be used to "update"
+            DataLoadingBlocks. This function may not be used to "update"
             nor to "append to" a DataLoadingPlan.
 
         Args:
@@ -207,7 +207,7 @@ class DataLoadingPlanMixin:
 
     Any Dataset class that inherits from DataLoadingPlanMixin will have the
     basic tools necessary to support a DataLoadingPlan. Typically, the logic
-    of each specific DataPipeline in the DataLoadingPlan will be implemented
+    of each specific DataLoadingBlock in the DataLoadingPlan will be implemented
     in the form of hooks that are called within the Dataset's implementation
     using the helper function apply_dp defined below.
     """
@@ -221,7 +221,7 @@ class DataLoadingPlanMixin:
         self._dlp = None
 
     def apply_dp(self, default_ret_value: Any, dp_key: str, *args, **kwargs):
-        """Apply one DataPipeline identified by its key.
+        """Apply one DataLoadingBlock identified by its key.
 
         Note that we want to easily support the case where the DataLoadingPlan
         is not activated, or the requested pipeline is not contained in the
@@ -237,11 +237,11 @@ class DataLoadingPlanMixin:
         Args:
             default_ret_value: the value to be returned in case that the dlp
             functionality is not required
-            dp_key: the key of the DataPipeline to be applied
-            args: forwarded to the DataPipeline's apply function
-            kwargs: forwarded to the DataPipeline's apply function
+            dp_key: the key of the DataLoadingBlock to be applied
+            args: forwarded to the DataLoadingBlock's apply function
+            kwargs: forwarded to the DataLoadingBlock's apply function
         Returns:
-             the output of the DataPipeline's apply function, or
+             the output of the DataLoadingBlock's apply function, or
              the default_ret_value when dlp is None or it does not contain
              the requested pipeline
         """
