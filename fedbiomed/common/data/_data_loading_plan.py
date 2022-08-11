@@ -42,8 +42,7 @@ class DataPipeline(ABC):
         super(DataPipeline, self).__init__()
         self.__serialization_id = 'serialized_dp_' + str(uuid.uuid4())
 
-    @property
-    def serialization_id(self):
+    def get_serialization_id(self):
         """Expose serialization id as read-only"""
         return self.__serialization_id
 

@@ -32,7 +32,7 @@ class TestDataPipeline(unittest.TestCase):
         exec(f"import {serialized['pipeline_module']}")
         dp5 = eval(f"{serialized['pipeline_module']}.{serialized['pipeline_class']}()")
         dp5.deserialize(serialized)
-        self.assertEqual(dp4.serialization_id, dp5.serialization_id)
+        self.assertEqual(dp4.get_serialization_id(), dp5.get_serialization_id())
         self.assertDictEqual(dp4.map, dp5.map)
 
     def test_data_pipeline_02_apply(self):
