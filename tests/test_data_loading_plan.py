@@ -1,5 +1,5 @@
 import unittest
-from fedbiomed.common.data import DataLoadingPlan, DataLoadingPlanMixin, MapperDP
+from fedbiomed.common.data import DataLoadingPlan, DataLoadingPlanMixin, MapperBlock
 from tests.testsupport.testing_data_loading_block import LoadingBlockForTesting, LoadingBlockTypesForTesting
 
 
@@ -26,7 +26,7 @@ class TestDataLoadingBlock(unittest.TestCase):
         dp3.deserialize(serialized)
         self.assertDictEqual(self.dp1.data, dp3.data)
 
-        dp4 = MapperDP()
+        dp4 = MapperBlock()
         dp4.map = {'test': 1, 1: 'test'}
         serialized = dp4.serialize()
         exec(f"import {serialized['loading_block_module']}")
@@ -38,7 +38,7 @@ class TestDataLoadingBlock(unittest.TestCase):
     def test_data_loading_block_02_apply(self):
         """Tests that the apply function of DataLoadingBlock works as intended"""
         self.dp2.data = self.changed_data
-        dp3 = MapperDP()
+        dp3 = MapperBlock()
         dp3.map = self.changed_data
 
         apply_1 = self.dp1.apply()
@@ -148,7 +148,7 @@ class TestDataLoadingPlan(unittest.TestCase):
                 orig_key = 'orig-key'
                 return self.apply_dp(orig_key, LoadingBlockTypesForTesting.TESTING_MAPPER, orig_key)
 
-        dp = MapperDP()
+        dp = MapperBlock()
         dp.map = {'orig-key': 'new-key'}
         dlp = DataLoadingPlan()
         dlp[LoadingBlockTypesForTesting.TESTING_MAPPER] = dp

@@ -77,7 +77,7 @@ class DataLoadingBlock(ABC):
         pass
 
 
-class MapperDP(DataLoadingBlock):
+class MapperBlock(DataLoadingBlock):
     """A DataLoadingBlock for mapping values.
 
     This Dataloading_block can be used whenever an "indirect mapping" is needed.
@@ -94,7 +94,7 @@ class MapperDP(DataLoadingBlock):
     provided that they are given different type_id via the constructor.
     """
     def __init__(self):
-        super(MapperDP, self).__init__()
+        super(MapperBlock, self).__init__()
         self.map = {}
 
     def serialize(self) -> dict:
@@ -104,7 +104,7 @@ class MapperDP(DataLoadingBlock):
              a dictionary of key-value pairs sufficient for reconstructing
              the DataLoadingBlock.
         """
-        ret = super(MapperDP, self).serialize()
+        ret = super(MapperBlock, self).serialize()
         ret.update({'map': self.map})
         return ret
 
@@ -116,7 +116,7 @@ class MapperDP(DataLoadingBlock):
         Returns:
             the self instance
         """
-        super(MapperDP, self).deserialize(load_from)
+        super(MapperBlock, self).deserialize(load_from)
         self.map = load_from['map']
         return self
 

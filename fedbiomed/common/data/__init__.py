@@ -8,7 +8,7 @@ from ._torch_data_manager import TorchDataManager
 from ._sklearn_data_manager import SkLearnDataManager
 from ._tabular_dataset import TabularDataset
 from ._medical_datasets import NIFTIFolderDataset, MedicalFolderDataset, MedicalFolderBase, MedicalFolderController
-from ._data_loading_plan import DataLoadingBlock, MapperDP, DataLoadingPlan, DataLoadingPlanMixin
+from ._data_loading_plan import DataLoadingBlock, MapperBlock, DataLoadingPlan, DataLoadingPlanMixin
 
 __all__ = [
     "MedicalFolderBase",
@@ -20,7 +20,7 @@ __all__ = [
     "TabularDataset",
     "NIFTIFolderDataset",
     "DataLoadingBlock",
-    "MapperDP",
+    "MapperBlock",
     "DataLoadingPlan",
     "DataLoadingPlanMixin"
 ]
