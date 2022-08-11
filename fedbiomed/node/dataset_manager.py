@@ -41,6 +41,10 @@ class DatasetManager:
         self.db = TinyDB(environ['DB_PATH'])
         self.database = Query()
 
+        # don't use DB read cache to ensure coherence
+        # (eg when mixing CLI commands with a GUI session)
+        self._dlp_table = self.db.table(name='Data_Loading_Plans', cache_size=0)
+
     def get_by_id(self, dataset_id: str) -> List[dict]:
         """Searches for data with given dataset_id.
 
@@ -71,10 +75,9 @@ class DatasetManager:
         Returns:
             A dictionary with the DataLoadingPlan metadata corresponding to the given id.
         """
-        self.db.clear_cache()
-        table = self.db.table('Data_Loading_Plans')
-        dlp_metadata = table.get(self.database.dlp_id == dlp_id)
-        return dlp_metadata, table.search(
+
+        dlp_metadata = self._dlp_table.get(self.database.dlp_id == dlp_id)
+        return dlp_metadata, self._dlp_table.search(
             self.database.pipeline_serialization_id.one_of(dlp_metadata['pipelines'].values()))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
@@ -528,10 +531,9 @@ class DatasetManager:
         if data_loading_plan is None:
             return current_dataset_metadata
 
-        table = self.db.table('Data_Loading_Plans')
         dlp_metadata, pipelines_metadata = data_loading_plan.serialize()
-        table.insert(dlp_metadata)
-        table.insert_multiple(pipelines_metadata)
+        self._dlp_table.insert(dlp_metadata)
+        self._dlp_table.insert_multiple(pipelines_metadata)
         current_dataset_metadata['dlp_id'] = data_loading_plan.dlp_id
         return current_dataset_metadata
 
