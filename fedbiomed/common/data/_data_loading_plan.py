@@ -40,7 +40,7 @@ class DataLoadingBlock(ABC):
     """
     def __init__(self):
         super(DataLoadingBlock, self).__init__()
-        self.__serialization_id = 'serialized_dp_' + str(uuid.uuid4())
+        self.__serialization_id = 'serialized_data_loading_block_' + str(uuid.uuid4())
 
     def get_serialization_id(self):
         """Expose serialization id as read-only"""
