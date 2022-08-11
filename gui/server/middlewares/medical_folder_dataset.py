@@ -55,16 +55,16 @@ def load_dlp():
     if 'dlp_id' in req and req['dlp_id'] is not None:
         # Case where a pre-existing dlp was selected, thus we directly load it
         dlp = DataLoadingPlan().deserialize(*dataset_manager.get_dlp_by_id(req['dlp_id']))
-    elif len(req['dlp_pipelines']) > 0:
+    elif len(req['dlp_loading_blocks']) > 0:
         # Case where a dlp is being configured by the node gui user.
-        # We need to create it on the fly from the pipeline metadata.
-        pipelines_metadata = dataset_manager.get_data_pipelines_by_ids(req['dlp_pipelines'].values())
-        pipelines_metadata_mapping = {
-            key: next(filter(lambda x: x['pipeline_serialization_id'] == serial_id, pipelines_metadata))
-            for key, serial_id in req['dlp_pipelines'].items()
+        # We need to create it on the fly from the loading block metadata.
+        loading_blocks_metadata = dataset_manager.get_data_loading_blocks_by_ids(req['dlp_loading_blocks'].values())
+        loading_blocks_metadata_mapping = {
+            key: next(filter(lambda x: x['loading_block_serialization_id'] == serial_id, loading_blocks_metadata))
+            for key, serial_id in req['dlp_loading_blocks'].items()
         }
         dlp = DataLoadingPlan()
-        dlp.deserialize_pipelines_from_mapping(pipelines_metadata_mapping)
+        dlp.deserialize_loading_blocks_from_mapping(loading_blocks_metadata_mapping)
 
     if 'dlp_name' in req:
         dlp.name = req['dlp_name']

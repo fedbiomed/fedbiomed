@@ -193,24 +193,25 @@ class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
             self[loading_block_key] = dp.deserialize(loading_block)
         return self
 
-    def deserialize_pipelines_from_mapping(self, serialized_pipelines_mapping: Dict[str, dict]) -> TDataLoadingPlan:
-        """Reconstruct only the pipelines of the Data Loading Plan
+    def deserialize_loading_blocks_from_mapping(self,
+                                                serialized_loading_blocks_mapping: Dict[str, dict]) -> TDataLoadingPlan:
+        """Reconstruct only the loading blocks of the Data Loading Plan
 
-        The input argument must be of the form {str: dict} where the str key is a name that will identify each pipeline,
-        and the dict value is a dictionary of pipeline metadata used to deserialize the pipeline.
+        The input argument must be of the form {str: dict} where the str key is a name that will identify each loading
+        block, and the dict value is a dictionary of loading block metadata used to deserialize the loading block.
 
-        This function may be used to update an existing DataLoadingPlan by adding the deserialized pipelines.
+        This function may be used to update an existing DataLoadingPlan by adding the deserialized loading blocks.
 
         Args:
-            serialized_pipelines_mapping : a dictionary of {name: metadata} pairs
+            serialized_loading_blocks_mapping : a dictionary of {name: metadata} pairs
         Returns:
             the self instance
         """
 
-        for pipeline_key, pipeline in serialized_pipelines_mapping.items():
-            exec(f"import {pipeline['pipeline_module']}")
-            dp = eval(f"{pipeline['pipeline_module']}.{pipeline['pipeline_class']}()")
-            self[pipeline_key] = dp.deserialize(pipeline)
+        for loading_block_key, loading_block in serialized_loading_blocks_mapping.items():
+            exec(f"import {loading_block['loading_block_module']}")
+            dp = eval(f"{loading_block['loading_block_module']}.{loading_block['loading_block_class']}()")
+            self[loading_block_key] = dp.deserialize(loading_block)
         return self
 
     def __str__(self):

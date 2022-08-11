@@ -144,10 +144,10 @@ def get_default_modalities():
     return response(data={'default_modalities': formatted_modalities}), 200
 
 
-@api.route('/datasets/medical-folder-dataset/create-modalities-to-folders-pipeline', methods=['POST'])
+@api.route('/datasets/medical-folder-dataset/create-modalities-to-folders-loading-block', methods=['POST'])
 def create_modalities_to_folders_pipeline():
     req = request.json
     dp = MapperBlock()
     dp.map = req['mapping']
     dataset_manager.save_data_pipeline(dp)
-    return response(data={'serial_id': dp.serialization_id}), 200
+    return response(data={'serial_id': dp.get_serialization_id()}), 200

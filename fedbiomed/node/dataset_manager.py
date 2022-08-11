@@ -24,7 +24,7 @@ from fedbiomed.node.environ import environ
 
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan
+from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, DataLoadingBlock
 
 from fedbiomed.common.logger import logger
 
@@ -79,21 +79,21 @@ class DatasetManager:
         return dlp_metadata, self._dlp_table.search(
             self.database.loading_block_serialization_id.one_of(dlp_metadata['loading_blocks'].values()))
 
-    def get_data_pipelines_by_ids(self, dp_ids: List[str]) -> List[dict]:
-        """Search for a list of DataPipelines, each corresponding to one given id.
+    def get_data_loading_blocks_by_ids(self, dp_ids: List[str]) -> List[dict]:
+        """Search for a list of DataLoadingBlocks, each corresponding to one given id.
 
         Note that in case of conflicting ids (which should not happen), this function will silently return a random
         one with the sought id.
 
-        DataPipeline IDs always start with 'serialized_dp_' and should be unique in the database.
+        DataLoadingBlock IDs always start with 'serialized_dp_' and should be unique in the database.
 
         Args:
-            dp_ids: (List[str]) a list of DataPipeline IDs
+            dp_ids: (List[str]) a list of DataLoadingBlock IDs
 
         Returns:
-            A list of dictionaries, each one containing the DataPipeline metadata corresponding to one given id.
+            A list of dictionaries, each one containing the DataLoadingBlock metadata corresponding to one given id.
         """
-        return self._dlp_table.search(self.database.pipeline_serialization_id.one_of(dp_ids))
+        return self._dlp_table.search(self.database.loading_block_serialization_id.one_of(dp_ids))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
@@ -556,9 +556,8 @@ class DatasetManager:
         current_dataset_metadata['dlp_id'] = data_loading_plan.dlp_id
         return current_dataset_metadata
 
-    def save_data_pipeline(self, dp: 'DataPipeline') -> None:
-        table = self.db.table('Data_Loading_Plans')
-        table.insert(dp.serialize())
+    def save_data_loading_block(self, dp: DataLoadingBlock) -> None:
+        self._dlp_table.insert(dp.serialize())
 
     @staticmethod
     def obfuscate_private_information(database_metadata: Iterable[dict]) -> Iterable[dict]:
