@@ -19,8 +19,7 @@ Nodes Global Variables:
 - NODE_ID                 : id of the node
 - ID                      : equals to node id
 - MESSAGES_QUEUE_DIR      : Path for queues
-- DB_PATH                 : TinyDB database path where datasets are saved
-- MODEL_DB_PATH           : Database where registered model are saved
+- DB_PATH                 : TinyDB database path where datasets/models/loading plans are saved
 - DEFAULT_MODELS_DIR      : Path of directory for storing default models
 - MODEL_DIR               : Path of directory for storing registered models
 - MODEL_APPROVAL          : True if the node enables model approval

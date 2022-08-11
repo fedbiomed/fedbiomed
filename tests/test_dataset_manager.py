@@ -108,22 +108,17 @@ class TestDatasetManager(unittest.TestCase):
         os.remove(environ['DB_PATH'])
 
 
-    @patch('tinydb.table.Table.clear_cache')
-    def test_dataset_manager_01_get_by_id_non_existing_dataset_id(self,
-                                                                  tinydb_cache_patch,):
+    def test_dataset_manager_01_get_by_id_non_existing_dataset_id(self):
         """
         Test `search_by_id` method with a non existing id
         """
-        tinydb_cache_patch.return_value = None
         # action (should return an empty array)
         res = self.dataset_manager.get_by_id('dataset_id_1234')
         self.assertEqual(res, None)
 
 
     @patch('tinydb.table.Table.get')
-    @patch('tinydb.table.Table.clear_cache')
     def test_dataset_manager_02_get_by_id(self,
-                                          tinydb_cache_patch,
                                           tinydb_get_patch):
         """
         Simulates a query with a correct dataset id by patching Query and
@@ -133,7 +128,6 @@ class TestDatasetManager(unittest.TestCase):
         search_results = {'dataset_id': 'datset_id_1234'}
         dataset_id = 'dataset_id_1234'
         # patches
-        tinydb_cache_patch.return_value = None
         tinydb_get_patch.return_value = search_results
 
         # action
@@ -154,12 +148,10 @@ class TestDatasetManager(unittest.TestCase):
 
     @patch('tinydb.queries.Query.all')
     @patch('tinydb.table.Table.search')
-    @patch('tinydb.table.Table.clear_cache')
     def test_dataset_manager_04_search_by_tags(self,
-                                            tinydb_cache_patch,
-                                            tinydb_search_patch,
-                                            queries_all_patch
-                                            ):
+                                               tinydb_search_patch,
+                                               queries_all_patch
+                                               ):
         """
         Simulates a query with correct dataset tags by patching Query and
         Table.search object/methods
@@ -169,7 +161,6 @@ class TestDatasetManager(unittest.TestCase):
         dataset_tags = ['some', 'tags']
 
         # patches
-        tinydb_cache_patch.return_value = None
         tinydb_search_patch.return_value = search_results
 
         # action
@@ -639,10 +630,8 @@ class TestDatasetManager(unittest.TestCase):
 
 
     @patch('tinydb.table.Table.all')
-    @patch('tinydb.table.Table.clear_cache')
     def test_dataset_manager_21_list_my_data(self,
-                                          clear_cache_patch,
-                                          query_all_patch):
+                                             query_all_patch):
         """
         Checks `list_my_data` method in the normal case scenario
         """
@@ -668,7 +657,6 @@ class TestDatasetManager(unittest.TestCase):
                            ]
 
         # patchers
-        clear_cache_patch.return_value = None
         query_all_patch.return_value = table_all_query
 
         # action
@@ -676,7 +664,6 @@ class TestDatasetManager(unittest.TestCase):
 
         # checks
         query_all_patch.assert_called_once()
-        clear_cache_patch.assert_called_once()
         # check that none of the database contained on the node
         # doesnot contain `dtype`entry
         self.assertNotIn('dtypes', all_data[0].keys())

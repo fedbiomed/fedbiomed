@@ -43,6 +43,7 @@ class DatasetManager:
 
         # don't use DB read cache to ensure coherence
         # (eg when mixing CLI commands with a GUI session)
+        self._dataset_table = self.db.table(name='Datasets', cache_size=0)
         self._dlp_table = self.db.table(name='Data_Loading_Plans', cache_size=0)
 
     def get_by_id(self, dataset_id: str) -> List[dict]:
@@ -56,8 +57,7 @@ class DatasetManager:
                 containing all the fields describing the matching datasets
                 stored in Tiny database.
         """
-        self.db.clear_cache()
-        result = self.db.get(self.database.dataset_id == dataset_id)
+        result = self._dataset_table.get(self.database.dataset_id == dataset_id)
 
         return result
 
@@ -88,8 +88,7 @@ class DatasetManager:
         Returns:
             The list of matching datasets
         """
-        self.db.clear_cache()
-        return self.db.search(self.database.tags.all(tags))
+        return self._dataset_table.search(self.database.tags.all(tags))
 
     def read_csv(self, csv_file: str, index_col: Union[int, None] = None) -> pd.DataFrame:
         """Gets content of a CSV file.
@@ -388,7 +387,7 @@ class DatasetManager:
                             path=path, dataset_id=dataset_id, dtypes=dtypes,
                             dataset_parameters=dataset_parameters)
         new_database = self.save_data_loading_plan(new_database, data_loading_plan)
-        self.db.insert(new_database)
+        self._dataset_table.insert(new_database)
 
         return dataset_id
 
@@ -401,7 +400,7 @@ class DatasetManager:
             tags: Dataset description tags.
         """
         doc_ids = [doc.doc_id for doc in self.search_by_tags(tags)]
-        self.db.remove(doc_ids=doc_ids)
+        self._dataset_table.remove(doc_ids=doc_ids)
 
     def modify_database_info(self,
                              tags: Union[tuple, list],
@@ -412,7 +411,7 @@ class DatasetManager:
             tags: Tags describing the dataset to modify.
             modified_dataset: New dataset description to replace the existing one.
         """
-        self.db.update(modified_dataset, self.database.tags.all(tags))
+        self._dataset_table.update(modified_dataset, self.database.tags.all(tags))
 
     def list_my_data(self, verbose: bool = True) -> List[dict]:
         """Lists all datasets on the node.
@@ -423,8 +422,7 @@ class DatasetManager:
         Returns:
             All datasets in the node's database.
         """
-        self.db.clear_cache()
-        my_data = self.db.all()
+        my_data = self._dataset_table.all()
 
         # Do not display dtypes
         for doc in my_data:
