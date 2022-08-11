@@ -35,7 +35,7 @@ class TestDataLoadingBlock(unittest.TestCase):
         self.assertEqual(dp4.get_serialization_id(), dp5.get_serialization_id())
         self.assertDictEqual(dp4.map, dp5.map)
 
-    def test_data_pipeline_02_apply(self):
+    def test_data_loading_block_02_apply(self):
         """Tests that the apply function of DataLoadingBlock works as intended"""
         self.dp2.data = self.changed_data
         dp3 = MapperDP()
@@ -139,7 +139,7 @@ class TestDataLoadingPlan(unittest.TestCase):
         self.assertIn(LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING, tp._dlp)
 
     def test_data_loading_plan_04_apply(self):
-        """Tests application of a DataLoadingPlan's DataPipeline"""
+        """Tests application of a DataLoadingPlan's DataLoadingBlock"""
         class MyDataset(DataLoadingPlanMixin):
             def __init__(self):
                 super(MyDataset, self).__init__()

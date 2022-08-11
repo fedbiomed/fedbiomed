@@ -243,7 +243,7 @@ class DataLoadingPlanMixin:
         Returns:
              the output of the DataLoadingBlock's apply function, or
              the default_ret_value when dlp is None or it does not contain
-             the requested pipeline
+             the requested loading block
         """
         if self._dlp is not None and dp_key in self._dlp:
             return self._dlp[dp_key].apply(*args, **kwargs)

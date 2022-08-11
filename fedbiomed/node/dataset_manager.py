@@ -530,9 +530,9 @@ class DatasetManager:
         if data_loading_plan is None:
             return current_dataset_metadata
 
-        dlp_metadata, pipelines_metadata = data_loading_plan.serialize()
+        dlp_metadata, loading_blocks_metadata = data_loading_plan.serialize()
         self._dlp_table.insert(dlp_metadata)
-        self._dlp_table.insert_multiple(pipelines_metadata)
+        self._dlp_table.insert_multiple(loading_blocks_metadata)
         current_dataset_metadata['dlp_id'] = data_loading_plan.dlp_id
         return current_dataset_metadata
 
