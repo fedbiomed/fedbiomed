@@ -5,7 +5,7 @@ Interfaces with the node component database.
 
 import csv
 import os.path
-from typing import Iterable, Union, List, Any
+from typing import Iterable, Union, List, Any, Optional, Tuple
 import uuid
 
 from urllib.request import urlretrieve
@@ -24,7 +24,7 @@ from fedbiomed.node.environ import environ
 
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.data import MedicalFolderController
+from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan
 
 from fedbiomed.common.logger import logger
 
@@ -41,6 +41,10 @@ class DatasetManager:
         self.db = TinyDB(environ['DB_PATH'])
         self.database = Query()
 
+        # don't use DB read cache to ensure coherence
+        # (eg when mixing CLI commands with a GUI session)
+        self._dlp_table = self.db.table(name='Data_Loading_Plans', cache_size=0)
+
     def get_by_id(self, dataset_id: str) -> List[dict]:
         """Searches for data with given dataset_id.
 
@@ -56,6 +60,24 @@ class DatasetManager:
         result = self.db.get(self.database.dataset_id == dataset_id)
 
         return result
+
+    def get_dlp_by_id(self, dlp_id: str) -> Tuple[dict, List[dict]]:
+        """Search for a DataLoadingPlan with a given id.
+
+        Note that in case of conflicting ids (which should not happen), this function will silently return a random
+        one with the sought id.
+
+        DataLoadingPlan IDs always start with 'dlp_' and should be unique in the database.
+
+        Args:
+            dlp_id: (str) the DataLoadingPlan id
+
+        Returns:
+            A dictionary with the DataLoadingPlan metadata corresponding to the given id.
+        """
+        dlp_metadata = self._dlp_table.get(self.database.dlp_id == dlp_id)
+        return dlp_metadata, self._dlp_table.search(
+            self.database.loading_block_serialization_id.one_of(dlp_metadata['loading_blocks'].values()))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
@@ -278,7 +300,8 @@ class DatasetManager:
                      description: str,
                      path: str,
                      dataset_id: str = None,
-                     dataset_parameters : Union[dict, None] = None):
+                     dataset_parameters : Optional[dict] = None,
+                     data_loading_plan: Optional[dict] = None):
         """Adds a new dataset contained in a file to node's database.
 
         Args:
@@ -364,6 +387,7 @@ class DatasetManager:
                             description=description, shape=shape,
                             path=path, dataset_id=dataset_id, dtypes=dtypes,
                             dataset_parameters=dataset_parameters)
+        new_database = self.save_data_loading_plan(new_database, data_loading_plan)
         self.db.insert(new_database)
 
         return dataset_id
@@ -482,6 +506,36 @@ class DatasetManager:
                 raise NotImplementedError(f'Mode `{mode}` has not been'
                                           ' implemented on this version.')
 
+    def save_data_loading_plan(self,
+                               current_dataset_metadata: dict,
+                               data_loading_plan: Optional[DataLoadingPlan]
+                               ) -> dict:
+        """Save a DataLoadingPlan to the database.
+
+        This function saves a DataLoadingPlan to the database, and updates the dataset metadata with the correct ID
+        linking the dataset to the DataLoadingPlan.
+
+        If `data_loading_plan` is None, then the function will immediately return its `current_dataset_metadata`
+        argument unchanged.
+
+        Args:
+            current_dataset_metadata: the dictionary of metadata of the dataset that this data_loading_plan was
+                attached to
+            data_loading_plan: the DataLoadingPlan to be saved, or None.
+
+        Returns:
+            The `current_dataset_metadata` argument, optionally enriched with the DataLoadingPlan ID if a save operation
+            was indeed performed.
+        """
+        if data_loading_plan is None:
+            return current_dataset_metadata
+
+        dlp_metadata, loading_blocks_metadata = data_loading_plan.serialize()
+        self._dlp_table.insert(dlp_metadata)
+        self._dlp_table.insert_multiple(loading_blocks_metadata)
+        current_dataset_metadata['dlp_id'] = data_loading_plan.dlp_id
+        return current_dataset_metadata
+
     @staticmethod
     def obfuscate_private_information(database_metadata: Iterable[dict]) -> Iterable[dict]:
         """Remove privacy-sensitive information, to prepare for sharing with a researcher.
@@ -508,5 +562,3 @@ class DatasetManager:
                 raise FedbiomedDatasetManagerError(f"Object of type {type(d)} does not support pop or getitem method "
                                                    f"in obfuscate_private_information.")
         return database_metadata
-
-

@@ -8,20 +8,20 @@ from typing import List
 import unittest
 from unittest import mock
 from unittest.mock import MagicMock, patch
-import torch
 from torch.utils.data import Dataset
 import tempfile
 import pathlib
+from PIL import Image
+import torch
+from torchvision import transforms, datasets
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 from testsupport.fake_uuid import FakeUuid
+from testsupport.testing_data_loading_block import LoadingBlockTypesForTesting
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.dataset_manager import DatasetManager
-
+from fedbiomed.node.dataset_manager import DatasetManager, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
-from PIL import Image
-from torchvision import transforms, datasets
 
 
 class TestDatasetManager(unittest.TestCase):
@@ -1002,6 +1002,46 @@ class TestDatasetManager(unittest.TestCase):
         self.assertEqual(private_metadata, expected_private_metadata)
         with self.assertRaises(FedbiomedDatasetManagerError):
             _ = DatasetManager.obfuscate_private_information([*metadata_with_private_info, 'non-dict-like'])
+
+    @patch('os.path.isdir')
+    def test_dataset_manager_31_data_loading_plan_save(self, patch_isdir):
+        """Tests that DatasetManager correctly saves a DataLoadingPlan"""
+        patch_isdir.return_value = True
+        from test_data_loading_plan import LoadingBlockForTesting
+
+        dp1 = LoadingBlockForTesting()
+        dp2 = LoadingBlockForTesting()
+        dp2.data = {'some': 'other data'}
+
+        dlp = DataLoadingPlan()
+        dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING] = dp1
+        dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING] = dp2
+
+        dataset_manager = DatasetManager()
+        dataset_manager.load_default_database = MagicMock(return_value=(1, 1))
+        dataset_manager.add_database(
+            name='dlp-test-db',
+            data_type='default',
+            tags=['test'],
+            description='',
+            dataset_id='test-id-dlp-1234',
+            path='some/test/path',
+            data_loading_plan=dlp
+        )
+
+        self.assertIn('Data_Loading_Plans', dataset_manager.db.tables())
+        dataset = dataset_manager.get_by_id('test-id-dlp-1234')
+        self.assertEqual(dataset['dlp_id'], dlp.dlp_id)
+
+        dlp_metadata, loading_blocks_metadata = dataset_manager.get_dlp_by_id(dataset['dlp_id'])
+        self.assertEqual(dlp_metadata['dlp_id'], dlp.dlp_id)
+        new_dlp = DataLoadingPlan().deserialize(dlp_metadata, loading_blocks_metadata)
+        self.assertIn(LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING, new_dlp)
+        self.assertIn(LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING, new_dlp)
+        self.assertDictEqual(new_dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING].data, dp1.data)
+        self.assertDictEqual(new_dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING].data, dp2.data)
+
+        dataset_manager.db.close()
 
 
 if __name__ == '__main__':  # pragma: no cover
