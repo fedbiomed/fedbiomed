@@ -65,7 +65,7 @@ export const setFolderRefColumn = (ref) => {
 
         validation_data['dlp_id'] = state.dataLoadingPlan.selected_dlp_index !== null ?
             state.dataLoadingPlan.existing_dlps['data'][state.dataLoadingPlan.selected_dlp_index][1] : null
-        validation_data['dlp_pipelines'] = state.dataLoadingPlan.dlp_pipelines
+        validation_data['dlp_loading_blocks'] = state.dataLoadingPlan.dlp_loading_blocks
 
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Setting/validating MedicalFolder subject reference column..."}})
         axios.post(EP_VALIDATE_REFERENCE_COLUMN, validation_data).then(response => {
@@ -146,7 +146,10 @@ export const createModalitiesToFoldersPipeline = (modalities_mapping) => {
         axios.post(EP_LOADING_BLOCK_MOD2FOL_CREATE, {mapping: modalities_mapping}).then(response => {
             dispatch({type: 'ADD_PIPELINE',
                       payload: {type_id: 'modalities_to_folders',
-                                serial_id: response.data.result.serial_id}})
+                                serial_id: response.data.result.serial_id,
+                                module: response.data.result.module,
+                                qualname: response.data.result.qualname,
+                                }})
             dispatch({type:'SET_LOADING', payload: {status: false}})
         })
     }
@@ -196,14 +199,14 @@ export const addMedicalFolderDataset = (navigator) => {
             }
         }
 
-        if(medical_folder.use_new_mod2fol_association && !('modalities_to_folders' in dlp.dlp_pipelines)){
+        if(medical_folder.use_new_mod2fol_association && !('modalities_to_folders' in dlp.dlp_loading_blocks)){
             dispatch({type: 'ERROR_MODAL' , payload: "Error: please save an association of modalities to folders by clicking on the Save Association button"})
             dispatch({type:'SET_LOADING', payload: {status: false}})
 
         } else {
             data['dlp_id'] = dlp.selected_dlp_index !== null ?
                                 dlp.existing_dlps['data'][dlp.selected_dlp_index][1] : null
-            data['dlp_pipelines'] = dlp.dlp_pipelines
+            data['dlp_loading_blocks'] = dlp.dlp_loading_blocks
             data['dlp_name'] = dlp.dlp_name
 
             axios.post(EP_ADD_MEDICAL_FOLDER_DATASET, data).then( response => {

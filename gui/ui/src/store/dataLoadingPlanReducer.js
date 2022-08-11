@@ -2,7 +2,7 @@ const initialState = {
     use_preexisting_dlp: false,
     selected_dlp_index: null,
     existing_dlps: null,
-    dlp_pipelines: {},
+    dlp_loading_blocks: {},
     dlp_name: ""
 }
 
@@ -36,16 +36,20 @@ export const dataLoadingPlanReducer = (state = initialState, action) => {
                 dlp_name : action.payload
             }
         case "ADD_PIPELINE":
-            let pipelines = state.dlp_pipelines
-            pipelines[action.payload.type_id] = action.payload.serial_id
+            let data_loading_blocks = state.dlp_loading_blocks
+            data_loading_blocks[action.payload.type_id] = {
+                serial_id: action.payload.serial_id,
+                module: action.payload.module,
+                qualname: action.payload.qualname,
+            }
             return {
                 ...state,
-                dlp_pipelines: pipelines
+                dlp_loading_blocks: data_loading_blocks
             }
         case "CLEAR_PIPELINES":
             return {
                 ...state,
-                dlp_pipelines: {}
+                dlp_loading_blocks: {}
             }
         case "RESET_DATA_LOADING_PLAN":
             return initialState

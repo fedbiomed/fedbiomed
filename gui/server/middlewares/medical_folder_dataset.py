@@ -58,11 +58,14 @@ def load_dlp():
     elif len(req['dlp_loading_blocks']) > 0:
         # Case where a dlp is being configured by the node gui user.
         # We need to create it on the fly from the loading block metadata.
-        loading_blocks_metadata = dataset_manager.get_data_loading_blocks_by_ids(req['dlp_loading_blocks'].values())
-        loading_blocks_metadata_mapping = {
-            key: next(filter(lambda x: x['loading_block_serialization_id'] == serial_id, loading_blocks_metadata))
-            for key, serial_id in req['dlp_loading_blocks'].items()
-        }
+        loading_blocks_metadata_mapping = {}
+        for loading_block_key, loading_block_values in req['dlp_loading_blocks'].items():
+            loading_block_metadata = dataset_manager.get_data_loading_blocks_by_ids(
+                [loading_block_values['serial_id']])[0]
+            exec(f"import {loading_block_values['module']}")
+            loading_block_key = \
+                eval(f"{loading_block_values['module']}.{loading_block_values['qualname']}('{loading_block_key}')")
+            loading_blocks_metadata_mapping.update({loading_block_key: loading_block_metadata})
         dlp = DataLoadingPlan()
         dlp.deserialize_loading_blocks_from_mapping(loading_blocks_metadata_mapping)
 
