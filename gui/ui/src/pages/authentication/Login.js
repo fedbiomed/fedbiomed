@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {Link, useNavigate} from "react-router-dom";
 import axios from 'axios';
 import {EP_LOGIN} from '../../constants';
@@ -6,61 +6,71 @@ import logo from "../../assets/img/fedbiomed-logo-small.png"
 import styles from "./Auth.module.css"
 import {useDispatch} from 'react-redux';
 import AuthLayout from "./AuthLayout";
-import {EuiTitle,
-        EuiButton,
-        EuiFlexItem,
-        EuiFlexGroup,
-        EuiForm,
-        EuiFormRow,
-        EuiFieldPassword,
-        EuiFieldText,
-        EuiSpacer,
-        EuiIcon,
+import {setToken, decodeToken, setUser} from "../../store/actions/authActions";
+import {
+    EuiTitle,
+    EuiButton,
+    EuiFlexItem,
+    EuiFlexGroup,
+    EuiForm,
+    EuiFormRow,
+    EuiFieldPassword,
+    EuiFieldText,
+    EuiSpacer,
+    EuiIcon, EuiToast,
 } from '@elastic/eui';
 
 const initialLoginForm = {email: '', password: ''}
 
 const Login = (props) => {
-
     const navigate = useNavigate();
     const [loginForm, setLoginForm] = useState(initialLoginForm)
+
+    // React redux dispatch hook
     const dispatch = useDispatch();
 
-  /**
-   * Login action to send login request to server
-   * @param event
-   * @param url
-   * @param action
-   */
+    const [error, setError] = useState({show : false, message : ''})
+    const errorClose = () => setError({show:false, message:''})
+
+    /**
+    * Handle login form change events
+    * @param event
+    */
+    const handleChange = (e) => setLoginForm({ ...loginForm, [e.target.name]: e.target.value})
+
+
+    /**
+     * Login action to send login request to server
+     * @param event
+     * @param url
+     * @param action
+     * */
     const login = (event) => {
 
-      // Prevent form submit
+      // Prevent form submit --------------------------------------------------
       event.preventDefault()
 
       let data = { email: loginForm.email, password: loginForm.password}
       axios.post(EP_LOGIN, data).then((response) => {
           let {access_token, refresh_token} = response.data.result
-          props.setToken(access_token, refresh_token)
+
+          // Sets token to session store
+          setToken(access_token, refresh_token)
+
+          // Saves user info into global state
+          dispatch(setUser(decodeToken()))
+
+          // Navigate to home page
           navigate('/')
+
       }).catch((error) => {
-        if (error.response) {
-          dispatch({type :'ERROR_MODAL', payload: error.response.data.message})
-        }else{
-          dispatch({type :'ERROR_MODAL', payload: error.toString()})
-        }
+            if (error.response) {
+                setError({show:true, message: error.response.data.message})
+            }else{
+                setError({show:true, message: error.toString()})
+            }
       })
     }
-
-  /**
-   * Handle login form change events
-   * @param event
-   */
-  const handleChange = (event) => {
-
-      let {value, name} = event.target
-      setLoginForm(prevNote => ({ ...prevNote, [name]: value}))
-
-  }
 
     return (
             <AuthLayout>
@@ -76,7 +86,24 @@ const Login = (props) => {
                     <EuiFlexItem style={{width: 400}}>
                         <EuiForm component="form"  onSubmit={login} >
                              <EuiFlexGroup direction="column" >
-                                 <EuiFlexItem grow={false} justifyContent="spaceAround">
+                                 <EuiFlexItem grow={false}>
+                                 {error.show ? (
+                                     <React.Fragment>
+                                         <EuiSpacer size="l" />
+                                         <EuiToast
+                                                title="Error"
+                                                color="danger"
+                                                iconType="alert"
+                                                onClose={errorClose}
+                                                style={{width:400}}
+                                              >
+                                             <p>{error.message}</p>
+                                         </EuiToast>
+                                     </React.Fragment>
+
+                                 ) : null}
+                                 </EuiFlexItem>
+                                 <EuiFlexItem grow={false}>
                                     <EuiFormRow label={"Enter your e-mail"} hasEmptyLabelSpace>
                                           <EuiFieldText
                                               onChange={handleChange}
@@ -87,7 +114,7 @@ const Login = (props) => {
                                            />
                                     </EuiFormRow>
                                  </EuiFlexItem >
-                                 <EuiFlexItem grow={false} justifyContent="spaceAround">
+                                 <EuiFlexItem grow={false}>
                                       <EuiFormRow label={"Password"} hasEmptyLabelSpace>
                                          <EuiFieldPassword
                                                 type='dual'
@@ -114,8 +141,6 @@ const Login = (props) => {
                     </EuiFlexItem>
                 </EuiFlexGroup>
             </AuthLayout>
-
-
     );
 }
 

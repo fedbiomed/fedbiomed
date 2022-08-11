@@ -11,7 +11,6 @@ import {
 import Home from './pages/Home'
 import Configuration from './pages/Configuration';
 import Repository from './pages/repository';
-import SideNav from './components/layout/SideNav';
 import Datasets from './pages/datasets';
 import AddDataset from "./pages/datasets/AddDataset"
 import DatasetPreview from './pages/datasets/DatasetPreview';
@@ -24,7 +23,6 @@ import Models from "./pages/models/Models";
 import SingleModel from "./pages/models/SingleModel";
 import Login from "./pages/authentication/Login";
 import Register from "./pages/authentication/Register";
-import useToken from './pages/authentication/useToken';
 import PocEndpoints from './pages/authentication/PocEndpoints'; //for testing purposes
 import LogUserLayout from './components/layout/LogUserLayout';
 import UserAccount from './pages/authentication/UserAccount';
@@ -32,38 +30,16 @@ import UserAccount from './pages/authentication/UserAccount';
 
 function App(props) {
 
-  //const history = new createBrowserHistory();
-  const { accessToken, removeToken, setToken, getAccessToken, checkIsTokenActive, readToken } = useToken();
-
   const dispatch = useDispatch();
-  // const logOut = useCallback(() => {
-  //   dispatch(Logout());
-  // }, [dispatch]);
+  const onResultModalClose = () => dispatch({type:'RESET_GLOBAL_MODAL'});
 
-
-  const onResultModalClose = () => {
-    dispatch({type:'RESET_GLOBAL_MODAL'});
-  }
-
-// useEffect(() => {
-//   console.log("into use effect")
-//   console.log(checkIsTokenActive())
-//   EventBus.on("logOut", () => { logOut()});
-//   return () => {EventBus.remove("logOut");};
-// });
-
-  console.log( readToken())
-  console.log("APP")
-  let style = {
-  //   display: "none"
-  };
 
   return (
     <EuiProvider colorMode="light">
       <div className="App" >
         <Router>
               <Routes>
-                <Route path="/login/" element={<Login setToken={setToken}/>} />
+                <Route path="/login/" element={<Login/>} />
                 <Route path="/register/" element={<Register/>} />
                 <Route path="/" element ={<LogUserLayout/>} >
                   <Route path="/" element={<Home/>} />
@@ -81,10 +57,10 @@ function App(props) {
                     <Route path="medical-folder-dataset" element={<MedicalFolderDataset/>} />
                   </Route>
                   {/* Go to pocEndpoints page with the access token set */}
-                  <Route path="/pocEndpoints/" element={<PocEndpoints accessToken={accessToken}
-                                                                    removeToken={removeToken} 
-                                                                    setToken={setToken}/>} />
-                  {/* Dealing with inexistant paths TODO: render message into a erro box + add redirection*/}
+                  {/*<Route path="/pocEndpoints/" element={<PocEndpoints accessToken={accessToken}*/}
+                  {/*                                                  removeToken={removeToken} */}
+                  {/*                                                  setToken={setToken}/>} />*/}
+
                   {/*path="*" stands for all others routes */}
                   <Route
                         path="*" 
@@ -97,8 +73,6 @@ function App(props) {
                       />
                     
                 </Route>
-                {/* <Route path="/login/" element={<Login/>} /> */}
-                {/* <Route path="/pocEndpoints/" element = {<pocEndpoints/>} /> */}
             </Routes>
         </Router>
 

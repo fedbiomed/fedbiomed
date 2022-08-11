@@ -32,9 +32,8 @@ const Register = (props) => {
     const [registerForm, setRegisterForm] = useState(initialRegisterForm)
     const dispatch = useDispatch();
     const [error, setError] = useState({show : false, message : ''})
+    const errorClose = () => setError({show:false, message:''})
 
-
-   const errorClose = () => setError({show:false, message:''})
     /**
      * Registration form action
      * @param event
@@ -103,6 +102,7 @@ const Register = (props) => {
                                                 color="danger"
                                                 iconType="alert"
                                                 onClose={errorClose}
+                                                style={{width:400}}
                                               >
                                              <p>{error.message}</p>
                                          </EuiToast>

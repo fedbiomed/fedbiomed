@@ -1,20 +1,32 @@
 import React from 'react'
 import SideNav from './SideNav'
 import { Navigate, Outlet } from "react-router-dom";
-
+import {decodeToken, setUser, removeToken} from "../../store/actions/authActions";
+import {useDispatch, useSelector} from "react-redux";
 
 export const LogUserLayout = (props) => {
 
     const accessToken= sessionStorage.getItem("accessToken");
     const isAuthenticated = !accessToken && accessToken!== "" && accessToken!== undefined ? false : true
+    const {is_auth} = useSelector((state) => state.auth)
+    const dispatch = useDispatch()
 
+    // Saves user info into global state
+
+    React.useEffect( () => {
+        if(is_auth){
+            dispatch(setUser(decodeToken()))
+        }else{
+            removeToken()
+        }
+    }, [is_auth])
 
 
     if(isAuthenticated) {
         return( 
             <div className="layout-wrapper">
                 <div className="main-side-bar" id="#my_id">
-                <SideNav/>
+                    <SideNav/>
                 </div>
                 <div className="main-frame">
                     <div className="router-frame">
@@ -33,30 +45,5 @@ export const LogUserLayout = (props) => {
     }
 
 }
-
-                //   {/* If the user is not logged in, redirect towards login page */}
-                //   {!accessToken && accessToken!=="" && accessToken!== undefined?  
-                //   <Login setToken={setToken} />
-                //   :(
-
-
-
-
-
-// export const ProtectedRoute = ({ component: Component, ...restOfProps }) => {
-
-//     const accessToken= localStorage.getItem("accessToken");
-//     const isAuthenticated = !accessToken && accessToken!== "" && accessToken!== undefined ? true : false
-
-//     return (
-//       <Route
-//         {...restOfProps}
-//         render={(props) =>
-//           isAuthenticated ? <Component {...props} /> : <Navigate to="/login" />
-//         }
-//       />
-//     );
-//   }
-
 
 export default LogUserLayout

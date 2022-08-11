@@ -55,5 +55,4 @@ export const ADD_DATASET_ERROR_MESSAGES = {
 export const ALLOWED_EXTENSIONS = ['.csv', '.txt']
 
 // role for authentication (User or admin)
-export const ROLE = {1: 'Admin',
-                     2: 'User'}
+export const ROLE = {1: 'Admin', 2: 'User'}

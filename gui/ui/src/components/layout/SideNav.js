@@ -9,20 +9,9 @@ import {ReactComponent as HomeIcon}  from '../../assets/img/home.svg'
 import {ReactComponent as PlusIcon}  from '../../assets/img/plus.svg'
 import {ReactComponent as FileIcon}  from '../../assets/img/file.svg'
 import {useLocation} from "react-router-dom";
-import useToken from '../../pages/authentication/useToken';
-
-// const removeToken = () => {
-
-// sessionStorage.removeItem('accessToken');
-//     sessionStorage.removeItem('refreshToken');
-//     console.log("token removed")
-// }
-// Define menu items
-
+import {removeToken} from "../../store/actions/authActions";
 
 const SideNav= (props) => {
-
-    const { removeToken } = useToken();
 
     const items = [
         { key: '1', label: 'Home', path: '/', icon: HomeIcon, action: null},
@@ -39,8 +28,6 @@ const SideNav= (props) => {
     const location = useLocation()
 
     const [selectedKey, setSelectedKey] = React.useState(items.find(_item => location.pathname.startsWith(_item.path)).key)
-
-    const displayed = props.displayed;
 
     React.useEffect(() => {
         let item = items.find(_item => location.pathname === _item.path )

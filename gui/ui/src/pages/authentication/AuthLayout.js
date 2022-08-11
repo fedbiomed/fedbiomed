@@ -7,8 +7,8 @@ import {EuiPage,
 
 const AuthLayout = ({children}) => {
     return (
-        <EuiPage paddingSize="l" grow={true}  style={{minHeight: "100vh"}}>
-            <EuiPageBody paddingSize="l" grow={true}>
+        <EuiPage paddingSize="l" grow={false}  style={{minHeight: "100vh"}}>
+            <EuiPageBody paddingSize="l">
                 <EuiPageContent
                   horizontalPosition="center"
                   paddingSize="l"
