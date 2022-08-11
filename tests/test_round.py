@@ -16,7 +16,7 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
 from fedbiomed.common.logger import logger
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
-from tests.testsupport.testing_data_pipeline import ModifyGetItemDP
+from testsupport.testing_data_pipeline import ModifyGetItemDP, PipelineKeysForTesting
 
 
 class TestRound(unittest.TestCase):
@@ -636,7 +636,7 @@ class TestRound(unittest.TestCase):
                 super().__init__()
 
             def __getitem__(self, item):
-                return self.apply_dp('orig-value', 'modify-getitem')
+                return self.apply_dp('orig-value', PipelineKeysForTesting.MODIFY_GETITEM)
 
         patch_inspect_signature.return_value = inspect.Signature(parameters={})
 
@@ -657,7 +657,7 @@ class TestRound(unittest.TestCase):
         dataset = training_data_loader.dataset
         self.assertEqual(dataset[0], 'orig-value')
 
-        dlp = DataLoadingPlan({'modify-getitem': ModifyGetItemDP()})
+        dlp = DataLoadingPlan({PipelineKeysForTesting.MODIFY_GETITEM: ModifyGetItemDP()})
         r4 = Round(training_kwargs={},
                    dlp_and_pipeline_metadata=dlp.serialize()
                    )

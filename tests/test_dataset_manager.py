@@ -8,20 +8,20 @@ from typing import List
 import unittest
 from unittest import mock
 from unittest.mock import MagicMock, patch
-import torch
 from torch.utils.data import Dataset
 import tempfile
 import pathlib
+from PIL import Image
+import torch
+from torchvision import transforms, datasets
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 from testsupport.fake_uuid import FakeUuid
+from testsupport.testing_data_pipeline import PipelineKeysForTesting
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.dataset_manager import DatasetManager, DataLoadingPlan
-
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
-from PIL import Image
-from torchvision import transforms, datasets
 
 
 class TestDatasetManager(unittest.TestCase):
@@ -1014,8 +1014,8 @@ class TestDatasetManager(unittest.TestCase):
         dp2.data = {'some': 'other data'}
 
         dlp = DataLoadingPlan()
-        dlp['pipeline_for_testing'] = dp1
-        dlp['other_testing_pipeline'] = dp2
+        dlp[PipelineKeysForTesting.PIPELINE_FOR_TESTING] = dp1
+        dlp[PipelineKeysForTesting.OTHER_TESTING_PIPELINE] = dp2
 
         dataset_manager = DatasetManager()
         dataset_manager.load_default_database = MagicMock(return_value=(1, 1))
@@ -1036,10 +1036,10 @@ class TestDatasetManager(unittest.TestCase):
         dlp_metadata, pipelines_metadata = dataset_manager.get_dlp_by_id(dataset['dlp_id'])
         self.assertEqual(dlp_metadata['dlp_id'], dlp.dlp_id)
         new_dlp = DataLoadingPlan().deserialize(dlp_metadata, pipelines_metadata)
-        self.assertIn('pipeline_for_testing', new_dlp)
-        self.assertIn('other_testing_pipeline', new_dlp)
-        self.assertDictEqual(new_dlp['pipeline_for_testing'].data, dp1.data)
-        self.assertDictEqual(new_dlp['other_testing_pipeline'].data, dp2.data)
+        self.assertIn(PipelineKeysForTesting.PIPELINE_FOR_TESTING, new_dlp)
+        self.assertIn(PipelineKeysForTesting.OTHER_TESTING_PIPELINE, new_dlp)
+        self.assertDictEqual(new_dlp[PipelineKeysForTesting.PIPELINE_FOR_TESTING].data, dp1.data)
+        self.assertDictEqual(new_dlp[PipelineKeysForTesting.OTHER_TESTING_PIPELINE].data, dp2.data)
 
         dataset_manager.db.close()
 

@@ -2,6 +2,8 @@ import uuid
 from typing import Any, Dict, List, Tuple, TypeVar
 from abc import ABC, abstractmethod
 
+from fedbiomed.common.constants import DataLoadingPipelineKeys
+
 
 TDataLoadingPlan = TypeVar("TDataLoadingPlan", bound="DataLoadingPlan")
 TDataPipeline = TypeVar("TDataPipeline", bound="DataPipeline")
@@ -123,7 +125,7 @@ class MapperDP(DataPipeline):
         return self.map[key]
 
 
-class DataLoadingPlan(Dict[str, DataPipeline]):
+class DataLoadingPlan(Dict[DataLoadingPipelineKeys, DataPipeline]):
     """Customizations to the way the data is loaded and presented for training.
 
     A DataLoadingPlan is a dictionary of {name: DataPipeline} pairs. Each
@@ -159,7 +161,8 @@ class DataLoadingPlan(Dict[str, DataPipeline]):
         return dict(
             dlp_id=self.dlp_id,
             dlp_name=self.desc,
-            pipelines={key: dp.serialization_id for key, dp in self.items()}
+            pipelines={key.value: dp.get_serialization_id() for key, dp in self.items()},
+            key_paths={key.value: (f"{key.__module__}", f"{key.__class__.__qualname__}") for key in self.keys()}
         ), [dp.serialize() for dp in self.values()]
 
     def deserialize(self, serialized_dlp: dict, serialized_pipelines: List[dict]) -> TDataLoadingPlan:
@@ -183,18 +186,21 @@ class DataLoadingPlan(Dict[str, DataPipeline]):
         self.clear()
         self.dlp_id = serialized_dlp['dlp_id']
         self.desc = serialized_dlp['dlp_name']
-        for pipeline_key, pipeline_serialization_id in serialized_dlp['pipelines'].items():
+        for pipeline_key_str, pipeline_serialization_id in serialized_dlp['pipelines'].items():
             pipeline = next(filter(lambda x: x['pipeline_serialization_id'] == pipeline_serialization_id,
                                    serialized_pipelines))
             exec(f"import {pipeline['pipeline_module']}")
             dp = eval(f"{pipeline['pipeline_module']}.{pipeline['pipeline_class']}()")
+            key_module, key_classname = serialized_dlp['key_paths'][pipeline_key_str]
+            exec(f"import {key_module}")
+            pipeline_key = eval(f"{key_module}.{key_classname}('{pipeline_key_str}')")
             self[pipeline_key] = dp.deserialize(pipeline)
         return self
 
     def __str__(self):
         """User-friendly string representation"""
         return f"Data Loading Plan {self.desc} id: {self.dlp_id} "\
-               f"containing: {'; '.join(self.keys())}"
+               f"containing: {'; '.join([k.value for k in self.keys()])}"
 
 
 class DataLoadingPlanMixin:

@@ -1,6 +1,6 @@
 import unittest
 from fedbiomed.common.data import DataLoadingPlan, DataLoadingPlanMixin, MapperDP
-from tests.testsupport.testing_data_pipeline import PipelineForTesting
+from tests.testsupport.testing_data_pipeline import PipelineForTesting, PipelineKeysForTesting
 
 
 class TestDataPipeline(unittest.TestCase):
@@ -61,42 +61,42 @@ class TestDataLoadingPlan(unittest.TestCase):
     def test_data_loading_plan_01_interface(self):
         """Tests that DataLoadingPlan exposes the correct interface to the developer"""
         dlp = DataLoadingPlan()
-        dlp['pipeline_for_testing'] = self.dp1
-        dlp['other_testing_pipeline'] = self.dp2
-        self.assertIn('pipeline_for_testing', dlp)
-        self.assertIn('other_testing_pipeline', dlp)
-        self.assertDictEqual(self.dp1.data, dlp['pipeline_for_testing'].data)
-        self.assertDictEqual(self.dp2.data, dlp['other_testing_pipeline'].data)
+        dlp[PipelineKeysForTesting.PIPELINE_FOR_TESTING] = self.dp1
+        dlp[PipelineKeysForTesting.OTHER_TESTING_PIPELINE] = self.dp2
+        self.assertIn(PipelineKeysForTesting.PIPELINE_FOR_TESTING, dlp)
+        self.assertIn(PipelineKeysForTesting.OTHER_TESTING_PIPELINE, dlp)
+        self.assertDictEqual(self.dp1.data, dlp[PipelineKeysForTesting.PIPELINE_FOR_TESTING].data)
+        self.assertDictEqual(self.dp2.data, dlp[PipelineKeysForTesting.OTHER_TESTING_PIPELINE].data)
 
         it = iter(dlp.items())
         first_key, first_dp = next(it)
-        self.assertEqual(first_key, 'pipeline_for_testing')
+        self.assertEqual(first_key, PipelineKeysForTesting.PIPELINE_FOR_TESTING)
         self.assertDictEqual(self.dp1.data, first_dp.data)
         second_key, second_dp = next(it)
-        self.assertEqual(second_key, 'other_testing_pipeline')
+        self.assertEqual(second_key, PipelineKeysForTesting.OTHER_TESTING_PIPELINE)
         self.assertDictEqual(self.dp2.data, second_dp.data)
 
         str_repr = str(dlp)
         self.assertIn(dlp.dlp_id, str_repr)
-        self.assertIn('pipeline_for_testing', str_repr)
-        self.assertIn('other_testing_pipeline', str_repr)
+        self.assertIn(PipelineKeysForTesting.PIPELINE_FOR_TESTING.value, str_repr)
+        self.assertIn(PipelineKeysForTesting.OTHER_TESTING_PIPELINE.value, str_repr)
 
     def test_data_loading_plan_02_serialize_and_load(self):
         """Tests that a DataLoadingPlan can be serialized and loaded correctly"""
         dlp = DataLoadingPlan()
-        dlp['pipeline_for_testing'] = self.dp1
-        dlp['other_testing_pipeline'] = self.dp2
+        dlp[PipelineKeysForTesting.PIPELINE_FOR_TESTING] = self.dp1
+        dlp[PipelineKeysForTesting.OTHER_TESTING_PIPELINE] = self.dp2
         dlp2 = DataLoadingPlan()
         self.assertNotEqual(dlp.dlp_id, dlp2.dlp_id)
-        self.assertNotIn('pipeline_for_testing', dlp2)
-        self.assertNotIn('other_testing_pipeline', dlp2)
+        self.assertNotIn(PipelineKeysForTesting.PIPELINE_FOR_TESTING, dlp2)
+        self.assertNotIn(PipelineKeysForTesting.OTHER_TESTING_PIPELINE, dlp2)
         dlp2.deserialize(*dlp.serialize())
-        self.assertIn('pipeline_for_testing', dlp2)
-        self.assertIn('other_testing_pipeline', dlp2)
+        self.assertIn(PipelineKeysForTesting.PIPELINE_FOR_TESTING, dlp2)
+        self.assertIn(PipelineKeysForTesting.OTHER_TESTING_PIPELINE, dlp2)
         self.assertEqual(dlp.dlp_id, dlp2.dlp_id)
 
-        dlp_values = dlp['pipeline_for_testing'].apply()
-        dlp2_values = dlp2['pipeline_for_testing'].apply()
+        dlp_values = dlp[PipelineKeysForTesting.PIPELINE_FOR_TESTING].apply()
+        dlp2_values = dlp2[PipelineKeysForTesting.PIPELINE_FOR_TESTING].apply()
         for v1, v2 in zip(dlp_values, dlp2_values):
             self.assertEqual(v1, v2)
 
@@ -110,11 +110,11 @@ class TestDataLoadingPlan(unittest.TestCase):
         self.assertTrue(hasattr(tp, '_dlp'))
         self.assertIsNone(tp._dlp)
         dlp = DataLoadingPlan()
-        dlp['pipeline_for_testing'] = self.dp1
-        dlp['other_testing_pipeline'] = self.dp2
+        dlp[PipelineKeysForTesting.PIPELINE_FOR_TESTING] = self.dp1
+        dlp[PipelineKeysForTesting.OTHER_TESTING_PIPELINE] = self.dp2
         tp.set_dlp(DataLoadingPlan().deserialize(*dlp.serialize()))
-        self.assertIn('pipeline_for_testing', tp._dlp)
-        self.assertIn('other_testing_pipeline', tp._dlp)
+        self.assertIn(PipelineKeysForTesting.PIPELINE_FOR_TESTING, tp._dlp)
+        self.assertIn(PipelineKeysForTesting.OTHER_TESTING_PIPELINE, tp._dlp)
 
     def test_data_loading_plan_04_apply(self):
         """Tests application of a DataLoadingPlan's DataPipeline"""
@@ -124,12 +124,12 @@ class TestDataLoadingPlan(unittest.TestCase):
 
             def test_mapper(self):
                 orig_key = 'orig-key'
-                return self.apply_dp(orig_key, 'testing-mapper', orig_key)
+                return self.apply_dp(orig_key, PipelineKeysForTesting.TESTING_MAPPER, orig_key)
 
         dp = MapperDP()
         dp.map = {'orig-key': 'new-key'}
         dlp = DataLoadingPlan()
-        dlp['testing-mapper'] = dp
+        dlp[PipelineKeysForTesting.TESTING_MAPPER] = dp
 
         tp = MyDataset()
         self.assertEqual(tp.test_mapper(), 'orig-key')
