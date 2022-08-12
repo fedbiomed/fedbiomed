@@ -1,6 +1,6 @@
 import unittest
 from fedbiomed.common.data import DataLoadingPlan, DataLoadingPlanMixin, MapperBlock
-from tests.testsupport.testing_data_loading_block import LoadingBlockForTesting, LoadingBlockTypesForTesting
+from testsupport.testing_data_loading_block import LoadingBlockForTesting, LoadingBlockTypesForTesting
 
 
 class TestDataLoadingBlock(unittest.TestCase):
