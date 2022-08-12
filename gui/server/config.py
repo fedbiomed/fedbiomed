@@ -32,7 +32,7 @@ class Config:
         self.configuration['NODE_FEDBIOMED_ROOT'] = os.getenv('FEDBIOMED_DIR', '/fedbiomed')
 
         # Config file that is located in {FEDBIOMED_DIR}/gui directory
-        static_config = cfg.read(os.path.join(self.configuration['NODE_FEDBIOMED_ROOT'], 'gui', 'config.ini'))
+        static_config = cfg.read(os.path.join(self.configuration['NODE_FEDBIOMED_ROOT'], 'gui', 'config_gui.ini'))
 
         # Data path ------------------------------------------------------------------------------------------------
         data_path = os.getenv('DATA_PATH', static_config.get('server', 'DATA_PATH', fallback='/data'))
