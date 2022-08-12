@@ -26,8 +26,8 @@ mf_controller = MedicalFolderController()
 # Path to write and read the datafiles
 DATA_PATH_RW = app.config['DATA_PATH_RW']
 
-# Database table (default datasets table of TinyDB) and query object
-table = database.db().table()
+# Database table (datasets table of TinyDB) and query object
+table = database.db().table_datasets()
 query = database.query()
 
 

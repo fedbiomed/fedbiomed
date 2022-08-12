@@ -47,8 +47,10 @@ class ModelManager:
         Creates a DB object for the table named as `Models` and builds a query object to query
         the database.
         """
+
         self._tinydb = TinyDB(environ["DB_PATH"])
-        self._db = self._tinydb.table('Models')
+        # dont use DB read cache for coherence when updating from multiple sources (eg: GUI and CLI)
+        self._db = self._tinydb.table(name='Models', cache_size=0)
         self._database = Query()
         self._repo = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
 
@@ -70,6 +72,7 @@ class ModelManager:
             FedbiomedModelManagerError: file cannot be minified
             FedbiomedModelManagerError: Hashing algorithm does not exist in HASH_FUNCTION table
         """
+
         hash_algo = environ['HASHING_ALGORITHM']
 
         if not isinstance(path, str):
@@ -142,7 +145,6 @@ class ModelManager:
             FedbiomedModelManagerError: at least one model exists in DB matching a criterion
             FedbiomedModelManagerError: database access problem
         """
-        self._db.clear_cache()
 
         if name is not None:
             try:
@@ -234,8 +236,6 @@ class ModelManager:
             model_id = 'model_' + str(uuid.uuid4())
         model_hash, algorithm = self._create_hash(path)
 
-        self._db.clear_cache()
-
         # Verify no such model is already registered
         self._check_model_not_existing(name, path, model_hash, algorithm)
 
@@ -275,7 +275,6 @@ class ModelManager:
             FedbiomedModelManagerError: cannot update model list in database
         """
 
-        self._db.clear_cache()
         try:
             models = self._db.search(self._database.model_type.all(ModelTypes.REGISTERED.value))
         except Exception as e:
@@ -344,9 +343,9 @@ class ModelManager:
             FedbiomedModelManagerError: bad parameter type or value
             FedbiomedModelManagerError: database access problem
         """
+
         # Create hash for requested model
         req_model_hash, _ = self._create_hash(model_path)
-        self._db.clear_cache()
 
         # If node allows defaults models search hash for all model types
         # otherwise search only for `registered` models
@@ -397,7 +396,6 @@ class ModelManager:
             FedbiomedModelManagerError: bad parameter type
             FedbiomedModelManagerError: cannot read database.
         """
-        self._db.clear_cache()
 
         if not isinstance(model_name, str):
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f': model name {model_name} is not a string')
@@ -432,7 +430,6 @@ class ModelManager:
             FedbiomedModelManagerError: bad parameter type
             FedbiomedModelManagerError: database access problem
         """
-        self._db.clear_cache()
 
         if not isinstance(model_path, str):
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + " : no model_path specified")
@@ -473,6 +470,7 @@ class ModelManager:
             FedbiomedModelManagerError: bad parameter type
             FedbiomedModelManagerError: database access problem
         """
+
         if not isinstance(model_id, str):
             raise FedbiomedModelManagerError(ErrorNumbers.FB606.value + f': model_id {model_id} is not a string')
 
@@ -522,6 +520,7 @@ class ModelManager:
             msg: approval request message, received from Researcher
             messaging: MQTT client to send reply  to researcher
         """
+
         reply = {
             'researcher_id': msg['researcher_id'],
             'node_id': environ['NODE_ID'],
@@ -709,7 +708,6 @@ class ModelManager:
         Raises:
             FedbiomedModelManagerError: cannot read or update model database
         """
-        self._db.clear_cache()
 
         # Get model files saved in the directory
         models_file = os.listdir(environ['DEFAULT_MODELS_DIR'])
@@ -809,8 +807,6 @@ class ModelManager:
             FedbiomedModelManagerError: cannot read or update the model in database
         """
 
-        self._db.clear_cache()
-
         # Register model
         try:
             model = self._db.get(self._database.model_id == model_id)
@@ -877,7 +873,6 @@ class ModelManager:
                 ErrorNumbers.FB606.value + ": parameter note (Union[str, None]) has bad "
                 f"type {type(notes)}")  
 
-        self._db.clear_cache()
         try:
             model = self._db.get(self._database.model_id == model_id)
         except Exception as err:
@@ -965,7 +960,6 @@ class ModelManager:
                 ErrorNumbers.FB606.value + ": parameter model_id (str) has bad "
                 f"type {type(model_id)}")               
 
-        self._db.clear_cache()
         try:
             model = self._db.get(self._database.model_id == model_id)
         except Exception as err:
@@ -1027,8 +1021,6 @@ class ModelManager:
         if search is not None and not isinstance(search, dict):
             raise FedbiomedModelManagerError(f"{ErrorNumbers.FB606.value}: `search` argument should be dictionary that "
                                              f"contains `text` and `by` (that indicates field to search on)")
-
-        self._db.clear_cache()
 
         if search:
             try:

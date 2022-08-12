@@ -48,10 +48,9 @@ def list_datasets():
     """
     req = request.json
     search = req.get('search', None)
-    table = database.db().table('_default')
+    table = database.db().table_datasets()
     query = database.query()
 
-    table.clear_cache()
     if search is not None and search != "":
         res = table.search(query.name.search(search + '+') | query.description.search(search + '+'))
     else:
@@ -88,7 +87,7 @@ def remove_dataset():
 
     if req['dataset_id']:
 
-        table = database.db().table('_default')
+        table = database.db().table_datasets()
         query = database.query()
         dataset = table.get(query.dataset_id == req['dataset_id'])
 
@@ -131,7 +130,7 @@ def add_dataset():
             message : The message for response
 
     """
-    table = database.db().table('_default')
+    table = database.db().table_datasets()
     query = database.query()
 
     data_path_rw = app.config['DATA_PATH_RW']
@@ -216,7 +215,7 @@ def update_dataset():
             message : The message for response
     """
     req = request.json
-    table = database.db().table('_default')
+    table = database.db().table_datasets()
     query = database.query()
 
     table.update({"tags": req["tags"],
@@ -251,7 +250,7 @@ def get_preview_dataset():
     """
 
     req = request.json
-    table = database.db().table('_default')
+    table = database.db().table_datasets()
     query = database.query()
     dataset = table.get(query.dataset_id == req['dataset_id'])
 
@@ -308,7 +307,7 @@ def add_default_dataset():
 
     """
     req = request.json
-    table = database.db().table('_default')
+    table = database.db().table_datasets()
     query = database.query()
     dataset = table.get(query.tags == req['tags'])
 

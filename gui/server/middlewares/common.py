@@ -7,10 +7,9 @@ def check_tags_already_registered():
     """Middleware that checks requested tags is already existing"""
     req = request.json
     tags = req["tags"]
-    table = database.db().table('_default')
+    table = database.db().table_datasets()
     query = database.query()
 
-    table.clear_cache()
     found = table.search(query.tags.all(tags))
 
     if len(found) > 0:
