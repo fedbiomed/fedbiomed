@@ -82,8 +82,8 @@ def admin_required(func):
         verify_jwt_in_request()
         claims = get_jwt()
         if claims['role'] != UserRoleType.ADMIN:
-            return error("You don't have permission to perform this action ! Please contact your local Administrator"), \
-                   403
+            return error("You don't have permission to perform this action ! Please contact your "
+                         "local Administrator"), 403
         else:
             return func(*args, **kwargs)
 
