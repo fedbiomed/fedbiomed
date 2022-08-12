@@ -56,7 +56,7 @@ def list_data_path():
 
         files = files if len(files) <= 1000 else files[0:1000]
 
-        table = node_database.db().table('_default')
+        table = node_database.db().table_datasets()
         query = node_database.query()
         table.clear_cache()
 

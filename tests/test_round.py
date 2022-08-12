@@ -1,4 +1,5 @@
 import builtins
+import inspect
 import logging
 import os
 from typing import Any, Dict
@@ -14,6 +15,8 @@ from testsupport.fake_uuid import FakeUuid
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
 from fedbiomed.common.logger import logger
+from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
+from testsupport.testing_data_loading_block import ModifyGetItemDP, LoadingBlockTypesForTesting
 
 
 class TestRound(unittest.TestCase):
@@ -622,6 +625,48 @@ class TestRound(unittest.TestCase):
 
         self.assertFalse(self.r1.training_kwargs.get('history_monitor', False))
         self.assertFalse(self.r1.training_kwargs.get('node_args', False))
+
+    @patch('inspect.signature')
+    def test_round_09_data_loading_plan(self,
+                                        patch_inspect_signature,
+                                        ):
+        """Test that Round correctly handles a DataLoadingPlan during training"""
+        class MyDataset(DataLoadingPlanMixin):
+            def __init__(self):
+                super().__init__()
+
+            def __getitem__(self, item):
+                return self.apply_dp('orig-value', LoadingBlockTypesForTesting.MODIFY_GETITEM)
+
+        patch_inspect_signature.return_value = inspect.Signature(parameters={})
+
+        my_dataset = MyDataset()
+        data_loader_mock = MagicMock()
+        data_loader_mock.dataset = my_dataset
+
+        data_manager_mock = MagicMock(spec=DataManager)
+        data_manager_mock.split = MagicMock()
+        data_manager_mock.split.return_value = (data_loader_mock, None)
+        data_manager_mock.dataset = my_dataset
+
+        r3 = Round(training_kwargs={})
+        r3.model = MagicMock()
+        r3.model.training_data.return_value = data_manager_mock
+
+        training_data_loader, _ = r3._split_train_and_test_data(test_ratio=0.)
+        dataset = training_data_loader.dataset
+        self.assertEqual(dataset[0], 'orig-value')
+
+        dlp = DataLoadingPlan({LoadingBlockTypesForTesting.MODIFY_GETITEM: ModifyGetItemDP()})
+        r4 = Round(training_kwargs={},
+                   dlp_and_loading_block_metadata=dlp.serialize()
+                   )
+        r4.model = MagicMock()
+        r4.model.training_data.return_value = data_manager_mock
+
+        training_data_loader, _ = r4._split_train_and_test_data(test_ratio=0.)
+        dataset = training_data_loader.dataset
+        self.assertEqual(dataset[0], 'modified-value')
 
 
 if __name__ == '__main__':  # pragma: no cover

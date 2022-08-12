@@ -1,4 +1,5 @@
 from tinydb import TinyDB, Query
+from tinydb.table import Table
 
 from app import app
 
@@ -21,20 +22,30 @@ class Database:
     def query(self):
         return self._query
 
-    def table(self, name: str = '_default'):
+    def table_datasets(self) -> Table:
+        """Method  for selecting TinyDB table containing the datasets.
+
+        Returns:
+            A TinyDB `Table` object for this table. 
+        """
+        return self._table('Datasets')
+
+    def _table(self, name: str) -> Table:
         """ Method for selecting table 
 
         Args: 
 
-            name    (str): Table name. Default is `_default`
-                            when there is no table specified TinyDB
-                            write data into `_default` table
+            name    (str): Table name. 
+
+        Returns:
+            A TinyDB `Table` object for the selected table.
         """
 
         if self._db is None:
             raise Exception('Please initialize database first')
 
-        return self._db.table(name)
+        # don't use read cache to avoid coherence problems
+        return self._db.table(name=name, cache_size=0)
 
     def close(self):
         """This method removes TinyDB object to save some memory"""

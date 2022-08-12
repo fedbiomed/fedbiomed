@@ -48,13 +48,10 @@ def list_datasets():
             message: The message for response
     """
     req = request.json
-    #print("current app", current_app.__dict__)
     search = req.get('search', None)
-    table = node_database.db().table('_default')
+    table = node_database.db().table_datasets()
     query = node_database.query()
-    print('verif', verify_jwt_in_request(optional=True))
-    print("REQUEST")
-    table.clear_cache()
+
     if search is not None and search != "":
         res = table.search(query.name.search(search + '+') | query.description.search(search + '+'))
     else:
@@ -91,7 +88,7 @@ def remove_dataset():
 
     if req['dataset_id']:
 
-        table = node_database.db().table('_default')
+        table = node_database.db().table_datasets()
         query = node_database.query()
         dataset = table.get(query.dataset_id == req['dataset_id'])
 
@@ -133,7 +130,7 @@ def add_dataset():
             message : The message for response
 
     """
-    table = node_database.db().table('_default')
+    table = node_database.db().table_datasets()
     query = node_database.query()
 
     data_path_rw = app.config['DATA_PATH_RW']
@@ -219,7 +216,7 @@ def update_dataset():
             message : The message for response
     """
     req = request.json
-    table = node_database.db().table('_default')
+    table = node_database.db().table_datasets()
     query = node_database.query()
 
     table.update({"tags": req["tags"],
@@ -255,7 +252,7 @@ def get_preview_dataset():
     """
 
     req = request.json
-    table = node_database.db().table('_default')
+    table = node_database.db().table_datasets()
     query = node_database.query()
     dataset = table.get(query.dataset_id == req['dataset_id'])
 
@@ -313,7 +310,7 @@ def add_default_dataset():
 
     """
     req = request.json
-    table = node_database.db().table('_default')
+    table = node_database.db().table_datasets()
     query = node_database.query()
     dataset = table.get(query.tags == req['tags'])
 

@@ -39,7 +39,7 @@ def upload_file():
         data = pd.read_csv(path, index_col=None, sep=delimiter, header=header)
         shape = data.shape
 
-        table = node_database.table('_default')
+        table = node_database.table_datasets()
         dataset_id = 'dataset_' + str(uuid.uuid4())
         types = [str(t) for t in data.dtypes]
 

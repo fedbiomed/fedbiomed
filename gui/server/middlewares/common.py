@@ -7,7 +7,7 @@ def check_tags_already_registered():
     """Middleware that checks requested tags is already existing"""
     req = request.json
     tags = req["tags"]
-    table = node_database.db().table('_default')
+    table = node_database.db().table_datasets()
     query = node_database.query()
 
     table.clear_cache()
