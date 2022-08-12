@@ -154,8 +154,10 @@ class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
         """Serializes the class in a format similar to json.
 
         Returns:
-             a dictionary of key-value pairs sufficient for reconstructing
-             the DataLoadingPlan.
+             a tuple sufficient for reconstructing the DataLoading plan. It includes:
+             - a dictionary of key-value pairs with the DataLoadingPlan parameters.
+             - a list of dict containing the data for reconstruction all the DataLoadingBlock
+               of the DataLoadingPlan 
         """
         return dict(
             dlp_id=self.dlp_id,
