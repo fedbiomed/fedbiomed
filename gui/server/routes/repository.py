@@ -57,9 +57,8 @@ def list_data_path():
 
         files = files if len(files) <= 1000 else files[0:1000]
 
-        table = database.db().table('_default')
+        table = database.db().table_datasets()
         query = database.query()
-        table.clear_cache()
 
         for file in files:
             if not file.startswith('.'):
