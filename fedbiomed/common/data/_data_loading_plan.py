@@ -220,7 +220,7 @@ class DataLoadingPlanMixin:
     def clear_dlp(self):
         self._dlp = None
 
-    def apply_dlb(self, default_ret_value: Any, dp_key: DataLoadingBlocks, *args, **kwargs):
+    def apply_dlb(self, default_ret_value: Any, dlb_key: DataLoadingBlocks, *args, **kwargs):
         """Apply one DataLoadingBlock identified by its key.
 
         Note that we want to easily support the case where the DataLoadingPlan
@@ -237,7 +237,7 @@ class DataLoadingPlanMixin:
         Args:
             default_ret_value: the value to be returned in case that the dlp
             functionality is not required
-            dp_key: the key of the DataLoadingBlock to be applied
+            dlb_key: the key of the DataLoadingBlock to be applied
             args: forwarded to the DataLoadingBlock's apply function
             kwargs: forwarded to the DataLoadingBlock's apply function
         Returns:
@@ -245,8 +245,8 @@ class DataLoadingPlanMixin:
              the default_ret_value when dlp is None or it does not contain
              the requested loading block
         """
-        if self._dlp is not None and dp_key in self._dlp:
-            return self._dlp[dp_key].apply(*args, **kwargs)
+        if self._dlp is not None and dlb_key in self._dlp:
+            return self._dlp[dlb_key].apply(*args, **kwargs)
         else:
             return default_ret_value
 
