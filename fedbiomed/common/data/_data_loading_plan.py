@@ -40,7 +40,7 @@ class DataLoadingBlock(ABC):
     """
     def __init__(self):
         super(DataLoadingBlock, self).__init__()
-        self.__serialization_id = 'serialized_dp_' + str(uuid.uuid4())
+        self.__serialization_id = 'serialized_dlb_' + str(uuid.uuid4())
 
     def get_serialization_id(self):
         """Expose serialization id as read-only"""
@@ -209,7 +209,7 @@ class DataLoadingPlanMixin:
     basic tools necessary to support a DataLoadingPlan. Typically, the logic
     of each specific DataLoadingBlock in the DataLoadingPlan will be implemented
     in the form of hooks that are called within the Dataset's implementation
-    using the helper function apply_dp defined below.
+    using the helper function apply_dlb defined below.
     """
     def __init__(self):
         self._dlp = None
@@ -220,16 +220,16 @@ class DataLoadingPlanMixin:
     def clear_dlp(self):
         self._dlp = None
 
-    def apply_dp(self, default_ret_value: Any, dp_key: DataLoadingBlocks, *args, **kwargs):
+    def apply_dlb(self, default_ret_value: Any, dp_key: DataLoadingBlocks, *args, **kwargs):
         """Apply one DataLoadingBlock identified by its key.
 
         Note that we want to easily support the case where the DataLoadingPlan
         is not activated, or the requested loading block is not contained in the
         DataLoadingPlan. This is achieved by providing a default return value
         to be returned when the above conditions are met. Hence, most of the
-        calls to apply_dp will look like this:
+        calls to apply_dlb will look like this:
         ```
-        value = self.apply_dp(value, 'my-loading-block', my_apply_args)
+        value = self.apply_dlb(value, 'my-loading-block', my_apply_args)
         ```
         This will ensure that value is not changed if the DataLoadingPlan is
         not active.

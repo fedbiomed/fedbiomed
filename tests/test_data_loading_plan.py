@@ -69,12 +69,12 @@ class TestDataLoadingPlan(unittest.TestCase):
         self.assertDictEqual(self.dp2.data, dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING].data)
 
         it = iter(dlp.items())
-        first_key, first_dp = next(it)
+        first_key, first_dlb = next(it)
         self.assertEqual(first_key, LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING)
-        self.assertDictEqual(self.dp1.data, first_dp.data)
-        second_key, second_dp = next(it)
+        self.assertDictEqual(self.dp1.data, first_dlb.data)
+        second_key, second_dlb = next(it)
         self.assertEqual(second_key, LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING)
-        self.assertDictEqual(self.dp2.data, second_dp.data)
+        self.assertDictEqual(self.dp2.data, second_dlb.data)
 
         str_repr = str(dlp)
         self.assertIn(dlp.dlp_id, str_repr)
@@ -146,7 +146,7 @@ class TestDataLoadingPlan(unittest.TestCase):
 
             def test_mapper(self):
                 orig_key = 'orig-key'
-                return self.apply_dp(orig_key, LoadingBlockTypesForTesting.TESTING_MAPPER, orig_key)
+                return self.apply_dlb(orig_key, LoadingBlockTypesForTesting.TESTING_MAPPER, orig_key)
 
         dp = MapperBlock()
         dp.map = {'orig-key': 'new-key'}
