@@ -160,9 +160,9 @@ class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
         return dict(
             dlp_id=self.dlp_id,
             dlp_name=self.desc,
-            loading_blocks={key.value: dp.get_serialization_id() for key, dp in self.items()},
+            loading_blocks={key.value: dlb.get_serialization_id() for key, dlb in self.items()},
             key_paths={key.value: (f"{key.__module__}", f"{key.__class__.__qualname__}") for key in self.keys()}
-        ), [dp.serialize() for dp in self.values()]
+        ), [dlb.serialize() for dlb in self.values()]
 
     def deserialize(self, serialized_dlp: dict, serialized_loading_blocks: List[dict]) -> TDataLoadingPlan:
         """Reconstruct the DataLoadingPlan from a serialized version.
@@ -189,11 +189,11 @@ class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
             loading_block = next(filter(lambda x: x['loading_block_serialization_id'] == loading_block_serialization_id,
                                         serialized_loading_blocks))
             exec(f"import {loading_block['loading_block_module']}")
-            dp = eval(f"{loading_block['loading_block_module']}.{loading_block['loading_block_class']}()")
+            dlb = eval(f"{loading_block['loading_block_module']}.{loading_block['loading_block_class']}()")
             key_module, key_classname = serialized_dlp['key_paths'][loading_block_key_str]
             exec(f"import {key_module}")
             loading_block_key = eval(f"{key_module}.{key_classname}('{loading_block_key_str}')")
-            self[loading_block_key] = dp.deserialize(loading_block)
+            self[loading_block_key] = dlb.deserialize(loading_block)
         return self
 
     def __str__(self):

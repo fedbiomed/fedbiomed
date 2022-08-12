@@ -996,13 +996,13 @@ class TestDatasetManager(unittest.TestCase):
         patch_isdir.return_value = True
         from test_data_loading_plan import LoadingBlockForTesting
 
-        dp1 = LoadingBlockForTesting()
-        dp2 = LoadingBlockForTesting()
-        dp2.data = {'some': 'other data'}
+        dlb1 = LoadingBlockForTesting()
+        dlb2 = LoadingBlockForTesting()
+        dlb2.data = {'some': 'other data'}
 
         dlp = DataLoadingPlan()
-        dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING] = dp1
-        dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING] = dp2
+        dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING] = dlb1
+        dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING] = dlb2
 
         dataset_manager = DatasetManager()
         dataset_manager.load_default_database = MagicMock(return_value=(1, 1))
@@ -1025,8 +1025,8 @@ class TestDatasetManager(unittest.TestCase):
         new_dlp = DataLoadingPlan().deserialize(dlp_metadata, loading_blocks_metadata)
         self.assertIn(LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING, new_dlp)
         self.assertIn(LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING, new_dlp)
-        self.assertDictEqual(new_dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING].data, dp1.data)
-        self.assertDictEqual(new_dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING].data, dp2.data)
+        self.assertDictEqual(new_dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING].data, dlb1.data)
+        self.assertDictEqual(new_dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING].data, dlb2.data)
 
         dataset_manager._db.close()
 
