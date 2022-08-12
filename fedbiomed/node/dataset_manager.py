@@ -93,7 +93,7 @@ class DatasetManager:
         Returns:
             A list of dictionaries, each one containing the DataLoadingBlock metadata corresponding to one given id.
         """
-        return self._dlp_table.search(self.database.loading_block_serialization_id.one_of(dp_ids))
+        return self._dlp_table.search(self._database.loading_block_serialization_id.one_of(dp_ids))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
