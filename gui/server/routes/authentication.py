@@ -4,7 +4,7 @@ from datetime import datetime
 from functools import wraps
 from hashlib import sha512
 
-from db import gui_database
+from db import user_database
 from flask import request, Blueprint
 from flask_jwt_extended import (jwt_required, create_access_token, create_refresh_token, unset_jwt_cookies,
                                 verify_jwt_in_request, get_jwt, set_access_cookies, set_refresh_cookies)
@@ -15,12 +15,9 @@ from gui.server.schemas import ValidateUserFormRequest
 from gui.server.utils import success, validate_request_data
 from . import api
 
+table = user_database.table_users()
+query = user_database.query()
 
-
-table = gui_database.db().table('_default')
-query = gui_database.query()
-
-#bp_auth = Blueprint('bp_auth', 'bp_auth',  url_prefix='/api')
 
 def set_password_hash(password: str) -> str:
     """ Method for setting password hash 
@@ -46,11 +43,11 @@ def check_password_hash(password: str, user_password_hash: str) -> bool:
     return password_hash.hexdigest() == user_password_hash
 
 
-def get_user_by_email(user_email: str)  -> str:
+def get_user_by_email(user_email: str) -> str:
     """ Method used to retrieve a user from the database based on its email
     Args: 
 
-        user_mail (str): The mail of the user to retrieve from the database
+        user_email (str): The mail of the user to retrieve from the database
     """
     return table.search(query.user_email == user_email)
 
@@ -79,15 +76,17 @@ def check_password_format(user_password: str) -> bool:
 
 def admin_required(func):
     """Decorator used to protect endpoints that require admin role"""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
         claims = get_jwt()
         if claims['role'] != UserRoleType.ADMIN:
-            return error("You don't have permission to perform this action ! Please contact your local Administrator"),\
-                403
+            return error("You don't have permission to perform this action ! Please contact your local Administrator"), \
+                   403
         else:
             return func(*args, **kwargs)
+
     return wrapper
 
 
@@ -120,17 +119,18 @@ def update_password():
     email, password = req['email'], req['password']
 
     if not check_password_format(password):
-        return error('Password should be at least 8 character long, with at least one uppercase letter, one lowercase letter and one number'), 400
+        return error('Password should be at least 8 character long, with at least one uppercase '
+                     'letter, one lowercase letter and one number'), 400
     decoded_json = get_jwt()
-    
+
     if decoded_json['email'] != email:
         # TODO: allow also operation if user's role is admin
         return error('Error invalid user id'), 400
-    
+
     user_name = get_user_by_email(email)
     if not user_name:
         return error('Invalid operation: User does not belong to database'), 400
-    
+
     try:
         table.update({
             "user_email": email,
@@ -139,11 +139,12 @@ def update_password():
         res = table.get(query.user_email == email)
 
         return response({
-            'user_id': res['user_id'], 
+            'user_id': res['user_id'],
             'user_email': email}, 'User password successfully updated'), 200
 
     except Exception as e:
         return error(str(e)), 400
+
 
 @api.route('/register', methods=['POST', 'GET'])
 @validate_request_data(schema=ValidateUserFormRequest)
@@ -181,11 +182,12 @@ def register():
         return error('Wrong email format'), 400
 
     if not check_password_format(password):
-        return error('Password should be at least 8 character long, with at least one uppercase letter, one lowercase letter and one number'), 400
+        return error(
+            'Password should be at least 8 character long, with at least one uppercase letter, one lowercase letter and one number'), 400
 
     if get_user_by_email(email):
         return error('Email already Present. Please log in'), 409
-    try :
+    try:
         # Create unique id for the user
         user_id = 'user_' + str(uuid.uuid4())
         table.insert({
@@ -197,7 +199,7 @@ def register():
         })
         res = table.get(query.user_id == user_id)
         return response({
-            'user_id': res['user_id'], 
+            'user_id': res['user_id'],
             'user_email': res['user_email']
         }, 'User successfully registered'), 201
     except Exception as e:
@@ -248,11 +250,11 @@ def login():
         }
         access_token = create_access_token(identity=user["user_id"], fresh=True, additional_claims=additional_claims)
         refresh_token = create_refresh_token(identity=user["user_id"], additional_claims=additional_claims)
-        resp =  response(
+        resp = response(
             data={
-                "access_token": access_token, 
+                "access_token": access_token,
                 "refresh_token": refresh_token,
-                }, 
+            },
             message='User successfully logged in')
         # set_access_cookies(resp, access_token)
         # set_refresh_cookies(resp, refresh_token)
@@ -276,8 +278,8 @@ def refresh_expiring_jwts():
     # TODO: Invalidate old refresh tokens; they should be used only once
     resp = response(
         data={
-            "access_token": access_token, 
-            "refresh_token": refresh_token}, 
+            "access_token": access_token,
+            "refresh_token": refresh_token},
         message='Access token successfully refreshed')
     # set_access_cookies(resp, access_token)
     # set_refresh_cookies(resp, refresh_token)
