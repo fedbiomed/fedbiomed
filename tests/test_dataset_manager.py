@@ -104,7 +104,7 @@ class TestDatasetManager(unittest.TestCase):
         """
         after each test function
         """
-        self.dataset_manager.db.close()
+        self.dataset_manager._db.close()
         os.remove(environ['DB_PATH'])
 
 
@@ -1016,7 +1016,7 @@ class TestDatasetManager(unittest.TestCase):
             data_loading_plan=dlp
         )
 
-        self.assertIn('Data_Loading_Plans', dataset_manager.db.tables())
+        self.assertIn('Data_Loading_Plans', dataset_manager._db.tables())
         dataset = dataset_manager.get_by_id('test-id-dlp-1234')
         self.assertEqual(dataset['dlp_id'], dlp.dlp_id)
 
@@ -1028,7 +1028,7 @@ class TestDatasetManager(unittest.TestCase):
         self.assertDictEqual(new_dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING].data, dp1.data)
         self.assertDictEqual(new_dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING].data, dp2.data)
 
-        dataset_manager.db.close()
+        dataset_manager._db.close()
 
 
 if __name__ == '__main__':  # pragma: no cover

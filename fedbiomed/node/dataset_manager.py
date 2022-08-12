@@ -38,13 +38,13 @@ class DatasetManager:
     def __init__(self):
         """Constructor of the class.
         """
-        self.db = TinyDB(environ['DB_PATH'])
-        self.database = Query()
+        self._db = TinyDB(environ['DB_PATH'])
+        self._database = Query()
 
         # don't use DB read cache to ensure coherence
         # (eg when mixing CLI commands with a GUI session)
-        self._dataset_table = self.db.table(name='Datasets', cache_size=0)
-        self._dlp_table = self.db.table(name='Data_Loading_Plans', cache_size=0)
+        self._dataset_table = self._db.table(name='Datasets', cache_size=0)
+        self._dlp_table = self._db.table(name='Data_Loading_Plans', cache_size=0)
 
     def get_by_id(self, dataset_id: str) -> List[dict]:
         """Searches for data with given dataset_id.
@@ -57,7 +57,7 @@ class DatasetManager:
                 containing all the fields describing the matching datasets
                 stored in Tiny database.
         """
-        result = self._dataset_table.get(self.database.dataset_id == dataset_id)
+        result = self._dataset_table.get(self._database.dataset_id == dataset_id)
 
         return result
 
@@ -75,9 +75,9 @@ class DatasetManager:
         Returns:
             A dictionary with the DataLoadingPlan metadata corresponding to the given id.
         """
-        dlp_metadata = self._dlp_table.get(self.database.dlp_id == dlp_id)
+        dlp_metadata = self._dlp_table.get(self._database.dlp_id == dlp_id)
         return dlp_metadata, self._dlp_table.search(
-            self.database.loading_block_serialization_id.one_of(dlp_metadata['loading_blocks'].values()))
+            self._database.loading_block_serialization_id.one_of(dlp_metadata['loading_blocks'].values()))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
@@ -88,7 +88,7 @@ class DatasetManager:
         Returns:
             The list of matching datasets
         """
-        return self._dataset_table.search(self.database.tags.all(tags))
+        return self._dataset_table.search(self._database.tags.all(tags))
 
     def read_csv(self, csv_file: str, index_col: Union[int, None] = None) -> pd.DataFrame:
         """Gets content of a CSV file.
@@ -411,7 +411,7 @@ class DatasetManager:
             tags: Tags describing the dataset to modify.
             modified_dataset: New dataset description to replace the existing one.
         """
-        self._dataset_table.update(modified_dataset, self.database.tags.all(tags))
+        self._dataset_table.update(modified_dataset, self._database.tags.all(tags))
 
     def list_my_data(self, verbose: bool = True) -> List[dict]:
         """Lists all datasets on the node.
