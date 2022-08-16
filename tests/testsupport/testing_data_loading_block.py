@@ -1,9 +1,9 @@
 from enum import Enum
 from fedbiomed.common.data import DataLoadingBlock
-from fedbiomed.common.constants import DataLoadingBlocks
+from fedbiomed.common.constants import DataLoadingBlockTypes
 
 
-class LoadingBlockTypesForTesting(DataLoadingBlocks, Enum):
+class LoadingBlockTypesForTesting(DataLoadingBlockTypes, Enum):
     LOADING_BLOCK_FOR_TESTING: str = 'loading_block_for_testing'
     OTHER_LOADING_BLOCK_FOR_TESTING: str = 'other_loading_block_for_testing'
     TESTING_MAPPER: str = 'testing_mapper'

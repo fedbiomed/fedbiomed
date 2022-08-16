@@ -21,9 +21,9 @@ class FedbiomedAggregatorError(FedbiomedError):
     pass
 
 
-class FedbiomedLoadingPlanError(FedbiomedError):
+class FedbiomedLoadingBlockError(FedbiomedError):
     """
-    Exception specific to the DataLoadingPlan and DataLoadingBlock classes/subclasses.
+    Exception specific to the DataLoadingBlock classes/subclasses.
     """
     pass
 

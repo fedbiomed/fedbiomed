@@ -2,8 +2,8 @@ import uuid
 from typing import Any, Dict, List, Tuple, TypeVar
 from abc import ABC, abstractmethod
 
-from fedbiomed.common.constants import DataLoadingBlocks
-from fedbiomed.common.exceptions import FedbiomedLoadingPlanError
+from fedbiomed.common.constants import DataLoadingBlockTypes
+from fedbiomed.common.exceptions import FedbiomedLoadingBlockError
 
 
 TDataLoadingPlan = TypeVar("TDataLoadingPlan", bound="DataLoadingPlan")
@@ -18,7 +18,7 @@ class DataLoadingBlock(ABC):
     in the way data is "perceived" by the data loaders during training.
 
     A DataLoadingBlock is identified by its type_id attribute. Thus this
-    attribute should be unique among all DataLoadingBlocks in the same
+    attribute should be unique among all DataLoadingBlockTypes in the same
     DataLoadingPlan. Moreover, we may test equality between a
     DataLoadingBlock and a string by checking its type_id, as a means of
     easily testing whether a DataLoadingBlock is contained in a collection.
@@ -123,11 +123,11 @@ class MapperBlock(DataLoadingBlock):
 
     def apply(self, key):
         if not isinstance(self.map, dict) or key not in self.map:
-            raise FedbiomedLoadingPlanError(f"Mapper block error: no key '{key}' in mapping dictionary")
+            raise FedbiomedLoadingBlockError(f"Mapper block error: no key '{key}' in mapping dictionary")
         return self.map[key]
 
 
-class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
+class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
     """Customizations to the way the data is loaded and presented for training.
 
     A DataLoadingPlan is a dictionary of {name: DataLoadingBlock} pairs. Each
@@ -176,7 +176,7 @@ class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
         of the 'DataLoadingPlan.aggregate_serialized_metadata` function.
 
         :warning: Calling this function will *clear* the contained
-            DataLoadingBlocks. This function may not be used to "update"
+            DataLoadingBlockTypes. This function may not be used to "update"
             nor to "append to" a DataLoadingPlan.
 
         Args:
@@ -225,7 +225,7 @@ class DataLoadingPlanMixin:
     def clear_dlp(self):
         self._dlp = None
 
-    def apply_dlb(self, default_ret_value: Any, dlb_key: DataLoadingBlocks, *args, **kwargs):
+    def apply_dlb(self, default_ret_value: Any, dlb_key: DataLoadingBlockTypes, *args, **kwargs):
         """Apply one DataLoadingBlock identified by its key.
 
         Note that we want to easily support the case where the DataLoadingPlan
