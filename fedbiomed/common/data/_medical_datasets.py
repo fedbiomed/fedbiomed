@@ -283,8 +283,13 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         Returns:
             List of `bool` that represents whether modality is existing respectively for each of modality.
         """
+        if not isinstance(subject, str):
+            raise FedbiomedDatasetError(f"Expected string for subject folder/ID, but got {type(subject)}")
         if not isinstance(modalities, list):
             raise FedbiomedDatasetError(f"Expected a list for modalities, but got {type(modalities)}")
+        if not all([type(m) is str for m in modalities]):
+            raise FedbiomedDatasetError("Expected a list of string for modalities, but some modalities are "
+                                        f"{' '.join([ str(type(m) for m in modalities if type(m) != str)])}")
         are_modalities_existing = list()
         for modality in modalities:
             modality_folder = self._subject_modality_folder(subject, modality)
@@ -315,11 +320,20 @@ class MedicalFolderBase(DataLoadingPlanMixin):
             a Path to the (unique) folder with the modality image, or None. None is returned if no folders
             were found, or if more than one matching folder was found.
         """
+        if not isinstance(modality, str):
+            raise FedbiomedDatasetError(f"Bad type for modality. Expected str got {type(modality)}")
         if isinstance(subject_or_folder, str):
             subject_or_folder = self._root.joinpath(subject_or_folder)
+        elif not isinstance(subject_or_folder, Path):
+            raise FedbiomedDatasetError("Bad type for subject folder argument. "
+                                        f"Expected str or Path got type({type(subject_or_folder)})")
         modality_folders = set(self.apply_dlb([modality], MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS, modality))
-        subject_subfolders = set(
-            [x.name for x in subject_or_folder.iterdir() if x.is_dir() and not x.name.startswith('.')])
+        try:
+            subject_subfolders = set(
+                [x.name for x in subject_or_folder.iterdir() if x.is_dir() and not x.name.startswith('.')])
+        except (FileNotFoundError, PermissionError, NotADirectoryError) as e:
+            raise FedbiomedDatasetError(f"Cannot access folders for subject {subject_or_folder}. "
+                                        f"Error message is: {e}")
         folder = modality_folders.intersection(subject_subfolders)
         if len(folder) == 0 or len(folder) > 1:
             return None
