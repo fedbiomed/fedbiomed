@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Tuple, TypeVar
 from abc import ABC, abstractmethod
 
 from fedbiomed.common.constants import DataLoadingBlocks
+from fedbiomed.common.exceptions import FedbiomedLoadingPlanError
 
 
 TDataLoadingPlan = TypeVar("TDataLoadingPlan", bound="DataLoadingPlan")
@@ -121,6 +122,8 @@ class MapperBlock(DataLoadingBlock):
         return self
 
     def apply(self, key):
+        if not isinstance(self.map, dict) and not key in self.map:
+            raise FedbiomedLoadingPlanError(f"Mapper block error: no key {key} in mapping dictionary")
         return self.map[key]
 
 

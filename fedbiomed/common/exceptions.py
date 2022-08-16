@@ -21,6 +21,13 @@ class FedbiomedAggregatorError(FedbiomedError):
     pass
 
 
+class FedbiomedLoadingPlanError(FedbiomedError):
+    """
+    Exception specific to the DataLoadingPlan and DataLoadingBlock classes/subclasses.
+    """
+    pass
+
+
 class FedbiomedDatasetError(FedbiomedError):
     """
     Exceptions specific for the class fedbiomed.common.data.NIFTIFolderDataset.
