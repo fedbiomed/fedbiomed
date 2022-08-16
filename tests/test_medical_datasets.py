@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 from monai.data import ITKReader
 from monai.transforms import LoadImage, ToTensor, Compose, Identity, PadListDataCollate, GaussianSmooth
 from fedbiomed.common.data import NIFTIFolderDataset
-from fedbiomed.common.exceptions import FedbiomedDatasetError
+from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingPlanError
 from torch.utils.data import Dataset
 from torchvision.transforms import Lambda
 from fedbiomed.common.data import MedicalFolderDataset, MedicalFolderBase, MedicalFolderController,\
@@ -708,7 +708,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
             'T2': Path('T2_test.nii').resolve()
         }
         self.assertEqual(images_dict, expected_images_dict)
-        with self.assertRaises(KeyError):
+        with self.assertRaises(FedbiomedLoadingPlanError):
             _ = dataset.load_images(Path(self.root).joinpath('subj1'), ['non-existing-modality'])
 
         dataset = MedicalFolderDataset(root=self.root,
