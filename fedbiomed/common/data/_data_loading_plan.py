@@ -122,8 +122,8 @@ class MapperBlock(DataLoadingBlock):
         return self
 
     def apply(self, key):
-        if not isinstance(self.map, dict) and not key in self.map:
-            raise FedbiomedLoadingPlanError(f"Mapper block error: no key {key} in mapping dictionary")
+        if not isinstance(self.map, dict) or key not in self.map:
+            raise FedbiomedLoadingPlanError(f"Mapper block error: no key '{key}' in mapping dictionary")
         return self.map[key]
 
 
