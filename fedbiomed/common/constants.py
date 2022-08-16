@@ -123,7 +123,7 @@ class ErrorNumbers(_BaseEnum):
     FB313: str = "FB313: no dataset matching request"
     FB314: str = "FB314: Node round error"
     FB315: str = "FB315: Error while loading the data "
-    FB315: str = "FB316: FLamby package import error"
+    FB316: str = "FB316: FLamby package import error"
 
     # application error on researcher
 
