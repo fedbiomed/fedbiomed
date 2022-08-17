@@ -253,23 +253,26 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         self._root = path
 
     def _modalities_candidates_from_subfolders(self) -> Tuple[list, list]:
-        """ Gets all possible modalities under root directory
+        """ Gets all possible modality folders under root directory
 
         Returns:
-             List of unique available modalities appearing at least once
-             List of all encountered modalities in each subject folder, appearing once per folder
+             List of unique available modality folders appearing at least once
+             List of all encountered modality folders in each subject folder, appearing once per folder
         """
 
         # Accept only folders that don't start with "." and "_"
         modalities = [f.name for f in self._root.glob("*/*") if f.is_dir() and not f.name.startswith((".", "_"))]
         return list(set(modalities)), modalities
 
+    # TODO: is `modality_folders_list` useful or should it be removed ?
+    # should it return encountered modalities instead of encountered modality folders ?
+    # (see `check_modalities`)
     def modalities(self) -> Tuple[list, list]:
         """Gets all modalities based either on all possible candidates or those provided by the DataLoadingPlan.
 
         Returns:
              List of unique available modalities
-             List of all encountered modalities in each subject folder, appearing once per folder
+             List of all encountered modality folders in each subject folder, appearing once per folder
         """
         modality_candidates, modality_folders_list = self._modalities_candidates_from_subfolders()
         if self._dlp is not None and MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS in self._dlp:
@@ -864,31 +867,38 @@ class MedicalFolderController(MedicalFolderBase):
         """
         super(MedicalFolderController, self).__init__(root=root)
 
-    def check_modalities(self, _raise: bool = True) -> Tuple[bool, str]:
-        """Checks whether subject folders contains at least one common modality
+    # TODO: suppress `check_modalities` ? (currently unused)
+    # TODO: `check_modalities` looks bugged
+    #   - `len(unique_modalities) == len(modalities)` doesn't test whether "subject
+    #     folders contains at least one common modality" ???
+    #   - `self.modalities()[1]` needs to be different for this purpose: return a list of list
+    #     [['label', 'T1'], ['label', 'T1', 'T2']] + check a modality exists in all sub-lists ?
 
-        Args:
-            _raise: Flag to indicate whether function should raise in case of error. If `False` returns
-                tuple contains respectively `False` and error message
-
-        Returns:
-            status: True, if folders contain at leas one common modality
-            message: Error message if folder do not contain at least one common modality. If they do, error message
-                will be empty string
-
-        Raises:
-            FedbiomedDatasetError:
-        """
-        unique_modalities, modalities = self.modalities()
-        if len(unique_modalities) == len(modalities):
-            message = f"{ErrorNumbers.FB613.value}: Subject folders in Medical Folder root folder does not contain" \
-                      f"any common modalities. At least one common modality is expected."
-            if _raise:
-                raise FedbiomedDatasetError(message)
-            else:
-                return False, message
-
-        return True, ""
+    #def check_modalities(self, _raise: bool = True) -> Tuple[bool, str]:
+    #    """Checks whether subject folders contains at least one common modality
+#
+    #    Args:
+    #        _raise: Flag to indicate whether function should raise in case of error. If `False` returns
+    #            tuple contains respectively `False` and error message
+#
+    #    Returns:
+    #        status: True, if folders contain at least one common modality
+    #        message: Error message if folder do not contain at least one common modality. If they do, error message
+    #            will be empty string
+#
+    #    Raises:
+    #        FedbiomedDatasetError:
+    #    """
+    #    unique_modalities, modalities = self.modalities()
+    #    if len(unique_modalities) == len(modalities):
+    #        message = f"{ErrorNumbers.FB613.value}: Subject folders in Medical Folder root folder does not contain" \
+    #                  f"any common modalities. At least one common modality is expected."
+    #        if _raise:
+    #            raise FedbiomedDatasetError(message)
+    #        else:
+    #            return False, message
+#
+    #    return True, ""
 
     def subject_modality_status(self, index: Union[List, pd.Series] = None) -> Dict:
         """Scans subjects and checks which modalities are existing for each subject
