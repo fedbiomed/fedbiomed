@@ -441,6 +441,8 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         if not isinstance(path, Path):
             path = Path(path)
 
+        path = Path(path).expanduser().resolve()
+
         if not path.exists():
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Folder or file {path} not found on system")
         if not path.is_dir():
