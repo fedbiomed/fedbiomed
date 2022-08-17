@@ -339,6 +339,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         elif not isinstance(subject_or_folder, Path):
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Bad type for subject folder argument. "
                                         f"Expected str or Path got type({type(subject_or_folder)})")
+
         modality_folders = set(self.apply_dlb([modality], MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS, modality))
         try:
             subject_subfolders = set(
@@ -347,6 +348,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Cannot access folders for subject {subject_or_folder}. "
                                         f"Error message is: {e}")
         folder = modality_folders.intersection(subject_subfolders)
+
         if len(folder) == 0 or len(folder) > 1:
             return None
         return Path(folder.pop())
@@ -364,10 +366,10 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         return [subject for subject in subjects if all(self.is_modalities_existing(subject, modalities))]
 
     def subjects_with_imaging_data_folders(self) -> List[str]:
-        """Retrieves subject folder names under Medical Folder roots directory.
+        """Retrieves subject folder names under Medical Folder root directory.
 
         Returns:
-            subject folder names under Medical Folder roots directory.
+            subject folder names under Medical Folder root directory.
         """
         return [f.name for f in self._root.iterdir() if f.is_dir() and not f.name.startswith(".")]
 
@@ -505,8 +507,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             tabular_file: Path to a CSV or Excel file containing the demographic information from the patients.
             index_col: Column name in the tabular file containing the subject ids which mush match the folder names.
         """
-        super(MedicalFolderDataset, self).__init__()
-        super(Dataset, self).__init__(root=root)
+        super(MedicalFolderDataset, self).__init__(root=root)
 
         self._tabular_file = tabular_file
         self._index_col = index_col
