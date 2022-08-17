@@ -684,7 +684,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
     @property
     def subjects_has_all_modalities(self):
-        """Gets only the subject has required modalities"""
+        """Gets only the subjects that have all required modalities"""
 
         all_modalities = list(set(self._data_modalities + self._target_modalities))
         subject_folder_names = self.subjects_with_imaging_data_folders()
