@@ -37,3 +37,8 @@ class ModifyGetItemDP(DataLoadingBlock):
     def apply(self):
         return 'modified-value'
 
+
+# class for cheating the ABC into running the abstract methods
+class TestAbstractsBlock(DataLoadingBlock):
+    def apply(self, *args, **kwargs):
+        super(TestAbstractsBlock, self).apply(*args, *kwargs)

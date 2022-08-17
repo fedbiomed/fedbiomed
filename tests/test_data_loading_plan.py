@@ -1,7 +1,8 @@
 import unittest
 from fedbiomed.common.data import DataLoadingPlan, DataLoadingPlanMixin, MapperBlock
-from testsupport.testing_data_loading_block import LoadingBlockForTesting, LoadingBlockTypesForTesting
-
+from testsupport.testing_data_loading_block import LoadingBlockForTesting, LoadingBlockTypesForTesting, \
+    TestAbstractsBlock
+from fedbiomed.common.exceptions import FedbiomedLoadingBlockError
 
 class TestDataLoadingBlock(unittest.TestCase):
     def setUp(self):
@@ -49,6 +50,17 @@ class TestDataLoadingBlock(unittest.TestCase):
         self.assertIn('different-data', apply_2)
         apply_3 = dlb3.apply('my')
         self.assertEqual(apply_3, 'different-data')
+        with self.assertRaises(FedbiomedLoadingBlockError):
+            dlb3.apply('not-my')
+
+    def test_data_loading_block_03_abstract(self):
+        """Tests for abstract method(s) of DataLoadingBlock"""
+
+        # block class to cheat ABC into running abstract method(s)
+        dlb = TestAbstractsBlock()
+        apply = dlb.apply("some", ["arbitrary", 3], "arguments", {}, 8)
+
+        self.assertEqual(apply, None)
 
 
 class TestDataLoadingPlan(unittest.TestCase):
@@ -129,14 +141,29 @@ class TestDataLoadingPlan(unittest.TestCase):
                 super(MyDataset, self).__init__()
 
         tp = MyDataset()
-        self.assertTrue(hasattr(tp, '_dlp'))
-        self.assertIsNone(tp._dlp)
         dlp = DataLoadingPlan()
         dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING] = self.dlb1
         dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING] = self.dlb2
+
+        # heuristic test that no DLP exist for dataset
+        apply_1 = tp.apply_dlb("my default", LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING)
+        self.assertEqual(apply_1, "my default")
+        apply_2 = tp.apply_dlb("other default", LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING)
+        self.assertEqual(apply_2, "other default")
+
+        # test that DLP is properly set for dataset
         tp.set_dlp(DataLoadingPlan().deserialize(*dlp.serialize()))
-        self.assertIn(LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING, tp._dlp)
-        self.assertIn(LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING, tp._dlp)
+        apply_1 = list(tp.apply_dlb("my default", LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING))
+        self.assertEqual(apply_1, ['data'])
+        apply_2 = list(tp.apply_dlb("other default", LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING))
+        self.assertEqual(apply_2, ['different-data'])        
+
+        # test DLP was properly cleared
+        tp.clear_dlp()
+        apply_1 = tp.apply_dlb("my default", LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING)
+        self.assertEqual(apply_1, "my default")
+        apply_2 = tp.apply_dlb("other default", LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING)
+        self.assertEqual(apply_2, "other default")
 
     def test_data_loading_plan_04_apply(self):
         """Tests application of a DataLoadingPlan's DataLoadingBlock"""
