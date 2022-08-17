@@ -744,6 +744,11 @@ class TestMedicalFolderBase(unittest.TestCase):
 
         _create_synthetic_dataset(self.root, self.n_samples, self.tabular_file, self.index_col)
 
+        # alternate root
+        self.root2 = tempfile.mkdtemp()
+        self.tabular_file2 = os.path.join(self.root2, 'participants.csv')
+        _create_synthetic_dataset(self.root2, self.n_samples, self.tabular_file2, self.index_col)
+
     def tearDown(self) -> None:
 
         if 'IXI' not in self.root:
@@ -754,10 +759,17 @@ class TestMedicalFolderBase(unittest.TestCase):
         self.medical_folder_base = MedicalFolderBase()
         self.assertIsNone(self.medical_folder_base.root, "MedicalFolderBase root should not in empty initialization")
 
-        self.medical_folder_base = MedicalFolderBase(root=self.root)
+        self.medical_folder_base = MedicalFolderBase(root=self.root2)
+        self.assertIsInstance(self.medical_folder_base.root, PosixPath)
+        self.assertEqual(str(self.medical_folder_base.root), self.root2,
+                         "MedicalFolderBase root should not in empty initialization")
+
+        # Setting root to a valid value with setter
+        self.medical_folder_base.root = self.root
+
         self.assertIsInstance(self.medical_folder_base.root, PosixPath)
         self.assertEqual(str(self.medical_folder_base.root), self.root,
-                         "MedicalFolderBase root should not in empty initialization")
+                         "MedicalFolderBase root should not in empty initialization")        
 
         with self.assertRaises(FedbiomedDatasetError):
             self.medical_folder_base = MedicalFolderBase(root="unknown-folder-path")
