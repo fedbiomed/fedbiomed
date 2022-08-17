@@ -32,10 +32,10 @@ class Config:
         self.configuration['NODE_FEDBIOMED_ROOT'] = os.getenv('FEDBIOMED_DIR', '/fedbiomed')
 
         # Config file that is located in {FEDBIOMED_DIR}/gui directory
-        static_config = cfg.read(os.path.join(self.configuration['NODE_FEDBIOMED_ROOT'], 'gui', 'config_gui.ini'))
+        cfg.read(os.path.join(self.configuration['NODE_FEDBIOMED_ROOT'], 'gui', 'config_gui.ini'))
 
         # Data path ------------------------------------------------------------------------------------------------
-        data_path = os.getenv('DATA_PATH', static_config.get('server', 'DATA_PATH', fallback='/data'))
+        data_path = os.getenv('DATA_PATH', cfg.get('server', 'DATA_PATH', fallback='/data'))
 
         if data_path.startswith('/'):
             assert os.path.isdir(
@@ -91,11 +91,11 @@ class Config:
 
         # TODO: Let users decide which port they would like to use
         # Serve  configurations PORT and IP
-        self.configuration['PORT'] = os.getenv('PORT', static_config.get('server', 'PORT', fallback=8484))
-        self.configuration['HOST'] = os.getenv('HOST', static_config.get('server', 'HOST', fallback='localhost'))
+        self.configuration['PORT'] = os.getenv('PORT', cfg.get('server', 'PORT', fallback=8484))
+        self.configuration['HOST'] = os.getenv('HOST', cfg.get('server', 'HOST', fallback='localhost'))
 
         # Configure admin create new admin if there is no any
-        self._configure_admin(static_config)
+        self._configure_admin(cfg)
 
         # Log information for setting up a node connection
         print(f'INFO: Fed-BioMed Node root dir has been set as '
