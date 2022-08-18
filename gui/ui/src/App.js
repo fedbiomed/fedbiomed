@@ -126,7 +126,8 @@ function App(props) {
 const mapStateToProps = (state) => {
   return {
     result : state.resultModal,
-    auth   : state.auth
+    auth   : {...state.auth},
+    first_connection : state.first_connection
   }
 }
 

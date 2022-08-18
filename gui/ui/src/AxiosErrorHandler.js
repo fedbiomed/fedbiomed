@@ -19,8 +19,10 @@ const handleTokenExpiration = (msg=null) =>
       alert(msg)
     }
     
-    window.location.href = '/login';  // redirect to login page 
+    window.location.href = '/login/';  // redirect to login page 
   }
+
+
   // Add a request interceptor
   axios.interceptors.request.use(function (req) {
 
@@ -91,6 +93,7 @@ const handleTokenExpiration = (msg=null) =>
                     alert(error.response.data.message)
                   })
                 } else {
+                  // case where refresh token has expired
                   handleTokenExpiration(error.response.data.message)
                 }
                 

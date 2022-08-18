@@ -55,6 +55,8 @@ export const setToken = (accessToken, refreshToken) => {
 export const removeToken = () => {
     sessionStorage.removeItem('accessToken');
     sessionStorage.removeItem('refreshToken');
+    console.log("token removed")
+    alert("User disconnected")
 }
 
 

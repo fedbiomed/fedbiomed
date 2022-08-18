@@ -8,16 +8,21 @@ export const LogUserLayout = (props) => {
 
     const accessToken= sessionStorage.getItem("accessToken");
     const isAuthenticated = !accessToken && accessToken!== "" && accessToken!== undefined ? false : true
-    const {is_auth} = useSelector((state) => state.auth)
+    var {is_auth} = useSelector((state) => state.auth)
     const dispatch = useDispatch()
+
 
     // Saves user info into global state
 
     React.useEffect( () => {
+        console.log(is_auth)
         if(is_auth){
+
             dispatch(setUser(decodeToken()))
+            //is_auth = true
         }else{
-            removeToken()
+            //removeToken()
+            
         }
     }, [is_auth])
 
@@ -40,7 +45,7 @@ export const LogUserLayout = (props) => {
 
     }else{
         return(
-            <Navigate to="/login" />
+            <Navigate to="/login/" />
         )
     }
 

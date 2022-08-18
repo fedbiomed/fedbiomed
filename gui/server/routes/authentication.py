@@ -239,7 +239,8 @@ def login():
 
     user_db = get_user_by_email(email)
     if not user_db:
-        return error('Please register before to log in'), 401
+        # user account not found
+        return error(f'Unrecognized email address {email}. Please register before to log in'), 401
 
     # Should send back only one item
     user = user_db[0]
