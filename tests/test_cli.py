@@ -63,8 +63,8 @@ class TestCli(unittest.TestCase):
             fedbiomed.node.cli_utils.dataset_manager.add_database = MagicMock()
             add_database()
 
-            dp = MapperBlock()
-            dp.map = {'T1': ['T1philips', 'T1siemens'],
+            dlb = MapperBlock()
+            dlb.map = {'T1': ['T1philips', 'T1siemens'],
                       'T2': ['T2'], 'label': ['label'],
                       'Tnon-exist': ['non-existing-modality']}
 
@@ -78,12 +78,12 @@ class TestCli(unittest.TestCase):
                     'tabular_file': 'some/valid/path',
                     'index_col': 0
                 },
-                data_loading_plan=DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dp})
+                data_loading_plan=DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dlb})
             )
 
             dlp_arg = fedbiomed.node.cli_utils.dataset_manager.add_database.call_args[1]['data_loading_plan']
             self.assertIn(MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS, dlp_arg)
-            self.assertDictEqual(dlp_arg[MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS].map, dp.map)
+            self.assertDictEqual(dlp_arg[MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS].map, dlb.map)
             self.assertEqual(dlp_arg.name, 'test-dlp-name')
 
 
@@ -109,25 +109,25 @@ class TestMedicalFolderCliUtils(unittest.TestCase):
         modality_folder_names = ['Should map to T1']
         # scenario 1: 'Should map to T1' <-> 'T1'. Assumes T1 is second in the list of modalities provided by default
         TestMedicalFolderCliUtils.inputs = ['1']
-        dp = get_map_modalities2folders_from_cli(modality_folder_names)
-        self.assertDictEqual(dp.map, {'T1': ['Should map to T1']})
+        dlb = get_map_modalities2folders_from_cli(modality_folder_names)
+        self.assertDictEqual(dlb.map, {'T1': ['Should map to T1']})
 
         # scenario 2: wrong inputs first, then same as above
         TestMedicalFolderCliUtils.inputs = ['wrong', '5', '1']
-        dp = get_map_modalities2folders_from_cli(modality_folder_names)
-        self.assertDictEqual(dp.map, {'T1': ['Should map to T1']})
+        dlb = get_map_modalities2folders_from_cli(modality_folder_names)
+        self.assertDictEqual(dlb.map, {'T1': ['Should map to T1']})
 
         # scenario 3: add new name
         modality_folder_names = ['Should map to T1', 'Should map to Tnew']
         TestMedicalFolderCliUtils.inputs = ['1', '0', 'Tnew', 'y', '4']
-        dp = get_map_modalities2folders_from_cli(modality_folder_names)
-        self.assertDictEqual(dp.map, {'T1': ['Should map to T1'], 'Tnew': ['Should map to Tnew']})
+        dlb = get_map_modalities2folders_from_cli(modality_folder_names)
+        self.assertDictEqual(dlb.map, {'T1': ['Should map to T1'], 'Tnew': ['Should map to Tnew']})
 
         # scenario 4: More complexity with some mistakes added in
         modality_folder_names = ['Should map to T1', 'Should map to Tnew', 'Should also map to T1', 'Should map to T2']
         TestMedicalFolderCliUtils.inputs = ['1', '0', 'Tmistake', 'n', 'Tnew', '', '4', '5', '1', '2']
-        dp = get_map_modalities2folders_from_cli(modality_folder_names)
-        self.assertDictEqual(dp.map, {'T1': ['Should map to T1', 'Should also map to T1'],
+        dlb = get_map_modalities2folders_from_cli(modality_folder_names)
+        self.assertDictEqual(dlb.map, {'T1': ['Should map to T1', 'Should also map to T1'],
                                       'Tnew': ['Should map to Tnew'],
                                       'T2': ['Should map to T2']})
 

@@ -215,8 +215,8 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
 
         for loading_block_key, loading_block in serialized_loading_blocks_mapping.items():
             exec(f"import {loading_block['loading_block_module']}")
-            dp = eval(f"{loading_block['loading_block_module']}.{loading_block['loading_block_class']}()")
-            self[loading_block_key] = dp.deserialize(loading_block)
+            dlb = eval(f"{loading_block['loading_block_module']}.{loading_block['loading_block_class']}()")
+            self[loading_block_key] = dlb.deserialize(loading_block)
         return self
 
     def __str__(self):

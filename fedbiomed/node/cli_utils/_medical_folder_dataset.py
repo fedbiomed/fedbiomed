@@ -42,11 +42,11 @@ def add_medical_folder_dataset_from_cli(interactive: bool,
     if interactive:
         choice = input('\nWould you like to associate the detected modalities with other modality names? [y/N]\n')
         if choice.lower() == 'y':
-            dp = get_map_modalities2folders_from_cli(modality_folder_names)
+            dlb = get_map_modalities2folders_from_cli(modality_folder_names)
             if dlp is None:
-                dlp = DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dp})
+                dlp = DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dlb})
             else:
-                dlp.update({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dp})
+                dlp.update({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dlb})
     return path, dataset_parameters, dlp
 
 
@@ -80,7 +80,7 @@ def get_map_modalities2folders_from_cli(modality_folder_names: List[str]):
                 else:
                     map_modalities_to_folders[modality_names[modality_idx]].append(modality_folder)
                     keep_asking_for_this_modality = False
-    dp = MapperBlock()
-    dp.map = dict(map_modalities_to_folders)
-    return dp
+    dlb = MapperBlock()
+    dlb.map = dict(map_modalities_to_folders)
+    return dlb
 

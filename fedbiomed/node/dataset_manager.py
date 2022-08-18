@@ -79,7 +79,7 @@ class DatasetManager:
         return dlp_metadata, self._dlp_table.search(
             self._database.loading_block_serialization_id.one_of(dlp_metadata['loading_blocks'].values()))
 
-    def get_data_loading_blocks_by_ids(self, dp_ids: List[str]) -> List[dict]:
+    def get_data_loading_blocks_by_ids(self, dlb_ids: List[str]) -> List[dict]:
         """Search for a list of DataLoadingBlocks, each corresponding to one given id.
 
         Note that in case of conflicting ids (which should not happen), this function will silently return a random
@@ -88,12 +88,12 @@ class DatasetManager:
         DataLoadingBlock IDs always start with 'serialized_data_loading_block_' and should be unique in the database.
 
         Args:
-            dp_ids: (List[str]) a list of DataLoadingBlock IDs
+            dlb_ids: (List[str]) a list of DataLoadingBlock IDs
 
         Returns:
             A list of dictionaries, each one containing the DataLoadingBlock metadata corresponding to one given id.
         """
-        return self._dlp_table.search(self._database.loading_block_serialization_id.one_of(dp_ids))
+        return self._dlp_table.search(self._database.loading_block_serialization_id.one_of(dlb_ids))
 
     def search_by_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for data with given tags.
@@ -555,8 +555,8 @@ class DatasetManager:
         current_dataset_metadata['dlp_id'] = data_loading_plan.dlp_id
         return current_dataset_metadata
 
-    def save_data_loading_block(self, dp: DataLoadingBlock) -> None:
-        self._dlp_table.insert(dp.serialize())
+    def save_data_loading_block(self, dlb: DataLoadingBlock) -> None:
+        self._dlp_table.insert(dlb.serialize())
 
     @staticmethod
     def obfuscate_private_information(database_metadata: Iterable[dict]) -> Iterable[dict]:
