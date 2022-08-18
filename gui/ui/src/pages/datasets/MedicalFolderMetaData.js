@@ -56,7 +56,7 @@ const MedicalFolderMetadata = (props) => {
                                       type="text"
                                       placeholder="Please enter an optional name for the data loading customizations that you created."
                                       onChange={(e) => { props.setDLPDesc(e.target.value)}}
-                                      value={props.dlp_desc}
+                                      value={props.dlp_name}
                             />
                         </div>
                     </div> : null
@@ -69,7 +69,7 @@ const mapStateToProps = (state) => {
     return {
         metadata : state.medicalFolderDataset.metadata,
         use_new_mod2fol_association : state.medicalFolderDataset.use_new_mod2fol_association,
-        dlp_desc : state.dataLoadingPlan.dlp_desc,
+        dlp_name : state.dataLoadingPlan.dlp_name,
     }
 }
 

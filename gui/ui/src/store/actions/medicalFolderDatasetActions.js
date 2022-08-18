@@ -207,7 +207,7 @@ export const addMedicalFolderDataset = (navigator) => {
             data['dlp_id'] = dlp.selected_dlp_index !== null ?
                                 dlp.existing_dlps['data'][dlp.selected_dlp_index][1] : null
             data['dlp_loading_blocks'] = dlp.dlp_loading_blocks
-            data['dlp_desc'] = dlp.dlp_desc
+            data['dlp_name'] = dlp.dlp_name
 
             axios.post(EP_ADD_MEDICAL_FOLDER_DATASET, data).then( response => {
                     dispatch({type: 'SUCCESS_MODAL' , payload: "Dataset has been successfully added"})

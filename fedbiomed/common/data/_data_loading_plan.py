@@ -186,7 +186,7 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
         """
         self.clear()
         self.dlp_id = serialized_dlp['dlp_id']
-        self.desc = serialized_dlp['dlp_desc']
+        self.desc = serialized_dlp['dlp_name']
         for loading_block_key_str, loading_block_serialization_id in serialized_dlp['loading_blocks'].items():
             loading_block = next(filter(lambda x: x['loading_block_serialization_id'] == loading_block_serialization_id,
                                         serialized_loading_blocks))
