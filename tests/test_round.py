@@ -636,7 +636,7 @@ class TestRound(unittest.TestCase):
                 super().__init__()
 
             def __getitem__(self, item):
-                return self.apply_dp('orig-value', LoadingBlockTypesForTesting.MODIFY_GETITEM)
+                return self.apply_dlb('orig-value', LoadingBlockTypesForTesting.MODIFY_GETITEM)
 
         patch_inspect_signature.return_value = inspect.Signature(parameters={})
 

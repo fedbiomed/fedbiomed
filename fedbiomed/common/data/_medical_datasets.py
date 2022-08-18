@@ -17,13 +17,12 @@ from monai.transforms import LoadImage, ToTensor, Compose
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
-from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlocks
+from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes
 from ._data_loading_plan import DataLoadingPlanMixin
 
 
-class MedicalFolderLoadingBlocks(DataLoadingBlocks, Enum):
+class MedicalFolderLoadingBlocks(DataLoadingBlockTypes, Enum):
     MODALITIES_TO_FOLDERS: str = 'modalities_to_folders'
 
 
@@ -68,6 +67,9 @@ class NIFTIFolderDataset(Dataset):
             root: folder where the data is located.
             transform: transforms to be applied on data.
             target_transform: transforms to be applied on target indexes.
+
+        Raises:
+            FedbiomedDatasetError:
         """
         # check parameters type
         for tr, trname in ((transform, 'transform'), (target_transform, 'target_transform')):
@@ -163,6 +165,9 @@ class NIFTIFolderDataset(Dataset):
 
         Returns:
             A tuple composed of the input sample (an image) and a target sample index (label index).
+
+        Raises:
+            FedbiomedDatasetError:
         """
         # check type and value for arguments
         if not isinstance(item, int):
@@ -170,7 +175,7 @@ class NIFTIFolderDataset(Dataset):
                 f"{ErrorNumbers.FB612.value}: Parameter `item` has incorrect type {type(item)}, "
                 f"cannot get item from dataset.")
         if item < 0 or item >= len(self._files):
-            # need an IndexError, cannot use a FedbiomedError
+            # need an IndexError, cannot use a FedbiomedDatasetError
             raise IndexError(f'Bad index {item} in dataset samples')
 
         try:
@@ -249,24 +254,27 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         path = self.validate_MedicalFolder_root_folder(path)
         self._root = path
 
-    def modalities_candidates_from_subfolders(self) -> Tuple[list, list]:
-        """ Gets all possible modalities under root directory
+    def _modalities_candidates_from_subfolders(self) -> Tuple[list, list]:
+        """ Gets all possible modality folders under root directory
 
         Returns:
-             List of unique available modalities appearing at least once
-             List of all encountered modalities in each subject folder, appearing once per folder
+             List of unique available modality folders appearing at least once
+             List of all encountered modality folders in each subject folder, appearing once per folder
         """
 
         # Accept only folders that don't start with "." and "_"
         modalities = [f.name for f in self._root.glob("*/*") if f.is_dir() and not f.name.startswith((".", "_"))]
         return sorted(list(set(modalities))), modalities
 
+    # TODO: is `modality_folders_list` useful or should it be removed ?
+    # should it return encountered modalities instead of encountered modality folders ?
+    # (see `check_modalities`)
     def modalities(self) -> Tuple[list, list]:
         """Gets all modalities based either on all possible candidates or those provided by the DataLoadingPlan.
 
         Returns:
              List of unique available modalities
-             List of all encountered modalities in each subject folder, appearing once per folder
+             List of all encountered modality folders in each subject folder, appearing once per folder
         """
         modality_candidates, modality_folders_list = self.modalities_candidates_from_subfolders()
         if self._dlp is not None and MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS in self._dlp:
@@ -284,9 +292,17 @@ class MedicalFolderBase(DataLoadingPlanMixin):
 
         Returns:
             List of `bool` that represents whether modality is existing respectively for each of modality.
+
+        Raises:
+            FedbiomedDatasetError:
         """
+        if not isinstance(subject, str):
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Expected string for subject folder/ID, but got {type(subject)}")
         if not isinstance(modalities, list):
-            raise FedbiomedDatasetError(f"Expected a list for modalities, but got {type(modalities)}")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Expected a list for modalities, but got {type(modalities)}")
+        if not all([type(m) is str for m in modalities]):
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Expected a list of string for modalities, but some modalities are "
+                                        f"{' '.join([ str(type(m) for m in modalities if type(m) != str)])}")
         are_modalities_existing = list()
         for modality in modalities:
             modality_folder = self._subject_modality_folder(subject, modality)
@@ -313,16 +329,31 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         Args:
             subject_or_folder: the Path to the subject folder, or the name of the subject as a str
             modality: (str) the name of the modality
+
         Returns:
             a Path to the (unique) folder with the modality image, or None. None is returned if no folders
             were found, or if more than one matching folder was found.
+
+        Raises:
+            FedbiomedDatasetError:
         """
+        if not isinstance(modality, str):
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Bad type for modality. Expected str got {type(modality)}")
         if isinstance(subject_or_folder, str):
             subject_or_folder = self._root.joinpath(subject_or_folder)
-        modality_folders = set(self.apply_dp([modality], MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS, modality))
-        subject_subfolders = set(
-            [x.name for x in subject_or_folder.iterdir() if x.is_dir() and not x.name.startswith('.')])
+        elif not isinstance(subject_or_folder, Path):
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Bad type for subject folder argument. "
+                                        f"Expected str or Path got type({type(subject_or_folder)})")
+
+        modality_folders = set(self.apply_dlb([modality], MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS, modality))
+        try:
+            subject_subfolders = set(
+                [x.name for x in subject_or_folder.iterdir() if x.is_dir() and not x.name.startswith('.')])
+        except (FileNotFoundError, PermissionError, NotADirectoryError) as e:
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Cannot access folders for subject {subject_or_folder}. "
+                                        f"Error message is: {e}")
         folder = modality_folders.intersection(subject_subfolders)
+
         if len(folder) == 0 or len(folder) > 1:
             return None
         return Path(folder.pop())
@@ -340,10 +371,10 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         return [subject for subject in subjects if all(self.is_modalities_existing(subject, modalities))]
 
     def subjects_with_imaging_data_folders(self) -> List[str]:
-        """Retrieves subject folder names under Medical Folder roots directory.
+        """Retrieves subject folder names under Medical Folder root directory.
 
         Returns:
-            subject folder names under Medical Folder roots directory.
+            subject folder names under Medical Folder root directory.
         """
         return [f.name for f in self._root.iterdir() if f.is_dir() and not f.name.startswith(".")]
 
@@ -381,6 +412,8 @@ class MedicalFolderBase(DataLoadingPlanMixin):
     def read_demographics(path: Union[str, Path], index_col: Optional[int] = None):
         """ Read demographics tabular file for Medical Folder dataset
 
+        Raises:
+            FedbiomedDatasetError:
         """
         path = Path(path)
         if not path.is_file() or path.suffix.lower() not in [".csv", ".tsv"]:
@@ -403,8 +436,8 @@ class MedicalFolderBase(DataLoadingPlanMixin):
             Path to root folder of Medical Folder dataset
 
         Raises:
-            FedbiomedError: - If path is not an instance of `str` or `pathlib.Path`
-                            - If path is not a directory
+            FedbiomedDatasetError: - If path is not an instance of `str` or `pathlib.Path`
+                                   - If path is not a directory
         """
         if not isinstance(path, (Path, str)):
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: The argument root should an instance of "
@@ -413,10 +446,12 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         if not isinstance(path, Path):
             path = Path(path)
 
+        path = Path(path).expanduser().resolve()
+
         if not path.exists():
-            raise FedbiomedDatasetError(f"Folder or file {path} not found on system")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Folder or file {path} not found on system")
         if not path.is_dir():
-            raise FedbiomedDatasetError("Root for Medical Folder dataset should be a directory.")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Root for Medical Folder dataset should be a directory.")
 
         directories = [f for f in path.iterdir() if f.is_dir()]
         if len(directories) == 0:
@@ -479,8 +514,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             tabular_file: Path to a CSV or Excel file containing the demographic information from the patients.
             index_col: Column name in the tabular file containing the subject ids which mush match the folder names.
         """
-        super(MedicalFolderDataset, self).__init__()
-        super(Dataset, self).__init__(root=root)
+        super(MedicalFolderDataset, self).__init__(root=root)
 
         self._tabular_file = tabular_file
         self._index_col = index_col
@@ -588,7 +622,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
     @property
     def index_col(self):
-        """Getter/setter of the column containing foler's name (in the tabular file)"""
+        """Getter/setter of the column containing folder's name (in the tabular file)"""
         return self._index_col
 
     @tabular_file.setter
@@ -600,6 +634,9 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         Returns:
             path to the tabular file
+
+        Raises:
+            FedbiomedDatasetError:
         """
         if not isinstance(value, (str, Path)):
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value} Path for tabular file should be of `str` or "
@@ -607,7 +644,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         path = Path(value)
         if not path.is_file():
-            raise FedbiomedDatasetError("Path should be a data file")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Path should be a data file")
 
         self._tabular_file = Path(path).expanduser().resolve()
         return path
@@ -649,7 +686,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
     @property
     def subjects_has_all_modalities(self):
-        """Gets only the subject has required modalities"""
+        """Gets only the subjects that have all required modalities"""
 
         all_modalities = list(set(self._data_modalities + self._target_modalities))
         subject_folder_names = self.subjects_with_imaging_data_folders()
@@ -680,13 +717,13 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             FedbiomedDatasetError: If given parameters are not of `dict` type
         """
         if not isinstance(parameters, dict):
-            raise FedbiomedDatasetError(f"Expected type for `parameters` is `dict, but got {type(parameters)}`")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Expected type for `parameters` is `dict, but got {type(parameters)}`")
 
         for key, value in parameters.items():
             if hasattr(self, key):
                 setattr(self, key, value)
             else:
-                logger.warning(f"Trying to set undefined attribute {key} ti MedicalFolderDataset")
+                raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Trying to set non existing attribute '{key}'")
 
     def load_images(self, subject_folder: Path, modalities: list) -> Dict[str, torch.Tensor]:
         """Loads modality images in given subject folder
@@ -769,6 +806,9 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         Returns:
             A dict of transforms compatible with the provided modalities.
+
+        Raises:
+            FedbiomedDatasetError:
         """
 
         # Return None if any transform is not provided
@@ -829,28 +869,38 @@ class MedicalFolderController(MedicalFolderBase):
         """
         super(MedicalFolderController, self).__init__(root=root)
 
-    def check_modalities(self, _raise: bool = True) -> Tuple[bool, str]:
-        """Checks whether subject folders contains at least one common modality
+    # TODO: suppress `check_modalities` ? (currently unused)
+    # TODO: `check_modalities` looks bugged
+    #   - `len(unique_modalities) == len(modalities)` doesn't test whether "subject
+    #     folders contains at least one common modality" ???
+    #   - `self.modalities()[1]` needs to be different for this purpose: return a list of list
+    #     [['label', 'T1'], ['label', 'T1', 'T2']] + check a modality exists in all sub-lists ?
 
-        Args:
-            _raise: Flag to indicate whether function should raise in case of error. If `False` returns
-                tuple contains respectively `False` and error message
-
-        Returns:
-            status: True, if folders contain at leas one common modality
-            message: Error message if folder do not contain at least one common modality. If they do, error message
-                will be empty string
-        """
-        unique_modalities, modalities = self.modalities()
-        if len(unique_modalities) == len(modalities):
-            message = f"{ErrorNumbers.FB613.value}: Subject folders in Medical Folder root folder does not contain" \
-                      f"any common modalities. At least one common modality is expected."
-            if _raise:
-                raise FedbiomedDatasetError(message)
-            else:
-                return False, message
-
-        return True, ""
+    #def check_modalities(self, _raise: bool = True) -> Tuple[bool, str]:
+    #    """Checks whether subject folders contains at least one common modality
+#
+    #    Args:
+    #        _raise: Flag to indicate whether function should raise in case of error. If `False` returns
+    #            tuple contains respectively `False` and error message
+#
+    #    Returns:
+    #        status: True, if folders contain at least one common modality
+    #        message: Error message if folder do not contain at least one common modality. If they do, error message
+    #            will be empty string
+#
+    #    Raises:
+    #        FedbiomedDatasetError:
+    #    """
+    #    unique_modalities, modalities = self.modalities()
+    #    if len(unique_modalities) == len(modalities):
+    #        message = f"{ErrorNumbers.FB613.value}: Subject folders in Medical Folder root folder does not contain" \
+    #                  f"any common modalities. At least one common modality is expected."
+    #        if _raise:
+    #            raise FedbiomedDatasetError(message)
+    #        else:
+    #            return False, message
+#
+    #    return True, ""
 
     def subject_modality_status(self, index: Union[List, pd.Series] = None) -> Dict:
         """Scans subjects and checks which modalities are existing for each subject
@@ -896,7 +946,6 @@ class MedicalFolderController(MedicalFolderBase):
 
         Raises:
             FedbiomedDatasetError: If Medical Folder dataset is not successfully loaded
-
         """
         if self._root is None:
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Can not load Medical Folder dataset without "
@@ -912,7 +961,7 @@ class MedicalFolderController(MedicalFolderBase):
                                            data_modalities=modalities,
                                            target_modalities=modalities)
         except FedbiomedError as e:
-            raise FedbiomedDatasetError(f"Can not create Medical Folder dataset. {e}")
+            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Can not create Medical Folder dataset. {e}")
 
         if self._dlp is not None:
             dataset.set_dlp(self._dlp)
