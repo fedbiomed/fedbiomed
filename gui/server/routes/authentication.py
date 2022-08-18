@@ -263,8 +263,8 @@ def login():
     return error('Please verify your email and/or your password'), 401
 
 
-@api.route('/token/refresh', methods=['POST'])
-@jwt_required(refresh=True)  # only put `refresh` = True here
+@api.route('/token/refresh', methods=['GET'])
+@jwt_required(refresh=True)  # only put `refresh` = True here, it means we are accessing api with refresh token instead of access tokens
 def refresh_expiring_jwts():
     """ API endpoint for refreshing JWT token. Here we are using "explicit Refreshing", as 
     defined in `jwt-extended` documentation (https://flask-jwt-extended.readthedocs.io/en/stable/refreshing_tokens/).

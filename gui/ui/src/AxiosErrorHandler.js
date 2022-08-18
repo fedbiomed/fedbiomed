@@ -72,7 +72,7 @@ const handleTokenExpiration = (msg=null) =>
                 let refresh_token = getRefreshToken();
                 if (error.response.config.url !== EP_REFRESH){
                   const originalRequest = error.config;
-                  axios.post(EP_REFRESH,{'hello': 'you'}, // TODO: change that
+                  axios.get(EP_REFRESH,
                    {headers: 
                     {
                       'Authorization':  `Bearer ${refresh_token}`
