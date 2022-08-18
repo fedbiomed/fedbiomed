@@ -2,7 +2,8 @@ import uuid
 from typing import Any, Dict, List, Tuple, TypeVar
 from abc import ABC, abstractmethod
 
-from fedbiomed.common.constants import DataLoadingBlocks
+from fedbiomed.common.constants import DataLoadingBlockTypes
+from fedbiomed.common.exceptions import FedbiomedLoadingBlockError
 
 
 TDataLoadingPlan = TypeVar("TDataLoadingPlan", bound="DataLoadingPlan")
@@ -17,7 +18,7 @@ class DataLoadingBlock(ABC):
     in the way data is "perceived" by the data loaders during training.
 
     A DataLoadingBlock is identified by its type_id attribute. Thus this
-    attribute should be unique among all DataLoadingBlocks in the same
+    attribute should be unique among all DataLoadingBlockTypes in the same
     DataLoadingPlan. Moreover, we may test equality between a
     DataLoadingBlock and a string by checking its type_id, as a means of
     easily testing whether a DataLoadingBlock is contained in a collection.
@@ -40,7 +41,7 @@ class DataLoadingBlock(ABC):
     """
     def __init__(self):
         super(DataLoadingBlock, self).__init__()
-        self.__serialization_id = 'serialized_dp_' + str(uuid.uuid4())
+        self.__serialization_id = 'serialized_dlb_' + str(uuid.uuid4())
 
     def get_serialization_id(self):
         """Expose serialization id as read-only"""
@@ -121,10 +122,12 @@ class MapperBlock(DataLoadingBlock):
         return self
 
     def apply(self, key):
+        if not isinstance(self.map, dict) or key not in self.map:
+            raise FedbiomedLoadingBlockError(f"Mapper block error: no key '{key}' in mapping dictionary")
         return self.map[key]
 
 
-class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
+class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
     """Customizations to the way the data is loaded and presented for training.
 
     A DataLoadingPlan is a dictionary of {name: DataLoadingBlock} pairs. Each
@@ -154,15 +157,17 @@ class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
         """Serializes the class in a format similar to json.
 
         Returns:
-             a dictionary of key-value pairs sufficient for reconstructing
-             the DataLoadingPlan.
+             a tuple sufficient for reconstructing the DataLoading plan. It includes:
+             - a dictionary of key-value pairs with the DataLoadingPlan parameters.
+             - a list of dict containing the data for reconstruction all the DataLoadingBlock
+               of the DataLoadingPlan 
         """
         return dict(
             dlp_id=self.dlp_id,
             dlp_name=self.desc,
-            loading_blocks={key.value: dp.get_serialization_id() for key, dp in self.items()},
+            loading_blocks={key.value: dlb.get_serialization_id() for key, dlb in self.items()},
             key_paths={key.value: (f"{key.__module__}", f"{key.__class__.__qualname__}") for key in self.keys()}
-        ), [dp.serialize() for dp in self.values()]
+        ), [dlb.serialize() for dlb in self.values()]
 
     def deserialize(self, serialized_dlp: dict, serialized_loading_blocks: List[dict]) -> TDataLoadingPlan:
         """Reconstruct the DataLoadingPlan from a serialized version.
@@ -171,7 +176,7 @@ class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
         of the 'DataLoadingPlan.aggregate_serialized_metadata` function.
 
         :warning: Calling this function will *clear* the contained
-            DataLoadingBlocks. This function may not be used to "update"
+            DataLoadingBlockTypes. This function may not be used to "update"
             nor to "append to" a DataLoadingPlan.
 
         Args:
@@ -189,11 +194,11 @@ class DataLoadingPlan(Dict[DataLoadingBlocks, DataLoadingBlock]):
             loading_block = next(filter(lambda x: x['loading_block_serialization_id'] == loading_block_serialization_id,
                                         serialized_loading_blocks))
             exec(f"import {loading_block['loading_block_module']}")
-            dp = eval(f"{loading_block['loading_block_module']}.{loading_block['loading_block_class']}()")
+            dlb = eval(f"{loading_block['loading_block_module']}.{loading_block['loading_block_class']}()")
             key_module, key_classname = serialized_dlp['key_paths'][loading_block_key_str]
             exec(f"import {key_module}")
             loading_block_key = eval(f"{key_module}.{key_classname}('{loading_block_key_str}')")
-            self[loading_block_key] = dp.deserialize(loading_block)
+            self[loading_block_key] = dlb.deserialize(loading_block)
         return self
 
     def __str__(self):
@@ -209,7 +214,7 @@ class DataLoadingPlanMixin:
     basic tools necessary to support a DataLoadingPlan. Typically, the logic
     of each specific DataLoadingBlock in the DataLoadingPlan will be implemented
     in the form of hooks that are called within the Dataset's implementation
-    using the helper function apply_dp defined below.
+    using the helper function apply_dlb defined below.
     """
     def __init__(self):
         self._dlp = None
@@ -220,16 +225,16 @@ class DataLoadingPlanMixin:
     def clear_dlp(self):
         self._dlp = None
 
-    def apply_dp(self, default_ret_value: Any, dp_key: DataLoadingBlocks, *args, **kwargs):
+    def apply_dlb(self, default_ret_value: Any, dlb_key: DataLoadingBlockTypes, *args, **kwargs):
         """Apply one DataLoadingBlock identified by its key.
 
         Note that we want to easily support the case where the DataLoadingPlan
         is not activated, or the requested loading block is not contained in the
         DataLoadingPlan. This is achieved by providing a default return value
         to be returned when the above conditions are met. Hence, most of the
-        calls to apply_dp will look like this:
+        calls to apply_dlb will look like this:
         ```
-        value = self.apply_dp(value, 'my-loading-block', my_apply_args)
+        value = self.apply_dlb(value, 'my-loading-block', my_apply_args)
         ```
         This will ensure that value is not changed if the DataLoadingPlan is
         not active.
@@ -237,7 +242,7 @@ class DataLoadingPlanMixin:
         Args:
             default_ret_value: the value to be returned in case that the dlp
             functionality is not required
-            dp_key: the key of the DataLoadingBlock to be applied
+            dlb_key: the key of the DataLoadingBlock to be applied
             args: forwarded to the DataLoadingBlock's apply function
             kwargs: forwarded to the DataLoadingBlock's apply function
         Returns:
@@ -245,8 +250,8 @@ class DataLoadingPlanMixin:
              the default_ret_value when dlp is None or it does not contain
              the requested loading block
         """
-        if self._dlp is not None and dp_key in self._dlp:
-            return self._dlp[dp_key].apply(*args, **kwargs)
+        if self._dlp is not None and dlb_key in self._dlp:
+            return self._dlp[dlb_key].apply(*args, **kwargs)
         else:
             return default_ret_value
 
