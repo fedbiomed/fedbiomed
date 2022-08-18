@@ -9,8 +9,7 @@ from fedbiomed.node.environ import environ
 import fedbiomed.node.cli
 import fedbiomed.node.cli_utils
 from fedbiomed.node.cli_utils._medical_folder_dataset import get_map_modalities2folders_from_cli, \
-    add_medical_folder_dataset_from_cli
-from fedbiomed.node.cli import add_database
+    add_medical_folder_dataset_from_cli, add_database
 from fedbiomed.common.data import DataLoadingPlan, MapperBlock, MedicalFolderLoadingBlocks
 from test_medical_datasets import patch_modality_glob, patch_is_modality_dir
 

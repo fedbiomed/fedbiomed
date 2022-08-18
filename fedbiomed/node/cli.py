@@ -15,12 +15,11 @@ import argparse
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.environ import environ
-from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.node.node import Node
 from fedbiomed.common.logger import logger
-from fedbiomed.node.cli_utils import *
+from fedbiomed.node.cli_utils import dataset_manager, add_database, delete_database, delete_all_database, \
+    model_manager, register_model, update_model, approve_model, reject_model, delete_model, view_model    
 
 
 #
@@ -40,9 +39,6 @@ __intro__ = """
 
 # this may be changed on command line or in the config_node.ini
 logger.setLevel("DEBUG")
-
-dataset_manager = DatasetManager()
-model_manager = ModelManager()
 
 readline.parse_and_bind("tab: complete")
 

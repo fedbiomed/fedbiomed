@@ -254,7 +254,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         path = self.validate_MedicalFolder_root_folder(path)
         self._root = path
 
-    def _modalities_candidates_from_subfolders(self) -> Tuple[list, list]:
+    def modalities_candidates_from_subfolders(self) -> Tuple[list, list]:
         """ Gets all possible modality folders under root directory
 
         Returns:
