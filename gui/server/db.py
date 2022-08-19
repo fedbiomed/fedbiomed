@@ -29,6 +29,15 @@ class Database:
         """
         return self._table('Datasets')
 
+    def table_dlp(self) -> Table:
+        """Method  for selecting TinyDB table containing the data loading plans.
+
+        Returns:
+            A TinyDB `Table` object for this table. 
+        """
+        return self._table('Data_Loading_Plans')
+
+
     def _table(self, name: str) -> Table:
         """ Method for selecting table 
 
