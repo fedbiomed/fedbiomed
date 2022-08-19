@@ -8,8 +8,8 @@ import {useNavigate, useParams, useLocation} from "react-router-dom";
 import styles from "./AddDataset.module.css"
 
 import {
-    setCreateModalitiesToFoldersPipeline,
-    createModalitiesToFoldersPipeline,
+    setCreateModalitiesToFoldersBlock,
+    createModalitiesToFoldersBlock,
     getDefaultModalityNames,
     updateModalitiesMapping,
     clearModalityMapping,
@@ -53,7 +53,7 @@ export class ModalitiesToFolders extends React.Component {
         }
     }
 
-    createModalitiesToFoldersPipeline = (event) => {
+    createModalitiesToFoldersBlock = (event) => {
         // now need to invert the modalities_mapping to obtain a mapping of the form:
         // { modality_name : [folder_1, folder_2, ...] }
         let mod2fol = {}
@@ -65,7 +65,7 @@ export class ModalitiesToFolders extends React.Component {
                 mod2fol[mapping[key]] = [key]
             }
         }
-        this.props.createModalitiesToFoldersPipeline(mod2fol)
+        this.props.createModalitiesToFoldersBlock(mod2fol)
     }
 
     render() {
@@ -96,7 +96,7 @@ export class ModalitiesToFolders extends React.Component {
             }
             {!this.props.use_preexisting_dlp ?
                 <React.Fragment>
-                    <CheckBox onChange={(event) => {this.props.setCreateModalitiesToFoldersPipeline(event)}} >
+                    <CheckBox onChange={(event) => {this.props.setCreateModalitiesToFoldersBlock(event)}} >
                         Create a new customized association between imaging modality names and folder names
                         in your local file system.
                     </CheckBox>
@@ -151,8 +151,8 @@ const mapDispatchToProps = (dispatch) => {
     return {
         setDLPTableSelectedRow : (data) => dispatch(setDLPIndex(data)),
         usePreExistingDlp : (data) => dispatch(setUsePreExistingDlp(data)),
-        setCreateModalitiesToFoldersPipeline : (data) => dispatch(setCreateModalitiesToFoldersPipeline(data)),
-        createModalitiesToFoldersPipeline : (data) => dispatch(createModalitiesToFoldersPipeline(data)),
+        setCreateModalitiesToFoldersBlock : (data) => dispatch(setCreateModalitiesToFoldersBlock(data)),
+        createModalitiesToFoldersBlock : (data) => dispatch(createModalitiesToFoldersBlock(data)),
         getDefaultModalityNames : () => dispatch(getDefaultModalityNames()),
         updateModalitiesMapping : (data) => dispatch(updateModalitiesMapping(data)),
         clearModalityMapping : (data) => dispatch(clearModalityMapping(data)),

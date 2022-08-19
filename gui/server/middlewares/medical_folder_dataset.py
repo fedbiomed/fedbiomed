@@ -69,7 +69,7 @@ def load_dlp():
         dlp = DataLoadingPlan()
         dlp.deserialize_loading_blocks_from_mapping(loading_blocks_metadata_mapping)
 
-    if 'dlp_name' in req:
+    if dlp and 'dlp_name' in req:
         dlp.desc = req['dlp_name']
     g.dlp = dlp
 

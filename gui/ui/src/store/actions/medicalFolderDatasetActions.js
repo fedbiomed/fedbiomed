@@ -133,13 +133,13 @@ export const setIgnoreReferenceCsv = (data) => {
     }
 }
 
-export const setCreateModalitiesToFoldersPipeline = (value) => {
+export const setCreateModalitiesToFoldersBlock = (value) => {
     return (dispatch) => {
         dispatch({type: 'SET_CREATE_MOD2FOL', payload: value})
     }
 }
 
-export const createModalitiesToFoldersPipeline = (modalities_mapping) => {
+export const createModalitiesToFoldersBlock = (modalities_mapping) => {
     return (dispatch) => {
         dispatch({type: 'SET_DLP', payload: -1})
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Saving Association"}})
@@ -199,11 +199,11 @@ export const addMedicalFolderDataset = (navigator) => {
             }
         }
 
-        if(medical_folder.use_new_mod2fol_association && !('modalities_to_folders' in dlp.dlp_loading_blocks)){
-            dispatch({type: 'ERROR_MODAL' , payload: "Error: please save an association of modalities to folders by clicking on the Save Association button"})
-            dispatch({type:'SET_LOADING', payload: {status: false}})
-
-        } else {
+        // if(medical_folder.use_new_mod2fol_association && !('modalities_to_folders' in dlp.dlp_loading_blocks)){
+        //     dispatch({type: 'ERROR_MODAL' , payload: "Error: please save an association of modalities to folders by clicking on the Save Association button"})
+        //     dispatch({type:'SET_LOADING', payload: {status: false}})
+// 
+        // } else {
             data['dlp_id'] = dlp.selected_dlp_index !== null ?
                                 dlp.existing_dlps['data'][dlp.selected_dlp_index][1] : null
             data['dlp_loading_blocks'] = dlp.dlp_loading_blocks
@@ -219,7 +219,7 @@ export const addMedicalFolderDataset = (navigator) => {
                 dispatch({type:'SET_LOADING', payload: {status: false}})
                 dispatch(displayError(error, "Error while adding MedicalFolder dataset: "))
             })
-        }
+        //}
     }
 }
 
