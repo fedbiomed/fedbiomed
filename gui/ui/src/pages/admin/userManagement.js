@@ -35,6 +35,7 @@ import React, {
     EuiTitle,
   } from '@elastic/eui';
   import { Link } from 'react-router-dom';
+  import Button from '../../components/common/Button';
 
   // see https://elastic.github.io/eui/#/tabular-content/data-grid
 
@@ -67,7 +68,9 @@ const UserManagement = (props) => {
                 user_role: "simple user",
                 creation_date:"01/01/1999",
                 last_connection: "08/19/2022",
-                is_connected: "connected"
+                is_connected: "connected", // add option to logout users
+                reset_password: <Fragment><Button onClick={()=>{alert("clicked")}}>diconnect</Button></Fragment>,
+                delete_account: <Fragment><Button type={"negative"}>Delete</Button></Fragment>
                 
             })
         }
@@ -79,14 +82,14 @@ const UserManagement = (props) => {
           id: 'name',
           displayAsText: 'Name',
           defaultSortDirection: 'asc',
-          initialWidth: 130,
+          initialWidth: 100,
           actions: { showMoveLeft: false, showMoveRight: false },
         },
         {
             id: 'surname',
             displayAsText: 'Surname',
             defaultSortDirection: 'asc',
-            initialWidth: 130,
+            initialWidth: 100,
             actions: { showMoveLeft: false, showMoveRight: false },
           },
         {
