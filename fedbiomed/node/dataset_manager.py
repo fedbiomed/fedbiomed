@@ -80,7 +80,7 @@ class DatasetManager:
             self._database.loading_block_serialization_id.one_of(dlp_metadata['loading_blocks'].values()))
 
     def get_data_loading_blocks_by_ids(self, dlb_ids: List[str]) -> List[dict]:
-        """Search for a list of DataLoadingBlocks, each corresponding to one given id.
+        """Search for a list of DataLoadingBlockTypes, each corresponding to one given id.
 
         Note that in case of conflicting ids (which should not happen), this function will silently return a random
         one with the sought id.

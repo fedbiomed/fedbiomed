@@ -3,7 +3,7 @@ import warnings
 from copy import copy
 from collections import defaultdict
 from fedbiomed.common.data import DataLoadingPlan, MedicalFolderController, MedicalFolderBase, MapperBlock, \
-    MedicalFolderLoadingBlocks
+    MedicalFolderLoadingBlockTypes
 from ._io import validated_path_input
 
 
@@ -44,9 +44,9 @@ def add_medical_folder_dataset_from_cli(interactive: bool,
         if choice.lower() == 'y':
             dlb = get_map_modalities2folders_from_cli(modality_folder_names)
             if dlp is None:
-                dlp = DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dlb})
+                dlp = DataLoadingPlan({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb})
             else:
-                dlp.update({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dlb})
+                dlp.update({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb})
     return path, dataset_parameters, dlp
 
 

@@ -15,7 +15,7 @@ from schemas import ValidateMedicalFolderReferenceCSV, \
     ValidateMedicalFolderAddRequest, \
     PreviewDatasetRequest
 
-from fedbiomed.common.data import MedicalFolderController, MapperBlock, MedicalFolderLoadingBlocks
+from fedbiomed.common.data import MedicalFolderController, MapperBlock, MedicalFolderLoadingBlockTypes
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.common.exceptions import FedbiomedError
 dataset_manager = DatasetManager()
@@ -149,7 +149,7 @@ def create_modalities_to_folders_pipeline():
     req = request.json
     dlb = MapperBlock()
     dlb.map = req['mapping']
-    key = MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS
+    key = MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS
     dataset_manager.save_data_loading_block(dlb)
     return response(data={'serial_id': dlb.get_serialization_id(),
                           'module': key.__module__,

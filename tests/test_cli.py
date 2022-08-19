@@ -10,7 +10,7 @@ import fedbiomed.node.cli_utils
 from fedbiomed.node.cli_utils._medical_folder_dataset import get_map_modalities2folders_from_cli, \
     add_medical_folder_dataset_from_cli
 from fedbiomed.node.cli_utils import add_database
-from fedbiomed.common.data import DataLoadingPlan, MapperBlock, MedicalFolderLoadingBlocks
+from fedbiomed.common.data import DataLoadingPlan, MapperBlock, MedicalFolderLoadingBlockTypes
 from test_medical_datasets import patch_modality_glob, patch_is_modality_dir
 
 
@@ -77,12 +77,12 @@ class TestCli(unittest.TestCase):
                     'tabular_file': 'some/valid/path',
                     'index_col': 0
                 },
-                data_loading_plan=DataLoadingPlan({MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS: dlb})
+                data_loading_plan=DataLoadingPlan({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb})
             )
 
             dlp_arg = fedbiomed.node.cli_utils.dataset_manager.add_database.call_args[1]['data_loading_plan']
-            self.assertIn(MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS, dlp_arg)
-            self.assertDictEqual(dlp_arg[MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS].map, dlb.map)
+            self.assertIn(MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS, dlp_arg)
+            self.assertDictEqual(dlp_arg[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map, dlb.map)
             self.assertEqual(dlp_arg.name, 'test-dlp-name')
 
 
@@ -152,8 +152,8 @@ class TestMedicalFolderCliUtils(unittest.TestCase):
             'tabular_file': 'some/valid/path',
             'index_col': 0
         })
-        self.assertIn(MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS, dlp)
-        self.assertDictEqual(dlp[MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS].map, {
+        self.assertIn(MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS, dlp)
+        self.assertDictEqual(dlp[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map, {
             'T1': ['T1philips', 'T1siemens'],
             'T2': ['T2'],
             'Tnon-exist': ['non-existing-modality'],

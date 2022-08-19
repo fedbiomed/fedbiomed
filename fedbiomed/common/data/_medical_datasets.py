@@ -22,7 +22,7 @@ from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes
 from ._data_loading_plan import DataLoadingPlanMixin
 
 
-class MedicalFolderLoadingBlocks(DataLoadingBlockTypes, Enum):
+class MedicalFolderLoadingBlockTypes(DataLoadingBlockTypes, Enum):
     MODALITIES_TO_FOLDERS: str = 'modalities_to_folders'
 
 
@@ -277,8 +277,8 @@ class MedicalFolderBase(DataLoadingPlanMixin):
              List of all encountered modality folders in each subject folder, appearing once per folder
         """
         modality_candidates, modality_folders_list = self.modalities_candidates_from_subfolders()
-        if self._dlp is not None and MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS in self._dlp:
-            modalities = list(self._dlp[MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS].map.keys())
+        if self._dlp is not None and MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS in self._dlp:
+            modalities = list(self._dlp[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map.keys())
             return modalities, modality_folders_list
         else:
             return modality_candidates, modality_folders_list
@@ -345,7 +345,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Bad type for subject folder argument. "
                                         f"Expected str or Path got type({type(subject_or_folder)})")
 
-        modality_folders = set(self.apply_dlb([modality], MedicalFolderLoadingBlocks.MODALITIES_TO_FOLDERS, modality))
+        modality_folders = set(self.apply_dlb([modality], MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS, modality))
         try:
             subject_subfolders = set(
                 [x.name for x in subject_or_folder.iterdir() if x.is_dir() and not x.name.startswith('.')])

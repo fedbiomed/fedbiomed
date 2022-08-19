@@ -95,7 +95,7 @@ class DataLoadingBlockTypes(_BaseEnum):
     implementation or application. To define a concrete enumeration type,
     one must subclass this class as follows:
     ```python
-    class MyLoadingBlocks(DataLoadingBlockTypes, Enum):
+    class MyLoadingBlockTypes(DataLoadingBlockTypes, Enum):
         MY_KEY: str 'myKey'
         MY_OTHER_KEY: str 'myOtherKey'
     ```
