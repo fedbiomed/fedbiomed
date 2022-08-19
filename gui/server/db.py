@@ -1,12 +1,14 @@
 from datetime import datetime
 from typing import Dict
 import uuid
-#from fedbiomed.common.constants import UserRoleType
+
+from fedbiomed.common.constants import UserRoleType
 from tinydb import TinyDB, Query
 from tinydb.table import Table
 
 from app import app, config
 from utils import set_password_hash
+#from routes import UserRoleType
 
 class BaseDatabase:
 
@@ -70,17 +72,32 @@ class UserDatabase(BaseDatabase):
         """adds default admin user to database if no admin has been found in database"""
         # TODO: check if there is no admin registered in database
         email, password = admin_credential['email'], admin_credential['password']
+        
+        # first step: check if there is no admin registered in database
+        
         try:
-
-            self.table_users().insert({"user_email": email,
-                "password_hash": set_password_hash(password),
-                "user_role": 1, # figure out a way to do that with UserRoleType
-                "creation_date": datetime.utcnow().ctime(),
-                "user_id": 'user_' + str(uuid.uuid4())})
+            query = self.query()
+            admins = self.table_users().get(query.user_role == UserRoleType.ADMIN)
         except Exception as e:
-            print(f"error, unable to add default admin account to database {e}")
+            admins = []  # force 
+            print(f"Error, unable to query in database for admin accounts {e}... resuming")
+        if not admins:
+            # if no admin user are found, add it into user gui database
+            print("No admin found, creating default one")
+            try:
+
+                self.table_users().insert({"user_email": email,
+                                           "password_hash": set_password_hash(password),
+                                           "user_role": UserRoleType.ADMIN, 
+                                           "creation_date": datetime.utcnow().ctime(),
+                                           "user_id": 'user_' + str(uuid.uuid4())})
+            except Exception as e:
+                print(f"error, unable to add default admin account to database {e}")
 
 
 node_database = NodeDatabase(app.config['NODE_DB_PATH'])
 user_database = UserDatabase(app.config['GUI_DB_PATH'])
+
 user_database.add_default_admin_user(config.configuration['DEFAULT_ADMIN_CREDENTIAL'])
+del config.configuration['DEFAULT_ADMIN_CREDENTIAL']  # remove default account credential of env variables
+# for security reasons

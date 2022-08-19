@@ -48,8 +48,7 @@ class Config:
         # path for writing and reading will be same for saving into database
         self.configuration['DATA_PATH_RW'] = data_path
         self.configuration['DATA_PATH_SAVE'] = data_path
-        
-        print(cfg.get('init_admin', 'email'), cfg.get('init_admin', 'password'))
+
         self.configuration['DEFAULT_ADMIN_CREDENTIAL'] = {'email': cfg.get('init_admin', 'email'),
                                                           'password': cfg.get('init_admin', 'password')}
         
@@ -110,6 +109,7 @@ class Config:
 
         print(f'INFO: Services are going to be configured for the node '
               f'{self.configuration["NODE_ID"]} \n')
+        #os.environ["PYTHON_PATH"] = self.configuration['NODE_CONFIG_FILE_PATH']
 
         return self.configuration
 

@@ -9,7 +9,6 @@ from flask import request, Blueprint
 from flask_jwt_extended import (jwt_required, create_access_token, create_refresh_token, unset_jwt_cookies,
                                 verify_jwt_in_request, get_jwt, set_access_cookies, set_refresh_cookies)
 from utils import error, response
-
 from fedbiomed.common.constants import UserRoleType
 from gui.server.schemas import ValidateUserFormRequest
 from gui.server.utils import success, validate_request_data
