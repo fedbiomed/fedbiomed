@@ -71,17 +71,17 @@ export class ModalitiesToFolders extends React.Component {
     render() {
         return (
             <React.Fragment>
-            { !this.props.use_new_dlp ?
-                <CheckBox onChange={(status) => {this.props.usePreExistingDlp(status)}}
-                checked={this.props.use_preexisting_dlp}
-                >
-                    Use an existing already-existing set of customizations.
-                    The way your data is loaded and presented to the researcher during the federated
-                    training phase will be affected by all the customizations in the plan selected below.
-                    For example, check this box if you wish to map your local folder names
-                    to more generic imaging modality names.
-                </CheckBox> : null
-            }
+
+            <CheckBox onChange={(status) => {this.props.usePreExistingDlp(status)}}
+            checked={this.props.use_preexisting_dlp}
+            >
+                Use an existing already-existing set of customizations.
+                The way your data is loaded and presented to the researcher during the federated
+                training phase will be affected by all the customizations in the plan selected below.
+                For example, check this box if you wish to map your local folder names
+                to more generic imaging modality names.
+            </CheckBox>
+
             { this.props.use_preexisting_dlp && this.props.existing_dlps !== null ?
                 <React.Fragment>
                 <p className={styles.dlp_selection_table_title}>Please select one customization from the table below.</p>
@@ -117,19 +117,6 @@ export class ModalitiesToFolders extends React.Component {
                                             </div>
                                         </React.Fragment>
                                 )})}
-                            </div>
-                            <div className={styles.saveAssociationsButtonContainer}>
-                            <Button
-                                onClick={(event) => {this.createModalitiesToFoldersPipeline(event)}}
-                            >
-                                Save association
-                            </Button>
-                            <button className={styles.helpCircle}>?</button>
-                                <span className={styles.saveAssociationHelpText} >
-                                    The last-saved association will be automatically linked to this dataset at the final
-                                    step of this page. To fix a mistake, simply click the button again to save a new
-                                    association and overwrite the previous one.
-                                </span>
                             </div>
                         </React.Fragment>
                 ) : null

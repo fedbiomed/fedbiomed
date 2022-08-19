@@ -89,16 +89,26 @@ export class MedicalFolderDataset extends React.Component {
 
                 {this.props.medical_folder_root ?
                     <React.Fragment>
+
                     <Step key={2}
                           step={2}
+                          desc={'Would you like to reuse existing customization for this dataset?'}
+                    >
+
+                    </Step>
+
+                     
+                    <Step key={3}
+                          step={3}
                           desc={'Would you like to associate your local folder names with other imaging modality names?'}
                     >
                         < ModalitiesToFolders />
                     </Step>
+                    
 
                     <Step
-                        key={3}
-                        step={3}
+                        key={4}
+                        step={4}
                         desc={'Please select reference/demographics CSV file where all subject folder names are stored'}
                     >
                        <CheckBox onChange={this.ignoreReferenceCsv}
@@ -121,8 +131,8 @@ export class MedicalFolderDataset extends React.Component {
 
                 { !this.props.ignore_reference_csv && this.props.medical_folder_root && this.props.medicalFolderDataset.reference_csv != null ? (
                     <Step
-                        key={4}
-                        step={4}
+                        key={5}
+                        step={5}
                         desc={'Please select to column that represent subject folders in MedicalFolder root directory.'}
                     >
                         <SelectiveTable
@@ -138,8 +148,8 @@ export class MedicalFolderDataset extends React.Component {
 
                 {this.props.medicalFolderDataset.medical_folder_ref.ref.name != null || this.props.ignore_reference_csv ? (
                     <Step
-                        key={5}
-                        step={5}
+                        key={6}
+                        step={6}
                         desc={'Please enter following information'}
                     >
                         <DatasetMetadata/>
@@ -150,13 +160,20 @@ export class MedicalFolderDataset extends React.Component {
                       this.props.ignore_reference_csv
                     )? (
                     <Step
-                        key={6}
-                        step={6}
+                        key={7}
+                        step={7}
                         label="Add/Register MedicalFolder Dataset"
                     >
                          <ButtonsWrapper>
                             <Button onClick={this.addDataset}>Add Dataset</Button>
                         </ButtonsWrapper>
+
+                        {/*
+                        TODO: extend `DatasetManager.add_database` to save dlb/dlp only when they
+                          do not exist (check id ?)
+                        TODO: ask for name for dlp, only when created or modified the dlp
+                        */}
+
                     </Step>
                 ): null}
             </div>
