@@ -1,5 +1,12 @@
 import React, {useState, useMemo} from 'react';
-import {EuiPageBody, EuiPageContentBody, EuiPageHeader, EuiSpacer, EuiTab, EuiTabs, EuiPageContent} from "@elastic/eui"
+import {EuiPageBody,
+        EuiPageContentBody,
+        EuiPageHeader,
+        EuiSpacer,
+        EuiTab,
+        EuiTabs,
+        EuiPageContent,
+        EuiTextColor} from "@elastic/eui"
 import { EP_UPDATE_PASSWORD } from '../../constants';
 import Button from '../../components/common/Button';
 import Modal from '../../components/common/Modal';
@@ -8,7 +15,9 @@ import {useSelector, useDispatch} from 'react-redux';
 import axios from 'axios';
 import UserInfo from "./UserInfo";
 import PasswordChange from "./PasswordChange";
-
+import UserManagement from '../admin/userManagement';
+import UserRequestManagement from '../admin/userRequestManagement';
+import {EP_ADMIN} from '../../constants';
 
 const UserAccount = () => {
     // displays webpage for user account management 
@@ -45,32 +54,68 @@ const UserAccount = () => {
 
     }
 
+    const [isadmin, setIsAdmin] = useState(false)
+    const isAccessGranted = () => {
+        axios.get(EP_ADMIN).then((response) => {
+            //alert("admin logged in")
+            setIsAdmin(true)
+        }).catch((error) => {
+           // alert(error.response.data.message)
+           setIsAdmin(false)
+        })}
     const tabs = [
               {
                   id: 'user-info',
                   label: 'Account',
                   isSelected: true,
-                  content: <UserInfo/>
+                  content: <UserInfo/>,
+                  color: "default",
+                  display: true
               },
+
               {
                   id: 'change-password',
                   label: 'Change Password',
-                  content: <PasswordChange user={userInfo} />
+                  content: <PasswordChange user={userInfo} />,
+                  color: "default",
+                  display: true
               },
+              {
+                 id: 'manage-user',
+                 label: 'Manage Users',
+                 content: <UserManagement/>,
+                 color: "#788083",
+                 display: isadmin
+
+              },
+              {
+                id: 'request-account-user',
+                label: 'Approve new Users',
+                content: <UserRequestManagement/>,
+                color: "#788083",
+                display: isadmin
+
+             },
     ]
 
     const selectedTabContent = useMemo(() => {
         return tabs.find((obj) => obj.id === selectedTabId)?.content;
       }, [selectedTabId]);
 
+    const selectedTabColor = useMemo(() => {
+        return tabs.find((obj) => obj.id === selectedTabId)?.color;
+      }, [selectedTabId]);
 
     const onSelectedTabChanged = (id) => {
         setSelectedTabId(id);
     };
+    isAccessGranted()
 
     const renderTabs = () => {
         return tabs.map( (tab, index) => {
             return (
+                <div>
+                    
                     <EuiTab
                         key={index}
                         href={tab.href}
@@ -79,10 +124,12 @@ const UserAccount = () => {
                         disabled={tab.disabled}
                         prepend={tab.prepend}
                         append={tab.append}
-                        label={tab.content}
-                    >
-                        {tab.label}
+                        label={ tab.content}
+                    >   
+                        {tab.display ? <EuiTextColor color={tab.color}>{tab.label}</EuiTextColor>: null}
+                        
                     </EuiTab>
+                    </div>
                 )
         })
 

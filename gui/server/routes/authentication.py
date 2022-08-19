@@ -149,7 +149,7 @@ def update_password():
 @api.route('/register', methods=['POST', 'GET'])
 @validate_request_data(schema=ValidateUserFormRequest)
 def register():
-    """ API endpoint to register new user in the database.
+    """ API endpoint to register new user in the database (as a simple user).
 
     Request {application/json}:
         email (str): Email of the user to register
@@ -164,8 +164,8 @@ def register():
         409:
             success : Boolean error status (False)
             result  : null
-            message : Message about error. Can be validation error or
-                      error from TinyDB
+            message : Message about error, when user is already registered but wants to register
+                        under another account
         201:
             success : Boolean value indicates that the request is success
             result  : null
@@ -205,6 +205,64 @@ def register():
     except Exception as e:
         return error(str(e)), 400
 
+@api.route('/register-admin', methods=['POST', 'GET'])
+@validate_request_data(schema=ValidateUserFormRequest)
+def register_admin():
+    """ API endpoint to register new user in the database.
+
+    Request {application/json}:
+        email (str): Email of the user to register
+        password (str): Password of the user to register
+
+    Response {application/json}:
+        400:
+            error   : Boolean error status (False)
+            result  : null
+            message : Message about error. Can be validation error or
+                      error from TinyDB
+        409:
+            success : Boolean error status (False)
+            result  : null
+            message : Message about error, when user is already registered but wants to register
+                        under another account
+        201:
+            success : Boolean value indicates that the request is success
+            result  : null
+            message : The message for response
+    """
+    req = request.json
+    if not req or not req['email'] or not req['password']:
+        return error('Email or password is missing'), 400
+
+    email = req['email']
+    password = req['password']
+
+    if not check_mail_format(email):
+        return error('Wrong email format'), 400
+
+    if not check_password_format(password):
+        return error(
+            'Password should be at least 8 character long, with at least one uppercase letter, one lowercase letter and one number'), 400
+
+    if get_user_by_email(email):
+        return error('Email already Present. Please log in'), 409
+    try:
+        # Create unique id for the user
+        user_id = 'user_' + str(uuid.uuid4())
+        table.insert({
+            "user_email": email,
+            "password_hash": set_password_hash(password),
+            "user_role": UserRoleType.ADMIN,
+            "creation_date": datetime.utcnow().ctime(),
+            "user_id": user_id
+        })
+        res = table.get(query.user_id == user_id)
+        return response({
+            'user_id': res['user_id'],
+            'user_email': res['user_email']
+        }, 'User successfully registered'), 201
+    except Exception as e:
+        return error(str(e)), 400
 
 @api.route('/token/auth', methods=['POST'])
 @validate_request_data(schema=ValidateUserFormRequest)
