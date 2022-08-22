@@ -69,7 +69,7 @@ def index(path):
 
 @jwt.expired_token_loader
 def expired_token_callback(jwt_header, jwt_payload):
-    # custom error message
+    # custom error message (I guess it will be sent no matter if refresh or access tokens are expired)
     err = error( msg="Session has expired! Please login again")
     return err, 401
 

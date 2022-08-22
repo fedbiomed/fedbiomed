@@ -109,7 +109,6 @@ class Config:
 
         print(f'INFO: Services are going to be configured for the node '
               f'{self.configuration["NODE_ID"]} \n')
-        #os.environ["PYTHON_PATH"] = self.configuration['NODE_CONFIG_FILE_PATH']
 
         return self.configuration
 
