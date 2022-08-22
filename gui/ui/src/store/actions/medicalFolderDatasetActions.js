@@ -155,23 +155,71 @@ export const createModalitiesToFoldersBlock = (modalities_mapping) => {
     }
 }
 
-export const getDefaultModalityNames = () => {
+export const initModalityNames = () => {
     return (dispatch) => {
         axios.get(EP_DEFAULT_MODALITY_NAMES).then(response => {
             dispatch({type: 'SET_DEFAULT_MODALITY_NAMES', payload: response.data.result.default_modalities})
+            dispatch({type: 'SET_CURRENT_MODALITY_NAMES', payload: response.data.result.default_modalities})
         })
     }
 }
 
 export const updateModalitiesMapping = (data) => {
-    return (dispatch) => {
+    return (dispatch, getState) => {
         dispatch({type: 'UPDATE_MODALITIES_MAPPING', payload: {folder_name: data.folder_name, modality_name: data.modality_name} })
+        
+        let medical_folder = getState().medicalFolderDataset
+        let mapping = medical_folder.modalities_mapping
+        let m2f = medical_folder.mod2fol_mapping
+        if(data.modality_name in m2f) {
+            if(!m2f[data.modality_name].includes(data.folder_name)){
+                m2f[data.modality_name].push(data.folder_name)
+            }
+        } else {
+            m2f[data.modality_name] = [data.folder_name]
+        }
+        dispatch({type: 'UPDATE_MOD2FOL_MAPPING', payload: m2f })
+
+        let has_all_mappings = true
+        for(const folder of medical_folder.modalities.values()) {
+            if(!mapping[folder]) {
+                has_all_mappings = false
+                break
+            }
+        }
+        dispatch({type: 'UPDATE_HAS_ALL_MAPPINGS', payload: has_all_mappings})
+
+        let current_modalities = getState().medicalFolderDataset.current_modality_names
+        // TODO add modality to current
+        //console.log('avant add', data.modality_name, current_modalities)
+        //if(!data.modality_name in current_modalities.values()){
+        //    current_modalities.push(data.modality_name)
+        //    console.log('add in current modalities', current_modalities)
+        //}
+        dispatch({type: 'SET_CURRENT_MODALITY_NAMES', payload: current_modalities})
     }
 }
 
 export const clearModalityMapping = (folder_name) => {
-    return (dispatch) => {
+    return (dispatch, getState) => {
         dispatch({type: 'CLEAR_MODALITY_MAPPING', payload: folder_name})
+
+        let medical_folder = getState().medicalFolderDataset
+        let m2f = medical_folder.mod2fol_mapping
+        for(const modality in m2f) {
+            if(m2f[modality].includes(folder_name)){
+                m2f[modality] = m2f[modality].filter(folder => folder !== folder_name)
+                if(m2f[modality].length === 0){
+                    delete m2f[modality]
+                }
+                break
+            }
+        }
+        dispatch({type: 'CLEAR_MOD2FOL_MAPPING', payload: m2f})
+
+        dispatch({type: 'UPDATE_HAS_ALL_MAPPINGS', payload: false})
+
+        // TODO clear modality from current
     }
 }
 

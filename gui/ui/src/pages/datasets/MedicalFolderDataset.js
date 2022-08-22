@@ -77,7 +77,7 @@ export class MedicalFolderDataset extends React.Component {
                    />
                     {this.props.medicalFolderDataset.modalities ?
                         (<div className={''}>
-                            <label>Modalities: </label>
+                            <label>Folder names: </label>
                             {this.props.medicalFolderDataset.modalities.map((item, key) => {
                                   return(
                                       <span className={styles.modalities} key={key}>{item}</span>

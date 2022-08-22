@@ -2,7 +2,6 @@ import React from 'react';
 import CreatableSelect from 'react-select/creatable';
 import {connect} from "react-redux"
 import {SelectiveTable} from "../../components/common/Tables";
-import Button from "../../components/common/Button";
 import {CheckBox} from "../../components/common/Inputs";
 import {useNavigate, useParams, useLocation} from "react-router-dom";
 import styles from "./AddDataset.module.css"
@@ -10,7 +9,7 @@ import styles from "./AddDataset.module.css"
 import {
     setCreateModalitiesToFoldersBlock,
     createModalitiesToFoldersBlock,
-    getDefaultModalityNames,
+    initModalityNames,
     updateModalitiesMapping,
     clearModalityMapping,
     } from "../../store/actions/medicalFolderDatasetActions"
@@ -40,7 +39,7 @@ const withRouter = (Component) =>  {
 
 export class ModalitiesToFolders extends React.Component {
     componentDidMount(){
-        this.props.getDefaultModalityNames()
+        this.props.initModalityNames()
     }
 
     updateModalitiesMapping = (data, folder_name) => {
@@ -111,7 +110,7 @@ export class ModalitiesToFolders extends React.Component {
                                                 <CreatableSelect
                                                     isClearable
                                                     onChange={event => {this.updateModalitiesMapping(event, item)}}
-                                                    options={this.props.default_modality_names}
+                                                    options={this.props.current_modality_names}
                                                     key={`modcreatsel-${key}`}
                                                 />
                                             </div>
@@ -136,6 +135,7 @@ const mapStateToProps = (state) => {
         use_new_mod2fol_association  : state.medicalFolderDataset.use_new_mod2fol_association,
         existing_dlps  : state.dataLoadingPlan.existing_dlps,
         default_modality_names : state.medicalFolderDataset.default_modality_names,
+        current_modality_names : state.medicalFolderDataset.current_modality_names,
         modalities_mapping : state.medicalFolderDataset.modalities_mapping,
         mod2fol_mapping : state.medicalFolderDataset.mod2fol_mapping,        
         dlp_loading_blocks : state.dataLoadingPlan.dlp_loading_blocks,
@@ -154,7 +154,7 @@ const mapDispatchToProps = (dispatch) => {
         usePreExistingDlp : (data) => dispatch(setUsePreExistingDlp(data)),
         setCreateModalitiesToFoldersBlock : (data) => dispatch(setCreateModalitiesToFoldersBlock(data)),
         createModalitiesToFoldersBlock : (data) => dispatch(createModalitiesToFoldersBlock(data)),
-        getDefaultModalityNames : () => dispatch(getDefaultModalityNames()),
+        initModalityNames : () => dispatch(initModalityNames()),
         updateModalitiesMapping : (data) => dispatch(updateModalitiesMapping(data)),
         clearModalityMapping : (data) => dispatch(clearModalityMapping(data)),
     }
