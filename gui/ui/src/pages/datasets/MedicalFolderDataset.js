@@ -104,7 +104,12 @@ export class MedicalFolderDataset extends React.Component {
                     >
                         < ModalitiesToFolders />
                     </Step>
-                    
+                    </React.Fragment>
+                 : null
+                }
+
+                { this.props.has_all_mappings && this.props.medical_folder_root ?
+                    <React.Fragment>
 
                     <Step
                         key={4}
@@ -195,6 +200,7 @@ const mapStateToProps = (state) => {
         medical_folder_root : state.medicalFolderDataset.medical_folder_root,
         medicalFolderDataset : state.medicalFolderDataset,
         ignore_reference_csv : state.medicalFolderDataset.ignore_reference_csv,
+        has_all_mappings : state.medicalFolderDataset.has_all_mappings,
     }
 }
 

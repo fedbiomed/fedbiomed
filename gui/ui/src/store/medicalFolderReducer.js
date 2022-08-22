@@ -24,6 +24,8 @@ const initialState = {
     use_new_mod2fol_association: false,
     default_modality_names: [],
     modalities_mapping: {},
+    mod2fol_mapping: {},
+    has_all_mappings: false
 }
 
 
@@ -112,16 +114,46 @@ export const medicalFolderReducer = (state = initialState, action) => {
         case "UPDATE_MODALITIES_MAPPING":
             let mapping = state.modalities_mapping
             mapping[action.payload.folder_name] = action.payload.modality_name
+
+            let m2f = state.mod2fol_mapping
+            if(action.payload.modality_name in m2f) {
+                if(!m2f[action.payload.modality_name].includes(action.payload.folder_name)){
+                    m2f[action.payload.modality_name].push(action.payload.folder_name)
+                }
+            } else {
+                m2f[action.payload.modality_name] = [action.payload.folder_name]
+            }
+
+            let has_all_update = true
+            for(const folder of state.modalities.values()) {
+                if(!mapping[folder]) {
+                    has_all_update = false
+                    break
+                }
+            }
+
             return {
                 ...state,
-                modalities_mapping: mapping
+                modalities_mapping: mapping,
+                mod2fol_mapping: m2f,
+                has_all_mappings: has_all_update,
             }
         case "CLEAR_MODALITY_MAPPING":
             let mod_mapping = state.modalities_mapping
             delete mod_mapping[action.payload]
+
+            let m2f_clear = state.mod2fol_mapping
+            for(const modality in m2f_clear) {
+                if(m2f_clear[modality].includes(action.payload)){
+                    m2f_clear[modality] = m2f_clear[modality].filter(folder => folder != action.payload)
+                }
+            }
+
             return {
                 ...state,
-                modalities_mapping: mod_mapping
+                modalities_mapping: mod_mapping,
+                mod2fol_mapping: m2f_clear,
+                has_all_mappings: false,
             }
         case "RESET_MEDICAL_FOLDER":
             return initialState

@@ -137,6 +137,7 @@ const mapStateToProps = (state) => {
         existing_dlps  : state.dataLoadingPlan.existing_dlps,
         default_modality_names : state.medicalFolderDataset.default_modality_names,
         modalities_mapping : state.medicalFolderDataset.modalities_mapping,
+        mod2fol_mapping : state.medicalFolderDataset.mod2fol_mapping,        
         dlp_loading_blocks : state.dataLoadingPlan.dlp_loading_blocks,
         selected_dlp_index : state.dataLoadingPlan.selected_dlp_index,
     }
