@@ -38,7 +38,7 @@ import React, {
   } from '@elastic/eui';
   import { Link } from 'react-router-dom';
   import Button from '../../components/common/Button';
-  import {UserManagementModal, UserPasswordResetManagement} from './userManagementModal';
+  import {UserManagementModal, UserPasswordResetManagement, UserAccountCreation} from './userManagementModal';
   
   // see https://elastic.github.io/eui/#/tabular-content/data-grid
 
@@ -49,6 +49,7 @@ const UserManagement = (props) => {
     const DataContext = createContext();
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showResetPwdModal, setShowResetPwdModal] = useState(false);
+    const [showAccountCreationModal, setShowAccountCreationModal] = useState(false);
     const raw_data = [];
 
     const closeDeleteModal = () => {setShowDeleteModal(false)}
@@ -174,7 +175,7 @@ const UserManagement = (props) => {
                     <h1>You are simple user. you cannot access this page</h1>}
             </div>
             <div>
-                <p>Add a new account</p><EuiButton onClick={() => {}}>Create new account</EuiButton>
+                <p>Add a new account</p><EuiButton onClick={()=> (setShowAccountCreationModal(true))}>Create new account</EuiButton>
             </div>
             <div>
                     
@@ -218,6 +219,7 @@ const UserManagement = (props) => {
                                  title="Reset Password"
                                  onClose={closeResetPwdModal}
                                  />:null}
+            {showAccountCreationModal? <UserAccountCreation></UserAccountCreation>:null}
         </div>
         </Fragment>
 
