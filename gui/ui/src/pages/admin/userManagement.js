@@ -19,6 +19,7 @@ import React, {
     EuiContextMenuItem,
     EuiContextMenuPanel,
     EuiDataGrid,
+    EuiFlexItem,
     EuiFlyout,
     EuiFlyoutBody,
     EuiFlyoutFooter,
@@ -33,20 +34,43 @@ import React, {
     EuiScreenReaderOnly,
     EuiText,
     EuiTitle,
+    EuiHealth, EuiPanel
   } from '@elastic/eui';
   import { Link } from 'react-router-dom';
   import Button from '../../components/common/Button';
-
+  import {UserManagementModal, UserPasswordResetManagement} from './userManagementModal';
+  
   // see https://elastic.github.io/eui/#/tabular-content/data-grid
 
 
 const UserManagement = (props) => {
 
     const [isadmin, setIsAdmin] = useState(false)
-    const gridRef = createRef();
     const DataContext = createContext();
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showResetPwdModal, setShowResetPwdModal] = useState(false);
     const raw_data = [];
 
+    const closeDeleteModal = () => {setShowDeleteModal(false)}
+    const closeResetPwdModal = () => {setShowResetPwdModal(false)}
+
+    // pagination stuff for data grid
+    const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+    const setPageSize = useCallback(
+        (pageSize) =>
+          setPagination((pagination) => ({
+            ...pagination,
+            pageSize,
+            pageIndex: 0,
+          })),
+        [pagination, setPagination]
+      );
+      const setPageIndex = useCallback(
+        (pageIndex) =>
+          setPagination((pagination) => ({ ...pagination, pageIndex })),
+        [pagination,setPagination]
+      );
+    
     const isAccessGranted = () => {
         // check if access is granted for admin
         axios.get(EP_ADMIN).then((response) => {
@@ -68,14 +92,13 @@ const UserManagement = (props) => {
                 user_role: "simple user",
                 creation_date:"01/01/1999",
                 last_connection: "08/19/2022",
-                is_connected: "connected", // add option to logout users
-                reset_password: <Fragment><Button onClick={()=>{alert("clicked")}}>diconnect</Button></Fragment>,
-                delete_account: <Fragment><Button type={"negative"}>Delete</Button></Fragment>
+                privileges: <Fragment><EuiButton>Promote</EuiButton></Fragment>, // add option to logout users
+                reset_password: <Fragment><EuiFlexItem grow={false} aria-label="1"><EuiButtonEmpty onClick={()=>(setShowResetPwdModal(true))} iconType="refresh"></EuiButtonEmpty></EuiFlexItem></Fragment>,
+                delete_account: <Fragment><EuiFlexItem grow={false} aria-label="2"><EuiButtonIcon onClick={() => (setShowDeleteModal(true))} iconType="trash"></EuiButtonIcon></EuiFlexItem></Fragment>
                 
             })
         }
-    
-    console.log(raw_data)
+
     // columns contains scheme for desigining grid
     const columns = [
         {
@@ -117,8 +140,8 @@ const UserManagement = (props) => {
             actions: { showMoveLeft: false, showMoveRight: false },
         },
         {
-            id: 'is_connected',
-            displayAsText: 'currently connected',
+            id: 'privileges',
+            displayAsText: 'Upgrade/Downgrade',
             initialWidth: 130,
             actions: { showMoveLeft: false, showMoveRight: false },
         },
@@ -143,6 +166,7 @@ const UserManagement = (props) => {
 
     return (
         <Fragment>
+           
             <div>
                 {isAccessGranted()}
                 {isadmin?<h1>
@@ -150,7 +174,11 @@ const UserManagement = (props) => {
                     <h1>You are simple user. you cannot access this page</h1>}
             </div>
             <div>
-                    <DataContext.Provider >
+                <p>Add a new account</p><EuiButton onClick={() => {}}>Create new account</EuiButton>
+            </div>
+            <div>
+                    
+
                     <EuiDataGrid
                         aria-label="Data grid demo"
                         columns={columns}
@@ -166,11 +194,31 @@ const UserManagement = (props) => {
                             fontSize: 'm',
                             footer: 'overline'
                           }}
-                        rowCount={15}
-                        ref={gridRef}
+                        rowCount={raw_data.length}
+                        pagination={{
+                            ...pagination,
+                            pageSizeOptions: [5, 10, 20, 50],
+
+                            onChangeItemsPerPage: setPageSize,
+                            onChangePage: setPageIndex
+                        }}
+
                     />
-                    </DataContext.Provider>
+                    
             </div>
+            
+            <div>
+            {showDeleteModal?<UserManagementModal
+                             show={showDeleteModal}
+                             title="Delete Account?"
+                             onClose={closeDeleteModal}
+                             text={"Are you sure you want to delete this acount?"}/>:null}
+            {showResetPwdModal?<UserPasswordResetManagement
+                                 show={showResetPwdModal}
+                                 title="Reset Password"
+                                 onClose={closeResetPwdModal}
+                                 />:null}
+        </div>
         </Fragment>
 
     )

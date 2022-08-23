@@ -12,7 +12,7 @@ const UserInfo = () => {
                   listItems={[
                       {
                           title: "Role",
-                          description: user.role
+                          description: user.role ? user.role : 'Unknown'
                       },
                       {
                           title: "Name",
