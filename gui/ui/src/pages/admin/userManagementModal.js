@@ -9,16 +9,20 @@ import {
   EuiCodeBlock,
   EuiSpacer,
   PropertySortType,
+  EuiFlyoutBody,
   EuiConfirmModal
 } from '@elastic/eui';
 
+import PasswordChange from '../authentication/PasswordChange';
 
+// this module should be use to update Modal module content
 const UserManagementModal = (props) => {
     const [show, setShow] = React.useState(props.show)
     //const [isModalVisible, setIsModalVisible] = useState(false);
 
 
     React.useEffect(() => {
+        // update local state
         setShow(props.show)
     }, [props.show])
 
@@ -46,11 +50,29 @@ const UserManagementModal = (props) => {
              confirmButtonText="Confirm"
      
              buttonColor="danger"
-             defaultFocusedButton="cancel"/>
+             defaultFocusedButton="cancel">
+                <p>{props.text}</p>
+             </EuiConfirmModal>
 
         </div>
         </React.Fragment>
     )
 }
 
-export default UserManagementModal;
+const UserPasswordResetManagement = (props) => {
+    const [show, setShow] = React.useState(props.show);
+    React.useEffect(() => {
+        // update local state
+        setShow(props.show)
+    }, [props.show])
+
+    return (
+        <React.Fragment>
+            <EuiFlyoutBody>
+                <PasswordChange/>
+            </EuiFlyoutBody>
+        </React.Fragment>
+    )
+}
+
+export  {UserManagementModal, UserPasswordResetManagement};

@@ -38,8 +38,8 @@ import React, {
   } from '@elastic/eui';
   import { Link } from 'react-router-dom';
   import Button from '../../components/common/Button';
-  import UserManagementModal from './userManagementModal';
-
+  import {UserManagementModal} from './userManagementModal';
+  
   // see https://elastic.github.io/eui/#/tabular-content/data-grid
 
 
@@ -48,10 +48,11 @@ const UserManagement = (props) => {
     const [isadmin, setIsAdmin] = useState(false)
     const DataContext = createContext();
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showResetPwdModal, setShowResetPwdModal] = useState(false);
     const raw_data = [];
 
     const closeDeleteModal = () => {setShowDeleteModal(false)}
-    // pagination stuff
+    // pagination stuff for data grid
     const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
     const setPageSize = useCallback(
         (pageSize) =>
@@ -170,7 +171,7 @@ const UserManagement = (props) => {
                     <h1>You are simple user. you cannot access this page</h1>}
             </div>
             <div>
-                <p>Add a new account</p><EuiButton>Create new account</EuiButton>
+                <p>Add a new account</p><EuiButton onClick={() => {}}>Create new account</EuiButton>
             </div>
             <div>
                     <DataContext.Provider value={raw_data}>
@@ -202,7 +203,16 @@ const UserManagement = (props) => {
                     />
                     </DataContext.Provider>
             </div>
-            {showDeleteModal?<UserManagementModal show={showDeleteModal} title="Delete Account?" onClose={closeDeleteModal}/>:null}
+            {showDeleteModal?<UserManagementModal
+                             show={showDeleteModal}
+                             title="Delete Account?"
+                             onClose={closeDeleteModal}
+                             text={"Are you sure you want to delete this acount?"}/>:null}
+            {showResetPwdModal?<UserManagementModal
+                             show={showDeleteModal}
+                             title="Delete Account?"
+                             onClose={closeDeleteModal}
+                             text={"Are you sure you want to delete this acount?"}/>:null}
         </Fragment>
 
     )

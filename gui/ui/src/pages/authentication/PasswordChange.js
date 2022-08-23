@@ -89,10 +89,10 @@ const PasswordChange = (props) => {
                          ) : null}
                      </EuiFlexItem>
                      <EuiFlexItem grow={false}>
-                          <EuiFormRow label={"Old Password"} hasEmptyLabelSpace>
+                          <EuiFormRow label={props.isAdmin?"Admin password":"Old Password"} hasEmptyLabelSpace>
                              <EuiFieldPassword
                                     type='dual'
-                                    name={"old_password"}
+                                    name={props.isAdmin?"admin_password":"old_password"}
                                     value={passForm.old_password}
                                     onChange={handleChange}
                               />
