@@ -190,12 +190,15 @@ export const updateModalitiesMapping = (data) => {
         dispatch({type: 'UPDATE_HAS_ALL_MAPPINGS', payload: has_all_mappings})
 
         let current_modalities = getState().medicalFolderDataset.current_modality_names
-        // TODO add modality to current
-        //console.log('avant add', data.modality_name, current_modalities)
-        //if(!data.modality_name in current_modalities.values()){
-        //    current_modalities.push(data.modality_name)
-        //    console.log('add in current modalities', current_modalities)
-        //}
+        let has_modality = false
+        for(const mod of current_modalities.values()) {
+            if(data.modality_name === mod['label']){
+                has_modality = true
+            }
+        }
+        if(!has_modality) {
+            current_modalities.push({'label': data.modality_name, 'value': data.modality_name})
+        }
         dispatch({type: 'SET_CURRENT_MODALITY_NAMES', payload: current_modalities})
     }
 }
