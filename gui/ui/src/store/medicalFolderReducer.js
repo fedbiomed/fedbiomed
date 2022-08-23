@@ -102,7 +102,7 @@ export const medicalFolderReducer = (state = initialState, action) => {
                 ...state,
                 ignore_reference_csv : action.payload
             }
-        case "SET_CREATE_MOD2FOL":
+        case "SET_CUSTOMIZE_MOD2FOL":
             return {
                 ...state,
                 use_new_mod2fol_association : action.payload

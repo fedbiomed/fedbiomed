@@ -7,8 +7,7 @@ import {useNavigate, useParams, useLocation} from "react-router-dom";
 import styles from "./AddDataset.module.css"
 
 import {
-    setCreateModalitiesToFoldersBlock,
-    createModalitiesToFoldersBlock,
+    setCustomizeModalitiesToFolders,
     initModalityNames,
     updateModalitiesMapping,
     clearModalityMapping,
@@ -52,21 +51,6 @@ export class ModalitiesToFolders extends React.Component {
         }
     }
 
-    createModalitiesToFoldersBlock = (event) => {
-        // now need to invert the modalities_mapping to obtain a mapping of the form:
-        // { modality_name : [folder_1, folder_2, ...] }
-        let mod2fol = {}
-        let mapping = this.props.modalities_mapping
-        for(var key in mapping) {
-            if(mapping[key] in mod2fol) {
-                mod2fol[mapping[key]].push(key)
-            } else {
-                mod2fol[mapping[key]] = [key]
-            }
-        }
-        this.props.createModalitiesToFoldersBlock(mod2fol)
-    }
-
     render() {
         return (
             <React.Fragment>
@@ -93,35 +77,34 @@ export class ModalitiesToFolders extends React.Component {
                 />
                 </React.Fragment> : null
             }
-            {!this.props.use_preexisting_dlp ?
+
+
+            <CheckBox onChange={(event) => {this.props.setCustomizeModalitiesToFolders(event)}} >
+                Customize associations between imaging modality names and folder names
+                from the dataset.
+            </CheckBox>
+            { this.props.use_new_mod2fol_association ? (
                 <React.Fragment>
-                    <CheckBox onChange={(event) => {this.props.setCreateModalitiesToFoldersBlock(event)}} >
-                        Create a new customized association between imaging modality names and folder names
-                        in your local file system.
-                    </CheckBox>
-                    { this.props.use_new_mod2fol_association ? (
-                        <React.Fragment>
-                            <div className={styles.dlp_modalities_container}>
-                                {this.props.modalities.map((item, key) => {
-                                    return(
-                                        <React.Fragment key={`modfrag-${key}`}>
-                                            <span className={styles.dlp_modalities} key={`modspan-${key}`}>{item}</span>
-                                            <div className={styles.dlp_modality_selector} key={`modsel-${key}`}>
-                                                <CreatableSelect
-                                                    isClearable
-                                                    onChange={event => {this.updateModalitiesMapping(event, item)}}
-                                                    options={this.props.current_modality_names}
-                                                    key={`modcreatsel-${key}`}
-                                                />
-                                            </div>
-                                        </React.Fragment>
-                                )})}
-                            </div>
-                        </React.Fragment>
-                ) : null
-                }
-                </React.Fragment> : null
+                    <div className={styles.dlp_modalities_container}>
+                        {this.props.modalities.map((item, key) => {
+                            return(
+                                <React.Fragment key={`modfrag-${key}`}>
+                                    <span className={styles.dlp_modalities} key={`modspan-${key}`}>{item}</span>
+                                    <div className={styles.dlp_modality_selector} key={`modsel-${key}`}>
+                                        <CreatableSelect
+                                            isClearable
+                                            onChange={event => {this.updateModalitiesMapping(event, item)}}
+                                            options={this.props.current_modality_names}
+                                            key={`modcreatsel-${key}`}
+                                        />
+                                    </div>
+                                </React.Fragment>
+                        )})}
+                    </div>
+                </React.Fragment>
+            ) : null
             }
+
             </React.Fragment>
         )
     }
@@ -152,8 +135,7 @@ const mapDispatchToProps = (dispatch) => {
     return {
         setDLPTableSelectedRow : (data) => dispatch(setDLPIndex(data)),
         usePreExistingDlp : (data) => dispatch(setUsePreExistingDlp(data)),
-        setCreateModalitiesToFoldersBlock : (data) => dispatch(setCreateModalitiesToFoldersBlock(data)),
-        createModalitiesToFoldersBlock : (data) => dispatch(createModalitiesToFoldersBlock(data)),
+        setCustomizeModalitiesToFolders : (data) => dispatch(setCustomizeModalitiesToFolders(data)),
         initModalityNames : () => dispatch(initModalityNames()),
         updateModalitiesMapping : (data) => dispatch(updateModalitiesMapping(data)),
         clearModalityMapping : (data) => dispatch(clearModalityMapping(data)),

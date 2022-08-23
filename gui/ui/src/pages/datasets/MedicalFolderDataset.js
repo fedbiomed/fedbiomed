@@ -92,7 +92,7 @@ export class MedicalFolderDataset extends React.Component {
 
                     <Step key={2}
                           step={2}
-                          desc={'Would you like to reuse existing customization for this dataset?'}
+                          desc={'Would you like to duplicate existing customizations for this dataset?'}
                     >
 
                     </Step>
@@ -134,7 +134,8 @@ export class MedicalFolderDataset extends React.Component {
                  : null
                 }
 
-                { !this.props.ignore_reference_csv && this.props.medical_folder_root && this.props.medicalFolderDataset.reference_csv != null ? (
+                { this.props.has_all_mappings && !this.props.ignore_reference_csv &&
+                    this.props.medical_folder_root && this.props.medicalFolderDataset.reference_csv != null ? (
                     <Step
                         key={5}
                         step={5}
@@ -151,7 +152,8 @@ export class MedicalFolderDataset extends React.Component {
                     </Step>
                 ) : null }
 
-                {this.props.medicalFolderDataset.medical_folder_ref.ref.name != null || this.props.ignore_reference_csv ? (
+                {this.props.has_all_mappings && 
+                    (this.props.medicalFolderDataset.medical_folder_ref.ref.name != null || this.props.ignore_reference_csv) ? (
                     <Step
                         key={6}
                         step={6}
@@ -160,7 +162,7 @@ export class MedicalFolderDataset extends React.Component {
                         <DatasetMetadata/>
                     </Step>
                 ) : null }
-                {(this.props.metadata.name && this.props.metadata.tags && this.props.metadata.desc) &&
+                {(this.props.has_all_mappings && this.props.metadata.name && this.props.metadata.tags && this.props.metadata.desc) &&
                     ((!this.props.ignore_reference_csv && this.props.medicalFolderDataset.medical_folder_ref.ref.name ) ||
                       this.props.ignore_reference_csv
                     )? (
