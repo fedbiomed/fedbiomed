@@ -210,3 +210,15 @@ class UserRoleType(int, _BaseEnum):
 
     ADMIN: int = 1
     USER: int = 2
+
+
+class UserRequestStatus(str, _BaseEnum):
+    """Enumeration class, used to characterize the status for user registration requests
+
+        Attributes:
+            NEW: New user registration
+            REJECTED: Rejected status
+        """
+
+    NEW: str = "NEW"
+    REJECTED: str = "REJECTED"

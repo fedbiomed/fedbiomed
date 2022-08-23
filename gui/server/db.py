@@ -60,13 +60,13 @@ class UserDatabase(BaseDatabase):
     def __init__(self, db_path: str):
         super(UserDatabase, self).__init__(db_path)
 
-    def table_users(self) -> Table:
-        """Method  for selecting TinyDB table containing the datasets.
+    def table(self, table_name: str) -> Table:
+        """Method  for selecting TinyDB table named table_name.
 
         Returns:
             A TinyDB `Table` object for this table.
         """
-        return self._table('Users')
+        return self._table(table_name)
 
     def add_default_admin_user(self, admin_credential: Dict[str, str]):
         """adds default admin user to database if no admin has been found in database"""
@@ -77,7 +77,7 @@ class UserDatabase(BaseDatabase):
         
         try:
             query = self.query()
-            admins = self.table_users().get(query.user_role == UserRoleType.ADMIN)
+            admins = self.table().get(query.user_role == UserRoleType.ADMIN)
         except Exception as e:
             admins = []  # force 
             print(f"Error, unable to query in database for admin accounts {e}... resuming")
@@ -86,7 +86,7 @@ class UserDatabase(BaseDatabase):
             print("No admin found, creating default one")
             try:
 
-                self.table_users().insert({"user_email": email,
+                self.table('Users').insert({"user_email": email,
                                            "password_hash": set_password_hash(password),
                                            "user_role": UserRoleType.ADMIN, 
                                            "creation_date": datetime.utcnow().ctime(),

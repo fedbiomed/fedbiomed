@@ -9,12 +9,13 @@ from flask import request, Blueprint
 from flask_jwt_extended import (jwt_required, create_access_token, create_refresh_token, unset_jwt_cookies,
                                 verify_jwt_in_request, get_jwt, set_access_cookies, set_refresh_cookies)
 from utils import error, response
-from fedbiomed.common.constants import UserRoleType
+from fedbiomed.common.constants import UserRoleType, UserRequestStatus
 from gui.server.schemas import ValidateUserFormRequest
 from gui.server.utils import success, validate_request_data
 from . import api
 
-table = user_database.table_users()
+user_table = user_database.table('Users')
+user_requests_table = user_database.table('Requests')
 query = user_database.query()
 
 
@@ -48,7 +49,7 @@ def get_user_by_email(user_email: str) -> str:
 
         user_email (str): The mail of the user to retrieve from the database
     """
-    return table.search(query.user_email == user_email)
+    return user_table.search(query.user_email == user_email)
 
 
 def check_mail_format(user_mail: str) -> bool:
@@ -131,11 +132,11 @@ def update_password():
         return error('Invalid operation: User does not belong to database'), 400
 
     try:
-        table.update({
+        user_table.update({
             "user_email": email,
             "password_hash": set_password_hash(password)
         })
-        res = table.get(query.user_email == email)
+        res = user_table.get(query.user_email == email)
 
         return response({
             'user_id': res['user_id'],
@@ -176,6 +177,8 @@ def register():
 
     email = req['email']
     password = req['password']
+    name = req['name']
+    surname = req['surname']
 
     if not check_mail_format(email):
         return error('Wrong email format'), 400
@@ -188,21 +191,24 @@ def register():
         return error('Email already Present. Please log in'), 409
     try:
         # Create unique id for the user
-        user_id = 'user_' + str(uuid.uuid4())
-        table.insert({
+        request_id = 'request_' + str(uuid.uuid4())
+        user_requests_table.insert({
+            "user_name": name,
+            "user_surname": surname,
             "user_email": email,
             "password_hash": set_password_hash(password),
             "user_role": UserRoleType.USER,
             "creation_date": datetime.utcnow().ctime(),
-            "user_id": user_id
+            "request_id": request_id,
+            "request_status": UserRequestStatus.NEW
         })
-        res = table.get(query.user_id == user_id)
+        res = user_requests_table.get(query.request_id == request_id)
         return response({
-            'user_id': res['user_id'],
-            'user_email': res['user_email']
-        }, 'User successfully registered'), 201
+            'request_id': res['request_id'],
+        }, 'A request has been sent to administrator for account creation'), 201
     except Exception as e:
         return error(str(e)), 400
+
 
 @api.route('/register-admin', methods=['POST', 'GET'])
 @validate_request_data(schema=ValidateUserFormRequest)
@@ -235,6 +241,8 @@ def register_admin():
 
     email = req['email']
     password = req['password']
+    name = req['name']
+    surname = req['surname']
 
     if not check_mail_format(email):
         return error('Wrong email format'), 400
@@ -248,20 +256,23 @@ def register_admin():
     try:
         # Create unique id for the user
         user_id = 'user_' + str(uuid.uuid4())
-        table.insert({
+        user_table.insert({
+            "user_name": name,
+            "user_surname": surname,
             "user_email": email,
             "password_hash": set_password_hash(password),
             "user_role": UserRoleType.ADMIN,
             "creation_date": datetime.utcnow().ctime(),
             "user_id": user_id
         })
-        res = table.get(query.user_id == user_id)
+        res = user_table.get(query.user_id == user_id)
         return response({
             'user_id': res['user_id'],
             'user_email': res['user_email']
         }, 'User successfully registered'), 201
     except Exception as e:
         return error(str(e)), 400
+
 
 @api.route('/token/auth', methods=['POST'])
 @validate_request_data(schema=ValidateUserFormRequest)
