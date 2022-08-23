@@ -65,12 +65,12 @@ export class ModalitiesToFolders extends React.Component {
             
             <CheckBox
                 onChange={(event) => {this.props.setCustomizeModalitiesToFolders(event)}}
-                checked={this.props.use_new_mod2fol_association}
+                checked={this.props.use_custom_mod2fol}
             >
                 Customize associations between imaging modality names and folder names
                 from the dataset.
             </CheckBox>
-            { this.props.use_new_mod2fol_association ? (
+            { this.props.use_custom_mod2fol ? (
                 <React.Fragment>
                     <div className={styles.dlp_modalities_container}>
                         {this.props.modalities.map((item, key) => {
@@ -102,7 +102,7 @@ export class ModalitiesToFolders extends React.Component {
 const mapStateToProps = (state) => {
     return {
         modalities  : state.medicalFolderDataset.modalities,
-        use_new_mod2fol_association  : state.medicalFolderDataset.use_new_mod2fol_association,
+        use_custom_mod2fol  : state.medicalFolderDataset.use_custom_mod2fol,
         default_modality_names : state.medicalFolderDataset.default_modality_names,
         current_modality_names : state.medicalFolderDataset.current_modality_names,
         modalities_mapping : state.medicalFolderDataset.modalities_mapping,

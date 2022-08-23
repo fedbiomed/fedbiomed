@@ -150,7 +150,7 @@ export class MedicalFolderDataset extends React.Component {
 
                 {this.props.medical_folder_root &&
                     (!this.props.use_preexisting_dlp || (this.props.selected_dlp_index != null)) &&
-                    (!this.props.use_new_mod2fol_association || this.props.has_all_mappings) ?
+                    (!this.props.use_custom_mod2fol || this.props.has_all_mappings) ?
                     <React.Fragment>
                     <Step
                         key={4}
@@ -177,7 +177,7 @@ export class MedicalFolderDataset extends React.Component {
 
                 {this.props.medical_folder_root &&
                     (!this.props.use_preexisting_dlp || (this.props.selected_dlp_index != null)) &&
-                    (!this.props.use_new_mod2fol_association || this.props.has_all_mappings) &&
+                    (!this.props.use_custom_mod2fol || this.props.has_all_mappings) &&
                     !this.props.ignore_reference_csv && this.props.medicalFolderDataset.reference_csv != null ? (
                     <React.Fragment>
                     <Step
@@ -199,7 +199,7 @@ export class MedicalFolderDataset extends React.Component {
 
                 {this.props.medical_folder_root &&
                     (!this.props.use_preexisting_dlp || (this.props.selected_dlp_index != null)) &&
-                    (!this.props.use_new_mod2fol_association || this.props.has_all_mappings) &&
+                    (!this.props.use_custom_mod2fol || this.props.has_all_mappings) &&
                     (this.props.reference_csv_column != null || this.props.ignore_reference_csv) ? (
                     <React.Fragment>
                     <Step
@@ -214,7 +214,7 @@ export class MedicalFolderDataset extends React.Component {
 
                 {this.props.medical_folder_root &&
                     (!this.props.use_preexisting_dlp || (this.props.selected_dlp_index != null)) &&
-                    (!this.props.use_new_mod2fol_association || this.props.has_all_mappings) &&
+                    (!this.props.use_custom_mod2fol || this.props.has_all_mappings) &&
                     (this.props.reference_csv_column != null || this.props.ignore_reference_csv) &&
                     ( this.props.metadata.name && this.props.metadata.tags && this.props.metadata.desc) ? (
                     <React.Fragment>
@@ -254,7 +254,7 @@ const mapStateToProps = (state) => {
         metadata : state.medicalFolderDataset.metadata,
         use_preexisting_dlp  : state.dataLoadingPlan.use_preexisting_dlp,
         selected_dlp_index : state.dataLoadingPlan.selected_dlp_index,
-        use_new_mod2fol_association : state.medicalFolderDataset.use_new_mod2fol_association,
+        use_custom_mod2fol : state.medicalFolderDataset.use_custom_mod2fol,
         existing_dlps  : state.dataLoadingPlan.existing_dlps,
         medical_folder_root : state.medicalFolderDataset.medical_folder_root,
         medicalFolderDataset : state.medicalFolderDataset,

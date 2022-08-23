@@ -49,7 +49,7 @@ const MedicalFolderMetadata = (props) => {
                     </div>
                 </div>
 
-                {props.use_new_mod2fol_association ?
+                {props.use_custom_mod2fol ?
                     <div className={`row`}>
                         <div className="form-control">
                             <TextArea name="desc"
@@ -68,7 +68,7 @@ const MedicalFolderMetadata = (props) => {
 const mapStateToProps = (state) => {
     return {
         metadata : state.medicalFolderDataset.metadata,
-        use_new_mod2fol_association : state.medicalFolderDataset.use_new_mod2fol_association,
+        use_custom_mod2fol : state.medicalFolderDataset.use_custom_mod2fol,
         dlp_name : state.dataLoadingPlan.dlp_name,
     }
 }

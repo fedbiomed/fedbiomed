@@ -21,7 +21,7 @@ const initialState = {
     },
     reference_csv: null,
     ignore_reference_csv: false,
-    use_new_mod2fol_association: false,
+    use_custom_mod2fol: false,
     default_modality_names: [],
     current_modality_names: [],
     modalities_mapping: {},
@@ -105,7 +105,7 @@ export const medicalFolderReducer = (state = initialState, action) => {
         case "SET_CUSTOMIZE_MOD2FOL":
             return {
                 ...state,
-                use_new_mod2fol_association : action.payload
+                use_custom_mod2fol : action.payload
             }
         case "SET_DEFAULT_MODALITY_NAMES":
             return {

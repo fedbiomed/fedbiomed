@@ -251,7 +251,7 @@ export const addMedicalFolderDataset = (navigator) => {
             }
         }
 
-        // if(medical_folder.use_new_mod2fol_association && !('modalities_to_folders' in dlp.dlp_loading_blocks)){
+        // if(medical_folder.use_custom_mod2fol && !('modalities_to_folders' in dlp.dlp_loading_blocks)){
         //     dispatch({type: 'ERROR_MODAL' , payload: "Error: please save an association of modalities to folders by clicking on the Save Association button"})
         //     dispatch({type:'SET_LOADING', payload: {status: false}})
 // 
