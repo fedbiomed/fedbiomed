@@ -1,7 +1,6 @@
 import React from 'react';
 import CreatableSelect from 'react-select/creatable';
 import {connect} from "react-redux"
-import {SelectiveTable} from "../../components/common/Tables";
 import {CheckBox} from "../../components/common/Inputs";
 import {useNavigate, useParams, useLocation} from "react-router-dom";
 import styles from "./AddDataset.module.css"
@@ -15,7 +14,6 @@ import {
 
 import {
     setUsePreExistingDlp,
-    setDLPIndex,
     } from "../../store/actions/dataLoadingPlanActions"
 
 
@@ -54,31 +52,13 @@ export class ModalitiesToFolders extends React.Component {
     render() {
         return (
             <React.Fragment>
-
-            <CheckBox onChange={(status) => {this.props.usePreExistingDlp(status)}}
-            checked={this.props.use_preexisting_dlp}
-            >
-                Use an existing already-existing set of customizations.
+            <p>
                 The way your data is loaded and presented to the researcher during the federated
-                training phase will be affected by all the customizations in the plan selected below.
-                For example, check this box if you wish to map your local folder names
+                training is affected by associations below.
+                Check this box if you wish to define mapping of local folder names
                 to more generic imaging modality names.
-            </CheckBox>
-
-            { this.props.use_preexisting_dlp && this.props.existing_dlps !== null ?
-                <React.Fragment>
-                <p className={styles.dlp_selection_table_title}>Please select one customization from the table below.</p>
-                <SelectiveTable
-                    maxHeight={350}
-                    table={this.props.existing_dlps}
-                    hoverColumns={false}
-                    onSelect={this.props.setDLPTableSelectedRow}
-                    selectedRowIndex={this.props.selected_dlp_index}
-                />
-                </React.Fragment> : null
-            }
-
-
+            </p>
+            
             <CheckBox onChange={(event) => {this.props.setCustomizeModalitiesToFolders(event)}} >
                 Customize associations between imaging modality names and folder names
                 from the dataset.
@@ -114,9 +94,7 @@ export class ModalitiesToFolders extends React.Component {
 const mapStateToProps = (state) => {
     return {
         modalities  : state.medicalFolderDataset.modalities,
-        use_preexisting_dlp  : state.dataLoadingPlan.use_preexisting_dlp,
         use_new_mod2fol_association  : state.medicalFolderDataset.use_new_mod2fol_association,
-        existing_dlps  : state.dataLoadingPlan.existing_dlps,
         default_modality_names : state.medicalFolderDataset.default_modality_names,
         current_modality_names : state.medicalFolderDataset.current_modality_names,
         modalities_mapping : state.medicalFolderDataset.modalities_mapping,
@@ -133,7 +111,7 @@ const mapStateToProps = (state) => {
  */
 const mapDispatchToProps = (dispatch) => {
     return {
-        setDLPTableSelectedRow : (data) => dispatch(setDLPIndex(data)),
+
         usePreExistingDlp : (data) => dispatch(setUsePreExistingDlp(data)),
         setCustomizeModalitiesToFolders : (data) => dispatch(setCustomizeModalitiesToFolders(data)),
         initModalityNames : () => dispatch(initModalityNames()),

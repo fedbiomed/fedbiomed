@@ -16,7 +16,10 @@ import {CheckBox} from "../../components/common/Inputs";
 import MedicalFolderSubjectInformation from "./MedicalFolderSubjectInformation";
 import DatasetMetadata from "./MedicalFolderMetaData";
 import ModalitiesToFolders from "./ModalitiesToFolders";
-
+import {
+    setUsePreExistingDlp,
+    setDLPIndex,
+    } from "../../store/actions/dataLoadingPlanActions"
 
 const withRouter = (Component) =>  {
     function ComponentWithRouterProp(props) {
@@ -94,7 +97,29 @@ export class MedicalFolderDataset extends React.Component {
                           step={2}
                           desc={'Would you like to duplicate existing customizations for this dataset?'}
                     >
+                        <p>
+                            Customizations affect the way your data is loaded and presented to the researcher during
+                            the federated training.
+                            Check this box if you wish to reuse previously defined customizations.
+                        </p>
+                        <CheckBox onChange={(status) => {this.props.usePreExistingDlp(status)}}
+                        checked={this.props.use_preexisting_dlp}
+                        >
+                            Use and duplicate an existing set of customizations.
+                        </CheckBox>
 
+                        { this.props.use_preexisting_dlp && this.props.existing_dlps !== null ?
+                            <React.Fragment>
+                            <p className={styles.dlp_selection_table_title}>Please select one customization from the table below.</p>
+                            <SelectiveTable
+                                maxHeight={350}
+                                table={this.props.existing_dlps}
+                                hoverColumns={false}
+                                onSelect={this.props.setDLPTableSelectedRow}
+                                selectedRowIndex={this.props.selected_dlp_index}
+                            />
+                            </React.Fragment> : null
+                        }
                     </Step>
 
                      
@@ -199,6 +224,8 @@ export class MedicalFolderDataset extends React.Component {
 const mapStateToProps = (state) => {
     return {
         metadata : state.medicalFolderDataset.metadata,
+        use_preexisting_dlp  : state.dataLoadingPlan.use_preexisting_dlp,
+        existing_dlps  : state.dataLoadingPlan.existing_dlps,
         medical_folder_root : state.medicalFolderDataset.medical_folder_root,
         medicalFolderDataset : state.medicalFolderDataset,
         ignore_reference_csv : state.medicalFolderDataset.ignore_reference_csv,
@@ -218,6 +245,8 @@ const mapDispatchToProps = (dispatch) => {
         setFolderRefColumn : (data) => dispatch(setFolderRefColumn(data)),
         addMedicalFolderDataset : (navigate) => dispatch(addMedicalFolderDataset(navigate)),
         ignoreReferenceCsv : (data) => dispatch(setIgnoreReferenceCsv(data)),
+        usePreExistingDlp : (data) => dispatch(setUsePreExistingDlp(data)),
+        setDLPTableSelectedRow : (data) => dispatch(setDLPIndex(data)),
     }
 }
 
