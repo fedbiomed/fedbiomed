@@ -116,10 +116,12 @@ export class MedicalFolderDataset extends React.Component {
                                 <Label>Please select one customization set.</Label>
                                 <Select name="type" onChange={this.props.setDLPTableSelectedRow}>
                                         <>
-                                            <option value="-1">Please select...</option>
+                                            <option value='-1'>Please select...</option>
                                             {this.props.existing_dlps.index.map((id) => {
                                                 return(
-                                                    <option value={id}>{this.props.existing_dlps.data[id][0]}</option>
+                                                    <option value={id} selected={this.props.selected_dlp_index == id ? 'selected' : ''}>
+                                                        {this.props.existing_dlps.data[id][0]}
+                                                    </option>
                                                 )
                                             })}
                                         </>
