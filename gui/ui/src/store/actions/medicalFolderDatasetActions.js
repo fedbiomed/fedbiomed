@@ -7,7 +7,6 @@ import {
     EP_ADD_MEDICAL_FOLDER_DATASET,
     EP_PREVIEW_MEDICAL_FOLDER_DATASET,
     EP_DEFAULT_MODALITY_NAMES,
-    EP_LOADING_BLOCK_MOD2FOL_CREATE,
 } from "../../constants";
 import {displayError} from "./actions";
 
@@ -156,10 +155,12 @@ export const setCustomizeModalitiesToFolders = (value) => {
 //}
 
 export const initModalityNames = () => {
-    return (dispatch) => {
+    return (dispatch, getState) => {
         axios.get(EP_DEFAULT_MODALITY_NAMES).then(response => {
             dispatch({type: 'SET_DEFAULT_MODALITY_NAMES', payload: response.data.result.default_modalities})
-            dispatch({type: 'SET_CURRENT_MODALITY_NAMES', payload: response.data.result.default_modalities})
+            if(getState().medicalFolderDataset.current_modality_names.length === 0) {
+                dispatch({type: 'SET_CURRENT_MODALITY_NAMES', payload: response.data.result.default_modalities})
+            }
         })
     }
 }

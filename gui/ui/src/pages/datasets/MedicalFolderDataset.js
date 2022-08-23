@@ -104,8 +104,9 @@ export class MedicalFolderDataset extends React.Component {
                             the federated training.
                             Check this box if you wish to reuse previously defined customizations.
                         </p>
-                        <CheckBox onChange={(status) => {this.props.usePreExistingDlp(status)}}
-                        checked={this.props.use_preexisting_dlp}
+                        <CheckBox
+                            onChange={(status) => {this.props.usePreExistingDlp(status)}}
+                            checked={this.props.use_preexisting_dlp}
                         >
                             Use and duplicate an existing set of customizations.
                         </CheckBox>
@@ -115,16 +116,16 @@ export class MedicalFolderDataset extends React.Component {
                             <div className="form-control">
                                 <Label>Please select one customization set.</Label>
                                 <Select name="type" onChange={this.props.setDLPTableSelectedRow}>
-                                        <>
-                                            <option value='-1'>Please select...</option>
-                                            {this.props.existing_dlps.index.map((id) => {
-                                                return(
-                                                    <option value={id} selected={this.props.selected_dlp_index == id ? 'selected' : ''}>
-                                                        {this.props.existing_dlps.data[id][0]}
-                                                    </option>
-                                                )
-                                            })}
-                                        </>
+                                    <>
+                                        <option value='-1'>Please select...</option>
+                                        {this.props.existing_dlps.index.map((id) => {
+                                            return(
+                                            <option value={id} selected={this.props.selected_dlp_index === String(id) ? 'selected' : ''}>
+                                                {this.props.existing_dlps.data[id][0]}
+                                            </option>
+                                            )
+                                        })}
+                                    </>
                                 </Select>
                             </div>
                             </React.Fragment> : null

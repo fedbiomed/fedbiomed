@@ -44,6 +44,15 @@ export class ModalitiesToFolders extends React.Component {
         }
     }
 
+    getModalityNameFromItem = (modality_tag) => {
+        for(const modality of this.props.current_modality_names){
+            if(modality.value === modality_tag){
+                return(modality)
+            }
+        }
+        return(Object.create({}))
+    }
+
     render() {
         return (
             <React.Fragment>
@@ -54,7 +63,10 @@ export class ModalitiesToFolders extends React.Component {
                 to more generic imaging modality names.
             </p>
             
-            <CheckBox onChange={(event) => {this.props.setCustomizeModalitiesToFolders(event)}} >
+            <CheckBox
+                onChange={(event) => {this.props.setCustomizeModalitiesToFolders(event)}}
+                checked={this.props.use_new_mod2fol_association}
+            >
                 Customize associations between imaging modality names and folder names
                 from the dataset.
             </CheckBox>
@@ -62,7 +74,7 @@ export class ModalitiesToFolders extends React.Component {
                 <React.Fragment>
                     <div className={styles.dlp_modalities_container}>
                         {this.props.modalities.map((item, key) => {
-                            return(
+                             return(
                                 <React.Fragment key={`modfrag-${key}`}>
                                     <span className={styles.dlp_modalities} key={`modspan-${key}`}>{item}</span>
                                     <div className={styles.dlp_modality_selector} key={`modsel-${key}`}>
@@ -70,6 +82,7 @@ export class ModalitiesToFolders extends React.Component {
                                             isClearable
                                             onChange={event => {this.updateModalitiesMapping(event, item)}}
                                             options={this.props.current_modality_names}
+                                            defaultValue={this.getModalityNameFromItem(this.props.modalities_mapping[item])}
                                             key={`modcreatsel-${key}`}
                                         />
                                     </div>
