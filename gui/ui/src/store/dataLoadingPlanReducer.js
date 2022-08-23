@@ -20,7 +20,7 @@ export const dataLoadingPlanReducer = (state = initialState, action) => {
                 existing_dlps : action.payload
             }
         case "SET_DLP":
-            if (action.payload === -1){
+            if (parseInt(action.payload) === -1){
                 return  {
                     ...state,
                     selected_dlp_index : null

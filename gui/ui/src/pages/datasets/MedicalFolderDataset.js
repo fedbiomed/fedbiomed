@@ -69,6 +69,7 @@ export class MedicalFolderDataset extends React.Component {
     render() {
         return (
             <div className={styles.main}>
+                <React.Fragment>
                 <Step key={1}
                       step={1}
                       desc={'Please select the root folder of MedicalFolder dataset.'}
@@ -90,10 +91,10 @@ export class MedicalFolderDataset extends React.Component {
                         </div>) : null
                     }
                 </Step>
+                </React.Fragment>
 
                 {this.props.medical_folder_root ?
                     <React.Fragment>
-
                     <Step key={2}
                           step={2}
                           desc={'Would you like to duplicate existing customizations for this dataset?'}
@@ -111,24 +112,14 @@ export class MedicalFolderDataset extends React.Component {
 
                         { this.props.use_preexisting_dlp && this.props.existing_dlps !== null ?
                             <React.Fragment>
-                            {/*}
-                            <p className={styles.dlp_selection_table_title}>Please select one customization from the table below.</p>
-                            <SelectiveTable
-                                maxHeight={350}
-                                table={this.props.existing_dlps}
-                                hoverColumns={false}
-                                onSelect={this.props.setDLPTableSelectedRow}
-                                selectedRowIndex={this.props.selected_dlp_index}
-                            />
-                            */}
                             <div className="form-control">
                                 <Label>Please select one customization set.</Label>
                                 <Select name="type" onChange={this.props.setDLPTableSelectedRow}>
                                         <>
-                                            <option>Please select...</option>
+                                            <option value="-1">Please select...</option>
                                             {this.props.existing_dlps.index.map((id) => {
                                                 return(
-                                                    <option value="{this.props.existing_dlps.data[id][1]}">{this.props.existing_dlps.data[id][0]}</option>
+                                                    <option value={id}>{this.props.existing_dlps.data[id][0]}</option>
                                                 )
                                             })}
                                         </>
@@ -137,8 +128,13 @@ export class MedicalFolderDataset extends React.Component {
                             </React.Fragment> : null
                         }
                     </Step>
+                    </React.Fragment>
+                 : null
+                }
 
-                     
+                {this.props.medical_folder_root &&
+                    (!this.props.use_preexisting_dlp || (this.props.selected_dlp_index != null)) ?
+                    <React.Fragment>
                     <Step key={3}
                           step={3}
                           desc={'Would you like to associate your local folder names with other imaging modality names?'}
@@ -149,9 +145,10 @@ export class MedicalFolderDataset extends React.Component {
                  : null
                 }
 
-                { this.props.has_all_mappings && this.props.medical_folder_root ?
+                {this.props.medical_folder_root &&
+                    (!this.props.use_preexisting_dlp || (this.props.selected_dlp_index != null)) &&
+                    (!this.props.use_new_mod2fol_association || this.props.has_all_mappings) ?
                     <React.Fragment>
-
                     <Step
                         key={4}
                         step={4}
@@ -175,8 +172,11 @@ export class MedicalFolderDataset extends React.Component {
                  : null
                 }
 
-                { this.props.has_all_mappings && !this.props.ignore_reference_csv &&
-                    this.props.medical_folder_root && this.props.medicalFolderDataset.reference_csv != null ? (
+                {this.props.medical_folder_root &&
+                    (!this.props.use_preexisting_dlp || (this.props.selected_dlp_index != null)) &&
+                    (!this.props.use_new_mod2fol_association || this.props.has_all_mappings) &&
+                    !this.props.ignore_reference_csv && this.props.medicalFolderDataset.reference_csv != null ? (
+                    <React.Fragment>
                     <Step
                         key={5}
                         step={5}
@@ -191,10 +191,14 @@ export class MedicalFolderDataset extends React.Component {
                         />
                         <MedicalFolderSubjectInformation subjects={this.props.medicalFolderDataset.medical_folder_ref.subjects} />
                     </Step>
+                    </React.Fragment>
                 ) : null }
 
-                {this.props.has_all_mappings && 
-                    (this.props.medicalFolderDataset.medical_folder_ref.ref.name != null || this.props.ignore_reference_csv) ? (
+                {this.props.medical_folder_root &&
+                    (!this.props.use_preexisting_dlp || (this.props.selected_dlp_index != null)) &&
+                    (!this.props.use_new_mod2fol_association || this.props.has_all_mappings) &&
+                    (this.props.reference_csv_column != null || this.props.ignore_reference_csv) ? (
+                    <React.Fragment>
                     <Step
                         key={6}
                         step={6}
@@ -202,11 +206,15 @@ export class MedicalFolderDataset extends React.Component {
                     >
                         <DatasetMetadata/>
                     </Step>
+                    </React.Fragment>
                 ) : null }
-                {(this.props.has_all_mappings && this.props.metadata.name && this.props.metadata.tags && this.props.metadata.desc) &&
-                    ((!this.props.ignore_reference_csv && this.props.medicalFolderDataset.medical_folder_ref.ref.name ) ||
-                      this.props.ignore_reference_csv
-                    )? (
+
+                {this.props.medical_folder_root &&
+                    (!this.props.use_preexisting_dlp || (this.props.selected_dlp_index != null)) &&
+                    (!this.props.use_new_mod2fol_association || this.props.has_all_mappings) &&
+                    (this.props.reference_csv_column != null || this.props.ignore_reference_csv) &&
+                    ( this.props.metadata.name && this.props.metadata.tags && this.props.metadata.desc) ? (
+                    <React.Fragment>
                     <Step
                         key={7}
                         step={7}
@@ -223,6 +231,7 @@ export class MedicalFolderDataset extends React.Component {
                         */}
 
                     </Step>
+                    </React.Fragment>
                 ): null}
             </div>
         );
@@ -241,11 +250,14 @@ const mapStateToProps = (state) => {
     return {
         metadata : state.medicalFolderDataset.metadata,
         use_preexisting_dlp  : state.dataLoadingPlan.use_preexisting_dlp,
+        selected_dlp_index : state.dataLoadingPlan.selected_dlp_index,
+        use_new_mod2fol_association : state.medicalFolderDataset.use_new_mod2fol_association,
         existing_dlps  : state.dataLoadingPlan.existing_dlps,
         medical_folder_root : state.medicalFolderDataset.medical_folder_root,
         medicalFolderDataset : state.medicalFolderDataset,
         ignore_reference_csv : state.medicalFolderDataset.ignore_reference_csv,
         has_all_mappings : state.medicalFolderDataset.has_all_mappings,
+        reference_csv_column : state.medicalFolderDataset.medical_folder_ref.ref.name,
     }
 }
 
