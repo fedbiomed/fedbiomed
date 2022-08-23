@@ -9,6 +9,7 @@ import {
   EuiCodeBlock,
   EuiSpacer,
   PropertySortType,
+  EuiFlyout,
   EuiFlyoutBody,
   EuiConfirmModal
 } from '@elastic/eui';
@@ -66,11 +67,20 @@ const UserPasswordResetManagement = (props) => {
         setShow(props.show)
     }, [props.show])
 
+    const closeModal = () => {
+        setShow(false)
+        props.onClose()
+    }
+
     return (
         <React.Fragment>
-            <EuiFlyoutBody>
-                <PasswordChange/>
-            </EuiFlyoutBody>
+            <EuiModal>
+            <EuiModalHeader>
+              <EuiModalHeaderTitle>Reset Password</EuiModalHeaderTitle>
+              </EuiModalHeader>
+
+            </EuiModal>
+
         </React.Fragment>
     )
 }

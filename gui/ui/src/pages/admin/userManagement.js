@@ -38,7 +38,7 @@ import React, {
   } from '@elastic/eui';
   import { Link } from 'react-router-dom';
   import Button from '../../components/common/Button';
-  import {UserManagementModal} from './userManagementModal';
+  import {UserManagementModal, UserPasswordResetManagement} from './userManagementModal';
   
   // see https://elastic.github.io/eui/#/tabular-content/data-grid
 
@@ -52,6 +52,8 @@ const UserManagement = (props) => {
     const raw_data = [];
 
     const closeDeleteModal = () => {setShowDeleteModal(false)}
+    const closeResetPwdModal = () => {setShowResetPwdModal(false)}
+
     // pagination stuff for data grid
     const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
     const setPageSize = useCallback(
@@ -91,7 +93,7 @@ const UserManagement = (props) => {
                 creation_date:"01/01/1999",
                 last_connection: "08/19/2022",
                 privileges: <Fragment><EuiButton>Promote</EuiButton></Fragment>, // add option to logout users
-                reset_password: <Fragment><EuiFlexItem grow={false} aria-label="1"><EuiButtonEmpty onClick={()=>{}} iconType="refresh"></EuiButtonEmpty></EuiFlexItem></Fragment>,
+                reset_password: <Fragment><EuiFlexItem grow={false} aria-label="1"><EuiButtonEmpty onClick={()=>(setShowResetPwdModal(true))} iconType="refresh"></EuiButtonEmpty></EuiFlexItem></Fragment>,
                 delete_account: <Fragment><EuiFlexItem grow={false} aria-label="2"><EuiButtonIcon onClick={() => (setShowDeleteModal(true))} iconType="trash"></EuiButtonIcon></EuiFlexItem></Fragment>
                 
             })
@@ -164,6 +166,7 @@ const UserManagement = (props) => {
 
     return (
         <Fragment>
+           
             <div>
                 {isAccessGranted()}
                 {isadmin?<h1>
@@ -174,7 +177,7 @@ const UserManagement = (props) => {
                 <p>Add a new account</p><EuiButton onClick={() => {}}>Create new account</EuiButton>
             </div>
             <div>
-                    <DataContext.Provider value={raw_data}>
+                    
 
                     <EuiDataGrid
                         aria-label="Data grid demo"
@@ -201,18 +204,21 @@ const UserManagement = (props) => {
                         }}
 
                     />
-                    </DataContext.Provider>
+                    
             </div>
+            
+            <div>
             {showDeleteModal?<UserManagementModal
                              show={showDeleteModal}
                              title="Delete Account?"
                              onClose={closeDeleteModal}
                              text={"Are you sure you want to delete this acount?"}/>:null}
-            {showResetPwdModal?<UserManagementModal
-                             show={showDeleteModal}
-                             title="Delete Account?"
-                             onClose={closeDeleteModal}
-                             text={"Are you sure you want to delete this acount?"}/>:null}
+            {showResetPwdModal?<UserPasswordResetManagement
+                                 show={showResetPwdModal}
+                                 title="Reset Password"
+                                 onClose={closeResetPwdModal}
+                                 />:null}
+        </div>
         </Fragment>
 
     )
