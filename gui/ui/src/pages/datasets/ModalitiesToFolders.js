@@ -12,11 +12,6 @@ import {
     clearModalityMapping,
     } from "../../store/actions/medicalFolderDatasetActions"
 
-import {
-    setUsePreExistingDlp,
-    } from "../../store/actions/dataLoadingPlanActions"
-
-
 const withRouter = (Component) =>  {
     function ComponentWithRouterProp(props) {
 
@@ -111,8 +106,6 @@ const mapStateToProps = (state) => {
  */
 const mapDispatchToProps = (dispatch) => {
     return {
-
-        usePreExistingDlp : (data) => dispatch(setUsePreExistingDlp(data)),
         setCustomizeModalitiesToFolders : (data) => dispatch(setCustomizeModalitiesToFolders(data)),
         initModalityNames : () => dispatch(initModalityNames()),
         updateModalitiesMapping : (data) => dispatch(updateModalitiesMapping(data)),

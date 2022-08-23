@@ -9,6 +9,7 @@ import {setFolderPath,
     } from "../../store/actions/medicalFolderDatasetActions"
 import styles from "./AddDataset.module.css"
 import FileBrowser from "../../components/common/FileBrowser";
+import {Label, Select} from '../../components/common/Inputs'
 import {SelectiveTable} from "../../components/common/Tables";
 import Button, {ButtonsWrapper} from "../../components/common/Button";
 import Step from "../../components/layout/Step"
@@ -110,6 +111,7 @@ export class MedicalFolderDataset extends React.Component {
 
                         { this.props.use_preexisting_dlp && this.props.existing_dlps !== null ?
                             <React.Fragment>
+                            {/*}
                             <p className={styles.dlp_selection_table_title}>Please select one customization from the table below.</p>
                             <SelectiveTable
                                 maxHeight={350}
@@ -118,6 +120,20 @@ export class MedicalFolderDataset extends React.Component {
                                 onSelect={this.props.setDLPTableSelectedRow}
                                 selectedRowIndex={this.props.selected_dlp_index}
                             />
+                            */}
+                            <div className="form-control">
+                                <Label>Please select one customization set.</Label>
+                                <Select name="type" onChange={this.props.setDLPTableSelectedRow}>
+                                        <>
+                                            <option>Please select...</option>
+                                            {this.props.existing_dlps.index.map((id) => {
+                                                return(
+                                                    <option value="{this.props.existing_dlps.data[id][1]}">{this.props.existing_dlps.data[id][0]}</option>
+                                                )
+                                            })}
+                                        </>
+                                </Select>
+                            </div>
                             </React.Fragment> : null
                         }
                     </Step>
