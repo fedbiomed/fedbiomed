@@ -80,7 +80,7 @@ export class ModalitiesToFolders extends React.Component {
             { this.props.use_custom_mod2fol ? (
                 <React.Fragment>
                     <div className={styles.dlp_modalities_container}>
-                        {this.props.modalities.map((item, key) => {
+                        {this.props.modality_folders.map((item, key) => {
                              return(
                                 <React.Fragment key={`modfrag-${key}`}>
                                     <span className={styles.dlp_modalities} key={`modspan-${key}`}>{item}</span>
@@ -108,7 +108,7 @@ export class ModalitiesToFolders extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        modalities  : state.medicalFolderDataset.modalities,
+        modality_folders  : state.medicalFolderDataset.modality_folders,
         use_custom_mod2fol  : state.medicalFolderDataset.use_custom_mod2fol,
         default_modality_names : state.medicalFolderDataset.default_modality_names,
         current_modality_names : state.medicalFolderDataset.current_modality_names,

@@ -26,7 +26,7 @@ export const setFolderPath = (path) => {
             .then(response => {
                 let data = response.data.result
                 if(data.valid){
-                    dispatch({type: "SET_MEDICAL_FOLDER_ROOT", payload: { root_path: path.path, modalities: data.modalities}})
+                    dispatch({type: "SET_MEDICAL_FOLDER_ROOT", payload: { root_path: path.path, modality_folders: data.modalities}})
                     dispatch({type: "SET_FOLDER_PATH", payload: path.path})
                     dispatch({type:'SET_LOADING', payload: {status: false}})
                     dispatch({type:'RESET_MEDICAL_FOLDER_REFERENCE_CSV'})
@@ -193,7 +193,7 @@ export const updateModalitiesMapping = (data) => {
         dispatch({type: 'UPDATE_MOD2FOL_MAPPING', payload: m2f })
 
         let has_all_mappings = true
-        for(const folder of medical_folder.modalities.values()) {
+        for(const folder of medical_folder.modality_folders.values()) {
             if(!mapping[folder]) {
                 has_all_mappings = false
                 break

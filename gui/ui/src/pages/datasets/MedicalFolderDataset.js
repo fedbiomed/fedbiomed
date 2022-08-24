@@ -93,10 +93,10 @@ export class MedicalFolderDataset extends React.Component {
                         buttonText = "Select Folder"
                         onlyFolders={true}
                    />
-                    {this.props.medicalFolderDataset.modalities ?
+                    {this.props.medicalFolderDataset.modality_folders ?
                         (<div className={''}>
                             <label>Folder names: </label>
-                            {this.props.medicalFolderDataset.modalities.map((item, key) => {
+                            {this.props.medicalFolderDataset.modality_folders.map((item, key) => {
                                   return(
                                       <span className={styles.modalities} key={key}>{item}</span>
                                   )
