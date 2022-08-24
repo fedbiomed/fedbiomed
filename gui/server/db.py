@@ -2,6 +2,12 @@ from app import app
 from tinydb import TinyDB, Query
 from tinydb.table import Table
 
+# WARNING: this Database class should not exist, all accesses to TinyDB should occur
+# through the fedbiomed.node_dataset_manager.DatasetManager, this
+# breaks basic object paradigm
+# Until this is refactored (and Database class is removed), please use
+# `DatasetManager` when adding new accesses to the database
+
 class Database:
 
     def __init__(self):
@@ -28,15 +34,6 @@ class Database:
             A TinyDB `Table` object for this table. 
         """
         return self._table('Datasets')
-
-    def table_dlp(self) -> Table:
-        """Method  for selecting TinyDB table containing the data loading plans.
-
-        Returns:
-            A TinyDB `Table` object for this table. 
-        """
-        return self._table('Data_Loading_Plans')
-
 
     def _table(self, name: str) -> Table:
         """ Method for selecting table 

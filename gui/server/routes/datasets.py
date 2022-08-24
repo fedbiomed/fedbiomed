@@ -392,9 +392,7 @@ def get_csv_data():
 
 @api.route('/datasets/list-data-loading-plans', methods=['GET'])
 def list_data_loading_plans():
-    table = database.db().table_dlp()
-    query = database.query()
-    dlps = table.search((query.dlp_id.exists()) & (query.dlp_id.matches('^dlp_*')) & (query.dlp_name.exists()))
+    dlps = dataset_manager.list_dlp()
     index = list(range(len(dlps)))
     columns = ['name', 'id']
     data = [[dlp['dlp_name'], dlp['dlp_id']] for dlp in dlps]

@@ -61,6 +61,16 @@ class DatasetManager:
 
         return result
 
+    def list_dlp(self) -> List[dict]:
+        """Return all existing DataLoadingPlans.
+
+        Returns:
+            An array of dict, each dict is a DataLoadingPlan
+        """
+        dlps = self._dlp_table.search(
+            (self._database.dlp_id.exists()) & (self._database.dlp_name.exists()))
+        return([dict(dlp) for dlp in dlps])
+
     def get_dlp_by_id(self, dlp_id: str) -> Tuple[dict, List[dict]]:
         """Search for a DataLoadingPlan with a given id.
 
