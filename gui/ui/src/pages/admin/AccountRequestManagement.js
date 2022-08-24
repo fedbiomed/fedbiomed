@@ -1,4 +1,4 @@
-const UserRequestManagement = (props) => {
+const AccountRequestManagement = (props) => {
 
     return (
         <div>
@@ -9,4 +9,4 @@ const UserRequestManagement = (props) => {
     )
 }
 
-export default UserRequestManagement
+export default AccountRequestManagement

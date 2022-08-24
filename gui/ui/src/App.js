@@ -23,6 +23,11 @@ import Models from "./pages/models/Models";
 import SingleModel from "./pages/models/SingleModel";
 import Login from "./pages/authentication/Login";
 import Register from "./pages/authentication/Register";
+import {LoginProtected, AdminProtected} from "./components/layout/ProtectedRoutes";
+import PasswordChange from "./pages/authentication/PasswordChange";
+import UserInfo from "./pages/authentication/UserInfo";
+import UserManagement from "./pages/admin/UserManagement";
+import AccountRequestManagement from "./pages/admin/AccountRequestManagement";
 import PocEndpoints from './pages/authentication/PocEndpoints'; //for testing purposes
 import LogUserLayout from './components/layout/LogUserLayout';
 import UserAccount from './pages/authentication/UserAccount';
@@ -41,11 +46,15 @@ function App(props) {
               <Routes>
                 <Route path="/login/" element={<Login/>} />
                 <Route path="/register/" element={<Register/>} />
-                <Route path="/" element ={<LogUserLayout/>} >
+                <Route path="/" element ={<LoginProtected/>} >
                   <Route path="/" element={<Home/>} />
                   <Route path="/configuration/" element={<Configuration/>} />
                   <Route path="/user-account/" element={<UserAccount/>}>
-                    {/* add here other pages for admin management */}
+                      <Route index element={<UserInfo/>} />
+                      <Route path={"info"} element={<UserInfo/>} />
+                      <Route path={"change-password"} element={<PasswordChange/>} />
+                      <Route path={"user-management"} element={<AdminProtected><UserManagement/></AdminProtected>}/>
+                      <Route path={"account-requests"} element={<AdminProtected><AccountRequestManagement/></AdminProtected>}/>
                   </Route>
                   <Route path="/repository/" element={<Repository/>} />
                   <Route path="/models/" element={<Models/>} />

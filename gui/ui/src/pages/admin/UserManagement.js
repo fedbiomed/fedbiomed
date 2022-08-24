@@ -1,52 +1,23 @@
-import axios from "axios";
-import {EP_ADMIN} from '../../constants';
-
 import React, {
     Fragment,
     useCallback,
-    useEffect,
     useState,
-    createContext,
-    useContext,
-    useRef,
-    createRef,
   } from 'react';
   import {
     EuiButton,
     EuiButtonEmpty,
     EuiButtonIcon,
-    EuiCode,
-    EuiContextMenuItem,
-    EuiContextMenuPanel,
     EuiDataGrid,
     EuiFlexItem,
-    EuiFlyout,
-    EuiFlyoutBody,
-    EuiFlyoutFooter,
-    EuiFlyoutHeader,
-    EuiLink,
-    EuiModal,
-    EuiModalBody,
-    EuiModalFooter,
-    EuiModalHeader,
-    EuiModalHeaderTitle,
-    EuiPopover,
-    EuiScreenReaderOnly,
-    EuiText,
     EuiTitle,
-    EuiHealth, EuiPanel
+    EuiSpacer
   } from '@elastic/eui';
-  import { Link } from 'react-router-dom';
-  import Button from '../../components/common/Button';
   import {UserManagementModal, UserPasswordResetManagement, UserAccountCreation} from './userManagementModal';
   
-  // see https://elastic.github.io/eui/#/tabular-content/data-grid
-
 
 const UserManagement = (props) => {
 
     const [isadmin, setIsAdmin] = useState(false)
-    const DataContext = createContext();
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showResetPwdModal, setShowResetPwdModal] = useState(false);
     const [showAccountCreationModal, setShowAccountCreationModal] = useState(false);
@@ -71,18 +42,6 @@ const UserManagement = (props) => {
           setPagination((pagination) => ({ ...pagination, pageIndex })),
         [pagination,setPagination]
       );
-    
-    const isAccessGranted = () => {
-        // check if access is granted for admin
-        axios.get(EP_ADMIN).then((response) => {
-            
-            setIsAdmin(true)
-        }).catch((error) => {
-            alert(error.response.data.message)
-            
-        })
-        
-    }
 
         // create dummy data for testing sake
         for (let i = 1; i < 100; i++) {
@@ -168,45 +127,38 @@ const UserManagement = (props) => {
     return (
         <Fragment>
            
-            <div>
-                {isAccessGranted()}
-                {isadmin?<h1>
-                    This is User Management webpage. Only admin should be able to reach this page</h1>:
-                    <h1>You are simple user. you cannot access this page</h1>}
-            </div>
-            <div>
-                <p>Add a new account</p><EuiButton onClick={()=> (setShowAccountCreationModal(true))}>Create new account</EuiButton>
-            </div>
-            <div>
-                    
+            <EuiTitle size={'s'}>
+                <h2>This is User Management webpage. Only admin should be able to reach this page</h2>
+            </EuiTitle>
+            <EuiSpacer size={'l'}/>
+            <EuiButton onClick={()=> (setShowAccountCreationModal(true))}>Create new account</EuiButton>
+            <EuiSpacer size={'l'}/>
+            <EuiDataGrid
+                aria-label="Data grid demo"
+                columns={columns}
+                columnVisibility={{ visibleColumns, setVisibleColumns }}
+                renderCellValue={({ rowIndex, columnId }) => raw_data[rowIndex][columnId]}
+                gridStyle={{
+                    border: 'none',
+                    stripes: true,
+                    rowHover: 'highlight',
+                    header: 'underline',
+                    // If showDisplaySelector.allowDensity={true} from toolbarVisibility, fontSize and cellPadding will be superceded by what the user decides.
+                    cellPadding: 'm',
+                    fontSize: 'm',
+                    footer: 'overline'
+                  }}
+                rowCount={raw_data.length}
+                pagination={{
+                    ...pagination,
+                    pageSizeOptions: [5, 10, 20, 50],
 
-                    <EuiDataGrid
-                        aria-label="Data grid demo"
-                        columns={columns}
-                        columnVisibility={{ visibleColumns, setVisibleColumns }}
-                        renderCellValue={({ rowIndex, columnId }) => raw_data[rowIndex][columnId]}
-                        gridStyle={{
-                            border: 'none',
-                            stripes: true,
-                            rowHover: 'highlight',
-                            header: 'underline',
-                            // If showDisplaySelector.allowDensity={true} from toolbarVisibility, fontSize and cellPadding will be superceded by what the user decides.
-                            cellPadding: 'm',
-                            fontSize: 'm',
-                            footer: 'overline'
-                          }}
-                        rowCount={raw_data.length}
-                        pagination={{
-                            ...pagination,
-                            pageSizeOptions: [5, 10, 20, 50],
+                    onChangeItemsPerPage: setPageSize,
+                    onChangePage: setPageIndex
+                }}
 
-                            onChangeItemsPerPage: setPageSize,
-                            onChangePage: setPageIndex
-                        }}
+            />
 
-                    />
-                    
-            </div>
             
             <div>
             {showDeleteModal?<UserManagementModal
