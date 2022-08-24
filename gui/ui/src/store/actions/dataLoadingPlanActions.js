@@ -6,7 +6,7 @@ import {
 
 export const setUsePreExistingDlp = (data) => {
     return (dispatch) => {
-        dispatch({type: "SET_USE_PRE_EXISTING_DLP", payload: data})
+        dispatch({type: "SET_USE_PRE_EXISTING_DLP", payload: (data.target.value === 'true' ? true : false)})
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Fetching existing Data Loading Plans..."}})
         axios.get(EP_DLP_LIST).then(response => {
             dispatch({type: "SET_EXISTING_DLPS", payload: response.data.result})

@@ -2,6 +2,7 @@ import React from 'react';
 import CreatableSelect from 'react-select/creatable';
 import {connect} from "react-redux"
 import {CheckBox} from "../../components/common/Inputs";
+import {EuiRadio, EuiSpacer} from '@elastic/eui';
 import {useNavigate, useParams, useLocation} from "react-router-dom";
 import styles from "./AddDataset.module.css"
 
@@ -56,20 +57,27 @@ export class ModalitiesToFolders extends React.Component {
     render() {
         return (
             <React.Fragment>
-            <p>
-                The way your data is loaded and presented to the researcher during the federated
-                training is affected by associations below.
-                Check this box if you wish to define mapping of local folder names
-                to more generic imaging modality names.
-            </p>
+            The way your data is loaded and presented to the researcher during the federated
+            training is affected by associations below.
+            Check this box if you wish to define mapping of local folder names
+            to more generic imaging modality names.
             
-            <CheckBox
-                onChange={(event) => {this.props.setCustomizeModalitiesToFolders(event)}}
+            <EuiSpacer size="m" />
+            <EuiRadio
+                id="custom-modalities-false"
+                label="Use folder names as modality names"
+                value="false"
+                checked={!this.props.use_custom_mod2fol}
+                onChange={this.props.setCustomizeModalitiesToFolders}
+            />
+            <EuiRadio
+                id="custom-modalities-true"
+                label="Customize associations between folder names from the dataset and
+                    imaging modality names"
+                value="true"
                 checked={this.props.use_custom_mod2fol}
-            >
-                Customize associations between imaging modality names and folder names
-                from the dataset.
-            </CheckBox>
+                onChange={this.props.setCustomizeModalitiesToFolders}
+            />
             { this.props.use_custom_mod2fol ? (
                 <React.Fragment>
                     <div className={styles.dlp_modalities_container}>

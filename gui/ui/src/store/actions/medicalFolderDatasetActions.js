@@ -134,7 +134,7 @@ export const setIgnoreReferenceCsv = (data) => {
 
 export const setCustomizeModalitiesToFolders = (value) => {
     return (dispatch) => {
-        dispatch({type: 'SET_CUSTOMIZE_MOD2FOL', payload: value})
+        dispatch({type: 'SET_CUSTOMIZE_MOD2FOL', payload: (value.target.value === 'true' ? true : false)})
     }
 }
 

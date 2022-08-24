@@ -14,6 +14,7 @@ import {SelectiveTable} from "../../components/common/Tables";
 import Button, {ButtonsWrapper} from "../../components/common/Button";
 import Step from "../../components/layout/Step"
 import {CheckBox} from "../../components/common/Inputs";
+import {EuiRadio, EuiSpacer} from '@elastic/eui';
 import MedicalFolderSubjectInformation from "./MedicalFolderSubjectInformation";
 import DatasetMetadata from "./MedicalFolderMetaData";
 import ModalitiesToFolders from "./ModalitiesToFolders";
@@ -21,6 +22,7 @@ import {
     setUsePreExistingDlp,
     setDLPIndex,
     } from "../../store/actions/dataLoadingPlanActions"
+import { Fragment } from 'react';
 
 const withRouter = (Component) =>  {
     function ComponentWithRouterProp(props) {
@@ -99,18 +101,25 @@ export class MedicalFolderDataset extends React.Component {
                           step={2}
                           desc={'Would you like to duplicate existing customizations for this dataset?'}
                     >
-                        <p>
-                            Customizations affect the way your data is loaded and presented to the researcher during
-                            the federated training.
-                            Check this box if you wish to reuse previously defined customizations.
-                        </p>
-                        <CheckBox
-                            onChange={(status) => {this.props.usePreExistingDlp(status)}}
-                            checked={this.props.use_preexisting_dlp}
-                        >
-                            Use and duplicate an existing set of customizations.
-                        </CheckBox>
+                        Customizations affect the way your data is loaded and presented to the researcher during
+                        the federated training.
+                        Check this box if you wish to reuse previously defined customizations.
 
+                        <EuiSpacer size="m" />
+                        <EuiRadio
+                            id="reause-dlp-false"
+                            label="Customize from scratch"
+                            value="false"
+                            checked={!this.props.use_preexisting_dlp}
+                            onChange={this.props.usePreExistingDlp}
+                        />
+                        <EuiRadio
+                            id="reuse-dlp-true"
+                            label="Use and duplicate an existing set of customizations"
+                            value="true"
+                            checked={this.props.use_preexisting_dlp}
+                            onChange={this.props.usePreExistingDlp}
+                        />
                         { this.props.use_preexisting_dlp && this.props.existing_dlps !== null ?
                             <React.Fragment>
                             <div className="form-control">
@@ -140,7 +149,7 @@ export class MedicalFolderDataset extends React.Component {
                     <React.Fragment>
                     <Step key={3}
                           step={3}
-                          desc={'Would you like to associate your local folder names with other imaging modality names?'}
+                          desc={'Would you like to customize association of dataset folder names to imaging modality names?'}
                     >
                         < ModalitiesToFolders />
                     </Step>
