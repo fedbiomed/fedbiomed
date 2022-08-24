@@ -83,7 +83,7 @@ class Validator:
 class JsonSchema(object):
 
     def __init__(self, schema, message: str = None):
-        """Schema class 
+        """Schema class
 
         Args:
             schema (dict): A dictionary represent the valid schema
@@ -201,11 +201,11 @@ class ModelPreviewRequest(Validator):
              "model_path": {"type": "string",
                             "minLength": 1,
                             'errorMessages': {"minLength": "model_path must have at least one character"},
-            
+
                             },
              "model_id": {"type": "string"},
          },
-         "required": []  
+         "required": []
          }
     )
 
@@ -410,7 +410,35 @@ class ValidateUserFormRequest(Validator):
                 'description': 'Email of the user',
                 'format': 'email'
             },
-            'password': {'type': 'string'}
+            'password': {'type': 'string'},
+            'name': {'type': 'string'},
+            'surname': {'type': 'string'}
         },
-        'required': ['email', 'password'],
+        'required': ['email', 'password']
+    }, message=None)
+
+
+class ListUserRegistrationRequest(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        "properties": {
+            "search": {'type': 'string'}
+        },
+        "required": []
+    })
+
+
+class ValidateAdminRequestAction(Validator):
+    """ Json Schema for administrator actions to handle registration requests"""
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'request_id': {
+                'type': 'string',
+                'description': 'id of the user request to validate',
+            }
+        },
+        'required': ['request_id'],
     }, message=None)
