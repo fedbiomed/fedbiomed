@@ -32,10 +32,12 @@ export const setFolderPath = (path) => {
                     dispatch({type:'RESET_MEDICAL_FOLDER_REFERENCE_CSV'})
                     dispatch(getSubDirectories(path.path))
                 }else{
+                    dispatch({type:'SET_LOADING', payload: {status: false}})
                     dispatch({type:'RESET_MEDICAL_FOLDER_ROOT'})
                     dispatch({type: 'ERROR_MODAL', payload: data.message})
                 }
             }).catch(error => {
+                dispatch({type:'SET_LOADING', payload: {status: false}})
                 dispatch({type:'RESET_MEDICAL_FOLDER_ROOT', payload: false})
                 dispatch(displayError(error))
         })
@@ -84,6 +86,7 @@ export const setFolderRefColumn = (ref) => {
             }
             dispatch({type:'SET_LOADING', payload: {status: false}})
         }).catch(error => {
+            dispatch({type:'SET_LOADING', payload: {status: false}})
             dispatch(displayError(error, "Can not verify reference column for MedicalFolder dataset. Error message is: "))
         })
     }
@@ -150,17 +153,25 @@ export const setCustomizeModalitiesToFolders = (value) => {
 //                                qualname: response.data.result.qualname,
 //                                }})
 //            dispatch({type:'SET_LOADING', payload: {status: false}})
-//        })
+//        }).catch(error => {
+//            dispatch({type:'SET_LOADING', payload: {status: false}})
+//            dispatch(displayError(error, "Error while getting default modality names."))
+//})
 //    }
 //}
 
 export const initModalityNames = () => {
     return (dispatch, getState) => {
+        dispatch({type:'SET_LOADING', payload: {status: true, text: "Loading default modality names."}})
         axios.get(EP_DEFAULT_MODALITY_NAMES).then(response => {
             dispatch({type: 'SET_DEFAULT_MODALITY_NAMES', payload: response.data.result.default_modalities})
             if(getState().medicalFolderDataset.current_modality_names.length === 0) {
                 dispatch({type: 'SET_CURRENT_MODALITY_NAMES', payload: response.data.result.default_modalities})
             }
+            dispatch({type:'SET_LOADING', payload: {status: false}})
+        }).catch(error => {
+            dispatch({type:'SET_LOADING', payload: {status: false}})
+            dispatch(displayError(error, "Error while getting default modality names."))
         })
     }
 }
@@ -251,27 +262,22 @@ export const addMedicalFolderDataset = (navigator) => {
             }
         }
 
-        // if(medical_folder.use_custom_mod2fol && !('modalities_to_folders' in dlp.dlp_loading_blocks)){
-        //     dispatch({type: 'ERROR_MODAL' , payload: "Error: please save an association of modalities to folders by clicking on the Save Association button"})
-        //     dispatch({type:'SET_LOADING', payload: {status: false}})
-// 
-        // } else {
-            data['dlp_id'] = dlp.selected_dlp_index !== null ?
-                                dlp.existing_dlps['data'][dlp.selected_dlp_index][1] : null
-            data['dlp_loading_blocks'] = dlp.dlp_loading_blocks
-            data['dlp_name'] = dlp.dlp_name
+        data['dlp_id'] = dlp.selected_dlp_index !== null ?
+                            dlp.existing_dlps['data'][dlp.selected_dlp_index][1] : null
+        data['dlp_loading_blocks'] = dlp.dlp_loading_blocks
+        data['dlp_name'] = dlp.dlp_name
 
-            axios.post(EP_ADD_MEDICAL_FOLDER_DATASET, data).then( response => {
-                    dispatch({type: 'SUCCESS_MODAL' , payload: "Dataset has been successfully added"})
-                    dispatch({type:'SET_LOADING', payload: {status: false}})
-                    navigator('/datasets')
-                    dispatch({type:'RESET_MEDICAL_FOLDER'})
-                    dispatch({type:'RESET_DATA_LOADING_PLAN'})
-            }).catch(error => {
+        axios.post(EP_ADD_MEDICAL_FOLDER_DATASET, data).then( response => {
+                dispatch({type: 'SUCCESS_MODAL' , payload: "Dataset has been successfully added"})
                 dispatch({type:'SET_LOADING', payload: {status: false}})
-                dispatch(displayError(error, "Error while adding MedicalFolder dataset: "))
-            })
-        //}
+                navigator('/datasets')
+                dispatch({type:'RESET_MEDICAL_FOLDER'})
+                dispatch({type:'RESET_DATA_LOADING_PLAN'})
+        }).catch(error => {
+            dispatch({type:'SET_LOADING', payload: {status: false}})
+            dispatch(displayError(error, "Error while adding MedicalFolder dataset: "))
+        })
+
     }
 }
 
@@ -300,8 +306,8 @@ export const getMedicalFolderPreview = (dataset_id) => {
  */
 const getSubDirectories = (path) => {
     return (dispatch) => {
+        dispatch({type:'SET_LOADING', payload: {status: true, text: "Getting sub directories for MedicalFolder..."}})
         axios.post(EP_REPOSITORY_LIST, {path: path}).then(response => {
-            dispatch({type:'SET_LOADING', payload: {status: true, text: "Getting sub directories for MedicalFolder..."}})
             if(response.status === 200){
                 let data = response.data.result
                 dispatch({type: "PATIENT_FOLDERS", payload:data.path})
