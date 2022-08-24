@@ -9,7 +9,7 @@ import {setFolderPath,
     } from "../../store/actions/medicalFolderDatasetActions"
 import styles from "./AddDataset.module.css"
 import FileBrowser from "../../components/common/FileBrowser";
-import {Label, Select} from '../../components/common/Inputs'
+import {Label} from '../../components/common/Inputs'
 import {SelectiveTable} from "../../components/common/Tables";
 import Button, {ButtonsWrapper} from "../../components/common/Button";
 import Step from "../../components/layout/Step"
@@ -22,7 +22,6 @@ import {
     setUsePreExistingDlp,
     setDLPIndex,
     } from "../../store/actions/dataLoadingPlanActions"
-import { Fragment } from 'react';
 
 const withRouter = (Component) =>  {
     function ComponentWithRouterProp(props) {
