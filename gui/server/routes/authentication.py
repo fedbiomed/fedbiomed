@@ -192,7 +192,7 @@ def register():
     if get_user_by_email(email):
         return error('Email already Present. Please log in'), 409
     try:
-        # Create unique id for the user
+        # Create unique id for the request
         request_id = 'request_' + str(uuid.uuid4())
         user_requests_table.insert({
             "user_name": name,
@@ -220,6 +220,8 @@ def register_admin():
     Request {application/json}:
         email (str): Email of the user to register
         password (str): Password of the user to register
+        name (str): Name of the user to register
+        surname (str): Surname of the user to register
 
     Response {application/json}:
         400:
@@ -256,22 +258,22 @@ def register_admin():
     if get_user_by_email(email):
         return error('Email already Present. Please log in'), 409
     try:
-        # Create unique id for the user
-        user_id = 'user_' + str(uuid.uuid4())
-        user_table.insert({
+        # Create unique id for the request
+        request_id = 'request_' + str(uuid.uuid4())
+        user_requests_table.insert({
             "user_name": name,
             "user_surname": surname,
             "user_email": email,
             "password_hash": set_password_hash(password),
             "user_role": UserRoleType.ADMIN,
             "creation_date": datetime.utcnow().ctime(),
-            "user_id": user_id
+            "request_id": request_id,
+            "request_status": UserRequestStatus.NEW
         })
-        res = user_table.get(query.user_id == user_id)
+        res = user_requests_table.get(query.request_id == request_id)
         return response({
-            'user_id': res['user_id'],
-            'user_email': res['user_email']
-        }, 'User successfully registered'), 201
+            'request_id': res['request_id'],
+        }, 'A request has been sent to administrator for account creation'), 201
     except Exception as e:
         return error(str(e)), 400
 

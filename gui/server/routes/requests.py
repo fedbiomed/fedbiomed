@@ -132,3 +132,5 @@ def reject_user_request():
         return response(res), 200
     except Exception as e:
         return error(str(e)), 400
+
+# TODO: Find a way to notify the user about rejection or acceptation of his/her request
