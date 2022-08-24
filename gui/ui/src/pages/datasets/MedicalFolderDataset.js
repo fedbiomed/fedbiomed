@@ -14,7 +14,7 @@ import {SelectiveTable} from "../../components/common/Tables";
 import Button, {ButtonsWrapper} from "../../components/common/Button";
 import Step from "../../components/layout/Step"
 import {CheckBox} from "../../components/common/Inputs";
-import {EuiRadio, EuiSpacer} from '@elastic/eui';
+import {EuiRadio, EuiSpacer, EuiSelect} from '@elastic/eui';
 import MedicalFolderSubjectInformation from "./MedicalFolderSubjectInformation";
 import DatasetMetadata from "./MedicalFolderMetaData";
 import ModalitiesToFolders from "./ModalitiesToFolders";
@@ -66,6 +66,18 @@ export class MedicalFolderDataset extends React.Component {
 
     ignoreReferenceCsv = (status) => {
         this.props.ignoreReferenceCsv(status)
+    }
+
+    getDlpSelectOptions = () => {
+        let options = [{value: '-1', text: 'Please select...'}]
+        for(const index of this.props.existing_dlps.index) {
+                options.push({value: index, text: this.props.existing_dlps.data[index][0]})
+        }
+        return(options)
+    }
+
+    getDlpSelectDefault = () => {
+        return((this.props.selected_dlp_index === null ? '-1' : this.props.selected_dlp_index))
     }
 
     render() {
@@ -122,20 +134,13 @@ export class MedicalFolderDataset extends React.Component {
                         />
                         {this.props.use_preexisting_dlp && this.props.existing_dlps !== null ?
                             <React.Fragment>
-                            <div className="form-control">
+                             <div className="form-control">
                                 <Label>Please select one customization set.</Label>
-                                <Select name="type" onChange={this.props.setDLPTableSelectedRow}>
-                                    <>
-                                        <option key='-1' value='-1'>Please select...</option>
-                                        {this.props.existing_dlps.index.map((id) => {
-                                            return(
-                                            <option key={id} value={id} selected={this.props.selected_dlp_index === String(id) ? 'selected' : ''}>
-                                                {this.props.existing_dlps.data[id][0]}
-                                            </option>
-                                            )
-                                        })}
-                                    </>
-                                </Select>
+                                <EuiSelect 
+                                    options={this.getDlpSelectOptions()}
+                                    value={this.getDlpSelectDefault()}
+                                    onChange={this.props.setDLPTableSelectedRow}
+                                />
                             </div>
                             </React.Fragment> : null
                         }
