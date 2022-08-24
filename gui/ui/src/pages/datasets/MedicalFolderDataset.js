@@ -120,16 +120,16 @@ export class MedicalFolderDataset extends React.Component {
                             checked={this.props.use_preexisting_dlp}
                             onChange={this.props.usePreExistingDlp}
                         />
-                        { this.props.use_preexisting_dlp && this.props.existing_dlps !== null ?
+                        {this.props.use_preexisting_dlp && this.props.existing_dlps !== null ?
                             <React.Fragment>
                             <div className="form-control">
                                 <Label>Please select one customization set.</Label>
                                 <Select name="type" onChange={this.props.setDLPTableSelectedRow}>
                                     <>
-                                        <option value='-1'>Please select...</option>
+                                        <option key='-1' value='-1'>Please select...</option>
                                         {this.props.existing_dlps.index.map((id) => {
                                             return(
-                                            <option value={id} selected={this.props.selected_dlp_index === String(id) ? 'selected' : ''}>
+                                            <option key={id} value={id} selected={this.props.selected_dlp_index === String(id) ? 'selected' : ''}>
                                                 {this.props.existing_dlps.data[id][0]}
                                             </option>
                                             )
