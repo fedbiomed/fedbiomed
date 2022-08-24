@@ -1,7 +1,6 @@
 import React from 'react';
 import CreatableSelect from 'react-select/creatable';
 import {connect} from "react-redux"
-import {CheckBox} from "../../components/common/Inputs";
 import {EuiRadio, EuiSpacer} from '@elastic/eui';
 import {useNavigate, useParams, useLocation} from "react-router-dom";
 import styles from "./AddDataset.module.css"
