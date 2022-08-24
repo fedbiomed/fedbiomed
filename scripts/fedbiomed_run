@@ -233,17 +233,17 @@ function start_gui() {
     # Activate Fed-BioMed GUI environment
     source ${basedir}/scripts/fedbiomed_environment gui
 
-    # Install npm modules
+    # Install node modules
     echo -e "${YLW}INFO${NC}: Controlling react bundle and modules"
     cd ./gui/ui
 
     # Create bundle if there is no build directory/node_modules or recreate is active
     if  [ ! -d "$basedir/gui/ui/node_modules" ] || [ ! -d "$basedir/var/gui-build" ] || [ -n "$RECREATE" ];then
         echo -e "${YLW}INFO${NC}: Installing npm modules"
-        npm install || exit
+        yarn install || exit
 
         echo -e "${YLW}INFO${NC}: Building Fed-BioMed GUI"
-        npm run build || exit
+        yarn run build || exit
 
         if [ -d "$basedir/var/gui-build" ];then
           rm -Rf "$basedir/var/gui-build";

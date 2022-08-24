@@ -1,5 +1,7 @@
 import React from 'react'
 import './App.css';
+import '@elastic/eui/dist/eui_theme_light.css';
+import { EuiProvider } from '@elastic/eui';
 import {
   BrowserRouter as Router,
   Routes,
@@ -31,60 +33,62 @@ function App(props) {
   }
 
   return (
-    <div className="App">
-      <Router>
-        <div className="layout-wrapper">
-          <div className="main-side-bar">
-            <SideNav/>
-          </div>
-          <div className="main-frame">
-              <div className="router-frame">
-                <div className="inner"> 
-                  <Routes>
-                    <Route exact path="/" element={<Home/>} />
-                    <Route path="/configuration/" element={<Configuration/>} />
-                    <Route path="/repository/" element={<Repository/>} />
-                    <Route path="/models/" element={<Models/>} />
-                    <Route path="/models/preview/:model_id" element={<SingleModel />} />
-                    <Route path="/datasets/" element={<Datasets/>} />
-                    <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview />} />
-                    <Route path="/datasets/add-dataset/" element={<AddDataset/>} >
-                        <Route index element={<CommonStandards/>} />
-                        <Route path="medical-folder-dataset" element={<MedicalFolderDataset/>} />
-                    </Route>
-                  </Routes>
-                  <div className={`loader-frame ${props.result.loading ?  'active' : ''}`}>
-                      <div style={{width:"100%"}}>
-                          <div className="lds-ring">
-                                <div></div>
-                                <div></div>
-                                <div></div>
-                                <div></div>
-                          </div>
-                          <span style={{textAlign: "center", display:"block"}}>{props.result.text}</span>
-                      </div>
+    <EuiProvider colorMode="light">
+      <div className="App">
+        <Router>
+          <div className="layout-wrapper">
+            <div className="main-side-bar">
+              <SideNav/>
+            </div>
+            <div className="main-frame">
+                <div className="router-frame">
+                  <div className="inner"> 
+                    <Routes>
+                      <Route exact path="/" element={<Home/>} />
+                      <Route path="/configuration/" element={<Configuration/>} />
+                      <Route path="/repository/" element={<Repository/>} />
+                      <Route path="/models/" element={<Models/>} />
+                      <Route path="/models/preview/:model_id" element={<SingleModel />} />
+                      <Route path="/datasets/" element={<Datasets/>} />
+                      <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview />} />
+                      <Route path="/datasets/add-dataset/" element={<AddDataset/>} >
+                          <Route index element={<CommonStandards/>} />
+                          <Route path="medical-folder-dataset" element={<MedicalFolderDataset/>} />
+                      </Route>
+                    </Routes>
+                    <div className={`loader-frame ${props.result.loading ?  'active' : ''}`}>
+                        <div style={{width:"100%"}}>
+                            <div className="lds-ring">
+                                  <div></div>
+                                  <div></div>
+                                  <div></div>
+                                  <div></div>
+                            </div>
+                            <span style={{textAlign: "center", display:"block"}}>{props.result.text}</span>
+                        </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+            </div>
           </div>
-        </div>
-      </Router>
-      <Modal show={props.result.show} class="info-box" onModalClose={onResultModalClose}>
-         <Modal.Header>
-           { props.result.error ? (
-               "Error"
-           ) : "Success"}
-         </Modal.Header>
-        <Modal.Content>
-            {props.result.message}
-        </Modal.Content>
-        <Modal.Footer>
-               <ButtonsWrapper alignment={"right"}>
-                        <Button onClick={onResultModalClose}>Close</Button>
-                </ButtonsWrapper>
-        </Modal.Footer>
-      </Modal>
-    </div>
+        </Router>
+        <Modal show={props.result.show} class="info-box" onModalClose={onResultModalClose}>
+           <Modal.Header>
+             { props.result.error ? (
+                 "Error"
+             ) : "Success"}
+           </Modal.Header>
+          <Modal.Content>
+              {props.result.message}
+          </Modal.Content>
+          <Modal.Footer>
+                 <ButtonsWrapper alignment={"right"}>
+                          <Button onClick={onResultModalClose}>Close</Button>
+                  </ButtonsWrapper>
+          </Modal.Footer>
+        </Modal>
+      </div>
+    </EuiProvider>
   );
 }
 
