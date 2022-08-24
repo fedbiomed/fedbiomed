@@ -1,128 +1,186 @@
 import React, {
     Fragment,
-    useCallback,
     useState,
   } from 'react';
-  import {
+import {
     EuiButton,
-    EuiButtonEmpty,
     EuiButtonIcon,
-    EuiDataGrid,
-    EuiFlexItem,
+    EuiBasicTable,
     EuiTitle,
     EuiSpacer
   } from '@elastic/eui';
-  import {UserManagementModal, UserPasswordResetManagement, UserAccountCreation} from './userManagementModal';
-  
+
+import {UserManagementModal, UserPasswordResetManagement, UserAccountCreation} from './userManagementModal';
+import {sortObjectCompare} from "../../utils"
+
+
+let raw_data = [
+     { name:  "lolo", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lo123123lo2", surname: "tata", email: "lolo23244@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolo3", surname: "tataa", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "loasdlo4", surname: "taasdta", email: "lolo234@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolo6", surname: "tata", email: "lolo@ema234il.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolo7", surname: "atata", email: "lolo@emai234l.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "ldasdolo8", surname: "tatasda", email: "lol234o@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolo9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolso9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolo9", surname: "tata", email: "lolo@emai234l.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "Aosasdlo9", surname: "t2344ata", email: "lolo@em234ail.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+         { name:  "ldasdolo8", surname: "tatasda", email: "lol234o@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolo9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolso9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolo9", surname: "tata", email: "lolo@emai234l.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "Aosasdlo9", surname: "t2344ata", email: "lolo@em234ail.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+         { name:  "ldasdolo8", surname: "tatasda", email: "lol234o@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolo9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolso9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolo9", surname: "tata", email: "lolo@emai234l.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "Aosasdlo9", surname: "t2344ata", email: "lolo@em234ail.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+         { name:  "ldasdolo8", surname: "tatasda", email: "lol234o@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolo9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolso9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "lolo9", surname: "tata", email: "lolo@emai234l.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+     { name:  "Aosasdlo9", surname: "t2344ata", email: "lolo@em234ail.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
+
+]
+
 
 const UserManagement = (props) => {
 
-    const [isadmin, setIsAdmin] = useState(false)
+    const [pageIndex, setPageIndex] = useState(0);
+    const [pageSize, setPageSize] = useState(20);
+    const [sortField, setSortField] = useState('name');
+    const [sortDirection, setSortDirection] = useState('asc');
+    const [showAccountCreationModal, setShowAccountCreationModal] = useState(false);
+
+
+    const [items, setItems] = useState([])
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showResetPwdModal, setShowResetPwdModal] = useState(false);
-    const [showAccountCreationModal, setShowAccountCreationModal] = useState(false);
-    const raw_data = [];
+
 
     const closeDeleteModal = () => {setShowDeleteModal(false)}
     const closeResetPwdModal = () => {setShowResetPwdModal(false)}
 
-    // pagination stuff for data grid
-    const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
-    const setPageSize = useCallback(
-        (pageSize) =>
-          setPagination((pagination) => ({
-            ...pagination,
-            pageSize,
-            pageIndex: 0,
-          })),
-        [pagination, setPagination]
-      );
-      const setPageIndex = useCallback(
-        (pageIndex) =>
-          setPagination((pagination) => ({ ...pagination, pageIndex })),
-        [pagination,setPagination]
-      );
 
-        // create dummy data for testing sake
-        for (let i = 1; i < 100; i++) {
-            raw_data.push({
-                name:  "lolo",
-                surname: "tata",
-                email: "lolo@email.com",
-                user_role: "simple user",
-                creation_date:"01/01/1999",
-                last_connection: "08/19/2022",
-                privileges: <Fragment><EuiButton>Promote</EuiButton></Fragment>, // add option to logout users
-                reset_password: <Fragment><EuiFlexItem grow={false} aria-label="1"><EuiButtonEmpty onClick={()=>(setShowResetPwdModal(true))} iconType="refresh"></EuiButtonEmpty></EuiFlexItem></Fragment>,
-                delete_account: <Fragment><EuiFlexItem grow={false} aria-label="2"><EuiButtonIcon onClick={() => (setShowDeleteModal(true))} iconType="trash"></EuiButtonIcon></EuiFlexItem></Fragment>
-                
-            })
-        }
+    /**
+     * Lifecycle method to keep track change on use table
+     */
+    React.useEffect( () => {
+        let begin = pageIndex * pageSize
+        let end = pageIndex * pageSize + pageSize
+        let display = raw_data.slice(begin, end)
 
-    // columns contains scheme for desigining grid
+        // Sort with custom function
+        display.sort( (a, b) => {
+                        if ( a[sortField] < b[sortField] ){
+                            return  sortDirection === "asc" ? -1 : 1 ;
+                        }
+
+                        if ( a[sortField] > b[sortField] ){
+                            return sortDirection === "asc" ? 1 : -1 ;
+                        }
+
+                        return 0;
+        })
+
+        setItems(display)
+    }, [pageIndex, pageSize, sortField, sortDirection])
+
+    /**
+     * On table value is changed
+     * @param page
+     * @param sort
+     */
+    const onTableChange = ({ page = {}, sort = {} }) => {
+        const { index: pageIndex, size: pageSize } = page;
+        const { field: sortField, direction: sortDirection } = sort;
+        setPageIndex(pageIndex);
+        setPageSize(pageSize);
+        setSortField(sortField);
+        setSortDirection(sortDirection);
+    };
+
+    /**
+     * Sorting credentials
+     * @type {{sort: {field: string, direction: string}}}
+     */
+    const sorting = {
+        sort: {
+          field: sortField,
+          direction: sortDirection,
+        },
+      };
+
+        // Column contains scheme for designing grid
     const columns = [
         {
-          id: 'name',
-          displayAsText: 'Name',
-          defaultSortDirection: 'asc',
-          initialWidth: 100,
-          actions: { showMoveLeft: false, showMoveRight: false },
+            field: 'name',
+            name: 'Name',
+            truncateText: true,
+            sortable: true,
         },
         {
-            id: 'surname',
-            displayAsText: 'Surname',
-            defaultSortDirection: 'asc',
-            initialWidth: 100,
-            actions: { showMoveLeft: false, showMoveRight: false },
+            field: 'surname',
+            name: 'Surname',
+            truncateText: true,
+            sortable: true,
           },
         {
-            id: 'email',
-            displayAsText: 'Email address',
-            initialWidth: 130,
-            actions: { showMoveLeft: false, showMoveRight: false },
+            field: 'email',
+            name: 'E-Mail',
+            truncateText: true,
+            sortable: true,
         },
         {
-            id: 'user_role',
-            displayAsText: 'User Role',
-            initialWidth: 130,
-            actions: { showMoveLeft: false, showMoveRight: false },
+            field: 'role',
+            name: 'User Role',
+            truncateText: true,
+            sortable: true,
         },
         {
-            id: 'creation_date',
-            displayAsText: 'account creation',
-            initialWidth: 130,
-            actions: { showMoveLeft: false, showMoveRight: false },
+            field: 'created',
+            name: 'Account Created',
+            truncateText: true,
+            sortable: true,
         },
         {
-            id: 'last_connection',
-            displayAsText: 'last connection',
-            initialWidth: 130,
-            actions: { showMoveLeft: false, showMoveRight: false },
+            field: 'last_connection',
+            name: 'Last Login Date',
+            truncateText: true,
+            sortable: true,
         },
         {
-            id: 'privileges',
-            displayAsText: 'Upgrade/Downgrade',
-            initialWidth: 130,
-            actions: { showMoveLeft: false, showMoveRight: false },
+          name: 'Change Role',
+          actions: [
+              {render: (item) => <EuiButtonIcon onClick={()=>(setShowResetPwdModal(true))}  iconType="user" color={"primary"}>Change Role</EuiButtonIcon>}
+          ] ,
         },
         {
-            id: 'reset_password',
-            displayAsText: 'Reset Password',
-            initialWidth: 130,
-            actions: { showMoveLeft: false, showMoveRight: false },
+          name: 'Reset Pass',
+          actions: [
+              {render: (item) => <EuiButtonIcon  onClick={()=>(setShowResetPwdModal(true))} iconType="tokenKey" color={"warning"}>Reset Pass</EuiButtonIcon>}
+          ] ,
         },
-        {
-            id: 'delete_account',
-            displayAsText: 'Delete Account',
-            initialWidth: 130,
-            actions: { showMoveLeft: false, showMoveRight: false },
-        }
+                {
+          name: 'Remove',
+          actions: [
+              {render: (item) => <EuiButtonIcon onClick={() => (setShowDeleteModal(true))} iconType="trash" color={"danger"}>Delete</EuiButtonIcon>},
+          ] ,
+        },
     ]
 
-      // Column visibility
-    const [visibleColumns, setVisibleColumns] = useState(
-        columns.map(({ id }) => id) // initialize to the full set of columns
-    );
+
+    /**
+     * Pagination options
+     * @type {{pageSizeOptions: number[], pageIndex: number, pageSize: number, totalItemCount: number}}
+     */
+    const pagination = {
+        pageIndex: pageIndex,
+        pageSize: pageSize,
+        totalItemCount: raw_data.length,
+        pageSizeOptions: [20, 40, 60],
+    };
 
     return (
         <Fragment>
@@ -133,30 +191,16 @@ const UserManagement = (props) => {
             <EuiSpacer size={'l'}/>
             <EuiButton onClick={()=> (setShowAccountCreationModal(true))}>Create new account</EuiButton>
             <EuiSpacer size={'l'}/>
-            <EuiDataGrid
-                aria-label="Data grid demo"
+
+            <EuiBasicTable
+                aria-label={"User table"}
+                items={items}
+                itemId="id"
                 columns={columns}
-                columnVisibility={{ visibleColumns, setVisibleColumns }}
-                renderCellValue={({ rowIndex, columnId }) => raw_data[rowIndex][columnId]}
-                gridStyle={{
-                    border: 'none',
-                    stripes: true,
-                    rowHover: 'highlight',
-                    header: 'underline',
-                    // If showDisplaySelector.allowDensity={true} from toolbarVisibility, fontSize and cellPadding will be superceded by what the user decides.
-                    cellPadding: 'm',
-                    fontSize: 'm',
-                    footer: 'overline'
-                  }}
-                rowCount={raw_data.length}
-                pagination={{
-                    ...pagination,
-                    pageSizeOptions: [5, 10, 20, 50],
-
-                    onChangeItemsPerPage: setPageSize,
-                    onChangePage: setPageIndex
-                }}
-
+                pagination={pagination}
+                sorting={sorting}
+                hasActions={true}
+                onChange={onTableChange}
             />
 
             
