@@ -42,10 +42,10 @@ const Register = (props) => {
 
         // Prevent form submit
         event.preventDefault()
-        let data = { email: registerForm.email, password: registerForm.password}
+        let data = { email: registerForm.email, password: registerForm.password, name: registerForm.name, surname: registerForm.surname}
         axios.post(EP_REGISTER, data).then((response) => {
             if (response.status === 201) {
-              dispatch({type :'SUCCESS_MODAL', payload:'Successfully registered You can now log in !'})
+              dispatch({type :'SUCCESS_MODAL', payload:'A request has been sent to an administrator to validate you registration.'})
             }
             navigate('/login')
         }).catch((error) => {
@@ -146,7 +146,7 @@ const Register = (props) => {
                                           position="right"
                                           title={"Attention!"}
                                           content="Password should be at least 8 character long,
-                                          with at least one special char, one upper case  and number"
+                                          with at least one uppercase letter, one lowercase letter and one number"
                                     >
                                          <EuiFieldPassword
                                                 type='dual'
@@ -164,7 +164,7 @@ const Register = (props) => {
                                           position="right"
                                           title={"Attention!"}
                                           content="Password should be at least 8 character long,
-                                          with at least one special char, one upper case  and number"
+                                          with at least one uppercase letter, one lowercase letter and one number"
                                     >
                                          <EuiFieldPassword
                                                 type='dual'

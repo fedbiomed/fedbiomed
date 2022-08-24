@@ -5,13 +5,13 @@ from functools import wraps
 from hashlib import sha512
 
 from db import user_database
-from flask import request, Blueprint
+from flask import request
 from flask_jwt_extended import (jwt_required, create_access_token, create_refresh_token, unset_jwt_cookies,
-                                verify_jwt_in_request, get_jwt, set_access_cookies, set_refresh_cookies)
+                                verify_jwt_in_request, get_jwt)
 from utils import error, response
 from fedbiomed.common.constants import UserRoleType, UserRequestStatus
 from gui.server.schemas import ValidateUserFormRequest
-from gui.server.utils import success, validate_request_data
+from gui.server.utils import validate_request_data
 from . import api
 
 user_table = user_database.table('Users')
@@ -154,6 +154,8 @@ def register():
     Request {application/json}:
         email (str): Email of the user to register
         password (str): Password of the user to register
+        name (str): Name of the user to register
+        surname (str): Surname of the user to register
 
     Response {application/json}:
         400:
@@ -213,7 +215,7 @@ def register():
 @api.route('/register-admin', methods=['POST', 'GET'])
 @validate_request_data(schema=ValidateUserFormRequest)
 def register_admin():
-    """ API endpoint to register new user in the database.
+    """ API endpoint to register new user in the database (as an admin).
 
     Request {application/json}:
         email (str): Email of the user to register
@@ -325,8 +327,6 @@ def login():
                 "refresh_token": refresh_token,
             },
             message='User successfully logged in')
-        # set_access_cookies(resp, access_token)
-        # set_refresh_cookies(resp, refresh_token)
         return resp, 200
     return error('Please verify your email and/or your password'), 401
 
@@ -350,8 +350,6 @@ def refresh_expiring_jwts():
             "access_token": access_token,
             "refresh_token": refresh_token},
         message='Access token successfully refreshed')
-    # set_access_cookies(resp, access_token)
-    # set_refresh_cookies(resp, refresh_token)
     return resp, 200
 
 
@@ -376,20 +374,6 @@ def logout():
     resp = response(msg='User successfully logged out')
     unset_jwt_cookies(resp)
     return resp, 200
-
-# @api.after_request
-# def refresh_expiring_jwts(response):
-#     try:
-#         exp_timestamp = get_jwt()["exp"]
-#         now = datetime.now(timezone.utc)
-#         target_timestamp = datetime.timestamp(now + timedelta(minutes=30))
-#         if target_timestamp > exp_timestamp:
-#             access_token = create_access_token(identity=get_jwt_identity())
-#             set_access_cookies(response, access_token)
-#         return response
-#     except (RuntimeError, KeyError):
-#         # Case where there is not a valid JWT. Just return the original response
-#         return response
 
 # TODO : Generate secret key server randomly
 # TODO : Implement method to retrieve user password

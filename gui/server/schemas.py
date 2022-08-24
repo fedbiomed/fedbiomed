@@ -414,7 +414,7 @@ class ValidateUserFormRequest(Validator):
             'name': {'type': 'string'},
             'surname': {'type': 'string'}
         },
-        'required': ['email', 'password'],
+        'required': ['email', 'password']
     }, message=None)
 
 

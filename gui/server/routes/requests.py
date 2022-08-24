@@ -1,16 +1,15 @@
 import uuid
 
-from fedbiomed.common.constants import AdminRequestAction, UserRequestStatus
+from fedbiomed.common.constants import UserRequestStatus
 from gui.server.routes import admin_required
 from . import api
 from utils import success, error, validate_request_data, response
 
 from flask import request
-from flask_jwt_extended import (jwt_required, create_access_token, create_refresh_token, unset_jwt_cookies,
-                                verify_jwt_in_request, get_jwt, set_access_cookies, set_refresh_cookies)
+from flask_jwt_extended import jwt_required
 
-from ..db import user_database
-from ..schemas import ValidateAdminRequestAction
+from db import user_database
+from gui.server.schemas import ValidateAdminRequestAction
 
 user_table = user_database.table('Users')
 user_requests_table = user_database.table('Requests')
@@ -76,9 +75,11 @@ def approve_user_request():
             message : The message for response
     """
     try:
-        req = request.json
+        request_id = request.json['request_id']
+        user_request = user_requests_table.get(query.request_id == request_id)
+        if not user_request:
+            return error(f'Request with id {request_id} not found'), 400
         user_id = 'user_' + str(uuid.uuid4())
-        user_request = user_requests_table.get(query.request_id == req["request_id"])
         user_table.insert({
             "user_name": user_request["user_name"],
             "user_surname": user_request["user_surname"],
@@ -89,7 +90,7 @@ def approve_user_request():
             "user_id": user_id
         })
         res = user_table.get(query.user_id == user_id)
-        user_requests_table.remove(query.request_id == req["request_id"])
+        user_requests_table.remove(query.request_id == request_id)
         return response({
             'user_id': res['user_id'],
             'user_email': res['user_email']
@@ -120,11 +121,14 @@ def reject_user_request():
             message : The message for response
     """
     try:
-        req = request.json
+        request_id = request.json['request_id']
+        user_request = user_requests_table.get(query.request_id == request_id)
+        if not user_request:
+            return error(f'Request with id {request_id} not found'), 400
         user_requests_table.update({
             "request_status": UserRequestStatus.REJECTED
-        }, query.request_id == req["request_id"])
-        res = user_requests_table.get(query.request_id == req['request_id'])
+        }, query.request_id == request_id)
+        res = user_requests_table.get(query.request_id == request_id)
         return response(res), 200
     except Exception as e:
         return error(str(e)), 400
