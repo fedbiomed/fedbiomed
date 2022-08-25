@@ -35,24 +35,29 @@ export const dataLoadingPlanReducer = (state = initialState, action) => {
                 ...state,
                 dlp_name : action.payload
             }
-        case "ADD_PIPELINE":
-            let data_loading_blocks = state.dlp_loading_blocks
-            data_loading_blocks[action.payload.type_id] = {
-                serial_id: action.payload.serial_id,
-                module: action.payload.module,
-                qualname: action.payload.qualname,
-            }
+        // TODO: remove after completing DLP save
+        //case "ADD_PIPELINE":
+        //    let data_loading_blocks = state.dlp_loading_blocks
+        //    data_loading_blocks[action.payload.type_id] = {
+        //        serial_id: action.payload.serial_id,
+        //        module: action.payload.module,
+        //        qualname: action.payload.qualname,
+        //    }
+        //    return {
+        //        ...state,
+        //        dlp_loading_blocks: data_loading_blocks
+        //    }
+        //case "CLEAR_PIPELINES":
+        //    return {
+        //        ...state,
+        //        dlp_loading_blocks: {}
+        //    }
+        case "RESET_DATA_LOADING_PLAN":
+            // need to ensure a deep copy
             return {
-                ...state,
-                dlp_loading_blocks: data_loading_blocks
-            }
-        case "CLEAR_PIPELINES":
-            return {
-                ...state,
+                ...initialState,
                 dlp_loading_blocks: {}
             }
-        case "RESET_DATA_LOADING_PLAN":
-            return initialState
         default:
             return state
     }

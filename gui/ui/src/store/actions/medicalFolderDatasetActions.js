@@ -137,6 +137,7 @@ export const setCustomizeModalitiesToFolders = (value) => {
     }
 }
 
+// TODO: remove after completing DLP save
 //export const createModalitiesToFoldersBlock = (modalities_mapping) => {
 //    return (dispatch) => {
 //        dispatch({type: 'SET_DLP', payload: -1})

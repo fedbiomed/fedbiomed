@@ -23,7 +23,6 @@ export const setUsePreExistingDlp = (data) => {
 
 export const setDLPIndex = (event) => {
     return (dispatch) => {
-        dispatch({type: 'CLEAR_PIPELINES', payload: {}})
         dispatch({type: 'SET_DLP', payload: event.target.value})
     }
 }

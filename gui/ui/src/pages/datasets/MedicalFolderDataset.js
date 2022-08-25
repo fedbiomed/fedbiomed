@@ -138,7 +138,7 @@ export class MedicalFolderDataset extends React.Component {
                                 <EuiSelect 
                                     options={this.getDlpSelectOptions()}
                                     value={this.getDlpSelectDefault()}
-                                    onChange={this.props.setDLPTableSelectedRow}
+                                    onChange={this.props.setDLPIndex}
                                 />
                             </div>
                             </React.Fragment> : null
@@ -290,7 +290,7 @@ const mapDispatchToProps = (dispatch) => {
         addMedicalFolderDataset : (navigate) => dispatch(addMedicalFolderDataset(navigate)),
         ignoreReferenceCsv : (data) => dispatch(setIgnoreReferenceCsv(data)),
         usePreExistingDlp : (data) => dispatch(setUsePreExistingDlp(data)),
-        setDLPTableSelectedRow : (data) => dispatch(setDLPIndex(data)),
+        setDLPIndex : (data) => dispatch(setDLPIndex(data)),
     }
 }
 
