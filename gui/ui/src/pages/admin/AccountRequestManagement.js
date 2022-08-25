@@ -11,16 +11,18 @@ import {
 
   import { AccountRequestManagementModal } from './accountRequestManagementModal';
   import { listAccountRequests } from '../../store/actions/accountRequestActions';
-  import { useDispatch, useSelector, shallowEqual } from "react-redux";
+  import { useSelector, shallowEqual, connect } from "react-redux";
 
 
 const AccountRequestManagement = (props) => {
-
+    const listAccountRequestsAction = props.listAccountRequestsAction
     React.useEffect(() => {
-        listAccountRequests()
-    }, [listAccountRequests])
+        // Get list of account creation requests
+        listAccountRequestsAction({})
+    }, [listAccountRequestsAction])
 
-    const users = useSelector((state) => state.user_requests_list, shallowEqual)
+    const users = useSelector((state) => state.users.list)
+    console.log(props.users_list)
 
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(20);
@@ -205,4 +207,26 @@ const AccountRequestManagement = (props) => {
     )
 }
 
-export default AccountRequestManagement
+/**
+ * Pass action to props of component
+ * @param {function} dispatch 
+ * @returns 
+ */
+ const mapDispatchToProps = (dispatch) => {
+    return {
+        listAccountRequestsAction : (data) => dispatch(listAccountRequests())
+    }
+}
+
+/**
+ * Map global state
+ * @param {*} state 
+ * @returns 
+ */
+ const mapStateToProps = (state) => {
+    return {
+        users_list : state.users.list
+    }
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(AccountRequestManagement);
