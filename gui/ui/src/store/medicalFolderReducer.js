@@ -61,11 +61,6 @@ export const medicalFolderReducer = (state = initialState, action) => {
                     ...action.payload
                 }
             }
-        case "SET_IDENTIFIERS":
-            return {
-                ...state,
-                identifiers: action.payload
-            }
         case "SET_MEDICAL_FOLDER_REF":
             return {
                 ...state,
