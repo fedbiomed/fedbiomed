@@ -1,21 +1,21 @@
 import React from 'react';
 import {EuiPage,
-        EuiPageContent,
+        EuiPageSection,
         EuiPageBody
 } from '@elastic/eui';
 
 
 const AuthLayout = ({children}) => {
     return (
-        <EuiPage paddingSize="l" grow={false}  style={{minHeight: "100vh"}}>
-            <EuiPageBody paddingSize="l">
-                <EuiPageContent
-                  horizontalPosition="center"
+        <EuiPage paddingSize="l" grow={true}  style={{minHeight: "100vh"}}>
+                <EuiPageSection
+                  alignment={'center'}
                   paddingSize="l"
+                  color={'plain'}
+                  grow={true}
                 >
                     {children}
-                </EuiPageContent>
-            </EuiPageBody>
+                </EuiPageSection>
         </EuiPage>
     );
 };

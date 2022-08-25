@@ -60,7 +60,7 @@ hr {
   width: 80%;
   background-color: transparent;
   height: 100vh;
-  max-height: 100vh;
+  margin-top: 50px;
  
 }
 
@@ -69,7 +69,8 @@ hr {
   /* background-color: #003366; */
   background-color: #fff;
   height: 100vh;
-  max-height: 100vh;
+  max-height: calc(100vh - 50px);
+  margin-top: 50px;
   position: relative;
   box-shadow: 5px 0px 15px -8px rgba(0,0,0,0.75);
   -webkit-box-shadow: 5px 0px 15px -8px rgba(0,0,0,0.75);
