@@ -10,11 +10,101 @@ from flask_jwt_extended import jwt_required
 from datetime import datetime
 
 from db import user_database
-from gui.server.schemas import ValidateAdminRequestAction
+from schemas import ValidateAdminRequestAction, ValidateUserFormRequest
+from helpers.auth_helpers import set_password_hash
+from fedbiomed.common.constants import UserRoleType
+
 
 user_table = user_database.table('Users')
 user_requests_table = user_database.table('Requests')
 query = user_database.query()
+
+
+@api.route('/admin/users/list', methods=['GET'])
+@jwt_required()
+@admin_required
+def list_users():
+    """
+        List of registered users in GUI DB
+
+        Request.GET {None}:
+            - No request data
+
+        Response {application/json}:
+            400:
+                success  : Boolean error status (False)
+                result  : null
+                message : Message about error. Can be validation error or
+                          error from TinyDBt
+            200:
+                success: Boolean value indicates that the request is success
+                result: List of user objects
+                endpoint: API endpoint
+                message: The message for response
+        """
+
+    try:
+        users = user_table.all()
+    except Exception as e:
+        return error(f'Error while getting users {e}'), 400
+
+    return response(users), 200
+
+
+@api.route('/admin/create-user', methods=['POST'])
+@validate_request_data(schema=ValidateUserFormRequest)
+@admin_required
+def register_admin():
+    """ API endpoint to register new user in the database (as an admin).
+
+    Request {application/json}:
+        email (str): Email of the user to register
+        password (str): Password of the user to register
+        name (str): Name of the user to register
+        surname (str): Surname of the user to register
+
+    Response {application/json}:
+        400:
+            error   : Boolean error status (False)
+            result  : null
+            message : Message about error. Can be validation error or
+                      error from TinyDB
+        409:
+            success : Boolean error status (False)
+            result  : null
+            message : Message about error, when user is already registered but wants to register
+                        under another account
+        201:
+            success : Boolean value indicates that the request is success
+            result  : null
+            message : The message for response
+    """
+    req = request.json
+
+    email = req['email']
+    password = req['password']
+    name = req['name']
+    surname = req['surname']
+
+    try:
+        # Create unique id for the request
+        request_id = 'request_' + str(uuid.uuid4())
+        user_requests_table.insert({
+            "user_name": name,
+            "user_surname": surname,
+            "user_email": email,
+            "password_hash": set_password_hash(password),
+            "user_role": UserRoleType.ADMIN,
+            "creation_date": datetime.utcnow().ctime(),
+            "request_id": request_id,
+            "request_status": UserRequestStatus.NEW
+        })
+        res = user_requests_table.get(query.request_id == request_id)
+        return response({
+            'request_id': res['request_id'],
+        }, 'A request has been sent to administrator for account creation'), 201
+    except Exception as e:
+        return error(str(e)), 400
 
 
 @api.route('/admin/requests/list', methods=['GET'])
@@ -135,3 +225,5 @@ def reject_user_request():
         return error(str(e)), 400
 
 # TODO: Find a way to notify the user about rejection or acceptation of his/her request
+
+

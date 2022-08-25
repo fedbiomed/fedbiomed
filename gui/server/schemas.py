@@ -115,7 +115,24 @@ class JsonSchema(object):
             # Raise custom error messages
             message = None
             if e.relative_schema_path[0] == 'required':
-                message = 'Please make sure all required fields have been filled'
+                print(e.relative_schema_path)
+                print(dir(e))
+                print(e.validator_value)
+                print(e.validator)
+                print(e.message)
+                print(e.json_path)
+                print(e.relative_path)
+                print(e.schema_path)
+                print(e.instance)
+                if "requiredMessages" in self._schema:
+                    index = [i for i, val in enumerate(e.validator_value) if val in e.message][0]
+                    if e.validator_value[index] in self._schema["requiredMessages"]:
+                        message = self._schema["requiredMessages"][e.validator_value[index]]
+                    else:
+                        message = 'Please make sure all required fields have been filled'
+                else:
+                    message = 'Please make sure all required fields have been filled'
+
             elif e.relative_schema_path[0] == 'properties':
                 field = e.relative_schema_path[1]
                 reason = e.relative_schema_path[2]
@@ -399,6 +416,33 @@ class ValidateMedicalFolderAddRequest(Validator):
     })
 
 
+class ValidateLoginRequest(Validator):
+    type = "json"
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'email': {
+                'type': 'string',
+                'minLength': 1,
+                'errorMessages': {
+                    'minLength': 'Email is missing'
+                }
+            },
+            'password': {'type': 'string',
+                         'minLength': 1,
+                         'errorMessages': {
+                             'minLength': 'Password is missing'
+                         }},
+        },
+        'required': ['email', 'password'],
+        'requiredMessages': {
+            'email': 'E-mail is required!',
+            'password': 'Password is required!'
+
+        }
+    })
+
+
 class ValidateUserFormRequest(Validator):
     """ Json Schema for user registration and login requests"""
     type = 'json'
@@ -407,15 +451,46 @@ class ValidateUserFormRequest(Validator):
         'properties': {
             'email': {
                 'type': 'string',
-                'description': 'Email of the user',
-                'format': 'email'
+                'minLength': 1,
+                'errorMessages': {
+                    'minLength': 'Email is missing'
+                }
             },
-            'password': {'type': 'string'},
-            'name': {'type': 'string'},
-            'surname': {'type': 'string'}
+            'password': {'type': 'string',
+                         'minLength': 1,
+                         'errorMessages': {
+                             'minLength': 'Password is missing',
+                             'type': 'Please make sure password respects required format'
+                         }},
+            'confirm': {'type': 'string',
+                                 'minLength': 1,
+                                 'errorMessages': {
+                                     'minLength': 'Password is missing',
+                                     'type': 'Please make sure password confirmation corresponds required format'
+                                 }},
+            'name': {'type': 'string',
+                     'minLength': 1,
+                     'errorMessages': {
+                         'minLength': 'Name is missing'
+                     }
+
+                     },
+            'surname': {'type': 'string',
+                        'minLength': 1,
+                        'errorMessages': {
+                            'minLength': 'Surname is missing and it is required'
+                        }
+
+                        }
         },
-        'required': ['email', 'password']
-    }, message=None)
+        'required': ['email', 'password'],
+        'requiredMessages': {
+            'email': 'E-mail is missing!',
+            'password': 'Password is missing!',
+            'name': 'Password is missing!',
+            'surname': 'Password is missing!',
+        }
+    })
 
 
 class ListUserRegistrationRequest(Validator):

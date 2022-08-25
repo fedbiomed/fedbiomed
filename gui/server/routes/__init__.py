@@ -1,6 +1,5 @@
 from flask import Blueprint
 
-
 # Create a blue print for `/api` url prefix. The URLS
 api = Blueprint('api', 'api', url_prefix='/api')
 
@@ -12,5 +11,5 @@ from .datasets import *
 from .repository import *
 from .medical_folder_dataset import *
 from .model import *
-from .requests import *
+from .users import *
 
