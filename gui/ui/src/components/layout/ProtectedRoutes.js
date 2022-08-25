@@ -19,7 +19,7 @@ import {
 
 } from '@elastic/eui'
 import logo from "../../assets/img/fedbiomed-logo-small.png";
-
+import style from './ProtectedRoutes.module.css'
 
 const mapStateToProps = (state) => {
     return {
@@ -40,7 +40,7 @@ export const LoginProtected = connect(mapStateToProps, null)((props) => {
     if(user) {
         return(
             <React.Fragment>
-                <EuiHeader position={'fixed'}>
+                <EuiHeader position={'fixed'} className={style.header}>
                     <EuiHeaderSection grow={false}>
                         <EuiHeaderSectionItem border="right">
                             <img alt="fedbiomed-logo" src={logo} style={{marginRight:10, width:30}}/>
@@ -112,6 +112,7 @@ const HeaderUserMenu = (props) => {
       aria-haspopup="true"
       aria-label="Account menu"
       onClick={onMenuButtonClick}
+      className={style.headerButton}
     >
       <EuiAvatar name={props.name} size="m" />
     </EuiHeaderSectionItemButton>
