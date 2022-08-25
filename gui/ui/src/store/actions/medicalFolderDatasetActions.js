@@ -64,10 +64,6 @@ export const setFolderRefColumn = (ref) => {
             index_col: ref.index
         }
 
-        validation_data['dlp_id'] = state.dataLoadingPlan.selected_dlp_index !== null ?
-            state.dataLoadingPlan.existing_dlps['data'][state.dataLoadingPlan.selected_dlp_index][1] : null
-        validation_data['dlp_loading_blocks'] = state.dataLoadingPlan.dlp_loading_blocks
-
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Setting/validating MedicalFolder subject reference column..."}})
         axios.post(EP_VALIDATE_REFERENCE_COLUMN, validation_data).then(response => {
             let data = response.data.result

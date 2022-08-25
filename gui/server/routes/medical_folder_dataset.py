@@ -34,7 +34,6 @@ query = database.query()
 @api.route('/datasets/medical-folder-dataset/validate-reference-column', methods=['POST'])
 @validate_request_data(schema=ValidateMedicalFolderReferenceCSV)
 @middleware(middlewares=[medical_folder_dataset.read_medical_folder_reference,
-                         medical_folder_dataset.load_dlp,
                          medical_folder_dataset.validate_available_subjects])
 def validate_reference_csv_column():
     """ Validate selected reference CSV and column shows folder names """
