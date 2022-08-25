@@ -42,7 +42,13 @@ const Register = (props) => {
 
         // Prevent form submit
         event.preventDefault()
-        let data = { email: registerForm.email, password: registerForm.password, name: registerForm.name, surname: registerForm.surname}
+        let data = {
+            email: registerForm.email,
+            password: registerForm.password,
+            name: registerForm.name,
+            surname: registerForm.surname,
+            confirm: registerForm.confirm
+        }
         axios.post(EP_REGISTER, data).then((response) => {
             if (response.status === 201) {
               dispatch({type :'SUCCESS_MODAL', payload:'A request has been sent to an administrator to validate you registration.'})

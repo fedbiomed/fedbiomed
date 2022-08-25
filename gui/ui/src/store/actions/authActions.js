@@ -68,6 +68,7 @@ export const removeToken = () => {
 export const checkIsTokenActive = () => {
     const token = getAccessToken();
     let decoded_token
+
     try {
        decoded_token = JSON.parse(atob(token.split(".")[1]));
     } catch (e) {

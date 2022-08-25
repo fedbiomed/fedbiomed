@@ -150,7 +150,7 @@ const HeaderUserMenu = (props) => {
                   </EuiFlexItem>
 
                   <EuiFlexItem grow={false}>
-                    <EuiLink onClick={() => removeToken()} >Log out</EuiLink>
+                    <EuiLink onClick={() => {removeToken(); navigate('/login')}} >Log out</EuiLink>
                   </EuiFlexItem>
                 </EuiFlexGroup>
               </EuiFlexItem>
