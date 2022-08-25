@@ -49,10 +49,6 @@ const SideNav= (props) => {
     return (
         <div className="side-nav">
             <div className="side-nav-inner">
-                <div className="brand">
-                    <img alt="fedbiomed-logo" src={logo}/>
-                    <h1>Fed-BioMed - Node GUI</h1>
-                </div>
                 <div className="nav-items">
                     {
                         items.map((item,key) => {

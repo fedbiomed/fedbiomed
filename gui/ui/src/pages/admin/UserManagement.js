@@ -48,11 +48,12 @@ let raw_data = [
 const UserManagement = (props) => {
 
     const [pageIndex, setPageIndex] = useState(0);
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(15);
     const [sortField, setSortField] = useState('name');
     const [sortDirection, setSortDirection] = useState('asc');
     const [showAccountCreationModal, setShowAccountCreationModal] = useState(false);
 
+    const [tableLoading, setTableLoading] = useState(true)
 
     const [items, setItems] = useState([])
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -67,24 +68,29 @@ const UserManagement = (props) => {
      * Lifecycle method to keep track change on use table
      */
     React.useEffect( () => {
-        let begin = pageIndex * pageSize
-        let end = pageIndex * pageSize + pageSize
-        let display = raw_data.slice(begin, end)
 
-        // Sort with custom function
-        display.sort( (a, b) => {
-                        if ( a[sortField] < b[sortField] ){
-                            return  sortDirection === "asc" ? -1 : 1 ;
-                        }
+        setTableLoading(true)
+        setTimeout(() => {
+            let begin = pageIndex * pageSize
+            let end = pageIndex * pageSize + pageSize
+            let display = raw_data.slice(begin, end)
 
-                        if ( a[sortField] > b[sortField] ){
-                            return sortDirection === "asc" ? 1 : -1 ;
-                        }
+            // Sort with custom function
+            display.sort( (a, b) => {
+                            if ( a[sortField] < b[sortField] ){
+                                return  sortDirection === "asc" ? -1 : 1 ;
+                            }
 
-                        return 0;
-        })
+                            if ( a[sortField] > b[sortField] ){
+                                return sortDirection === "asc" ? 1 : -1 ;
+                            }
 
-        setItems(display)
+                            return 0;
+            })
+            setItems(display)
+            setTableLoading(false)
+        }, 500)
+
     }, [pageIndex, pageSize, sortField, sortDirection])
 
     /**
@@ -153,19 +159,19 @@ const UserManagement = (props) => {
         {
           name: 'Change Role',
           actions: [
-              {render: (item) => <EuiButtonIcon onClick={()=>(setShowResetPwdModal(true))}  iconType="user" color={"primary"}>Change Role</EuiButtonIcon>}
+              {render: (item) => <EuiButton onClick={()=>(setShowResetPwdModal(true))}  iconType="user" color={"primary"}>Change Role</EuiButton>}
           ] ,
         },
         {
           name: 'Reset Pass',
           actions: [
-              {render: (item) => <EuiButtonIcon  onClick={()=>(setShowResetPwdModal(true))} iconType="tokenKey" color={"warning"}>Reset Pass</EuiButtonIcon>}
+              {render: (item) => <EuiButton  onClick={()=>(setShowResetPwdModal(true))} iconType="tokenKey" color={"warning"}>Reset Pass</EuiButton>}
           ] ,
         },
                 {
           name: 'Remove',
           actions: [
-              {render: (item) => <EuiButtonIcon onClick={() => (setShowDeleteModal(true))} iconType="trash" color={"danger"}>Delete</EuiButtonIcon>},
+              {render: (item) => <EuiButton onClick={() => (setShowDeleteModal(true))} iconType="trash" color={"danger"}>Delete</EuiButton>},
           ] ,
         },
     ]
@@ -201,6 +207,7 @@ const UserManagement = (props) => {
                 sorting={sorting}
                 hasActions={true}
                 onChange={onTableChange}
+                loading={tableLoading}
             />
 
             

@@ -1,10 +1,10 @@
 import React, {useState} from 'react';
 import {EuiPageBody,
-        EuiPageContentBody,
         EuiSpacer,
         EuiTab,
         EuiTabs,
-        EuiPageContent,
+        EuiPageSection,
+        EuiIcon,
         EuiTextColor} from "@elastic/eui"
 import {Outlet, useNavigate} from 'react-router-dom'
 import {useSelector, shallowEqual} from 'react-redux';
@@ -22,7 +22,8 @@ const UserAccount = (props) => {
                   isSelected: true,
                   to:'/user-account/info',
                   color: "default",
-                  display: true
+                  display: true,
+                   prepend: <EuiIcon type="user" />
               },
 
               {
@@ -30,22 +31,25 @@ const UserAccount = (props) => {
                   label: 'Change Password',
                   color: "default",
                   display: true,
-                  to:'/user-account/change-password'
+                  to:'/user-account/change-password',
+                  prepend: <EuiIcon type="tokenKey" />
               },
               {
-                 id: 'user-management',
-                 label: 'Manage Users',
+                  id: 'user-management',
+                  label: 'Manage Users',
                   to:'/user-account/user-management',
-                 color: "#788083",
-                 display: userInfo.role === 'Admin'
+                  color: "default",
+                  display: userInfo.role === 'Admin',
+                  prepend: <EuiIcon type="users" />
 
               },
               {
-                id: 'request-account-user',
+                  id: 'request-account-user',
                   to:'/user-account/account-requests',
-                label: 'Approve new Users',
-                color: "#788083",
-                display: userInfo.role === 'Admin'
+                  label: 'Approve new Users',
+                  color: "default",
+                  display: userInfo.role === 'Admin',
+                  prepend: <EuiIcon type="lockOpen" />
 
              },
     ]
@@ -77,7 +81,7 @@ const UserAccount = (props) => {
     return (
         <React.Fragment>
                 <EuiPageBody paddingSize="l" >
-                    <EuiPageContent
+                    <EuiPageSection
                         hasBorder={false}
                         hasShadow={false}
                         paddingSize="none"
@@ -90,18 +94,16 @@ const UserAccount = (props) => {
                             {renderTabs()}
                         </EuiTabs>
                         <EuiSpacer size={'l'}/>
-                        <EuiPageContent
+                        <EuiPageSection
                             hasBorder={false}
                             hasShadow={false}
                             paddingSize="none"
                             color="transparent"
                             borderRadius="none"
                         >
-                            <EuiPageContentBody>
-                                <Outlet/>
-                            </EuiPageContentBody>
-                        </EuiPageContent>
-                    </EuiPageContent>
+                            <Outlet/>
+                        </EuiPageSection>
+                    </EuiPageSection>
                 </EuiPageBody>
         </React.Fragment>
 

@@ -9,12 +9,6 @@ import {ReactComponent as ConfIcon} from "../assets/img/configuration.svg";
 
 const Home = (props) => {
 
-    useEffect(() => {
-        // we hide the navigation tab for the login page
-        var my_id_html = document.getElementById("#my_id");  // get the side_nav through its id
-        my_id_html.style.display = "block";  
-    })
-    //
     const boxes = [
         [{
              title : 'Documentation',
