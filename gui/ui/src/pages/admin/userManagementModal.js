@@ -6,11 +6,6 @@ import {
   EuiModalFooter,
   EuiModalHeader,
   EuiModalHeaderTitle,
-  EuiCodeBlock,
-  EuiSpacer,
-  PropertySortType,
-  EuiFlyout,
-  EuiFlyoutBody,
   EuiConfirmModal,
   EuiText
 } from '@elastic/eui';
