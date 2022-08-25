@@ -182,6 +182,15 @@ export const updateModalitiesMapping = (data) => {
         let medical_folder = getState().medicalFolderDataset
         let mapping = medical_folder.modalities_mapping
         let m2f = medical_folder.mod2fol_mapping
+        for(const modality in m2f) {
+            if(m2f[modality].includes(data.folder_name)){
+                m2f[modality] = m2f[modality].filter(folder => folder !== data.folder_name)
+                if(m2f[modality].length === 0){
+                    delete m2f[modality]
+                }
+                break
+            }
+        }
         if(data.modality_name in m2f) {
             if(!m2f[data.modality_name].includes(data.folder_name)){
                 m2f[data.modality_name].push(data.folder_name)
@@ -229,11 +238,9 @@ export const clearModalityMapping = (folder_name) => {
                 break
             }
         }
-        dispatch({type: 'CLEAR_MOD2FOL_MAPPING', payload: m2f})
+        dispatch({type: 'UPDATE_MOD2FOL_MAPPING', payload: m2f})
 
         dispatch({type: 'UPDATE_HAS_ALL_MAPPINGS', payload: false})
-
-        // TODO clear modality from current
     }
 }
 

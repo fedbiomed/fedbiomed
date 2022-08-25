@@ -5,9 +5,9 @@
 const initialState = {
     medical_folder_root: null,
     modality_folders : null,
-    use_custom_mod2fol: false,
     default_modality_names: [],
     current_modality_names: [],
+    use_custom_mod2fol: false,
     modalities_mapping: null,
     mod2fol_mapping: null,
     has_all_mappings: false,
@@ -154,11 +154,6 @@ export const medicalFolderReducer = (state = initialState, action) => {
             return {
                 ...state,
                 modalities_mapping: mod_mapping,
-            }
-        case "CLEAR_MOD2FOL_MAPPING":
-            return {
-                ...state,
-                mod2fol_mapping: action.payload,
             }
         case "RESET_MEDICAL_FOLDER":
             // need to ensure reinitialization of nested objects
