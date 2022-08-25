@@ -26,7 +26,6 @@ export const setFolderPath = (path) => {
             .then(response => {
                 let data = response.data.result
                 if(data.valid){
-                    dispatch({type:'RESET_DATA_LOADING_PLAN'})
                     dispatch({type:'RESET_MEDICAL_FOLDER'})
                     dispatch({type: "SET_MEDICAL_FOLDER_ROOT", payload: { root_path: path.path, modality_folders: data.modalities}})
                     dispatch({type:'SET_LOADING', payload: {status: false}})
@@ -268,17 +267,19 @@ export const addMedicalFolderDataset = (navigator) => {
             }
         }
 
-        data['dlp_id'] = dlp.selected_dlp_index !== null ?
-                            dlp.existing_dlps['data'][dlp.selected_dlp_index][1] : null
-        data['dlp_loading_blocks'] = dlp.dlp_loading_blocks
+        //data['dlp_id'] = dlp.selected_dlp_index !== null ?
+        //                    dlp.existing_dlps['data'][dlp.selected_dlp_index][1] : null
+        data['dlp_id'] = null
+        //data['dlp_loading_blocks'] = dlp.dlp_loading_blocks
+        data['dlp_loading_blocks'] = {}
         data['dlp_name'] = dlp.dlp_name
+        console.log('add dataset', data)
 
         axios.post(EP_ADD_MEDICAL_FOLDER_DATASET, data).then( response => {
                 dispatch({type: 'SUCCESS_MODAL' , payload: "Dataset has been successfully added"})
                 dispatch({type:'SET_LOADING', payload: {status: false}})
                 navigator('/datasets')
                 dispatch({type:'RESET_MEDICAL_FOLDER'})
-                dispatch({type:'RESET_DATA_LOADING_PLAN'})
         }).catch(error => {
             dispatch({type:'SET_LOADING', payload: {status: false}})
             dispatch(displayError(error, "Error while adding MedicalFolder dataset: "))

@@ -2,7 +2,6 @@ const initialState = {
     use_preexisting_dlp: false,
     selected_dlp_index: null,
     existing_dlps: null,
-    dlp_loading_blocks: {},
     dlp_name: ""
 }
 
@@ -52,12 +51,6 @@ export const dataLoadingPlanReducer = (state = initialState, action) => {
         //        ...state,
         //        dlp_loading_blocks: {}
         //    }
-        case "RESET_DATA_LOADING_PLAN":
-            // need to ensure a deep copy
-            return {
-                ...initialState,
-                dlp_loading_blocks: {}
-            }
         default:
             return state
     }

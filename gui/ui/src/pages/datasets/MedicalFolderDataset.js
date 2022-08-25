@@ -239,13 +239,6 @@ export class MedicalFolderDataset extends React.Component {
                          <ButtonsWrapper>
                             <Button onClick={this.addDataset}>Add Dataset</Button>
                         </ButtonsWrapper>
-
-                        {/*
-                        TODO: extend `DatasetManager.add_database` to save dlb/dlp only when they
-                          do not exist (check id ?)
-                        TODO: ask for name for dlp, only when created or modified the dlp
-                        */}
-
                     </Step>
                     </React.Fragment>
                 ): null}
