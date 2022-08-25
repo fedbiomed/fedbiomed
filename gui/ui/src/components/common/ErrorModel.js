@@ -7,7 +7,7 @@ import {useDispatch, useSelector} from "react-redux";
 const ResultModal = (props) => {
 
     const [isModalVisible, setIsModalVisible] = useState(props.show);
-    const result = useSelector((state) => state.result)
+    const result = useSelector((state) => state.list)
 
     const closeModal = () => setIsModalVisible(false);
 

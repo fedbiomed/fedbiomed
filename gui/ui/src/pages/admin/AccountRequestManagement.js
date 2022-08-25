@@ -4,22 +4,23 @@ import React, {
   } from 'react';
 import {
     EuiButton,
-    EuiButtonIcon,
     EuiBasicTable,
     EuiTitle,
     EuiSpacer
   } from '@elastic/eui';
 
   import { AccountRequestManagementModal } from './accountRequestManagementModal';
-
-let raw_data = [
-     { name:  "lolo", surname: "tata", email: "lolo@email.com",  password: "c7ad44cbad762a5da0a452f9e854fdc1e0e7a52a38015f23f3eab1d80b931dd472634dfac71cd34ebc35d16ab7fb8a90c81f975113d6c7538dc69dd8de9077ed", role: "USER", created:"01/01/1999", request_id: "request_dd7175a3-3826-4f3d-8610-619204585f0d", status: "NEW" },
-     { name:  "lo123123lo2", surname: "tata", email: "lolo23244@email.com",  password: "c7ad44cbad762a5da0a452f9e854fdc1e0e7a52a38015f23f3eab1d80b931dd472634dfac71cd34ebc35d16ab7fb8a90c81f975113d6c7538dc69dd8de9077ef", role: "USER", created:"01/01/1999", request_id: "request_dd7175a3-3826-4f3d-8610-619204585f0v", status: "NEW" },
-     { name:  "lolo3", surname: "tataa", email: "lolo@email.com", password: "c7ad44cbad762a5da0a452f9e854fdc1e0e7a52a38015f23f3eab1d80b931dd472634dfac71cd34ebc35d16ab7fb8a90c81f975113d6c7538dc69dd8de9077eg", role: "ADMIN", created:"01/01/1999", request_id: "request_dd7175a3-3826-4f3d-8610-619204585f0x", status: "NEW" },
-]
+  import { listAccountRequests } from '../../store/actions/accountRequestActions';
+  import { useDispatch, useSelector, shallowEqual } from "react-redux";
 
 
 const AccountRequestManagement = (props) => {
+
+    React.useEffect(() => {
+        listAccountRequests()
+    }, [listAccountRequests])
+
+    const users = useSelector((state) => state.user_requests_list, shallowEqual)
 
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(20);
@@ -35,7 +36,6 @@ const AccountRequestManagement = (props) => {
     const closeApproveRequestModal = () => {setShowApproveRequestModal(false)}
     const closeRejectRequestModal = () => {setShowRejectRequestModal(false)}
 
-
     /**
      * Lifecycle method to keep track change on use table
      */
@@ -45,7 +45,7 @@ const AccountRequestManagement = (props) => {
         setTimeout(() => {
             let begin = pageIndex * pageSize
             let end = pageIndex * pageSize + pageSize
-            let display = raw_data.slice(begin, end)
+            let display = users.slice(begin, end)
 
             // Sort with custom function
             display.sort( (a, b) => {
@@ -162,7 +162,7 @@ const AccountRequestManagement = (props) => {
     const pagination = {
         pageIndex: pageIndex,
         pageSize: pageSize,
-        totalItemCount: raw_data.length,
+        totalItemCount: users.length,
         pageSizeOptions: [20, 40, 60],
     };
 

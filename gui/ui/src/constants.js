@@ -26,6 +26,12 @@ export const REGISTER                   = 'REGISTER'
 export const EP_PROTECTED               = '/api/protected'
 export const EP_ADMIN                   = '/api/admin'
 
+// Admin endpoints
+export const EP_REQUESTS_LIST           = '/api/admin/requests/list'
+export const EP_REQUEST_APPROVE         = '/api/admin/requests/approve'
+export const EP_REQUEST_REJECT          = '/api/admin/requests/reject'
+
+
 // MedicalFolder Dataset Endpoints
 export const EP_VALIDATE_MEDICAL_FOLDER_ROOT    = '/api/datasets/medical-folder-dataset/validate-root'
 export const EP_VALIDATE_REFERENCE_COLUMN       = '/api/datasets/medical-folder-dataset/validate-reference-column'

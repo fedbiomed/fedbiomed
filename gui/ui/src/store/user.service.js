@@ -12,10 +12,7 @@ const authHeader = () => {
     } else {
       return {};
     }
-  }
-
-
-
+};
 
 
 const getUserBoard = () => {
@@ -34,4 +31,4 @@ const UserService = {
   getAdminBoard,
 };
 
-export default UserService;
+export {UserService, authHeader};
