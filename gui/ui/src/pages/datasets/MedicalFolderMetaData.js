@@ -39,7 +39,7 @@ const MedicalFolderMetadata = (props) => {
                 </div>
                 <div className={`row`}>
                     <div className="form-control">
-                        <Label>Description <span style={{fontSize:11}}>(min 4 character)</span> </Label>
+                        <Label>Dataset description <span style={{fontSize:11}}>(min 4 character)</span> </Label>
                         <TextArea name="desc"
                                   type="text"
                                   placeholder="Please type a description for dataset"
@@ -52,9 +52,10 @@ const MedicalFolderMetadata = (props) => {
                 {props.use_custom_mod2fol ?
                     <div className={`row`}>
                         <div className="form-control">
+                            <Label>Customization name <span style={{fontSize:11}}>(min 4 character)</span> </Label>
                             <TextArea name="desc"
                                       type="text"
-                                      placeholder="Please enter an optional name for the data loading customizations that you created."
+                                      placeholder="Enter a name for the data loading customizations that you created."
                                       onChange={(e) => { props.setDLPDesc(e.target.value)}}
                                       value={props.dlp_name}
                             />
