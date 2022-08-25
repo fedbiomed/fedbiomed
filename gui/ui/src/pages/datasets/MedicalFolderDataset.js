@@ -64,7 +64,7 @@ export class MedicalFolderDataset extends React.Component {
     }
 
     ignoreReferenceCsv = (status) => {
-        this.props.ignoreReferenceCsv(status)
+        this.props.setIgnoreReferenceCsv(status)
     }
 
     getDlpSelectOptions = () => {
@@ -288,7 +288,7 @@ const mapDispatchToProps = (dispatch) => {
         setReferenceCSV : (data) => dispatch(setReferenceCSV(data)),
         setFolderRefColumn : (data) => dispatch(setFolderRefColumn(data)),
         addMedicalFolderDataset : (navigate) => dispatch(addMedicalFolderDataset(navigate)),
-        ignoreReferenceCsv : (data) => dispatch(setIgnoreReferenceCsv(data)),
+        setIgnoreReferenceCsv : (data) => dispatch(setIgnoreReferenceCsv(data)),
         usePreExistingDlp : (data) => dispatch(setUsePreExistingDlp(data)),
         setDLPIndex : (data) => dispatch(setDLPIndex(data)),
     }
