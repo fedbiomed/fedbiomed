@@ -57,20 +57,20 @@ hr {
 }
 
 .App .main-frame {
-  width: 80%;
+  width: calc(100vw - 250px);
   background-color: transparent;
   height: 100vh;
-  margin-top: 50px;
+  margin-top: 65px;
  
 }
 
 .App .main-side-bar {
-  width: 20%;
+  width: 240px;
   /* background-color: #003366; */
   background-color: #fff;
   height: 100vh;
-  max-height: calc(100vh - 50px);
-  margin-top: 50px;
+  max-height: calc(100vh - 60px);
+  margin-top: 60px;
   position: relative;
   box-shadow: 5px 0px 15px -8px rgba(0,0,0,0.75);
   -webkit-box-shadow: 5px 0px 15px -8px rgba(0,0,0,0.75);
@@ -85,12 +85,20 @@ hr {
 }
 
 .App .main-frame .router-frame .inner {
-  padding: 0px 20px 0px 20px;
-  display: flex;
-  flex-flow: column;
-  position: relative;
-  height: 100vh;
-  overflow-y: scroll;
+    padding: 0px 20px 0px 20px;
+    display: flex;
+    flex-flow: column;
+    position: relative;
+    height: 100vh;
+    overflow-y: scroll;
+    width: 90%;
+    margin: 0 auto;
+    background: #fff;
+    max-width: 1200px;
+    border-radius: 5px;
+box-shadow: 0px 1px 22px -8px rgba(0,0,0,0.63);
+-webkit-box-shadow: 0px 1px 22px -8px rgba(0,0,0,0.63);
+-moz-box-shadow: 0px 1px 22px -8px rgba(0,0,0,0.63);
 }
 
 .router-frame .inner .frame-header {
