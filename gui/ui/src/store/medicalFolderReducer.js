@@ -46,8 +46,8 @@ export const medicalFolderReducer = (state = initialState, action) => {
         case "RESET_MEDICAL_FOLDER_ROOT":
             return {
                 ...state,
-                medical_folder_root: null,
-                modality_folders: null,
+                medical_folder_root: initialState.medical_folder_ref,
+                modality_folders: initialState.modality_folders,
             }
         case "PATIENT_FOLDERS":
             return {
@@ -95,7 +95,7 @@ export const medicalFolderReducer = (state = initialState, action) => {
             return {
                 ...state,
                 medical_folder_ref : initialState.medical_folder_ref,
-                reference_csv : null
+                reference_csv : initialState.reference_csv
             }
         case "SET_IGNORE_REFERENCE_CSV":
             return {
