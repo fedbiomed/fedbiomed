@@ -3,16 +3,12 @@ import fedbiomed.node.flamby_split as flsplit
 import unittest
 from torchvision.transforms import Compose as TorchCompose
 from monai.transforms import Compose as MonaiCompose
-import os
-import inspect
 from fedbiomed.common.training_plans import TorchTrainingPlan
-import sys
-sys.path.append('/home/ayed/fedbiomed')
 
 
-class TestDatasetManager(unittest.TestCase):
+class TestFlamby(unittest.TestCase):
     """
-    Unit Tests for DatasetManager class.
+    Unit Tests for FLamby integration.
     """
 
     def setUp(self):
