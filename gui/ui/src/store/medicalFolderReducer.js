@@ -48,6 +48,34 @@ export const medicalFolderReducer = (state = initialState, action) => {
                 medical_folder_root: initialState.medical_folder_root,
                 modality_folders: initialState.modality_folders,
             }
+        case "RESET_MEDICAL_CHANGE_USED_DLP":
+            return {
+                ...state,
+                use_custom_mod2fol: initialState.use_custom_mod2fol,
+                default_modality_names: initialState.default_modality_names,
+                current_modality_names: initialState.current_modality_names,
+                modalities_mapping: {},
+                mod2fol_mapping: {},
+                has_all_mappings: initialState.has_all_mappings,
+                reference_csv: initialState.ref,
+                ignore_reference_csv: initialState.ignore_reference_csv,
+                medical_folder_ref : initialState.medical_folder_ref,
+                metadata : initialState.metadata,
+            }
+        case "SET_MEDICAL_CHANGE_USED_DLP":
+            return {
+                ...state,
+                use_custom_mod2fol: action.payload.use_custom_mod2fol,
+                default_modality_names: action.payload.default_modality_names,
+                current_modality_names: action.payload.current_modality_names,
+                modalities_mapping: action.payload.modalities_mapping,
+                mod2fol_mapping: action.payload.mod2fol_mapping,
+                has_all_mappings: action.payload.has_all_mappings,
+                reference_csv: action.payload.reference_csv,
+                ignore_reference_csv: action.payload.ignore_reference_csv,
+                medical_folder_ref : action.payload.medical_folder_ref,
+                metadata : action.payload.metadata,
+            }
         case "SET_REFERENCE_CSV":
             return {
                 ...state,
