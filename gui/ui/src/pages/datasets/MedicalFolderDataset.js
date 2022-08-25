@@ -118,7 +118,7 @@ export class MedicalFolderDataset extends React.Component {
 
                         <EuiSpacer size="m" />
                         <EuiRadio
-                            id="reause-dlp-false"
+                            id="reuse-dlp-false"
                             label="Customize from scratch"
                             value="false"
                             checked={!this.props.use_preexisting_dlp}

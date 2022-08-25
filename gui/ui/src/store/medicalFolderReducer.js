@@ -4,10 +4,17 @@
  */
 const initialState = {
     medical_folder_root: null,
-    patient_folders: null,
     modality_folders : null,
+    use_custom_mod2fol: false,
+    default_modality_names: [],
+    current_modality_names: [],
+    modalities_mapping: null,
+    mod2fol_mapping: null,
+    has_all_mappings: false,
+    reference_csv: null,
+    ignore_reference_csv: false,
     medical_folder_ref : {
-        ref : {index: null, name:null},
+        ref : {index: null, name: null},
         subjects: {
             available_subject : null,
             missing_entries: null,
@@ -19,14 +26,6 @@ const initialState = {
         tags: null,
         desc: null,
     },
-    reference_csv: null,
-    ignore_reference_csv: false,
-    use_custom_mod2fol: false,
-    default_modality_names: [],
-    current_modality_names: [],
-    modalities_mapping: {},
-    mod2fol_mapping: {},
-    has_all_mappings: false
 }
 
 
@@ -46,17 +45,9 @@ export const medicalFolderReducer = (state = initialState, action) => {
         case "RESET_MEDICAL_FOLDER_ROOT":
             return {
                 ...state,
-                medical_folder_root: initialState.medical_folder_ref,
+                medical_folder_root: initialState.medical_folder_root,
                 modality_folders: initialState.modality_folders,
             }
-        case "PATIENT_FOLDERS":
-            return {
-               ...state,
-
-            }
-        case "SET_FORMAT":
-            return { ...state, patient_folders: action.payload}
-
         case "SET_REFERENCE_CSV":
             return {
                 ...state,
@@ -147,7 +138,12 @@ export const medicalFolderReducer = (state = initialState, action) => {
                 mod2fol_mapping: action.payload,
             }
         case "RESET_MEDICAL_FOLDER":
-            return initialState
+            // need to ensure reinitialization of nested objects
+            return {
+                ...initialState,
+                mod2fol_mapping: {},
+                modalities_mapping: {}
+            }
         default:
             return state
     }

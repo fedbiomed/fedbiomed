@@ -26,18 +26,19 @@ export const setFolderPath = (path) => {
             .then(response => {
                 let data = response.data.result
                 if(data.valid){
+                    dispatch({type:'RESET_DATA_LOADING_PLAN'})
+                    dispatch({type:'RESET_MEDICAL_FOLDER'})
                     dispatch({type: "SET_MEDICAL_FOLDER_ROOT", payload: { root_path: path.path, modality_folders: data.modalities}})
                     dispatch({type:'SET_LOADING', payload: {status: false}})
-                    dispatch({type:'RESET_MEDICAL_FOLDER_REFERENCE_CSV'})
-                    dispatch(getSubDirectories(path.path))
+                    dispatch(checkSubDirectories(path.path))
                 }else{
                     dispatch({type:'SET_LOADING', payload: {status: false}})
-                    dispatch({type:'RESET_MEDICAL_FOLDER_ROOT'})
+                    dispatch({type:'RESET_MEDICAL_FOLDER'})
                     dispatch({type: 'ERROR_MODAL', payload: data.message})
                 }
             }).catch(error => {
                 dispatch({type:'SET_LOADING', payload: {status: false}})
-                dispatch({type:'RESET_MEDICAL_FOLDER_ROOT', payload: false})
+                dispatch({type:'RESET_MEDICAL_FOLDER', payload: false})
                 dispatch(displayError(error))
         })
 
@@ -299,24 +300,21 @@ export const getMedicalFolderPreview = (dataset_id) => {
 }
 
 /*
- * API call to get subdirectories in MedicalFolderDataset root folder
+ * API call to check subdirectories in MedicalFolderDataset root folder to verify they can be parsed
  * @param path
  * @returns {(function(*): void)|*}
  */
-const getSubDirectories = (path) => {
+const checkSubDirectories = (path) => {
     return (dispatch) => {
-        dispatch({type:'SET_LOADING', payload: {status: true, text: "Getting sub directories for MedicalFolder..."}})
+        dispatch({type:'SET_LOADING', payload: {status: true, text: "Checkinh sub directories for MedicalFolder..."}})
         axios.post(EP_REPOSITORY_LIST, {path: path}).then(response => {
-            if(response.status === 200){
-                let data = response.data.result
-                dispatch({type: "PATIENT_FOLDERS", payload:data.path})
-            }else{
+            if(response.status !== 200){
                 dispatch({type: 'ERROR_MODAL' , payload: response.data.result.message})
             }
             dispatch({type:'SET_LOADING', payload: {status: false}})
         }).catch(error => {
             dispatch({type:'SET_LOADING', payload: {status: false}})
-            dispatch(displayError(error, "Error while getting sub-directories of root MedicalFolderDataset folder."))
+            dispatch(displayError(error, "Error while checking sub-directories of root MedicalFolderDataset folder."))
         })
     }
 }
