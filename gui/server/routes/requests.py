@@ -7,6 +7,7 @@ from utils import success, error, validate_request_data, response
 
 from flask import request
 from flask_jwt_extended import jwt_required
+from datetime import datetime
 
 from db import user_database
 from gui.server.schemas import ValidateAdminRequestAction
@@ -86,7 +87,7 @@ def approve_user_request():
             "user_email": user_request["user_email"],
             "password_hash": user_request["password_hash"],
             "user_role": user_request["user_role"],
-            "creation_date": user_request["creation_date"],
+            "creation_date": datetime.utcnow().ctime(),
             "user_id": user_id
         })
         res = user_table.get(query.user_id == user_id)
