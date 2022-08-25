@@ -163,7 +163,9 @@ export const initModalityNames = () => {
         axios.get(EP_DEFAULT_MODALITY_NAMES).then(response => {
             dispatch({type: 'SET_DEFAULT_MODALITY_NAMES', payload: response.data.result.default_modalities})
             if(getState().medicalFolderDataset.current_modality_names.length === 0) {
-                dispatch({type: 'SET_CURRENT_MODALITY_NAMES', payload: response.data.result.default_modalities})
+                dispatch({
+                    type: 'SET_CURRENT_MODALITY_NAMES',
+                    payload: JSON.parse(JSON.stringify(response.data.result.default_modalities))})
             }
             dispatch({type:'SET_LOADING', payload: {status: false}})
         }).catch(error => {

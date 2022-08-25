@@ -8,13 +8,14 @@ import {displayError} from "./actions";
 export const setChangeDlpMedicalFolderDataset = (use_dlp, state) => {
     return (dispatch) => {
         if(!use_dlp || state.dataLoadingPlan.selected_dlp_index === null) {
-            dispatch({type: "RESET_MEDICAL_CHANGE_USED_DLP"})
+            dispatch({
+                type: "RESET_MEDICAL_CHANGE_USED_DLP",
+                payload: JSON.parse(JSON.stringify(state.medicalFolderDataset.default_modality_names))})
         } else {
             //TODO: replace with values of the new used DLP
             let dlp = {
                 use_custom_mod2fol: false,
-                default_modality_names: [],
-                current_modality_names: [],
+                current_modality_names: JSON.parse(JSON.stringify(state.medicalFolderDataset.default_modality_names)), // careful, not null
                 modalities_mapping: {}, // careful, not the initial null
                 mod2fol_mapping: {}, // careful, not the initial nul
                 has_all_mappings: false,

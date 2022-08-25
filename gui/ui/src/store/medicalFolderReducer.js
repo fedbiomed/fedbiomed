@@ -52,8 +52,8 @@ export const medicalFolderReducer = (state = initialState, action) => {
             return {
                 ...state,
                 use_custom_mod2fol: initialState.use_custom_mod2fol,
-                default_modality_names: initialState.default_modality_names,
-                current_modality_names: initialState.current_modality_names,
+                //default_modality_names: dont change
+                current_modality_names: action.payload, //dont reset to default
                 modalities_mapping: {},
                 mod2fol_mapping: {},
                 has_all_mappings: initialState.has_all_mappings,
@@ -66,8 +66,8 @@ export const medicalFolderReducer = (state = initialState, action) => {
             return {
                 ...state,
                 use_custom_mod2fol: action.payload.use_custom_mod2fol,
-                default_modality_names: action.payload.default_modality_names,
-                current_modality_names: action.payload.current_modality_names,
+                //default_modality_names: dont change
+                current_modality_names: action.payload.current_modality_names, //dont reset to default
                 modalities_mapping: action.payload.modalities_mapping,
                 mod2fol_mapping: action.payload.mod2fol_mapping,
                 has_all_mappings: action.payload.has_all_mappings,
