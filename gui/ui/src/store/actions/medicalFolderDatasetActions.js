@@ -27,7 +27,6 @@ export const setFolderPath = (path) => {
                 let data = response.data.result
                 if(data.valid){
                     dispatch({type: "SET_MEDICAL_FOLDER_ROOT", payload: { root_path: path.path, modality_folders: data.modalities}})
-                    dispatch({type: "SET_FOLDER_PATH", payload: path.path})
                     dispatch({type:'SET_LOADING', payload: {status: false}})
                     dispatch({type:'RESET_MEDICAL_FOLDER_REFERENCE_CSV'})
                     dispatch(getSubDirectories(path.path))
