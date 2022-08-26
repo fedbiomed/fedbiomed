@@ -5,7 +5,8 @@ export const SINGLE_MODEL = "SINGLE_MODEL"
 export const RESET_SINGLE_MODEL = "SINGLE_MODEL"
 export const LOGIN = "LOGIN"
 
-
+export const LIST_USERS = 'LIST_USERS'
+export const LIST_USERS_ERROR = 'LIST_USERS_ERROR'
 
 /**
  * Dispatch action the display global error modal window

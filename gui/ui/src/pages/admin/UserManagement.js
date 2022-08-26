@@ -1,7 +1,4 @@
-import React, {
-    Fragment,
-    useState,
-  } from 'react';
+import React, { Fragment, useState } from 'react';
 import {
     EuiButton,
     EuiButtonIcon,
@@ -11,8 +8,8 @@ import {
   } from '@elastic/eui';
 
 import {UserManagementModal, UserPasswordResetManagement, UserAccountCreation} from './userManagementModal';
-import {sortObjectCompare} from "../../utils"
-
+import {listUsers} from "../../store/actions/userManagementActions";
+import {connect} from 'react-redux'
 
 let raw_data = [
      { name:  "lolo", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
@@ -64,6 +61,11 @@ const UserManagement = (props) => {
     const closeResetPwdModal = () => {setShowResetPwdModal(false)}
 
 
+    React.useEffect( () => {
+        props.listUsers()
+    }, [props.listUsers])
+
+    console.log(props.user_list)
     /**
      * Lifecycle method to keep track change on use table
      */
@@ -229,4 +231,18 @@ const UserManagement = (props) => {
     )
 }
 
-export default UserManagement;
+const mapDispatchToProps = (dispatch) => {
+    return {
+        listUsers : () => dispatch(listUsers())
+    }
+}
+
+
+const mapStateToProps = (state) => {
+    return {
+        error : state.users.error,
+        user_list : state.users.user_list
+    }
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(UserManagement);

@@ -30,7 +30,8 @@ export const EP_ADMIN                   = '/api/admin'
 export const EP_REQUESTS_LIST           = '/api/admin/requests/list'
 export const EP_REQUEST_APPROVE         = '/api/admin/requests/approve'
 export const EP_REQUEST_REJECT          = '/api/admin/requests/reject'
-
+export const EP_LIST_USERS              = '/api/admin/users/list'
+export const EP_REMOVE_USER             = '/api/admin/users/remove'
 
 // MedicalFolder Dataset Endpoints
 export const EP_VALIDATE_MEDICAL_FOLDER_ROOT    = '/api/datasets/medical-folder-dataset/validate-root'
