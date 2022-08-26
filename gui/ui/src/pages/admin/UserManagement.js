@@ -2,12 +2,13 @@ import React, { Fragment, useState } from 'react';
 import {
     EuiButton,
     EuiButtonIcon,
+    EuiToast,
     EuiBasicTable,
     EuiTitle,
     EuiSpacer
   } from '@elastic/eui';
 
-import {UserManagementModal, UserPasswordResetManagement, UserAccountCreation} from './userManagementModal';
+import {UserManagementModal, UserPasswordResetManagement, UserAccountCreation} from './UserManagementModal';
 import {listUsers} from "../../store/actions/userManagementActions";
 import {connect} from 'react-redux'
 
@@ -41,7 +42,6 @@ let raw_data = [
 
 ]
 
-
 const UserManagement = (props) => {
 
     const [pageIndex, setPageIndex] = useState(0);
@@ -50,9 +50,7 @@ const UserManagement = (props) => {
     const [sortDirection, setSortDirection] = useState('asc');
     const [showAccountCreationModal, setShowAccountCreationModal] = useState(false);
 
-    const [tableLoading, setTableLoading] = useState(true)
-
-    const [items, setItems] = useState([])
+    const [items, setItems] = useState(props.user_list)
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showResetPwdModal, setShowResetPwdModal] = useState(false);
 
@@ -60,39 +58,44 @@ const UserManagement = (props) => {
     const closeDeleteModal = () => {setShowDeleteModal(false)}
     const closeResetPwdModal = () => {setShowResetPwdModal(false)}
 
+    const [success, setSuccess] = useState({message: null, show: false})
 
-    React.useEffect( () => {
+    /**
+     * Call list user API when component loaded for the first time
+     */
+    React.useEffect(  () => {
         props.listUsers()
     }, [props.listUsers])
 
-    console.log(props.user_list)
+
+    /**
+     * Update table items each time user lit changed
+     */
+    React.useEffect( () => {
+        setItems(props.user_list)
+    }, [props.user_list])
+
     /**
      * Lifecycle method to keep track change on use table
      */
     React.useEffect( () => {
+        let begin = pageIndex * pageSize
+        let end = pageIndex * pageSize + pageSize
+        let display = props.user_list.slice(begin, end)
 
-        setTableLoading(true)
-        setTimeout(() => {
-            let begin = pageIndex * pageSize
-            let end = pageIndex * pageSize + pageSize
-            let display = raw_data.slice(begin, end)
+        // Sort with custom function
+        display.sort( (a, b) => {
+                        if ( a[sortField] < b[sortField] ){
+                            return  sortDirection === "asc" ? -1 : 1 ;
+                        }
 
-            // Sort with custom function
-            display.sort( (a, b) => {
-                            if ( a[sortField] < b[sortField] ){
-                                return  sortDirection === "asc" ? -1 : 1 ;
-                            }
+                        if ( a[sortField] > b[sortField] ){
+                            return sortDirection === "asc" ? 1 : -1 ;
+                        }
 
-                            if ( a[sortField] > b[sortField] ){
-                                return sortDirection === "asc" ? 1 : -1 ;
-                            }
-
-                            return 0;
-            })
-            setItems(display)
-            setTableLoading(false)
-        }, 500)
-
+                        return 0;
+        })
+        setItems(display)
     }, [pageIndex, pageSize, sortField, sortDirection])
 
     /**
@@ -123,39 +126,39 @@ const UserManagement = (props) => {
         // Column contains scheme for designing grid
     const columns = [
         {
-            field: 'name',
+            field: 'user_name',
             name: 'Name',
             truncateText: true,
             sortable: true,
         },
         {
-            field: 'surname',
+            field: 'user_surname',
             name: 'Surname',
             truncateText: true,
             sortable: true,
           },
         {
-            field: 'email',
+            field: 'user_email',
             name: 'E-Mail',
-            truncateText: true,
+            truncateText: false,
             sortable: true,
         },
         {
             field: 'role',
             name: 'User Role',
-            truncateText: true,
+            truncateText: false,
             sortable: true,
         },
         {
-            field: 'created',
+            field: 'creation_date',
             name: 'Account Created',
-            truncateText: true,
+            truncateText: false,
             sortable: true,
         },
         {
             field: 'last_connection',
             name: 'Last Login Date',
-            truncateText: true,
+            truncateText: false,
             sortable: true,
         },
         {
@@ -164,16 +167,18 @@ const UserManagement = (props) => {
               {render: (item) => <EuiButton onClick={()=>(setShowResetPwdModal(true))}  iconType="user" color={"primary"}>Change Role</EuiButton>}
           ] ,
         },
+
         {
-          name: 'Reset Pass',
+          name: 'Reset Pass / Remove',
           actions: [
-              {render: (item) => <EuiButton  onClick={()=>(setShowResetPwdModal(true))} iconType="tokenKey" color={"warning"}>Reset Pass</EuiButton>}
-          ] ,
-        },
-                {
-          name: 'Remove',
-          actions: [
-              {render: (item) => <EuiButton onClick={() => (setShowDeleteModal(true))} iconType="trash" color={"danger"}>Delete</EuiButton>},
+              {render: (item) => <EuiButtonIcon  aria-label={'Reset'}
+                                                 onClick={()=>(setShowResetPwdModal(true))}
+                                                 iconType="tokenKey"
+                                                 color={"warning"}>Reset Pass</EuiButtonIcon>},
+              {render: (item) => <EuiButtonIcon aria-label={'Delete'}
+                                                onClick={() => (setShowDeleteModal(true))}
+                                                iconType="trash"
+                                                color={"danger"}>Delete</EuiButtonIcon>},
           ] ,
         },
     ]
@@ -186,16 +191,39 @@ const UserManagement = (props) => {
     const pagination = {
         pageIndex: pageIndex,
         pageSize: pageSize,
-        totalItemCount: raw_data.length,
+        totalItemCount: props.user_list.length,
         pageSizeOptions: [20, 40, 60],
     };
 
+
+    /**
+     * Handler for when user registration is successful
+     * @param user
+     */
+    const onRegisterSuccessHandler = (user) => {
+        setSuccess({message: 'User account has been successfully saved', show: true})
+        setTimeout(() => {
+             setSuccess({message: null, show: false})
+        }, 4000)
+    }
+
     return (
         <Fragment>
-           
-            <EuiTitle size={'s'}>
-                <h2>This is User Management webpage. Only admin should be able to reach this page</h2>
-            </EuiTitle>
+             {success.show ? (
+                             <React.Fragment>
+                                 <EuiSpacer size="l" />
+                                 <EuiToast
+                                        title="Well done!"
+                                        color="success"
+                                        iconType="alert"
+                                        onClose={() => setSuccess({message: null, show: false})}
+                                        isExpandable={true}
+                                      >
+                                     <p>{success.message}</p>
+                                 </EuiToast>
+                             </React.Fragment>
+
+                         ) : null}
             <EuiSpacer size={'l'}/>
             <EuiButton onClick={()=> (setShowAccountCreationModal(true))}>Create new account</EuiButton>
             <EuiSpacer size={'l'}/>
@@ -209,11 +237,8 @@ const UserManagement = (props) => {
                 sorting={sorting}
                 hasActions={true}
                 onChange={onTableChange}
-                loading={tableLoading}
+                loading={props.loading}
             />
-
-            
-            <div>
             {showDeleteModal?<UserManagementModal
                              show={showDeleteModal}
                              title="Delete Account?"
@@ -224,8 +249,12 @@ const UserManagement = (props) => {
                                  title="Reset Password"
                                  onClose={closeResetPwdModal}
                                  />:null}
-            {showAccountCreationModal? <UserAccountCreation></UserAccountCreation>:null}
-        </div>
+
+            <UserAccountCreation
+                show={showAccountCreationModal}
+                onRegisterSuccess={onRegisterSuccessHandler}
+                onClose={() => setShowAccountCreationModal(false)}
+            />
         </Fragment>
 
     )
@@ -241,7 +270,8 @@ const mapDispatchToProps = (dispatch) => {
 const mapStateToProps = (state) => {
     return {
         error : state.users.error,
-        user_list : state.users.user_list
+        user_list : state.users.user_list,
+        loading : state.users.loading
     }
 }
 

@@ -15,7 +15,6 @@ const handleTokenExpiration = (msg=null) =>
     if (msg === null){
       alert("Error 401: session expired, please login again")
     }else{
-
       alert(msg)
     }
     
@@ -49,7 +48,6 @@ const handleTokenExpiration = (msg=null) =>
       // Any status codes that falls outside the range of 2xx cause this function to trigger
       // Do something with response error
       const history = new createBrowserHistory();
-      console.log(error.response.data)
 
       //return new Promise((resolve, reject) => {
         return new Promise((resolve, reject) => {

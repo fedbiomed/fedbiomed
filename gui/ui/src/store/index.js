@@ -7,7 +7,7 @@ import {medicalFolderReducer, medicalFolderPreviewReducer} from "./medicalFolder
 import {modelsReducer} from "./modelsReducer";
 import { authReducer } from "./authReducer";
 import {usersReducer} from "./userManagementReducers";
-import { accountRequestReducer } from "./accountRequestReducer";
+import {accountRequestReducer } from "./accountRequestReducer";
 
 
 /**
@@ -22,6 +22,6 @@ export default combineReducers({
     medicalFolderPreview : medicalFolderPreviewReducer,
     models      : modelsReducer,
     auth    : authReducer,
-    users_   : usersReducer,
+    users   : usersReducer,
     user_requests       : accountRequestReducer,
   })

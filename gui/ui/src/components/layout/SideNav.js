@@ -53,7 +53,6 @@ const SideNav= (props) => {
                     {
                         items.map((item,key) => {
                             return (
-                                <React.Fragment>
                                 <NavItem
                                     key={item.key}
                                     label={item.label}
@@ -61,10 +60,6 @@ const SideNav= (props) => {
                                     path={item.path} icon={item.icon}
                                     action={item.action}
                                 />
-                                <p>
-                                
-                                </p>
-                                </React.Fragment>
                             )
                         })
                     }

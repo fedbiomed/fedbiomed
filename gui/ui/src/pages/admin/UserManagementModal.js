@@ -11,6 +11,10 @@ import {
 } from '@elastic/eui';
 
 import Register from '../authentication/Register';
+import RegisterFrom from "../authentication/RegisterFrom";
+import {useDispatch} from "react-redux"
+
+
 
 // this module should be use to update Modal module content
 const UserManagementModal = (props) => {
@@ -109,23 +113,52 @@ const UserPrivilegeManagement = (props) => {
     }, [props.show])
 
     return (<React.Fragment>
-        <EuiModal>
-            
-        </EuiModal>
-        </React.Fragment>)
+                <EuiModal>
+
+                </EuiModal>
+            </React.Fragment>)
 }
 
 const UserAccountCreation = (props) => {
+
     const [show, setShow] = React.useState(props.show);
+
     React.useEffect(() => {
         // update local state
         setShow(props.show)
     }, [props.show])
 
-    return (<React.Fragment>
-        <EuiModal>
-            <Register/>
-        </EuiModal>
-        </React.Fragment>)
+
+    /**
+     * Handler to run after registration is completed without and error
+     * @param user {object}
+     */
+    const afterRegisterHandler = (user) => {
+        props.onClose()
+        if(props.onRegisterSuccess){
+            props.onRegisterSuccess(user)
+        }
+    }
+
+
+    if(show){
+        return (<React.Fragment>
+                    <EuiModal padding={'l'} onClose={props.onClose}>
+                        <EuiModalHeader>
+                          <EuiModalHeaderTitle>
+                            <h1>Create new user</h1>
+                          </EuiModalHeaderTitle>
+                        </EuiModalHeader>
+                        <EuiModalBody>
+                            <RegisterFrom afterRegister={afterRegisterHandler} navigate_to={false} as={'admin'}/>
+                        </EuiModalBody>
+                    </EuiModal>
+                </React.Fragment>)
+    }else{
+        return null
+    }
+
 }
+
+
 export  {UserManagementModal, UserPasswordResetManagement, UserPrivilegeManagement, UserAccountCreation};

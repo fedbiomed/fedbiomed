@@ -51,10 +51,10 @@ def list_users():
     return response(users), 200
 
 
-@api.route('/admin/create-user', methods=['POST'])
+@api.route('/admin/users/create', methods=['POST'])
 @validate_request_data(schema=ValidateUserFormRequest)
 @admin_required
-def register_admin():
+def create_user():
     """ API endpoint to register new user in the database (as an admin).
 
     Request {application/json}:
@@ -86,23 +86,31 @@ def register_admin():
     name = req['name']
     surname = req['surname']
 
+    if req['confirm'] != req['password']:
+        return error(
+            'Password confirmation does not match to the password'), 400
+
     try:
         # Create unique id for the request
-        request_id = 'request_' + str(uuid.uuid4())
-        user_requests_table.insert({
+        user_id = 'user_' + str(uuid.uuid4())
+        user_table.insert({
             "user_name": name,
             "user_surname": surname,
             "user_email": email,
             "password_hash": set_password_hash(password),
-            "user_role": UserRoleType.ADMIN,
+            "user_role": UserRoleType.USER,
             "creation_date": datetime.utcnow().ctime(),
-            "request_id": request_id,
+            "user_id": user_id,
             "request_status": UserRequestStatus.NEW
         })
-        res = user_requests_table.get(query.request_id == request_id)
-        return response({
-            'request_id': res['request_id'],
-        }, 'A request has been sent to administrator for account creation'), 201
+
+        res = user_table.get(query.user_id == user_id)
+
+        if res :
+            return response(res, 'Has has been successfully saved'), 201
+        else:
+            return error('Unexpected error, please try again later'), 400
+
     except Exception as e:
         return error(str(e)), 400
 

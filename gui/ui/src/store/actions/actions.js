@@ -7,8 +7,7 @@ export const LOGIN = "LOGIN"
 
 export const LIST_USERS = 'LIST_USERS'
 export const LIST_USERS_ERROR = 'LIST_USERS_ERROR'
-
-
+export const LIST_USERS_LOADING = 'LIST_USERS_LOADING'
 export const GET_USER_REQUESTS = "GET_REQUESTS"
 
 /**

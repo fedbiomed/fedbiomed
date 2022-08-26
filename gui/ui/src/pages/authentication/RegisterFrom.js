@@ -13,7 +13,7 @@ import {EuiButton,
 } from '@elastic/eui';
 
 
-import { EP_REGISTER} from '../../constants';
+import { EP_REGISTER, EP_CREATE_USER} from '../../constants';
 import {useNavigate} from "react-router-dom";
 import {useDispatch} from "react-redux";
 import axios from "axios";
@@ -44,11 +44,21 @@ const RegisterForm = (props) => {
             surname: registerForm.surname,
             confirm: registerForm.confirm
         }
-        axios.post(EP_REGISTER, data).then((response) => {
-            if (response.status === 201) {
+
+        let ep = props.as && props.as === 'admin' ? EP_CREATE_USER : EP_REGISTER
+
+        axios.post(ep, data).then((response) => {
+            if (response.status === 201 && !props.as) {
               dispatch({type :'SUCCESS_MODAL', payload:'A request has been sent to an administrator to validate you registration.'})
             }
-            navigate('/login')
+            if(props.navigate_to){
+                navigate(props.navigate_to)
+            }
+
+            if(props.afterRegister){
+                props.afterRegister(data)
+            }
+
         }).catch((error) => {
             if (error.response) {
                 setError({show:true, message: error.response.data.message})
@@ -109,7 +119,7 @@ const RegisterForm = (props) => {
                         </EuiFormRow>
                      </EuiFlexItem >
                      <EuiFlexItem grow={false}>
-                        <EuiFormRow label={"Enter your e-mail"} hasEmptyLabelSpace>
+                        <EuiFormRow label={"E-mail"} hasEmptyLabelSpace>
                               <EuiFieldText
                                   onChange={handleChange}
                                   text={registerForm.email}

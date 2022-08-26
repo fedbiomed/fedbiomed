@@ -1,22 +1,13 @@
-import React, {useState} from 'react';
+import React from 'react';
 import AuthLayout from "./AuthLayout";
 import {EuiTitle,
-        EuiButton,
-        EuiToolTip,
         EuiFlexItem,
         EuiFlexGroup,
-        EuiForm,
-        EuiFormRow,
-        EuiFieldPassword,
-        EuiFieldText,
         EuiSpacer,
         EuiCallOut,
-        EuiIcon,
-        EuiToast
 } from '@elastic/eui';
 
 
-import { EP_REGISTER} from '../../constants';
 import styles from "./Auth.module.css";
 import logo from "../../assets/img/fedbiomed-logo-small.png";
 import {Link} from "react-router-dom";
@@ -44,7 +35,7 @@ const Register = (props) => {
             </div>
             <EuiFlexGroup justifyContent="spaceAround">
                 <EuiFlexItem grow={false} style={{minWidth:400}}>
-                        <RegisterForm />
+                        <RegisterForm navigate_to={'/login'}/>
                     <EuiSpacer size="l" />
                     <EuiFlexItem>
                         <p>Already have an account! <Link to={"/login"}>Go to login page!</Link></p>
