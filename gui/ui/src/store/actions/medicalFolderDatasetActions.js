@@ -280,17 +280,28 @@ export const addMedicalFolderDataset = (navigator) => {
     return (dispatch, getState) => {
         let medical_folder = getState().medicalFolderDataset
         let dlp = getState().dataLoadingPlan
+        let dlp_function = null
 
-        dispatch({type:'SET_LOADING', payload: {status: true, text: "Saving data customizations..."}})
-        let params_add_dlp = {
-            'modalities_mapping': medical_folder.mod2fol_mapping,
-            'name': dlp.dlp_name
+        // only try to save DLP when we have customizations
+        if(medical_folder.use_custom_mod2fol) {
+            dispatch({type:'SET_LOADING', payload: {status: true, text: "Saving data customizations..."}})
+            let params_add_dlp = {
+                'modalities_mapping': medical_folder.mod2fol_mapping,
+                'name': dlp.dlp_name
+            }
+            dlp_function = axios.post(EP_ADD_DATA_LOADING_PLAN, params_add_dlp)
+        } else {
+            dlp_function = new Promise((resolve) => { resolve('DUMMY') })
         }
-        axios.post(EP_ADD_DATA_LOADING_PLAN, params_add_dlp).then( response => {
-            if(response.status === 200) {
-                dispatch({type:'SET_LOADING', payload: {status: false}})
-                let dlp_id = response.data
-                console.log('AFTER DLP', dlp_id)
+
+        // sequentialize save DLP with next actions
+        dlp_function.then( response => {
+            if(response === 'DUMMY' || response.status === 200) {
+                let dlp_id = null
+                if(response !== 'DUMMY'){ 
+                    dispatch({type:'SET_LOADING', payload: {status: false}})
+                    dlp_id = response.data.result
+                }
 
                 checkSubjectsAllModalities(dispatch, medical_folder).then(
                 (resolve) => {
