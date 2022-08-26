@@ -10,7 +10,8 @@ import {
 
 import {UserManagementModal, UserPasswordResetManagement, UserAccountCreation} from './UserManagementModal';
 import {listUsers} from "../../store/actions/userManagementActions";
-import {connect} from 'react-redux'
+import {connect, useDispatch} from 'react-redux'
+import {LIST_USERS_ERROR} from "../../store/actions/actions";
 
 let raw_data = [
      { name:  "lolo", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
@@ -50,7 +51,7 @@ const UserManagement = (props) => {
     const [sortDirection, setSortDirection] = useState('asc');
     const [showAccountCreationModal, setShowAccountCreationModal] = useState(false);
 
-    const [items, setItems] = useState(props.user_list)
+    const [items, setItems] = useState([])
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showResetPwdModal, setShowResetPwdModal] = useState(false);
 
@@ -59,6 +60,8 @@ const UserManagement = (props) => {
     const closeResetPwdModal = () => {setShowResetPwdModal(false)}
 
     const [success, setSuccess] = useState({message: null, show: false})
+
+    const dispatch = useDispatch()
 
     /**
      * Call list user API when component loaded for the first time
@@ -209,6 +212,20 @@ const UserManagement = (props) => {
 
     return (
         <Fragment>
+            {props.error ? (
+                 <React.Fragment>
+                     <EuiSpacer size="l" />
+                     <EuiToast
+                            title="Opps!"
+                            color="danger"
+                            iconType="alert"
+                            onClose={() => dispatch({type: LIST_USERS_ERROR, payload:false})}
+                            isExpandable={true}
+                          >
+                         <p>{props.error}</p>
+                     </EuiToast>
+                 </React.Fragment>
+                ) : null}
              {success.show ? (
                              <React.Fragment>
                                  <EuiSpacer size="l" />
@@ -227,18 +244,20 @@ const UserManagement = (props) => {
             <EuiSpacer size={'l'}/>
             <EuiButton onClick={()=> (setShowAccountCreationModal(true))}>Create new account</EuiButton>
             <EuiSpacer size={'l'}/>
+            {props.user_list ? (
+                <EuiBasicTable
+                        aria-label={"User table"}
+                        items={items}
+                        itemId="id"
+                        columns={columns}
+                        pagination={pagination}
+                        sorting={sorting}
+                        hasActions={true}
+                        onChange={onTableChange}
+                        loading={props.loading}
+                />
+            ) : null}
 
-            <EuiBasicTable
-                aria-label={"User table"}
-                items={items}
-                itemId="id"
-                columns={columns}
-                pagination={pagination}
-                sorting={sorting}
-                hasActions={true}
-                onChange={onTableChange}
-                loading={props.loading}
-            />
             {showDeleteModal?<UserManagementModal
                              show={showDeleteModal}
                              title="Delete Account?"
