@@ -49,6 +49,14 @@ def validate_root_path():
     return response(data={"valid": True, "modalities": g.modalities}), 200
 
 
+@api.route('/datasets/medical-folder-dataset/validate-all-modalities', methods=['POST'])
+#@validate_request_data(schema=ValidateMedicalFolderRoot)
+@middleware(middlewares=[medical_folder_dataset.validate_all_modalities])
+def validate_subjects_has_all_modalities():
+    """Validates MedicalFolder Dataset has subjects with all modalities"""
+    return response(data={"valid": True, "subjects": g.subjects}), 200
+
+
 @api.route('/datasets/medical-folder-dataset/add', methods=['POST'])
 @validate_request_data(schema=ValidateMedicalFolderAddRequest)
 @middleware(middlewares=[common.check_tags_already_registered,

@@ -1,8 +1,9 @@
 import os
+from fedbiomed.common import data
 from flask import request, g
 from app import app
 from utils import error, response
-from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan
+from fedbiomed.common.data import MedicalFolderController, MedicalFolderDataset, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager import DatasetManager
 
@@ -46,6 +47,34 @@ def validate_medical_folder_root():
     mf_controller.root = root
     modalities, _ = mf_controller.modalities()
     g.modalities = modalities
+
+
+def validate_all_modalities():
+    """Validates MedicalFolderDataset has subjects with all modalities"""
+    req = request.json
+    root = os.path.join(DATA_PATH_RW, *req["medical_folder_root"])
+    modalities = req["modalities"]
+    if 'reference_csv_path' in req and req["reference_csv_path"]:
+        reference_path = os.path.join(DATA_PATH_RW, *req["reference_csv_path"])
+    else:
+        reference_path = None
+    index_col = req["index_col"]
+
+    try:
+        mf_dataset = MedicalFolderDataset(
+            root=root,
+            data_modalities=modalities,
+            tabular_file=reference_path,
+            index_col=index_col
+        )
+    except FedbiomedError or Exception as e:
+        return error(f"Cannot instante MedicalFolder: {e}"), 400
+    try:
+        subjects = mf_dataset.subjects_has_all_modalities
+    except FedbiomedError or Exception as e:
+        return error(f"Cannot check subjects with all modalities: {e}"), 400
+
+    g.subjects = subjects
 
 
 def load_dlp():

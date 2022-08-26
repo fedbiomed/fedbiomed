@@ -14,6 +14,7 @@ export const EP_DLP_LIST                = '/api/datasets/list-data-loading-plans
 // MedicalFolder Dataset Endpoints
 export const EP_VALIDATE_MEDICAL_FOLDER_ROOT    = '/api/datasets/medical-folder-dataset/validate-root'
 export const EP_VALIDATE_REFERENCE_COLUMN       = '/api/datasets/medical-folder-dataset/validate-reference-column'
+export const EP_VALIDATE_SUBJECTS_ALL_MODALITIES = '/api/datasets/medical-folder-dataset/validate-all-modalities'
 export const EP_ADD_MEDICAL_FOLDER_DATASET      = '/api/datasets/medical-folder-dataset/add'
 export const EP_PREVIEW_MEDICAL_FOLDER_DATASET  = '/api/datasets/medical-folder-dataset/preview'
 export const EP_DEFAULT_MODALITY_NAMES          = '/api/datasets/medical-folder-dataset/default-modalities'
