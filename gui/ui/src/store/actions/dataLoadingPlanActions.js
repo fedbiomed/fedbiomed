@@ -12,7 +12,7 @@ export const setChangeDlpMedicalFolderDataset = (use_dlp, state) => {
                 type: "RESET_MEDICAL_CHANGE_USED_DLP",
                 payload: JSON.parse(JSON.stringify(state.medicalFolderDataset.default_modality_names))})
         } else {
-            //TODO: replace with values of the new used DLP
+            //TODO: replace with values of the new used DLP when loading a DLP
             let dlp = {
                 use_custom_mod2fol: false,
                 current_modality_names: JSON.parse(JSON.stringify(state.medicalFolderDataset.default_modality_names)), // careful, not null

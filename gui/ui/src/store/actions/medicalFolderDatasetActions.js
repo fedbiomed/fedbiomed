@@ -246,14 +246,13 @@ export const clearModalityMapping = (folder_name) => {
 function checkSubjectsAllModalities(dispatch, mf) {
     return new Promise((resolve, reject) =>
     { 
-        //let mf = getState.medicalFolderDataset
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Checking some data folders have all modalities..."}})
         axios.post(EP_VALIDATE_SUBJECTS_ALL_MODALITIES, {
             'medical_folder_root': mf.medical_folder_root,
             // TODO: replace with real modalities
             'modalities': ['T1', 'T2'],
-            'reference_csv_path': (mf.reference_csv ? mf.reference_csv.path: null),
-            'index_col' : mf.medical_folder_ref.ref
+            'reference_csv_path': (!mf.ignore_reference_csv && mf.reference_csv ? mf.reference_csv.path : null),
+            'index_col' : (!mf.ignore_reference_csv && mf.medical_folder_ref ? mf.medical_folder_ref.ref.index : null)
         }).then( response => {
             dispatch({type:'SET_LOADING', payload: {status: false}})
             if(response.status === 200){
@@ -280,24 +279,24 @@ export const addMedicalFolderDataset = (navigator) => {
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Adding MedicalFolder dataset by validating all the inputs..."}})
         let medical_folder = getState().medicalFolderDataset
         let dlp = getState().dataLoadingPlan
-        let data = {
-            medical_folder_root : medical_folder.medical_folder_root,
-            name : medical_folder.metadata.name,
-            desc : medical_folder.metadata.desc,
-            tags : medical_folder.metadata.tags
-        }
-
-        if(!medical_folder.ignore_reference_csv){
-            data = {
-                ...data,
-                index_col: medical_folder.medical_folder_ref.ref.index,
-                reference_csv_path: medical_folder.reference_csv ? medical_folder.reference_csv.path : null,
-            }
-        }
 
         checkSubjectsAllModalities(dispatch, medical_folder).then(
         (resolve) => {
             if(resolve) {
+                let data = {
+                    medical_folder_root : medical_folder.medical_folder_root,
+                    name : medical_folder.metadata.name,
+                    desc : medical_folder.metadata.desc,
+                    tags : medical_folder.metadata.tags
+                }
+        
+                if(!medical_folder.ignore_reference_csv){
+                    data = {
+                        ...data,
+                        index_col: medical_folder.medical_folder_ref.ref.index,
+                        reference_csv_path: medical_folder.reference_csv ? medical_folder.reference_csv.path : null,
+                    }
+                }
 
                 //data['dlp_id'] = dlp.selected_dlp_index !== null ?
                 //                    dlp.existing_dlps['data'][dlp.selected_dlp_index][1] : null

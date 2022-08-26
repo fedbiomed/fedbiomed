@@ -12,6 +12,7 @@ from middlewares import middleware, medical_folder_dataset, common
 from utils import success, error, validate_json, validate_request_data, response
 from schemas import ValidateMedicalFolderReferenceCSV, \
     ValidateMedicalFolderRoot, \
+    ValidateSubjectsHasAllModalities, \
     ValidateMedicalFolderAddRequest, \
     PreviewDatasetRequest
 
@@ -50,7 +51,7 @@ def validate_root_path():
 
 
 @api.route('/datasets/medical-folder-dataset/validate-all-modalities', methods=['POST'])
-#@validate_request_data(schema=ValidateMedicalFolderRoot)
+@validate_request_data(schema=ValidateSubjectsHasAllModalities)
 @middleware(middlewares=[medical_folder_dataset.validate_all_modalities])
 def validate_subjects_has_all_modalities():
     """Validates MedicalFolder Dataset has subjects with all modalities"""
