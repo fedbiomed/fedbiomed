@@ -1,3 +1,4 @@
+import re
 from hashlib import sha512
 from db import user_database
 from flask import request
@@ -42,7 +43,7 @@ def get_user_by_email(user_email: str) -> str:
 
         user_email (str): The mail of the user to retrieve from the database
     """
-    return user_table.search(query.user_email == user_email)
+    return user_table.get(query.user_email == user_email)
 
 
 def check_mail_format(user_mail: str) -> bool:

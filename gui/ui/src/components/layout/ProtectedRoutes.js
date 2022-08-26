@@ -1,7 +1,7 @@
 import React from 'react';
 import SideNav from './SideNav'
 import { Navigate, Outlet, useNavigate, NavLink} from "react-router-dom";
-import {decodeToken, removeToken, setUser} from "../../store/actions/authActions";
+import {autoLogin, decodeToken, getAccessToken, removeToken, setUser} from "../../store/actions/authActions";
 import {useDispatch, useSelector, shallowEqual, connect} from "react-redux";
 import {
     EuiHeaderSectionItemButton,
@@ -9,13 +9,13 @@ import {
     EuiHeader,
     EuiHeaderSectionItem,
     EuiHeaderSection,
-  EuiFlexGroup,
-  EuiFlexItem,
-  EuiLink,
-  EuiPopover,
-  EuiSpacer,
-  EuiText,
-  useGeneratedHtmlId,
+      EuiFlexGroup,
+      EuiFlexItem,
+      EuiLink,
+      EuiPopover,
+      EuiSpacer,
+      EuiText,
+      useGeneratedHtmlId,
 
 } from '@elastic/eui'
 import logo from "../../assets/img/fedbiomed-logo-small.png";
@@ -27,14 +27,30 @@ const mapStateToProps = (state) => {
     }
 }
 
-export const LoginProtected = connect(mapStateToProps, null)((props) => {
+const mapDispatchToProps = (dispatch) => {
+    return {
+        autoLogin: (navigate) => dispatch(autoLogin(navigate))
+    }
+}
+
+export const LoginProtected = connect(mapStateToProps, mapDispatchToProps)((props) => {
 
     const dispatch = useDispatch()
+    const navigate = useNavigate()
+
     let user = decodeToken()
+
+    if(!getAccessToken()){
+        window.location.href = '/login'
+    }
 
     if(user && !props.user.is_auth){
         dispatch(setUser(user))
     }
+
+    React.useEffect(() => {
+        props.autoLogin(navigate)
+    }, [props.autoLogin])
 
 
     if(user) {
@@ -48,7 +64,7 @@ export const LoginProtected = connect(mapStateToProps, null)((props) => {
                         </EuiHeaderSectionItem>
                     </EuiHeaderSection>
                     <EuiHeaderSection >
-                        <HeaderUserMenu name={`${props.user.name} - ${props.user.surname}`}/>
+                        <HeaderUserMenu name={`${props.user.user_name} - ${props.user.user_surname}`}/>
                     </EuiHeaderSection>
                 </EuiHeader>
                 <div className="layout-wrapper">
@@ -67,9 +83,7 @@ export const LoginProtected = connect(mapStateToProps, null)((props) => {
         )
 
     }else{
-        return(
-            <Navigate to="/login/" />
-        )
+        return null
     }
 
 })
@@ -150,7 +164,7 @@ const HeaderUserMenu = (props) => {
                   </EuiFlexItem>
 
                   <EuiFlexItem grow={false}>
-                    <EuiLink onClick={() => {removeToken(); navigate('/login')}} >Log out</EuiLink>
+                    <EuiLink onClick={() => {removeToken(navigate)}} >Log out</EuiLink>
                   </EuiFlexItem>
                 </EuiFlexGroup>
               </EuiFlexItem>

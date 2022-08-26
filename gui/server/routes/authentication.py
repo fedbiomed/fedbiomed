@@ -133,8 +133,14 @@ def register():
     except Exception as e:
         return error(str(e)), 400
 
+@api.route('/token/auth', methods=['GET'])
+@jwt_required()
+def auth():
+    user_info = get_jwt()
+    return response(user_info), 200
+    
 
-@api.route('/token/auth', methods=['POST'])
+@api.route('/token/login', methods=['POST'])
 @validate_request_data(schema=ValidateLoginRequest)
 def login():
     """ API endpoint for logging user in
@@ -164,18 +170,19 @@ def login():
     email = req['email']
     password = req['password']
 
-    user_db = get_user_by_email(email)
+    user = get_user_by_email(email)
 
-    if not user_db:
+    if not user:
         # user account not found
         return error(f'Unrecognized email address {email}. Please register before to log in'), 401
 
     # Should send back only one item
-    user = user_db[0]
     if check_password_hash(password, user['password_hash']):
         additional_claims = {
             "email": user["user_email"],
-            "role": user["user_role"]
+            "role": user["user_role"],
+            "name": user.get("user_name", "No-name"),
+            "surname": user.get("user_surname", "No-name"),
         }
         access_token = create_access_token(identity=user["user_id"], fresh=True, additional_claims=additional_claims)
         refresh_token = create_refresh_token(identity=user["user_id"], additional_claims=additional_claims)
@@ -198,6 +205,8 @@ def refresh_expiring_jwts():
     jwt = get_jwt()
     additional_claims = {
         "email": jwt["email"],
+        "name": jwt["name"],
+        "surname": jwt["surname"],
         "role": jwt["role"]
     }
     access_token = create_access_token(identity=jwt["sub"], additional_claims=additional_claims, fresh=False)

@@ -1,6 +1,5 @@
 
-import React, { Component }  from 'react';
-import logo from "../../assets/img/fedbiomed-logo-small.png"
+import React from 'react';
 import NavItem from './NavItem';
 import {ReactComponent as ConfIcon}  from '../../assets/img/configuration.svg'
 import {ReactComponent as DataIcon}  from '../../assets/img/database.svg'
@@ -9,18 +8,10 @@ import {ReactComponent as HomeIcon}  from '../../assets/img/home.svg'
 import {ReactComponent as PlusIcon}  from '../../assets/img/plus.svg'
 import {ReactComponent as FileIcon}  from '../../assets/img/file.svg'
 import {useLocation} from "react-router-dom";
-import {removeToken} from "../../store/actions/authActions";
-import {useSelector} from "react-redux";
 
 
 const SideNav= (props) => {
-    const {is_auth} = useSelector((state) => state.auth)
-    const removeTokenHandler = (isauth) => {
-        console.log("TEST")
-        console.log(isauth)
-        isauth = false
-        removeToken()
-    }
+
     const items = [
         { key: '1', label: 'Home', path: '/', icon: HomeIcon, action: null},
         { key: '2', label: 'List Data Files', path: '/repository/', icon: FolderIcon, action: null},
@@ -28,8 +19,8 @@ const SideNav= (props) => {
         { key: '4', label: 'Manage Datasets', path: '/datasets/', icon: DataIcon, action: null },
         { key: '5', label: 'Add New Dataset', path: '/datasets/add-dataset/', icon: PlusIcon, action: null },
         { key: '6', label: 'Node Configuration', path: '/configuration/', icon: ConfIcon, action: null },
-        { key: '7', label: 'User Account', path: '/user-account/', icon: ConfIcon, action: null},
-        { key: '8', label: 'Logout', path: '/login/', icon: ConfIcon, action: () => removeTokenHandler(is_auth)}
+        // { key: '7', label: 'User Account', path: '/user-account/', icon: ConfIcon, action: null},
+        // { key: '8', label: 'Logout', path: '/login/', icon: ConfIcon, action: () => removeTokenHandler(is_auth)}
       ]
     
     

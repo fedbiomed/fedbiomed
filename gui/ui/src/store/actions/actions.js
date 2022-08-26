@@ -10,6 +10,9 @@ export const LIST_USERS_ERROR = 'LIST_USERS_ERROR'
 export const LIST_USERS_LOADING = 'LIST_USERS_LOADING'
 export const GET_USER_REQUESTS = "GET_REQUESTS"
 
+
+export const SET_LOADING = "SET_LOADING"
+
 /**
  * Dispatch action the display global error modal window
  * @param error

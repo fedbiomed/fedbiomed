@@ -19,6 +19,7 @@ import {
     EuiSpacer,
     EuiIcon, EuiToast,
 } from '@elastic/eui';
+import {SET_LOADING} from "../../store/actions/actions";
 
 const initialLoginForm = {email: '', password: ''}
 
@@ -47,29 +48,32 @@ const Login = (props) => {
      * */
     const login = (event) => {
 
-      // Prevent form submit --------------------------------------------------
-      event.preventDefault()
 
-      let data = { email: loginForm.email, password: loginForm.password}
-      axios.post(EP_LOGIN, data).then((response) => {
-          let {access_token, refresh_token} = response.data.result
+        event.preventDefault()
 
-          // Sets token to session store
-          setToken(access_token, refresh_token)
+        dispatch({type: SET_LOADING, payload: {status: true, text: 'Login....'}})
+        let data = { email: loginForm.email, password: loginForm.password}
+        axios.post(EP_LOGIN, data).then((response) => {
+            let {access_token, refresh_token} = response.data.result
 
-          // Saves user info into global state
-          dispatch(setUser(decodeToken()))
+            // Sets token to session store
+            setToken(access_token, refresh_token)
 
-          // Navigate to home page
-          navigate('/')
+            // Saves user info into global state
+            dispatch(setUser(decodeToken()))
 
-      }).catch((error) => {
-            if (error.response) {
-                setError({show:true, message: error.response.data.message})
-            }else{
-                setError({show:true, message: error.toString()})
-            }
-      })
+            // Navigate to home page
+            navigate('/')
+            dispatch({type: SET_LOADING, payload: {status: false, text: null}})
+
+          }).catch((error) => {
+                if (error.response) {
+                    setError({show:true, message: error.response.data.message})
+                }else{
+                    setError({show:true, message: error.toString()})
+                }
+                dispatch({type: SET_LOADING, payload: {status: false, text:null}})
+          })
     }
 
     return (

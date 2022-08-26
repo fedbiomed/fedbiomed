@@ -9,18 +9,6 @@ import { createBrowserHistory } from 'history';
 // 1. formats request with correct header (for token auth)
 // 2. contains logic for getting refresh tokens, and ensuring idle user are disconnected
 
-const handleTokenExpiration = (msg=null) =>
-  {
-    // logic for handling token expiration after a 401 HTTP error request (unauthorized)
-    if (msg === null){
-      alert("Error 401: session expired, please login again")
-    }else{
-      alert(msg)
-    }
-    
-    window.location.href = '/login/';  // redirect to login page 
-  }
-
 
   // Add a request interceptor
   axios.interceptors.request.use(function (req) {
@@ -53,9 +41,8 @@ const handleTokenExpiration = (msg=null) =>
         return new Promise((resolve, reject) => {
         switch (error.request.status){
           case 404:
-            // should be handled by React's Router (see App.js)
+            // should be handled by router (see App.js)
             reject(error)
-            console.log("HTTP ERROR 404");
             break;
   
           case 401:
@@ -65,7 +52,6 @@ const handleTokenExpiration = (msg=null) =>
   
             // let s retrieve token (if any)
             if (access_token){
-  
               if (is_token_expired){
                 let refresh_token = getRefreshToken();
                 if (error.response.config.url !== EP_REFRESH){
@@ -92,25 +78,14 @@ const handleTokenExpiration = (msg=null) =>
                   })
                 } else {
                   // case where refresh token has expired
-                  handleTokenExpiration(error.response.data.message)
+                  reject(error);
                 }
-                
-                
-                
-              }
-              else{
-                alert("Unsufficient privileges")
-                //redirect to previous page
+              }else{
+                alert("Insufficient privileges")
                 history.back()
               }
             }else{
-              let link = window.location.href.toString().split(window.location.host)[1];
-              if ( (link !== '/login') && ( link !== '/login/')){
-                handleTokenExpiration(error.response.data.message)
-              } else{
-                reject(error)
-              }
-  
+              reject(error)
             }
             break;
           default:

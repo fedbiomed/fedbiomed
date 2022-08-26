@@ -1,6 +1,26 @@
+import axios from "axios"
 import { isExpired } from "react-jwt";
-import {ROLE} from '../../constants';
-import {LOGIN} from './actions'
+import {EP_AUTH, ROLE} from '../../constants';
+import {LOGIN, SET_LOADING} from './actions'
+
+
+
+export const autoLogin = (navigate) => {
+
+    return (dispatch) => {
+        dispatch({type: SET_LOADING, payload: {status: true }})
+
+        axios.get(EP_AUTH, {}).then(response => {
+            dispatch(setUser(response.data.result))
+            dispatch({type: SET_LOADING, payload: {status: false}})
+        }).catch(error => {
+            console.log('HERE')
+            dispatch({type: SET_LOADING, payload: {status: false}})
+            navigate('/login')
+            dispatch({type: 'ERROR_MODAL', payload: "Your session is expired please login"})
+        })
+    }
+}
 
 /**
  * Sets user to global state
@@ -24,7 +44,7 @@ export const setUser = (data) => {
  */
 export const getAccessToken = () => {
     const accessToken = sessionStorage.getItem('accessToken');
-    return accessToken && accessToken
+    return accessToken
   };
 
 /**
@@ -52,11 +72,10 @@ export const setToken = (accessToken, refreshToken) => {
  * @param accessToken
  * @param refreshToken
  */
-export const removeToken = () => {
+export const removeToken = (navigate) => {
     sessionStorage.removeItem('accessToken');
     sessionStorage.removeItem('refreshToken');
-    console.log("token removed")
-    alert("User disconnected")
+    navigate('/login')
 }
 
 
@@ -80,21 +99,24 @@ export const checkIsTokenActive = () => {
 
 /**
  * Reads token properties from the current access token
- * @returns {{object}} User Info
+ * @returns {{object}|null} User Info
  */
 export const decodeToken = () => {
 
     let access_token = getAccessToken();
     let decoded_token
 
-    // Decode token --------------------------------------------------------
-    try {
-       decoded_token = JSON.parse(atob(access_token.split(".")[1]));
-    } catch (e) {
-       decoded_token =  null;
-       console.error('Can not parse token!')
+    if(access_token){
+        // Decode token --------------------------------------------------------
+        try {
+           decoded_token = JSON.parse(atob(access_token.split(".")[1]));
+        } catch (e) {
+           decoded_token =  null;
+           console.error('Can not parse token!')
+        }
+        return decoded_token
+    }else{
+        return null
     }
-
-    return decoded_token
 
 }

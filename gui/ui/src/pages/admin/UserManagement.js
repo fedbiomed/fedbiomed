@@ -230,7 +230,7 @@ const UserManagement = (props) => {
                              <React.Fragment>
                                  <EuiSpacer size="l" />
                                  <EuiToast
-                                        title="Well done!"
+                                        title="Done!"
                                         color="success"
                                         iconType="alert"
                                         onClose={() => setSuccess({message: null, show: false})}
