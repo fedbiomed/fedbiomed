@@ -75,6 +75,7 @@ import { createBrowserHistory } from 'history';
                     // at this point, refresh token should have expired (as well as access token)
                     reject(rf_error);
                     alert(error.response.data.message)
+                    window.location.href = '/login'
                   })
                 } else {
                   // case where refresh token has expired

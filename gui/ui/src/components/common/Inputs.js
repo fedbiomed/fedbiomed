@@ -33,7 +33,7 @@ export const Text = (props) => {
             onKeyDown={props.onKeyDown}
             value={props.value}
             placeholder={props.placeholder}
-            minlength={props.minlength}
+            minLength={props.minlength}
         />
     )
 }
