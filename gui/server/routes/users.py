@@ -129,16 +129,17 @@ def list_requests():
                 endpoint: API endpoint
                 message: The message for response
         """
-    req = request.json
-    search = req.get('search', None)
-
-    if search is not None and search != "":
-        res = user_requests_table.search(query.name.search(search + '+') | query.description.search(search + '+'))
-    else:
-        try:
-            res = user_requests_table.all()
-        except Exception as e:
-            return error(str(e)), 400
+    # req = request.json
+    # print(req)
+    # search = req.get('search', None)
+    #
+    # if search is not None and search != "":
+    #     res = user_requests_table.search(query.name.search(search + '+') | query.description.search(search + '+'))
+    # else:
+    try:
+        res = user_requests_table.all()
+    except Exception as e:
+        return error(str(e)), 400
 
     return response(res), 200
 

@@ -23,5 +23,5 @@ export default combineReducers({
     models      : modelsReducer,
     auth    : authReducer,
     users_   : usersReducer,
-    users       : accountRequestReducer,
+    user_requests       : accountRequestReducer,
   })

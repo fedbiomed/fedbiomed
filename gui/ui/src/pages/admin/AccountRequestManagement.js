@@ -15,12 +15,15 @@ import {
 
 
 const AccountRequestManagement = (props) => {
-    const listAccountRequestsAction = props.listAccountRequestsAction
+
+
     
     React.useEffect(() => {
         // Get list of account creation requests
-        listAccountRequestsAction({})
-    }, [listAccountRequestsAction])
+        props.listAccountRequests()
+    }, [props.listAccountRequests])
+
+    console.log(props.requests)
 
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(20);
@@ -45,7 +48,7 @@ const AccountRequestManagement = (props) => {
         setTimeout(() => {
             let begin = pageIndex * pageSize
             let end = pageIndex * pageSize + pageSize
-            let display = props.requests_list.slice(begin, end)
+            let display = props.requests.slice(begin, end)
 
             // Sort with custom function
             display.sort( (a, b) => {
@@ -162,7 +165,7 @@ const AccountRequestManagement = (props) => {
     const pagination = {
         pageIndex: pageIndex,
         pageSize: pageSize,
-        totalItemCount: props.requests_list.length,
+        totalItemCount: props.requests.length,
         pageSizeOptions: [20, 40, 60],
     };
 
@@ -212,9 +215,10 @@ const AccountRequestManagement = (props) => {
  */
  const mapDispatchToProps = (dispatch) => {
     return {
-        listAccountRequestsAction : (data) => dispatch(listAccountRequests(data))
+        listAccountRequests : () => dispatch(listAccountRequests())
     }
 }
+
 
 /**
  * Map global state
@@ -223,7 +227,7 @@ const AccountRequestManagement = (props) => {
  */
  const mapStateToProps = (state) => {
     return {
-        requests_list : state.requests.list
+        requests : state.user_requests.requests
     }
 }
 

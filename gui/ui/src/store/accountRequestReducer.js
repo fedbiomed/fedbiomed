@@ -1,9 +1,11 @@
+import {GET_USER_REQUESTS} from "./actions/actions";
+
 /**
  * Initial state for user account data format
  * @type {{list: null}}
  */
  const requestsInitialState = {
-    list: null,
+    requests: [],
 }
 
 /**
@@ -15,9 +17,8 @@
  export const accountRequestReducer = (state = requestsInitialState, action) => {
 
     switch (action.type){
-        case "GET_REQUESTS":
-            console.log("requests")
-            return { ...state, list: action.payload}
+        case GET_USER_REQUESTS:
+            return { requests: action.payload}
         default:
             return state
     }

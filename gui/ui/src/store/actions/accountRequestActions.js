@@ -5,22 +5,21 @@ import {EP_REQUESTS_LIST ,
         EP_REQUESTS_REJECT
     } from "../../constants";
 import { authHeader } from "../../store/user.service"
-
+import {GET_USER_REQUESTS} from "./actions";
 
 /**
  * Request action for listing all account creation requests
  * @returns {dispatch}
  */
- export const listAccountRequests = (data) => {
+ export const listAccountRequests = () => {
 
-    return (dispatch, getState) => {
+    return (dispatch) => {
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Listing available account creation requests..."}})
-        axios.get(EP_REQUESTS_LIST, { headers: authHeader() })
+        axios.get(EP_REQUESTS_LIST, {}, { headers: authHeader() })
              .then( response => {
                 if (response.status === 200){
                     dispatch({type:'SET_LOADING', payload: {status: false, text: ""}})
-                    dispatch({ type : "GET_REQUESTS", payload: response.data.result})
-
+                    dispatch({ type : GET_USER_REQUESTS, payload: response.data.result})
                 }else{
                     dispatch({type:'SET_LOADING', payload: {status: false, text: ""}})
                     alert(response.data.message)
