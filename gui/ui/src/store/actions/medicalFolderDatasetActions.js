@@ -248,13 +248,14 @@ function checkSubjectsAllModalities(dispatch, mf) {
     return new Promise((resolve, reject) =>
     { 
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Checking some data folders have all modalities..."}})
-        axios.post(EP_VALIDATE_SUBJECTS_ALL_MODALITIES, {
+        let params_check = {
             'medical_folder_root': mf.medical_folder_root,
             // TODO: replace with real modalities
             'modalities': ['T1', 'T2'],
             'reference_csv_path': (!mf.ignore_reference_csv && mf.reference_csv ? mf.reference_csv.path : null),
             'index_col' : (!mf.ignore_reference_csv && mf.medical_folder_ref ? mf.medical_folder_ref.ref.index : null)
-        }).then( response => {
+        }
+        axios.post(EP_VALIDATE_SUBJECTS_ALL_MODALITIES, params_check).then( response => {
             dispatch({type:'SET_LOADING', payload: {status: false}})
             if(response.status === 200){
                 let data = response.data.result

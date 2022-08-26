@@ -385,13 +385,13 @@ class ValidateSubjectsHasAllModalities(Validator):
                 },
             },
             "reference_csv_path": {
-                "type": "array",
+                "type": ["array", "null"],
                 "errorMessages": {
                     "type": "CSV path should be given as an array"
                 },
             },
             "index_col": {
-                "type": "integer",
+                "type": ["integer", "null"],
                 "errorMessage": {
                     "type": "Index column should be an integer"
                 },
