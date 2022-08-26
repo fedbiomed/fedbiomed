@@ -11,16 +11,16 @@ import {
 
   import { AccountRequestManagementModal } from './accountRequestManagementModal';
   import { listAccountRequests } from '../../store/actions/accountRequestActions';
-  import { useDispatch, useSelector, shallowEqual } from "react-redux";
+  import { useSelector, connect } from "react-redux";
 
 
 const AccountRequestManagement = (props) => {
-
+    const listAccountRequestsAction = props.listAccountRequestsAction
+    
     React.useEffect(() => {
-        listAccountRequests()
-    }, [listAccountRequests])
-
-    const users = useSelector((state) => state.user_requests_list, shallowEqual)
+        // Get list of account creation requests
+        listAccountRequestsAction({})
+    }, [listAccountRequestsAction])
 
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(20);
@@ -45,7 +45,7 @@ const AccountRequestManagement = (props) => {
         setTimeout(() => {
             let begin = pageIndex * pageSize
             let end = pageIndex * pageSize + pageSize
-            let display = users.slice(begin, end)
+            let display = props.requests_list.slice(begin, end)
 
             // Sort with custom function
             display.sort( (a, b) => {
@@ -162,7 +162,7 @@ const AccountRequestManagement = (props) => {
     const pagination = {
         pageIndex: pageIndex,
         pageSize: pageSize,
-        totalItemCount: users.length,
+        totalItemCount: props.requests_list.length,
         pageSizeOptions: [20, 40, 60],
     };
 
@@ -205,4 +205,26 @@ const AccountRequestManagement = (props) => {
     )
 }
 
-export default AccountRequestManagement
+/**
+ * Pass action to props of component
+ * @param {function} dispatch 
+ * @returns 
+ */
+ const mapDispatchToProps = (dispatch) => {
+    return {
+        listAccountRequestsAction : (data) => dispatch(listAccountRequests(data))
+    }
+}
+
+/**
+ * Map global state
+ * @param {*} state 
+ * @returns 
+ */
+ const mapStateToProps = (state) => {
+    return {
+        requests_list : state.requests.list
+    }
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(AccountRequestManagement);
