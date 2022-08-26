@@ -11,7 +11,7 @@ import {
 
   import { AccountRequestManagementModal } from './accountRequestManagementModal';
   import { listAccountRequests } from '../../store/actions/accountRequestActions';
-  import { useSelector, connect } from "react-redux";
+  import { connect } from "react-redux";
 
 
 const AccountRequestManagement = (props) => {
@@ -27,7 +27,7 @@ const AccountRequestManagement = (props) => {
 
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(20);
-    const [sortField, setSortField] = useState('name');
+    const [sortField, setSortField] = useState('user_name');
     const [sortDirection, setSortDirection] = useState('asc');
 
     const [tableLoading, setTableLoading] = useState(true)
@@ -96,63 +96,51 @@ const AccountRequestManagement = (props) => {
         // Column contains scheme for designing grid
     const columns = [
         {
-            field: 'name',
+            field: 'user_name',
             name: 'Name',
             truncateText: true,
             sortable: true,
         },
         {
-            field: 'surname',
+            field: 'user_surname',
             name: 'Surname',
             truncateText: true,
             sortable: true,
           },
         {
-            field: 'email',
+            field: 'user_email',
             name: 'E-Mail',
             truncateText: true,
             sortable: true,
         },
         {
-            field: 'password',
-            name: 'Password',
-            truncateText: true,
-            sortable: true,
-        },
-        {
-            field: 'role',
+            field: 'user_role',
             name: 'User Role',
             truncateText: true,
             sortable: true,
         },
         {
-            field: 'created',
+            field: 'creation_date',
             name: 'Account Created',
             truncateText: true,
             sortable: true,
         },
         {
-            field: 'request_id',
-            name: 'Request ID',
-            truncateText: true,
-            sortable: true,
-        },
-        {
-            field: 'status',
+            field: 'request_status',
             name: 'Status',
             truncateText: true,
             sortable: true,
         },
         {
-          name: 'Approve Request',
+          name: 'Approve',
           actions: [
-              {render: (item) => <EuiButton onClick={()=>(setShowApproveRequestModal(true))}  iconType="checkInCircleFilled" color={"primary"}>Approve Request</EuiButton>}
+              {render: (item) => <EuiButton onClick={()=>(setShowApproveRequestModal(true))}  iconType="checkInCircleFilled" color={"primary"}>Approve</EuiButton>}
           ] ,
         },
         {
-          name: 'Reject Request',
+          name: 'Reject',
           actions: [
-              {render: (item) => <EuiButton  onClick={()=>(setShowRejectRequestModal(true))} iconType="crossInACircleFilled" color={"warning"}>Reject Request</EuiButton>}
+              {render: (item) => <EuiButton  onClick={()=>(setShowRejectRequestModal(true))} iconType="crossInACircleFilled" color={"warning"}>Reject</EuiButton>}
           ] ,
         },
     ]
