@@ -366,6 +366,7 @@ class ValidateMedicalFolderRoot(Validator):
         "required": ["medical_folder_root"]
     })
 
+
 class ValidateSubjectsHasAllModalities(Validator):
     type = 'json'
     schema = JsonSchema({
@@ -376,27 +377,29 @@ class ValidateSubjectsHasAllModalities(Validator):
                 "errorMessages": {
                     "type": "ROOT path should be given as an array"
                 },
-                "modalities": {
-                    "type": "array",
-                    "errorMessages": {
-                        "type": "Modalities should be given as an array"
-                    },
+            },
+            "modalities": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "Modalities should be given as an array"
                 },
-                "reference_csv_path": {
-                    "type": "array",
-                    "errorMessages": {
-                        "type": "CSV path should be given as an array"
-                    },
+            },
+            "reference_csv_path": {
+                "type": "array",
+                "errorMessages": {
+                    "type": "CSV path should be given as an array"
                 },
-                "index_col": {
-                    "type": "integer",
-                    "errorMessage": {
-                        "type": "Index column should be an integer"}
-                }
-            }
+            },
+            "index_col": {
+                "type": "integer",
+                "errorMessage": {
+                    "type": "Index column should be an integer"
+                },
+            },
         },
         "required": ["medical_folder_root", "modalities", "reference_csv_path", "index_col"]
     })
+
 
 class ValidateMedicalFolderAddRequest(Validator):
     type = 'json'
