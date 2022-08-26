@@ -11,18 +11,16 @@ import {
 
   import { AccountRequestManagementModal } from './accountRequestManagementModal';
   import { listAccountRequests } from '../../store/actions/accountRequestActions';
-  import { useSelector, shallowEqual, connect } from "react-redux";
+  import { useSelector, connect } from "react-redux";
 
 
 const AccountRequestManagement = (props) => {
     const listAccountRequestsAction = props.listAccountRequestsAction
+    
     React.useEffect(() => {
         // Get list of account creation requests
         listAccountRequestsAction({})
     }, [listAccountRequestsAction])
-
-    const users = useSelector((state) => state.users.list)
-    console.log(props.users_list)
 
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(20);
@@ -47,7 +45,7 @@ const AccountRequestManagement = (props) => {
         setTimeout(() => {
             let begin = pageIndex * pageSize
             let end = pageIndex * pageSize + pageSize
-            let display = users.slice(begin, end)
+            let display = props.requests_list.slice(begin, end)
 
             // Sort with custom function
             display.sort( (a, b) => {
@@ -164,7 +162,7 @@ const AccountRequestManagement = (props) => {
     const pagination = {
         pageIndex: pageIndex,
         pageSize: pageSize,
-        totalItemCount: users.length,
+        totalItemCount: props.requests_list.length,
         pageSizeOptions: [20, 40, 60],
     };
 
@@ -214,7 +212,7 @@ const AccountRequestManagement = (props) => {
  */
  const mapDispatchToProps = (dispatch) => {
     return {
-        listAccountRequestsAction : (data) => dispatch(listAccountRequests())
+        listAccountRequestsAction : (data) => dispatch(listAccountRequests(data))
     }
 }
 
@@ -225,7 +223,7 @@ const AccountRequestManagement = (props) => {
  */
  const mapStateToProps = (state) => {
     return {
-        users_list : state.users.list
+        requests_list : state.requests.list
     }
 }
 

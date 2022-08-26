@@ -11,16 +11,15 @@ import { authHeader } from "../../store/user.service"
  * Request action for listing all account creation requests
  * @returns {dispatch}
  */
- export const listAccountRequests = () => {
+ export const listAccountRequests = (data) => {
 
     return (dispatch, getState) => {
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Listing available account creation requests..."}})
         axios.get(EP_REQUESTS_LIST, { headers: authHeader() })
              .then( response => {
                 if (response.status === 200){
-                    let users = response.data.result
                     dispatch({type:'SET_LOADING', payload: {status: false, text: ""}})
-                    dispatch({ type : "GET_REQUESTS", payload: users})
+                    dispatch({ type : "GET_REQUESTS", payload: response.data.result})
 
                 }else{
                     dispatch({type:'SET_LOADING', payload: {status: false, text: ""}})
@@ -31,6 +30,5 @@ import { authHeader } from "../../store/user.service"
                  dispatch({type:'SET_LOADING', payload: {status: false, text: ""}})
                  dispatch(displayError(error, "Error while getting all the requests: "))
              })
-
     }
 }
