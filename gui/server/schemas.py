@@ -401,6 +401,28 @@ class ValidateSubjectsHasAllModalities(Validator):
     })
 
 
+class ValidateDataLoadingPlanAddRequest(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {
+            "modalities_mapping": {
+                "type": "object",
+                "errorMessages": {
+                    "type": "DLP modalities mapping should be given as an object"
+                },
+            },
+            "name": {
+                "type": "string",
+                "errorMessages": {
+                    "type": "DLP name should be given as an array"
+                },
+            },
+        },
+        "required": ["modalities_mapping", "name"]
+    })
+
+
 class ValidateMedicalFolderAddRequest(Validator):
     type = 'json'
     schema = JsonSchema({

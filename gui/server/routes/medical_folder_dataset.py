@@ -14,6 +14,7 @@ from schemas import ValidateMedicalFolderReferenceCSV, \
     ValidateMedicalFolderRoot, \
     ValidateSubjectsHasAllModalities, \
     ValidateMedicalFolderAddRequest, \
+    ValidateDataLoadingPlanAddRequest, \
     PreviewDatasetRequest
 
 from fedbiomed.common.data import MedicalFolderController, MapperBlock, MedicalFolderLoadingBlockTypes
@@ -103,6 +104,21 @@ def add_medical_folder_dataset():
         return error("Medical Folder Dataset is not properly deployed. "
                      "Please try again."), 400
 
+    return response(data=res), 200
+
+
+@api.route('/datasets/medical-folder-dataset/add-dlp', methods=['POST'])
+@validate_request_data(schema=ValidateDataLoadingPlanAddRequest)
+@middleware(middlewares=[medical_folder_dataset.create_dlp])
+def add_data_loading_plan():
+    """ Adds DataLoadingPlan into database of NODE """
+
+    # Request object as JSON
+    req = request.json
+
+    #return error("Medical Folder Dataset is not properly deployed. "
+    #             "Please try again."), 400
+    res = "TEMPO"
     return response(data=res), 200
 
 
