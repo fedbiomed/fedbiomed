@@ -243,6 +243,34 @@ export const clearModalityMapping = (folder_name) => {
     }
 }
 
+function checkSubjectsAllModalities(dispatch, mf) {
+    return new Promise((resolve, reject) =>
+    { 
+        //let mf = getState.medicalFolderDataset
+        dispatch({type:'SET_LOADING', payload: {status: true, text: "Checking some data folders have all modalities..."}})
+        axios.post(EP_VALIDATE_SUBJECTS_ALL_MODALITIES, {
+            'medical_folder_root': mf.medical_folder_root,
+            // TODO: replace with real modalities
+            'modalities': ['T1', 'T2'],
+            'reference_csv_path': (mf.reference_csv ? mf.reference_csv.path: null),
+            'index_col' : mf.medical_folder_ref.ref
+        }).then( response => {
+            dispatch({type:'SET_LOADING', payload: {status: false}})
+            if(response.status === 200){
+                let data = response.data.result
+                resolve(data.subjects.length > 0)
+            } else {
+                dispatch({type: 'ERROR_MODAL', payload: response.data.result.message})
+                reject()
+            }
+        }).catch(error => {
+            dispatch({type:'SET_LOADING', payload: {status: false}})
+            dispatch(displayError(error, "Error while checking some folders have all modalities"))
+            reject()
+        })
+    })
+}
+
 /**
  * Sends Medical Folder dataset add request and validate result
  * @returns {(function(*))|*}
@@ -267,22 +295,34 @@ export const addMedicalFolderDataset = (navigator) => {
             }
         }
 
-        //data['dlp_id'] = dlp.selected_dlp_index !== null ?
-        //                    dlp.existing_dlps['data'][dlp.selected_dlp_index][1] : null
-        data['dlp_id'] = null
-        //data['dlp_loading_blocks'] = dlp.dlp_loading_blocks
-        data['dlp_loading_blocks'] = {}
-        data['dlp_name'] = dlp.dlp_name
-        console.log('add dataset', data)
+        checkSubjectsAllModalities(dispatch, medical_folder).then(
+        (resolve) => {
+            if(resolve) {
 
-        axios.post(EP_ADD_MEDICAL_FOLDER_DATASET, data).then( response => {
-                dispatch({type: 'SUCCESS_MODAL' , payload: "Dataset has been successfully added"})
-                dispatch({type:'SET_LOADING', payload: {status: false}})
-                navigator('/datasets')
-                dispatch({type:'RESET_MEDICAL_FOLDER'})
-        }).catch(error => {
-            dispatch({type:'SET_LOADING', payload: {status: false}})
-            dispatch(displayError(error, "Error while adding MedicalFolder dataset: "))
+                //data['dlp_id'] = dlp.selected_dlp_index !== null ?
+                //                    dlp.existing_dlps['data'][dlp.selected_dlp_index][1] : null
+                data['dlp_id'] = null
+                //data['dlp_loading_blocks'] = dlp.dlp_loading_blocks
+                data['dlp_loading_blocks'] = {}
+                data['dlp_name'] = dlp.dlp_name
+
+                axios.post(EP_ADD_MEDICAL_FOLDER_DATASET, data).then( response => {
+                        dispatch({type: 'SUCCESS_MODAL' , payload: "Dataset has been successfully added"})
+                        dispatch({type:'SET_LOADING', payload: {status: false}})
+                        navigator('/datasets')
+                        dispatch({type:'RESET_MEDICAL_FOLDER'})
+                        dispatch({type: 'RESET_DLP'})
+                }).catch(error => {
+                    dispatch({type:'SET_LOADING', payload: {status: false}})
+                    dispatch(displayError(error, "Error while adding MedicalFolder dataset: "))
+                })
+            } else {
+                dispatch({'type': 'ERROR_MODAL', payload: 'No subject from the dataset has folders for \
+                    all defined modalities. Check and update your customized associations'})
+            }
+        },
+        (reject) => {
+            // any special action when cannot check from server
         })
 
     }

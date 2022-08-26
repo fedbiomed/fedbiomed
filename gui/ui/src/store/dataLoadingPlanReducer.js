@@ -51,6 +51,8 @@ export const dataLoadingPlanReducer = (state = initialState, action) => {
         //        ...state,
         //        dlp_loading_blocks: {}
         //    }
+        case "RESET_DLP":
+            return initialState
         default:
             return state
     }
