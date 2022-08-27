@@ -11,7 +11,7 @@ import traceback
 from copy import deepcopy
 from re import findall
 from tabulate import tabulate
-from typing import Callable, Tuple, Union, Dict, Any, TypeVar, Type, List
+from typing import Callable, OrderedDict, Tuple, Union, Dict, Any, TypeVar, Type, List
 from fedbiomed.common.metrics import MetricTypes
 from pathvalidate import sanitize_filename, sanitize_filepath
 
@@ -24,6 +24,7 @@ from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
+from fedbiomed.researcher.aggregators.functional import initialize
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_exp_folder, choose_bkpt_file, \
@@ -199,6 +200,8 @@ class Experiment(object):
         self._tags = None
         self._monitor = None
         self._experimentation_folder = None
+
+        self._client_corrections_state_dict = None
 
 #        training_data: Union[FederatedDataSet, dict, None] = None,
 #        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
@@ -1396,6 +1399,27 @@ class Experiment(object):
         return self._tensorboard
 
     @exp_exceptions
+    def set_new_correction_state_dict(self, model_params_list, trigger) -> List[dict]:
+        """
+        """
+        if not trigger: # do nothing
+            return self.client_corrections_state_dict
+        else:
+            server_state = self._job.get_initial_model_params() # useful to get the dimensions of model parameters and fill the initial correction state to 0
+            if trigger == True: # True at the very first round
+                correction_state = OrderedDict({key:initialize(server_state[key])[1] for key in server_state}) # filling tensors with zeros
+                self.client_corrections_state_dict = {node_id: correction_state for node_id in self._job.nodes}
+                #print("round 0 - correction state :", self.client_corrections_state_dict)
+                #print("len :", len(list(self.client_corrections_state_dict.items())[0][1]))  
+            elif trigger == 'next':
+                for model_params in model_params_list: # iterate params of each client
+                    node_id = model_params['node_id']
+                    for key in model_params['params']:
+                        self.client_corrections_state_dict[node_id][key] = self.client_corrections_state_dict[node_id][key] + server_state[key] - model_params['params'][key]
+                    
+            return self.client_corrections_state_dict
+
+    @exp_exceptions
     def run_once(self, increase: bool = False, test_after: bool = False) -> int:
         """Run at most one round of an experiment, continuing from the point the
         experiment had reached.
@@ -1453,12 +1477,23 @@ class Experiment(object):
         # Sample nodes using strategy (if given)
         self._job.nodes = self._node_selection_strategy.sample_nodes(self._round_current)
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(self._job.nodes))
+
+        #### Only at the very first round, corrections of each client are initialized to 0
+        self.client_corrections_state_dict = self.set_new_correction_state_dict(None, self._round_current == 0)
+
         # Trigger training round on sampled nodes
         _ = self._job.start_nodes_training_round(round=self._round_current, do_training=True)
 
         # refining/normalizing model weights received from nodes
         model_params, weights = self._node_selection_strategy.refine(
-            self._job.training_replies[self._round_current], self._round_current)
+            self._job.training_replies[self._round_current], self._round_current) ##### FLAG
+
+        #### Including node_id
+        model_params2, weights2 = self._node_selection_strategy.refine_id(
+            self._job.training_replies[self._round_current], self._round_current) ##### FLAG
+
+        #### New correction state
+        self.client_corrections_state_dict = self.set_new_correction_state_dict(model_params2, "next")
 
         # aggregate model from nodes to a global model
         aggregated_params = self._aggregator.aggregate(model_params,
@@ -1752,7 +1787,7 @@ class Experiment(object):
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
             'job': self._job.save_state(breakpoint_path)  # job state
-        }
+        } #### FLAG
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
         state['model_path'] = create_unique_link(
