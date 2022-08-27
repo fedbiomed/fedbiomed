@@ -292,6 +292,25 @@ class Job:
 
         return not nodes_done == set(self._nodes)
 
+    def get_repo_args(self):
+        return self._repository_args
+
+    def get_initial_model_params(self):
+        """ Retrieve the parameters of the model which will be sent to the nodes for training at each round.
+        This is what we call the server state. Considering Scaffold strategy, it will be useful to compute the
+        new correction state for each client, using the difference with the previous client state, plus the
+        previous correction state.
+         _new_correction_state = _prev_correction_state + _server_state - _previous_client_state
+        """
+        logger.info(f"Downloading initial model params")
+        try:
+            _, params_path = self.repo.download_file(self._repository_args['params_url'], self._model_params_file)
+        except FedbiomedRepositoryError as err:
+            logger.error(f"Cannot download initial model parameters")
+            return
+        params = self.model_instance.load(params_path, to_params=True)
+        return params
+
     def start_nodes_training_round(self, round: int, do_training: bool = True):
         """ Sends training request to nodes and waits for the responses
 
@@ -306,7 +325,7 @@ class Job:
                    'training': do_training,
                    'model_args': self._model_args,
                    'command': 'train'}
-        msg = {**headers, **self._repository_args}
+        msg = {**headers, **self._repository_args} #### FLAG repo_args:default model sent to nodes
         time_start = {}
 
         for cli in self._nodes:
@@ -386,7 +405,7 @@ class Job:
                                'params': params,
                                'timing': timing})
 
-                self._training_replies[round].append(r)
+                self._training_replies[round].append(r) #### FLAG
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
