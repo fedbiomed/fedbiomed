@@ -477,6 +477,7 @@ class TrainRequest(Message):
     model_url: str
     model_class: str
     command: str
+    correction_state: dict
 
 
 @catch_dataclass_exception
