@@ -11,7 +11,8 @@ export const dataLoadingPlanReducer = (state = initialState, action) => {
         case "SET_USE_PRE_EXISTING_DLP":
             return {
                 ...state,
-                use_preexisting_dlp : action.payload
+                use_preexisting_dlp : action.payload,
+                dlp_name: initialState.dlp_name,
             }
         case "SET_EXISTING_DLPS":
             return {
@@ -22,12 +23,14 @@ export const dataLoadingPlanReducer = (state = initialState, action) => {
             if (parseInt(action.payload) === -1){
                 return  {
                     ...state,
-                    selected_dlp_index : null
+                    selected_dlp_index : null,
+                    dlp_name: initialState.dlp_name,
                 }
             }
             return {
                 ...state,
-                selected_dlp_index : action.payload
+                selected_dlp_index : action.payload,
+                dlp_name: initialState.dlp_name,
             }
         case "SET_DLP_NAME":
             return {
