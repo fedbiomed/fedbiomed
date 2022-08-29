@@ -237,10 +237,7 @@ function checkSubjectsAllModalities(dispatch, mf, dlp_id) {
         if(mf.use_custom_mod2fol) {
             params_check['modalities'] = Object.keys(mf.mod2fol_mapping)
         } else {
-            params_check['modalities'] = []
-            mf.default_modality_names.forEach((mod) => {
-                params_check['modalities'].push(mod['value'])
-            })
+            params_check['modalities'] = mf.modality_folders
         }
         axios.post(EP_VALIDATE_SUBJECTS_ALL_MODALITIES, params_check).then( response => {
             dispatch({type:'SET_LOADING', payload: {status: false}})
