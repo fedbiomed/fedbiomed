@@ -80,7 +80,8 @@ class Node:
                 be done regarding of the topic. Currently unused.
         """
         # TODO: describe all exceptions defined in this method
-        logger.debug('Message received: ' + str(msg))
+        msg_print = {key:value for key, value in msg.items() if key != 'correction_state'}
+        logger.debug('Message received: ' + str(msg_print))
         try:
             # get the request from the received message (from researcher)
             command = msg['command']
@@ -159,7 +160,7 @@ class Node:
                             extra_msg='Message was not serializable',
                             researcher_id=resid)
 
-    def parser_task(self, msg: Union[bytes, str, Dict[str, Any]]):
+    def parser_task(self, msg: Union[bytes, str, Dict[str, Any]]): #### FLAG
         """Parses a given task message to create a round instance
 
         Args:
@@ -181,6 +182,7 @@ class Node:
         params_url = msg.get_param('params_url')
         job_id = msg.get_param('job_id')
         researcher_id = msg.get_param('researcher_id')
+        correction_state = msg.get_param('correction_state') or None
 
         assert model_url is not None, 'URL for model on repository not found.'
         assert validators.url(
@@ -227,6 +229,7 @@ class Node:
                                              job_id,
                                              researcher_id,
                                              hist_monitor,
+                                             correction_state,
                                              self.node_args,
                                              dlp_and_loading_block_metadata=dlp_and_loading_block_metadata))
 
@@ -236,9 +239,9 @@ class Node:
 
         while True:
             item = self.tasks_queue.get()
-
+            item_print = {key:value for key, value in item.items() if key != 'correction_state'}
             try:
-                logger.debug('[TASKS QUEUE] Item:' + str(item))
+                logger.debug('[TASKS QUEUE] Item:' + str(item_print))
                 self.parser_task(item)
                 # once task is out of queue, initiate training rounds
                 for round in self.rounds:
