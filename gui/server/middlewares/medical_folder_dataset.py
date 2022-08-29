@@ -65,6 +65,7 @@ def validate_all_modalities():
         mf_dataset = MedicalFolderDataset(
             root=root,
             data_modalities=modalities,
+            target_modalities=modalities,
             tabular_file=reference_path,
             index_col=index_col
         )
