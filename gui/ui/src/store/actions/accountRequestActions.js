@@ -1,11 +1,11 @@
 import axios from "axios"
-import {displayError, GET_USER_REQUESTS_ERROR, GET_USER_REQUESTS_LOADING, SET_LOADING} from "./actions";
+import {APPROVE_USER_REQUEST, APPROVE_USER_REQUEST_ERROR, APPROVE_USER_REQUEST_LOADING, GET_USER_REQUESTS_ERROR, GET_USER_REQUESTS_LOADING} from "./actions";
 import {EP_REQUESTS_LIST ,
-        EP_REQUESTS_APPROVE,
-        EP_REQUESTS_REJECT
+        EP_REQUEST_APPROVE,
+        EP_REQUEST_REJECT
     } from "../../constants";
-import { authHeader } from "../../store/user.service"
 import {GET_USER_REQUESTS} from "./actions";
+import { store } from "../../index"
 
 /**
  * Request action for listing all account creation requests
@@ -15,7 +15,7 @@ import {GET_USER_REQUESTS} from "./actions";
 
     return (dispatch) => {
         dispatch({type: GET_USER_REQUESTS_LOADING, payload: {status: true, text: "Listing available account creation requests..."}})
-        axios.get(EP_REQUESTS_LIST, {}, { headers: authHeader() })
+        axios.get(EP_REQUESTS_LIST, {})
              .then( response => {
                     dispatch({type: GET_USER_REQUESTS, payload: response.data.result})
                     dispatch({ type: GET_USER_REQUESTS_LOADING, payload: false})
@@ -28,3 +28,48 @@ import {GET_USER_REQUESTS} from "./actions";
             })
     }
 }
+
+
+/**
+ * Request action for approving an account creation request
+ * @param data Object that has request_id
+ * @returns {(function(*, *): void)|*}
+ */
+export const approveAccountRequest = (data) => {
+    return (dispatch) => {
+        dispatch({type:APPROVE_USER_REQUEST_LOADING, payload: {status: true, text: "Approving user request..."}})
+        // Get current user requests state
+        let user_requests = store.getState().user_requests
+        axios.post(EP_REQUEST_APPROVE, {request_id : data.request_id})
+             .then(res => {
+                if(res.status === 201){
+                    let index = user_requests.requests.map(function(e) {
+                        return e.request_id;
+                    }).indexOf(data.request_id);
+                    if (index > -1) {
+                        user_requests.requests.splice(index, 1);
+                        dispatch({ type : APPROVE_USER_REQUEST, payload: user_requests.requests})
+                        dispatch({type:APPROVE_USER_REQUEST_LOADING, payload: {status: false}})
+                    }
+                }else{
+                    dispatch({type:APPROVE_USER_REQUEST_LOADING, payload: {status: false}})
+                    dispatch({type: APPROVE_USER_REQUEST_ERROR, payload: res.data.message})
+                }
+             })
+             .catch(error => {
+                 dispatch({type: APPROVE_USER_REQUEST_LOADING, payload: {status: false}})
+                if(error.response){
+                    dispatch({type: APPROVE_USER_REQUEST_ERROR, payload: 'Error while adding default dataset: ' + error.response.data.message})
+                }else{
+                    dispatch({type: APPROVE_USER_REQUEST_ERROR, payload: 'Unexpected error:' + error.toString()})
+                }
+             })
+    }
+}
+
+
+// /**
+//  * Request action for rejecting an account creation request
+//  * @param data Object that has request_id
+//  * @returns {(function(*, *): void)|*}
+//  */

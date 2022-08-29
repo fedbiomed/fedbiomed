@@ -7,7 +7,7 @@ import {
 // this module should be use to update Modal module content
 const AccountRequestManagementModal = (props) => {
     const [show, setShow] = useState(props.show)
-   
+
     React.useEffect(() => {
         // update local state
         setShow(props.show)
@@ -20,6 +20,7 @@ const AccountRequestManagementModal = (props) => {
     }
 
     const confirmModal = () => {
+        props.onConfirmAccountRequestModal()
         closeModal()
     }
     return (

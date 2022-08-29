@@ -1,4 +1,4 @@
-import {GET_USER_REQUESTS, GET_USER_REQUESTS_ERROR, GET_USER_REQUESTS_LOADING} from "./actions/actions";
+import {APPROVE_USER_REQUEST, APPROVE_USER_REQUEST_ERROR, GET_USER_REQUESTS, GET_USER_REQUESTS_ERROR, GET_USER_REQUESTS_LOADING} from "./actions/actions";
 
 /**
  * Initial state for user account data format
@@ -7,7 +7,13 @@ import {GET_USER_REQUESTS, GET_USER_REQUESTS_ERROR, GET_USER_REQUESTS_LOADING} f
  const requestsInitialState = {
     requests: [],
     error : null,
-    loading: false
+    loading: false,
+    approve_request: {
+        success : null,
+        message : null,
+        result : null,
+        waiting: false,
+    },
 }
 
 /**
@@ -35,6 +41,18 @@ import {GET_USER_REQUESTS, GET_USER_REQUESTS_ERROR, GET_USER_REQUESTS_LOADING} f
             return {
                 ...state,
                 loading : action.payload
+            }
+        case APPROVE_USER_REQUEST:
+            return {
+                ...state,
+                requests: action.payload,
+                error: false,
+                loading: false
+            }
+        case APPROVE_USER_REQUEST_ERROR:
+            return {
+                ...state,
+                error: true
             }
         default:
             return state

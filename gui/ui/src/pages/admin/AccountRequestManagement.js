@@ -10,7 +10,7 @@ import {
   } from '@elastic/eui';
 
   import { AccountRequestManagementModal } from './accountRequestManagementModal';
-  import { listAccountRequests } from '../../store/actions/accountRequestActions';
+  import { approveAccountRequest, listAccountRequests } from '../../store/actions/accountRequestActions';
   import { connect } from "react-redux";
 
 
@@ -22,11 +22,31 @@ const AccountRequestManagement = (props) => {
     const [sortDirection, setSortDirection] = useState('asc');
 
     const [items, setItems] = useState([])
-    const [showApproveRequestModal, setShowApproveRequestModal] = useState(false);
-    const [showRejectRequestModal, setShowRejectRequestModal] = useState(false);
+    const [selectedItem, setSelectedItem] = useState({})
+    const [showModal, setShowModal] = useState(false);
+    const [actionType, setActionType] = useState('')
+    const [title, setTitle] = useState('')
+    // const [showRejectRequestModal, setShowRejectRequestModal] = useState(false);
 
-    const closeApproveRequestModal = () => {setShowApproveRequestModal(false)}
-    const closeRejectRequestModal = () => {setShowRejectRequestModal(false)}
+    const onSelect = (item, actionType, title) => {
+        setActionType(actionType)
+        setTitle(title)
+        setSelectedItem(item)
+        setShowModal(true)
+    }
+    const confirmAccountRequestModal = () => {
+        actionType === 'APPROVE' ? props.approveAccountRequestAction(selectedItem) : console.log('REJECT')
+        setActionType('')
+        setTitle('')
+        setSelectedItem({})
+        setShowModal(false)
+    }
+    const closeAccountRequestModal = () => {
+        setActionType('')
+        setTitle('')
+        setSelectedItem({})
+        setShowModal(false)
+    }
 
      /**
      * Call list user requests API when component loaded for the first time
@@ -132,13 +152,13 @@ const AccountRequestManagement = (props) => {
         {
           name: 'Approve',
           actions: [
-              {render: (item) => <EuiButton onClick={()=>(setShowApproveRequestModal(true))}  iconType="checkInCircleFilled" color={"primary"}>Approve</EuiButton>}
+              {render: (item) => <EuiButton onClick={()=>(onSelect(item, 'APPROVE', 'Approve account request creation ?'))}  iconType="checkInCircleFilled" color={"primary"}>Approve</EuiButton>}
           ] ,
         },
         {
           name: 'Reject',
           actions: [
-              {render: (item) => <EuiButton  onClick={()=>(setShowRejectRequestModal(true))} iconType="crossInACircleFilled" color={"warning"}>Reject</EuiButton>}
+              {render: (item) => <EuiButton  onClick={()=>(onSelect(item, 'REJECT', 'Reject account request creation ?'))} iconType="crossInACircleFilled" color={"warning"}>Reject</EuiButton>}
           ] ,
         },
     ]
@@ -180,16 +200,12 @@ const AccountRequestManagement = (props) => {
 
 
             <div>
-                {showApproveRequestModal?<AccountRequestManagementModal
-                                show={showApproveRequestModal}
-                                title="Approve account request creation ?"
-                                onClose={closeApproveRequestModal}
-                                text={"Are you sure you want to approve this request?"}/>:null}
-                {showRejectRequestModal?<AccountRequestManagementModal
-                                    show={showRejectRequestModal}
-                                    title="Reject account request creation ?"
-                                    onClose={closeRejectRequestModal}
-                                    text={"Are you sure you want to reject this request?"}/>:null}
+                {showModal?<AccountRequestManagementModal
+                    show={showModal}
+                    title={title}
+                    onConfirmAccountRequestModal={confirmAccountRequestModal}
+                    onClose={closeAccountRequestModal}
+                    text={"Are you sure you want to perform this action?"}/>:null}
             </div>
         </Fragment>
 
@@ -203,7 +219,8 @@ const AccountRequestManagement = (props) => {
  */
  const mapDispatchToProps = (dispatch) => {
     return {
-        listAccountRequests : () => dispatch(listAccountRequests())
+        listAccountRequests : () => dispatch(listAccountRequests()),
+        approveAccountRequestAction: (data) => dispatch(approveAccountRequest(data))
     }
 }
 
