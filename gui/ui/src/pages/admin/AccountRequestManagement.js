@@ -10,7 +10,7 @@ import {
   } from '@elastic/eui';
 
   import { AccountRequestManagementModal } from './accountRequestManagementModal';
-  import { approveAccountRequest, listAccountRequests } from '../../store/actions/accountRequestActions';
+  import { approveAccountRequest, listAccountRequests, rejectAccountRequest } from '../../store/actions/accountRequestActions';
   import { connect } from "react-redux";
 
 
@@ -35,11 +35,10 @@ const AccountRequestManagement = (props) => {
         setShowModal(true)
     }
     const confirmAccountRequestModal = () => {
-        actionType === 'APPROVE' ? props.approveAccountRequestAction(selectedItem) : console.log('REJECT')
-        setActionType('')
-        setTitle('')
-        setSelectedItem({})
-        setShowModal(false)
+        actionType === 'APPROVE' ? props.approveAccountRequestAction(selectedItem) 
+        : actionType === 'REJECT' ? props.rejectAccountRequestAction(selectedItem)
+        : setShowModal(false)
+        closeAccountRequestModal()
     }
     const closeAccountRequestModal = () => {
         setActionType('')
@@ -84,7 +83,7 @@ const AccountRequestManagement = (props) => {
         })
         setItems(display)
 
-    }, [pageIndex, pageSize, sortField, sortDirection])
+    }, [pageIndex, pageSize, sortField, sortDirection, props.requests])
 
     /**
      * On table value is changed
@@ -220,7 +219,8 @@ const AccountRequestManagement = (props) => {
  const mapDispatchToProps = (dispatch) => {
     return {
         listAccountRequests : () => dispatch(listAccountRequests()),
-        approveAccountRequestAction: (data) => dispatch(approveAccountRequest(data))
+        approveAccountRequestAction: (data) => dispatch(approveAccountRequest(data)),
+        rejectAccountRequestAction: (data) => dispatch(rejectAccountRequest(data))
     }
 }
 

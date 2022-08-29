@@ -1,4 +1,5 @@
-import {APPROVE_USER_REQUEST, APPROVE_USER_REQUEST_ERROR, GET_USER_REQUESTS, GET_USER_REQUESTS_ERROR, GET_USER_REQUESTS_LOADING} from "./actions/actions";
+import {APPROVE_USER_REQUEST, APPROVE_USER_REQUEST_ERROR, GET_USER_REQUESTS, GET_USER_REQUESTS_ERROR, 
+    GET_USER_REQUESTS_LOADING, REJECT_USER_REQUEST, REJECT_USER_REQUEST_ERROR} from "./actions/actions";
 
 /**
  * Initial state for user account data format
@@ -30,6 +31,7 @@ import {APPROVE_USER_REQUEST, APPROVE_USER_REQUEST_ERROR, GET_USER_REQUESTS, GET
                 ...state,
                 requests: action.payload,
                 error: null}
+
         case GET_USER_REQUESTS_ERROR:
             return {
                 ...state,
@@ -42,6 +44,7 @@ import {APPROVE_USER_REQUEST, APPROVE_USER_REQUEST_ERROR, GET_USER_REQUESTS, GET
                 ...state,
                 loading : action.payload
             }
+
         case APPROVE_USER_REQUEST:
             return {
                 ...state,
@@ -49,11 +52,27 @@ import {APPROVE_USER_REQUEST, APPROVE_USER_REQUEST_ERROR, GET_USER_REQUESTS, GET
                 error: false,
                 loading: false
             }
+
         case APPROVE_USER_REQUEST_ERROR:
             return {
                 ...state,
                 error: true
             }
+
+        case REJECT_USER_REQUEST:
+            return {
+                ...state,
+                requests: action.payload,
+                error: false,
+                loading: false
+            }
+
+        case REJECT_USER_REQUEST_ERROR:
+            return {
+                ...state,
+                error: true
+            }
+
         default:
             return state
     }
