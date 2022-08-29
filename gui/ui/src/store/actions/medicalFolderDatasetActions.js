@@ -317,9 +317,9 @@ export const addMedicalFolderDataset = (navigator) => {
                             medical_folder_root : medical_folder.medical_folder_root,
                             name : medical_folder.metadata.name,
                             desc : medical_folder.metadata.desc,
-                            tags : medical_folder.metadata.tags
+                            tags : medical_folder.metadata.tags,
+                            dlp_id: dlp_id
                         }
-
                         if(!medical_folder.ignore_reference_csv){
                             data = {
                                 ...data,
@@ -327,13 +327,6 @@ export const addMedicalFolderDataset = (navigator) => {
                                 reference_csv_path: medical_folder.reference_csv ? medical_folder.reference_csv.path : null,
                             }
                         }
-
-                        //data['dlp_id'] = dlp.selected_dlp_index !== null ?
-                        //                    dlp.existing_dlps['data'][dlp.selected_dlp_index][1] : null
-                        data['dlp_id'] = null
-                        //data['dlp_loading_blocks'] = dlp.dlp_loading_blocks
-                        data['dlp_loading_blocks'] = {}
-                        data['dlp_name'] = dlp.dlp_name
 
                         dispatch({type:'SET_LOADING', payload: {status: true, text: "Adding MedicalFolder dataset by validating all the inputs..."}})
                         axios.post(EP_ADD_MEDICAL_FOLDER_DATASET, data).then( response => {

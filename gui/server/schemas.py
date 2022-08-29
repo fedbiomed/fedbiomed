@@ -453,9 +453,15 @@ class ValidateMedicalFolderAddRequest(Validator):
                 "errorMessage": {
                     "type": "Index column should be declared as an integer"}
             },
+            "dlp_id": {
+                "type": ["string", "null"],
+                "errorMessages": {
+                    "type": "Data loading plan ID should be given as a string"
+                },
+            },
             'name': datasetName,
             'tags': datasetTags,
             'desc': datasetDesc
         },
-        "required": ["medical_folder_root", "name", "tags", "desc"]
+        "required": ["medical_folder_root", "name", "tags", "desc", "dlp_id"]
     })

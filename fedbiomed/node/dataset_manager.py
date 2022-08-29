@@ -327,7 +327,8 @@ class DatasetManager:
                      path: str,
                      dataset_id: str = None,
                      dataset_parameters : Optional[dict] = None,
-                     data_loading_plan: Optional[DataLoadingPlan] = None):
+                     data_loading_plan: Optional[DataLoadingPlan] = None,
+                     save_dlp: bool = True):
         """Adds a new dataset contained in a file to node's database.
 
         Args:
@@ -339,7 +340,8 @@ class DatasetManager:
             path: Path to the dataset.
             dataset_id: Id of the dataset. Defaults to None.
             dataset_parameters: a dictionary of additional (customized) parameters, or None
-            data_loading_plan: a DataLoadingPlan to be saved and linked to this dataset, or None
+            data_loading_plan: a DataLoadingPlan to be linked to this dataset, or None
+            save_dlp: if True, save the `data_loading_plan`
 
         Raises:
             NotImplementedError: `data_type` is not supported.
@@ -418,7 +420,14 @@ class DatasetManager:
                             description=description, shape=shape,
                             path=path, dataset_id=dataset_id, dtypes=dtypes,
                             dataset_parameters=dataset_parameters)
-        new_database = self.save_data_loading_plan(new_database, data_loading_plan)
+        if save_dlp:
+            dlp_id = self.save_data_loading_plan(data_loading_plan)
+        elif isinstance(data_loading_plan, DataLoadingPlan):
+            dlp_id = data_loading_plan.dlp_id
+        else:
+            dlp_id = None
+        if dlp_id is not None:
+            new_database['dlp_id'] = dlp_id
         self._dataset_table.insert(new_database)
 
         return dataset_id
@@ -537,31 +546,23 @@ class DatasetManager:
                                           ' implemented on this version.')
 
     def save_data_loading_plan(self,
-                               current_dataset_metadata: dict,
                                data_loading_plan: Optional[DataLoadingPlan]
                                ) -> dict:
         """Save a DataLoadingPlan to the database.
 
-        This function saves a DataLoadingPlan to the database, and updates the dataset metadata with the correct ID
-        linking the dataset to the DataLoadingPlan.
-
-        If `data_loading_plan` is None, then the function will immediately return its `current_dataset_metadata`
-        argument unchanged.
+        This function saves a DataLoadingPlan to the database, and returns its ID.
 
         Raises:
             FedbiomedDatasetManagerError: bad data loading plan name (size, not unique)
 
         Args:
-            current_dataset_metadata: the dictionary of metadata of the dataset that this data_loading_plan was
-                attached to
             data_loading_plan: the DataLoadingPlan to be saved, or None.
 
         Returns:
-            The `current_dataset_metadata` argument, optionally enriched with the DataLoadingPlan ID if a save operation
-            was indeed performed.
+            The `dlp_id` if a DLP was saved, or None
         """
         if data_loading_plan is None:
-            return current_dataset_metadata
+            return None
 
         if len(data_loading_plan.desc) < 4:
             _msg = ErrorNumbers.FB316.value + ": Cannot save data loading plan, " + \
@@ -581,8 +582,7 @@ class DatasetManager:
         dlp_metadata, loading_blocks_metadata = data_loading_plan.serialize()
         self._dlp_table.insert(dlp_metadata)
         self._dlp_table.insert_multiple(loading_blocks_metadata)
-        current_dataset_metadata['dlp_id'] = data_loading_plan.dlp_id
-        return current_dataset_metadata
+        return data_loading_plan.dlp_id
 
     def save_data_loading_block(self, dlb: DataLoadingBlock) -> None:
         self._dlp_table.insert(dlb.serialize())

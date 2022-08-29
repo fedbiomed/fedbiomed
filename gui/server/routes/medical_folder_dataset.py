@@ -74,9 +74,6 @@ def add_medical_folder_dataset():
 
     data_path_save = os.path.join(app.config['DATA_PATH_SAVE'], *req['medical_folder_root'])
 
-    # Create unique id for the dataset
-    dataset_id = 'dataset_' + str(uuid.uuid4())
-
     if req["reference_csv_path"] is None:
         dataset_parameters = {}
     else:
@@ -85,14 +82,15 @@ def add_medical_folder_dataset():
                               "tabular_file": reference_csv}
 
     try:
-        dataset_manager.add_database(name=req["name"],
-                                     data_type="medical-folder",
-                                     tags=req['tags'],
-                                     description=req['desc'],
-                                     path=data_path_save,
-                                     dataset_id=dataset_id,
-                                     dataset_parameters=dataset_parameters,
-                                     data_loading_plan=g.dlp)
+        dataset_id = dataset_manager.add_database(
+            name=req["name"],
+            data_type="medical-folder",
+            tags=req['tags'],
+            description=req['desc'],
+            path=data_path_save,
+            dataset_parameters=dataset_parameters,
+            data_loading_plan=g.dlp,
+            save_dlp=False)
     except FedbiomedError as e:
         return error(str(e)), 400
     except Exception as e:
@@ -115,13 +113,13 @@ def add_data_loading_plan():
 
     temp_metadata = {}
     try:
-        temp_metadata = dataset_manager.save_data_loading_plan(temp_metadata, g.dlp)
+        dlp_id = dataset_manager.save_data_loading_plan(g.dlp)
     except FedbiomedError as e:
         return error(f"Cannot save data loading plan for customizations: {e}"), 400
-    if 'dlp_id' not in temp_metadata:
+    if dlp_id is None:
         return error("Cannot save data loading plan for customizations: no DLP id"), 400
 
-    return response(data=temp_metadata['dlp_id']), 200
+    return response(data=dlp_id), 200
 
 
 @api.route('/datasets/medical-folder-dataset/preview', methods=['POST'])

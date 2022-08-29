@@ -113,33 +113,19 @@ def create_dlp():
 
 
 def load_dlp():
-    g.dlp = None
     req = request.json
     dlp = None
-    if 'dlp_id' in req and req['dlp_id'] is not None:
-        # Case where a pre-existing dlp was selected, thus we directly load it
-        dlp = DataLoadingPlan().deserialize(*dataset_manager.get_dlp_by_id(req['dlp_id']))
-    elif len(req['dlp_loading_blocks']) > 0:
-        # Case where a dlp is being configured by the node gui user.
-        # We need to create it on the fly from the loading block metadata.
-        loading_blocks_metadata_mapping = {}
-        for loading_block_key, loading_block_values in req['dlp_loading_blocks'].items():
-            loading_block_metadata = dataset_manager.get_data_loading_blocks_by_ids(
-                [loading_block_values['serial_id']])[0]
-            exec(f"import {loading_block_values['module']}")
-            loading_block_key = \
-                eval(f"{loading_block_values['module']}.{loading_block_values['qualname']}('{loading_block_key}')")
-            loading_blocks_metadata_mapping.update({loading_block_key: loading_block_metadata})
-        dlp = DataLoadingPlan()
-        dlp.deserialize_loading_blocks_from_mapping(loading_blocks_metadata_mapping)
+    if req['dlp_id'] is not None:
+        try:
+            dlp = DataLoadingPlan().deserialize(*dataset_manager.get_dlp_by_id(req['dlp_id']))
+        except FedbiomedError as e:
+            return error(f"Cannot load data loading plan for customizations: {e}"), 400
 
-    if dlp and 'dlp_name' in req:
-        dlp.desc = req['dlp_name']
     g.dlp = dlp
 
 
 def validate_available_subjects():
-    """Retries available subjects for MedicalFolder Dataset"""
+    """Retrieves available subjects for MedicalFolder Dataset"""
 
     if g.reference is None:
         return None
@@ -151,7 +137,7 @@ def validate_available_subjects():
         intersection, missing_folders, missing_entries = \
             mf_controller.available_subjects(subjects_from_index=reference.index)
     except Exception as e:
-        return error("Can not get subjects"), 400
+        return error(f"Can not get subjects, error {e}"), 400
 
     if not len(intersection) > 0:
         return response({"valid": False,
@@ -165,4 +151,3 @@ def validate_available_subjects():
     }
 
     g.available_subjects = mf_subjects
-

@@ -538,7 +538,8 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         if not subjects:
             # case where subjects is an empty list (subject folders have not been found)
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Cannot find subject folders")
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB613.value}: Cannot find complete subject folders with all the modalities")
         # Get subject folder
         subject_folder = subjects[item]
 
