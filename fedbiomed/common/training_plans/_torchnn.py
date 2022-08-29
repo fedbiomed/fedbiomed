@@ -15,6 +15,7 @@ from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.metrics import Metrics
+from fedbiomed.common.utils import compute_dot_product
 from ._base_training_plan import BaseTrainingPlan
 
 
@@ -184,7 +185,8 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                          use_gpu: Union[bool, None] = None,
                          fedprox_mu: float = None,
                          history_monitor: Any = None,
-                         node_args: Union[dict, None] = None):
+                         node_args: Union[dict, None] = None,
+                         correction_state: dict = None,):
         # FIXME: add betas parameters for ADAM solver + momentum for SGD
         # FIXME 2: remove parameters specific for validation specified in the
         # training routine
@@ -254,6 +256,11 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
                 self.optimizer.zero_grad()
 
                 res = self.training_step(data, target)  # raises an exception if not provided
+                #print("loss:", res)
+
+                if correction_state is not None:
+                    dot_product = compute_dot_product(self.state_dict(), correction_state)
+                    corrected_loss = res - dot_product
 
                 # If FedProx is enabled: use regularized loss function
                 if fedprox_mu is not None:
@@ -266,7 +273,10 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                     res += _mu / 2 * self.__norm_l2()
 
-                res.backward()
+                if correction_state is not None:
+                    corrected_loss.backward()
+                else:
+                    res.backward()
 
                 self.optimizer.step()
 
