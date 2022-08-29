@@ -12,12 +12,13 @@ class Scaffold(Aggregator):
     Defines the Scaffold strategy
     """
 
-    def __init__(self):
+    def __init__(self, server_lr):
         """Construct `Scaffold` object as an instance of [`Aggregator`]
         [fedbiomed.researcher.aggregators.Aggregator].
         """
         super(Scaffold, self).__init__()
         self.aggregator_name = "Scaffold"
+        self.server_lr = server_lr
 
     def aggregate(self, model_params: list, weights: list) -> Dict:
         """ Aggregates local models sent by participating nodes into a global model, using Federated Averaging
