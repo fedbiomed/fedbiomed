@@ -11,6 +11,7 @@ import uuid
 from urllib.request import urlretrieve
 from urllib.error import ContentTooShortError, HTTPError, URLError
 import tarfile
+from fedbiomed.common import data
 
 from tinydb import TinyDB, Query
 import pandas as pd
@@ -547,6 +548,9 @@ class DatasetManager:
         If `data_loading_plan` is None, then the function will immediately return its `current_dataset_metadata`
         argument unchanged.
 
+        Raises:
+            FedbiomedDatasetManagerError: bad data loading plan name (size, not unique)
+
         Args:
             current_dataset_metadata: the dictionary of metadata of the dataset that this data_loading_plan was
                 attached to
@@ -558,6 +562,21 @@ class DatasetManager:
         """
         if data_loading_plan is None:
             return current_dataset_metadata
+
+        if len(data_loading_plan.desc) < 4:
+            _msg = ErrorNumbers.FB316.value + ": Cannot save data loading plan, " + \
+                "DLP name needs to have at least 4 characters."
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+
+        _dlp_same_name = self._dlp_table.search(
+            (self._database.dlp_id.exists()) & (self._database.dlp_name.exists()) &
+            (self._database.dlp_name == data_loading_plan.desc))
+        if _dlp_same_name:
+            _msg = ErrorNumbers.FB316.value + ": Cannot save data loading plan, " + \
+                "DLP name needs to be unique."
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
 
         dlp_metadata, loading_blocks_metadata = data_loading_plan.serialize()
         self._dlp_table.insert(dlp_metadata)

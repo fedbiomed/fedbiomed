@@ -84,7 +84,6 @@ def validate_all_modalities():
         except FedbiomedError as e:
             return error(f"Cannot set data loading plan of medical folder: {e}"), 400
 
-    import pdb ; pdb.set_trace()
     try:
         subjects = mf_dataset.subjects_has_all_modalities
     except FedbiomedError as e:
