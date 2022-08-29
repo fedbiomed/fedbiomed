@@ -396,8 +396,14 @@ class ValidateSubjectsHasAllModalities(Validator):
                     "type": "Index column should be an integer"
                 },
             },
+            "dlp_id": {
+                "type": ["string", "null"],
+                "errorMessage": {
+                    "type": "Data loading plan id should be a string"
+                },
+            },
         },
-        "required": ["medical_folder_root", "modalities", "reference_csv_path", "index_col"]
+        "required": ["medical_folder_root", "modalities", "reference_csv_path", "index_col", "dlp_id"]
     })
 
 

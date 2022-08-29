@@ -69,7 +69,21 @@ def validate_all_modalities():
             index_col=index_col
         )
     except FedbiomedError as e:
-        return error(f"Cannot instante MedicalFolder: {e}"), 400
+        return error(f"Cannot instantiate MedicalFolder: {e}"), 400
+
+    if req['dlp_id']:
+        try:
+            dlp = DataLoadingPlan()
+            dlp_and_dlbs_dict = dataset_manager.get_dlp_by_id(req['dlp_id'])
+            dlp.deserialize(*dlp_and_dlbs_dict)
+        except FedbiomedError as e:
+            return error(f"Cannot instantiate data loading plan of MedicalFolder: {e}"), 400
+        try:
+            mf_dataset.set_dlp(dlp)
+        except FedbiomedError as e:
+            return error(f"Cannot set data loading plan of medical folder: {e}"), 400
+
+    import pdb ; pdb.set_trace()
     try:
         subjects = mf_dataset.subjects_has_all_modalities
     except FedbiomedError as e:

@@ -244,14 +244,15 @@ export const clearModalityMapping = (folder_name) => {
     }
 }
 
-function checkSubjectsAllModalities(dispatch, mf) {
+function checkSubjectsAllModalities(dispatch, mf, dlp_id) {
     return new Promise((resolve, reject) =>
     { 
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Checking some data folders have all modalities..."}})
         let params_check = {
             'medical_folder_root': mf.medical_folder_root,
             'reference_csv_path': (!mf.ignore_reference_csv && mf.reference_csv ? mf.reference_csv.path : null),
-            'index_col' : (!mf.ignore_reference_csv && mf.medical_folder_ref ? mf.medical_folder_ref.ref.index : null)
+            'index_col' : (!mf.ignore_reference_csv && mf.medical_folder_ref ? mf.medical_folder_ref.ref.index : null),
+            'dlp_id': dlp_id,
         }
         if(mf.use_custom_mod2fol) {
             params_check['modalities'] = Object.keys(mf.mod2fol_mapping)
@@ -309,7 +310,7 @@ export const addMedicalFolderDataset = (navigator) => {
                     dlp_id = response.data.result
                 }
 
-                checkSubjectsAllModalities(dispatch, medical_folder).then(
+                checkSubjectsAllModalities(dispatch, medical_folder, dlp_id).then(
                 (resolve) => {
                     if(resolve) {
                         let data = {
