@@ -1,11 +1,3 @@
-"""
-???
-
-should be defined in fedagv.py
-
-???
-"""
-
 import copy
 from typing import Dict, List
 
