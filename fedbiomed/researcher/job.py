@@ -1,6 +1,7 @@
 """Manage the training part of the experiment."""
 
 import atexit
+from collections import OrderedDict
 import copy
 import inspect
 import os
@@ -26,6 +27,7 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
+from fedbiomed.researcher.aggregators.functional import initialize
 
 
 class Job:
@@ -262,7 +264,7 @@ class Job:
                 else:
                     logger.info(f'Model approval is not required by the node: {resp.get("node_id")}')
             else:
-                logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
+                logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}") #
         
         # Get the nodes that haven't replied model-status request
         non_replied_nodes = list(set(node_ids) - set(replied_nodes))
@@ -292,9 +294,6 @@ class Job:
 
         return not nodes_done == set(self._nodes)
 
-    def get_repo_args(self):
-        return self._repository_args
-
     def get_initial_model_params(self):
         """ Retrieve the parameters of the model which will be sent to the nodes for training at each round.
         This is what we call the server state. Considering Scaffold strategy, it will be useful to compute the
@@ -309,14 +308,22 @@ class Job:
             logger.error(f"Cannot download initial model parameters")
             return
         params = self.model_instance.load(params_path, to_params=True)
-        return params
+        return params #### FLAG
 
-    def start_nodes_training_round(self, round: int, do_training: bool = True):
+    def init_first_correction_states(self):
+        server_state = self.get_initial_model_params()
+        correction_state = OrderedDict({key:initialize(tensor)[1].tolist() for key, tensor in server_state.items()}) # filling tensors with zeros and convert to list for serialization
+        client_correction_states_dict = {node_id: correction_state for node_id in self._nodes}
+        return client_correction_states_dict
+
+    def start_nodes_training_round(self, round: int, strategy_info: dict, do_training: bool = True):
         """ Sends training request to nodes and waits for the responses
 
         Args:
             round: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
+            strategy_info: dictionary containing some metadata about the aggregation strategy, useful to transfer
+                some data when it's required by a strategy (e.g. correction state in scaffold)
             do_training: if False, skip training in this round (do only validation). Defaults to True.
         """
         headers = {'researcher_id': self._researcher_id,
@@ -325,20 +332,29 @@ class Job:
                    'training': do_training,
                    'model_args': self._model_args,
                    'command': 'train'}
-        msg = {**headers, **self._repository_args} #### FLAG repo_args:default model sent to nodes
+        msg = {**headers, **self._repository_args} #### FLAG
         time_start = {}
+
+        if strategy_info.get('strategy') == 'Scaffold' and round == 0: # correction is set to 0 at the 1st round
+            client_correction_states_dict = self.init_first_correction_states()
 
         for cli in self._nodes:
             msg['training_data'] = {cli: [ds['dataset_id'] for ds in self._data.data()[cli]]}
+            if strategy_info.get('strategy') == 'Scaffold':
+                if round == 0:
+                    msg['correction_state'] = client_correction_states_dict[cli]
+                else:
+                    msg['correction_state'] = {key: tensor.tolist() for key, tensor in strategy_info['correction_states'][cli].items()}
             if not do_training:
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
                             f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
                             f'aggregated parameters \n {5 * "-------------"}')
             else:
+                msg_print = {key:value for key, value in msg.items() if key != 'correction_state'}
                 logger.info(f'\033[1mSending request\033[0m \n'
                             f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
-                            f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: {str(msg)} '
+                            f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: {str(msg_print)} '
                             f'\n {5 * "-------------"}')
 
             time_start[cli] = time.perf_counter()
@@ -405,7 +421,7 @@ class Job:
                                'params': params,
                                'timing': timing})
 
-                self._training_replies[round].append(r) #### FLAG
+                self._training_replies[round].append(r) #### FLAG ####
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
