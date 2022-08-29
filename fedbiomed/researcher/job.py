@@ -331,7 +331,8 @@ class Job:
                    'training_args': self._training_args,
                    'training': do_training,
                    'model_args': self._model_args,
-                   'command': 'train'}
+                   'command': 'train',
+                   'correction_state': {}}
         msg = {**headers, **self._repository_args} #### FLAG
         time_start = {}
 
