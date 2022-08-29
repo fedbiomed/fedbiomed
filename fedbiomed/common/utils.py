@@ -151,3 +151,16 @@ def convert_iterator_to_list_of_python_floats(iterator: Iterator) -> List[float]
         for it in iterator:
             list_of_floats.append(convert_to_python_float(it))
     return list_of_floats
+
+
+def compute_dot_product(model: dict, params: dict):
+    """Compute the dot prodcut between model and input parameters.
+    Args:
+        model: OrderedDict representing model state
+        params: OrderedDict containing correction parameters
+    """
+    model_p = model.values()
+    correction_state = params.values()
+    device = list(model_p)[0].device
+    dot_prod = sum([torch.sum(m * torch.tensor(p).float().to(device)) for m, p in zip(model_p, correction_state)])
+    return dot_prod
