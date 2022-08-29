@@ -266,6 +266,10 @@ class Experiment(object):
         self.set_tensorboard(tensorboard)
 
         self.strategy_info = {"strategy":aggregator.aggregator_name}
+        if aggregator.aggregator_name == "Scaffold":
+            self.server_lr = aggregator.server_lr
+            self.client_lr = self._training_args.get('lr', 1e-3)
+            self.epochs = self._training_args.get('epochs', 2)
 
     # destructor
     @exp_exceptions
@@ -1419,11 +1423,11 @@ class Experiment(object):
         for model_params in client_state_list: # iterate params of each client
             node_id = list(model_params.keys())[0]
             for key in model_params[node_id]:
-                self._client_correction_states_dict[node_id][key] += (server_state[key] - model_params[node_id][key])
-        return self._client_correction_states_dict #### FLAG
+                self._client_correction_states_dict[node_id][key] += (server_state[key] - model_params[node_id][key]) / (self.server_lr * self.client_lr * self.epochs) 
+        return self._client_correction_states_dict # for Scaffold strategy we should use the number of local updates instead of epochs
 
     @exp_exceptions
-    def set_new_client_states_list(self, model_params_list, server_lr) -> List[dict]:
+    def set_new_client_states_list(self, model_params_list) -> List[dict]:
         """
         At round i, calling this function allows us to define each client state for round i+1,
         with scaling of the local parameters by server_lr.
@@ -1432,7 +1436,7 @@ class Experiment(object):
         for model_params in model_params_list:
             node_id = list(model_params.keys())[0]
             for key in model_params[node_id]:
-                model_params[node_id][key] = model_params[node_id][key] * server_lr + (1 - server_lr) * server_state[key]
+                model_params[node_id][key] = model_params[node_id][key] * self.server_lr + (1 - self.server_lr) * server_state[key]
         return model_params_list
 
 
@@ -1503,9 +1507,8 @@ class Experiment(object):
             self._job.training_replies[self._round_current], self._round_current) #### FLAG
 
         if self.strategy_info["strategy"] == "Scaffold":
-            # Setting the client state for round i+1, with scaling of the local parameters by server_lr
-            server_lr = 1
-            self._client_state_list = self.set_new_client_states_list(model_params, server_lr)
+            # Setting the client state for round i+1, with scaling of the local parameters by server_lr      
+            self._client_state_list = self.set_new_client_states_list(model_params)
 
             # Setting the correction state for round i+1
             self._client_correction_states_dict = self.set_new_correction_states_dict(model_params)
