@@ -407,6 +407,22 @@ class ValidateSubjectsHasAllModalities(Validator):
     })
 
 
+class ValidateDataLoadingPlanDeleteRequest(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {
+            "dlp_id": {
+                "type": "string",
+                "errorMessages": {
+                    "type": "Data loading plan ID should be given as a string"
+                },
+            },
+        },
+        "required": ["dlp_id"]
+    })
+
+
 class ValidateDataLoadingPlanAddRequest(Validator):
     type = 'json'
     schema = JsonSchema({

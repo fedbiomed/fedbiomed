@@ -6,6 +6,7 @@ import {
     EP_VALIDATE_MEDICAL_FOLDER_ROOT,
     EP_VALIDATE_REFERENCE_COLUMN,
     EP_ADD_DATA_LOADING_PLAN,
+    EP_DELETE_DATA_LOADING_PLAN,
     EP_ADD_MEDICAL_FOLDER_DATASET,
     EP_PREVIEW_MEDICAL_FOLDER_DATASET,
     EP_DEFAULT_MODALITY_NAMES,
@@ -281,13 +282,13 @@ export const addMedicalFolderDataset = (navigator) => {
         // sequentialize save DLP with next actions
         dlp_function.then( response => {
             if(response === 'DUMMY' || response.status === 200) {
-                let dlp_id = null
+                let saved_dlp_id = null
                 if(response !== 'DUMMY'){ 
                     dispatch({type:'SET_LOADING', payload: {status: false}})
-                    dlp_id = response.data.result
+                    saved_dlp_id = response.data.result
                 }
 
-                checkSubjectsAllModalities(dispatch, medical_folder, dlp_id).then(
+                checkSubjectsAllModalities(dispatch, medical_folder, saved_dlp_id).then(
                 (resolve) => {
                     if(resolve) {
                         let data = {
@@ -295,7 +296,7 @@ export const addMedicalFolderDataset = (navigator) => {
                             name : medical_folder.metadata.name,
                             desc : medical_folder.metadata.desc,
                             tags : medical_folder.metadata.tags,
-                            dlp_id: dlp_id
+                            dlp_id: saved_dlp_id
                         }
                         if(!medical_folder.ignore_reference_csv){
                             data = {
@@ -305,7 +306,7 @@ export const addMedicalFolderDataset = (navigator) => {
                             }
                         }
 
-                        dispatch({type:'SET_LOADING', payload: {status: true, text: "Adding MedicalFolder dataset by validating all the inputs..."}})
+                        dispatch({type:'SET_LOADING', payload: {status: true, text: "Adding MedicalFolder dataset and validating all the inputs..."}})
                         axios.post(EP_ADD_MEDICAL_FOLDER_DATASET, data).then( response => {
                                 dispatch({type: 'SUCCESS_MODAL' , payload: "Dataset has been successfully added"})
                                 dispatch({type:'SET_LOADING', payload: {status: false}})
@@ -313,16 +314,18 @@ export const addMedicalFolderDataset = (navigator) => {
                                 dispatch({type:'RESET_MEDICAL_FOLDER'})
                                 dispatch({type: 'RESET_DLP'})
                         }).catch(error => {
+                            cleanDLP(dispatch, saved_dlp_id)
                             dispatch({type:'SET_LOADING', payload: {status: false}})
                             dispatch(displayError(error, "Error while adding MedicalFolder dataset: "))
                         })
                     } else {
+                        cleanDLP(dispatch, saved_dlp_id)
                         dispatch({'type': 'ERROR_MODAL', payload: 'No subject from the dataset has folders for \
                             all defined modalities. Check and update your customized associations'})
                     }
                 },
                 (reject) => {
-                    // any special action when cannot check from server
+                    cleanDLP(dispatch, saved_dlp_id)
                 })
             } else {
                 dispatch({type: 'ERROR_MODAL' , payload: response.data.result.message})
@@ -330,6 +333,18 @@ export const addMedicalFolderDataset = (navigator) => {
         }).catch(error => {
             dispatch({type:'SET_LOADING', payload: {status: false}})
             dispatch(displayError(error, "Error while saving data customizations: "))
+        })
+    }
+}
+
+function cleanDLP(dispatch, dlp_id) {
+    if(dlp_id !== null) {
+        dispatch({type:'SET_LOADING', payload: {status: true, text: "Cleaning data loading plan customizations..."}})
+        axios.post(EP_DELETE_DATA_LOADING_PLAN, {dlp_id: dlp_id}).then( response => {
+                dispatch({type:'SET_LOADING', payload: {status: false}})
+        }).catch(error => {
+            dispatch({type:'SET_LOADING', payload: {status: false}})
+            // dont add messages, this is already an error case
         })
     }
 }

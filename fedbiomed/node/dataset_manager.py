@@ -432,6 +432,37 @@ class DatasetManager:
 
         return dataset_id
 
+    def remove_dlp_by_id(self, dlp_id: str, remove_dlbs: bool = True):
+        """Removes a data loading plan (DLP) from the database.
+
+        Only DLP with matching ID is removed from the database. There should be at most one.
+
+        If `remove_dlbs` is True, also remove the attached DLBs. You should ensure
+        they are not used by another DLP, no verification is made.
+
+        Args:
+            dlp_id: the DataLoadingPlan id
+            remove_dlbs: whether or not to remove the DLBs of the DLP
+        """
+        if not isinstance(dlp_id, str):
+            _msg = ErrorNumbers.FB316.value + f": Bad type for dlp '{type(dlp_id)}', expecting str"
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+        if not str:
+            _msg = ErrorNumbers.FB316.value + ": Bad value for dlp, expecting non empty str"
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+
+        _ , dlbs = self.get_dlp_by_id(dlp_id)
+        try:
+            self._dlp_table.remove(self._database.dlp_id == dlp_id)
+            for dlb in dlbs:
+                self._dlp_table.remove(self._database.loading_block_serialization_id == dlb['loading_block_serialization_id'])
+        except Exception as e:
+            _msg = ErrorNumbers.FB316.value + f": Error during remove of DLP {dlp_id}: {e}"
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg)
+
     def remove_database(self, tags: Union[tuple, list]):
         """Removes datasets from database.
 

@@ -15,6 +15,7 @@ from schemas import ValidateMedicalFolderReferenceCSV, \
     ValidateSubjectsHasAllModalities, \
     ValidateMedicalFolderAddRequest, \
     ValidateDataLoadingPlanAddRequest, \
+    ValidateDataLoadingPlanDeleteRequest, \
     PreviewDatasetRequest
 
 from fedbiomed.common.data import MedicalFolderController, MapperBlock, MedicalFolderLoadingBlockTypes
@@ -109,9 +110,8 @@ def add_medical_folder_dataset():
 @validate_request_data(schema=ValidateDataLoadingPlanAddRequest)
 @middleware(middlewares=[medical_folder_dataset.create_dlp])
 def add_data_loading_plan():
-    """ Adds DataLoadingPlan into database of NODE """
+    """Adds DataLoadingPlan into database of NODE """
 
-    temp_metadata = {}
     try:
         dlp_id = dataset_manager.save_data_loading_plan(g.dlp)
     except FedbiomedError as e:
@@ -120,6 +120,21 @@ def add_data_loading_plan():
         return error("Cannot save data loading plan for customizations: no DLP id"), 400
 
     return response(data=dlp_id), 200
+
+
+@api.route('/datasets/medical-folder-dataset/delete-dlp', methods=['POST'])
+@validate_request_data(schema=ValidateDataLoadingPlanDeleteRequest)
+def remove_data_loading_plan():
+    """Remove DataLoadingPlan from database of NODE """
+    # Request object as JSON
+    req = request.json
+
+    try:
+        dataset_manager.remove_dlp_by_id(req['dlp_id'], True)
+    except FedbiomedError as e:
+        return error(f"Cannot remove data loading plan for customizations: {e}"), 400
+
+    return response(data=True), 200
 
 
 @api.route('/datasets/medical-folder-dataset/preview', methods=['POST'])
