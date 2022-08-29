@@ -19,6 +19,7 @@ from fedbiomed.common.repository import Repository
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.model_manager import ModelManager
+from fedbiomed.researcher.strategies import strategy
 
 
 class Round:
@@ -37,6 +38,7 @@ class Round:
                  job_id: str = None,
                  researcher_id: str = None,
                  history_monitor: HistoryMonitor = None,
+                 correction_state: dict = None,
                  node_args: Union[dict, None] = None,
                  dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None):
 
@@ -54,6 +56,7 @@ class Round:
             job_id: job id
             researcher_id: researcher id
             history_monitor: Sends real-time feed-back to end-user during training
+            correction_state: FL aggregation strategy used during training
             node_args: command line arguments for node. Can include:
                 - `gpu (bool)`: propose use a GPU device if any is available.
                 - `gpu_num (Union[int, None])`: if not None, use the specified GPU device instead of default
@@ -86,6 +89,7 @@ class Round:
         self.job_id = job_id
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
+        self.correction_state = correction_state
         self.model_manager = ModelManager()
         self.node_args = node_args
         self.repository = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
@@ -193,9 +197,11 @@ class Round:
 
         training_kwargs_with_history = dict(history_monitor=self.history_monitor,
                                             node_args=self.node_args,
+                                            correction_state=self.correction_state,
                                             **self.training_kwargs)
-        logger.info(f'training with arguments {training_kwargs_with_history}')
-
+        training_kwargs_print = {key:value for key, value in training_kwargs_with_history.items() if key != 'correction_state'}
+        logger.info(f'training with arguments {training_kwargs_print}')
+        
         # Validation Before Training
         if self.testing_arguments.get('test_on_global_updates', False) is not False:
 
@@ -223,7 +229,7 @@ class Round:
                     results = {}
                     rtime_before = time.perf_counter()
                     ptime_before = time.process_time()
-                    self.model.training_routine(**training_kwargs_with_history)
+                    self.model.training_routine(**training_kwargs_with_history) #### FLAG
                     rtime_after = time.perf_counter()
                     ptime_after = time.process_time()
                 except Exception as e:
