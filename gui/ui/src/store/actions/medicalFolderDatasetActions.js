@@ -137,26 +137,6 @@ export const setCustomizeModalitiesToFolders = (value) => {
     }
 }
 
-// TODO: remove after completing DLP save
-//export const createModalitiesToFoldersBlock = (modalities_mapping) => {
-//    return (dispatch) => {
-//        dispatch({type: 'SET_DLP', payload: -1})
-//        dispatch({type:'SET_LOADING', payload: {status: true, text: "Saving Association"}})
-//        axios.post(EP_LOADING_BLOCK_MOD2FOL_CREATE, {mapping: modalities_mapping}).then(response => {
-//            dispatch({type: 'ADD_PIPELINE',
-//                      payload: {type_id: 'modalities_to_folders',
-//                                serial_id: response.data.result.serial_id,
-//                                module: response.data.result.module,
-//                                qualname: response.data.result.qualname,
-//                                }})
-//            dispatch({type:'SET_LOADING', payload: {status: false}})
-//        }).catch(error => {
-//            dispatch({type:'SET_LOADING', payload: {status: false}})
-//            dispatch(displayError(error, "Error while getting default modality names."))
-//})
-//    }
-//}
-
 export const initModalityNames = () => {
     return (dispatch, getState) => {
         dispatch({type:'SET_LOADING', payload: {status: true, text: "Loading default modality names."}})

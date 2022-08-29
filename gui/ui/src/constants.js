@@ -19,7 +19,6 @@ export const EP_ADD_MEDICAL_FOLDER_DATASET      = '/api/datasets/medical-folder-
 export const EP_PREVIEW_MEDICAL_FOLDER_DATASET  = '/api/datasets/medical-folder-dataset/preview'
 export const EP_DEFAULT_MODALITY_NAMES          = '/api/datasets/medical-folder-dataset/default-modalities'
 export const EP_ADD_DATA_LOADING_PLAN           = '/api/datasets/medical-folder-dataset/add-dlp'
-export const EP_LOADING_BLOCK_MOD2FOL_CREATE    = '/api/datasets/medical-folder-dataset/create-modalities-to-folders-loading-block'
 
 //Models
 export const EP_LIST_MODELS     = '/api/model/list'

@@ -166,15 +166,3 @@ def medical_folder_preview():
 def get_default_modalities():
     formatted_modalities = [{'value': name, 'label': name} for name in MedicalFolderController.default_modality_names]
     return response(data={'default_modalities': formatted_modalities}), 200
-
-
-@api.route('/datasets/medical-folder-dataset/create-modalities-to-folders-loading-block', methods=['POST'])
-def create_modalities_to_folders_pipeline():
-    req = request.json
-    dlb = MapperBlock()
-    dlb.map = req['mapping']
-    key = MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS
-    dataset_manager.save_data_loading_block(dlb)
-    return response(data={'serial_id': dlb.get_serialization_id(),
-                          'module': key.__module__,
-                          'qualname': key.__class__.__qualname__}), 200
