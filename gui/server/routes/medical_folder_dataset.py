@@ -113,13 +113,15 @@ def add_medical_folder_dataset():
 def add_data_loading_plan():
     """ Adds DataLoadingPlan into database of NODE """
 
-    # Request object as JSON
-    req = request.json
+    temp_metadata = {}
+    try:
+        temp_metadata = dataset_manager.save_data_loading_plan(temp_metadata, g.dlp)
+    except FedbiomedError as e:
+        return error(f"Cannot save data loading plan for customizations: {e}"), 400
+    if 'dlp_id' not in temp_metadata:
+        return error("Cannot save data loading plan for customizations: no DLP id"), 400
 
-    #return error("Medical Folder Dataset is not properly deployed. "
-    #             "Please try again."), 400
-    res = "TEMPO"
-    return response(data=res), 200
+    return response(data=temp_metadata['dlp_id']), 200
 
 
 @api.route('/datasets/medical-folder-dataset/preview', methods=['POST'])

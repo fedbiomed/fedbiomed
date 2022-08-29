@@ -3,7 +3,8 @@ from fedbiomed.common import data
 from flask import request, g
 from app import app
 from utils import error, response
-from fedbiomed.common.data import MedicalFolderController, MedicalFolderDataset, DataLoadingPlan
+from fedbiomed.common.data import MedicalFolderController, MedicalFolderDataset, \
+    DataLoadingPlan, MapperBlock, MedicalFolderLoadingBlockTypes
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager import DatasetManager
 
@@ -67,11 +68,11 @@ def validate_all_modalities():
             tabular_file=reference_path,
             index_col=index_col
         )
-    except FedbiomedError or Exception as e:
+    except FedbiomedError as e:
         return error(f"Cannot instante MedicalFolder: {e}"), 400
     try:
         subjects = mf_dataset.subjects_has_all_modalities
-    except FedbiomedError or Exception as e:
+    except FedbiomedError as e:
         return error(f"Cannot check subjects with all modalities: {e}"), 400
 
     g.subjects = subjects
@@ -80,38 +81,21 @@ def validate_all_modalities():
 def create_dlp():
     """Creates a DLP object from the input values"""
     req = request.json
-    map = req["modalities_mapping"]
-    desc = req["name"]
 
-    print(f"CREATE DLP {req}")
+    try:
+        dlb = MapperBlock()
+        dlb.map = req["modalities_mapping"]
+    except FedbiomedError as e:
+        return error(f"Cannot create data loading block for customizations: {e}"), 400
 
-    #dlb = MapperBlock()
-    #dlb.map = req['mapping']
-    #key = MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS
-#
-    #if 'reference_csv_path' in req and req["reference_csv_path"]:
-    #    reference_path = os.path.join(DATA_PATH_RW, *req["reference_csv_path"])
-    #else:
-    #    reference_path = None
-    #index_col = req["index_col"]
-#
-    #try:
-    #    mf_dataset = MedicalFolderDataset(
-    #        root=root,
-    #        data_modalities=modalities,
-    #        tabular_file=reference_path,
-    #        index_col=index_col
-    #    )
-    #except FedbiomedError or Exception as e:
-    #    return error(f"Cannot instante MedicalFolder: {e}"), 400
-    #
+    try:
+        dlp = DataLoadingPlan()
+        dlp.desc = req["name"]
+        dlp[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS] = dlb
+    except FedbiomedError as e:
+        return error(f"Cannot create data loading plan for customizations: {e}"), 400
 
-    #try:
-    #    subjects = mf_dataset.subjects_has_all_modalities
-    #except FedbiomedError or Exception as e:
-    #    return error(f"Cannot check subjects with all modalities: {e}"), 400
-#
-    #g.dlp = dlp
+    g.dlp = dlp
 
 
 def load_dlp():
