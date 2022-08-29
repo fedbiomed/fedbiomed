@@ -1,4 +1,4 @@
-import {GET_USER_REQUESTS} from "./actions/actions";
+import {GET_USER_REQUESTS, GET_USER_REQUESTS_ERROR, GET_USER_REQUESTS_LOADING} from "./actions/actions";
 
 /**
  * Initial state for user account data format
@@ -6,6 +6,8 @@ import {GET_USER_REQUESTS} from "./actions/actions";
  */
  const requestsInitialState = {
     requests: [],
+    error : null,
+    loading: false
 }
 
 /**
@@ -18,7 +20,22 @@ import {GET_USER_REQUESTS} from "./actions/actions";
 
     switch (action.type){
         case GET_USER_REQUESTS:
-            return { requests: action.payload}
+            return { 
+                ...state,
+                requests: action.payload,
+                error: null}
+        case GET_USER_REQUESTS_ERROR:
+            return {
+                ...state,
+                requests : [],
+                error : action.payload
+            }
+
+        case GET_USER_REQUESTS_LOADING:
+            return {
+                ...state,
+                loading : action.payload
+            }
         default:
             return state
     }

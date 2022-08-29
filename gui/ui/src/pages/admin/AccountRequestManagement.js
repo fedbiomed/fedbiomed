@@ -16,21 +16,10 @@ import {
 
 const AccountRequestManagement = (props) => {
 
-
-    
-    React.useEffect(() => {
-        // Get list of account creation requests
-        props.listAccountRequests()
-    }, [props.listAccountRequests])
-
-    console.log(props.requests)
-
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(20);
     const [sortField, setSortField] = useState('user_name');
     const [sortDirection, setSortDirection] = useState('asc');
-
-    const [tableLoading, setTableLoading] = useState(true)
 
     const [items, setItems] = useState([])
     const [showApproveRequestModal, setShowApproveRequestModal] = useState(false);
@@ -39,32 +28,41 @@ const AccountRequestManagement = (props) => {
     const closeApproveRequestModal = () => {setShowApproveRequestModal(false)}
     const closeRejectRequestModal = () => {setShowRejectRequestModal(false)}
 
+     /**
+     * Call list user requests API when component loaded for the first time
+     */
+    React.useEffect(() => {
+        props.listAccountRequests()
+    }, [props.listAccountRequests])
+
+    /**
+     * Update table items each time user request list changed
+     */
+     React.useEffect( () => {
+        setItems(props.requests)
+    }, [props.requests])
+
     /**
      * Lifecycle method to keep track change on use table
      */
      React.useEffect( () => {
+        let begin = pageIndex * pageSize
+        let end = pageIndex * pageSize + pageSize
+        let display = props.requests.slice(begin, end)
 
-        setTableLoading(true)
-        setTimeout(() => {
-            let begin = pageIndex * pageSize
-            let end = pageIndex * pageSize + pageSize
-            let display = props.requests.slice(begin, end)
+        // Sort with custom function
+        display.sort( (a, b) => {
+                        if ( a[sortField] < b[sortField] ){
+                            return  sortDirection === "asc" ? -1 : 1 ;
+                        }
 
-            // Sort with custom function
-            display.sort( (a, b) => {
-                            if ( a[sortField] < b[sortField] ){
-                                return  sortDirection === "asc" ? -1 : 1 ;
-                            }
+                        if ( a[sortField] > b[sortField] ){
+                            return sortDirection === "asc" ? 1 : -1 ;
+                        }
 
-                            if ( a[sortField] > b[sortField] ){
-                                return sortDirection === "asc" ? 1 : -1 ;
-                            }
-
-                            return 0;
-            })
-            setItems(display)
-            setTableLoading(false)
-        }, 500)
+                        return 0;
+        })
+        setItems(display)
 
     }, [pageIndex, pageSize, sortField, sortDirection])
 
@@ -166,17 +164,19 @@ const AccountRequestManagement = (props) => {
             </EuiTitle>
             <EuiSpacer size={'l'}/>
 
-            <EuiBasicTable
-                aria-label={"User requests table"}
-                items={items}
-                itemId="id"
-                columns={columns}
-                pagination={pagination}
-                sorting={sorting}
-                hasActions={true}
-                onChange={onTableChange}
-                loading={tableLoading}
-            />
+            {props.requests ? (
+                <EuiBasicTable
+                    aria-label={"User requests table"}
+                    items={items}
+                    itemId="id"
+                    columns={columns}
+                    pagination={pagination}
+                    sorting={sorting}
+                    hasActions={true}
+                    onChange={onTableChange}
+                    loading={props.loading}
+                />
+            ) : null}
 
 
             <div>
@@ -215,7 +215,9 @@ const AccountRequestManagement = (props) => {
  */
  const mapStateToProps = (state) => {
     return {
-        requests : state.user_requests.requests
+        requests : state.user_requests.requests,
+        error : state.user_requests.error,
+        loading : state.user_requests.loading
     }
 }
 

@@ -72,7 +72,7 @@ const UserManagement = (props) => {
 
 
     /**
-     * Update table items each time user lit changed
+     * Update table items each time user list changed
      */
     React.useEffect( () => {
         setItems(props.user_list)
