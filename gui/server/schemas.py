@@ -324,6 +324,15 @@ class GetCsvData(Validator):
     })
 
 
+class ReadDataLoadingPlan(Validator):
+    type = 'json'
+    schema = JsonSchema({
+        "type": "object",
+        "properties": {"dlp_id": {"type": "string"}},
+        "required": ["dlp_id"]
+    })
+
+
 class ValidateMedicalFolderReferenceCSV(Validator):
     type = 'json'
     schema = JsonSchema({

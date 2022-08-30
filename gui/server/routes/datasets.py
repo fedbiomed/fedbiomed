@@ -15,7 +15,8 @@ from schemas import AddDataSetRequest, \
     PreviewDatasetRequest, \
     AddDefaultDatasetRequest, \
     ListDatasetRequest, \
-    GetCsvData
+    GetCsvData, \
+    ReadDataLoadingPlan
 
 from fedbiomed.node.dataset_manager import DatasetManager
 
@@ -392,9 +393,28 @@ def get_csv_data():
 
 @api.route('/datasets/list-dlps', methods=['GET'])
 def list_data_loading_plans():
+    """List all DLPs in the database
+    """
     dlps = dataset_manager.list_dlp()
     index = list(range(len(dlps)))
     columns = ['name', 'id']
     data = [[dlp['dlp_name'], dlp['dlp_id']] for dlp in dlps]
 
     return response({'index': index, 'columns': columns, 'data': data}), 200
+
+
+@api.route('/datasets/read-dlp', methods=['POST'])
+@validate_request_data(schema=ReadDataLoadingPlan)
+def read_data_loading_plans():
+    """Read content of a specified DLP
+    """
+    req = request.json
+
+    # TODO: real payload
+    return response({'data': 'DUMMY TEMPO'}), 200
+    # dlps = dataset_manager.list_dlp()
+    # index = list(range(len(dlps)))
+    # columns = ['name', 'id']
+    # data = [[dlp['dlp_name'], dlp['dlp_id']] for dlp in dlps]
+# 
+    # return response({'index': index, 'columns': columns, 'data': data}), 200

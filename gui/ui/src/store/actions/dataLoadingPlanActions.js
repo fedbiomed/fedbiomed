@@ -1,6 +1,7 @@
 import axios from "axios";
 import {
     EP_LIST_DATA_LOADING_PLANS,
+    EP_READ_DATA_LOADING_PLAN,
 } from "../../constants";
 import {displayError} from "./actions";
 
@@ -12,32 +13,41 @@ export const setChangeDlpMedicalFolderDataset = (use_dlp, state) => {
                 type: "RESET_MEDICAL_CHANGE_USED_DLP",
                 payload: JSON.parse(JSON.stringify(state.medicalFolderDataset.default_modality_names))})
         } else {
+            let dlp_id = state.dataLoadingPlan.existing_dlps.data[state.dataLoadingPlan.selected_dlp_index][1]
 
-            //TODO: make sequential with get DLP content
-            //TODO: replace with values of the new used DLP when loading a DLP
-            let dlp = {
-                use_custom_mod2fol: false,
-                current_modality_names: JSON.parse(JSON.stringify(state.medicalFolderDataset.default_modality_names)), // careful, not null
-                modalities_mapping: {}, // careful, not the initial null
-                mod2fol_mapping: {}, // careful, not the initial nul
-                has_all_mappings: false,
-                reference_csv: null,
-                ignore_reference_csv: false,
-                medical_folder_ref : {
-                    ref : {index: null, name: null},
-                    subjects: {
-                        available_subject : null,
-                        missing_entries: null,
-                        missing_folders: null
-                    }
-                },
-                metadata : {
-                    name: null,
-                    tags: null,
-                    desc: null,
-                },
-            }
-            dispatch({type: "SET_MEDICAL_CHANGE_USED_DLP", payload: dlp})
+            dispatch({type:'SET_LOADING', payload: {status: true, text: "Reading Data Loading Plan content..."}})
+            axios.post(EP_READ_DATA_LOADING_PLAN, {'dlp_id': dlp_id}).then(response => {
+                dispatch({type:'SET_LOADING', payload: {status: false}})
+                
+                console.log('DLP response',response.data.result)
+                //TODO: replace with values of the new used DLP when loading a DLP
+                let dlp = {
+                    use_custom_mod2fol: false,
+                    current_modality_names: JSON.parse(JSON.stringify(state.medicalFolderDataset.default_modality_names)), // careful, not null
+                    modalities_mapping: {}, // careful, not the initial null
+                    mod2fol_mapping: {}, // careful, not the initial nul
+                    has_all_mappings: false,
+                    reference_csv: null,
+                    ignore_reference_csv: false,
+                    medical_folder_ref : {
+                        ref : {index: null, name: null},
+                        subjects: {
+                            available_subject : null,
+                            missing_entries: null,
+                            missing_folders: null
+                        }
+                    },
+                    metadata : {
+                        name: null,
+                        tags: null,
+                        desc: null,
+                    },
+                }
+                dispatch({type: "SET_MEDICAL_CHANGE_USED_DLP", payload: dlp})
+            }).catch(error => {
+                dispatch({type:'SET_LOADING', payload: {status: false}})
+                dispatch(displayError(error, "Error while reading Data Loading Plan content."))
+            })
         }
     }
 }

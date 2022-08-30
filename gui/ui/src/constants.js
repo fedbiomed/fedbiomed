@@ -12,6 +12,7 @@ export const EP_LOAD_CSV_DATA           = '/api/datasets/get-csv-data'
 
 // DataLoadingPlan Endpoints
 export const EP_LIST_DATA_LOADING_PLANS         = '/api/datasets/list-dlps'
+export const EP_READ_DATA_LOADING_PLAN          = '/api/datasets/read-dlp'
 export const EP_ADD_DATA_LOADING_PLAN           = '/api/datasets/medical-folder-dataset/add-dlp'
 export const EP_DELETE_DATA_LOADING_PLAN        = '/api/datasets/medical-folder-dataset/delete-dlp'
 
