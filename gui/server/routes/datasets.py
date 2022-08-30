@@ -390,7 +390,7 @@ def get_csv_data():
     return response(data_preview), 200
 
 
-@api.route('/datasets/list-data-loading-plans', methods=['GET'])
+@api.route('/datasets/list-dlps', methods=['GET'])
 def list_data_loading_plans():
     dlps = dataset_manager.list_dlp()
     index = list(range(len(dlps)))

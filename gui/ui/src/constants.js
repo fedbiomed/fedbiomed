@@ -9,7 +9,11 @@ export const EP_DATASET_ADD             = '/api/datasets/add'
 export const EP_DEFAULT_DATASET_ADD     = '/api/datasets/add-default-dataset'
 export const EP_CONFIG_NODE_ENVIRON     = '/api/config/node-environ'
 export const EP_LOAD_CSV_DATA           = '/api/datasets/get-csv-data'
-export const EP_DLP_LIST                = '/api/datasets/list-data-loading-plans'
+
+// DataLoadingPlan Endpoints
+export const EP_LIST_DATA_LOADING_PLANS         = '/api/datasets/list-dlps'
+export const EP_ADD_DATA_LOADING_PLAN           = '/api/datasets/medical-folder-dataset/add-dlp'
+export const EP_DELETE_DATA_LOADING_PLAN        = '/api/datasets/medical-folder-dataset/delete-dlp'
 
 // MedicalFolder Dataset Endpoints
 export const EP_VALIDATE_MEDICAL_FOLDER_ROOT    = '/api/datasets/medical-folder-dataset/validate-root'
@@ -18,8 +22,6 @@ export const EP_VALIDATE_SUBJECTS_ALL_MODALITIES = '/api/datasets/medical-folder
 export const EP_ADD_MEDICAL_FOLDER_DATASET      = '/api/datasets/medical-folder-dataset/add'
 export const EP_PREVIEW_MEDICAL_FOLDER_DATASET  = '/api/datasets/medical-folder-dataset/preview'
 export const EP_DEFAULT_MODALITY_NAMES          = '/api/datasets/medical-folder-dataset/default-modalities'
-export const EP_ADD_DATA_LOADING_PLAN           = '/api/datasets/medical-folder-dataset/add-dlp'
-export const EP_DELETE_DATA_LOADING_PLAN        = '/api/datasets/medical-folder-dataset/delete-dlp'
 
 //Models
 export const EP_LIST_MODELS     = '/api/model/list'
