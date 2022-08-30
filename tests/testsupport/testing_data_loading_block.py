@@ -14,6 +14,12 @@ class LoadingBlockForTesting(DataLoadingBlock):
     def __init__(self):
         super(LoadingBlockForTesting, self).__init__()
         self.data = {'my': 'data'}
+        self._validation_scheme.update({
+            'data': {
+                'rules': [dict],
+                'required': True
+            }
+        })
 
     def serialize(self):
         ret = super(LoadingBlockForTesting, self).serialize()

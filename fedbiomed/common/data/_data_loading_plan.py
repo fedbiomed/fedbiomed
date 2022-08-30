@@ -1,16 +1,97 @@
 import uuid
-from typing import Any, Dict, List, Tuple, TypeVar
+from typing import Any, Dict, List, Tuple, TypeVar, Union, Optional
+import re
 from abc import ABC, abstractmethod
 
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedUserInputError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import DataLoadingBlockTypes
 from fedbiomed.common.exceptions import FedbiomedLoadingBlockError
+from fedbiomed.common.validator import SchemeValidator, ValidatorError, \
+    ValidateError, RuleError, validator_decorator
 
 
 TDataLoadingPlan = TypeVar("TDataLoadingPlan", bound="DataLoadingPlan")
 TDataLoadingBlock = TypeVar("TDataLoadingBlock", bound="DataLoadingBlock")
 
 
-class DataLoadingBlock(ABC):
+class SerializedDataLoadingBlockValidation:
+    def __init__(self):
+        self._validation_scheme = SerializedDataLoadingBlockValidation.default_scheme()
+
+    def validate_serialized_dlb(self,
+                                dlb_metadata: Dict,
+                                only_required: bool = True):
+        try:
+            sc = SchemeValidator(self._validation_scheme)
+        except RuleError as e:
+            #
+            # internal error (invalid scheme)
+            msg = ErrorNumbers.FB410.value + f": {e}"
+            logger.critical(msg)
+            raise FedbiomedUserInputError(msg)  # TODO raise a different exception
+
+        try:
+            dlb_metadata = sc.populate_with_defaults(dlb_metadata,
+                                                     only_required=only_required)
+        except ValidatorError as e:
+            # scheme has required keys without defined default value
+            msg = ErrorNumbers.FB410.value + f": {e}"
+            logger.critical(msg)
+            raise FedbiomedUserInputError(msg)
+
+        # finally check user input
+        try:
+            sc.validate(dlb_metadata)
+        except ValidateError as e:
+            # transform to a Fed-BioMed error
+            msg = ErrorNumbers.FB410.value + f": {e}"
+            logger.critical(msg)
+            raise FedbiomedUserInputError(msg)
+
+    @staticmethod
+    @validator_decorator
+    def _identifier_validation_hook(classname: str) -> Union[bool, Tuple[bool, str]]:
+        for name in classname.split('.'):
+            if not re.match('^[_a-zA-Z]\w*$', name):
+                return False, f'{name} within {classname} is not a valid class name ' \
+                              f'for deserialization of Data Loading Block.'
+        return True
+
+    @staticmethod
+    @validator_decorator
+    def _serial_id_validation_hook(serial_id: str) -> Union[bool, Tuple[bool, str]]:
+        if serial_id[:15] != 'serialized_dlb_':
+            return False, f'{serial_id} is not of the form serialized_dlb_<uuid> ' \
+                          f'for deserialization of Data Loading Block.'
+        try:
+            uuid_obj = uuid.UUID(serial_id[15:])
+        except ValueError:
+            return False, f'{serial_id} is not of the form serialized_dlb_<uuid> ' \
+                          f'for deserialization of Data Loading Block.'
+        return True
+
+    @classmethod
+    def default_scheme(cls) -> Dict:
+        return {
+            'loading_block_class': {
+                'rules': [str, cls._identifier_validation_hook],
+                'required': True,
+            },
+            'loading_block_module': {
+                'rules': [str, cls._identifier_validation_hook],
+                'required': True,
+            },
+            'loading_block_serialization_id': {
+                'rules': [str, cls._serial_id_validation_hook],
+                'required': True,
+            },
+
+        }
+
+
+class DataLoadingBlock(ABC, SerializedDataLoadingBlockValidation):
     """The building blocks of a DataLoadingPlan.
 
     A DataLoadingBlock describes an intermediary layer between the researcher
@@ -41,6 +122,7 @@ class DataLoadingBlock(ABC):
     """
     def __init__(self):
         super(DataLoadingBlock, self).__init__()
+        super(ABC, self).__init__()
         self.__serialization_id = 'serialized_dlb_' + str(uuid.uuid4())
 
     def get_serialization_id(self):
@@ -68,6 +150,7 @@ class DataLoadingBlock(ABC):
         Returns:
             the self instance
         """
+        self.validate_serialized_dlb(load_from)
         self.__serialization_id = load_from['loading_block_serialization_id']
         return self
 
@@ -97,6 +180,7 @@ class MapperBlock(DataLoadingBlock):
     def __init__(self):
         super(MapperBlock, self).__init__()
         self.map = {}
+        self._validation_scheme.update(MapperBlock._extra_validation_scheme())
 
     def serialize(self) -> dict:
         """Serializes the class in a format similar to json.
@@ -125,6 +209,15 @@ class MapperBlock(DataLoadingBlock):
         if not isinstance(self.map, dict) or key not in self.map:
             raise FedbiomedLoadingBlockError(f"Mapper block error: no key '{key}' in mapping dictionary")
         return self.map[key]
+
+    @classmethod
+    def _extra_validation_scheme(cls):
+        return {
+            'map': {
+                'rules': [dict],
+                'required': True
+            }
+        }
 
 
 class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
@@ -254,7 +347,6 @@ class DataLoadingPlanMixin:
             return self._dlp[dlb_key].apply(*args, **kwargs)
         else:
             return default_ret_value
-
 
 
 
