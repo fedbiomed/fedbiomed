@@ -73,8 +73,8 @@ export const medicalFolderReducer = (state = initialState, action) => {
                 has_all_mappings: action.payload.has_all_mappings,
                 reference_csv: action.payload.reference_csv,
                 ignore_reference_csv: action.payload.ignore_reference_csv,
-                medical_folder_ref : action.payload.medical_folder_ref,
-                metadata : action.payload.metadata,
+                medical_folder_ref : initialState.medical_folder_ref,
+                metadata : initialState.metadata,
             }
 
         case "SET_REFERENCE_CSV":

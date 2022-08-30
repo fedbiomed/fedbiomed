@@ -29,20 +29,8 @@ export const setChangeDlpMedicalFolderDataset = (use_dlp, state) => {
                     has_all_mappings: false,
                     reference_csv: null,
                     ignore_reference_csv: false,
-                    medical_folder_ref : {
-                        ref : {index: null, name: null},
-                        subjects: {
-                            available_subject : null,
-                            missing_entries: null,
-                            missing_folders: null
-                        }
-                    },
-                    metadata : {
-                        name: null,
-                        tags: null,
-                        desc: null,
-                    },
                 }
+                console.log('BEFORE CHANGE', state.medicalFolderDataset)
                 dispatch({type: "SET_MEDICAL_CHANGE_USED_DLP", payload: dlp})
             }).catch(error => {
                 dispatch({type:'SET_LOADING', payload: {status: false}})
