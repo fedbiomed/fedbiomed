@@ -115,15 +115,6 @@ class JsonSchema(object):
             # Raise custom error messages
             message = None
             if e.relative_schema_path[0] == 'required':
-                print(e.relative_schema_path)
-                print(dir(e))
-                print(e.validator_value)
-                print(e.validator)
-                print(e.message)
-                print(e.json_path)
-                print(e.relative_path)
-                print(e.schema_path)
-                print(e.instance)
                 if "requiredMessages" in self._schema:
                     index = [i for i, val in enumerate(e.validator_value) if val in e.message][0]
                     if e.validator_value[index] in self._schema["requiredMessages"]:
@@ -489,6 +480,27 @@ class ValidateUserFormRequest(Validator):
             'password': 'Password is missing!',
             'name': 'Password is missing!',
             'surname': 'Password is missing!',
+        }
+    })
+
+
+class ValidateUserRemoveRequest(Validator):
+    """ Json Schema for user registration and login requests"""
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'user_id': {
+                'type': 'string',
+                'minLength': 1,
+                'errorMessages': {
+                    'minLength': 'Missing ID for for to delete'
+                }
+            },
+        },
+        'required': ['user_id'],
+        'requiredMessages': {
+            'user_id': 'ID is required to remove user',
         }
     })
 

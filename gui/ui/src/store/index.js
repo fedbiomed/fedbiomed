@@ -14,14 +14,14 @@ import {accountRequestReducer } from "./accountRequestReducer";
  * Combines reducers for the global state
  */
 export default combineReducers({
-    medicalFolderDataset : medicalFolderReducer,
-    repository  : repositoryReducer,
-    datasets    : datasetsReducer,
-    preview     : datasetPreviewReducer,
-    resultModal : resultReducer,
-    medicalFolderPreview : medicalFolderPreviewReducer,
-    models      : modelsReducer,
-    auth    : authReducer,
-    users   : usersReducer,
-    user_requests   : accountRequestReducer,
-  })
+    medicalFolderDataset    : medicalFolderReducer,
+    repository              : repositoryReducer,
+    datasets                : datasetsReducer,
+    preview                 : datasetPreviewReducer,
+    resultModal             : resultReducer,
+    medicalFolderPreview    : medicalFolderPreviewReducer,
+    models                  : modelsReducer,
+    auth                    : authReducer,
+    users                   : usersReducer,
+    user_requests           : accountRequestReducer,
+})

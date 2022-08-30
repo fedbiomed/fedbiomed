@@ -1,6 +1,6 @@
 import axios from 'axios'
 import {EP_LIST_USERS, EP_REMOVE_USER} from "../../constants";
-import {LIST_USERS, LIST_USERS_ERROR, LIST_USERS_LOADING} from "./actions";
+import {LIST_USERS, LIST_USERS_LOADING, USER_MANAGEMENT_ERROR, USER_MANAGEMENT_SUCCESS_MESSAGE} from "./actions";
 
 
 /**
@@ -14,11 +14,58 @@ export const listUsers = () => {
         axios.get(EP_LIST_USERS).then(response => {
             dispatch({type: LIST_USERS, payload: response.data.result})
             dispatch({type: LIST_USERS_LOADING, payload : false})
+            dispatch({type: USER_MANAGEMENT_SUCCESS_MESSAGE, payload : response.data.message})
         }).catch( error => {
-            dispatch({type: LIST_USERS_ERROR, payload: `An error occurred while listing platform 
-            users ${error.response.data.message ? error.response.data.message : 'undefined error. Please' +
-                    'contact system manager.'}`})
+            dispatch(
+                display_user_management_error(error, 'An error occurred while listing platform users')
+            )
             dispatch({type: LIST_USERS_LOADING, payload : false})
         })
+    }
+}
+
+/**
+ *
+ * @param id
+ * @returns {(function(*, *): void)|*}
+ */
+export const deleteUser = (id) => {
+    return (dispatch, getState) => {
+
+        let users = getState().users.user_list
+
+        dispatch({type: LIST_USERS_LOADING, payload : true})
+        axios.delete(EP_REMOVE_USER, {data : {user_id: id}}).then(response => {
+             let deleted_user_id = response.data.result.user_id
+
+             let index_user = users.findIndex( (element) => element.user_id  === deleted_user_id)
+             users.splice(index_user, 1)
+             dispatch({type: LIST_USERS, payload: users })
+             dispatch({type: LIST_USERS_LOADING, payload : false})
+             dispatch({type: USER_MANAGEMENT_SUCCESS_MESSAGE, payload : response.data.message})
+
+        }).catch(error => {
+            dispatch(
+                display_user_management_error(error, `An error occurred while removing user with id ${id}`)
+            )
+            dispatch({type: LIST_USERS_LOADING, payload : false})
+        })
+
+    }
+}
+
+
+/**
+ * Helper for displaying error messages on user management panel.
+ * This error will be displayed above the table
+ * @param error
+ * @param message
+ * @returns {(function(*): void)|*}
+ */
+const display_user_management_error = (error, message) => {
+    return ( dispatch) => {
+        dispatch({type: USER_MANAGEMENT_ERROR, payload: `${message} ${error.response.data.message ? 
+                error.response.data.message : 'undefined error. Please' +
+                    'contact system manager.'}`})
     }
 }

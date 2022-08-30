@@ -79,27 +79,28 @@ hr {
 }
 
 .App .main-frame .router-frame {
-  width : 100%;
-  height: 100vh;
+  width: 100%;
+  height: calc(100vh - 10px);
   max-height: calc(100vh - 75px);
   overflow: hidden;
+  padding-top: 10px;
 }
 
 .App .main-frame .router-frame .inner {
-    padding: 0px 20px 0px 20px;
-    display: flex;
-    flex-flow: column;
-    position: relative;
-    height: calc(100vh - 75px);
-    overflow-y: scroll;
-    width: 90%;
-    margin: 0 auto;
-    background: #fff;
-    max-width: 1240px;
-    border-radius: 5px;
-    box-shadow: 0px -14px 11px -7px  rgba(0,0,0,0.63);
-    -webkit-box-shadow: 0px -14px 11px -7px  rgba(0,0,0,0.63);
-    -moz-box-shadow: 0px -14px 11px -7px  rgba(0,0,0,0.63);
+padding: 0px 20px 0px 20px;
+display: flex;
+flex-flow: column;
+position: relative;
+height: calc(100vh - 75px);
+overflow-y: scroll;
+width: 90%;
+margin: 0 auto;
+background: #fff;
+max-width: 1240px;
+border-radius: 5px;
+box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
+-webkit-box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
+-moz-box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
 }
 
 .router-frame .inner .frame-header {

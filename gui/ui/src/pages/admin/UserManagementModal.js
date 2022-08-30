@@ -10,14 +10,12 @@ import {
   EuiText
 } from '@elastic/eui';
 
-import Register from '../authentication/Register';
 import RegisterFrom from "../authentication/RegisterFrom";
-import {useDispatch} from "react-redux"
 
 
 
 // this module should be use to update Modal module content
-const UserManagementModal = (props) => {
+const UserManagementConfirmation = (props) => {
     const [show, setShow] = React.useState(props.show)
    
     React.useEffect(() => {
@@ -32,28 +30,30 @@ const UserManagementModal = (props) => {
     }
 
     const confirmModal = () => {
-        console.log("doc action")
+        props.onConfirm()
         closeModal()
     }
-    return (
-        <React.Fragment>
-        <div>
+    if(show){
+        return (
+            <React.Fragment>
+            <div>
+                <EuiConfirmModal
+                title={props.title}
+                 onCancel={closeModal}
+                 onConfirm={confirmModal}
+                 cancelButtonText="Cancel"
+                 confirmButtonText="Confirm"
+                 buttonColor={props.color ? props.color : 'danger'}
+                 defaultFocusedButton="cancel">
+                    <p>{props.text}</p>
+                 </EuiConfirmModal>
+            </div>
+            </React.Fragment>
+        )
+    }else{
+        return null
+    }
 
-            <EuiConfirmModal
-            title={props.title}
-             onCancel={closeModal}
-             onConfirm={confirmModal}
-             cancelButtonText="Cancel"
-             confirmButtonText="Confirm"
-     
-             buttonColor="danger"
-             defaultFocusedButton="cancel">
-                <p>{props.text}</p>
-             </EuiConfirmModal>
-
-        </div>
-        </React.Fragment>
-    )
 }
 
 const UserPasswordResetManagement = (props) => {
@@ -74,7 +74,6 @@ const UserPasswordResetManagement = (props) => {
     }
     let message;  // message to display to the user, once 
 
-    console.log(props.user)
     if (props.displayPassword){
         message = "New temporary password for user " + props.user[0] + props.user[1] +"is (password)"
     }else{
@@ -135,8 +134,9 @@ const UserAccountCreation = (props) => {
      */
     const afterRegisterHandler = (user) => {
         props.onClose()
-        if(props.onRegisterSuccess){
-            props.onRegisterSuccess(user)
+
+        if(props.afterRegister){
+            props.afterRegister()
         }
     }
 
@@ -161,4 +161,4 @@ const UserAccountCreation = (props) => {
 }
 
 
-export  {UserManagementModal, UserPasswordResetManagement, UserPrivilegeManagement, UserAccountCreation};
+export  {UserManagementConfirmation, UserPasswordResetManagement, UserPrivilegeManagement, UserAccountCreation};

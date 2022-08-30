@@ -17,6 +17,7 @@ import { EP_REGISTER, EP_CREATE_USER} from '../../constants';
 import {useNavigate} from "react-router-dom";
 import {useDispatch} from "react-redux";
 import axios from "axios";
+import {USER_MANAGEMENT_SUCCESS_MESSAGE} from "../../store/actions/actions";
 
 const initialRegisterForm = {name: '', surname: '', email: '', password: '', confirm: ''}
 
@@ -50,6 +51,8 @@ const RegisterForm = (props) => {
         axios.post(ep, data).then((response) => {
             if (response.status === 201 && !props.as) {
               dispatch({type :'SUCCESS_MODAL', payload:'A request has been sent to an administrator to validate you registration.'})
+            }else if(props.as === "admin"){
+                dispatch({type: USER_MANAGEMENT_SUCCESS_MESSAGE, payload : response.data.message})
             }
             if(props.navigate_to){
                 navigate(props.navigate_to)

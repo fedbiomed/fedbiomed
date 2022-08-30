@@ -8,9 +8,9 @@ from utils import success, error, validate_request_data, response
 from flask import request
 from flask_jwt_extended import jwt_required
 from datetime import datetime
-
+from tinydb import where
 from db import user_database
-from schemas import ValidateAdminRequestAction, ValidateUserFormRequest
+from schemas import ValidateAdminRequestAction, ValidateUserFormRequest, ValidateUserRemoveRequest
 from helpers.auth_helpers import set_password_hash
 from fedbiomed.common.constants import UserRoleType
 
@@ -110,6 +110,49 @@ def create_user():
             return response(res, 'Has has been successfully saved'), 201
         else:
             return error('Unexpected error, please try again later'), 400
+
+    except Exception as e:
+        return error(str(e)), 400
+
+
+@api.route('/admin/users/remove', methods=['DELETE'])
+@validate_request_data(schema=ValidateUserRemoveRequest)
+@admin_required
+def remove_user():
+    """ API endpoint to register new user in the database (as an admin).
+
+    Request {application/json}:
+        email (str): Email of the user to register
+        password (str): Password of the user to register
+        name (str): Name of the user to register
+        surname (str): Surname of the user to register
+
+    Response {application/json}:
+        400:
+            error   : Boolean error status (False)
+            result  : null
+            message : Message about error. Can be validation error or
+                      error from TinyDB
+        409:
+            success : Boolean error status (False)
+            result  : null
+            message : Message about error, when user is already registered but wants to register
+                        under another account
+        201:
+            success : Boolean value indicates that the request is success
+            result  : null
+            message : The message for response
+    """
+
+    req = request.json
+    user_id = req["user_id"]
+    try:
+        user_table.remove(where('user_id') == user_id)
+        res = user_table.get(query.user_id == user_id)
+        if not res:
+            return response({"user_id": user_id}, 'Has has been successfully saved'), 200
+        else:
+            return error('User is not removed. Please try again or contact to system manager.'), 400
 
     except Exception as e:
         return error(str(e)), 400

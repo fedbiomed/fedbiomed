@@ -8,40 +8,14 @@ import {
     EuiSpacer
   } from '@elastic/eui';
 
-import {UserManagementModal, UserPasswordResetManagement, UserAccountCreation} from './UserManagementModal';
-import {listUsers} from "../../store/actions/userManagementActions";
+import {
+    UserPasswordResetManagement,
+    UserAccountCreation,
+    UserManagementConfirmation
+} from './UserManagementModal';
+import {deleteUser, listUsers} from "../../store/actions/userManagementActions";
 import {connect, useDispatch} from 'react-redux'
-import {LIST_USERS_ERROR} from "../../store/actions/actions";
-
-let raw_data = [
-     { name:  "lolo", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lo123123lo2", surname: "tata", email: "lolo23244@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolo3", surname: "tataa", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "loasdlo4", surname: "taasdta", email: "lolo234@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolo6", surname: "tata", email: "lolo@ema234il.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolo7", surname: "atata", email: "lolo@emai234l.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "ldasdolo8", surname: "tatasda", email: "lol234o@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolo9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolso9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolo9", surname: "tata", email: "lolo@emai234l.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "Aosasdlo9", surname: "t2344ata", email: "lolo@em234ail.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-         { name:  "ldasdolo8", surname: "tatasda", email: "lol234o@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolo9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolso9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolo9", surname: "tata", email: "lolo@emai234l.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "Aosasdlo9", surname: "t2344ata", email: "lolo@em234ail.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-         { name:  "ldasdolo8", surname: "tatasda", email: "lol234o@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolo9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolso9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolo9", surname: "tata", email: "lolo@emai234l.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "Aosasdlo9", surname: "t2344ata", email: "lolo@em234ail.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-         { name:  "ldasdolo8", surname: "tatasda", email: "lol234o@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolo9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolso9", surname: "tata", email: "lolo@email.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "lolo9", surname: "tata", email: "lolo@emai234l.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-     { name:  "Aosasdlo9", surname: "t2344ata", email: "lolo@em234ail.com",  role: "simple user", created:"01/01/1999", last_connection: "08/19/2022" },
-
-]
+import {USER_MANAGEMENT_ERROR, USER_MANAGEMENT_SUCCESS_MESSAGE} from "../../store/actions/actions";
 
 const UserManagement = (props) => {
 
@@ -54,12 +28,10 @@ const UserManagement = (props) => {
     const [items, setItems] = useState([])
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showResetPwdModal, setShowResetPwdModal] = useState(false);
+    const [userToDelete, setUserToDelete] = useState(null)
 
-
-    const closeDeleteModal = () => {setShowDeleteModal(false)}
+    const closeDeleteModal = () => {setShowDeleteModal(false); setUserToDelete(null)}
     const closeResetPwdModal = () => {setShowResetPwdModal(false)}
-
-    const [success, setSuccess] = useState({message: null, show: false})
 
     const dispatch = useDispatch()
 
@@ -179,13 +151,12 @@ const UserManagement = (props) => {
                                                  iconType="tokenKey"
                                                  color={"warning"}>Reset Pass</EuiButtonIcon>},
               {render: (item) => <EuiButtonIcon aria-label={'Delete'}
-                                                onClick={() => (setShowDeleteModal(true))}
+                                                onClick={() => {setShowDeleteModal(true);setUserToDelete(item.user_id)}}
                                                 iconType="trash"
                                                 color={"danger"}>Delete</EuiButtonIcon>},
           ] ,
         },
     ]
-
 
     /**
      * Pagination options
@@ -199,15 +170,10 @@ const UserManagement = (props) => {
     };
 
 
-    /**
-     * Handler for when user registration is successful
-     * @param user
-     */
-    const onRegisterSuccessHandler = (user) => {
-        setSuccess({message: 'User account has been successfully saved', show: true})
-        setTimeout(() => {
-             setSuccess({message: null, show: false})
-        }, 4000)
+    const deleteUserConfirmationHandler = () => {
+        let user_id = userToDelete
+        console.log(user_id)
+        props.deleteUser(user_id)
     }
 
     return (
@@ -219,26 +185,26 @@ const UserManagement = (props) => {
                             title="Opps!"
                             color="danger"
                             iconType="alert"
-                            onClose={() => dispatch({type: LIST_USERS_ERROR, payload:false})}
+                            onClose={() => dispatch({type: USER_MANAGEMENT_ERROR, payload:false})}
                             isExpandable={true}
                           >
                          <p>{props.error}</p>
                      </EuiToast>
                  </React.Fragment>
                 ) : null}
-             {success.show ? (
-                             <React.Fragment>
-                                 <EuiSpacer size="l" />
-                                 <EuiToast
-                                        title="Done!"
-                                        color="success"
-                                        iconType="alert"
-                                        onClose={() => setSuccess({message: null, show: false})}
-                                        isExpandable={true}
-                                      >
-                                     <p>{success.message}</p>
-                                 </EuiToast>
-                             </React.Fragment>
+             {props.success ? (
+                 <React.Fragment>
+                     <EuiSpacer size="l" />
+                     <EuiToast
+                            title="Done!"
+                            color="success"
+                            iconType="alert"
+                            onClose={() => dispatch({type: USER_MANAGEMENT_SUCCESS_MESSAGE, payload:null})}
+                            isExpandable={true}
+                          >
+                         <p>{props.success}</p>
+                     </EuiToast>
+                 </React.Fragment>
 
                          ) : null}
             <EuiSpacer size={'l'}/>
@@ -258,11 +224,13 @@ const UserManagement = (props) => {
                 />
             ) : null}
 
-            {showDeleteModal?<UserManagementModal
+            <UserManagementConfirmation
                              show={showDeleteModal}
                              title="Delete Account?"
                              onClose={closeDeleteModal}
-                             text={"Are you sure you want to delete this acount?"}/>:null}
+                             onConfirm={deleteUserConfirmationHandler}
+                             text={"Are you sure you want to delete this account?"}/>
+
             {showResetPwdModal?<UserPasswordResetManagement
                                  show={showResetPwdModal}
                                  title="Reset Password"
@@ -271,8 +239,8 @@ const UserManagement = (props) => {
 
             <UserAccountCreation
                 show={showAccountCreationModal}
-                onRegisterSuccess={onRegisterSuccessHandler}
                 onClose={() => setShowAccountCreationModal(false)}
+                afterRegister={() => {dispatch(listUsers())}}
             />
         </Fragment>
 
@@ -281,7 +249,8 @@ const UserManagement = (props) => {
 
 const mapDispatchToProps = (dispatch) => {
     return {
-        listUsers : () => dispatch(listUsers())
+        listUsers : () => dispatch(listUsers()),
+        deleteUser : (id) => dispatch(deleteUser(id))
     }
 }
 
@@ -290,7 +259,8 @@ const mapStateToProps = (state) => {
     return {
         error : state.users.error,
         user_list : state.users.user_list,
-        loading : state.users.loading
+        loading : state.users.loading,
+        success: state.users.success,
     }
 }
 
