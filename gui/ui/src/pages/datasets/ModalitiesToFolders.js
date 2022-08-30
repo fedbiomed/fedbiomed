@@ -58,7 +58,7 @@ export class ModalitiesToFolders extends React.Component {
             <React.Fragment>
             The way your data is loaded and presented to the researcher during the federated
             training is affected by associations below.
-            Check this box if you wish to define mapping of local folder names
+            Select if you wish to define mapping of local folder names
             to more generic imaging modality names.
             
             <EuiSpacer size="m" />

@@ -113,20 +113,20 @@ export class MedicalFolderDataset extends React.Component {
                           desc={'Would you like to duplicate existing customizations for this dataset?'}
                     >
                         Customizations affect the way your data is loaded and presented to the researcher during
-                        the federated training.
-                        Check this box if you wish to reuse previously defined customizations.
+                        the federated training: modality to folder name associations, reference CSV name and column.
+                        Choose if you wish to reuse previously defined customizations.
 
                         <EuiSpacer size="m" />
                         <EuiRadio
                             id="reuse-dlp-false"
-                            label="Customize from scratch"
+                            label="Don't use existing customizations"
                             value="false"
                             checked={!this.props.use_preexisting_dlp}
                             onChange={this.props.usePreExistingDlp}
                         />
                         <EuiRadio
                             id="reuse-dlp-true"
-                            label="Use and duplicate an existing set of customizations"
+                            label="Use, duplicate and edit an existing set of customizations"
                             value="true"
                             checked={this.props.use_preexisting_dlp}
                             onChange={this.props.usePreExistingDlp}

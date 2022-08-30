@@ -83,6 +83,7 @@ export const medicalFolderReducer = (state = initialState, action) => {
                 reference_csv : action.payload
             }
         case "SET_MEDICAL_FOLDER_METADATA":
+            console.log('METADATA', state.metadata)
             return {
                 ...state,
                 metadata: {
