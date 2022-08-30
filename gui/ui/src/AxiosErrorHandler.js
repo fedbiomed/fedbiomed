@@ -46,10 +46,11 @@ import { createBrowserHistory } from 'history';
             break;
   
           case 401:
+          case 422:
             // we should differentiate case where token has expired with case "insufficient privileged"
             let access_token = getAccessToken();
             let is_token_expired = checkIsTokenActive();
-  
+            console.log("STATUSSSSSS")
             // let s retrieve token (if any)
             if (access_token){
               if (is_token_expired){
@@ -82,11 +83,12 @@ import { createBrowserHistory } from 'history';
                   reject(error);
                 }
               }else{
-                alert("Insufficient privileges")
-                history.back()
+                alert("Please login again")
+                window.location.href = '/login'
               }
             }else{
-              reject(error)
+              alert("Please login")
+              window.location.href = '/login'
             }
             break;
           default:

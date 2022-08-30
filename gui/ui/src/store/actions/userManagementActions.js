@@ -1,5 +1,5 @@
 import axios from 'axios'
-import {EP_LIST_USERS, EP_REMOVE_USER} from "../../constants";
+import {EP_LIST_USERS, EP_REMOVE_USER, EP_RESET_USER_PASSWORD} from "../../constants";
 import {LIST_USERS, LIST_USERS_LOADING, USER_MANAGEMENT_ERROR, USER_MANAGEMENT_SUCCESS_MESSAGE} from "./actions";
 
 
@@ -52,6 +52,16 @@ export const deleteUser = (id) => {
         })
 
     }
+}
+
+/**
+ * Update password action that returns promise.
+ * PROMISE SHOULD BE HANDLED WHERE THIS METHOD IS CALLED
+ * @param user_id
+ * @returns {*}
+ */
+export const resetPassword = (user_id) => {
+    return axios.patch(EP_RESET_USER_PASSWORD, {user_id: user_id})
 }
 
 

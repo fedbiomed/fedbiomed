@@ -29,6 +29,7 @@ const UserManagement = (props) => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showResetPwdModal, setShowResetPwdModal] = useState(false);
     const [userToDelete, setUserToDelete] = useState(null)
+    const [userToResetPassword, setUserToResetPassword] = useState(null)
 
     const closeDeleteModal = () => {setShowDeleteModal(false); setUserToDelete(null)}
     const closeResetPwdModal = () => {setShowResetPwdModal(false)}
@@ -147,7 +148,7 @@ const UserManagement = (props) => {
           name: 'Reset Pass / Remove',
           actions: [
               {render: (item) => <EuiButtonIcon  aria-label={'Reset'}
-                                                 onClick={()=>(setShowResetPwdModal(true))}
+                                                 onClick={()=> {setShowResetPwdModal(true);setUserToResetPassword(item.user_id)}}
                                                  iconType="tokenKey"
                                                  color={"warning"}>Reset Pass</EuiButtonIcon>},
               {render: (item) => <EuiButtonIcon aria-label={'Delete'}
@@ -231,12 +232,12 @@ const UserManagement = (props) => {
                              onConfirm={deleteUserConfirmationHandler}
                              text={"Are you sure you want to delete this account?"}/>
 
-            {showResetPwdModal?<UserPasswordResetManagement
+            <UserPasswordResetManagement
                                  show={showResetPwdModal}
                                  title="Reset Password"
                                  onClose={closeResetPwdModal}
-                                 />:null}
-
+                                 userId={userToResetPassword}
+                                 />
             <UserAccountCreation
                 show={showAccountCreationModal}
                 onClose={() => setShowAccountCreationModal(false)}

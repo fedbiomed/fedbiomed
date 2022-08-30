@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
+import axios from 'axios'
 import {
   EuiButton,
+    EuiCallOut,
   EuiModal,
   EuiModalBody,
   EuiModalFooter,
   EuiModalHeader,
   EuiModalHeaderTitle,
   EuiConfirmModal,
-  EuiText
+  EuiText, EuiToast
 } from '@elastic/eui';
 
+import {resetPassword as resetPasswordAction} from "../../store/actions/userManagementActions";
 import RegisterFrom from "../authentication/RegisterFrom";
+import {EP_RESET_USER_PASSWORD} from "../../constants";
+import {USER_MANAGEMENT_ERROR} from "../../store/actions/actions";
 
 
 
@@ -57,51 +62,96 @@ const UserManagementConfirmation = (props) => {
 }
 
 const UserPasswordResetManagement = (props) => {
+
     const [show, setShow] = React.useState(props.show);
     const [isPasswordReset, setIsPasswordReset] = React.useState(false);
+    const [loading, setLoading] = React.useState(false)
+    const [password, setPassword] = React.useState(null)
+    const [error, setError] = React.useState(null)
+
     React.useEffect(() => {
-        // update local state
         setShow(props.show)
+        setIsPasswordReset(false)
     }, [props.show])
 
-    const closeModal = () => {
-        setShow(false)
-        props.onClose()
+
+    /**
+     * Reset password handler
+     */
+    const resetPassword = () => {
+
+        setLoading(true)
+        resetPasswordAction(props.userId).then(response => {
+                let result = response.data.result
+                setPassword(result)
+                setIsPasswordReset(true)
+                setLoading(false)
+        }).catch(error => {
+            console.log('HERE')
+            setError(`Error while resetting password: ${error.response.data.message ? 
+                error.response.data.message : 'unexpected error please contact system provider'}`)
+            setLoading(false)
+        })
     }
 
-    const ResetPassword = () => {
-        setIsPasswordReset(true)
-    }
-    let message;  // message to display to the user, once 
+    if(show){
+         return (
+                <React.Fragment>
+                    <EuiModal onClose={props.onClose}>
+                        <EuiModalHeader>
+                        <EuiModalHeaderTitle>Reset Password?</EuiModalHeaderTitle>
+                        </EuiModalHeader>
+                        <EuiModalBody>
 
-    if (props.displayPassword){
-        message = "New temporary password for user " + props.user[0] + props.user[1] +"is (password)"
+                            {isPasswordReset ? (
+                                    <EuiCallOut
+                                        title="Password has been changed!"
+                                        color="success"
+                                        iconType="alert"
+                                        onClose={() => setError(null)}
+                                        isExpandable={true}
+                                      >
+                                         <EuiText>
+                                            Password has been changed for user {password.email} as <b>" {password.password} "</b>
+                                         </EuiText>
+                                         <EuiText>
+                                             <b>IMPORTANT: Please make sure you saved the password before closing this window.</b>
+                                         </EuiText>
+                                    </EuiCallOut>
+
+                                ) : error ? (
+
+                                    <EuiCallOut
+                                        title="Opps!"
+                                        color="danger"
+                                        iconType="alert"
+                                        onClose={() => setError(null)}
+                                        isExpandable={true}
+                                      >
+                                     <p>{error}</p>
+                                    </EuiCallOut>
+                                ) :
+                                "Reset password will generate a random password for user. Do you want " +
+                                "to reset the password?"}
+
+                        </EuiModalBody>
+                        <EuiModalFooter>
+                            {!isPasswordReset &&
+                                <EuiButton onClick={resetPassword} fill isLoading={loading}>
+                                    {loading ? 'Resetting password' : error ? "Try Again" : "Reset Password"}
+                            </EuiButton>}
+                            <EuiButton onClick={props.onClose} fill>
+                                Close
+                            </EuiButton>
+                        </EuiModalFooter>
+                    </EuiModal>
+
+                </React.Fragment>
+            )
     }else{
-        message = "Temporary password sent to user : !"
+        return null
     }
 
-    return (
-        <React.Fragment>
-            <EuiModal>
-                <EuiModalHeader>
-                <EuiModalHeaderTitle>Reset Password?</EuiModalHeaderTitle>
-                </EuiModalHeader>
-                <EuiModalBody>
-                    {isPasswordReset?<EuiText>{message}</EuiText>:"Reset password will generate a random password for user. Do you want to reset the password?"}
-                </EuiModalBody>
-                <EuiModalFooter>
-                    {!isPasswordReset && <EuiButton onClick={ResetPassword} fill>
-                        Reset Password
-                    </EuiButton>}
-                    <EuiButton onClick={closeModal} fill>
-                        Close
-                    </EuiButton>
-                
-                </EuiModalFooter>
-            </EuiModal>
-
-        </React.Fragment>
-    )
 }
 
 const UserPrivilegeManagement = (props) => {

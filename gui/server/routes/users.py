@@ -1,12 +1,13 @@
 import uuid
-
+import secrets
+import string
 from fedbiomed.common.constants import UserRequestStatus
 from gui.server.routes import admin_required
 from . import api
 from utils import success, error, validate_request_data, response
 
 from flask import request
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt
 from datetime import datetime
 from tinydb import where
 from db import user_database
@@ -119,13 +120,11 @@ def create_user():
 @validate_request_data(schema=ValidateUserRemoveRequest)
 @admin_required
 def remove_user():
-    """ API endpoint to register new user in the database (as an admin).
+    """ API endpoint to remove user account (as an admin).
 
     Request {application/json}:
-        email (str): Email of the user to register
-        password (str): Password of the user to register
-        name (str): Name of the user to register
-        surname (str): Surname of the user to register
+        user_id (str): ID of the user that will be removed
+
 
     Response {application/json}:
         400:
@@ -133,12 +132,7 @@ def remove_user():
             result  : null
             message : Message about error. Can be validation error or
                       error from TinyDB
-        409:
-            success : Boolean error status (False)
-            result  : null
-            message : Message about error, when user is already registered but wants to register
-                        under another account
-        201:
+        200:
             success : Boolean value indicates that the request is success
             result  : null
             message : The message for response
@@ -146,6 +140,13 @@ def remove_user():
 
     req = request.json
     user_id = req["user_id"]
+
+    user = get_jwt()
+
+    # User can not remove his account
+    if user["sub"] == user_id:
+        return error('As admin you can not remove your own account.'), 400
+
     try:
         user_table.remove(where('user_id') == user_id)
         res = user_table.get(query.user_id == user_id)
@@ -153,6 +154,49 @@ def remove_user():
             return response({"user_id": user_id}, 'Has has been successfully saved'), 200
         else:
             return error('User is not removed. Please try again or contact to system manager.'), 400
+
+    except Exception as e:
+        return error(str(e)), 400
+
+
+@api.route('/admin/users/reset-password', methods=['PATCH'])
+@validate_request_data(schema=ValidateUserRemoveRequest)
+@admin_required
+def reset_user_password():
+    """ API endpoint to reset user password (as an admin).
+
+    Request {application/json}:
+        user_id (str): ID of the user whose password will be regenerated
+
+
+    Response {application/json}:
+        400:
+            error   : Boolean error status (False)
+            result  : null
+            message : Message about error. Can be validation error or
+                      error from TinyDB
+        200:
+            success : Boolean value indicates that the request is success
+            result  : null
+            message : The message for response
+    """
+
+    req = request.json
+    user_id = req["user_id"]
+
+    # Auto generated password
+    alphabet = string.ascii_letters + string.digits
+    password = ''.join(secrets.choice(alphabet) for _ in range(12))
+    password_hash = set_password_hash(password)
+
+    try:
+        res = user_table.update({"password_hash": password_hash}, query.user_id == user_id)
+        if res:
+            user = user_table.get(query.user_id == user_id)
+            return response({"password": password, "email": user["user_email"]}, 'User password has been  '
+                                                                                 'successfully updated.'), 200
+        else:
+            return error('Can not update user password. User may not be existing'), 400
 
     except Exception as e:
         return error(str(e)), 400

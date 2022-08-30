@@ -182,7 +182,7 @@ def login():
             "email": user["user_email"],
             "role": user["user_role"],
             "name": user.get("user_name", "No-name"),
-            "surname": user.get("user_surname", "No-name"),
+            "surname": user.get("user_surname", "No-name")
         }
         access_token = create_access_token(identity=user["user_id"], fresh=True, additional_claims=additional_claims)
         refresh_token = create_refresh_token(identity=user["user_id"], additional_claims=additional_claims)
