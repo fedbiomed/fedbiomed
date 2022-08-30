@@ -21,13 +21,6 @@ class FedbiomedAggregatorError(FedbiomedError):
     pass
 
 
-class FedbiomedLoadingBlockError(FedbiomedError):
-    """
-    Exception specific to the DataLoadingBlock classes/subclasses.
-    """
-    pass
-
-
 class FedbiomedDatasetError(FedbiomedError):
     """
     Exceptions specific for the class fedbiomed.common.data.NIFTIFolderDataset.
@@ -59,6 +52,20 @@ class FedbiomedEnvironError(FedbiomedError):
 class FedbiomedExperimentError(FedbiomedError):
     """
     Exception specific to the Experiment class.
+    """
+    pass
+
+
+class FedbiomedLoadingBlockError(FedbiomedError):
+    """
+    Exception specific to the DataLoadingBlock classes/subclasses.
+    """
+    pass
+
+
+class FedbiomedLoadingBlockSerializationError(FedbiomedError):
+    """
+    Exception specific to the serialization/deserialization of a DataLoadingBlock.
     """
     pass
 

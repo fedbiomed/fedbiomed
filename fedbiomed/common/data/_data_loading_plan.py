@@ -4,7 +4,7 @@ import re
 from abc import ABC, abstractmethod
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedUserInputError
+from fedbiomed.common.exceptions import FedbiomedLoadingBlockSerializationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import DataLoadingBlockTypes
 from fedbiomed.common.exceptions import FedbiomedLoadingBlockError
@@ -28,27 +28,27 @@ class SerializedDataLoadingBlockValidation:
         except RuleError as e:
             #
             # internal error (invalid scheme)
-            msg = ErrorNumbers.FB410.value + f": {e}"
+            msg = ErrorNumbers.FB614.value + f": {e}"
             logger.critical(msg)
-            raise FedbiomedUserInputError(msg)  # TODO raise a different exception
+            raise FedbiomedLoadingBlockSerializationError(msg)  # TODO raise a different exception
 
         try:
             dlb_metadata = sc.populate_with_defaults(dlb_metadata,
                                                      only_required=only_required)
         except ValidatorError as e:
             # scheme has required keys without defined default value
-            msg = ErrorNumbers.FB410.value + f": {e}"
+            msg = ErrorNumbers.FB614.value + f": {e}"
             logger.critical(msg)
-            raise FedbiomedUserInputError(msg)
+            raise FedbiomedLoadingBlockSerializationError(msg)
 
         # finally check user input
         try:
             sc.validate(dlb_metadata)
         except ValidateError as e:
             # transform to a Fed-BioMed error
-            msg = ErrorNumbers.FB410.value + f": {e}"
+            msg = ErrorNumbers.FB614.value + f": {e}"
             logger.critical(msg)
-            raise FedbiomedUserInputError(msg)
+            raise FedbiomedLoadingBlockSerializationError(msg)
 
     @staticmethod
     @validator_decorator
@@ -87,7 +87,6 @@ class SerializedDataLoadingBlockValidation:
                 'rules': [str, cls._serial_id_validation_hook],
                 'required': True,
             },
-
         }
 
 

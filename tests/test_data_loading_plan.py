@@ -1,8 +1,10 @@
 import unittest
+import logging
 from fedbiomed.common.data import DataLoadingPlan, DataLoadingPlanMixin, MapperBlock
 from testsupport.testing_data_loading_block import LoadingBlockForTesting, LoadingBlockTypesForTesting, \
     TestAbstractsBlock
-from fedbiomed.common.exceptions import FedbiomedLoadingBlockError
+from fedbiomed.common.exceptions import FedbiomedLoadingBlockError, FedbiomedLoadingBlockSerializationError
+
 
 class TestDataLoadingBlock(unittest.TestCase):
     def setUp(self):
@@ -35,6 +37,37 @@ class TestDataLoadingBlock(unittest.TestCase):
         dlb5.deserialize(serialized)
         self.assertEqual(dlb4.get_serialization_id(), dlb5.get_serialization_id())
         self.assertDictEqual(dlb4.map, dlb5.map)
+
+        with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
+            with self.assertRaises(FedbiomedLoadingBlockSerializationError):
+                dlb5.deserialize({'wrong-data': 'should-not-be-here', **serialized})
+                self.assertEqual(captured.output[-1],
+                                 'CRITICAL:fedbiomed:FB614: data loading block error: '
+                                 'undefined key (wrong-data) in scheme')
+            with self.assertRaises(FedbiomedLoadingBlockSerializationError):
+                dlb5.deserialize({**serialized, 'loading_block_class': 'Wrong._format.__*$class.name'})
+                self.assertEqual(captured.output[-1],
+                                 'CRITICAL:fedbiomed:FB614: data loading block error: '
+                                 '__*$class within Wrong._format.__*$class.name is not a '
+                                 'valid class name for deserialization of Data Loading Block.')
+            with self.assertRaises(FedbiomedLoadingBlockSerializationError):
+                dlb5.deserialize({**serialized, 'loading_block_module': '9Wrong.format.module.name'})
+                self.assertEqual(captured.output[-1],
+                                 'CRITICAL:fedbiomed:FB614: data loading block error: '
+                                 '9Wrong within 9Wrong.format.module.name is not a valid '
+                                 'class name for deserialization of Data Loading Block.')
+            with self.assertRaises(FedbiomedLoadingBlockSerializationError):
+                dlb5.deserialize({**serialized, 'loading_block_serialization_id': 'serialized_dlb_wrong-format-uuid'})
+                self.assertEqual(captured.output[-1],
+                                 'CRITICAL:fedbiomed:FB614: data loading block error: '
+                                 'serialized_dlb_wrong-format-uuid is not of the form '
+                                 'serialized_dlb_<uuid> for deserialization of Data Loading Block.')
+            with self.assertRaises(FedbiomedLoadingBlockSerializationError):
+                dlb5.deserialize({**serialized, 'loading_block_serialization_id': 'wrong-format-id'})
+                self.assertEqual(captured.output[-1],
+                                 'CRITICAL:fedbiomed:FB614: data loading block error: '
+                                 'wrong-format-id is not of the form serialized_dlb_<uuid> '
+                                 'for deserialization of Data Loading Block.')
 
     def test_data_loading_block_02_apply(self):
         """Tests that the apply function of DataLoadingBlock works as intended"""
