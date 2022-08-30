@@ -18,9 +18,8 @@ export const setChangeDlpMedicalFolderDataset = (use_dlp, state) => {
             dispatch({type:'SET_LOADING', payload: {status: true, text: "Reading Data Loading Plan content..."}})
             axios.post(EP_READ_DATA_LOADING_PLAN, {'dlp_id': dlp_id}).then(response => {
                 dispatch({type:'SET_LOADING', payload: {status: false}})
-                
-                console.log('DLP response',response.data.result)
-                //TODO: replace with values of the new used DLP when loading a DLP
+                let data = response.data.result
+                // default value if not set by DLP
                 let dlp = {
                     use_custom_mod2fol: false,
                     current_modality_names: JSON.parse(JSON.stringify(state.medicalFolderDataset.default_modality_names)), // careful, not null
@@ -30,6 +29,50 @@ export const setChangeDlpMedicalFolderDataset = (use_dlp, state) => {
                     reference_csv: null,
                     ignore_reference_csv: false,
                 }
+
+                // DLP contains modality mapping
+                if('map' in data) {
+                    dlp['use_custom_mod2fol'] = true
+                    dlp['mod2fol_mapping'] = JSON.parse(JSON.stringify(data.map))
+
+                    // current_modality_names
+                    for(const mod in data['map']) {
+                        let found = false
+                        for(const curmod of dlp['current_modality_names']) {
+                            if(curmod['value'] === mod) {
+                                found = true
+                                break
+                            }
+                        }
+                        if(!found) {
+                            dlp['current_modality_names'].push({'label': mod, 'value': mod})
+                        }
+                    }
+
+                    // modalities_mapping
+                    for(const mod in data['map']) {
+                        for(const folder of data['map'][mod]) {
+                            if(state.medicalFolderDataset.modality_folders.includes(folder)) {
+                                console.log('MODMAP FOUND', folder, mod)
+                                dlp['modalities_mapping'][folder] = mod
+                            } else {
+                                console.log('MODMAP IGNORE', folder)
+                            }
+                            // ignore mappings that dont correspond to a folder in this dataset
+                        }
+                    }
+
+                    // has_all_mappings
+                    let has_all_mappings = true
+                    for(const folder of state.medicalFolderDataset.modality_folders.values()) {
+                        if(!dlp['modalities_mapping'][folder]) {
+                            has_all_mappings = false
+                            break
+                        }
+                    }
+                    dlp['has_all_mappings'] = has_all_mappings
+                }
+                console.log('CHANGING WITH', dlp)
                 console.log('BEFORE CHANGE', state.medicalFolderDataset)
                 dispatch({type: "SET_MEDICAL_CHANGE_USED_DLP", payload: dlp})
             }).catch(error => {
