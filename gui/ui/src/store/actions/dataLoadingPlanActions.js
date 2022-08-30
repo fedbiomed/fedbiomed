@@ -53,10 +53,8 @@ export const setChangeDlpMedicalFolderDataset = (use_dlp, state) => {
                     for(const mod in data['map']) {
                         for(const folder of data['map'][mod]) {
                             if(state.medicalFolderDataset.modality_folders.includes(folder)) {
-                                console.log('MODMAP FOUND', folder, mod)
                                 dlp['modalities_mapping'][folder] = mod
                             } else {
-                                console.log('MODMAP IGNORE', folder)
                             }
                             // ignore mappings that dont correspond to a folder in this dataset
                         }
@@ -72,9 +70,12 @@ export const setChangeDlpMedicalFolderDataset = (use_dlp, state) => {
                     }
                     dlp['has_all_mappings'] = has_all_mappings
                 }
-                console.log('CHANGING WITH', dlp)
-                console.log('BEFORE CHANGE', state.medicalFolderDataset)
                 dispatch({type: "SET_MEDICAL_CHANGE_USED_DLP", payload: dlp})
+                // dirty hack: need to force refresh of the ModalitiesToFolders
+                if(dlp['use_custom_mod2fol'] === true) {
+                    dispatch({type: 'SET_CUSTOMIZE_MOD2FOL', payload: false})
+                    dispatch({type: 'SET_CUSTOMIZE_MOD2FOL', payload: true})
+                }
             }).catch(error => {
                 dispatch({type:'SET_LOADING', payload: {status: false}})
                 dispatch(displayError(error, "Error while reading Data Loading Plan content."))
