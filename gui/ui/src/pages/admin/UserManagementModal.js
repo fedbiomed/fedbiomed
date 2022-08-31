@@ -68,11 +68,14 @@ const UserPasswordResetManagement = (props) => {
     const [loading, setLoading] = React.useState(false)
     const [password, setPassword] = React.useState(null)
     const [error, setError] = React.useState(null)
+    const [copied, setCopied] = React.useState(false)
+
 
     React.useEffect(() => {
         setShow(props.show)
         setIsPasswordReset(false)
         setError(null)
+        setCopied(false)
     }, [props.show])
 
 
@@ -93,6 +96,15 @@ const UserPasswordResetManagement = (props) => {
                 error.response.data.message : 'unexpected error please contact system provider'}`)
             setLoading(false)
         })
+    }
+
+    /**
+     * Copy auto generated password
+     */
+    const copyPassword = () => {
+        navigator.clipboard.writeText(password.password).then(function() {
+              setCopied(true)
+        });
     }
 
     if(show){
@@ -137,13 +149,22 @@ const UserPasswordResetManagement = (props) => {
 
                         </EuiModalBody>
                         <EuiModalFooter>
-                            {!isPasswordReset &&
+                            {!isPasswordReset ? (
+
                                 <EuiButton onClick={resetPassword} fill isLoading={loading}>
                                     {loading ? 'Resetting password' : error ? "Try Again" : "Reset Password"}
-                            </EuiButton>}
-                            <EuiButton onClick={props.onClose} fill>
-                                Close
-                            </EuiButton>
+                                </EuiButton>
+
+
+                                ) : (
+                                    <EuiButton onClick={copyPassword} disabled={copied ? true : false} iconType={copied ? 'checkInCircleFilled' : 'copyClipboard'} isLoading={loading}>
+                                        {copied ? 'Copied' : "Copy Password"}
+                                    </EuiButton>
+                                )
+                                }
+                                <EuiButton onClick={props.onClose} fill>
+                                    Close
+                                </EuiButton>
                         </EuiModalFooter>
                     </EuiModal>
 
