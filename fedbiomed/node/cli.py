@@ -179,7 +179,8 @@ def add_database(interactive: bool = True,
                  name: str = None,
                  tags: str = None,
                  description: str = None,
-                 data_type: str = None):
+                 data_type: str = None,
+                 dataset_parameters: dict = None):
     """Adds a dataset to the node database.
 
     Also queries interactively the user on the command line (and file browser)
@@ -211,8 +212,6 @@ def add_database(interactive: bool = True,
             data_type = validated_data_type_input()
         else:
             data_type = 'default'
-
-        dataset_parameters = None
 
         if data_type == 'default':
             tags = ['#MNIST', "#dataset"]
@@ -279,14 +278,11 @@ def add_database(interactive: bool = True,
         description = str(description)
 
         data_type = str(data_type).lower()
-        if data_type not in [ 'csv', 'default', 'mednist', 'images' ]:
+        if data_type not in [ 'csv', 'default', 'mednist', 'images', 'medical-folder' ]:
             data_type = 'default'
 
         if not os.path.exists(path):
             logger.critical("provided path does not exists: " + path)
-
-        # quick fix, but is this what we expect on the line just after ????
-        dataset_parameters = None
 
     # Add database
     try:
@@ -844,6 +840,10 @@ def launch_cli():
             if k not in data:
                 logger.critical("dataset json file corrupted: " + args.add_dataset_from_file )
 
+        # dataset_parameters are an optional entry. Provide a default value if not specified by user.
+        if "dataset_parameters" not in data:
+            data["dataset_parameters"] = None
+
         # dataset path can be defined:
         # - as an absolute path -> take it as it is
         # - as a relative path  -> add the ROOT_DIR in front of it
@@ -873,7 +873,8 @@ def launch_cli():
                      data_type   = data["data_type"],
                      description = data["description"],
                      tags        = data["tags"],
-                     name        = data["name"]
+                     name        = data["name"],
+                     dataset_parameters=data["dataset_parameters"]
                      )
 
     elif args.list:
