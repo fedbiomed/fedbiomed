@@ -1,5 +1,5 @@
 import axios from 'axios'
-import {EP_LIST_USERS, EP_REMOVE_USER, EP_RESET_USER_PASSWORD} from "../../constants";
+import {EP_CHANGE_USER_ROLE, EP_LIST_USERS, EP_REMOVE_USER, EP_RESET_USER_PASSWORD} from "../../constants";
 import {LIST_USERS, LIST_USERS_LOADING, USER_MANAGEMENT_ERROR, USER_MANAGEMENT_SUCCESS_MESSAGE} from "./actions";
 
 
@@ -64,6 +64,10 @@ export const resetPassword = (user_id) => {
     return axios.patch(EP_RESET_USER_PASSWORD, {user_id: user_id})
 }
 
+
+export const changeUserRole = (user_id, role) => {
+    return axios.patch(EP_CHANGE_USER_ROLE, {user_id: user_id, role: role})
+}
 
 /**
  * Helper for displaying error messages on user management panel.

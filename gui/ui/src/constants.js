@@ -35,6 +35,7 @@ export const EP_LIST_USERS              = '/api/admin/users/list'
 export const EP_REMOVE_USER             = '/api/admin/users/remove'
 export const EP_CREATE_USER             = '/api/admin/users/create'
 export const EP_RESET_USER_PASSWORD     = '/api/admin/users/reset-password'
+export const EP_CHANGE_USER_ROLE        = '/api/admin/users/change-role'
 
 
 // MedicalFolder Dataset Endpoints

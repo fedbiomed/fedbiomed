@@ -3,10 +3,9 @@ import {
     EuiButton,
     EuiButtonIcon,
     EuiToast,
-    EuiBasicTable,
     formatDate,
     EuiInMemoryTable,
-    EuiTitle,
+    EuiSuperSelect,
     EuiSpacer
   } from '@elastic/eui';
 
@@ -18,6 +17,8 @@ import {
 import {deleteUser, listUsers} from "../../store/actions/userManagementActions";
 import {connect, useDispatch} from 'react-redux'
 import {USER_MANAGEMENT_ERROR, USER_MANAGEMENT_SUCCESS_MESSAGE} from "../../store/actions/actions";
+import UserRoleSelectBox from "./UserRoleSelectBox";
+
 
 const UserManagement = (props) => {
 
@@ -144,8 +145,8 @@ const UserManagement = (props) => {
         {
           name: 'Change Role',
           actions: [
-              {render: (item) => <EuiButton onClick={()=>(setShowResetPwdModal(true))}  iconType="user" color={"primary"}>Change Role</EuiButton>}
-          ] ,
+              {render: (item) => <UserRoleSelectBox selected={item.user_role} userId={item.user_id} />}
+          ],
         },
 
         {
