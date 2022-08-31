@@ -505,6 +505,35 @@ class ValidateUserRemoveRequest(Validator):
     })
 
 
+class ValidateUserChangeRoleRequest(Validator):
+    """ Json Schema for changing user role"""
+    type = 'json'
+    schema = JsonSchema({
+        'type': 'object',
+        'properties': {
+            'user_id': {
+                'type': 'string',
+                'minLength': 1,
+                'errorMessages': {
+                    'minLength': 'Missing ID for user'
+                }
+            },
+            'role': {
+                'type': 'integer',
+                'enum': [1, 2],
+                'errorMessages': {
+                    'enum': 'Invalid role'
+                }
+            },
+        },
+        'required': ['user_id', 'role'],
+        'requiredMessages': {
+            'user_id': 'ID is required to change role',
+            'role': 'User role is required to change user role',
+        }
+    })
+
+
 class ListUserRegistrationRequest(Validator):
     type = 'json'
     schema = JsonSchema({

@@ -160,11 +160,11 @@ const HeaderUserMenu = (props) => {
               <EuiFlexItem>
                 <EuiFlexGroup justifyContent="spaceBetween">
                   <EuiFlexItem grow={false}>
-                    <EuiLink onClick={() => navigate('user-account')}>Account</EuiLink>
+                    <EuiLink onClick={() => {navigate('user-account');closeMenu()}}>Account</EuiLink>
                   </EuiFlexItem>
 
                   <EuiFlexItem grow={false}>
-                    <EuiLink onClick={() => {removeToken(navigate)}} >Log out</EuiLink>
+                    <EuiLink onClick={() => {removeToken(navigate);closeMenu()}} >Log out</EuiLink>
                   </EuiFlexItem>
                 </EuiFlexGroup>
               </EuiFlexItem>

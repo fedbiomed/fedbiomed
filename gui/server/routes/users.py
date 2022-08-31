@@ -11,7 +11,10 @@ from flask_jwt_extended import jwt_required, get_jwt
 from datetime import datetime
 from tinydb import where
 from db import user_database
-from schemas import ValidateAdminRequestAction, ValidateUserFormRequest, ValidateUserRemoveRequest
+from schemas import ValidateAdminRequestAction, \
+    ValidateUserFormRequest, \
+    ValidateUserRemoveRequest, \
+    ValidateUserChangeRoleRequest
 from helpers.auth_helpers import set_password_hash
 from fedbiomed.common.constants import UserRoleType
 
@@ -197,6 +200,49 @@ def reset_user_password():
                                                                                  'successfully updated.'), 200
         else:
             return error('Can not update user password. User may not be existing'), 400
+
+    except Exception as e:
+        return error(str(e)), 400
+
+
+@api.route('/admin/users/change-role', methods=['PATCH'])
+@validate_request_data(schema=ValidateUserChangeRoleRequest)
+@admin_required
+def change_user_role():
+    """ API endpoint to change user role (as an admin).
+
+    Request {application/json}:
+        user_id (str): ID of the user that will be removed
+        role (int): role
+
+    Response {application/json}:
+        400:
+            error   : Boolean error status (False)
+            result  : null
+            message : Message about error. Can be validation error or
+                      error from TinyDB
+        200:
+            success : Boolean value indicates that the request is success
+            result  : null
+            message : The message for response
+    """
+
+    req = request.json
+    user_id = req["user_id"]
+    role = req["role"]
+    user = get_jwt()
+
+    # User can not remove his account
+    if user["sub"] == user_id:
+        return error('You can not change your own role'), 400
+
+    try:
+        res = user_table.update({"user_role": role}, query.user_id == user_id)
+        if res:
+            user = user_table.get(query.user_id == user_id)
+            return response({"role": role, "email": user["user_email"]}, 'User role has been successfully changed'), 200
+        else:
+            return error('Can not update user role. User may not be existing'), 400
 
     except Exception as e:
         return error(str(e)), 400
