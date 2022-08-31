@@ -8,7 +8,9 @@ from tinydb.table import Table
 
 from app import app, config
 from utils import set_password_hash
-#from routes import UserRoleType
+
+
+# from routes import UserRoleType
 
 class BaseDatabase:
 
@@ -71,7 +73,7 @@ class UserDatabase(BaseDatabase):
     def add_default_admin_user(self, admin_credential: Dict[str, str]):
         """adds default admin user to database if no admin has been found in database"""
         email, password = admin_credential['email'], admin_credential['password']
-        
+
         # first step: check if there is no admin registered in database
         try:
             query = self.query()
@@ -79,11 +81,14 @@ class UserDatabase(BaseDatabase):
             if not admins:
                 # if no admin user are found, add it into user gui database
                 print("No admin found, creating default one")
-                self.table('Users').insert({"user_email": email,
-                                            "password_hash": set_password_hash(password),
-                                            "user_role": UserRoleType.ADMIN,
-                                            "creation_date": datetime.utcnow().ctime(),
-                                            "user_id": 'user_' + str(uuid.uuid4())})
+                self.table('Users').insert(
+                    {"user_email": email,
+                     "password_hash": set_password_hash(password),
+                     "user_name": "System",
+                     "user_surname": "Admin",
+                     "user_role": UserRoleType.ADMIN,
+                     "creation_date": datetime.utcnow().ctime(),
+                     "user_id": 'user_' + str(uuid.uuid4())})
         except Exception as e:
             print(f"Error, unable to query in database for admin accounts {e}... resuming")
 
