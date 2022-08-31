@@ -13,7 +13,7 @@ def validate_email_register():
         return error('Wrong email format'), 400
 
     if get_user_by_email(req['surname']):
-        return error('Email already Present. Please log in'), 409
+        return error('Email already present.'), 409
 
     return None
 
