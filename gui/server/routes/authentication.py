@@ -133,6 +133,7 @@ def register():
     except Exception as e:
         return error(str(e)), 400
 
+
 @api.route('/token/auth', methods=['GET'])
 @jwt_required()
 def auth():
@@ -186,6 +187,10 @@ def login():
         }
         access_token = create_access_token(identity=user["user_id"], fresh=True, additional_claims=additional_claims)
         refresh_token = create_refresh_token(identity=user["user_id"], additional_claims=additional_claims)
+
+        # Update last login
+        user_table.update({'last_login': datetime.utcnow().ctime()}, query.user_id == user['user_id'])
+
         resp = response(
             data={
                 "access_token": access_token,
