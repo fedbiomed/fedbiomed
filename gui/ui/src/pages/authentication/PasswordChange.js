@@ -13,9 +13,12 @@ import {
 } from "@elastic/eui";
 import {EP_UPDATE_PASSWORD} from "../../constants";
 import axios from "axios";
+import {useSelector} from 'react-redux'
 
 const initialPassForm = {old_password: '', password: '', confirm_password: ''}
 const initialNotif = {show : false, message : '', title: ''}
+
+
 const PasswordChange = (props) => {
 
     const [passForm, setPassForm] = useState(initialPassForm)
@@ -23,7 +26,7 @@ const PasswordChange = (props) => {
     const notClose = () => setNotif(initialNotif)
     const handleChange = (e) => setPassForm({...passForm, [e.target.name] : e.target.value})
     const resetForm = () => setPassForm(initialPassForm)
-
+    const user = useSelector((state) => state.auth)
     /**
      * On password form is submitted
      * @param e
@@ -45,7 +48,7 @@ const PasswordChange = (props) => {
      * @param url
      */
     const sendPassword = (new_password, url) => {
-        let data = {email: props.user.email, password: new_password}
+        let data = {email: user.email, password: new_password}
         axios.post(url, data)
              .then((response) => {
                  setNotif({show:true,  title: "Success", message: 'Password has been successfully changed.'})

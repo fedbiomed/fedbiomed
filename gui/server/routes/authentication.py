@@ -56,14 +56,14 @@ def update_password():
         return error('Error invalid user id'), 400
 
     user_name = get_user_by_email(email)
+
     if not user_name:
         return error('Invalid operation: User does not belong to database'), 400
 
     try:
         user_table.update({
-            "user_email": email,
             "password_hash": set_password_hash(password)
-        })
+        }, query.user_email == decoded_json['email'])
         res = user_table.get(query.user_email == email)
 
         return response({
