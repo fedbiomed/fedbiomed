@@ -4,7 +4,7 @@
   "private": true,
   "dependencies": {
     "@elastic/datemath": "^5.0.3",
-    "@elastic/eui": "^63.0.3",
+    "@elastic/eui": "^66.0.0",
     "@emotion/react": "^11.10.0",
     "@testing-library/jest-dom": "^5.15.1",
     "@testing-library/react": "^11.2.7",
