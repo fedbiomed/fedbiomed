@@ -3,7 +3,9 @@ import logging
 from fedbiomed.common.data import DataLoadingPlan, DataLoadingPlanMixin, MapperBlock
 from testsupport.testing_data_loading_block import LoadingBlockForTesting, LoadingBlockTypesForTesting, \
     TestAbstractsBlock
-from fedbiomed.common.exceptions import FedbiomedLoadingBlockError, FedbiomedLoadingBlockSerializationError
+from fedbiomed.common.exceptions import FedbiomedLoadingBlockError, FedbiomedLoadingBlockValueError, \
+    FedbiomedDataLoadingPlanValueError, FedbiomedDataLoadingPlanError
+from fedbiomed.common.constants import DatasetTypes
 
 
 class TestDataLoadingBlock(unittest.TestCase):
@@ -39,30 +41,30 @@ class TestDataLoadingBlock(unittest.TestCase):
         self.assertDictEqual(dlb4.map, dlb5.map)
 
         with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
-            with self.assertRaises(FedbiomedLoadingBlockSerializationError):
+            with self.assertRaises(FedbiomedLoadingBlockValueError):
                 dlb5.deserialize({'wrong-data': 'should-not-be-here', **serialized})
                 self.assertEqual(captured.output[-1],
                                  'CRITICAL:fedbiomed:FB614: data loading block error: '
                                  'undefined key (wrong-data) in scheme')
-            with self.assertRaises(FedbiomedLoadingBlockSerializationError):
+            with self.assertRaises(FedbiomedLoadingBlockValueError):
                 dlb5.deserialize({**serialized, 'loading_block_class': 'Wrong._format.__*$class.name'})
                 self.assertEqual(captured.output[-1],
                                  'CRITICAL:fedbiomed:FB614: data loading block error: '
                                  '__*$class within Wrong._format.__*$class.name is not a '
                                  'valid class name for deserialization of Data Loading Block.')
-            with self.assertRaises(FedbiomedLoadingBlockSerializationError):
+            with self.assertRaises(FedbiomedLoadingBlockValueError):
                 dlb5.deserialize({**serialized, 'loading_block_module': '9Wrong.format.module.name'})
                 self.assertEqual(captured.output[-1],
                                  'CRITICAL:fedbiomed:FB614: data loading block error: '
                                  '9Wrong within 9Wrong.format.module.name is not a valid '
                                  'class name for deserialization of Data Loading Block.')
-            with self.assertRaises(FedbiomedLoadingBlockSerializationError):
+            with self.assertRaises(FedbiomedLoadingBlockValueError):
                 dlb5.deserialize({**serialized, 'loading_block_serialization_id': 'serialized_dlb_wrong-format-uuid'})
                 self.assertEqual(captured.output[-1],
                                  'CRITICAL:fedbiomed:FB614: data loading block error: '
                                  'serialized_dlb_wrong-format-uuid is not of the form '
                                  'serialized_dlb_<uuid> for deserialization of Data Loading Block.')
-            with self.assertRaises(FedbiomedLoadingBlockSerializationError):
+            with self.assertRaises(FedbiomedLoadingBlockValueError):
                 dlb5.deserialize({**serialized, 'loading_block_serialization_id': 'wrong-format-id'})
                 self.assertEqual(captured.output[-1],
                                  'CRITICAL:fedbiomed:FB614: data loading block error: '
@@ -126,7 +128,12 @@ class TestDataLoadingPlan(unittest.TestCase):
         self.assertIn(LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING.value, str_repr)
         self.assertIn(LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING.value, str_repr)
 
-    def test_data_loading_plan_02_serialize_and_load(self):
+        with self.assertRaises(FedbiomedDataLoadingPlanValueError):
+            dlp['string'] = self.dlb1
+        with self.assertRaises(FedbiomedDataLoadingPlanValueError):
+            dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING] = {}
+
+    def test_data_loading_plan_02_serialize_and_deserialize(self):
         """Tests that a DataLoadingPlan can be serialized and loaded correctly"""
         dlp = DataLoadingPlan()
         dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING] = self.dlb1
@@ -167,16 +174,32 @@ class TestDataLoadingPlan(unittest.TestCase):
         for v1, v2 in zip(dlp_values, dlp2_values):
             self.assertEqual(v1, v2)
 
+        with self.assertRaises(FedbiomedLoadingBlockError):
+            dlp_metadata, dlbs_metadata = dlp.serialize()
+            dlbs_metadata[0]['loading_block_class'] = 'WrongClass'
+            DataLoadingPlan().deserialize(dlp_metadata, dlbs_metadata)
+
+        with self.assertRaises(FedbiomedDataLoadingPlanError):
+            dlp_metadata, dlbs_metadata = dlp.serialize()
+            dlp_metadata['key_paths'][LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING.value] = \
+                ('WrongKeyModule', 'WrongKeyName')
+            DataLoadingPlan().deserialize(dlp_metadata, dlbs_metadata)
+
     def test_data_loading_plan_03_mixin_functionality(self):
         """Tests that the DataLoadingPlanMixin class provides the intended functionality"""
         class MyDataset(DataLoadingPlanMixin):
             def __init__(self):
                 super(MyDataset, self).__init__()
 
+            @staticmethod
+            def get_dataset_type():
+                return DatasetTypes.TEST
+
         tp = MyDataset()
         dlp = DataLoadingPlan()
         dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING] = self.dlb1
         dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING] = self.dlb2
+        dlp.target_dataset_type = DatasetTypes.TEST
 
         # heuristic test that no DLP exist for dataset
         apply_1 = tp.apply_dlb("my default", LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING)
@@ -208,6 +231,10 @@ class TestDataLoadingPlan(unittest.TestCase):
                 orig_key = 'orig-key'
                 return self.apply_dlb(orig_key, LoadingBlockTypesForTesting.TESTING_MAPPER, orig_key)
 
+            @staticmethod
+            def get_dataset_type():
+                return DatasetTypes.TEST
+
         dlb = MapperBlock()
         dlb.map = {'orig-key': 'new-key'}
         dlp = DataLoadingPlan()
@@ -217,6 +244,9 @@ class TestDataLoadingPlan(unittest.TestCase):
         self.assertEqual(tp.test_mapper(), 'orig-key')
         tp.set_dlp(dlp)
         self.assertEqual(tp.test_mapper(), 'new-key')
+
+        with self.assertRaises(FedbiomedDataLoadingPlanValueError):
+            tp.apply_dlb('some value', 'wrong-key-type')
 
 
 if __name__ == '__main__':

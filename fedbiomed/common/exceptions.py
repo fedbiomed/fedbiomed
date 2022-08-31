@@ -21,6 +21,20 @@ class FedbiomedAggregatorError(FedbiomedError):
     pass
 
 
+class FedbiomedDataLoadingPlanError(FedbiomedError):
+    """
+    Exceptions specific for the class fedbiomed.common.data.DataLoadingPlan.
+    """
+    pass
+
+
+class FedbiomedDataLoadingPlanValueError(FedbiomedError):
+    """
+    Exceptions similar to Value Error for a DataLoadingPlan.
+    """
+    pass
+
+
 class FedbiomedDatasetError(FedbiomedError):
     """
     Exceptions specific for the class fedbiomed.common.data.NIFTIFolderDataset.
@@ -63,9 +77,9 @@ class FedbiomedLoadingBlockError(FedbiomedError):
     pass
 
 
-class FedbiomedLoadingBlockSerializationError(FedbiomedError):
+class FedbiomedLoadingBlockValueError(FedbiomedError):
     """
-    Exception specific to the serialization/deserialization of a DataLoadingBlock.
+    Exception similar to ValueError for a DataLoadingBlock.
     """
     pass
 

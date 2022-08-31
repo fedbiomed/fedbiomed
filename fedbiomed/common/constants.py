@@ -120,6 +120,16 @@ class DataLoadingBlockTypes(_BaseEnum):
                 f"its subclasses: {a} --> {e}")
 
 
+class DatasetTypes(_BaseEnum):
+    TABULAR: str = 'csv'
+    IMAGES: str = 'images'
+    DEFAULT: str = 'default'
+    MEDNIST: str = 'mednist'
+    MEDICAL_FOLDER: str = 'medical-folder'
+    TEST: str = 'test'
+    NONE: str = 'none'
+
+
 class ErrorNumbers(_BaseEnum):
     """List of all error messages types"""
 

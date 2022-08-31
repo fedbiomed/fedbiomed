@@ -18,7 +18,7 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
-from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes
+from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
 from ._data_loading_plan import DataLoadingPlanMixin
 
 
@@ -463,6 +463,10 @@ class MedicalFolderBase(DataLoadingPlanMixin):
                                         f"root/<subjects>/<modalities>")
 
         return path
+
+    @staticmethod
+    def get_dataset_type() -> DatasetTypes:
+        return DatasetTypes.MEDICAL_FOLDER
 
 
 class MedicalFolderDataset(Dataset, MedicalFolderBase):
