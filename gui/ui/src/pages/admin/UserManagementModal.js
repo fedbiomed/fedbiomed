@@ -72,6 +72,7 @@ const UserPasswordResetManagement = (props) => {
     React.useEffect(() => {
         setShow(props.show)
         setIsPasswordReset(false)
+        setError(null)
     }, [props.show])
 
 

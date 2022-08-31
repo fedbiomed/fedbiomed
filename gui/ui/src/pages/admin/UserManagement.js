@@ -4,6 +4,8 @@ import {
     EuiButtonIcon,
     EuiToast,
     EuiBasicTable,
+    formatDate,
+    EuiInMemoryTable,
     EuiTitle,
     EuiSpacer
   } from '@elastic/eui';
@@ -128,6 +130,8 @@ const UserManagement = (props) => {
         {
             field: 'creation_date',
             name: 'Account Created',
+            dataType: 'date',
+            render: (date) => formatDate(date, 'Do MMMM YYYY HH:MM'),
             truncateText: false,
             sortable: true,
         },
@@ -212,7 +216,7 @@ const UserManagement = (props) => {
             <EuiButton onClick={()=> (setShowAccountCreationModal(true))}>Create new account</EuiButton>
             <EuiSpacer size={'l'}/>
             {props.user_list ? (
-                <EuiBasicTable
+                <EuiInMemoryTable
                         aria-label={"User table"}
                         items={items}
                         itemId="id"
@@ -222,6 +226,9 @@ const UserManagement = (props) => {
                         hasActions={true}
                         onChange={onTableChange}
                         loading={props.loading}
+                        search={{box: {
+                                  incremental: true,
+                                }}}
                 />
             ) : null}
 
