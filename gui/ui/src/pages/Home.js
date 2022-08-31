@@ -5,6 +5,7 @@ import {ReactComponent as FileIcon} from "../assets/img/file.svg";
 import {ReactComponent as DataIcon} from "../assets/img/database.svg";
 import {ReactComponent as PlusIcon} from "../assets/img/plus.svg";
 import {ReactComponent as ConfIcon} from "../assets/img/configuration.svg";
+import {EuiTitle, EuiText, EuiTextAlign} from '@elastic/eui'
 
 
 const Home = (props) => {
@@ -52,11 +53,17 @@ const Home = (props) => {
 
     return (
         <React.Fragment>
-            <div>
-                <h2>Fed-BioMed Node GUI</h2>
-                <p>Welcome to Fed-BioMed Node application. In this application, you can manage your data
-                    files that are deployed in the node or load new datasets into the node.  </p>
-            </div>
+            <EuiTitle>
+                <EuiTextAlign textAlign={"center"}>
+                    <h2>Fed-BioMed Node GUI</h2>
+                </EuiTextAlign>
+            </EuiTitle>
+            <EuiText>
+                <EuiTextAlign textAlign={"center"}>
+                    <p>Welcome to Fed-BioMed Node application. In this application, you can manage your data
+                        files that are deployed in the node or load new datasets into the node.  </p>
+                </EuiTextAlign>
+            </EuiText>
             <div className="frame-content">
                 {boxes.map( (row, key1) => {
                     return (
