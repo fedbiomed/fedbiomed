@@ -3,7 +3,8 @@ import {APPROVE_USER_REQUEST, APPROVE_USER_REQUEST_ERROR, APPROVE_USER_REQUEST_L
     GET_USER_REQUESTS_ERROR, GET_USER_REQUESTS_LOADING, REJECT_USER_REQUEST, REJECT_USER_REQUEST_ERROR, REJECT_USER_REQUEST_LOADING} from "./actions";
 import {EP_REQUESTS_LIST ,
         EP_REQUEST_APPROVE,
-        EP_REQUEST_REJECT
+        EP_REQUEST_REJECT,
+        REJECTED_REQUEST
     } from "../../constants";
 import {GET_USER_REQUESTS} from "./actions";
 import { store } from "../../index"
@@ -86,8 +87,7 @@ export const rejectAccountRequest = (data) => {
                         return e.request_id;
                     }).indexOf(data.request_id);
                     if (index > -1) {
-                        user_requests.requests[index] = res.data.result
-                        console.log(user_requests.requests)
+                        user_requests.requests[index].request_status = REJECTED_REQUEST
                         dispatch({ type: REJECT_USER_REQUEST, payload: user_requests.requests})
                         dispatch({type: REJECT_USER_REQUEST_LOADING, payload: {status: false}})
                     }

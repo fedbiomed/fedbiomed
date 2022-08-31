@@ -68,3 +68,7 @@ export const ALLOWED_EXTENSIONS = ['.csv', '.txt']
 
 // role for authentication (User or admin)
 export const ROLE = {1: 'Admin', 2: 'User'}
+
+// account request status
+export const NEW_REQUEST = 'NEW'
+export const REJECTED_REQUEST = 'REJECTED'
