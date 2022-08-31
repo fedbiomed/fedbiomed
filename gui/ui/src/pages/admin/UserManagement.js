@@ -105,26 +105,14 @@ const UserManagement = (props) => {
         // Column contains scheme for designing grid
     const columns = [
         {
-            field: 'user_name',
             name: 'Name',
+            render: (item) => `${item.user_surname?.toUpperCase()} ${item?.user_name}`,
             truncateText: true,
             sortable: true,
         },
-        {
-            field: 'user_surname',
-            name: 'Surname',
-            truncateText: true,
-            sortable: true,
-          },
         {
             field: 'user_email',
             name: 'E-Mail',
-            truncateText: false,
-            sortable: true,
-        },
-        {
-            field: 'role',
-            name: 'User Role',
             truncateText: false,
             sortable: true,
         },
@@ -137,8 +125,9 @@ const UserManagement = (props) => {
             sortable: true,
         },
         {
-            field: 'last_connection',
+            field: 'last_login',
             name: 'Last Login Date',
+            render: (date) => formatDate(date, 'Do MMMM YYYY HH:MM'),
             truncateText: false,
             sortable: true,
         },
