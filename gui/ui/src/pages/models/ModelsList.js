@@ -53,7 +53,6 @@ const ModelsList = (props) => {
 
     const onSort = (sortBy) => {
         setSortBy(sortBy)
-        console.log()
         list_models({
             search: search.text ? {by : search.by, text: search.text} : null,
             sort_by : sortBy})

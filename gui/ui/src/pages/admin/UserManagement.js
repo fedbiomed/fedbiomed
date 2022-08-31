@@ -161,13 +161,12 @@ const UserManagement = (props) => {
         pageIndex: pageIndex,
         pageSize: pageSize,
         totalItemCount: props.user_list.length,
-        pageSizeOptions: [20, 40, 60],
+        pageSizeOptions: [10, 20, 30],
     };
 
 
     const deleteUserConfirmationHandler = () => {
         let user_id = userToDelete
-        console.log(user_id)
         props.deleteUser(user_id)
     }
 
@@ -181,8 +180,7 @@ const UserManagement = (props) => {
                             color="danger"
                             iconType="alert"
                             onClose={() => dispatch({type: USER_MANAGEMENT_ERROR, payload:false})}
-                            isExpandable={true}
-                          >
+                         >
                          <p>{props.error}</p>
                      </EuiToast>
                  </React.Fragment>
@@ -195,8 +193,7 @@ const UserManagement = (props) => {
                             color="success"
                             iconType="alert"
                             onClose={() => dispatch({type: USER_MANAGEMENT_SUCCESS_MESSAGE, payload:null})}
-                            isExpandable={true}
-                          >
+                        >
                          <p>{props.success}</p>
                      </EuiToast>
                  </React.Fragment>
@@ -205,11 +202,10 @@ const UserManagement = (props) => {
             <EuiSpacer size={'l'}/>
             <EuiButton onClick={()=> (setShowAccountCreationModal(true))}>Create new account</EuiButton>
             <EuiSpacer size={'l'}/>
-            {props.user_list ? (
+            {props.user_list && items  ? (
                 <EuiInMemoryTable
                         aria-label={"User table"}
                         items={items}
-                        itemId="id"
                         columns={columns}
                         pagination={pagination}
                         sorting={sorting}

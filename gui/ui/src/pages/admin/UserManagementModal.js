@@ -91,7 +91,6 @@ const UserPasswordResetManagement = (props) => {
                 setIsPasswordReset(true)
                 setLoading(false)
         }).catch(error => {
-            console.log('HERE')
             setError(`Error while resetting password: ${error.response.data.message ? 
                 error.response.data.message : 'unexpected error please contact system provider'}`)
             setLoading(false)
@@ -122,7 +121,6 @@ const UserPasswordResetManagement = (props) => {
                                         color="success"
                                         iconType="alert"
                                         onClose={() => setError(null)}
-                                        isExpandable={true}
                                       >
                                          <EuiText>
                                             Password has been changed for user {password.email} as <b>" {password.password} "</b>
@@ -139,7 +137,6 @@ const UserPasswordResetManagement = (props) => {
                                         color="danger"
                                         iconType="alert"
                                         onClose={() => setError(null)}
-                                        isExpandable={true}
                                       >
                                      <p>{error}</p>
                                     </EuiCallOut>

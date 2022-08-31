@@ -17,7 +17,6 @@ const UserAccount = (props) => {
     const navigate = useNavigate()
     const location = useLocation()
 
-    console.log(location)
     const tabs = [
               {
                   id: 'user-info',
