@@ -87,20 +87,19 @@ hr {
 }
 
 .App .main-frame .router-frame .inner {
-padding: 0px 20px 0px 20px;
-display: flex;
-flex-flow: column;
-position: relative;
-height: calc(100vh - 75px);
-overflow-y: scroll;
-width: 90%;
-margin: 0 auto;
-background: #fff;
-max-width: 1240px;
-border-radius: 5px;
-box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
--webkit-box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
--moz-box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
+  padding: 20px 20px 0px 20px;
+  display: flex;
+  flex-flow: column;
+  position: relative;
+  min-height: calc(100vh - 75px);
+  width: 90%;
+  margin: 0 auto;
+  background: #fff;
+  max-width: 1240px;
+  border-radius: 5px;
+  box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
+  -webkit-box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
+  -moz-box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
 }
 
 .router-frame .inner .frame-header {
@@ -115,7 +114,6 @@ box-shadow: 0px 0px 20px -12px rgba(0,0,0,0.63);
 
 .router-frame .inner .frame-content {
   flex: 1 1 auto;
-  overflow-y: scroll;
   padding: 10px;
 }
 
