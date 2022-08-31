@@ -9,12 +9,6 @@ import {APPROVE_USER_REQUEST, APPROVE_USER_REQUEST_ERROR, GET_USER_REQUESTS, GET
     requests: [],
     error : null,
     loading: false,
-    approve_request: {
-        success : null,
-        message : null,
-        result : null,
-        waiting: false,
-    },
 }
 
 /**
