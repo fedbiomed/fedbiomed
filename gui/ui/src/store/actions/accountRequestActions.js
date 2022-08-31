@@ -44,14 +44,10 @@ export const approveAccountRequest = (data) => {
         axios.post(EP_REQUEST_APPROVE, {request_id : data.request_id})
              .then(res => {
                 if(res.status === 201){
-                    let index = user_requests.map(function(e) {
-                        return e.request_id;
-                    }).indexOf(data.request_id);
-                    if (index > -1) {
-                        user_requests.splice(index, 1);
-                        dispatch({ type: APPROVE_USER_REQUEST, payload: user_requests})
-                        dispatch({type: GET_USER_REQUESTS_LOADING, payload: false})
-                    }
+                    let index = user_requests.findIndex( (element) => element.request_id  === data.request_id)
+                    user_requests.splice(index, 1);
+                    dispatch({ type: APPROVE_USER_REQUEST, payload: user_requests})
+                    dispatch({type: GET_USER_REQUESTS_LOADING, payload: false})
                 }else{
                     dispatch({type:GET_USER_REQUESTS_LOADING, payload: false})
                     dispatch({type: APPROVE_USER_REQUEST_ERROR, payload: res.data.message})
@@ -82,14 +78,10 @@ export const rejectAccountRequest = (data) => {
         axios.post(EP_REQUEST_REJECT, {request_id : data.request_id})
              .then(res => {
                 if(res.status === 200){
-                    let index = user_requests.map(function(e) {
-                        return e.request_id;
-                    }).indexOf(data.request_id);
-                    if (index > -1) {
-                        user_requests[index].request_status = REJECTED_REQUEST
-                        dispatch({ type: REJECT_USER_REQUEST, payload: user_requests})
-                        dispatch({type: GET_USER_REQUESTS_LOADING, payload: false})
-                    }
+                    let index = user_requests.findIndex( (element) => element.request_id  === data.request_id)
+                    user_requests[index].request_status = REJECTED_REQUEST
+                    dispatch({ type: REJECT_USER_REQUEST, payload: user_requests})
+                    dispatch({type: GET_USER_REQUESTS_LOADING, payload: false})
                 }else{
                     dispatch({type: GET_USER_REQUESTS_LOADING, payload: false})
                     dispatch({type: REJECT_USER_REQUEST_ERROR, payload: res.data.message})
