@@ -3,6 +3,8 @@ import secrets
 import string
 from fedbiomed.common.constants import UserRequestStatus
 from gui.server.routes import admin_required
+from middlewares import middleware
+from middlewares.auth_validation import validate_email_register, validate_password
 from . import api
 from utils import success, error, validate_request_data, response
 
@@ -57,6 +59,7 @@ def list_users():
 
 @api.route('/admin/users/create', methods=['POST'])
 @validate_request_data(schema=ValidateUserFormRequest)
+@middleware(middlewares=[validate_email_register, validate_password])
 @admin_required
 def create_user():
     """ API endpoint to register new user in the database (as an admin).
@@ -105,12 +108,11 @@ def create_user():
             "user_role": UserRoleType.USER,
             "creation_date": datetime.utcnow().ctime(),
             "user_id": user_id,
-            "request_status": UserRequestStatus.NEW
         })
 
         res = user_table.get(query.user_id == user_id)
 
-        if res :
+        if res:
             return response(res, 'Has has been successfully saved'), 201
         else:
             return error('Unexpected error, please try again later'), 400
