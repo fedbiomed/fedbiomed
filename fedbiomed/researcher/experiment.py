@@ -1430,7 +1430,7 @@ class Experiment(object):
         return self._client_correction_states_dict # regarding previous line formula, we should use the number of local updates instead of epochs for Scaffold strategy 
 
     @exp_exceptions
-    def set_new_client_states_dict(self, model_params_list) -> List[dict]:
+    def set_new_client_states_dict(self, model_params_list) -> dict:
         """ At round i, calling this function allows us to define each client state for round i+1,
         with scaling of the local parameters by server_lr.
 
