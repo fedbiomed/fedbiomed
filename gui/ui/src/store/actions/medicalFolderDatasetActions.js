@@ -346,10 +346,12 @@ export const setChangeDlpMedicalFolderDataset = (use_dlp, state) => {
                     dlp_id: dlp_id,
                     mod2fol_mapping: JSON.parse(JSON.stringify(data.map)),
                 }})
-                // dirty hack: need to force refresh of the ModalitiesToFolders
+                // dirty hack: need to force refresh of the ModalitiesToFolders and CSV selection
                 if(dlp['use_custom_mod2fol'] === true) {
                     dispatch({type: 'SET_CUSTOMIZE_MOD2FOL', payload: false})
                     dispatch({type: 'SET_CUSTOMIZE_MOD2FOL', payload: true})
+                    dispatch({type: 'UPDATE_HAS_ALL_MAPPINGS', payload: false})
+                    dispatch({type: 'UPDATE_HAS_ALL_MAPPINGS', payload: true})
                 }
             }).catch(error => {
                 dispatch({type:'SET_LOADING', payload: {status: false}})
