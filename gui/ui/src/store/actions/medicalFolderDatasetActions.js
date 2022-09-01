@@ -467,9 +467,9 @@ export const addMedicalFolderDataset = (navigator) => {
                         })
                     } else {
                         cleanDLP(dispatch, saved_dlp_id)
-                        dispatch({'type': 'ERROR_MODAL', payload: 'No subject from the dataset has one folder \
-                            for each defined modalities, or some subjects have more than one folder for some \
-                            modality. Check and update your customized associations'})
+                        dispatch({'type': 'ERROR_MODAL', payload: 'No subject from the dataset has one folder ' +
+                            'for each defined modalities, or some subjects have more than one folder for some ' +
+                            'modality. Check and update your customized associations'})
                     }
                 },
                 (reject) => {
