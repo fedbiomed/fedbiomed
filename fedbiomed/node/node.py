@@ -160,7 +160,7 @@ class Node:
                             extra_msg='Message was not serializable',
                             researcher_id=resid)
 
-    def parser_task(self, msg: Union[bytes, str, Dict[str, Any]]): #### FLAG
+    def parser_task(self, msg: Union[bytes, str, Dict[str, Any]]):
         """Parses a given task message to create a round instance
 
         Args:

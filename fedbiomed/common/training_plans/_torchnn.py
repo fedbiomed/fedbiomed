@@ -260,6 +260,7 @@ class TorchTrainingPlan(BaseTrainingPlan, nn.Module):
 
                 if correction_state is not None:
                     dot_product = compute_dot_product(self.state_dict(), correction_state)
+                    #print("dot_prod:", dot_product)
                     corrected_loss = res - dot_product
 
                 # If FedProx is enabled: use regularized loss function

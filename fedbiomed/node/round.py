@@ -229,7 +229,7 @@ class Round:
                     results = {}
                     rtime_before = time.perf_counter()
                     ptime_before = time.process_time()
-                    self.model.training_routine(**training_kwargs_with_history) #### FLAG
+                    self.model.training_routine(**training_kwargs_with_history)
                     rtime_after = time.perf_counter()
                     ptime_after = time.process_time()
                 except Exception as e:
