@@ -402,12 +402,19 @@ function checkSubjectsAllModalities(dispatch, mf, dlp_id) {
  */
 export const addMedicalFolderDataset = (navigator) => {
     return (dispatch, getState) => {
-        let medical_folder = getState().medicalFolderDataset
-        let dlp = getState().dataLoadingPlan
+        let state = getState()
+        let medical_folder = state.medicalFolderDataset
+        let dlp = state.dataLoadingPlan
         let dlp_function = null
 
-        // only try to save DLP when we have customizations
-        if(medical_folder.use_custom_mod2fol) {
+        let used_dlp_id = null
+        // reusing an unchanged loaded DLP
+        if(medical_folder.use_custom_mod2fol && (dlp.use_preexisting_dlp && dlp.same_as_preexisting_dlp)) {
+            used_dlp_id = dlp.preexisting_dlp.dlp_id
+        }
+
+        // only try to save DLP when we have customizations, and not the same as loaded customizations
+        if(medical_folder.use_custom_mod2fol && (!dlp.use_preexisting_dlp || !dlp.same_as_preexisting_dlp)) {
             dispatch({type:'SET_LOADING', payload: {status: true, text: "Saving data customizations..."}})
             let params_add_dlp = {
                 'modalities_mapping': medical_folder.mod2fol_mapping,
@@ -425,9 +432,10 @@ export const addMedicalFolderDataset = (navigator) => {
                 if(response !== 'DUMMY'){ 
                     dispatch({type:'SET_LOADING', payload: {status: false}})
                     saved_dlp_id = response.data.result
+                    used_dlp_id = response.data.result
                 }
 
-                checkSubjectsAllModalities(dispatch, medical_folder, saved_dlp_id).then(
+                checkSubjectsAllModalities(dispatch, medical_folder, used_dlp_id).then(
                 (resolve) => {
                     if(resolve) {
                         let data = {
@@ -435,7 +443,7 @@ export const addMedicalFolderDataset = (navigator) => {
                             name : medical_folder.metadata.name,
                             desc : medical_folder.metadata.desc,
                             tags : medical_folder.metadata.tags,
-                            dlp_id: saved_dlp_id
+                            dlp_id: used_dlp_id
                         }
                         if(!medical_folder.ignore_reference_csv){
                             data = {
