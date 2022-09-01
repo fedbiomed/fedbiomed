@@ -32,7 +32,7 @@ const AccountRequestManagement = (props) => {
     const [actionType, setActionType] = useState('')
     const [title, setTitle] = useState('')
     const dispatch = useDispatch()
-    // const [showRejectRequestModal, setShowRejectRequestModal] = useState(false);
+    const {listAccountRequests} = props
 
     const onSelect = (item, actionType, title) => {
         setActionType(actionType)
@@ -57,23 +57,19 @@ const AccountRequestManagement = (props) => {
      * Call list user requests API when component loaded for the first time
      */
     React.useEffect(() => {
-        props.listAccountRequests()
-    }, [props.listAccountRequests])
+        listAccountRequests()
+    }, [listAccountRequests ])
 
-    /**
-     * Update table items each time user request list changed
-     */
-     React.useEffect( () => {
-        setItems(props.requests)
-    }, [props.requests])
+
 
     /**
      * Lifecycle method to keep track change on use table
      */
      React.useEffect( () => {
+         setItems(props.user_requests)
         let begin = pageIndex * pageSize
         let end = pageIndex * pageSize + pageSize
-        let display = props.requests.slice(begin, end)
+        let display = props.user_requests.slice(begin, end)
 
         // Sort with custom function
         display.sort( (a, b) => {
@@ -89,7 +85,15 @@ const AccountRequestManagement = (props) => {
         })
         setItems(display)
 
-    }, [pageIndex, pageSize, sortField, sortDirection])
+    }, [pageIndex, pageSize, sortField, sortDirection, props.user_requests])
+
+
+     /**
+     * Update table items each time user request list changed
+     */
+     React.useEffect( () => {
+        setItems(props.user_requests)
+    }, [props.user_requests])
 
     /**
      * On table value is changed
@@ -178,7 +182,7 @@ const AccountRequestManagement = (props) => {
     const pagination = {
         pageIndex: pageIndex,
         pageSize: pageSize,
-        totalItemCount: props.requests.length,
+        totalItemCount: props.user_requests.length,
         pageSizeOptions: [20, 40, 60],
     };
 
@@ -218,7 +222,7 @@ const AccountRequestManagement = (props) => {
 
             }
             <EuiSpacer size="l" />
-            {props.requests ? (
+            {props.user_requests ? (
 
                 <EuiBasicTable
                     aria-label={"User requests table"}
@@ -266,7 +270,7 @@ const AccountRequestManagement = (props) => {
  */
  const mapStateToProps = (state) => {
     return {
-        requests : state.user_requests.requests,
+        user_requests : state.user_requests.requests,
         error : state.user_requests.error,
         loading : state.user_requests.loading,
         success : state.user_requests.success
