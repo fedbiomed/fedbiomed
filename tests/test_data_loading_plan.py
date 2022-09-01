@@ -21,7 +21,7 @@ class TestDataLoadingBlock(unittest.TestCase):
         serialized = self.dlb1.serialize()
         self.assertIn('loading_block_class', serialized)
         self.assertIn('loading_block_module', serialized)
-        self.assertIn('loading_block_serialization_id', serialized)
+        self.assertIn('dlb_id', serialized)
 
         self.dlb2.deserialize(serialized)
         self.assertDictEqual(self.dlb1.data, self.dlb2.data)
@@ -59,13 +59,13 @@ class TestDataLoadingBlock(unittest.TestCase):
                                  '9Wrong within 9Wrong.format.module.name is not a valid '
                                  'class name for deserialization of Data Loading Block.')
             with self.assertRaises(FedbiomedLoadingBlockValueError):
-                dlb5.deserialize({**serialized, 'loading_block_serialization_id': 'serialized_dlb_wrong-format-uuid'})
+                dlb5.deserialize({**serialized, 'dlb_id': 'serialized_dlb_wrong-format-uuid'})
                 self.assertEqual(captured.output[-1],
                                  'CRITICAL:fedbiomed:FB614: data loading block error: '
                                  'serialized_dlb_wrong-format-uuid is not of the form '
                                  'serialized_dlb_<uuid> for deserialization of Data Loading Block.')
             with self.assertRaises(FedbiomedLoadingBlockValueError):
-                dlb5.deserialize({**serialized, 'loading_block_serialization_id': 'wrong-format-id'})
+                dlb5.deserialize({**serialized, 'dlb_id': 'wrong-format-id'})
                 self.assertEqual(captured.output[-1],
                                  'CRITICAL:fedbiomed:FB614: data loading block error: '
                                  'wrong-format-id is not of the form serialized_dlb_<uuid> '
@@ -156,12 +156,12 @@ class TestDataLoadingPlan(unittest.TestCase):
 
         self.assertIsInstance(serialized_loading_blocks, list)
         self.assertEqual(len(serialized_loading_blocks), 2)
-        self.assertIn('loading_block_serialization_id', serialized_loading_blocks[0])
-        self.assertIn('loading_block_serialization_id', serialized_loading_blocks[1])
+        self.assertIn('dlb_id', serialized_loading_blocks[0])
+        self.assertIn('dlb_id', serialized_loading_blocks[1])
 
-        self.assertIn(serialized_loading_blocks[0]['loading_block_serialization_id'],
+        self.assertIn(serialized_loading_blocks[0]['dlb_id'],
                       serialized_dlp['loading_blocks'].values())
-        self.assertIn(serialized_loading_blocks[1]['loading_block_serialization_id'],
+        self.assertIn(serialized_loading_blocks[1]['dlb_id'],
                       serialized_dlp['loading_blocks'].values())
 
         dlp2.deserialize(*dlp.serialize())

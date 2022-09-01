@@ -176,7 +176,7 @@ class SerializationValidation:
                 'rules': [str, cls._identifier_validation_hook],
                 'required': True,
             },
-            'loading_block_serialization_id': {
+            'dlb_id': {
                 'rules': [str, cls._serial_id_validation_hook],
                 'required': True,
             },
@@ -259,7 +259,7 @@ class DataLoadingBlock(SerializationValidation, ABC):
         return dict(
             loading_block_class=self.__class__.__qualname__,
             loading_block_module=self.__module__,
-            loading_block_serialization_id=self.__serialization_id
+            dlb_id=self.__serialization_id
         )
 
     def deserialize(self, load_from: dict) -> TDataLoadingBlock:
@@ -271,7 +271,7 @@ class DataLoadingBlock(SerializationValidation, ABC):
             the self instance
         """
         self.validate(load_from, FedbiomedLoadingBlockValueError)
-        self.__serialization_id = load_from['loading_block_serialization_id']
+        self.__serialization_id = load_from['dlb_id']
         return self
 
     @abstractmethod
@@ -470,7 +470,7 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock], Serializati
                       f"because of {type(e).__name__}: {e}"
                 logger.debug(msg)
                 raise FedbiomedDataLoadingPlanError(msg)
-            loading_block = next(filter(lambda x: x['loading_block_serialization_id'] == loading_block_serialization_id,
+            loading_block = next(filter(lambda x: x['dlb_id'] == loading_block_serialization_id,
                                         serialized_loading_blocks))
             dlb = DataLoadingBlock.instantiate_class(loading_block)
             self[loading_block_key] = dlb.deserialize(loading_block)
