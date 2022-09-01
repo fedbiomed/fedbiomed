@@ -49,18 +49,18 @@ const MedicalFolderMetadata = (props) => {
                     </div>
                 </div>
 
-                {props.use_custom_mod2fol ?
-                    <div className={`row`}>
-                        <div className="form-control">
-                            <Label>Customization name <span style={{fontSize:11}}>(min 4 character)</span> </Label>
-                            <TextArea name="desc"
-                                      type="text"
-                                      placeholder="Enter a name for the data loading customizations that you created."
-                                      onChange={(e) => { props.setDLPDesc(e.target.value)}}
-                                      value={props.dlp_name}
-                            />
-                        </div>
-                    </div> : null
+                {props.use_custom_mod2fol && (!props.use_preexisting_dlp || !props.same_as_preexisting_dlp) ?
+                        <div className={`row`}>
+                            <div className="form-control">
+                                <Label>Customization name <span style={{fontSize:11}}>(min 4 character)</span> </Label>
+                                <TextArea name="desc"
+                                          type="text"
+                                          placeholder="Enter a name for the data loading customizations that you created."
+                                          onChange={(e) => { props.setDLPDesc(e.target.value)}}
+                                          value={props.dlp_name}
+                                />
+                            </div>
+                        </div> : null
                 }
         </div>
     );
@@ -71,6 +71,8 @@ const mapStateToProps = (state) => {
         metadata : state.medicalFolderDataset.metadata,
         use_custom_mod2fol : state.medicalFolderDataset.use_custom_mod2fol,
         dlp_name : state.dataLoadingPlan.dlp_name,
+        use_preexisting_dlp : state.dataLoadingPlan.use_preexisting_dlp,
+        same_as_preexisting_dlp : state.dataLoadingPlan.same_as_preexisting_dlp,
     }
 }
 
