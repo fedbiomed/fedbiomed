@@ -49,7 +49,9 @@ const MedicalFolderMetadata = (props) => {
                     </div>
                 </div>
 
-                {props.use_custom_mod2fol && (!props.use_preexisting_dlp || !props.same_as_preexisting_dlp) ?
+                {props.use_custom_mod2fol ?
+                    <React.Fragment>
+                    {!props.use_preexisting_dlp || !props.same_as_preexisting_dlp ?
                         <div className={`row`}>
                             <div className="form-control">
                                 <Label>Customization name <span style={{fontSize:11}}>(min 4 character)</span> </Label>
@@ -60,7 +62,12 @@ const MedicalFolderMetadata = (props) => {
                                           value={props.dlp_name}
                                 />
                             </div>
-                        </div> : null
+                        </div> : <div>
+                            Info: reusing unchanged existing customizations, don't need to save them again. 
+                        </div>
+                    }
+
+                    </React.Fragment>: null
                 }
         </div>
     );
