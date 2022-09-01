@@ -205,6 +205,7 @@ class ErrorNumbers(_BaseEnum):
     FB612: str = "FB612: Torch based NIFTI dataset error"
     FB613: str = "FB613: Medical Folder dataset error"
     FB614: str = "FB614: data loading block error"
+    FB615: str = "FB615: data loading plan error"
 
 
     # oops
