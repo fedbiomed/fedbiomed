@@ -229,8 +229,9 @@ export class MedicalFolderDataset extends React.Component {
                     (!this.props.use_preexisting_dlp || (this.props.selected_dlp_index != null)) &&
                     (!this.props.use_custom_mod2fol || this.props.has_all_mappings) &&
                     (this.props.reference_csv_column != null || this.props.ignore_reference_csv) &&
-                    ( this.props.metadata.name && this.props.metadata.tags &&
-                    (this.props.metadata.tags.length > 0) && this.props.metadata.desc) ? (
+                    ( this.props.metadata.name && (this.props.metadata.name.length >= 4) &&
+                    this.props.metadata.tags && (this.props.metadata.tags.length > 0) &&
+                    this.props.metadata.desc && (this.props.metadata.desc.length >= 4)) ? (
                     <React.Fragment>
                     <Step
                         key={7}
