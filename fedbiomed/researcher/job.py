@@ -294,12 +294,15 @@ class Job:
 
         return not nodes_done == set(self._nodes)
 
-    def get_initial_model_params(self):
+    def get_initial_model_params(self) -> dict:
         """ Retrieve the parameters of the model which will be sent to the nodes for training at each round.
         This is what we call the server state. Considering Scaffold strategy, it will be useful to compute the
         new correction state for each client, using the difference with the previous client state, plus the
         previous correction state.
-         _new_correction_state = _prev_correction_state + _server_state - _previous_client_state
+        _new_correction_state = _prev_correction_state + _server_state - _previous_client_state
+
+        Returns:
+            A dictionary containing the state dictionary of the central model detained by the researcher.
         """
         logger.info(f"Downloading initial model params")
         try:
@@ -308,9 +311,15 @@ class Job:
             logger.error(f"Cannot download initial model parameters")
             return
         params = self.model_instance.load(params_path, to_params=True)
-        return params #### FLAG
+        return params
 
-    def init_first_correction_states(self):
+    def init_first_correction_states(self) -> dict:
+        """ Initializes the client correction states for all clients to 0 at the 1st round.
+
+        Returns:
+            A dictionary containing the client correction states initialized to 0.
+            Elements in the list are dictionaries with a single key being the node_id, and the corresponding value the correction state.
+        """
         server_state = self.get_initial_model_params()
         correction_state = OrderedDict({key:initialize(tensor)[1].tolist() for key, tensor in server_state.items()}) # filling tensors with zeros and convert to list for serialization
         client_correction_states_dict = {node_id: correction_state for node_id in self._nodes}
@@ -333,7 +342,7 @@ class Job:
                    'model_args': self._model_args,
                    'command': 'train',
                    'correction_state': {}}
-        msg = {**headers, **self._repository_args} #### FLAG
+        msg = {**headers, **self._repository_args}
         time_start = {}
 
         if strategy_info.get('strategy') == 'Scaffold' and round == 0: # correction is set to 0 at the 1st round
@@ -422,7 +431,7 @@ class Job:
                                'params': params,
                                'timing': timing})
 
-                self._training_replies[round].append(r) #### FLAG ####
+                self._training_replies[round].append(r)
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
