@@ -350,6 +350,8 @@ export const setChangeDlpMedicalFolderDataset = (use_dlp, state) => {
                 if(dlp['use_custom_mod2fol'] === true) {
                     dispatch({type: 'SET_CUSTOMIZE_MOD2FOL', payload: false})
                     dispatch({type: 'SET_CUSTOMIZE_MOD2FOL', payload: true})
+                }
+                if(dlp['has_all_mappings']){
                     dispatch({type: 'UPDATE_HAS_ALL_MAPPINGS', payload: false})
                     dispatch({type: 'UPDATE_HAS_ALL_MAPPINGS', payload: true})
                 }
