@@ -145,28 +145,28 @@ const AccountRequestManagement = (props) => {
         },
         {
           name: 'Approve',
-          actions: [
-              {render: (item) => <EuiButton
+          align: 'center',
+            render: (item) => <EuiButton
                                         onClick={
                                             ()=>(onSelect(item,
                                                 'APPROVE', 'Approve account request creation ?'))}
                                         iconType="checkInCircleFilled" color={"primary"}>
                                         {item.request_status === "REJECTED" ? 'Approve Back' : 'Approve'}
                                  </EuiButton>
-              }
-          ] ,
+
+
         },
         {
           name: 'Reject',
-          actions: [
-              {render: (item) => <EuiButton
+          align: 'center',
+          render: (item) => <EuiButton
                                     disabled={item.request_status === "REJECTED" ? true : false}
                                     onClick={()=>(onSelect(item,
                                         'REJECT', 'Reject account request creation ?'))}
                                     iconType="crossInACircleFilled" color={"warning"}>
                                           Reject
-                                  </EuiButton>}
-          ] ,
+                                  </EuiButton>
+
         },
     ]
 
