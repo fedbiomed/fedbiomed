@@ -157,11 +157,44 @@ export const initModalityNames = () => {
     }
 }
 
+function isM2fEqual(m2f, m2f_init) {
+    if(Object.keys(m2f).length !== Object.keys(m2f_init).length) {
+        return false
+    }
+
+    for(const modality in m2f) {
+        if(modality in m2f_init && m2f[modality].length === m2f_init[modality].length) {
+            for(const folder of m2f[modality]) {
+                if(!m2f_init[modality].includes(folder)) {
+                    return false
+                }
+            }
+        } else {
+            return false
+        }
+    }
+    return true
+}
+
+// add other comparisons to do when extending the DLP content 
+function isSameDlpContent(m2f, dlp) {
+    let m2f_init = dlp.preexisting_dlp.mod2fol_mapping
+    let dlp_is_same = true
+
+    if(dlp.use_preexisting_dlp && dlp.preexisting_dlp.mod2fol_mapping !== null) {
+        dlp_is_same = isM2fEqual(m2f, m2f_init)
+    } else {
+        dlp_is_same = false
+    }
+    return dlp_is_same
+}
+
 export const updateModalitiesMapping = (data) => {
     return (dispatch, getState) => {
         dispatch({type: 'UPDATE_MODALITIES_MAPPING', payload: {folder_name: data.folder_name, modality_name: data.modality_name} })
         
-        let medical_folder = getState().medicalFolderDataset
+        let state = getState()
+        let medical_folder = state.medicalFolderDataset
         let mapping = medical_folder.modalities_mapping
         let m2f = medical_folder.mod2fol_mapping
         for(const modality in m2f) {
@@ -181,6 +214,9 @@ export const updateModalitiesMapping = (data) => {
             m2f[data.modality_name] = [data.folder_name]
         }
         dispatch({type: 'UPDATE_MOD2FOL_MAPPING', payload: m2f })
+
+        let dlp_is_same = isSameDlpContent(m2f, state.dataLoadingPlan)
+        dispatch({type: 'SET_DLP_SAME_AS_PREEXISTING', payload: dlp_is_same})
 
         let has_all_mappings = true
         for(const folder of medical_folder.modality_folders.values()) {
@@ -209,7 +245,8 @@ export const clearModalityMapping = (folder_name) => {
     return (dispatch, getState) => {
         dispatch({type: 'CLEAR_MODALITY_MAPPING', payload: folder_name})
 
-        let medical_folder = getState().medicalFolderDataset
+        let state = getState()
+        let medical_folder = state.medicalFolderDataset
         let m2f = medical_folder.mod2fol_mapping
         for(const modality in m2f) {
             if(m2f[modality].includes(folder_name)){
@@ -222,6 +259,9 @@ export const clearModalityMapping = (folder_name) => {
         }
         dispatch({type: 'UPDATE_MOD2FOL_MAPPING', payload: m2f})
 
+        let dlp_is_same = isSameDlpContent(m2f, state.dataLoadingPlan)
+        dispatch({type: 'SET_DLP_SAME_AS_PREEXISTING', payload: dlp_is_same})
+
         dispatch({type: 'UPDATE_HAS_ALL_MAPPINGS', payload: false})
     }
 }
@@ -233,6 +273,7 @@ export const setChangeDlpMedicalFolderDataset = (use_dlp, state) => {
             dispatch({
                 type: "RESET_MEDICAL_CHANGE_USED_DLP",
                 payload: JSON.parse(JSON.stringify(state.medicalFolderDataset.default_modality_names))})
+            dispatch({type: 'RESET_DLP_PREEXISTING'})
         } else {
             let dlp_id = state.dataLoadingPlan.existing_dlps.data[state.dataLoadingPlan.selected_dlp_index][1]
 
@@ -292,6 +333,10 @@ export const setChangeDlpMedicalFolderDataset = (use_dlp, state) => {
                     dlp['has_all_mappings'] = has_all_mappings
                 }
                 dispatch({type: "SET_MEDICAL_CHANGE_USED_DLP", payload: dlp})
+                dispatch({type: 'SET_DLP_PREEXISTING', payload: {
+                    dlp_id: dlp_id,
+                    mod2fol_mapping: JSON.parse(JSON.stringify(data.map)),
+                }})
                 // dirty hack: need to force refresh of the ModalitiesToFolders
                 if(dlp['use_custom_mod2fol'] === true) {
                     dispatch({type: 'SET_CUSTOMIZE_MOD2FOL', payload: false})
