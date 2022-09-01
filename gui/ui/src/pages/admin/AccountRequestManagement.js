@@ -5,13 +5,18 @@ import React, {
 import {
     EuiButton,
     EuiBasicTable,
-    EuiTitle,
-    EuiSpacer
+    formatDate,
+    EuiSpacer,
+    EuiToast
   } from '@elastic/eui';
 
-  import { AccountRequestManagementModal } from './accountRequestManagementModal';
-  import { approveAccountRequest, listAccountRequests, rejectAccountRequest } from '../../store/actions/accountRequestActions';
-  import { connect } from "react-redux";
+import {AccountRequestManagementModal} from "./UserManagementModal";
+import { approveAccountRequest, listAccountRequests, rejectAccountRequest } from '../../store/actions/accountRequestActions';
+import { connect, useDispatch } from "react-redux";
+import {
+    USER_REQUESTS_ERROR_MESSAGE,
+    USER_REQUESTS_SUCCESS_MESSAGE
+} from "../../store/actions/actions";
 
 
 const AccountRequestManagement = (props) => {
@@ -26,6 +31,7 @@ const AccountRequestManagement = (props) => {
     const [showModal, setShowModal] = useState(false);
     const [actionType, setActionType] = useState('')
     const [title, setTitle] = useState('')
+    const dispatch = useDispatch()
     // const [showRejectRequestModal, setShowRejectRequestModal] = useState(false);
 
     const onSelect = (item, actionType, title) => {
@@ -83,7 +89,7 @@ const AccountRequestManagement = (props) => {
         })
         setItems(display)
 
-    }, [pageIndex, pageSize, sortField, sortDirection, props.requests])
+    }, [pageIndex, pageSize, sortField, sortDirection])
 
     /**
      * On table value is changed
@@ -113,17 +119,11 @@ const AccountRequestManagement = (props) => {
         // Column contains scheme for designing grid
     const columns = [
         {
-            field: 'user_name',
             name: 'Name',
+            render: (item) => `${item.user_surname?.toUpperCase()} ${item?.user_name}`,
             truncateText: true,
             sortable: true,
         },
-        {
-            field: 'user_surname',
-            name: 'Surname',
-            truncateText: true,
-            sortable: true,
-          },
         {
             field: 'user_email',
             name: 'E-Mail',
@@ -131,15 +131,10 @@ const AccountRequestManagement = (props) => {
             sortable: true,
         },
         {
-            field: 'user_role',
-            name: 'User Role',
-            truncateText: true,
-            sortable: true,
-        },
-        {
             field: 'creation_date',
-            name: 'Account Created',
-            truncateText: true,
+            name: 'Request Created',
+            dataType: 'date',
+            render: (creation_date) => formatDate(creation_date, 'Do MMMM YYYY HH:MM'),
             sortable: true,
         },
         {
@@ -151,13 +146,26 @@ const AccountRequestManagement = (props) => {
         {
           name: 'Approve',
           actions: [
-              {render: (item) => <EuiButton onClick={()=>(onSelect(item, 'APPROVE', 'Approve account request creation ?'))}  iconType="checkInCircleFilled" color={"primary"}>Approve</EuiButton>}
+              {render: (item) => <EuiButton
+                                        onClick={
+                                            ()=>(onSelect(item,
+                                                'APPROVE', 'Approve account request creation ?'))}
+                                        iconType="checkInCircleFilled" color={"primary"}>
+                                        {item.request_status === "REJECTED" ? 'Approve Back' : 'Approve'}
+                                 </EuiButton>
+              }
           ] ,
         },
         {
           name: 'Reject',
           actions: [
-              {render: (item) => <EuiButton  onClick={()=>(onSelect(item, 'REJECT', 'Reject account request creation ?'))} iconType="crossInACircleFilled" color={"warning"}>Reject</EuiButton>}
+              {render: (item) => <EuiButton
+                                    disabled={item.request_status === "REJECTED" ? true : false}
+                                    onClick={()=>(onSelect(item,
+                                        'REJECT', 'Reject account request creation ?'))}
+                                    iconType="crossInACircleFilled" color={"warning"}>
+                                          Reject
+                                  </EuiButton>}
           ] ,
         },
     ]
@@ -177,13 +185,41 @@ const AccountRequestManagement = (props) => {
 
     return (
         <Fragment>
-
-            <EuiTitle size={'s'}>
-                <h2>This is Account Request Management webpage. Only admin should be able to reach this page</h2>
-            </EuiTitle>
             <EuiSpacer size={'l'}/>
+            { props.error ? (
+                <React.Fragment>
+                     <EuiSpacer size="l" />
+                     <EuiToast
+                            title="Opps!"
+                            color="danger"
+                            iconType="alert"
+                            onClose={() => dispatch({type: USER_REQUESTS_ERROR_MESSAGE, payload: null})}
+                         >
+                         <p>{props.error}</p>
+                     </EuiToast>
+                 </React.Fragment>
+            ) : null
 
+
+            }
+            { props.success ? (
+                <React.Fragment>
+                     <EuiSpacer size="l" />
+                     <EuiToast
+                            title="Done!"
+                            color="success"
+                            iconType="checkInCircleFilled"
+                            onClose={() => dispatch({type: USER_REQUESTS_SUCCESS_MESSAGE, payload: null})}
+                         >
+                         <p>{props.success}</p>
+                     </EuiToast>
+                 </React.Fragment>
+            ) : null
+
+            }
+            <EuiSpacer size="l" />
             {props.requests ? (
+
                 <EuiBasicTable
                     aria-label={"User requests table"}
                     items={items}
@@ -196,16 +232,14 @@ const AccountRequestManagement = (props) => {
                     loading={props.loading}
                 />
             ) : null}
-
-
-            <div>
-                {showModal?<AccountRequestManagementModal
-                    show={showModal}
-                    title={title}
-                    onConfirmAccountRequestModal={confirmAccountRequestModal}
-                    onClose={closeAccountRequestModal}
-                    text={"Are you sure you want to perform this action?"}/>:null}
-            </div>
+            <AccountRequestManagementModal
+                show={showModal}
+                title={title}
+                onConfirmAccountRequestModal={confirmAccountRequestModal}
+                onClose={closeAccountRequestModal}
+                text={"Are you sure you want to perform this action?"}
+                color={actionType === "APPROVE" ? 'primary' : 'danger' }
+            />
         </Fragment>
 
     )
@@ -234,7 +268,8 @@ const AccountRequestManagement = (props) => {
     return {
         requests : state.user_requests.requests,
         error : state.user_requests.error,
-        loading : state.user_requests.loading
+        loading : state.user_requests.loading,
+        success : state.user_requests.success
     }
 }
 

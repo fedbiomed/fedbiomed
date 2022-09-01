@@ -58,6 +58,7 @@ def list_users():
 
 
 @api.route('/admin/users/create', methods=['POST'])
+@jwt_required()
 @validate_request_data(schema=ValidateUserFormRequest)
 @middleware(middlewares=[validate_email_register, validate_password])
 @admin_required
@@ -113,7 +114,7 @@ def create_user():
         res = user_table.get(query.user_id == user_id)
 
         if res:
-            return response(res, 'Has has been successfully saved'), 201
+            return response(res, 'User has been successfully registered!'), 201
         else:
             return error('Unexpected error, please try again later'), 400
 
@@ -122,6 +123,7 @@ def create_user():
 
 
 @api.route('/admin/users/remove', methods=['DELETE'])
+@jwt_required()
 @validate_request_data(schema=ValidateUserRemoveRequest)
 @admin_required
 def remove_user():
@@ -156,7 +158,7 @@ def remove_user():
         user_table.remove(where('user_id') == user_id)
         res = user_table.get(query.user_id == user_id)
         if not res:
-            return response({"user_id": user_id}, 'Has has been successfully saved'), 200
+            return response({"user_id": user_id}, 'User has been successfully deleted!'), 200
         else:
             return error('User is not removed. Please try again or contact to system manager.'), 400
 
@@ -165,6 +167,7 @@ def remove_user():
 
 
 @api.route('/admin/users/reset-password', methods=['PATCH'])
+@jwt_required()
 @validate_request_data(schema=ValidateUserRemoveRequest)
 @admin_required
 def reset_user_password():
@@ -208,6 +211,7 @@ def reset_user_password():
 
 
 @api.route('/admin/users/change-role', methods=['PATCH'])
+@jwt_required()
 @validate_request_data(schema=ValidateUserChangeRoleRequest)
 @admin_required
 def change_user_role():
@@ -309,6 +313,7 @@ def approve_user_request():
             result  : null
             message : The message for response
     """
+
     try:
         request_id = request.json['request_id']
         user_request = user_requests_table.get(query.request_id == request_id)

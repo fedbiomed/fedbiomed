@@ -122,7 +122,7 @@ def register():
             "user_email": email,
             "password_hash": set_password_hash(password),
             "user_role": UserRoleType.USER,
-            "creation_date": datetime.utcnow().ctime(),
+            "creation_date": datetime.now().isoformat(),
             "request_id": request_id,
             "request_status": UserRequestStatus.NEW
         })
@@ -189,7 +189,7 @@ def login():
         refresh_token = create_refresh_token(identity=user["user_id"], additional_claims=additional_claims)
 
         # Update last login
-        user_table.update({'last_login': datetime.utcnow().ctime()}, query.user_id == user['user_id'])
+        user_table.update({'last_login': datetime.now().isoformat()}, query.user_id == user['user_id'])
 
         resp = response(
             data={

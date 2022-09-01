@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios'
 import {
   EuiButton,
     EuiCallOut,
@@ -9,13 +8,11 @@ import {
   EuiModalHeader,
   EuiModalHeaderTitle,
   EuiConfirmModal,
-  EuiText, EuiToast
+  EuiText
 } from '@elastic/eui';
 
 import {resetPassword as resetPasswordAction} from "../../store/actions/userManagementActions";
 import RegisterFrom from "../authentication/RegisterFrom";
-import {EP_RESET_USER_PASSWORD} from "../../constants";
-import {USER_MANAGEMENT_ERROR} from "../../store/actions/actions";
 
 
 
@@ -230,4 +227,53 @@ const UserAccountCreation = (props) => {
 }
 
 
-export  {UserManagementConfirmation, UserPasswordResetManagement, UserPrivilegeManagement, UserAccountCreation};
+// this module should be use to update Modal module content
+const AccountRequestManagementModal = (props) => {
+    const [show, setShow] = useState(props.show)
+
+    React.useEffect(() => {
+        // update local state
+        setShow(props.show)
+    }, [props.show])
+
+
+    const closeModal = () => {
+        setShow(false)
+        props.onClose()
+    }
+
+    const confirmModal = () => {
+        props.onConfirmAccountRequestModal()
+        closeModal()
+    }
+
+    if(show){
+        return (
+            <React.Fragment>
+                <div>
+                    <EuiConfirmModal
+                        title={props.title}
+                        onCancel={closeModal}
+                        onConfirm={confirmModal}
+                        cancelButtonText="Cancel"
+                        confirmButtonText="Confirm"
+                        buttonColor={props.coor}
+                        defaultFocusedButton="cancel">
+                        <p>{props.text}</p>
+                    </EuiConfirmModal>
+                </div>
+            </React.Fragment>
+        )
+    }else{
+        return null
+    }
+}
+
+
+export  {
+    UserManagementConfirmation,
+    UserPasswordResetManagement,
+    UserPrivilegeManagement,
+    UserAccountCreation,
+    AccountRequestManagementModal
+};

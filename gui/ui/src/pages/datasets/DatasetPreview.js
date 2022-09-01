@@ -4,8 +4,7 @@ import { useParams} from 'react-router-dom';
 import {EP_DATASET_PREVIEW, EP_DATASET_UPDATE} from '../../constants'
 import {Text, Tag, TextArea} from '../../components/common/Inputs'
 import {Button, ButtonsWrapper} from '../../components/common/Button'
-//import axios from 'axios';
-import axios from "../../AxiosErrorHandler";
+import axios from 'axios';
 import Repository from "../repository";
 import MedicalFolderDatasetPreview from "./MedicalFolderDatasetPreview";
 

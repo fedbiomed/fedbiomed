@@ -102,7 +102,7 @@ const UserManagement = (props) => {
         },
       };
 
-        // Column contains scheme for designing grid
+    // Column contains scheme for designing grid
     const columns = [
         {
             name: 'Name',
@@ -120,14 +120,14 @@ const UserManagement = (props) => {
             field: 'creation_date',
             name: 'Account Created',
             dataType: 'date',
-            render: (date) => formatDate(date, 'Do MMMM YYYY HH:MM'),
+            render: (creation_date) => formatDate(creation_date, 'Do MMMM YYYY HH:MM'),
             truncateText: false,
             sortable: true,
         },
         {
             field: 'last_login',
             name: 'Last Login Date',
-            render: (date) => formatDate(date, 'Do MMMM YYYY HH:MM'),
+            render: (last_login) => formatDate(last_login, 'Do MMMM YYYY HH:MM'),
             truncateText: false,
             sortable: true,
         },
@@ -202,7 +202,7 @@ const UserManagement = (props) => {
             <EuiSpacer size={'l'}/>
             <EuiButton onClick={()=> (setShowAccountCreationModal(true))}>Create new account</EuiButton>
             <EuiSpacer size={'l'}/>
-            {props.user_list && items  ? (
+            {props.user_list  ? (
                 <EuiInMemoryTable
                         aria-label={"User table"}
                         items={items}

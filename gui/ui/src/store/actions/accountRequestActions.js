@@ -1,6 +1,8 @@
 import axios from "axios"
-import {APPROVE_USER_REQUEST, APPROVE_USER_REQUEST_ERROR,GET_USER_REQUESTS,  GET_USER_REQUESTS_ERROR, 
-    GET_USER_REQUESTS_LOADING, REJECT_USER_REQUEST, REJECT_USER_REQUEST_ERROR} from "./actions";
+import {
+    APPROVE_USER_REQUEST, USER_REQUESTS_ERROR_MESSAGE, GET_USER_REQUESTS, GET_USER_REQUESTS_ERROR,
+    GET_USER_REQUESTS_LOADING, REJECT_USER_REQUEST, USER_REQUESTS_SUCCESS_MESSAGE
+} from "./actions";
 import {EP_REQUESTS_LIST ,
         EP_REQUEST_APPROVE,
         EP_REQUEST_REJECT,
@@ -43,22 +45,20 @@ export const approveAccountRequest = (data) => {
         dispatch({type: GET_USER_REQUESTS_LOADING, payload: true})
         axios.post(EP_REQUEST_APPROVE, {request_id : data.request_id})
              .then(res => {
-                if(res.status === 201){
                     let index = user_requests.findIndex( (element) => element.request_id  === data.request_id)
                     user_requests.splice(index, 1);
-                    dispatch({ type: APPROVE_USER_REQUEST, payload: user_requests})
-                    dispatch({type: GET_USER_REQUESTS_LOADING, payload: false})
-                }else{
-                    dispatch({type:GET_USER_REQUESTS_LOADING, payload: false})
-                    dispatch({type: APPROVE_USER_REQUEST_ERROR, payload: res.data.message})
-                }
+                    dispatch({type: APPROVE_USER_REQUEST, payload: user_requests})
+                    dispatch({
+                        type: USER_REQUESTS_SUCCESS_MESSAGE,
+                        payload: `The register request of user "${res.data.result.user_email}" has \
+                        been  approved successfully` })
              })
              .catch(error => {
                  dispatch({type: GET_USER_REQUESTS_LOADING, payload: false})
                 if(error.response){
-                    dispatch({type: APPROVE_USER_REQUEST_ERROR, payload: 'Error while approving user request: ' + error.response.data.message})
+                    dispatch({type: USER_REQUESTS_ERROR_MESSAGE, payload: 'Error while approving user request: ' + error.response.data.message})
                 }else{
-                    dispatch({type: APPROVE_USER_REQUEST_ERROR, payload: 'Unexpected error:' + error.toString()})
+                    dispatch({type: USER_REQUESTS_ERROR_MESSAGE, payload: 'Unexpected error:' + error.toString()})
                 }
              })
     }
@@ -77,22 +77,20 @@ export const rejectAccountRequest = (data) => {
         dispatch({type: GET_USER_REQUESTS_LOADING, payload: true})
         axios.post(EP_REQUEST_REJECT, {request_id : data.request_id})
              .then(res => {
-                if(res.status === 200){
                     let index = user_requests.findIndex( (element) => element.request_id  === data.request_id)
                     user_requests[index].request_status = REJECTED_REQUEST
                     dispatch({ type: REJECT_USER_REQUEST, payload: user_requests})
                     dispatch({type: GET_USER_REQUESTS_LOADING, payload: false})
-                }else{
-                    dispatch({type: GET_USER_REQUESTS_LOADING, payload: false})
-                    dispatch({type: REJECT_USER_REQUEST_ERROR, payload: res.data.message})
-                }
+                    dispatch({
+                        type: USER_REQUESTS_SUCCESS_MESSAGE,
+                        payload: `The register request of user "${res.data.result.user_email}" has been rejected.` })
              })
              .catch(error => {
                  dispatch({type: GET_USER_REQUESTS_LOADING, payload: false})
                 if(error.response){
-                    dispatch({type: REJECT_USER_REQUEST_ERROR, payload: 'Error while rejecting user request: ' + error.response.data.message})
+                    dispatch({type: USER_REQUESTS_ERROR_MESSAGE, payload: 'Error while rejecting user request: ' + error.response.data.message})
                 }else{
-                    dispatch({type: REJECT_USER_REQUEST_ERROR, payload: 'Unexpected error:' + error.toString()})
+                    dispatch({type: USER_REQUESTS_ERROR_MESSAGE, payload: 'Unexpected error:' + error.toString()})
                 }
              })
     }
