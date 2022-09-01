@@ -176,16 +176,25 @@ function isM2fEqual(m2f, m2f_init) {
     return true
 }
 
-// add other comparisons to do when extending the DLP content 
-function isSameDlpContent(m2f, dlp) {
+function isSameDlpContent(medical_folder, dlp) {
+    let m2f = medical_folder.mod2fol_mapping
     let m2f_init = dlp.preexisting_dlp.mod2fol_mapping
     let dlp_is_same = true
 
-    if(dlp.use_preexisting_dlp && dlp.preexisting_dlp.mod2fol_mapping !== null) {
+    // cant be same DLP as loaded when not using a loaded DLP
+    if(!dlp.use_preexisting_dlp) {
+        return false
+    }
+
+    if(medical_folder.use_custom_mod2fol && dlp.preexisting_dlp.mod2fol_mapping !== null) {
         dlp_is_same = isM2fEqual(m2f, m2f_init)
-    } else {
+    } else if (medical_folder.use_custom_mod2fol !== (dlp.preexisting_dlp.mod2fol_mapping !== null)) {
+        // not the same DLP if only one uses custom mod2fol
         dlp_is_same = false
     }
+
+    // add here other comparisons to do when extending the DLP content 
+    // (eg: check if CSV file is used & is the same)
     return dlp_is_same
 }
 
@@ -215,7 +224,7 @@ export const updateModalitiesMapping = (data) => {
         }
         dispatch({type: 'UPDATE_MOD2FOL_MAPPING', payload: m2f })
 
-        let dlp_is_same = isSameDlpContent(m2f, state.dataLoadingPlan)
+        let dlp_is_same = isSameDlpContent(medical_folder, state.dataLoadingPlan)
         dispatch({type: 'SET_DLP_SAME_AS_PREEXISTING', payload: dlp_is_same})
 
         let has_all_mappings = true
@@ -259,7 +268,7 @@ export const clearModalityMapping = (folder_name) => {
         }
         dispatch({type: 'UPDATE_MOD2FOL_MAPPING', payload: m2f})
 
-        let dlp_is_same = isSameDlpContent(m2f, state.dataLoadingPlan)
+        let dlp_is_same = isSameDlpContent(medical_folder, state.dataLoadingPlan)
         dispatch({type: 'SET_DLP_SAME_AS_PREEXISTING', payload: dlp_is_same})
 
         dispatch({type: 'UPDATE_HAS_ALL_MAPPINGS', payload: false})
