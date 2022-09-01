@@ -56,7 +56,7 @@ class Round:
             job_id: job id
             researcher_id: researcher id
             history_monitor: Sends real-time feed-back to end-user during training
-            correction_state: FL aggregation strategy used during training
+            correction_state: correction state applied in case of SCAFFOLD aggregation strategy
             node_args: command line arguments for node. Can include:
                 - `gpu (bool)`: propose use a GPU device if any is available.
                 - `gpu_num (Union[int, None])`: if not None, use the specified GPU device instead of default
