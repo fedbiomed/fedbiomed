@@ -153,11 +153,15 @@ def convert_iterator_to_list_of_python_floats(iterator: Iterator) -> List[float]
     return list_of_floats
 
 
-def compute_dot_product(model: dict, params: dict):
-    """Compute the dot prodcut between model and input parameters.
+def compute_dot_product(model: dict, params: dict) -> torch.tensor:
+    """Compute the dot product between model and input parameters.
+
     Args:
         model: OrderedDict representing model state
         params: OrderedDict containing correction parameters
+
+    Returns:
+        A tensor containing a single numerical value which is the dot product.
     """
     model_p = model.values()
     correction_state = params.values()
