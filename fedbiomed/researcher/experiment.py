@@ -202,7 +202,8 @@ class Experiment(object):
         self._experimentation_folder = None
 
         self._client_correction_states_dict = {}
-        self._client_state_list = None
+        self._client_states_dict = {}
+        #self._client_states_list = None
 
 #        training_data: Union[FederatedDataSet, dict, None] = None,
 #        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
@@ -1406,39 +1407,48 @@ class Experiment(object):
         return self._tensorboard
 
     @exp_exceptions
-    def set_new_correction_states_dict(self, client_state_list) -> dict:
-        """
-        At round i, calling this function allows us to define each client correction state for round i+1.
-        Returns a dictionary with key as node_id, value as client correction state
+    def set_new_correction_states_dict(self) -> dict:
+        """ At round i, calling this function allows us to define each client correction state for round i+1.
         new_correction_state = previous_correction_state + (server_state - previous_client_state) / lr*num_updates
-        At round 0, we know that: previous_correction_state = 0,
-                                  server_state = previous_client_state
-        so correction will be 0 at the 1st round
-        Then, at the 2nd round, previous correction state is 0
+        Note: At round 0, we know that: previous_correction_state = 0,
+                                        server_state = previous_client_state
+        It means the correction applied during the 1st round is 0 for all the clients (init_first_correction_states in job.py handles this case)
+        so the next correction state will be set to 0 at the 1st round
+        It means that at the 2nd round, previous correction state is 0.
+
+        Returns:
+            A dictionary with keys as node_id, values as client correction state for round i+1 (i being the current round).
+            The client correction state is a dictionary with the exact same size as the model state dictionary.
         """ 
         server_state = self._job.get_initial_model_params()
         if self._round_current == 0: # init_first_new_correction_states
             init_params = {key:initialize(tensor)[1] for key, tensor in server_state.items()}
             self._client_correction_states_dict = {node_id: init_params for node_id in self._job.nodes}
-        for model_params in client_state_list: # iterate params of each client
-            node_id = list(model_params.keys())[0]
-            for key in model_params[node_id]:
-                self._client_correction_states_dict[node_id][key] += (server_state[key] - model_params[node_id][key]) / (self.server_lr * self.client_lr * self.epochs) 
-        return self._client_correction_states_dict # for Scaffold strategy we should use the number of local updates instead of epochs
+        for node_id, client_state in self._client_states_dict.items(): # iterate params of each client
+            for key in client_state:
+                self._client_correction_states_dict[node_id][key] += (server_state[key] - client_state[key]) / (self.server_lr * self.client_lr * self.epochs) 
+        return self._client_correction_states_dict # regarding previous line formula, we should use the number of local updates instead of epochs for Scaffold strategy 
 
     @exp_exceptions
-    def set_new_client_states_list(self, model_params_list) -> List[dict]:
-        """
-        At round i, calling this function allows us to define each client state for round i+1,
+    def set_new_client_states_dict(self, model_params_list) -> List[dict]:
+        """ At round i, calling this function allows us to define each client state for round i+1,
         with scaling of the local parameters by server_lr.
+
+        Args:
+            model_params_list: This list contain the state dictionary (with learnable parameters) of each client in the experiment, after optimization at the current round.
+                               Elements in the list are dictionaries with a single key being the node_id, and the corresponding value the client state_dict.
+        
+        Returns:
+            A dictionary with node_ids as keys and their corresponding value being the new client state_dict after scaling of the local parameters by server_lr.
         """
         server_state = self._job.get_initial_model_params()
         for model_params in model_params_list:
             node_id = list(model_params.keys())[0]
+            if self._round_current == 0:
+                self._client_states_dict[node_id] = {}
             for key in model_params[node_id]:
-                model_params[node_id][key] = model_params[node_id][key] * self.server_lr + (1 - self.server_lr) * server_state[key]
-        return model_params_list
-
+                self._client_states_dict[node_id][key] = model_params[node_id][key] * self.server_lr + (1 - self.server_lr) * server_state[key]
+        return self._client_states_dict
 
     @exp_exceptions
     def run_once(self, increase: bool = False, test_after: bool = False) -> int:
@@ -1504,14 +1514,14 @@ class Experiment(object):
 
         # refining/normalizing model weights received from nodes
         model_params, weights = self._node_selection_strategy.refine(
-            self._job.training_replies[self._round_current], self._round_current) #### FLAG
+            self._job.training_replies[self._round_current], self._round_current)
 
         if self.strategy_info["strategy"] == "Scaffold":
             # Setting the client state for round i+1, with scaling of the local parameters by server_lr      
-            self._client_state_list = self.set_new_client_states_list(model_params)
+            self._client_states_dict = self.set_new_client_states_dict(model_params)
 
             # Setting the correction state for round i+1
-            self._client_correction_states_dict = self.set_new_correction_states_dict(model_params)
+            self._client_correction_states_dict = self.set_new_correction_states_dict()
             self.strategy_info["correction_states"] = self._client_correction_states_dict
 
         # aggregate model from nodes to a global model
@@ -1807,7 +1817,7 @@ class Experiment(object):
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
             'job': self._job.save_state(breakpoint_path)  # job state
-        } #### FLAG
+        }
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
         state['model_path'] = create_unique_link(
