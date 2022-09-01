@@ -39,14 +39,16 @@ def add_medical_folder_dataset_from_cli(interactive: bool,
         dataset_parameters['index_col'] = index_col
     modality_folder_names, _ = controller.modalities_candidates_from_subfolders()
     print("\nThe following modalities were detected:\n", "\n".join([m for m in modality_folder_names]))
-    if interactive:
-        choice = input('\nWould you like to associate the detected modalities with other modality names? [y/N]\n')
-        if choice.lower() == 'y':
-            dlb = get_map_modalities2folders_from_cli(modality_folder_names)
-            if dlp is None:
-                dlp = DataLoadingPlan({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb})
-            else:
-                dlp.update({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb})
+    # TODO: add CLI support for DLP, temporarily disactivated (not working yet)
+    # 
+    #if interactive:
+    #    choice = input('\nWould you like to associate the detected modalities with other modality names? [y/N]\n')
+    #    if choice.lower() == 'y':
+    #        dlb = get_map_modalities2folders_from_cli(modality_folder_names)
+    #        if dlp is None:
+    #            dlp = DataLoadingPlan({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb})
+    #        else:
+    #            dlp.update({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb})
     return path, dataset_parameters, dlp
 
 
