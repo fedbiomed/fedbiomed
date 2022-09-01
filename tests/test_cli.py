@@ -67,23 +67,25 @@ class TestCli(unittest.TestCase):
                       'T2': ['T2'], 'label': ['label'],
                       'Tnon-exist': ['non-existing-modality']}
 
-            fedbiomed.node.cli_utils.dataset_manager.add_database.assert_called_once_with(
-                name='test-db-name',
-                tags=['test-tag1', 'test-tag2'],
-                data_type='medical-folder',
-                description='',
-                path='some/valid/path',
-                dataset_parameters={
-                    'tabular_file': 'some/valid/path',
-                    'index_col': 0
-                },
-                data_loading_plan=DataLoadingPlan({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb})
-            )
+            # TODO : test with DLP, when CLI DLP supported by future version
+            #fedbiomed.node.cli_utils.dataset_manager.add_database.assert_called_once_with(
+            #    name='test-db-name',
+            #    tags=['test-tag1', 'test-tag2'],
+            #    data_type='medical-folder',
+            #    description='',
+            #    path='some/valid/path',
+            #    dataset_parameters={
+            #        'tabular_file': 'some/valid/path',
+            #        'index_col': 0
+            #    },
+            #    data_loading_plan=DataLoadingPlan({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb})
+            #)
 
-            dlp_arg = fedbiomed.node.cli_utils.dataset_manager.add_database.call_args[1]['data_loading_plan']
-            self.assertIn(MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS, dlp_arg)
-            self.assertDictEqual(dlp_arg[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map, dlb.map)
-            self.assertEqual(dlp_arg.name, 'test-dlp-name')
+            # TODO : test with DLP, when CLI DLP supported by future version
+            #dlp_arg = fedbiomed.node.cli_utils.dataset_manager.add_database.call_args[1]['data_loading_plan']
+            #self.assertIn(MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS, dlp_arg)
+            #self.assertDictEqual(dlp_arg[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map, dlb.map)
+            #self.assertEqual(dlp_arg.name, 'test-dlp-name')
 
 
 class TestMedicalFolderCliUtils(unittest.TestCase):
@@ -152,13 +154,14 @@ class TestMedicalFolderCliUtils(unittest.TestCase):
             'tabular_file': 'some/valid/path',
             'index_col': 0
         })
-        self.assertIn(MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS, dlp)
-        self.assertDictEqual(dlp[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map, {
-            'T1': ['T1philips', 'T1siemens'],
-            'T2': ['T2'],
-            'Tnon-exist': ['non-existing-modality'],
-            'label': ['label']
-        })
+        # TODO : test with DLP, when CLI DLP supported by future version
+        # self.assertIn(MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS, dlp)
+        #self.assertDictEqual(dlp[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map, {
+        #    'T1': ['T1philips', 'T1siemens'],
+        #    'T2': ['T2'],
+        #    'Tnon-exist': ['non-existing-modality'],
+        #    'label': ['label']
+        #})
 
         # Scenario 2:
         #    - no pre-existing dataset parameters or data loading plan

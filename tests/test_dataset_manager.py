@@ -1001,6 +1001,7 @@ class TestDatasetManager(unittest.TestCase):
         dlb2.data = {'some': 'other data'}
 
         dlp = DataLoadingPlan()
+        dlp.desc = '1234'
         dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING] = dlb1
         dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING] = dlb2
 
