@@ -176,8 +176,6 @@ class TestEnvironCommon(unittest.TestCase):
 
     def test_environ_03_broker(self):
 
-        #import pdb; pdb.set_trace()
-
         config_path = os.path.join(self.config_dir, 'config_broker')
         os.environ['CONFIG_FILE'] = config_path
 
