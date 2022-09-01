@@ -1,6 +1,7 @@
 """Fed-BioMed constants/enums"""
 
 from enum import Enum
+from math import ceil, log2
 
 
 class _BaseEnum(Enum):
@@ -28,53 +29,33 @@ class ComponentType(_BaseEnum):
 class HashingAlgorithms(_BaseEnum):
     """Enumeration class, used to characterize the hashing algorithms"""
 
-    SHA256: str = 'SHA256'
-    SHA384: str = 'SHA384'
-    SHA512: str = 'SHA512'
-    SHA3_256: str = 'SHA3_256'
-    SHA3_384: str = 'SHA3_384'
-    SHA3_512: str = 'SHA3_512'
-    BLAKE2B: str = 'BLAKE2B'
-    BLAKE2S: str = 'BLAKE2S'
+    SHA256: str = "SHA256"
+    SHA384: str = "SHA384"
+    SHA512: str = "SHA512"
+    SHA3_256: str = "SHA3_256"
+    SHA3_384: str = "SHA3_384"
+    SHA3_512: str = "SHA3_512"
+    BLAKE2B: str = "BLAKE2B"
+    BLAKE2S: str = "BLAKE2S"
 
 
 class ModelTypes(_BaseEnum):
     """Constant values for model type that will be saved into db
 
     Attributes:
-        REQUESTED: means model submitted in-application by the researcher
-        REGISTERED: means model added by a hospital/node
+        REGISTERED: means model saved by a user/hospital/node
         DEFAULT: means model is default model provided by Fed-BioMed
     """
-    REQUESTED: str = 'requested'
-    REGISTERED: str = 'registered'
-    DEFAULT: str = 'default'
 
-
-class ModelApprovalStatus(_BaseEnum):
-    """Enumeration class for model approval status of a model on a node when model approval is active.
-
-    Attributes:
-        APPROVED: model was accepted for this node, can be executed now
-        REJECTED: model was disapproved for this node, cannot be executed
-        PENDING: model is waiting for review and approval, cannot be executed yet
-    """
-    APPROVED: str = "Approved"
-    REJECTED: str = "Rejected"
-    PENDING: str = "Pending"
-    
-    def str2enum(name: str):
-        for e in ModelApprovalStatus:
-            if e.value == name:
-                return e
-        return None
+    REGISTERED: str = "registered"
+    DEFAULT: str = "default"
 
 
 class TrainingPlans(_BaseEnum):
-    """Enumeration class for Training plans """
+    """Enumeration class for Training plans"""
 
-    TorchTrainingPlan: str = 'TorchTrainingPlan'
-    SkLearnTrainingPlan: str = 'SkLearnTrainingPlan'
+    TorchTrainingPlan: str = "TorchTrainingPlan"
+    SkLearnTrainingPlan: str = "SkLearnTrainingPlan"
 
 
 class ProcessTypes(_BaseEnum):
@@ -84,6 +65,7 @@ class ProcessTypes(_BaseEnum):
         DATA_LOADER: Preprocess for DataLoader
         PARAMS: Preprocess for model parameters
     """
+
     DATA_LOADER: int = 0
     PARAMS: int = 1
 
@@ -118,7 +100,9 @@ class ErrorNumbers(_BaseEnum):
     FB308: str = "FB308: bad training request ().json"
     FB309: str = "FB309: bad model params (.pt)"
     FB310: str = "FB310: bad data format"
-    FB311: str = "FB311: receiving a new computation request during a running computation"
+    FB311: str = (
+        "FB311: receiving a new computation request during a running computation"
+    )
     FB312: str = "FB312: Node stopped in SIGTERM signal handler"
     FB313: str = "FB313: no dataset matching request"
     FB314: str = "FB314: Node round error"
@@ -133,7 +117,7 @@ class ErrorNumbers(_BaseEnum):
     FB404: str = "FB404: bad model param (.pt) format for TrainingPlan"
     FB405: str = "FB405: received delayed answer for previous computation round"
     FB406: str = "FB406: list of nodes is empty at data lookup phase"
-    FB407: str = "FB407: list of nodes became empty when training (no node has answered)"
+    FB407: str = "FB407: list of nodes became empty when training"
     FB408: str = "FB408: node did not answer during training"
     FB409: str = "FB409: node sent Status=Error during training"
     FB410: str = "FB410: bad type or value for experiment argument"
@@ -157,12 +141,18 @@ class ErrorNumbers(_BaseEnum):
     FB606: str = "FB606: model manager error"
     FB607: str = "FB607: data manager error"
     FB608: str = "FB608: torch data manager error"
-    FB609: str = "FB609: scikit-learn data manager error"
-    FB610: str = "FB610: Torch based tabular dataset creation error"
+    FB609: str = "FB608: scikit-learn data manager error"
+    FB610: str = "FB609: Torch based tabular dataset creation error"
     FB611: str = "FB611: Error while trying to evaluate using the specified metric"
-    FB612: str = "FB612: Torch based NIFTI dataset error"
-    FB613: str = "FB613: Medical Folder dataset error"
-
 
     # oops
     FB999: str = "FB999: unknown error code sent by the node"
+
+
+class VEParameters(_BaseEnum):
+    """Enumeration class for VE parameters"""
+
+    KEY_SIZE: int = 2048
+    NUM_CLIENTS: int = 2
+    VALUE_SIZE: int = ceil(log2(10000))
+    VECTOR_SIZE: int = 1199882

@@ -21,6 +21,8 @@ from fedbiomed.node.round import Round
 
 import validators
 
+from fedbiomed.node.round_jl import RoundJL
+
 
 class Node:
     """Core code of the node component.
@@ -179,6 +181,7 @@ class Node:
                                       researcher_id=msg.get_param('researcher_id'),
                                       client=self.messaging)
         # Get arguments for the model and training
+        current_round = msg.get_param("current_round")
         model_kwargs = msg.get_param('model_args') or {}
         training_kwargs = msg.get_param('training_args') or {}
         training_status = msg.get_param('training') or False
@@ -220,17 +223,17 @@ class Node:
                          'extra_msg': "Did not found proper data in local datasets"}
                     ).get_dict())
                 else:
-                    self.rounds.append(Round(model_kwargs,
-                                             training_kwargs,
-                                             training_status,
-                                             data,
-                                             model_url,
-                                             model_class,
-                                             params_url,
-                                             job_id,
-                                             researcher_id,
-                                             hist_monitor,
-                                             self.node_args))
+                    self.rounds.append(RoundJL(model_kwargs=model_kwargs,
+                                             training_kwargs=training_kwargs,
+                                             training=training_status,
+                                             dataset=data,
+                                             model_url=model_url,
+                                             model_class=model_class,
+                                             params_url=params_url,
+                                             job_id=job_id,
+                                             researcher_id=researcher_id,
+                                             history_monitor=hist_monitor,
+                                             node_args=self.node_args, current_round=current_round))
 
     def task_manager(self):
         """Manages training tasks in the queue.

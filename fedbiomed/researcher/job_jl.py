@@ -28,7 +28,7 @@ from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 
 
-class Job:
+class JobJL(Job):
     """
     Represents the entity that manage the training part at  the nodes level
 

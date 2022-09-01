@@ -123,9 +123,7 @@ class Round:
                         logger.info(f'Model has been approved by the node {model["name"]}')
 
             if not is_failed:
-                status, params_path = self.repository.download_file(
-                    self.params_url,
-                    'my_model_' + str(uuid.uuid4()) + '.pt')
+                params_path, status = self._load_model_file()
                 if (status != 200) or params_path is None:
                     error_message = f"Cannot download param file: {self.params_url}"
                     return self._send_round_reply(success=False, message=error_message)
@@ -157,11 +155,8 @@ class Round:
             return self._send_round_reply(success=False, message=error_message)
 
         # import model params into the model instance
-        try:
-            self.model.load(params_path, to_params=False)
-        except Exception as e:
-            error_message = f"Cannot initialize model parameters: f{str(e)}"
-            return self._send_round_reply(success=False, message=error_message)
+        self._load_model_obj(params_path)
+
 
         # Run the training routine
         # Caution: always provide values for node-side arguments
@@ -249,38 +244,52 @@ class Round:
                         f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing "
                         f"dataset please make sure that test_ratio has been set correctly")
 
-            # Upload results
-            results['researcher_id'] = self.researcher_id
-            results['job_id'] = self.job_id
-            results['model_params'] = self.model.after_training_params()
-            results['node_id'] = environ['NODE_ID']
-            try:
-                # TODO : should validation status code but not yet returned
-                # by upload_file
-                filename = environ['TMP_DIR'] + '/node_params_' + str(uuid.uuid4()) + '.pt'
-                self.model.save(filename, results)
-                res = self.repository.upload_file(filename)
-                logger.info("results uploaded successfully ")
-            except Exception as e:
-                is_failed = True
-                error_message = f"Cannot upload results: {str(e)}"
-                return self._send_round_reply(success=False, message=error_message)
-
-            # end : clean the namespace
-            try:
-                del self.model
-                del import_module
-            except Exception as e:
-                logger.debug(f'Exception raise while deleting model {e}')
-                pass
-
-            return self._send_round_reply(success=True,
-                                          timing={'rtime_training': rtime_after - rtime_before,
-                                                  'ptime_training': ptime_after - ptime_before},
-                                          params_url=res['file'])
+            return self._upload_model(ptime_after, ptime_before, results, rtime_after, rtime_before, import_module)
         else:
             # Only for validation
             return self._send_round_reply(success=True)
+
+    def _load_model_obj(self, params_path):
+        try:
+            self.model.load(params_path, to_params=False)
+        except Exception as e:
+            error_message = f"Cannot initialize model parameters: f{str(e)}"
+            return self._send_round_reply(success=False, message=error_message)
+
+    def _load_model_file(self):
+        status, params_path = self.repository.download_file(
+            self.params_url,
+            'my_model_' + str(uuid.uuid4()) + '.pt')
+        return params_path, status
+
+    def _upload_model(self, ptime_after, ptime_before, results, rtime_after, rtime_before, import_module):
+        # Upload results
+        results['researcher_id'] = self.researcher_id
+        results['job_id'] = self.job_id
+        results['model_params'] = self.model.after_training_params()
+        results['node_id'] = environ['NODE_ID']
+        try:
+            # TODO : should validation status code but not yet returned
+            # by upload_file
+            filename = environ['TMP_DIR'] + '/node_params_' + str(uuid.uuid4()) + '.pt'
+            self.model.save(filename, results)
+            res = self.repository.upload_file(filename)
+            logger.info("results uploaded successfully ")
+        except Exception as e:
+            is_failed = True
+            error_message = f"Cannot upload results: {str(e)}"
+            return self._send_round_reply(success=False, message=error_message)
+        # end : clean the namespace
+        try:
+            del self.model
+            del import_module
+        except Exception as e:
+            logger.debug(f'Exception raise while deleting model {e}')
+            pass
+        return self._send_round_reply(success=True,
+                                      timing={'rtime_training': rtime_after - rtime_before,
+                                              'ptime_training': ptime_after - ptime_before},
+                                      params_url=res['file'])
 
     def _send_round_reply(self,
                           message: str = '',

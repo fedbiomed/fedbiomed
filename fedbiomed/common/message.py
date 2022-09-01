@@ -468,6 +468,7 @@ class TrainRequest(Message):
         FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
+    current_round: int
     job_id: str
     params_url: str
     training_args: dict
