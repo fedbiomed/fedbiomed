@@ -19,13 +19,12 @@ from fedbiomed.common.exceptions import FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.repository import Repository
-from fedbiomed.common.training_plans import (
-    SKLearnTrainingPlan,  # noqa
-    TorchTrainingPlan,
-)
+from fedbiomed.common.training_plans import SKLearnTrainingPlan  # noqa
+from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.filetools import create_unique_file_link, create_unique_link
+from fedbiomed.researcher.filetools import (create_unique_file_link,
+                                            create_unique_link)
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 

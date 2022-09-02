@@ -29,14 +29,14 @@ class ComponentType(_BaseEnum):
 class HashingAlgorithms(_BaseEnum):
     """Enumeration class, used to characterize the hashing algorithms"""
 
-    SHA256: str = 'SHA256'
-    SHA384: str = 'SHA384'
-    SHA512: str = 'SHA512'
-    SHA3_256: str = 'SHA3_256'
-    SHA3_384: str = 'SHA3_384'
-    SHA3_512: str = 'SHA3_512'
-    BLAKE2B: str = 'BLAKE2B'
-    BLAKE2S: str = 'BLAKE2S'
+    SHA256: str = "SHA256"
+    SHA384: str = "SHA384"
+    SHA512: str = "SHA512"
+    SHA3_256: str = "SHA3_256"
+    SHA3_384: str = "SHA3_384"
+    SHA3_512: str = "SHA3_512"
+    BLAKE2B: str = "BLAKE2B"
+    BLAKE2S: str = "BLAKE2S"
 
 
 class ModelTypes(_BaseEnum):
@@ -47,9 +47,10 @@ class ModelTypes(_BaseEnum):
         REGISTERED: means model added by a hospital/node
         DEFAULT: means model is default model provided by Fed-BioMed
     """
-    REQUESTED: str = 'requested'
-    REGISTERED: str = 'registered'
-    DEFAULT: str = 'default'
+
+    REQUESTED: str = "requested"
+    REGISTERED: str = "registered"
+    DEFAULT: str = "default"
 
 
 class ModelApprovalStatus(_BaseEnum):
@@ -60,6 +61,7 @@ class ModelApprovalStatus(_BaseEnum):
         REJECTED: model was disapproved for this node, cannot be executed
         PENDING: model is waiting for review and approval, cannot be executed yet
     """
+
     APPROVED: str = "Approved"
     REJECTED: str = "Rejected"
     PENDING: str = "Pending"
@@ -72,10 +74,10 @@ class ModelApprovalStatus(_BaseEnum):
 
 
 class TrainingPlans(_BaseEnum):
-    """Enumeration class for Training plans """
+    """Enumeration class for Training plans"""
 
-    TorchTrainingPlan: str = 'TorchTrainingPlan'
-    SkLearnTrainingPlan: str = 'SkLearnTrainingPlan'
+    TorchTrainingPlan: str = "TorchTrainingPlan"
+    SkLearnTrainingPlan: str = "SkLearnTrainingPlan"
 
 
 class ProcessTypes(_BaseEnum):
@@ -85,6 +87,7 @@ class ProcessTypes(_BaseEnum):
         DATA_LOADER: Preprocess for DataLoader
         PARAMS: Preprocess for model parameters
     """
+
     DATA_LOADER: int = 0
     PARAMS: int = 1
 
@@ -119,7 +122,9 @@ class ErrorNumbers(_BaseEnum):
     FB308: str = "FB308: bad training request ().json"
     FB309: str = "FB309: bad model params (.pt)"
     FB310: str = "FB310: bad data format"
-    FB311: str = "FB311: receiving a new computation request during a running computation"
+    FB311: str = (
+        "FB311: receiving a new computation request during a running computation"
+    )
     FB312: str = "FB312: Node stopped in SIGTERM signal handler"
     FB313: str = "FB313: no dataset matching request"
     FB314: str = "FB314: Node round error"
@@ -134,7 +139,9 @@ class ErrorNumbers(_BaseEnum):
     FB404: str = "FB404: bad model param (.pt) format for TrainingPlan"
     FB405: str = "FB405: received delayed answer for previous computation round"
     FB406: str = "FB406: list of nodes is empty at data lookup phase"
-    FB407: str = "FB407: list of nodes became empty when training (no node has answered)"
+    FB407: str = (
+        "FB407: list of nodes became empty when training (no node has answered)"
+    )
     FB408: str = "FB408: node did not answer during training"
     FB409: str = "FB409: node sent Status=Error during training"
     FB410: str = "FB410: bad type or value for experiment argument"
@@ -164,12 +171,13 @@ class ErrorNumbers(_BaseEnum):
     FB612: str = "FB612: Torch based NIFTI dataset error"
     FB613: str = "FB613: Medical Folder dataset error"
 
-
     # oops
     FB999: str = "FB999: unknown error code sent by the node"
 
+
 class VEParameters(_BaseEnum):
     """Enumeration class for VE parameters"""
+
     KEY_SIZE: int = 2048
     NUM_CLIENTS: int = 2
     VALUE_SIZE: int = ceil(log2(10000))

@@ -15,27 +15,24 @@ from pathvalidate import sanitize_filename, sanitize_filepath
 from tabulate import tabulate
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import (
-    FedbiomedError,
-    FedbiomedExperimentError,
-    FedbiomedSilentTerminationError,
-)
+from fedbiomed.common.exceptions import (FedbiomedError,
+                                         FedbiomedExperimentError,
+                                         FedbiomedSilentTerminationError)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import SKLearnTrainingPlan, TorchTrainingPlan
+from fedbiomed.common.training_plans import (SKLearnTrainingPlan,
+                                             TorchTrainingPlan)
 from fedbiomed.common.utils import is_ipython
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.filetools import (
-    choose_bkpt_file,
-    create_exp_folder,
-    create_unique_file_link,
-    create_unique_link,
-    find_breakpoint_path,
-)
+from fedbiomed.researcher.filetools import (choose_bkpt_file,
+                                            create_exp_folder,
+                                            create_unique_file_link,
+                                            create_unique_link,
+                                            find_breakpoint_path)
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.job_jl import JobJL
 from fedbiomed.researcher.monitor import Monitor

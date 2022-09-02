@@ -7,16 +7,13 @@ import torch
 from gmpy2 import mpz
 
 from fedbiomed.common.constants import VEParameters
-
 from fedbiomed.common.joye_libert_scheme import JLS, ServerKey
 from fedbiomed.common.joye_libert_utils import reverse_quantize
 from fedbiomed.common.logger import logger
-
 from fedbiomed.common.vector_encoding import VES
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.experiment import Experiment, Type_TrainingPlan
-
 from fedbiomed.researcher.strategies.strategy import Strategy
 
 
@@ -60,7 +57,6 @@ class ExperimentJL(Experiment):
             vectorsize=VEParameters.VECTOR_SIZE.value,
         )
 
-
     def _aggregate_params(self):
         models_ctxt_qt_enc, weights = self._node_selection_strategy.refine(
             self._job.training_replies[self._round_current], self._round_current
@@ -75,7 +71,6 @@ class ExperimentJL(Experiment):
         # configure vector_encoder (using the same conf of the nodes)
 
         # call aggregation, following section 3.6 eq. 2 [1]
-        logger.info("Aggregating models")
         aggregated_params = jl.Agg(
             pp=public_params,
             sk_0=server_key,
@@ -83,16 +78,14 @@ class ExperimentJL(Experiment):
             list_y_u_tau=models_ctxt_qt_enc,
         )
         logger.info(
-            f"Joye-Libert aggregation done, length of aggregated_params: {len(aggregated_params)}"
+            f"Joye-Libert aggregation done")
+        # divide the aggregated_params by the number of nodes
+        aggregated_params = quantatized_divide(
+            aggregated_params, VEParameters.NUM_CLIENTS.value
         )
         # reserve quantization of the aggregated_params, from int to float
-        print("aggregated_params", aggregated_params[:10])
         aggregated_params = reverse_quantize(aggregated_params)
-        weights = Aggregator.normalize_weights(weights)
-        print("weights", weights)
-        print("aggregated_params", aggregated_params[:10])
-        aggregated_params = aggregated_params * 0.5 #np.average(aggregated_params, weights=0.5, axis=0)
-
+        # convert the aggregated_params to torch tensor
         aggregated_params = torch.as_tensor(aggregated_params).type(torch.DoubleTensor)
         # create dummy_parameters, to recreate a torch.Parameters object which will be filled with aggregated_params
         # which is a list
@@ -109,3 +102,7 @@ class ExperimentJL(Experiment):
         aggregated_params_path = self._job.update_parameters(dummy_model.state_dict())
 
         return aggregated_params, aggregated_params_path
+
+
+def quantatized_divide(a: List, b: int) -> List:
+    return [a[idx] / b for idx in range(len(a))]

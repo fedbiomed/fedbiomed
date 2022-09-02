@@ -4,10 +4,8 @@ import uuid
 from typing import Callable, Type, Union
 
 from fedbiomed.common.logger import logger
-from fedbiomed.common.training_plans import (
-    SKLearnTrainingPlan,  # noqa
-    TorchTrainingPlan,
-)
+from fedbiomed.common.training_plans import SKLearnTrainingPlan  # noqa
+from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.requests import Requests

@@ -47,9 +47,13 @@ dependencies:
       - tensorboard
       - JSON-log-formatter
       - python-minifier ==2.5.0
+      # for JL
+      - pycrypto ==2.6.1
+      - gmpy2 ==2.1.2
       # for nbconvert
       - jupyter_contrib_nbextensions
       - pathvalidate
+
 #### Notebook-specific packages ####
 # This section contains packages that are needed only to run specific notebooks
       - unet == 0.7.7

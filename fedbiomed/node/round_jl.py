@@ -71,7 +71,7 @@ class RoundJL(Round):
                     params_qt_enc = pickle.load(handle)
                     params_qt_dec = self.vector_encoder.decode(params_qt_enc)
                     logger.info(f"Decoded params done, length: {len(params_qt_dec)}")
-                    params_vector = torch.as_tensor(reverse_quantize(params_qt_dec))
+                    params_vector = torch.as_tensor(params_qt_dec)
                     torch.nn.utils.vector_to_parameters(
                         params_vector, self.model.parameters()
                     )
@@ -111,11 +111,8 @@ class RoundJL(Round):
         model_ptxt_qt: np.ndarray = quantize(model_ptxt)
         model_ptxt_qt: List[int] = [x.item() for x in model_ptxt_qt]
         logger.info(
-            f"Quantization of model parameters done, length: {len(model_ptxt_qt)}, min: {min(model_ptxt_qt)}, max: {max(model_ptxt_qt)}"
-        )
-        logger.info(f"model_ptxt_qt: {model_ptxt_qt[:10]}")
+            f"Quantization of model parameters done")
         # TODO For the moment users_key = server_key = 0
-        logger.info(f"Setup Joye-Libert done")
         logger.info(f"Protecting model parameters with key {self.user_key}")
         model_ctxt_qt_enc: List[EncryptedNumber] = self.jl.Protect(
             pp=self.pp,
@@ -124,8 +121,8 @@ class RoundJL(Round):
             x_u_tau=model_ptxt_qt,
         )
         logger.info(
-            f"Protecting model parameters done, length: {len(model_ctxt_qt_enc)}"
-        )
+            f"Protecting model parameters done")
+
         results["node_id"] = environ["NODE_ID"]
         results["model_params"] = model_ctxt_qt_enc
         try:
