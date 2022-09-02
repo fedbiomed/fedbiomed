@@ -9,12 +9,13 @@ import shutil
 import uuid
 
 from fedbiomed.common.exceptions import FedbiomedEnvironError
-from fedbiomed.common.singleton  import SingletonMeta
+#from fedbiomed.common.singleton  import SingletonMeta
 from fedbiomed.common.constants  import ComponentType
 from fedbiomed.common.logger     import logger
 
 #class Environ(metaclass = SingletonMeta):
-class EnvironNode(metaclass = SingletonMeta):
+#class EnvironNode(metaclass = SingletonMeta):
+class EnvironNode:
 
     def __init__(self, component = None):
 
@@ -33,6 +34,7 @@ class EnvironNode(metaclass = SingletonMeta):
         # TODO: use os.path.join instead of / in path
         # TODO: use os.mktemp instead of /tmp
         node = f"_nod_{uuid.uuid4()}"
+        print(f"NEW ENVIRONMENT DIR {node}")
         self._values['ROOT_DIR']                = f"/tmp/{node}"
         self._values['CONFIG_DIR']              = f"/tmp/{node}/etc"
         self._values['VAR_DIR']                 = f"/tmp/{node}/var"
