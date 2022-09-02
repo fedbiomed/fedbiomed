@@ -25,8 +25,7 @@ from testsupport.testing_data_loading_block import LoadingBlockTypesForTesting
 # from fedbiomed.node.environ import environ
 from fedbiomed.node.environ import EnvironNode
 from fedbiomed.common.constants  import ComponentType
-environ=EnvironNode(ComponentType.NODE)
-
+environ = EnvironNode(ComponentType.NODE)
 
 from fedbiomed.node.dataset_manager import DatasetManager, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError

@@ -77,6 +77,7 @@ class TestEnvironCommon(unittest.TestCase):
 
     def test_environ_00_bad_component(self):
         with self.assertRaises(FedbiomedEnvironError):
+            self.suppress_environ()
             from fedbiomed.common.environ import Environ
             env = Environ("==== bad input test")
 

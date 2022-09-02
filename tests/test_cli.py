@@ -12,7 +12,7 @@ import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
 # from fedbiomed.node.environ import environ
 from fedbiomed.node.environ import EnvironNode
 from fedbiomed.common.constants  import ComponentType
-environ=EnvironNode(ComponentType.NODE)
+environ = EnvironNode(ComponentType.NODE)
 
 import fedbiomed.node.cli_utils
 from fedbiomed.node.cli_utils._medical_folder_dataset import get_map_modalities2folders_from_cli, \
