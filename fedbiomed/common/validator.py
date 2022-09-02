@@ -82,7 +82,6 @@ This error is raised then a value does not comply to defined rule(s)
 import functools
 import inspect
 import sys
-
 from copy import deepcopy
 from enum import Enum
 from typing import Any, Callable, Dict, Union
@@ -92,6 +91,7 @@ class ValidatorError(Exception):
     """
     Top class of all Validator/SchemaValidator exception.
     """
+
     # as Validator can be used in other project than Fed-BioMed we
     # define our own exception, which is not a subclass of FedbiomedError
     pass
@@ -101,6 +101,7 @@ class ValidateError(ValidatorError):
     """
     Error raised then validating a value against a rule.
     """
+
     pass
 
 
@@ -108,6 +109,7 @@ class RuleError(ValidatorError):
     """
     Error raised then the rule is badly defined.
     """
+
     pass
 
 
@@ -115,6 +117,7 @@ class _ValidatorHookType(Enum):
     """
     List of all method available to execute a validation hook.
     """
+
     INVALID = 1
     TYPECHECK = 2
     FUNCTION = 3
@@ -144,6 +147,7 @@ def validator_decorator(func: Callable) -> Callable:
     Returns:
        decorated function
     """
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
 
@@ -160,7 +164,7 @@ def validator_decorator(func: Callable) -> Callable:
         if status:
             return status, None
         else:
-            error = ''.join(error)
+            error = "".join(error)
             return status, error
 
     return wrapper
@@ -174,11 +178,11 @@ class SchemeValidator(object):
     """
 
     # necessary keys and key types
-    _necessary = {'rules': list}  # list of callable, str, class
+    _necessary = {"rules": list}  # list of callable, str, class
 
     # optional keys (no type associated to default)
     # even if the default may be checked against the list of the rules
-    _optional = {'default': None, 'required': bool}
+    _optional = {"default": None, "required": bool}
 
     def __init__(self, scheme: Dict[str, Dict]):
         """
@@ -235,7 +239,7 @@ class SchemeValidator(object):
             self._is_valid = True
 
         else:
-            self._scheme = None   # type: ignore
+            self._scheme = None  # type: ignore
             self._is_valid = False
             raise RuleError(f"scheme is not valid: {status}")
 
@@ -262,17 +266,19 @@ class SchemeValidator(object):
 
         # check the value against the scheme
         for k, v in self._scheme.items():
-            if 'required' in v and v['required'] is True and k not in value:
+            if "required" in v and v["required"] is True and k not in value:
                 raise ValidateError(f"{k} key is required")
 
         for k in value:
             if k not in self._scheme:
                 raise ValidateError(f"undefined key ({k}) in scheme")
 
-            for hook in self._scheme[k]['rules']:
+            for hook in self._scheme[k]["rules"]:
                 if not Validator().validate(value[k], hook):
                     # this should already have raised an error
-                    raise ValidateError(f"invalid value ({value[k]}) for key: {k}")  # pragma: nocover
+                    raise ValidateError(
+                        f"invalid value ({value[k]}) for key: {k}"
+                    )  # pragma: nocover
 
         return True
 
@@ -308,30 +314,30 @@ class SchemeValidator(object):
         else:
             raise ValidatorError("input value is not a dict")
 
-
         for k, v in self._scheme.items():
-            if 'required' in v and v['required'] is True:
+            if "required" in v and v["required"] is True:
 
                 if k in value:
                     result[k] = value[k]
                 else:
-                    if 'default' in v:
-                        result[k] = v['default']
+                    if "default" in v:
+                        result[k] = v["default"]
                     else:
-                        raise RuleError(f"scheme does not define a default value for required key: {k}")
+                        raise RuleError(
+                            f"scheme does not define a default value for required key: {k}"
+                        )
 
             else:
                 if not only_required:
                     if k in value:
                         result[k] = value[k]
                     else:
-                        if 'default' in v:
-                            result[k] = v['default']
-
+                        if "default" in v:
+                            result[k] = v["default"]
 
         return result
 
-    def __validate_scheme(self, scheme: Dict[ str, Dict]) -> Union[bool, str]:
+    def __validate_scheme(self, scheme: Dict[str, Dict]) -> Union[bool, str]:
         """
         Scheme validation function (internal).
 
@@ -357,15 +363,16 @@ class SchemeValidator(object):
 
                 value_in_scheme = scheme[key][n]
                 requested_type = self._necessary[n]
-                if requested_type is not None and \
-                   not isinstance(value_in_scheme, requested_type):
+                if requested_type is not None and not isinstance(
+                    value_in_scheme, requested_type
+                ):
 
                     return f"bad type for subkey ({n}) for key: {key}"
 
                 # special case for 'rules'
                 # always False since _necessary has only the 'rules' key
                 # test kept because this may change in the future
-                if not n == 'rules':  # pragma: no cover
+                if not n == "rules":  # pragma: no cover
                     continue
 
                 # check that rules contains valid keys for Validator
@@ -388,8 +395,10 @@ class SchemeValidator(object):
                             Validator().validate(def_value, rule)
                         except ValidateError:
                             # this func should not raise an Error
-                            return f"default value for key ({key}) does not respect " \
-                                   f"its own specification ({def_value})"
+                            return (
+                                f"default value for key ({key}) does not respect "
+                                f"its own specification ({def_value})"
+                            )
         # scheme is validated
         return True
 
@@ -460,8 +469,9 @@ class Validator(object):
         # rule is in the rulebook -> execute the rule associated function
         if isinstance(rule, str) and rule in self._validation_rulebook:
 
-            status, error = Validator._hook_execute(value,
-                                                    self._validation_rulebook[rule])
+            status, error = Validator._hook_execute(
+                value, self._validation_rulebook[rule]
+            )
             if not status:
                 raise ValidateError(error)
 
@@ -573,7 +583,7 @@ class Validator(object):
 
         if hook_type is _ValidatorHookType.SCHEME_AS_A_DICT:
             try:
-                sc = SchemeValidator( hook )
+                sc = SchemeValidator(hook)
             except RuleError:
                 # this func should not raise an error
                 return False, "scheme is not valid"
@@ -630,7 +640,9 @@ class Validator(object):
             raise RuleError("rule name must be a string")
 
         if not override and rule in self._validation_rulebook:
-            sys.stdout.write(f"WARNING - Validator: rule is already registered: {rule} \n")
+            sys.stdout.write(
+                f"WARNING - Validator: rule is already registered: {rule} \n"
+            )
             return False
 
         if not Validator._is_hook_type_valid(hook):

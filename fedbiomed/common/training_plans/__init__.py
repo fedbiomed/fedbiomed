@@ -4,16 +4,16 @@ that are used for federated training
 """
 
 
-from ._torchnn import TorchTrainingPlan
-from ._sklearn_training_plan import SKLearnTrainingPlan
-from ._sklearn_models import FedPerceptron, FedSGDRegressor, FedSGDClassifier
 from ._base_training_plan import BaseTrainingPlan
+from ._sklearn_models import FedPerceptron, FedSGDClassifier, FedSGDRegressor
+from ._sklearn_training_plan import SKLearnTrainingPlan
+from ._torchnn import TorchTrainingPlan
 
 __all__ = [
     "TorchTrainingPlan",
     "SKLearnTrainingPlan",
     "FedPerceptron",
     "FedSGDRegressor",
-    'FedSGDClassifier',
-    "BaseTrainingPlan"
+    "FedSGDClassifier",
+    "BaseTrainingPlan",
 ]

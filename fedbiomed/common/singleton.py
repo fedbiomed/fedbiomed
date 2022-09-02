@@ -51,20 +51,27 @@ class SingletonMeta(type):
                 # if this happends, it means that it is a coding error,
                 # please review the code !!!!
                 #
-                if fullclassname == 'fedbiomed.common.environ.Environ':
+                if fullclassname == "fedbiomed.common.environ.Environ":
 
-                    if 'component' in kwargs:
+                    if "component" in kwargs:
                         #
                         # did we call Environ() with a 'component' argument
                         # different than the first call to Environ()
                         #
-                        if not kwargs['component'] == cls._objects[cls]._values['COMPONENT_TYPE'] :
-                            print("CRITICAL: environment has already been instanciated as a",
-                                  cls._objects[cls]._values['COMPONENT_TYPE'])
+                        if (
+                            not kwargs["component"]
+                            == cls._objects[cls]._values["COMPONENT_TYPE"]
+                        ):
+                            print(
+                                "CRITICAL: environment has already been instanciated as a",
+                                cls._objects[cls]._values["COMPONENT_TYPE"],
+                            )
                             print("Fed-BioMed may behave weird !")
                             print("You may:")
                             print("- review/correct the code")
-                            print("- or reset the notebook/notelab before executing the cell content")
+                            print(
+                                "- or reset the notebook/notelab before executing the cell content"
+                            )
                     else:
                         #
                         # we called directly fedbiomed.common.environ.Environ().values()
@@ -72,6 +79,8 @@ class SingletonMeta(type):
                         #
                         # this is a feature what we may need
                         # the message is just for debugging purpose
-                        print("DEBUG: singleton environ called as fedbiomed.common.environ.Environ().values()")
+                        print(
+                            "DEBUG: singleton environ called as fedbiomed.common.environ.Environ().values()"
+                        )
 
         return cls._objects[cls]

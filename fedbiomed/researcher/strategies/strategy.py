@@ -3,14 +3,13 @@ Top class for strategy implementation
 """
 
 
-from typing import Dict, Any
+from typing import Any, Dict
 
-from fedbiomed.common.constants  import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
-from fedbiomed.common.logger     import logger
-
-from fedbiomed.researcher.responses import Responses
+from fedbiomed.common.logger import logger
 from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.responses import Responses
 
 
 class Strategy:
@@ -38,8 +37,10 @@ class Strategy:
         Args:
             round_i: Current round of experiment
         """
-        msg = ErrorNumbers.FB402.value + \
-            ": sample nodes method should be overloaded by the provided strategy"
+        msg = (
+            ErrorNumbers.FB402.value
+            + ": sample nodes method should be overloaded by the provided strategy"
+        )
         logger.critical(msg)
         raise FedbiomedStrategyError(msg)
 
@@ -60,8 +61,10 @@ class Strategy:
         Raises:
             FedbiomedStrategyError: If method is not implemented by child class
         """
-        msg = ErrorNumbers.FB402.value + \
-            ": refine method should be overloaded by the provided strategy"
+        msg = (
+            ErrorNumbers.FB402.value
+            + ": refine method should be overloaded by the provided strategy"
+        )
         logger.critical(msg)
         raise FedbiomedStrategyError(msg)
 
@@ -77,7 +80,7 @@ class Strategy:
             "class": type(self).__name__,
             "module": self.__module__,
             "parameters": self._parameters,
-            "fds": self._fds.data()
+            "fds": self._fds.data(),
         }
         return state
 
@@ -89,5 +92,5 @@ class Strategy:
             state: The state that will be leaded
         """
         # fds may be modified and diverge from Experiment
-        self._fds = FederatedDataSet(state.get('fds'))
-        self._parameters = state['parameters']
+        self._fds = FederatedDataSet(state.get("fds"))
+        self._parameters = state["parameters"]

@@ -4,10 +4,15 @@ to simplify imports from fedbiomed.common.data
 
 
 from ._data_manager import DataManager
-from ._torch_data_manager import TorchDataManager
+from ._medical_datasets import (
+    MedicalFolderBase,
+    MedicalFolderController,
+    MedicalFolderDataset,
+    NIFTIFolderDataset,
+)
 from ._sklearn_data_manager import SkLearnDataManager
 from ._tabular_dataset import TabularDataset
-from ._medical_datasets import NIFTIFolderDataset, MedicalFolderDataset, MedicalFolderBase, MedicalFolderController
+from ._torch_data_manager import TorchDataManager
 
 __all__ = [
     "MedicalFolderBase",
@@ -17,5 +22,5 @@ __all__ = [
     "TorchDataManager",
     "SkLearnDataManager",
     "TabularDataset",
-    "NIFTIFolderDataset"
+    "NIFTIFolderDataset",
 ]

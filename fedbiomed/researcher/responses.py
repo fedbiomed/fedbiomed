@@ -1,5 +1,7 @@
+from typing import Dict, List, Union
+
 import pandas as pd
-from typing import Union, List, Dict
+
 from fedbiomed.common.exceptions import FedbiomedResponsesError
 
 
@@ -24,7 +26,7 @@ class Responses:
                     self._data.append(d)
 
     def __getitem__(self, item: int) -> list:
-        """ Magic method to get item by index
+        """Magic method to get item by index
 
         Args:
             item: List index
@@ -72,14 +74,16 @@ class Responses:
 
         # TODO: Check elements of list are Dict
         if not isinstance(data, List):
-            raise FedbiomedResponsesError(f'`data` argument should instance of list not {type(data)}')
+            raise FedbiomedResponsesError(
+                f"`data` argument should instance of list not {type(data)}"
+            )
 
         self._data = data
 
         return self._data
 
     def dataframe(self) -> pd.DataFrame:
-        """ This method converts the list that includes responses to pandas dataframe
+        """This method converts the list that includes responses to pandas dataframe
 
         Returns:
             Pandas DataFrame includes node responses. Each row of dataframe represent single response that comes
@@ -89,7 +93,7 @@ class Responses:
         return pd.DataFrame(self._data)
 
     def append(self, response: Union[List, Dict]) -> list:
-        """ Appends new responses to existing responses
+        """Appends new responses to existing responses
 
         Args:
             response: List of response as dict or single response as dict that will be appended
@@ -107,7 +111,9 @@ class Responses:
         elif isinstance(response, self.__class__):
             self._data = self._data + response.data()
         else:
-            raise FedbiomedResponsesError(f'`The argument must be instance of List, '
-                                          f'Dict or Responses` not {type(response)}')
+            raise FedbiomedResponsesError(
+                f"`The argument must be instance of List, "
+                f"Dict or Responses` not {type(response)}"
+            )
 
         return self._data

@@ -5,25 +5,27 @@ import copy
 import inspect
 import os
 import re
-import sys
 import shutil
+import sys
 import tempfile
 import time
 import uuid
-from fedbiomed.common.constants import ModelApprovalStatus
-from fedbiomed.common.exceptions import FedbiomedRepositoryError
+from typing import Callable, Dict, List, Type, Union
+
 import validators
 
-from typing import Union, Callable, List, Dict, Type
-
+from fedbiomed.common.constants import ModelApprovalStatus
+from fedbiomed.common.exceptions import FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages
 from fedbiomed.common.repository import Repository
-from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan  # noqa
-
+from fedbiomed.common.training_plans import (
+    SKLearnTrainingPlan,  # noqa
+    TorchTrainingPlan,
+)
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
+from fedbiomed.researcher.filetools import create_unique_file_link, create_unique_link
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 
@@ -38,17 +40,19 @@ class Job:
 
     """
 
-    def __init__(self,
-                 reqs: Requests = None,
-                 nodes: dict = None,
-                 model: Union[Type[Callable], str] = None,
-                 model_path: str = None,
-                 training_args: dict = None,
-                 model_args: dict = None,
-                 data: FederatedDataSet = None,
-                 keep_files_dir: str = None):
+    def __init__(
+        self,
+        reqs: Requests = None,
+        nodes: dict = None,
+        model: Union[Type[Callable], str] = None,
+        model_path: str = None,
+        training_args: dict = None,
+        model_args: dict = None,
+        data: FederatedDataSet = None,
+        keep_files_dir: str = None,
+    ):
 
-        """ Constructor of the class
+        """Constructor of the class
 
         Args:
             reqs: Researcher's requests assigned to nodes. Defaults to None.
@@ -66,20 +70,24 @@ class Job:
         """
 
         self._id = str(uuid.uuid4())  # creating a unique job id
-        self._researcher_id = environ['RESEARCHER_ID']
+        self._researcher_id = environ["RESEARCHER_ID"]
         self._repository_args = {}
         self._training_args = training_args
         self._model_args = model_args
         self._nodes = nodes
         self._training_replies = {}  # will contain all node replies for every round
         self._model_file = None  # path to local file containing model code
-        self._model_params_file = None  # path to local file containing current version of aggregated params
+        self._model_params_file = (
+            None  # path to local file containing current version of aggregated params
+        )
 
         if keep_files_dir:
             self._keep_files_dir = keep_files_dir
         else:
-            self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
-            atexit.register(lambda: shutil.rmtree(self._keep_files_dir))  # remove directory
+            self._keep_files_dir = tempfile.mkdtemp(prefix=environ["TMP_DIR"])
+            atexit.register(
+                lambda: shutil.rmtree(self._keep_files_dir)
+            )  # remove directory
             # when script ends running (replace
             # `with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as self._keep_files_dir: `)
 
@@ -108,19 +116,28 @@ class Job:
                 model_module = os.path.basename(model_path)
                 model_module = re.search("(.*)\.py$", model_module).group(1)
                 sys.path.insert(0, os.path.dirname(model_path))
-                exec('from ' + model_module + ' import ' + model)
+                exec("from " + model_module + " import " + model)
                 sys.path.pop(0)
                 model = eval(model)
             except Exception:
                 e = sys.exc_info()
-                logger.critical("Cannot import class " + model + " from path " + model_path + " - Error: " + str(e))
+                logger.critical(
+                    "Cannot import class "
+                    + model
+                    + " from path "
+                    + model_path
+                    + " - Error: "
+                    + str(e)
+                )
                 sys.exit(-1)
 
         # check class is defined
         try:
             _ = inspect.isclass(model)
         except NameError:
-            mess = f"Cannot find training plan for Job, model class {model} is not defined"
+            mess = (
+                f"Cannot find training plan for Job, model class {model} is not defined"
+            )
             logger.critical(mess)
             raise NameError(mess)
 
@@ -137,11 +154,17 @@ class Job:
 
         # find the name of the class in any case
         # (it is `model` only in the case where `model` is not an instance)
-        self._model_class = re.search("([^\.]*)'>$", str(self.model_instance.__class__)).group(1)
+        self._model_class = re.search(
+            "([^\.]*)'>$", str(self.model_instance.__class__)
+        ).group(1)
 
-        self.repo = Repository(environ['UPLOADS_URL'], self._keep_files_dir, environ['CACHE_DIR'])
+        self.repo = Repository(
+            environ["UPLOADS_URL"], self._keep_files_dir, environ["CACHE_DIR"]
+        )
 
-        self._model_file = self._keep_files_dir + '/my_model_' + str(uuid.uuid4()) + '.py'
+        self._model_file = (
+            self._keep_files_dir + "/my_model_" + str(uuid.uuid4()) + ".py"
+        )
         try:
             self.model_instance.save_code(self._model_file)
         except Exception as e:
@@ -149,39 +172,49 @@ class Job:
             return
         # upload my_model_xxx.py on repository server (contains model definition)
         repo_response = self.repo.upload_file(self._model_file)
-        self._repository_args['model_url'] = repo_response['file']
+        self._repository_args["model_url"] = repo_response["file"]
 
-        self._model_params_file = self._keep_files_dir + '/aggregated_params_init_' + str(uuid.uuid4()) + '.pt'
+        self._model_params_file = (
+            self._keep_files_dir
+            + "/aggregated_params_init_"
+            + str(uuid.uuid4())
+            + ".pt"
+        )
         try:
             self.model_instance.save(self._model_params_file)
         except Exception as e:
-            logger.error("Cannot save parameters of the model to a local tmp dir : " + str(e))
+            logger.error(
+                "Cannot save parameters of the model to a local tmp dir : " + str(e)
+            )
             return
         # upload aggregated_params_init_xxx.pt on repository server (contains model parameters)
         repo_response = self.repo.upload_file(self._model_params_file)
-        self._repository_args['params_url'] = repo_response['file']
+        self._repository_args["params_url"] = repo_response["file"]
 
         # (below) regex: matches a character not present among "^", "\", "."
         # characters at the end of string.
-        self._repository_args['model_class'] = self._model_class
+        self._repository_args["model_class"] = self._model_class
 
         # Validate fields in each argument
-        self.validate_minimal_arguments(self._repository_args,
-                                        ['model_url', 'model_class', 'params_url'])
+        self.validate_minimal_arguments(
+            self._repository_args, ["model_url", "model_class", "params_url"]
+        )
         # FIXME: (above) the constructor of a class usually shouldnt call one of the method class in its definition
 
     @staticmethod
     def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
-        """ Validates a given dictionary by given mandatory fields.
+        """Validates a given dictionary by given mandatory fields.
 
         Args:
             obj: Object to be validated
             fields: List of fields that should be present on the obj
         """
         for f in fields:
-            assert f in obj.keys(), f'Field {f} is required in object {obj}. Was not found.'
-            if 'url' in f:
-                assert validators.url(obj[f]), f'Url not valid: {f}'
+            assert (
+                f in obj.keys()
+            ), f"Field {f} is required in object {obj}. Was not found."
+            if "url" in f:
+                assert validators.url(obj[f]), f"Url not valid: {f}"
 
     @property
     def model(self):
@@ -221,7 +254,7 @@ class Job:
 
     def check_model_is_approved_by_nodes(self) -> List:
 
-        """ Checks whether model is approved or not.
+        """Checks whether model is approved or not.
 
         This method sends `model-status` request to the nodes. It should be run before running experiment.
         So, researchers can find out if their model has been approved
@@ -229,10 +262,10 @@ class Job:
         """
 
         message = {
-            'researcher_id': self._researcher_id,
-            'job_id': self._id,
-            'model_url': self._repository_args['model_url'],
-            'command': 'model-status'
+            "researcher_id": self._researcher_id,
+            "job_id": self._id,
+            "model_url": self._repository_args["model_url"],
+            "command": "model-status",
         }
 
         responses = Responses([])
@@ -241,35 +274,48 @@ class Job:
 
         # Send message to each node that has been found after dataset search request
         for cli in node_ids:
-            logger.info('Sending request to node ' +
-                        str(cli) + " to check model is approved or not")
+            logger.info(
+                "Sending request to node "
+                + str(cli)
+                + " to check model is approved or not"
+            )
             self._reqs.send_message(
-                ResearcherMessages.request_create(message).get_dict(),
-                cli)
+                ResearcherMessages.request_create(message).get_dict(), cli
+            )
 
         # Wait for responses
-        for resp in self._reqs.get_responses(look_for_commands=['model-status'], only_successful=False):
+        for resp in self._reqs.get_responses(
+            look_for_commands=["model-status"], only_successful=False
+        ):
             responses.append(resp)
-            replied_nodes.append(resp.get('node_id'))
+            replied_nodes.append(resp.get("node_id"))
 
-            if resp.get('success') is True:
-                if resp.get('approval_obligation') is True:
-                    if resp.get('status') == ModelApprovalStatus.APPROVED.value:
-                        logger.info(f'Model has been approved by the node: {resp.get("node_id")}')
+            if resp.get("success") is True:
+                if resp.get("approval_obligation") is True:
+                    if resp.get("status") == ModelApprovalStatus.APPROVED.value:
+                        logger.info(
+                            f'Model has been approved by the node: {resp.get("node_id")}'
+                        )
                     else:
-                        logger.warning(f'Model has NOT been approved by the node: {resp.get("node_id")}.' +
-                                       f'Model status : {resp.get("status")}')
+                        logger.warning(
+                            f'Model has NOT been approved by the node: {resp.get("node_id")}.'
+                            + f'Model status : {resp.get("status")}'
+                        )
                 else:
-                    logger.info(f'Model approval is not required by the node: {resp.get("node_id")}')
+                    logger.info(
+                        f'Model approval is not required by the node: {resp.get("node_id")}'
+                    )
             else:
                 logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
-        
+
         # Get the nodes that haven't replied model-status request
         non_replied_nodes = list(set(node_ids) - set(replied_nodes))
         if non_replied_nodes:
-            logger.warning(f"Request for checking model status hasn't been replied \
+            logger.warning(
+                f"Request for checking model status hasn't been replied \
                              by the nodes: {non_replied_nodes}. You might get error \
-                                 while runing your experiment. ")
+                                 while runing your experiment. "
+            )
 
         return responses
 
@@ -277,7 +323,7 @@ class Job:
     #   than DefaultStrategy
 
     def waiting_for_nodes(self, responses: Responses) -> bool:
-        """ Verifies if all nodes involved in the job are present and Responding
+        """Verifies if all nodes involved in the job are present and Responding
 
         Args:
             responses: contains message answers
@@ -286,42 +332,50 @@ class Job:
             False if all nodes are present in the Responses object. True if waiting for at least one node.
         """
         try:
-            nodes_done = set(responses.dataframe()['node_id'])
+            nodes_done = set(responses.dataframe()["node_id"])
         except KeyError:
             nodes_done = set()
 
         return not nodes_done == set(self._nodes)
 
     def start_nodes_training_round(self, round: int, do_training: bool = True):
-        """ Sends training request to nodes and waits for the responses
+        """Sends training request to nodes and waits for the responses
 
         Args:
             round: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
             do_training: if False, skip training in this round (do only validation). Defaults to True.
         """
-        headers = {'researcher_id': self._researcher_id,
-                   'job_id': self._id,
-                   "current_round": round,
-                   'training_args': self._training_args,
-                   'training': do_training,
-                   'model_args': self._model_args,
-                   'command': 'train'}
+        headers = {
+            "researcher_id": self._researcher_id,
+            "job_id": self._id,
+            "current_round": round,
+            "training_args": self._training_args,
+            "training": do_training,
+            "model_args": self._model_args,
+            "command": "train",
+        }
         msg = {**headers, **self._repository_args}
         time_start = {}
 
         for cli in self._nodes:
-            msg['training_data'] = {cli: [ds['dataset_id'] for ds in self._data.data()[cli]]}
+            msg["training_data"] = {
+                cli: [ds["dataset_id"] for ds in self._data.data()[cli]]
+            }
             if not do_training:
-                logger.info(f'\033[1mSending request\033[0m \n'
-                            f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
-                            f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
-                            f'aggregated parameters \n {5 * "-------------"}')
+                logger.info(
+                    f"\033[1mSending request\033[0m \n"
+                    f"\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n"
+                    f"\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on "
+                    f'aggregated parameters \n {5 * "-------------"}'
+                )
             else:
-                logger.info(f'\033[1mSending request\033[0m \n'
-                            f'\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n'
-                            f'\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: {str(msg)} '
-                            f'\n {5 * "-------------"}')
+                logger.info(
+                    f"\033[1mSending request\033[0m \n"
+                    f"\t\t\t\t\t\033[1m To\033[0m: {str(cli)} \n"
+                    f"\t\t\t\t\t\033[1m Request: \033[0m: Perform training with the arguments: {str(msg)} "
+                    f'\n {5 * "-------------"}'
+                )
 
             time_start[cli] = time.perf_counter()
             self._reqs.send_message(msg, cli)  # send request to node
@@ -332,33 +386,44 @@ class Job:
             # collect nodes responses from researcher request 'train'
             # (wait for all nodes with a ` while true` loop)
             # models_done = self._reqs.get_responses(look_for_commands=['train'])
-            models_done = self._reqs.get_responses(look_for_commands=['train', 'error'], only_successful=False)
+            models_done = self._reqs.get_responses(
+                look_for_commands=["train", "error"], only_successful=False
+            )
             for m in models_done.data():  # retrieve all models
                 # (there should have as many models done as nodes)
 
                 # manage error messages during training
-                if 'errnum' in m:  # TODO: need a stronger filter
-                    if m['extra_msg']:
-                        logger.info(f"Error message received during training: {str(m['errnum'].value)} "
-                                    f"- {str(m['extra_msg'])}")
+                if "errnum" in m:  # TODO: need a stronger filter
+                    if m["extra_msg"]:
+                        logger.info(
+                            f"Error message received during training: {str(m['errnum'].value)} "
+                            f"- {str(m['extra_msg'])}"
+                        )
                     else:
-                        logger.info(f"Error message received during training: {str(m['errnum'].value)}")
+                        logger.info(
+                            f"Error message received during training: {str(m['errnum'].value)}"
+                        )
 
-                    faulty_node = m['node_id']  # remove the faulty node from the list
+                    faulty_node = m["node_id"]  # remove the faulty node from the list
 
                     if faulty_node not in list(self._nodes):
-                        logger.warning(f"Error message from {faulty_node} ignored, since this node is not part ot "
-                                       f"the training any mode")
+                        logger.warning(
+                            f"Error message from {faulty_node} ignored, since this node is not part ot "
+                            f"the training any mode"
+                        )
                         continue
 
                     self._nodes.remove(faulty_node)
 
                 # only consider replies for our request
-                if m['researcher_id'] != environ['RESEARCHER_ID'] or \
-                        m['job_id'] != self._id or m['node_id'] not in list(self._nodes):
+                if (
+                    m["researcher_id"] != environ["RESEARCHER_ID"]
+                    or m["job_id"] != self._id
+                    or m["node_id"] not in list(self._nodes)
+                ):
                     continue
 
-                rtime_total = time.perf_counter() - time_start[m['node_id']]
+                rtime_total = time.perf_counter() - time_start[m["node_id"]]
 
                 # TODO : handle error depending on status
                 if do_training:
@@ -368,16 +433,20 @@ class Job:
                     params = None
 
                 # TODO: could choose completely different name/structure for
-                timing = m['timing']
-                timing['rtime_total'] = rtime_total
+                timing = m["timing"]
+                timing["rtime_total"] = rtime_total
 
-                r = Responses({'success': m['success'],
-                               'msg': m['msg'],
-                               'dataset_id': m['dataset_id'],
-                               'node_id': m['node_id'],
-                               'params_path': params_path,
-                               'params': params,
-                               'timing': timing})
+                r = Responses(
+                    {
+                        "success": m["success"],
+                        "msg": m["msg"],
+                        "dataset_id": m["dataset_id"],
+                        "node_id": m["node_id"],
+                        "params_path": params_path,
+                        "params": params,
+                        "timing": timing,
+                    }
+                )
 
                 self._training_replies[round].append(r)
 
@@ -386,14 +455,19 @@ class Job:
 
     def _load_params(self, m):
         params_path = ""
-        logger.info(f"Downloading model params after training on {m['node_id']} - from {m['params_url']}")
+        logger.info(
+            f"Downloading model params after training on {m['node_id']} - from {m['params_url']}"
+        )
         try:
-            _, params_path = self.repo.download_file(m['params_url'],
-                                                     'node_params_' + str(uuid.uuid4()) + '.pt')
+            _, params_path = self.repo.download_file(
+                m["params_url"], "node_params_" + str(uuid.uuid4()) + ".pt"
+            )
         except FedbiomedRepositoryError as err:
-            logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
-                         f" stops working (details: {err})")
-        params = self.model_instance.load(params_path, to_params=True)['model_params']
+            logger.error(
+                f"Cannot download model parameter from node {m['node_id']}, probably because Node"
+                f" stops working (details: {err})"
+            )
+        params = self.model_instance.load(params_path, to_params=True)["model_params"]
         return params, params_path
 
     def update_parameters(self, params: dict = {}, filename: str = None) -> str:
@@ -414,12 +488,19 @@ class Job:
         try:
             if not filename:
                 if not params:
-                    raise ValueError('Bad arguments for update_parameters, filename or params is needed')
-                filename = self._keep_files_dir + '/aggregated_params_' + str(uuid.uuid4()) + '.pt'
+                    raise ValueError(
+                        "Bad arguments for update_parameters, filename or params is needed"
+                    )
+                filename = (
+                    self._keep_files_dir
+                    + "/aggregated_params_"
+                    + str(uuid.uuid4())
+                    + ".pt"
+                )
                 self.model_instance.save(filename, params)
 
             repo_response = self.repo.upload_file(filename)
-            self._repository_args['params_url'] = repo_response['file']
+            self._repository_args["params_url"] = repo_response["file"]
             self._model_params_file = filename
         except Exception as e:
             e = sys.exc_info()
@@ -441,23 +522,25 @@ class Job:
         # Note: some state is passed to __init__() thus is not managed
         # as job state but as experiment state in current version
         state = {
-            'researcher_id': self._researcher_id,
-            'job_id': self._id,
-            'model_params_path': self._model_params_file,
-            'training_replies': self._save_training_replies(self._training_replies)
+            "researcher_id": self._researcher_id,
+            "job_id": self._id,
+            "model_params_path": self._model_params_file,
+            "training_replies": self._save_training_replies(self._training_replies),
         }
 
-        state['model_params_path'] = create_unique_link(
+        state["model_params_path"] = create_unique_link(
             breakpoint_path,
-            'aggregated_params_current', '.pt',
-            os.path.join('..', os.path.basename(state["model_params_path"]))
+            "aggregated_params_current",
+            ".pt",
+            os.path.join("..", os.path.basename(state["model_params_path"])),
         )
 
-        for round_replies in state['training_replies']:
+        for round_replies in state["training_replies"]:
             for response in round_replies:
-                node_params_path = create_unique_file_link(breakpoint_path,
-                                                           response['params_path'])
-                response['params_path'] = node_params_path
+                node_params_path = create_unique_file_link(
+                    breakpoint_path, response["params_path"]
+                )
+                response["params_path"] = node_params_path
 
         return state
 
@@ -467,16 +550,17 @@ class Job:
         Args:
             saved_state: breakpoint content
         """
-        self._id = saved_state.get('job_id')
-        self.update_parameters(filename=saved_state.get('model_params_path'))
+        self._id = saved_state.get("job_id")
+        self.update_parameters(filename=saved_state.get("model_params_path"))
         self._training_replies = self._load_training_replies(
-            saved_state.get('training_replies'),
-            self.model_instance.load
+            saved_state.get("training_replies"), self.model_instance.load
         )
-        self._researcher_id = saved_state.get('researcher_id')
+        self._researcher_id = saved_state.get("researcher_id")
 
     @staticmethod
-    def _save_training_replies(training_replies: Dict[int, Responses]) -> List[List[dict]]:
+    def _save_training_replies(
+        training_replies: Dict[int, Responses]
+    ) -> List[List[dict]]:
         """Extracts a copy of `training_replies` and prepares it for saving in breakpoint
 
         - strip unwanted fields
@@ -494,14 +578,15 @@ class Job:
             training_reply = copy.deepcopy(training_replies[round_].data())
             # we want to strip some fields for the breakpoint
             for node in training_reply:
-                del node['params']
+                del node["params"]
             converted_training_replies.append(training_reply)
 
         return converted_training_replies
 
     @staticmethod
-    def _load_training_replies(bkpt_training_replies: List[List[dict]],
-                               func_load_params: Callable) -> Dict[int, Responses]:
+    def _load_training_replies(
+        bkpt_training_replies: List[List[dict]], func_load_params: Callable
+    ) -> Dict[int, Responses]:
         """Reads training replies from a formatted breakpoint file, and build a job training replies data structure .
 
         Args:
@@ -517,22 +602,23 @@ class Job:
             loaded_training_reply = Responses(bkpt_training_replies[round_])
             # reload parameters from file params_path
             for node in loaded_training_reply:
-                node['params'] = func_load_params(
-                    node['params_path'], to_params=True)['model_params']
+                node["params"] = func_load_params(node["params_path"], to_params=True)[
+                    "model_params"
+                ]
 
             training_replies[round_] = loaded_training_reply
 
         return training_replies
 
     def check_data_quality(self):
-        """Does quality check by comparing datasets that have been found in different nodes. """
+        """Does quality check by comparing datasets that have been found in different nodes."""
 
         data = self._data.data()
         # If there are more than two nodes ready for the job
         if len(data.keys()) > 1:
 
             # First check data types are same based on searched tags
-            logger.info('Checking data quality of federated datasets...')
+            logger.info("Checking data quality of federated datasets...")
 
             data_types = []  # CSV, Image or default
             shapes = []  # dimensions
@@ -545,19 +631,22 @@ class Job:
                     dtypes.append(feature["dtypes"])
                     shapes.append(feature["shape"])
 
-            assert len(set(data_types)) == 1, \
-                f'Different type of datasets has been loaded with same tag: {data_types}'
+            assert (
+                len(set(data_types)) == 1
+            ), f"Different type of datasets has been loaded with same tag: {data_types}"
 
-            if data_types[0] == 'csv':
-                assert len(set([s[1] for s in shapes])) == 1, \
-                    f'Number of columns of federated datasets do not match {shapes}.'
+            if data_types[0] == "csv":
+                assert (
+                    len(set([s[1] for s in shapes])) == 1
+                ), f"Number of columns of federated datasets do not match {shapes}."
 
                 dtypes_t = list(map(list, zip(*dtypes)))
                 for t in dtypes_t:
-                    assert len(set(t)) == 1, \
-                        f'Variable data types do not match in federated datasets {dtypes}'
+                    assert (
+                        len(set(t)) == 1
+                    ), f"Variable data types do not match in federated datasets {dtypes}"
 
-            elif data_types[0] == 'images':
+            elif data_types[0] == "images":
                 shapes_t = list(map(list, zip(*[s[2:] for s in shapes])))
                 dim_state = True
                 for s in shapes_t:
@@ -565,12 +654,16 @@ class Job:
                         dim_state = False
 
                 if not dim_state:
-                    logger.error(f'Dimensions of the images in federated datasets \
-                                 do not match. Please consider using resize. {shapes} ')
+                    logger.error(
+                        f"Dimensions of the images in federated datasets \
+                                 do not match. Please consider using resize. {shapes} "
+                    )
 
                 if len(set([k[1] for k in shapes])) != 1:
-                    logger.error(f'Color channels of the images in federated \
-                                    datasets do not match. {shapes}')
+                    logger.error(
+                        f"Color channels of the images in federated \
+                                    datasets do not match. {shapes}"
+                    )
 
             # If it is default MNIST dataset pass
             else:
@@ -585,11 +678,14 @@ class localJob:
     networks.
     """
 
-    def __init__(self, dataset_path: str = None,
-                 model_class: str = 'MyTrainingPlan',
-                 model_path: str = None,
-                 training_args: dict = None,
-                 model_args: dict = None):
+    def __init__(
+        self,
+        dataset_path: str = None,
+        model_class: str = "MyTrainingPlan",
+        model_path: str = None,
+        training_args: dict = None,
+        model_args: dict = None,
+    ):
 
         """
         Constructor of the class
@@ -609,8 +705,9 @@ class localJob:
         self.dataset_path = dataset_path
 
         if training_args is not None:
-            if training_args.get('test_on_local_updates', False) \
-                    or training_args.get('test_on_global_updates', False):
+            if training_args.get("test_on_local_updates", False) or training_args.get(
+                "test_on_global_updates", False
+            ):
                 # if user wants to perform validation, display this message
                 logger.warning("Cannot perform validation, not supported for LocalJob")
 
@@ -620,13 +717,19 @@ class localJob:
                 model_module = os.path.basename(model_path)
                 model_module = re.search("(.*)\.py$", model_module).group(1)
                 sys.path.insert(0, os.path.dirname(model_path))
-                exec('from ' + model_module + ' import ' + model_class)
+                exec("from " + model_module + " import " + model_class)
                 sys.path.pop(0)
                 model_class = eval(model_class)
             except Exception as e:
                 e = sys.exc_info()
-                logger.critical("Cannot import class " + model_class + " from path " +
-                                model_path + " - Error: " + str(e))
+                logger.critical(
+                    "Cannot import class "
+                    + model_class
+                    + " from path "
+                    + model_path
+                    + " - Error: "
+                    + str(e)
+                )
                 sys.exit(-1)
 
         # create/save model instance
@@ -657,7 +760,7 @@ class localJob:
             exec(i, globals())
 
         is_failed = False
-        error_message = ''
+        error_message = ""
 
         # Run the training routine
         if not is_failed:
@@ -668,8 +771,9 @@ class localJob:
                 tp_type = self.model_instance.type()
                 data_manager.load(tp_type=tp_type)
                 train_loader, test_loader = data_manager.split(test_ratio=0)
-                self.model_instance.training_routine(data_loader=train_loader,
-                                                     **self._localjob_training_args)
+                self.model_instance.training_routine(
+                    data_loader=train_loader, **self._localjob_training_args
+                )
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot train model in job : " + str(e)
@@ -678,11 +782,13 @@ class localJob:
             try:
                 # TODO : should test status code but not yet returned
                 # by upload_file
-                filename = environ['TMP_DIR'] + '/local_params_' + str(uuid.uuid4()) + '.pt'
+                filename = (
+                    environ["TMP_DIR"] + "/local_params_" + str(uuid.uuid4()) + ".pt"
+                )
                 self.model_instance.save(filename, results)
             except Exception as e:
                 is_failed = True
                 error_message = "Cannot write results: " + str(e)
 
-        if error_message != '':
+        if error_message != "":
             logger.error(error_message)

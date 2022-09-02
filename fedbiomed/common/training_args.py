@@ -10,11 +10,16 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.validator import SchemeValidator, ValidatorError, \
-    ValidateError, RuleError, validator_decorator
+from fedbiomed.common.validator import (
+    RuleError,
+    SchemeValidator,
+    ValidateError,
+    ValidatorError,
+    validator_decorator,
+)
 
 
-class TrainingArgs():
+class TrainingArgs:
     """
     Provide a container to manage training arguments.
 
@@ -25,7 +30,10 @@ class TrainingArgs():
     It also permits to extend the TrainingArgs then testing new features
     by supplying an extra_scheme at TraininfArgs instanciation.
     """
-    def __init__(self, ta: Dict = None, extra_scheme: Dict = None, only_required: bool = True):
+
+    def __init__(
+        self, ta: Dict = None, extra_scheme: Dict = None, only_required: bool = True
+    ):
         """
         Create a TrainingArgs from a Dict with input validation.
 
@@ -67,8 +75,7 @@ class TrainingArgs():
             ta = {}
 
         try:
-            self._ta = self._sc.populate_with_defaults( ta,
-                                                        only_required = only_required)
+            self._ta = self._sc.populate_with_defaults(ta, only_required=only_required)
         except ValidatorError as e:
             # scheme has required keys without defined default value
             msg = ErrorNumbers.FB410.value + f": {e}"
@@ -84,11 +91,11 @@ class TrainingArgs():
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
-
-
     @staticmethod
     @validator_decorator
-    def _metric_validation_hook( metric: Union[MetricTypes, str, None] ) -> Union[bool, str]:
+    def _metric_validation_hook(
+        metric: Union[MetricTypes, str, None]
+    ) -> Union[bool, str]:
         """
         Validate the metric argument of test_metric.
         """
@@ -105,10 +112,9 @@ class TrainingArgs():
 
         return False, f"Metric {metric} is not a supported Metric"
 
-
     @staticmethod
     @validator_decorator
-    def _test_ratio_hook( v: Any) -> bool:
+    def _test_ratio_hook(v: Any) -> bool:
         """
         Test if in [ 0.0 , 1.0]  interval.
         """
@@ -119,7 +125,7 @@ class TrainingArgs():
 
     @staticmethod
     @validator_decorator
-    def _lr_hook( v: Any):
+    def _lr_hook(v: Any):
         """
         Test if lr is greater than 0.
         """
@@ -136,83 +142,66 @@ class TrainingArgs():
         return {
             # lr
             "lr": {
-                "rules": [ float, cls._lr_hook ],
+                "rules": [float, cls._lr_hook],
                 "required": False,
-#               "default": 0.01
+                #               "default": 0.01
             },
-
             # batch_size
             "batch_size": {
-                "rules": [ int ],
+                "rules": [int],
                 "required": False,
-#                "default": 48
+                #                "default": 48
             },
-
             # epochs
             "epochs": {
-                "rules": [ int ],
+                "rules": [int],
                 "required": False,
-#                "default": 1
+                #                "default": 1
             },
-
             # dry_run
             "dry_run": {
-                "rules": [ bool ],
+                "rules": [bool],
                 "required": False,
-#                "default": False
+                #                "default": False
             },
-
             # batch_maxnum
             "batch_maxnum": {
-                "rules": [ int ],
+                "rules": [int],
                 "required": False,
-#                "default": 100
+                #                "default": 100
             },
-
             # test_ratio
             "test_ratio": {
-                "rules": [ float, cls._test_ratio_hook ],
+                "rules": [float, cls._test_ratio_hook],
                 "required": False,
-                "default": 0.0
+                "default": 0.0,
             },
-
             # test_on_local_updates
             "test_on_local_updates": {
-                "rules": [ bool ],
+                "rules": [bool],
                 "required": False,
-                "default": False
+                "default": False,
             },
-
             # tests_on_globals_updates
             "test_on_global_updates": {
-                "rules": [ bool ],
+                "rules": [bool],
                 "required": False,
-                "default": False
+                "default": False,
             },
-
             # test_metric
             "test_metric": {
-                "rules": [ cls._metric_validation_hook ],
+                "rules": [cls._metric_validation_hook],
                 "required": False,
-                "default": None
+                "default": None,
             },
-
             # test_metric_args (no test)
-            "test_metric_args": {
-                "rules": [ dict ],
-                "required": False,
-                "default": {}
-            },
-
+            "test_metric_args": {"rules": [dict], "required": False, "default": {}},
             # log_interval
             "log_interval": {
                 "rules": [int],
                 "required": False,
-            }
-
+            },
         }
-
-
 
     def __str__(self) -> str:
         """
@@ -223,7 +212,6 @@ class TrainingArgs():
         """
         return str(self._ta)
 
-
     def __repr__(self) -> str:
         """
         Display the Training_Args full content for debugging purpose.
@@ -232,7 +220,6 @@ class TrainingArgs():
             printable version of TrainingArgs (scheme and value)
         """
         return f"scheme:\n{self._scheme}\nvalue:\n{self._ta}"
-
 
     def __setitem__(self, key: str, value: Any) -> Any:
         """
@@ -262,7 +249,6 @@ class TrainingArgs():
             raise FedbiomedUserInputError(msg)
         return deepcopy(self._ta[key])
 
-
     def __getitem__(self, key: str) -> Any:
         """
         Returns a copy of the value associated to a key.
@@ -286,7 +272,6 @@ class TrainingArgs():
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
-
     def update(self, values: Dict) -> TypeVar("TrainingArgs"):
         """
         Update multiple keys of the training arguments.
@@ -303,7 +288,6 @@ class TrainingArgs():
         for k in values:
             self.__setitem__(k, values[k])
         return self
-
 
     def __ixor__(self, other: Dict) -> TypeVar("TrainingArgs"):
         """
@@ -325,7 +309,6 @@ class TrainingArgs():
         """
         return self.update(other)
 
-
     def scheme(self) -> Dict:
         """
         Returns the scheme of a TrainingArgs instance.
@@ -336,7 +319,6 @@ class TrainingArgs():
             scheme:  the current scheme used for validation
         """
         return deepcopy(self._scheme)
-
 
     def default_value(self, key: str) -> Any:
         """
@@ -355,27 +337,25 @@ class TrainingArgs():
             if "default" in self._sc.scheme()[key]:
                 return deepcopy(self._sc.scheme()[key]["default"])
             else:
-                msg = ErrorNumbers.FB410.value + \
-                    f"no default value defined for key: {key}"
+                msg = (
+                    ErrorNumbers.FB410.value
+                    + f"no default value defined for key: {key}"
+                )
                 logger.critical(msg)
                 raise FedbiomedUserInputError(msg)
         else:
-            msg = ErrorNumbers.FB410.value + \
-                f"no such key: {key}"
+            msg = ErrorNumbers.FB410.value + f"no such key: {key}"
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
-
 
     def dict(self):
         """Returns a copy of the training_args as a dictionary."""
 
         ta = deepcopy(self._ta)
-        if 'test_metric' in ta and \
-           isinstance(ta['test_metric'], MetricTypes):
+        if "test_metric" in ta and isinstance(ta["test_metric"], MetricTypes):
             # replace MetricType value by a string
-            ta['test_metric'] = ta['test_metric'].name
+            ta["test_metric"] = ta["test_metric"].name
         return ta
-
 
     def get(self, key: str, default: Any = None) -> Any:
         """Mimics the get() method of dict, provided for backward compatibility.

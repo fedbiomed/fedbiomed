@@ -1,7 +1,7 @@
 """Module includes the classes that allow researcher to interact with remote datasets (federated datasets)."""
 
-from typing import List, Dict
 import uuid
+from typing import Dict, List
 
 
 class FederatedDataSet:
@@ -55,8 +55,7 @@ class FederatedDataSet:
             Includes [`sample_sizes`][fedbiomed.researcher.datasets.FederatedDataSet.sample_sizes] by node_ids.
         """
         shapes_dict = {}
-        for node_id, node_data_size in zip(self.node_ids(),
-                                           self.sample_sizes()):
+        for node_id, node_data_size in zip(self.node_ids(), self.sample_sizes()):
             shapes_dict[node_id] = node_data_size
 
         return shapes_dict

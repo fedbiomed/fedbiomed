@@ -1,12 +1,11 @@
 """ Module contains Base class that includes common methods that are used for all training plans"""
 
 
+from collections import OrderedDict
+from typing import Callable, Dict, List, Tuple, Union
+
 import numpy as np
 import torch
-
-from collections import OrderedDict
-from typing import Tuple, Dict, List, Callable, Union
-
 from torch.utils.data import DataLoader
 
 from fedbiomed.common import utils
@@ -27,6 +26,7 @@ class BaseTrainingPlan(object):
         training_data_loader: Data loader for training routine/loop
         testing_data_loader: Data loader for validation routine
     """
+
     def __init__(self):
         """Construct base training plan"""
 
@@ -38,7 +38,7 @@ class BaseTrainingPlan(object):
         self.testing_data_loader = None
 
     def add_dependency(self, dep: List[str]):
-        """ Adds new dependency to the TrainingPlan class.
+        """Adds new dependency to the TrainingPlan class.
 
         These dependencies are used while creating a python module.
 
@@ -56,11 +56,13 @@ class BaseTrainingPlan(object):
                 who will execute the training.
         """
         self.dataset_path = dataset_path
-        logger.debug('Dataset path has been set as' + self.dataset_path)
+        logger.debug("Dataset path has been set as" + self.dataset_path)
 
-    def set_data_loaders(self,
-                         train_data_loader: Union[DataLoader, Tuple[np.ndarray, np.ndarray], None],
-                         test_data_loader: Union[DataLoader, Tuple[np.ndarray, np.ndarray], None]):
+    def set_data_loaders(
+        self,
+        train_data_loader: Union[DataLoader, Tuple[np.ndarray, np.ndarray], None],
+        test_data_loader: Union[DataLoader, Tuple[np.ndarray, np.ndarray], None],
+    ):
         """Sets data loaders
 
         Args:
@@ -83,9 +85,11 @@ class BaseTrainingPlan(object):
         try:
             class_source = get_class_source(self.__class__)
         except FedbiomedError as e:
-            msg = ErrorNumbers.FB605.value + \
-                " : error while getting source of the model class - " + \
-                str(e)
+            msg = (
+                ErrorNumbers.FB605.value
+                + " : error while getting source of the model class - "
+                + str(e)
+            )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
@@ -104,16 +108,25 @@ class BaseTrainingPlan(object):
             file.close()
             logger.debug("Model file has been saved: " + filepath)
         except PermissionError:
-            _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges" + \
-                ", can't write the model content into it"
+            _msg = (
+                ErrorNumbers.FB605.value
+                + f" : Unable to read {filepath} due to unsatisfactory privileges"
+                + ", can't write the model content into it"
+            )
             logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg)
         except MemoryError:
-            _msg = ErrorNumbers.FB605.value + f" : Can't write model file on {filepath}: out of memory!"
+            _msg = (
+                ErrorNumbers.FB605.value
+                + f" : Can't write model file on {filepath}: out of memory!"
+            )
             logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg)
         except OSError:
-            _msg = ErrorNumbers.FB605.value + f" : Can't open file {filepath} to write model content"
+            _msg = (
+                ErrorNumbers.FB605.value
+                + f" : Can't open file {filepath} to write model content"
+            )
             logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg)
 
@@ -139,28 +152,36 @@ class BaseTrainingPlan(object):
             process_type: Type of the process that will be run
         """
         if not isinstance(method, Callable):
-            msg = ErrorNumbers.FB605.value + \
-                " : error while adding preprocess, " + \
-                "preprocess should be a callable method"
+            msg = (
+                ErrorNumbers.FB605.value
+                + " : error while adding preprocess, "
+                + "preprocess should be a callable method"
+            )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
         if not isinstance(process_type, ProcessTypes):
-            msg = ErrorNumbers.FB605.value + \
-                " : error while adding preprocess," + \
-                " process type should be an instance of" + \
-                " `fedbiomed.common.constants.ProcessType`"
+            msg = (
+                ErrorNumbers.FB605.value
+                + " : error while adding preprocess,"
+                + " process type should be an instance of"
+                + " `fedbiomed.common.constants.ProcessType`"
+            )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
         self.pre_processes[method.__name__] = {
-            'method': method,
-            'process_type': process_type
+            "method": method,
+            "process_type": process_type,
         }
 
     @staticmethod
-    def _create_metric_result_dict(metric: Union[dict, list, int, float, np.ndarray, torch.Tensor, List[torch.Tensor]],
-                                   metric_name: str = 'Custom') -> Dict[str, float]:
+    def _create_metric_result_dict(
+        metric: Union[
+            dict, list, int, float, np.ndarray, torch.Tensor, List[torch.Tensor]
+        ],
+        metric_name: str = "Custom",
+    ) -> Dict[str, float]:
         """Create metric result dictionary.
 
         Args:
@@ -185,34 +206,40 @@ class BaseTrainingPlan(object):
             metric = list(metric)
 
         # If it is single int/float metric value
-        if isinstance(metric, (int, float, np.integer, np.floating)) and not isinstance(metric, bool):
+        if isinstance(metric, (int, float, np.integer, np.floating)) and not isinstance(
+            metric, bool
+        ):
             return {metric_name: float(metric)}
 
         # If metric function returns multiple values
         elif isinstance(metric, list) or isinstance(metric, dict):
 
             if isinstance(metric, list):
-                metric_names = [f"{metric_name}_{i + 1}" for i, val in enumerate(metric)]
+                metric_names = [
+                    f"{metric_name}_{i + 1}" for i, val in enumerate(metric)
+                ]
             else:
                 metric_names = metric.keys()
 
             try:
                 metric = utils.convert_iterator_to_list_of_python_floats(metric)
             except FedbiomedError as e:
-                msg = ErrorNumbers.FB605.value + \
-                      " : wrong typed metric value - " + \
-                      str(e)
+                msg = (
+                    ErrorNumbers.FB605.value + " : wrong typed metric value - " + str(e)
+                )
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
 
             return dict(zip(metric_names, metric))
 
         else:
-            msg = ErrorNumbers.FB605.value + \
-                " : metric value should be one of type" + \
-                " int, float, np.integer, torch.Tensor," + \
-                "list of int/float/np.integer/torch.Tensor or" + \
-                "dict of key (int/float/np.integer/torch.Tensor) instead of " + \
-                str(type(metric))
+            msg = (
+                ErrorNumbers.FB605.value
+                + " : metric value should be one of type"
+                + " int, float, np.integer, torch.Tensor,"
+                + "list of int/float/np.integer/torch.Tensor or"
+                + "dict of key (int/float/np.integer/torch.Tensor) instead of "
+                + str(type(metric))
+            )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)

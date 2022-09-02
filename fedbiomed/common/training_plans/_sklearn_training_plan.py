@@ -4,19 +4,19 @@ This module implements the base class for all implementations of Fed-BioMed wrap
 """
 
 import sys
-import numpy as np
-
-from typing import Any, Dict, Union, Callable
 from io import StringIO
+from typing import Any, Callable, Dict, Union
+
+import numpy as np
 from joblib import dump, load
 
-from ._base_training_plan import BaseTrainingPlan
-
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlans, ProcessTypes
+from fedbiomed.common.constants import ErrorNumbers, ProcessTypes, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.utils import get_method_spec
+
+from ._base_training_plan import BaseTrainingPlan
 
 
 class _Capturer(list):
@@ -65,7 +65,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             model_args = {}
         super().__init__()
 
-        if getattr(self, 'model') is None:
+        if getattr(self, "model") is None:
             msg = ErrorNumbers.FB303.value + ": SKLEARN model is None"
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
@@ -76,7 +76,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             raise FedbiomedTrainingPlanError(msg)
 
         self.params = self.model.get_params()
-        self.params.update({key: model_args[key] for key in model_args if key in self.params})
+        self.params.update(
+            {key: model_args[key] for key in model_args if key in self.params}
+        )
 
         self.model_args = model_args
 
@@ -90,17 +92,19 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         self._is_binary_classification = False
         self._verbose_capture_option = False
         self.dataset_path = None
-        self.add_dependency(["import inspect",
-                             "import numpy as np",
-                             "import pandas as pd",
-                             "from fedbiomed.common.training_plans import SKLearnTrainingPlan",
-                             "from fedbiomed.common.data import DataManager",
-                             ])
+        self.add_dependency(
+            [
+                "import inspect",
+                "import numpy as np",
+                "import pandas as pd",
+                "from fedbiomed.common.training_plans import SKLearnTrainingPlan",
+                "from fedbiomed.common.data import DataManager",
+            ]
+        )
 
-    def training_routine(self,
-                         epochs: int = 1,
-                         history_monitor = None,
-                         node_args: Union[dict, None] = None):
+    def training_routine(
+        self, epochs: int = 1, history_monitor=None, node_args: Union[dict, None] = None
+    ):
         """
         Method training_routine called in Round, to change only if you know what you are doing.
 
@@ -113,26 +117,25 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
               GPU device if this GPU device is available. Default None.
             - gpu_only (bool): force use of a GPU device if any available, even if researcher
               doesnt request for using a GPU. Default False.
-                """
+        """
         if self.model is None:
-            raise FedbiomedTrainingPlanError('model in None')
+            raise FedbiomedTrainingPlanError("model in None")
 
         # Run preprocesses
         self.__preprocess()
 
-        if node_args is not None and node_args.get('gpu_only', False):
-            logger.warning('Node would like to force GPU usage, but sklearn training plan ' +
-                           'does not support it. Training on CPU.')
+        if node_args is not None and node_args.get("gpu_only", False):
+            logger.warning(
+                "Node would like to force GPU usage, but sklearn training plan "
+                + "does not support it. Training on CPU."
+            )
 
         try:
-            self._training_routine_core_loop(epochs,
-                                             history_monitor)
+            self._training_routine_core_loop(epochs, history_monitor)
         except FedbiomedTrainingPlanError as e:
             raise e
 
-    def _training_routine_core_loop(self,
-                                    epochs: int = 1,
-                                    history_monitor = None):
+    def _training_routine_core_loop(self, epochs: int = 1, history_monitor=None):
         """
         Training routine core
         Args:
@@ -146,9 +149,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                 try:
                     self.training_routine_hook()
                 except Exception as e:
-                    msg = ErrorNumbers.FB605.value + \
-                          ": error while fitting the model - " + \
-                          str(e)
+                    msg = (
+                        ErrorNumbers.FB605.value
+                        + ": error while fitting the model - "
+                        + str(e)
+                    )
                     logger.critical(msg)
                     raise FedbiomedTrainingPlanError(msg)
             # Logging training training outputs
@@ -157,15 +162,21 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
 
                     loss = self.evaluate_loss(output, epoch)
 
-                    loss_function = 'Loss ' + self.model.loss if hasattr(self.model, 'loss') else 'Loss'
+                    loss_function = (
+                        "Loss " + self.model.loss
+                        if hasattr(self.model, "loss")
+                        else "Loss"
+                    )
                     # TODO: This part should be changed after mini-batch implementation is completed
-                    history_monitor.add_scalar(metric={loss_function: float(loss)},
-                                               iteration=1,
-                                               epoch=epoch,
-                                               train=True,
-                                               num_batches=1,
-                                               total_samples=len(self.data),
-                                               batch_samples=len(self.data))
+                    history_monitor.add_scalar(
+                        metric={loss_function: float(loss)},
+                        iteration=1,
+                        epoch=epoch,
+                        train=True,
+                        num_batches=1,
+                        total_samples=len(self.data),
+                        batch_samples=len(self.data),
+                    )
                 else:
                     # TODO: For clustering; passes inertia value as scalar. It should be implemented when
                     #  KMeans implementation is ready history_monitor.add_scalar('Inertia',
@@ -189,18 +200,24 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
                 _loss_collector.append(float(loss))
 
                 # Logging loss values with global logger
-                logger.debug('Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}'.format(epoch, float(loss)))
+                logger.debug(
+                    "Train Epoch: {} [Batch All Samples]\tLoss: {:.6f}".format(
+                        epoch, float(loss)
+                    )
+                )
             except ValueError as e:
                 logger.error("Value error during monitoring:" + str(e))
             except Exception as e:
                 logger.error("Error during monitoring:" + str(e))
         return _loss_collector
 
-    def testing_routine(self,
-                        metric: Union[MetricTypes, None],
-                        metric_args: Dict[str, Any],
-                        history_monitor,
-                        before_train: bool):
+    def testing_routine(
+        self,
+        metric: Union[MetricTypes, None],
+        metric_args: Dict[str, Any],
+        history_monitor,
+        before_train: bool,
+    ):
         """
         Validation routine for SGDSkLearnModel. This method is called by the Round class if validation
         is activated for the Federated training round
@@ -230,75 +247,84 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         data, target = self.testing_data_loader
 
         # At the first round model won't have classes_ attribute
-        if self._is_classification and not hasattr(self.model, 'classes_'):
+        if self._is_classification and not hasattr(self.model, "classes_"):
             classes = self._classes_from_concatenated_train_test()
-            setattr(self.model, 'classes_', classes)
+            setattr(self.model, "classes_", classes)
 
         # Build metrics object
         metric_controller = Metrics()
         tot_samples = len(data)
 
         # Use validation method defined by user
-        if hasattr(self, 'testing_step') and callable(self.testing_step):
+        if hasattr(self, "testing_step") and callable(self.testing_step):
             try:
                 m_value = self.testing_step(data, target)
             except Exception as err:
-                msg = ErrorNumbers.FB605.value + \
-                      ": error - " + \
-                      str(err)
+                msg = ErrorNumbers.FB605.value + ": error - " + str(err)
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
 
             # If custom validation step returns None
             if m_value is None:
-                msg = ErrorNumbers.FB605.value + \
-                      ": metric function has returned None"
+                msg = ErrorNumbers.FB605.value + ": metric function has returned None"
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
 
-            metric_name = 'Custom'
+            metric_name = "Custom"
 
         # If metric is defined use pre-defined validation for Fed-BioMed
         else:
             if metric is None:
                 metric = MetricTypes.ACCURACY
-                logger.info(f"No `testing_step` method found in TrainingPlan and `test_metric` is not defined "
-                            f"in the training arguments `: using default metric {metric.name}"
-                            " for model validation")
+                logger.info(
+                    f"No `testing_step` method found in TrainingPlan and `test_metric` is not defined "
+                    f"in the training arguments `: using default metric {metric.name}"
+                    " for model validation"
+                )
             else:
                 logger.info(
                     f"No `testing_step` method found in TrainingPlan: using defined metric {metric.name}"
-                    " for model validation.")
+                    " for model validation."
+                )
 
             try:
                 pred = self.model.predict(data)
             except Exception as e:
-                msg = ErrorNumbers.FB605.value + \
-                      ": error during predicting validation data set - " + \
-                      str(e)
+                msg = (
+                    ErrorNumbers.FB605.value
+                    + ": error during predicting validation data set - "
+                    + str(e)
+                )
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
 
-            m_value = metric_controller.evaluate(target, pred, metric=metric, **metric_args)
+            m_value = metric_controller.evaluate(
+                target, pred, metric=metric, **metric_args
+            )
             metric_name = metric.name
 
         metric_dict = self._create_metric_result_dict(m_value, metric_name=metric_name)
 
         # For logging in node console
-        logger.debug('Validation: [{}/{}] | Metric[{}]: {}'.format(len(target), tot_samples,
-                                                                metric.name, m_value))
+        logger.debug(
+            "Validation: [{}/{}] | Metric[{}]: {}".format(
+                len(target), tot_samples, metric.name, m_value
+            )
+        )
 
         # Send scalar values via general/feedback topic
         if history_monitor is not None:
-            history_monitor.add_scalar(metric=metric_dict,
-                                       iteration=1,  # since there is only one
-                                       epoch=None,  # no epoch
-                                       test=True,  # means that for sending validation metric
-                                       test_on_local_updates=False if before_train else True,
-                                       test_on_global_updates=before_train,
-                                       total_samples=tot_samples,
-                                       batch_samples=len(target),
-                                       num_batches=1)
+            history_monitor.add_scalar(
+                metric=metric_dict,
+                iteration=1,  # since there is only one
+                epoch=None,  # no epoch
+                test=True,  # means that for sending validation metric
+                test_on_local_updates=False if before_train else True,
+                test_on_global_updates=before_train,
+                total_samples=tot_samples,
+                batch_samples=len(target),
+                num_batches=1,
+            )
 
     def _classes_from_concatenated_train_test(self) -> np.ndarray:
         """
@@ -309,8 +335,16 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             np.ndarray: numpy array containing unique values from the whole dataset (training + validation dataset)
         """
 
-        target_test = self.testing_data_loader[1] if self.testing_data_loader is not None else np.array([])
-        target_train = self.training_data_loader[1] if self.training_data_loader is not None else np.array([])
+        target_test = (
+            self.testing_data_loader[1]
+            if self.testing_data_loader is not None
+            else np.array([])
+        )
+        target_train = (
+            self.training_data_loader[1]
+            if self.training_data_loader is not None
+            else np.array([])
+        )
 
         target_test_train = np.concatenate((target_test, target_train))
 
@@ -322,14 +356,16 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         """
 
         for (name, process) in self.pre_processes.items():
-            method = process['method']
-            process_type = process['process_type']
+            method = process["method"]
+            process_type = process["process_type"]
 
             if process_type == ProcessTypes.DATA_LOADER:
                 self.__process_data_loader(method=method)
             else:
-                logger.error(f"Process `{process_type}` is not implemented for the training plan SGBSkLearnModel. "
-                             f"Preprocess will be ignored")
+                logger.error(
+                    f"Process `{process_type}` is not implemented for the training plan SGBSkLearnModel. "
+                    f"Preprocess will be ignored"
+                )
 
     def __process_data_loader(self, method: Callable) -> None:
         """Process handler for data loader kind processes.
@@ -342,53 +378,67 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
           - Raised if running method fails
           - if dataloader returned by method is not of type: Tuple[np.ndarray, np.ndarray]
           - if dataloaders contained in method output don't contain the same number of samples
-       """
+        """
 
         argspec = get_method_spec(method)
         if len(argspec) != 2:
-            msg = ErrorNumbers.FB605.value + \
-                  ": process for type `PreprocessType.DATA_LOADER`" + \
-                  " should have two argument/parameter as inputs/data" + \
-                  " and target sets that will be used for training. "
+            msg = (
+                ErrorNumbers.FB605.value
+                + ": process for type `PreprocessType.DATA_LOADER`"
+                + " should have two argument/parameter as inputs/data"
+                + " and target sets that will be used for training. "
+            )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
         try:
-            data_loader = method(self.training_data_loader[0], self.training_data_loader[1])
+            data_loader = method(
+                self.training_data_loader[0], self.training_data_loader[1]
+            )
         except Exception as e:
-            msg = ErrorNumbers.FB605.value + \
-                  ": error while running process method -> " + \
-                  method.__name__ + \
-                  str(e)
+            msg = (
+                ErrorNumbers.FB605.value
+                + ": error while running process method -> "
+                + method.__name__
+                + str(e)
+            )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
         # Debug after running preprocess
-        logger.debug(f'The process `{method.__name__}` has been successfully executed.')
+        logger.debug(f"The process `{method.__name__}` has been successfully executed.")
 
-        if isinstance(data_loader, tuple) \
-                and len(data_loader) == 2 \
-                and isinstance(data_loader[0], np.ndarray) \
-                and isinstance(data_loader[1], np.ndarray):
+        if (
+            isinstance(data_loader, tuple)
+            and len(data_loader) == 2
+            and isinstance(data_loader[0], np.ndarray)
+            and isinstance(data_loader[1], np.ndarray)
+        ):
 
             if len(data_loader[0]) == len(data_loader[1]):
                 self.training_data_loader = data_loader
-                logger.debug(f"Inputs/data and target sets for training routine has been updated by the process "
-                             f"`{method.__name__}` ")
+                logger.debug(
+                    f"Inputs/data and target sets for training routine has been updated by the process "
+                    f"`{method.__name__}` "
+                )
             else:
-                msg = ErrorNumbers.FB605.value + \
-                      ": process error " + \
-                      method.__name__ + \
-                      " : number of samples of inputs and target sets should be equal "
+                msg = (
+                    ErrorNumbers.FB605.value
+                    + ": process error "
+                    + method.__name__
+                    + " : number of samples of inputs and target sets should be equal "
+                )
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg)
 
         else:
-            msg = ErrorNumbers.FB605.value + \
-                  ": process method " + \
-                  method.__name__ + \
-                  " should return tuple length of two as dataset and" + \
-                  " target and both should be and instance of np.ndarray."
+            msg = (
+                ErrorNumbers.FB605.value
+                + ": process method "
+                + method.__name__
+                + " should return tuple length of two as dataset and"
+                + " target and both should be and instance of np.ndarray."
+            )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
@@ -441,9 +491,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
         if params is None:
             dump(self.model, file)
         else:
-            if params.get('model_params') is not None:  # called in the Round
-                for p in params['model_params'].keys():
-                    setattr(self.model, p, params['model_params'][p])
+            if params.get("model_params") is not None:  # called in the Round
+                for p in params["model_params"].keys():
+                    setattr(self.model, p, params["model_params"][p])
             else:
                 for p in params.keys():
                     setattr(self.model, p, params[p])
@@ -472,19 +522,21 @@ class SKLearnTrainingPlan(BaseTrainingPlan):
             di_ret = self.model
         else:
             self.model = load(file)
-            di_ret['model_params'] = {key: getattr(self.model, key) for key in self.param_list}
+            di_ret["model_params"] = {
+                key: getattr(self.model, key) for key in self.param_list
+            }
         file.close()
         return di_ret
 
     def get_model(self):
         """Get the wrapped scikit-learn model
-            Returns:
-                the scikit model object (sklearn.base.BaseEstimator)
+        Returns:
+            the scikit model object (sklearn.base.BaseEstimator)
         """
         return self.model
 
     def type(self):
-        """Getter for training plan type """
+        """Getter for training plan type"""
         return self.__type
 
     def after_training_params(self) -> Dict:

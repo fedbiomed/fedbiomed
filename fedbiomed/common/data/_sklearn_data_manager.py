@@ -3,17 +3,16 @@ Sklearn data manager
 """
 
 
-from typing import Union, Tuple
+from typing import Tuple, Union
 
 import numpy as np
 import pandas as pd
-
 from numpy import ndarray
 from pandas import DataFrame, Series
-
 from sklearn.model_selection import train_test_split
-from fedbiomed.common.exceptions import FedbiomedSkLearnDataManagerError
+
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedSkLearnDataManagerError
 
 
 class SkLearnDataManager(object):
@@ -22,12 +21,15 @@ class SkLearnDataManager(object):
     Manages datasets for scikit-learn based model training. Responsible for managing inputs, and target
     variables that have been provided in `training_data` of scikit-learn based training plans.
     """
-    def __init__(self,
-                 inputs: Union[np.ndarray, pd.DataFrame, pd.Series],
-                 target: Union[np.ndarray, pd.DataFrame, pd.Series],
-                 **kwargs: dict):
 
-        """ Constructor of the class
+    def __init__(
+        self,
+        inputs: Union[np.ndarray, pd.DataFrame, pd.Series],
+        target: Union[np.ndarray, pd.DataFrame, pd.Series],
+        **kwargs: dict,
+    ):
+
+        """Constructor of the class
 
         Args:
             inputs: Independent variables (inputs, features) for model training
@@ -54,8 +56,9 @@ class SkLearnDataManager(object):
         self._subset_test: Union[Tuple[np.ndarray, np.ndarray], None] = None
         self._subset_train: Union[Tuple[np.ndarray, np.ndarray], None] = None
 
-    def dataset(self) -> Tuple[Union[ndarray, DataFrame, Series],
-                               Union[ndarray, DataFrame, Series]]:
+    def dataset(
+        self,
+    ) -> Tuple[Union[ndarray, DataFrame, Series], Union[ndarray, DataFrame, Series]]:
         """Gets the entire registered dataset.
 
         This method returns whole dataset as it is without any split.
@@ -101,7 +104,9 @@ class SkLearnDataManager(object):
         # TODO: Return batch iterator
         return self._inputs, self._target
 
-    def split(self, test_ratio: float) -> Tuple[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]:
+    def split(
+        self, test_ratio: float
+    ) -> Tuple[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]:
         """Splits `np.ndarray` dataset into train and validation.
 
         Args:
@@ -117,13 +122,17 @@ class SkLearnDataManager(object):
 
         # Check the argument `ratio` is of type `float`
         if not isinstance(test_ratio, (float, int)):
-            raise FedbiomedSkLearnDataManagerError(f'{ErrorNumbers.FB608.value}: The argument `ratio` should be '
-                                                   f'type `float` or `int` not {type(test_ratio)}')
+            raise FedbiomedSkLearnDataManagerError(
+                f"{ErrorNumbers.FB608.value}: The argument `ratio` should be "
+                f"type `float` or `int` not {type(test_ratio)}"
+            )
 
         # Check ratio is valid for splitting
         if test_ratio < 0 or test_ratio > 1:
-            raise FedbiomedSkLearnDataManagerError(f'{ErrorNumbers.FB609.value}: The argument `ratio` should be '
-                                                   f'equal or between 0 and 1, not {test_ratio}')
+            raise FedbiomedSkLearnDataManagerError(
+                f"{ErrorNumbers.FB609.value}: The argument `ratio` should be "
+                f"equal or between 0 and 1, not {test_ratio}"
+            )
 
         empty_subset = (np.array([]), np.array([]))
 
@@ -134,14 +143,20 @@ class SkLearnDataManager(object):
             self._subset_train = empty_subset
             self._subset_test = (self._inputs, self._target)
         else:
-            x_train, x_test, y_train, y_test = train_test_split(self._inputs, self._target, test_size=test_ratio)
+            x_train, x_test, y_train, y_test = train_test_split(
+                self._inputs, self._target, test_size=test_ratio
+            )
             self._subset_test = (x_test, y_test)
             self._subset_train = (x_train, y_train)
 
-        return self._subset_loader(self._subset_train), self._subset_loader(self._subset_test)
+        return self._subset_loader(self._subset_train), self._subset_loader(
+            self._subset_test
+        )
 
     @staticmethod
-    def _subset_loader(subset: Tuple[np.ndarray, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+    def _subset_loader(
+        subset: Tuple[np.ndarray, np.ndarray]
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Loads subset partition for SkLearn based training plans.
 
         Raises:
@@ -155,13 +170,17 @@ class SkLearnDataManager(object):
         # TODO: Currently this method just returns subset. When SkLearn based batch iterator is created,
         #  it should return BatchIterator
 
-        if not isinstance(subset, Tuple) \
-                or len(subset) != 2 \
-                or not isinstance(subset[0], np.ndarray) \
-                or not isinstance(subset[1], np.ndarray):
+        if (
+            not isinstance(subset, Tuple)
+            or len(subset) != 2
+            or not isinstance(subset[0], np.ndarray)
+            or not isinstance(subset[1], np.ndarray)
+        ):
 
-            raise FedbiomedSkLearnDataManagerError(f'{ErrorNumbers.FB609.value}: The argument `subset` should a Tuple'
-                                                   f'of size 2 that contains inputs/data and target as np.ndarray.')
+            raise FedbiomedSkLearnDataManagerError(
+                f"{ErrorNumbers.FB609.value}: The argument `subset` should a Tuple"
+                f"of size 2 that contains inputs/data and target as np.ndarray."
+            )
 
         # Empty validation set
         if len(subset[0]) == 0 or len(subset[1]) == 0:

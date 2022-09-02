@@ -3,11 +3,11 @@ top class for all aggregators
 """
 
 
-from typing import Dict, Any
+from typing import Any, Dict
 
-from fedbiomed.common.constants  import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
-from fedbiomed.common.logger     import logger
+from fedbiomed.common.logger import logger
 
 
 class Aggregator:
@@ -15,6 +15,7 @@ class Aggregator:
     Defines methods for aggregating strategy
     (eg FedAvg, FedProx, SCAFFOLD, ...).
     """
+
     def __init__(self):
         self._aggregator_params = None
 
@@ -31,7 +32,7 @@ class Aggregator:
             return []
         _s = sum(weights)
         if _s == 0:
-            norm = [ 1.0 / _l ] * _l
+            norm = [1.0 / _l] * _l
         else:
             norm = [_w / _s for _w in weights]
         return norm
@@ -47,8 +48,10 @@ class Aggregator:
         Raises:
             FedbiomedAggregatorError: If the method is not defined by inheritor
         """
-        msg = ErrorNumbers.FB401.value + \
-            ": aggreate method should be overloaded by the choosen strategy"
+        msg = (
+            ErrorNumbers.FB401.value
+            + ": aggreate method should be overloaded by the choosen strategy"
+        )
         logger.critical(msg)
         raise FedbiomedAggregatorError(msg)
 
@@ -59,7 +62,7 @@ class Aggregator:
         state = {
             "class": type(self).__name__,
             "module": self.__module__,
-            "parameters": self._aggregator_params
+            "parameters": self._aggregator_params,
         }
         return state
 
@@ -67,4 +70,4 @@ class Aggregator:
         """
         use for breakpoints. load the aggregator state
         """
-        self._aggregator_params = state['parameters']
+        self._aggregator_params = state["parameters"]

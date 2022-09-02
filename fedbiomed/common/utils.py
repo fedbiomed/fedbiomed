@@ -1,11 +1,12 @@
-import sys
 import inspect
+import sys
 from collections.abc import Iterable
 from typing import Callable, Iterator, List, Union
+
+import numpy as np
+import torch
 from IPython.core.magics.code import extract_symbols
 
-import torch
-import numpy as np
 from fedbiomed.common.exceptions import FedbiomedError
 
 
@@ -26,7 +27,7 @@ def get_class_source(cls: Callable) -> str:
     """
 
     if not inspect.isclass(cls):
-        raise FedbiomedError('The argument `cls` must be a python class')
+        raise FedbiomedError("The argument `cls` must be a python class")
 
     # Check ipython status
     status = is_ipython()
@@ -48,7 +49,7 @@ def is_ipython() -> bool:
         True, if python interpreter is IPython
     """
 
-    ipython_shells = ['ZMQInteractiveShell', 'TerminalInteractiveShell']
+    ipython_shells = ["ZMQInteractiveShell", "TerminalInteractiveShell"]
     try:
         shell = get_ipython().__class__.__name__
         if shell in ipython_shells:
@@ -70,22 +71,27 @@ def _get_ipython_class_file(cls: Callable) -> str:
     """
 
     # Lookup by parent module
-    if hasattr(cls, '__module__'):
+    if hasattr(cls, "__module__"):
         object_ = sys.modules.get(cls.__module__)
         # If module has `__file__` attribute
-        if hasattr(object_, '__file__'):
+        if hasattr(object_, "__file__"):
             return object_.__file__
 
         # If parent module is __main__
         for name, member in inspect.getmembers(cls):
-            if inspect.isfunction(member) and cls.__qualname__ + '.' + member.__name__ == member.__qualname__:
+            if (
+                inspect.isfunction(member)
+                and cls.__qualname__ + "." + member.__name__ == member.__qualname__
+            ):
                 return inspect.getfile(member)
     else:
-        raise FedbiomedError(f'{cls} has no attribute `__module__`, source is not found.')
+        raise FedbiomedError(
+            f"{cls} has no attribute `__module__`, source is not found."
+        )
 
 
 def get_method_spec(method: Callable) -> dict:
-    """ Helper to get argument specification
+    """Helper to get argument specification
 
     Args:
         method: The function/method to extract argument specification from
@@ -98,16 +104,18 @@ def get_method_spec(method: Callable) -> dict:
     parameters = inspect.signature(method).parameters
     for (key, val) in parameters.items():
         method_spec[key] = {
-            'name': val.name,
-            'default': None if val.default is inspect._empty else val.default,
-            'annotation': None if val.default is inspect._empty else val.default
+            "name": val.name,
+            "default": None if val.default is inspect._empty else val.default,
+            "annotation": None if val.default is inspect._empty else val.default,
         }
 
     return method_spec
 
 
-def convert_to_python_float(value: Union[torch.Tensor, np.integer, np.floating, float, int]) -> float:
-    """ Convert numeric types to float
+def convert_to_python_float(
+    value: Union[torch.Tensor, np.integer, np.floating, float, int]
+) -> float:
+    """Convert numeric types to float
 
     Args:
         value: value to convert python type float
@@ -117,7 +125,9 @@ def convert_to_python_float(value: Union[torch.Tensor, np.integer, np.floating, 
     """
 
     if not isinstance(value, (torch.Tensor, np.integer, np.floating, float, int)):
-        raise FedbiomedError(f"Converting {type(value)} to python to float is not supported.")
+        raise FedbiomedError(
+            f"Converting {type(value)} to python to float is not supported."
+        )
 
     # if the result is a tensor, convert it back to numpy
     if isinstance(value, torch.Tensor):

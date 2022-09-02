@@ -1,32 +1,52 @@
-'''
+"""
 implementation of Round Joye-Libert class of the node component
-'''
+"""
 import pickle
-from typing import Union, Any, List
 import uuid
+from typing import Any, List, Union
+
+import numpy as np
+import torch
 
 from fedbiomed.common.constants import VEParameters
 from fedbiomed.common.joye_libert_scheme import JLS, EncryptedNumber
 from fedbiomed.common.joye_libert_utils import quantize, reverse_quantize
 from fedbiomed.common.logger import logger
 from fedbiomed.common.vector_encoding import VES
-
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.round import Round
 
-import torch
-import numpy as np
-
 
 class RoundJL(Round):
-
-    def __init__(self, model_kwargs: dict = None, training_kwargs: dict = None, training: bool = True,
-                 dataset: dict = None, model_url: str = None, model_class: str = None, params_url: str = None,
-                 job_id: str = None, researcher_id: str = None, history_monitor: HistoryMonitor = None,
-                 node_args: Union[dict, None] = None, current_round:int=0):
-        super().__init__(model_kwargs, training_kwargs, training, dataset, model_url, model_class, params_url, job_id,
-                         researcher_id, history_monitor, node_args)
+    def __init__(
+        self,
+        model_kwargs: dict = None,
+        training_kwargs: dict = None,
+        training: bool = True,
+        dataset: dict = None,
+        model_url: str = None,
+        model_class: str = None,
+        params_url: str = None,
+        job_id: str = None,
+        researcher_id: str = None,
+        history_monitor: HistoryMonitor = None,
+        node_args: Union[dict, None] = None,
+        current_round: int = 0,
+    ):
+        super().__init__(
+            model_kwargs,
+            training_kwargs,
+            training,
+            dataset,
+            model_url,
+            model_class,
+            params_url,
+            job_id,
+            researcher_id,
+            history_monitor,
+            node_args,
+        )
         self.vector_encoder = VES(
             ptsize=VEParameters.KEY_SIZE.value // 2,
             addops=VEParameters.NUM_CLIENTS.value,
@@ -37,8 +57,6 @@ class RoundJL(Round):
         self.jl = JLS(nusers=VEParameters.NUM_CLIENTS.value, VE=self.vector_encoder)
         self.pp, _, self.user_key = self.jl.Setup(VEParameters.KEY_SIZE.value)
         self.current_round = current_round
-
-
 
     def _load_model_obj(self, params_path):
         if params_path.endswith(".pt"):
@@ -54,7 +72,9 @@ class RoundJL(Round):
                     params_qt_dec = self.vector_encoder.decode(params_qt_enc)
                     logger.info(f"Decoded params done, length: {len(params_qt_dec)}")
                     params_vector = torch.as_tensor(reverse_quantize(params_qt_dec))
-                    torch.nn.utils.vector_to_parameters(params_vector, self.model.parameters())
+                    torch.nn.utils.vector_to_parameters(
+                        params_vector, self.model.parameters()
+                    )
             except Exception as e:
                 error_message = f"Cannot initialize model parameters: f{str(e)}"
                 return self._send_round_reply(success=False, message=error_message)
@@ -72,7 +92,15 @@ class RoundJL(Round):
             )
         return params_path, status
 
-    def _upload_model(self, ptime_after, ptime_before, results, rtime_after, rtime_before, import_module):
+    def _upload_model(
+        self,
+        ptime_after,
+        ptime_before,
+        results,
+        rtime_after,
+        rtime_before,
+        import_module,
+    ):
         # Upload results
         results["researcher_id"] = self.researcher_id
         results["job_id"] = self.job_id
@@ -89,7 +117,10 @@ class RoundJL(Round):
         logger.info(f"Setup Joye-Libert done")
         logger.info(f"Protecting model parameters")
         model_ctxt_qt_enc: List[EncryptedNumber] = self.jl.Protect(
-            pp=self.pp, sk_u=self.user_key[0], tau=self.current_round, x_u_tau=model_ptxt_qt
+            pp=self.pp,
+            sk_u=self.user_key[0],
+            tau=self.current_round,
+            x_u_tau=model_ptxt_qt,
         )
         logger.info(
             f"Protecting model parameters done, length: {len(model_ctxt_qt_enc)}"
@@ -99,9 +130,7 @@ class RoundJL(Round):
         try:
             # TODO : should test status code but not yet returned
             # by upload_file
-            filename = (
-                    environ["TMP_DIR"] + "/node_params_" + str(uuid.uuid4()) + ".pkl"
-            )
+            filename = environ["TMP_DIR"] + "/node_params_" + str(uuid.uuid4()) + ".pkl"
             with open(filename, "wb") as handle:
                 pickle.dump(
                     results["model_params"],

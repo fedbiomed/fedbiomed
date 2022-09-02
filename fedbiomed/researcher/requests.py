@@ -6,12 +6,12 @@ Implements the message exchanges from researcher to nodes
 import inspect
 import json
 import os
-import tabulate
 import uuid
-
-from python_minifier import minify
 from time import sleep
-from typing import Any, Dict, Callable
+from typing import Any, Callable, Dict
+
+import tabulate
+from python_minifier import minify
 
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError
@@ -21,7 +21,6 @@ from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.tasks_queue import TasksQueue
-
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
 
@@ -42,14 +41,18 @@ class Requests(metaclass=SingletonMeta):
         # Need to ensure unique per researcher instance message queue to avoid conflicts
         # in case several instances of researcher (with same researcher_id ?) are active,
         # eg: a notebook not quitted and launching a script
-        self.queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'] + '_' + str(uuid.uuid4()), environ['TMP_DIR'])
+        self.queue = TasksQueue(
+            environ["MESSAGES_QUEUE_DIR"] + "_" + str(uuid.uuid4()), environ["TMP_DIR"]
+        )
 
         if mess is None or type(mess) is not Messaging:
-            self.messaging = Messaging(self.on_message,
-                                       ComponentType.RESEARCHER,
-                                       environ['RESEARCHER_ID'],
-                                       environ['MQTT_BROKER'],
-                                       environ['MQTT_BROKER_PORT'])
+            self.messaging = Messaging(
+                self.on_message,
+                ComponentType.RESEARCHER,
+                environ["RESEARCHER_ID"],
+                environ["MQTT_BROKER"],
+                environ["MQTT_BROKER_PORT"],
+            )
             self.messaging.start(block=False)
         else:
             self.messaging = mess
@@ -59,7 +62,6 @@ class Requests(metaclass=SingletonMeta):
 
         self._monitor_message_callback = None
 
-
     def get_messaging(self) -> Messaging:
         """Retrieves Messaging object
 
@@ -68,9 +70,8 @@ class Requests(metaclass=SingletonMeta):
         """
         return self.messaging
 
-
     def on_message(self, msg: Dict[str, Any], topic: str):
-        """ Handler called by the [`Messaging`][fedbiomed.common.messaging] class,  when a message is received on
+        """Handler called by the [`Messaging`][fedbiomed.common.messaging] class,  when a message is received on
         researcher side.
 
         It is run in the communication process and must ba as quick as possible:
@@ -98,10 +99,11 @@ class Requests(metaclass=SingletonMeta):
         elif topic == "general/monitoring":
             if self._monitor_message_callback is not None:
                 # Pass message to Monitor's on message handler
-                self._monitor_message_callback(ResearcherMessages.reply_create(msg).get_dict())
+                self._monitor_message_callback(
+                    ResearcherMessages.reply_create(msg).get_dict()
+                )
         else:
             logger.error("message received on wrong topic (" + topic + ") - IGNORING")
-
 
     @staticmethod
     def print_node_log_message(log: Dict[str, Any]):
@@ -118,14 +120,17 @@ class Requests(metaclass=SingletonMeta):
         original_msg = json.loads(log["msg"])
 
         # Loging fancy feedback for training
-        logger.info("\033[1m{}\033[0m\n"
-                    "\t\t\t\t\t\033[1m NODE\033[0m {}\n"
-                    "\t\t\t\t\t\033[1m MESSAGE:\033[0m {}\033[0m\n"
-                    "{}".format(log["level"],
-                                log["node_id"],
-                                original_msg["message"],
-                                5 * "-------------"))
-
+        logger.info(
+            "\033[1m{}\033[0m\n"
+            "\t\t\t\t\t\033[1m NODE\033[0m {}\n"
+            "\t\t\t\t\t\033[1m MESSAGE:\033[0m {}\033[0m\n"
+            "{}".format(
+                log["level"],
+                log["node_id"],
+                original_msg["message"],
+                5 * "-------------",
+            )
+        )
 
     def send_message(self, msg: dict, client: str = None):
         """
@@ -136,11 +141,10 @@ class Requests(metaclass=SingletonMeta):
             msg: the message to send to nodes
             client: defines the channel to which the message will be sent. Defaults to None (all nodes)
         """
-        logger.debug(str(environ['RESEARCHER_ID']))
+        logger.debug(str(environ["RESEARCHER_ID"]))
         self.messaging.send_message(msg, client=client)
 
-
-    def get_messages(self, commands: list = [], time: float = .0) -> Responses:
+    def get_messages(self, commands: list = [], time: float = 0.0) -> Responses:
         """Goes through the queue and gets messages with the specific command
 
         Args:
@@ -159,8 +163,9 @@ class Requests(metaclass=SingletonMeta):
                 item = self.queue.get(block=False)
                 self.queue.task_done()
 
-                if not commands or \
-                        ('command' in item.keys() and item['command'] in commands):
+                if not commands or (
+                    "command" in item.keys() and item["command"] in commands
+                ):
                     answers.append(item)
                 else:
                     # currently trash all other messages
@@ -173,11 +178,12 @@ class Requests(metaclass=SingletonMeta):
 
         return Responses(answers)
 
-
-    def get_responses(self,
-                      look_for_commands: list,
-                      timeout: float = None,
-                      only_successful: bool = True) -> Responses:
+    def get_responses(
+        self,
+        look_for_commands: list,
+        timeout: float = None,
+        only_successful: bool = True,
+    ) -> Responses:
         """Waits for all nodes' answers, regarding a specific command returns the list of all nodes answers
 
         Args:
@@ -187,7 +193,7 @@ class Requests(metaclass=SingletonMeta):
             only_successful: deal only with messages that have been tagged as successful (ie with field `success=True`).
                 Defaults to True.
         """
-        timeout = timeout or environ['TIMEOUT']
+        timeout = timeout or environ["TIMEOUT"]
         responses = []
 
         while True:
@@ -197,7 +203,7 @@ class Requests(metaclass=SingletonMeta):
                 try:
                     if not only_successful:
                         new_responses.append(resp)
-                    elif resp['success']:
+                    elif resp["success"]:
                         # TODO: test if 'success'key exists
                         # what do we do if not ?
                         new_responses.append(resp)
@@ -211,26 +217,31 @@ class Requests(metaclass=SingletonMeta):
             responses += new_responses
         return Responses(responses)
 
-
     def ping_nodes(self) -> list:
-        """ Pings online nodes
+        """Pings online nodes
 
         Returns:
             List ids of up and running nodes
         """
-        self.messaging.send_message(ResearcherMessages.request_create(
-            {'researcher_id': environ['RESEARCHER_ID'],
-             'sequence': self._sequence,
-             'command': 'ping'}).get_dict())
+        self.messaging.send_message(
+            ResearcherMessages.request_create(
+                {
+                    "researcher_id": environ["RESEARCHER_ID"],
+                    "sequence": self._sequence,
+                    "command": "ping",
+                }
+            ).get_dict()
+        )
         self._sequence += 1
 
         # TODO: (below, above) handle exceptions
-        nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_commands=['ping'])]
+        nodes_online = [
+            resp["node_id"] for resp in self.get_responses(look_for_commands=["ping"])
+        ]
         return nodes_online
 
-
     def search(self, tags: tuple, nodes: list = None) -> dict:
-        """ Searches available data by tags
+        """Searches available data by tags
 
         Args:
             tags: Tuple containing tags associated to the data researcher is looking for.
@@ -242,36 +253,47 @@ class Requests(metaclass=SingletonMeta):
 
         # Search datasets based on node specifications
         if nodes:
-            logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {nodes}')
+            logger.info(
+                f"Searching dataset with data tags: {tags} on specified nodes: {nodes}"
+            )
             for node in nodes:
                 self.messaging.send_message(
-                    ResearcherMessages.request_create({'tags': tags,
-                                                       'researcher_id': environ['RESEARCHER_ID'],
-                                                       "command": "search"}
-                                                      ).get_dict(),
-                    client=node)
+                    ResearcherMessages.request_create(
+                        {
+                            "tags": tags,
+                            "researcher_id": environ["RESEARCHER_ID"],
+                            "command": "search",
+                        }
+                    ).get_dict(),
+                    client=node,
+                )
         else:
-            logger.info(f'Searching dataset with data tags: {tags} for all nodes')
+            logger.info(f"Searching dataset with data tags: {tags} for all nodes")
             self.messaging.send_message(
-                ResearcherMessages.request_create({'tags': tags,
-                                                   'researcher_id': environ['RESEARCHER_ID'],
-                                                   "command": "search"}
-                                                  ).get_dict())
+                ResearcherMessages.request_create(
+                    {
+                        "tags": tags,
+                        "researcher_id": environ["RESEARCHER_ID"],
+                        "command": "search",
+                    }
+                ).get_dict()
+            )
 
         data_found = {}
-        for resp in self.get_responses(look_for_commands=['search']):
+        for resp in self.get_responses(look_for_commands=["search"]):
             if not nodes:
-                data_found[resp.get('node_id')] = resp.get('databases')
-            elif resp.get('node_id') in nodes:
-                data_found[resp.get('node_id')] = resp.get('databases')
+                data_found[resp.get("node_id")] = resp.get("databases")
+            elif resp.get("node_id") in nodes:
+                data_found[resp.get("node_id")] = resp.get("databases")
 
-            logger.info('Node selected for training -> {}'.format(resp.get('node_id')))
+            logger.info("Node selected for training -> {}".format(resp.get("node_id")))
 
         if not data_found:
-            logger.info("No available dataset has found in nodes with tags: {}".format(tags))
+            logger.info(
+                "No available dataset has found in nodes with tags: {}".format(tags)
+            )
 
         return data_found
-
 
     def list(self, nodes: list = None, verbose: bool = False) -> dict:
         """Lists available data in each node
@@ -285,24 +307,27 @@ class Requests(metaclass=SingletonMeta):
         if nodes:
             for node in nodes:
                 self.messaging.send_message(
-                    ResearcherMessages.request_create({'researcher_id': environ['RESEARCHER_ID'],
-                                                       "command": "list"}
-                                                      ).get_dict(),
-                    client=node)
-            logger.info(f'Listing datasets of given list of nodes : {nodes}')
+                    ResearcherMessages.request_create(
+                        {"researcher_id": environ["RESEARCHER_ID"], "command": "list"}
+                    ).get_dict(),
+                    client=node,
+                )
+            logger.info(f"Listing datasets of given list of nodes : {nodes}")
         else:
             self.messaging.send_message(
-                ResearcherMessages.request_create({'researcher_id': environ['RESEARCHER_ID'],
-                                                   "command": "list"}).get_dict())
-            logger.info('Listing available datasets in all nodes... ')
+                ResearcherMessages.request_create(
+                    {"researcher_id": environ["RESEARCHER_ID"], "command": "list"}
+                ).get_dict()
+            )
+            logger.info("Listing available datasets in all nodes... ")
 
         # Get datasets from node responses
         data_found = {}
-        for resp in self.get_responses(look_for_commands=['list']):
+        for resp in self.get_responses(look_for_commands=["list"]):
             if not nodes:
-                data_found[resp.get('node_id')] = resp.get('databases')
-            elif resp.get('node_id') in nodes:
-                data_found[resp.get('node_id')] = resp.get('databases')
+                data_found[resp.get("node_id")] = resp.get("databases")
+            elif resp.get("node_id") in nodes:
+                data_found[resp.get("node_id")] = resp.get("databases")
 
         # Print dataset tables usong data_found object
         if verbose:
@@ -310,20 +335,29 @@ class Requests(metaclass=SingletonMeta):
                 if len(data_found[node]) > 0:
                     rows = [row.values() for row in data_found[node]]
                     headers = data_found[node][0].keys()
-                    info = '\n Node: {} | Number of Datasets: {} \n'.format(node, len(data_found[node]))
-                    logger.info(info + tabulate.tabulate(rows, headers, tablefmt="grid") + '\n')
+                    info = "\n Node: {} | Number of Datasets: {} \n".format(
+                        node, len(data_found[node])
+                    )
+                    logger.info(
+                        info + tabulate.tabulate(rows, headers, tablefmt="grid") + "\n"
+                    )
                 else:
-                    logger.info('\n Node: {} | Number of Datasets: {}'.format(node, len(data_found[node])) +
-                                " No data has been set up for this node.")
+                    logger.info(
+                        "\n Node: {} | Number of Datasets: {}".format(
+                            node, len(data_found[node])
+                        )
+                        + " No data has been set up for this node."
+                    )
 
         return data_found
 
-
-    def model_approve(self,
-                      model,
-                      description: str = "no description provided",
-                      nodes: list = [],
-                      timeout: int = 5) -> dict:
+    def model_approve(
+        self,
+        model,
+        description: str = "no description provided",
+        nodes: list = [],
+        timeout: int = 5,
+    ) -> dict:
         """Send a model and a ApprovalRequest message to node(s).
 
         If a list of node id(s) is provided, the message will be individually sent
@@ -375,8 +409,9 @@ class Requests(metaclass=SingletonMeta):
                 model_instance = model
 
             # then save this instance to a file
-            model_file = os.path.join(environ['TMP_DIR'],
-                                      "model_" + str(uuid.uuid4()) + ".py")
+            model_file = os.path.join(
+                environ["TMP_DIR"], "model_" + str(uuid.uuid4()) + ".py"
+            )
 
             try:
                 model_instance.save_code(model_file)
@@ -391,55 +426,61 @@ class Requests(metaclass=SingletonMeta):
         try:
             with open(model_file, "r") as f:
                 content = f.read()
-            minify(content,
-                   remove_annotations=False,
-                   combine_imports=False,
-                   remove_pass=False,
-                   hoist_literals=False,
-                   remove_object_base=True,
-                   rename_locals=False)
+            minify(
+                content,
+                remove_annotations=False,
+                combine_imports=False,
+                remove_pass=False,
+                hoist_literals=False,
+                remove_object_base=True,
+                rename_locals=False,
+            )
         except Exception as e:
             # minify doesnot provide any specific exception
             logger.error(f"This file is not a python file ({e})")
             return {}
 
         # create a repository instance and upload the model file
-        repository = Repository(environ['UPLOADS_URL'],
-                                environ['TMP_DIR'],
-                                environ['CACHE_DIR'])
+        repository = Repository(
+            environ["UPLOADS_URL"], environ["TMP_DIR"], environ["CACHE_DIR"]
+        )
 
         upload_status = repository.upload_file(model_file)
 
         logger.debug(f"model_approve: upload_status = {upload_status}")
 
         # send message to node(s)
-        sequence = self._sequence   # store the sequence for reply filtering
+        sequence = self._sequence  # store the sequence for reply filtering
         self._sequence += 1
         message = ResearcherMessages.request_create(
-            {'researcher_id': environ['RESEARCHER_ID'],
-             'description': str(description),
-             'sequence': sequence,
-             'model_url': upload_status['file'],
-             'command': 'approval'}).get_dict()
+            {
+                "researcher_id": environ["RESEARCHER_ID"],
+                "description": str(description),
+                "sequence": sequence,
+                "model_url": upload_status["file"],
+                "command": "approval",
+            }
+        ).get_dict()
 
         if nodes:
             # send message to each node
             for n in nodes:
-                self.messaging.send_message(message, client = n)
+                self.messaging.send_message(message, client=n)
         else:
             # broadcast message
             self.messaging.send_message(message)
 
         # wait for answers for a certain timeout
         result = {}
-        for resp in self.get_responses(look_for_commands=['approval'],
-                                       timeout = timeout):
-            if sequence != resp['sequence']:
-                logger.error("received an approval_reply with wrong sequence, ignoring it")
+        for resp in self.get_responses(look_for_commands=["approval"], timeout=timeout):
+            if sequence != resp["sequence"]:
+                logger.error(
+                    "received an approval_reply with wrong sequence, ignoring it"
+                )
                 continue
 
-            n = resp['node_id']
-            s = resp['success']
+            n = resp["node_id"]
+            s = resp["success"]
             result[n] = s
 
             if s:
@@ -449,21 +490,24 @@ class Requests(metaclass=SingletonMeta):
 
         # print info to the user regarding the result
         if not result or not any(result.values()):
-            logger.info("no nodes have acknowledged correct model reception before the timeout")
+            logger.info(
+                "no nodes have acknowledged correct model reception before the timeout"
+            )
 
         # eventually complete the result with expected results
         # (if the message was sent to sepcific nodes)
         for n in nodes:
             if n not in result:
                 result[n] = False
-                logger.info(f"node ({n}) has not acknowledge model reception before the timeout")
+                logger.info(
+                    f"node ({n}) has not acknowledge model reception before the timeout"
+                )
 
         # return the result
         return result
 
-
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
-        """ Adds callback function for monitor messages
+        """Adds callback function for monitor messages
 
         Args:
             callback: Callback function for handling monitor messages that come due 'general/monitoring' channel
@@ -471,8 +515,7 @@ class Requests(metaclass=SingletonMeta):
 
         self._monitor_message_callback = callback
 
-
     def remove_monitor_callback(self):
-        """ Removes callback function for Monitor class. """
+        """Removes callback function for Monitor class."""
 
         self._monitor_message_callback = None

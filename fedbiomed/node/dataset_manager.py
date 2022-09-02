@@ -1,32 +1,27 @@
-'''
+"""
 Interfaces with the node component database.
-'''
+"""
 
 
 import csv
 import os.path
-from typing import Union, List, Any
-import uuid
-
-from urllib.request import urlretrieve
-from urllib.error import ContentTooShortError, HTTPError, URLError
 import tarfile
+import uuid
+from typing import Any, List, Union
+from urllib.error import ContentTooShortError, HTTPError, URLError
+from urllib.request import urlretrieve
 
-from tinydb import TinyDB, Query
 import pandas as pd
-from tabulate import tabulate  # only used for printing
-
 import torch
-from torchvision import datasets
-from torchvision import transforms
+from tabulate import tabulate  # only used for printing
+from tinydb import Query, TinyDB
+from torchvision import datasets, transforms
 
-from fedbiomed.node.environ import environ
-
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.data import MedicalFolderController
-
+from fedbiomed.common.exceptions import FedbiomedDatasetManagerError, FedbiomedError
 from fedbiomed.common.logger import logger
+from fedbiomed.node.environ import environ
 
 
 class DatasetManager:
@@ -35,10 +30,10 @@ class DatasetManager:
     Facility for storing data, retrieving data and getting data info
     for the node. Currently uses TinyDB.
     """
+
     def __init__(self):
-        """Constructor of the class.
-        """
-        self.db = TinyDB(environ['DB_PATH'])
+        """Constructor of the class."""
+        self.db = TinyDB(environ["DB_PATH"])
         self.database = Query()
 
     def get_by_id(self, dataset_id: str) -> List[dict]:
@@ -69,7 +64,9 @@ class DatasetManager:
         self.db.clear_cache()
         return self.db.search(self.database.tags.all(tags))
 
-    def read_csv(self, csv_file: str, index_col: Union[int, None] = None) -> pd.DataFrame:
+    def read_csv(
+        self, csv_file: str, index_col: Union[int, None] = None
+    ) -> pd.DataFrame:
         """Gets content of a CSV file.
 
         Reads a *.csv file and outputs its data into a pandas DataFrame.
@@ -86,7 +83,7 @@ class DatasetManager:
 
         # Automatically identify separator and header
         sniffer = csv.Sniffer()
-        with open(csv_file, 'r') as file:
+        with open(csv_file, "r") as file:
             delimiter = sniffer.sniff(file.readline()).delimiter
             file.seek(0)
             header = 0 if sniffer.has_header(file.read()) else None
@@ -120,11 +117,9 @@ class DatasetManager:
 
         return types
 
-    def load_default_database(self,
-                              name: str,
-                              path: str,
-                              as_dataset: bool = False) -> Union[List[int],
-                                                                 torch.utils.data.Dataset]:
+    def load_default_database(
+        self, name: str, path: str, as_dataset: bool = False
+    ) -> Union[List[int], torch.utils.data.Dataset]:
         """Loads a default dataset.
 
         Currently, only MNIST dataset is used as the default dataset.
@@ -149,20 +144,20 @@ class DatasetManager:
         """
         kwargs = dict(root=path, download=True, transform=transforms.ToTensor())
 
-        if 'mnist' in name.lower():
+        if "mnist" in name.lower():
             dataset = datasets.MNIST(**kwargs)
         else:
-            raise NotImplementedError(f'Default dataset `{name}` has'
-                                      'not been implemented.')
+            raise NotImplementedError(
+                f"Default dataset `{name}` has" "not been implemented."
+            )
         if as_dataset:
             return dataset
         else:
             return self.get_torch_dataset_shape(dataset)
 
-    def load_mednist_database(self,
-                              path: str,
-                              as_dataset: bool = False) -> Union[List[int],
-                                                                 torch.utils.data.Dataset]:
+    def load_mednist_database(
+        self, path: str, as_dataset: bool = False
+    ) -> Union[List[int], torch.utils.data.Dataset]:
         """Loads the MedNist dataset.
 
         Args:
@@ -186,10 +181,10 @@ class DatasetManager:
             If set to False, returns the size of the dataset stored inside
             a list (type: List[int])
         """
-        download_path = os.path.join(path, 'MedNIST')
+        download_path = os.path.join(path, "MedNIST")
         if not os.path.isdir(download_path):
             url = "https://github.com/Project-MONAI/MONAI-extra-test-data/releases/download/0.8.1/MedNIST.tar.gz"
-            filepath = os.path.join(path, 'MedNIST.tar.gz')
+            filepath = os.path.join(path, "MedNIST.tar.gz")
             try:
                 logger.info("Now downloading MEDNIST...")
                 urlretrieve(url, filepath)
@@ -198,26 +193,46 @@ class DatasetManager:
                     tar_file.extractall(path)
                 os.remove(filepath)
 
-            except (URLError, HTTPError, ContentTooShortError, OSError, tarfile.TarError,
-                    MemoryError) as e:
-                _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while downloading MedNIST dataset"\
-                    + "from the MONAI repo:  " + str(e)
+            except (
+                URLError,
+                HTTPError,
+                ContentTooShortError,
+                OSError,
+                tarfile.TarError,
+                MemoryError,
+            ) as e:
+                _msg = (
+                    ErrorNumbers.FB315.value
+                    + "\nThe following error was raised while downloading MedNIST dataset"
+                    + "from the MONAI repo:  "
+                    + str(e)
+                )
                 logger.error(_msg)
                 raise FedbiomedDatasetManagerError(_msg)
 
         try:
-            dataset = datasets.ImageFolder(download_path,
-                                           transform=transforms.ToTensor())
+            dataset = datasets.ImageFolder(
+                download_path, transform=transforms.ToTensor()
+            )
 
         except (FileNotFoundError, RuntimeError) as e:
-            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading MedNIST dataset from"\
-                "the selected path:  " + str(e) + "\nPlease make sure that the selected MedNIST folder is not empty \
+            _msg = (
+                ErrorNumbers.FB315.value
+                + "\nThe following error was raised while loading MedNIST dataset from"
+                "the selected path:  "
+                + str(e)
+                + "\nPlease make sure that the selected MedNIST folder is not empty \
                    or choose another path."
+            )
             logger.error(_msg)
             raise FedbiomedDatasetManagerError(_msg)
 
         except Exception as e:
-            _msg = ErrorNumbers.FB315.value + "\nThe following error was raised while loading MedNIST dataset" + str(e)
+            _msg = (
+                ErrorNumbers.FB315.value
+                + "\nThe following error was raised while loading MedNIST dataset"
+                + str(e)
+            )
             logger.error(_msg)
             raise FedbiomedDatasetManagerError(_msg)
 
@@ -226,10 +241,9 @@ class DatasetManager:
         else:
             return self.get_torch_dataset_shape(dataset)
 
-    def load_images_dataset(self,
-                            folder_path: str,
-                            as_dataset: bool = False) -> Union[List[int],
-                                                               torch.utils.data.Dataset]:
+    def load_images_dataset(
+        self, folder_path: str, as_dataset: bool = False
+    ) -> Union[List[int], torch.utils.data.Dataset]:
         """Loads an image dataset.
 
         Args:
@@ -245,13 +259,16 @@ class DatasetManager:
             a list (type: List[int])
         """
         try:
-            dataset = datasets.ImageFolder(folder_path,
-                                           transform=transforms.ToTensor())
+            dataset = datasets.ImageFolder(folder_path, transform=transforms.ToTensor())
         except Exception as e:
-            _msg = ErrorNumbers.FB315.value +\
-                "\nThe following error was raised while loading dataset from the selected" \
-                " path:  " + str(e) + "\nPlease make sure that the selected folder is not empty \
+            _msg = (
+                ErrorNumbers.FB315.value
+                + "\nThe following error was raised while loading dataset from the selected"
+                " path:  "
+                + str(e)
+                + "\nPlease make sure that the selected folder is not empty \
                 and doesn't have any empty class folder"
+            )
             logger.error(_msg)
             raise FedbiomedDatasetManagerError(_msg)
 
@@ -271,14 +288,16 @@ class DatasetManager:
         """
         return self.read_csv(path)
 
-    def add_database(self,
-                     name: str,
-                     data_type: str,
-                     tags: Union[tuple, list],
-                     description: str,
-                     path: str,
-                     dataset_id: str = None,
-                     dataset_parameters : Union[dict, None] = None):
+    def add_database(
+        self,
+        name: str,
+        data_type: str,
+        tags: Union[tuple, list],
+        description: str,
+        path: str,
+        dataset_id: str = None,
+        dataset_parameters: Union[dict, None] = None,
+    ):
         """Adds a new dataset contained in a file to node's database.
 
         Args:
@@ -298,55 +317,74 @@ class DatasetManager:
         path = os.path.expanduser(path)
 
         # Check that there are not existing databases with the same name
-        assert len(self.search_by_tags(tags)) == 0, 'Data tags must be unique'
+        assert len(self.search_by_tags(tags)) == 0, "Data tags must be unique"
 
         dtypes = []  # empty list for Image datasets
-        data_types = ['csv', 'default', 'mednist', 'images', 'medical-folder']
+        data_types = ["csv", "default", "mednist", "images", "medical-folder"]
         if data_type not in data_types:
-            raise NotImplementedError(f'Data type {data_type} is not'
-                                      ' a compatible data type. '
-                                      f'Compatible data types are: {data_types}')
+            raise NotImplementedError(
+                f"Data type {data_type} is not"
+                " a compatible data type. "
+                f"Compatible data types are: {data_types}"
+            )
 
-
-        if data_type == 'default':
-            assert os.path.isdir(path), f'Folder {path} for Default Dataset does not exist.'
+        if data_type == "default":
+            assert os.path.isdir(
+                path
+            ), f"Folder {path} for Default Dataset does not exist."
             shape = self.load_default_database(name, path)
 
-        elif data_type == 'mednist':
-            assert os.path.isdir(path), f'Folder {path} for MedNIST Dataset does not exist.'
+        elif data_type == "mednist":
+            assert os.path.isdir(
+                path
+            ), f"Folder {path} for MedNIST Dataset does not exist."
             shape = self.load_mednist_database(path)
-            path = os.path.join(path, 'MedNIST')
+            path = os.path.join(path, "MedNIST")
 
-        elif data_type == 'csv':
-            assert os.path.isfile(path), f'Path provided ({path}) does not correspond to a CSV file.'
+        elif data_type == "csv":
+            assert os.path.isfile(
+                path
+            ), f"Path provided ({path}) does not correspond to a CSV file."
             dataset = self.load_csv_dataset(path)
             shape = dataset.shape
             dtypes = self.get_csv_data_types(dataset)
 
-        elif data_type == 'images':
-            assert os.path.isdir(path), f'Folder {path} for Images Dataset does not exist.'
+        elif data_type == "images":
+            assert os.path.isdir(
+                path
+            ), f"Folder {path} for Images Dataset does not exist."
             shape = self.load_images_dataset(path)
 
-        elif data_type == 'medical-folder':
+        elif data_type == "medical-folder":
             if not os.path.isdir(path):
-                raise FedbiomedDatasetManagerError(f'Folder {path} for Medical Folder Dataset does not exist.')
+                raise FedbiomedDatasetManagerError(
+                    f"Folder {path} for Medical Folder Dataset does not exist."
+                )
 
             if "tabular_file" not in dataset_parameters:
-                logger.info("Medical Folder Dataset will be loaded without reference/demographics data.")
+                logger.info(
+                    "Medical Folder Dataset will be loaded without reference/demographics data."
+                )
             else:
-                if not os.path.isfile(dataset_parameters['tabular_file']):
-                    raise FedbiomedDatasetManagerError(f'Path {dataset_parameters["tabular_file"]} does not '
-                                                       f'correspond a file.')
+                if not os.path.isfile(dataset_parameters["tabular_file"]):
+                    raise FedbiomedDatasetManagerError(
+                        f'Path {dataset_parameters["tabular_file"]} does not '
+                        f"correspond a file."
+                    )
                 if "index_col" not in dataset_parameters:
-                    raise FedbiomedDatasetManagerError('Index column is not provided')
+                    raise FedbiomedDatasetManagerError("Index column is not provided")
 
             try:
                 # load using the MedicalFolderController to ensure all available modalities are inspected
                 controller = MedicalFolderController(root=path)
-                dataset = controller.load_MedicalFolder(tabular_file=dataset_parameters.get('tabular_file', None),
-                                                        index_col=dataset_parameters.get('index_col', None))
+                dataset = controller.load_MedicalFolder(
+                    tabular_file=dataset_parameters.get("tabular_file", None),
+                    index_col=dataset_parameters.get("index_col", None),
+                )
             except FedbiomedError as e:
-                raise FedbiomedDatasetManagerError(f"Can not create Medical Folder dataset. {e}")
+                raise FedbiomedDatasetManagerError(
+                    f"Can not create Medical Folder dataset. {e}"
+                )
             else:
                 shape = dataset.shape()
 
@@ -354,16 +392,25 @@ class DatasetManager:
             try:
                 _ = dataset.get_nontransformed_item(0)
             except Exception as e:
-                raise FedbiomedDatasetManagerError(f'Medical Folder Dataset was not saved properly and '
-                                                   f'cannot be read. {e}')
+                raise FedbiomedDatasetManagerError(
+                    f"Medical Folder Dataset was not saved properly and "
+                    f"cannot be read. {e}"
+                )
 
         if not dataset_id:
-            dataset_id = 'dataset_' + str(uuid.uuid4())
+            dataset_id = "dataset_" + str(uuid.uuid4())
 
-        new_database = dict(name=name, data_type=data_type, tags=tags,
-                            description=description, shape=shape,
-                            path=path, dataset_id=dataset_id, dtypes=dtypes,
-                            dataset_parameters=dataset_parameters)
+        new_database = dict(
+            name=name,
+            data_type=data_type,
+            tags=tags,
+            description=description,
+            shape=shape,
+            path=path,
+            dataset_id=dataset_id,
+            dtypes=dtypes,
+            dataset_parameters=dataset_parameters,
+        )
         self.db.insert(new_database)
 
         return dataset_id
@@ -379,9 +426,7 @@ class DatasetManager:
         doc_ids = [doc.doc_id for doc in self.search_by_tags(tags)]
         self.db.remove(doc_ids=doc_ids)
 
-    def modify_database_info(self,
-                             tags: Union[tuple, list],
-                             modified_dataset: dict):
+    def modify_database_info(self, tags: Union[tuple, list], modified_dataset: dict):
         """Modifies a dataset in the database.
 
         Args:
@@ -404,10 +449,10 @@ class DatasetManager:
 
         # Do not display dtypes
         for doc in my_data:
-            doc.pop('dtypes')
+            doc.pop("dtypes")
 
         if verbose:
-            print(tabulate(my_data, headers='keys'))
+            print(tabulate(my_data, headers="keys"))
 
         return my_data
 
@@ -420,14 +465,15 @@ class DatasetManager:
         Returns:
             Content of the dataset.
         """
-        name = dataset['data_type']
-        if name == 'default':
-            return self.load_default_database(name=dataset['name'],
-                                              path=dataset['path'],
-                                              as_dataset=True)
-        elif name == 'images':
-            return self.load_images_dataset(folder_path=dataset['path'],
-                                            as_dataset=True)
+        name = dataset["data_type"]
+        if name == "default":
+            return self.load_default_database(
+                name=dataset["name"], path=dataset["path"], as_dataset=True
+            )
+        elif name == "images":
+            return self.load_images_dataset(
+                folder_path=dataset["path"], as_dataset=True
+            )
 
     # TODO: `load_data` seems unused, prune in next refactor ?
     def load_data(self, tags: Union[tuple, list], mode: str) -> Any:
@@ -446,38 +492,38 @@ class DatasetManager:
 
         # Verify is mode is available
         mode = mode.lower()
-        modes = ['pandas', 'torch_dataset', 'torch_tensor', 'numpy']
+        modes = ["pandas", "torch_dataset", "torch_tensor", "numpy"]
         if mode not in modes:
-            raise NotImplementedError(f'Data mode `{mode}` was not found.'
-                                      f' Data modes available: {modes}')
+            raise NotImplementedError(
+                f"Data mode `{mode}` was not found." f" Data modes available: {modes}"
+            )
 
         # Look for dataset in database
         dataset = self.search_by_tags(tags)[0]
         print(dataset)
-        assert len(dataset) > 0, f'Dataset with tags {tags} was not found.'
+        assert len(dataset) > 0, f"Dataset with tags {tags} was not found."
 
-        dataset_path = dataset['path']
+        dataset_path = dataset["path"]
         # If path is a file, you will aim to read it with
         if os.path.isfile(dataset_path):
             df = self.read_csv(dataset_path, index_col=0)
 
             # Load data as requested
-            if mode == 'pandas':
+            if mode == "pandas":
                 return df
-            elif mode == 'numpy':
+            elif mode == "numpy":
                 return df._get_numeric_data().values
-            elif mode == 'torch_tensor':
+            elif mode == "torch_tensor":
                 return torch.from_numpy(df._get_numeric_data().values)
 
         elif os.path.isdir(dataset_path):
-            if mode == 'torch_dataset':
+            if mode == "torch_dataset":
                 return self.load_as_dataloader(dataset)
-            elif mode == 'torch_tensor':
-                raise NotImplementedError('We are working on this'
-                                          ' implementation!')
-            elif mode == 'numpy':
-                raise NotImplementedError('We are working on this'
-                                          'implementation!')
+            elif mode == "torch_tensor":
+                raise NotImplementedError("We are working on this" " implementation!")
+            elif mode == "numpy":
+                raise NotImplementedError("We are working on this" "implementation!")
             else:
-                raise NotImplementedError(f'Mode `{mode}` has not been'
-                                          ' implemented on this version.')
+                raise NotImplementedError(
+                    f"Mode `{mode}` has not been" " implemented on this version."
+                )
