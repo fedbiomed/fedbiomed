@@ -34,7 +34,6 @@ class EnvironNode:
         # TODO: use os.path.join instead of / in path
         # TODO: use os.mktemp instead of /tmp
         node = f"_nod_{uuid.uuid4()}"
-        print(f"NEW ENVIRONMENT DIR {node}")
         self._values['ROOT_DIR']                = f"/tmp/{node}"
         self._values['CONFIG_DIR']              = f"/tmp/{node}/etc"
         self._values['VAR_DIR']                 = f"/tmp/{node}/var"
@@ -88,3 +87,4 @@ class EnvironNode:
 
 
 environ=EnvironNode(ComponentType.NODE)
+

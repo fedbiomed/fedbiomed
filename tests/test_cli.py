@@ -2,9 +2,17 @@ import unittest
 import sys, io
 from unittest.mock import MagicMock, patch
 from pathlib import Path
+import shutil
 
 import testsupport.mock_node_environ  # noqa (remove flake8 false warning)
-from fedbiomed.node.environ import environ
+
+# WORKAROUND: For this test, we need to ensure a *dedicated* `environ` to avoid collisions
+# with other test files for `environ['DB_PATH']` access
+#
+# from fedbiomed.node.environ import environ
+from fedbiomed.node.environ import EnvironNode
+from fedbiomed.common.constants  import ComponentType
+environ=EnvironNode(ComponentType.NODE)
 
 import fedbiomed.node.cli_utils
 from fedbiomed.node.cli_utils._medical_folder_dataset import get_map_modalities2folders_from_cli, \
@@ -35,6 +43,14 @@ class TestCli(unittest.TestCase):
     def tearDown(self) -> None:
         sys.stdout = sys.__stdout__
         sys.stderr = sys.__stderr__
+
+    @classmethod
+    def tearDownClass(cls):
+        """
+        after all tests
+        """
+        # WORKAROUND: delete dir as this is a dedicated environ for this test class
+        shutil.rmtree(environ['ROOT_DIR'])
 
     def test_cli_01_add_database_medical_folder(self):
         database_inputs = ['test-db-name', 'test-tag1,test-tag2', '', 'test-dlp-name']
