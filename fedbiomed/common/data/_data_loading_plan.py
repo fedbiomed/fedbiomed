@@ -226,15 +226,15 @@ class DataLoadingBlock(SerializationValidation, ABC):
     The DataLoadingBlock class is not intended to be instantiated directly.
 
     Subclasses of DataLoadingBlock must respect the following conditions:
-    1. implement a constructor taking exactly one argument, a type_id string
-    2. the implemented constructor must call super().__init__(type_id)
+    1. implement a default constructor
+    2. the implemented constructor must call super().__init__()
     3. extend the serialize(self) and the deserialize(self, load_from: dict) functions
     4. both serialize and deserialize must call super's serialize and deserialize respectively
     5. the deserialize function must always return self
     6. the serialize function must update the dict returned by super's serialize
     7. implement an apply function that takes arbitrary arguments and applies
        the logic of the loading_block
-    8. the _validation_scheme must be updated to define rules for all new fields returned by the serialize function
+    8. update the _validation_scheme to define rules for all new fields returned by the serialize function
 
     Attributes:
         __serialization_id: (str) identifies *one serialized instance* of the DataLoadingBlock
@@ -304,6 +304,19 @@ class DataLoadingBlock(SerializationValidation, ABC):
             logger.debug(msg)
             raise FedbiomedLoadingBlockError(msg)
         return dlb
+
+    @staticmethod
+    def instantiate_key(key_module: str, key_classname: str, loading_block_key_str: str) -> DataLoadingBlockTypes:
+        try:
+            exec(f"import {key_module}")
+            loading_block_key = eval(f"{key_module}.{key_classname}('{loading_block_key_str}')")
+        except Exception as e:
+            msg = ErrorNumbers.FB615 + f"Error deserializing loading block key " + \
+                  f"{loading_block_key_str} with path {key_module}.{key_classname} " + \
+                  f"because of {type(e).__name__}: {e}"
+            logger.debug(msg)
+            raise FedbiomedDataLoadingPlanError(msg)
+        return loading_block_key
 
 
 class MapperBlock(DataLoadingBlock):
@@ -458,15 +471,7 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock], Serializati
         self.target_dataset_type = DatasetTypes(serialized_dlp['target_dataset_type'])
         for loading_block_key_str, loading_block_serialization_id in serialized_dlp['loading_blocks'].items():
             key_module, key_classname = serialized_dlp['key_paths'][loading_block_key_str]
-            try:
-                exec(f"import {key_module}")
-                loading_block_key = eval(f"{key_module}.{key_classname}('{loading_block_key_str}')")
-            except Exception as e:
-                msg = ErrorNumbers.FB615 + f"Error deserializing loading block key " + \
-                      f"{loading_block_key_str} with path {key_module}.{key_classname} " + \
-                      f"because of {type(e).__name__}: {e}"
-                logger.debug(msg)
-                raise FedbiomedDataLoadingPlanError(msg)
+            loading_block_key = DataLoadingBlock.instantiate_key(key_module, key_classname, loading_block_key_str)
             loading_block = next(filter(lambda x: x['dlb_id'] == loading_block_serialization_id,
                                         serialized_loading_blocks))
             dlb = DataLoadingBlock.instantiate_class(loading_block)
