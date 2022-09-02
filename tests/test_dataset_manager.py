@@ -105,7 +105,9 @@ class TestDatasetManager(unittest.TestCase):
         after each test function
         """
         self.dataset_manager._db.close()
-        os.remove(environ['DB_PATH'])
+        # TODO: understand/correct : why doesn't it exist in some cases ?
+        if os.path.isfile(environ['DB_PATH']):
+            os.remove(environ['DB_PATH'])
 
 
     def test_dataset_manager_01_get_by_id_non_existing_dataset_id(self):
