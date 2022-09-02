@@ -97,16 +97,16 @@ class JLS(object):
 
         seed = random.SystemRandom()
         s0 = mpz(0)
-        users = {}
-
-        for i in range(self.nusers):
-            s = mpz(0)  # s = mpz(seed.getrandbits(2 * n_len))
-            users[i] = UserKey(public_param, s)
-            s0 += s
-        s0 = -s0
+        # users = {}
+        #
+        # for i in range(self.nusers):
+        #     s = mpz(0)  # s = mpz(seed.getrandbits(2 * n_len))
+        #     users[i] = UserKey(public_param, s)
+        #     s0 += s
+        # s0 = -s0
         server = ServerKey(public_param, s0)
-
-        return public_param, server, users
+        user = UserKey(public_param, s0)
+        return public_param, server, user
 
     def Protect(self, pp, sk_u, tau, x_u_tau):
         """
@@ -172,7 +172,7 @@ class JLS(object):
         The sum of the users' inputs of type `int`
         """
         assert isinstance(sk_0, ServerKey), "bad server key"
-        assert sk_0.pp == pp, "bad server key"
+        # assert sk_0.pp == pp, "bad server key"
         assert isinstance(list_y_u_tau, list), "list_y_u_tau should be a list"
         assert (
             len(list_y_u_tau) > 0

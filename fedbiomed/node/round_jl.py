@@ -113,12 +113,13 @@ class RoundJL(Round):
         logger.info(
             f"Quantization of model parameters done, length: {len(model_ptxt_qt)}, min: {min(model_ptxt_qt)}, max: {max(model_ptxt_qt)}"
         )
+        logger.info(f"model_ptxt_qt: {model_ptxt_qt[:10]}")
         # TODO For the moment users_key = server_key = 0
         logger.info(f"Setup Joye-Libert done")
-        logger.info(f"Protecting model parameters")
+        logger.info(f"Protecting model parameters with key {self.user_key}")
         model_ctxt_qt_enc: List[EncryptedNumber] = self.jl.Protect(
             pp=self.pp,
-            sk_u=self.user_key[0],
+            sk_u=self.user_key,
             tau=self.current_round,
             x_u_tau=model_ptxt_qt,
         )
