@@ -484,7 +484,7 @@ table.repository-table tr td .name .icon{
 .modal-overlay {
   position: fixed;
   display:flex;
-  z-index: 1;
+  z-index: 2;
   justify-content: center;
   align-items: center;
   top: 0px;
