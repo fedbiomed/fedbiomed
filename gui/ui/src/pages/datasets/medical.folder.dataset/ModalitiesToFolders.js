@@ -3,14 +3,14 @@ import CreatableSelect from 'react-select/creatable';
 import {connect} from "react-redux"
 import {EuiRadio, EuiSpacer} from '@elastic/eui';
 import {useNavigate, useParams, useLocation} from "react-router-dom";
-import styles from "./AddDataset.module.css"
+import styles from "../AddDataset.module.css"
 
 import {
     setCustomizeModalitiesToFolders,
     initModalityNames,
     updateModalitiesMapping,
     clearModalityMapping,
-    } from "../../store/actions/medicalFolderDatasetActions"
+    } from "../../../store/actions/medicalFolderDatasetActions"
 
 const withRouter = (Component) =>  {
     function ComponentWithRouterProp(props) {

@@ -19,7 +19,7 @@ import Modal from "./components/common/Modal"
 import {connect, useDispatch} from 'react-redux'
 import Button, {ButtonsWrapper} from "./components/common/Button";
 import CommonStandards from "./pages/datasets/CommonStandards";
-import MedicalFolderDataset from "./pages/datasets/MedicalFolderDataset";
+import MedicalFolderDataset from "./pages/datasets/medical.folder.dataset";
 import Models from "./pages/models/Models";
 import SingleModel from "./pages/models/SingleModel";
 

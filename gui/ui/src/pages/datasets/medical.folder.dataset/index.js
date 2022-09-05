@@ -6,14 +6,14 @@ import {setFolderPath,
     setReferenceCSV,
     addMedicalFolderDataset,
     setIgnoreReferenceCsv,
-    } from "../../store/actions/medicalFolderDatasetActions"
-import styles from "./AddDataset.module.css"
-import FileBrowser from "../../components/common/FileBrowser";
-import {Label} from '../../components/common/Inputs'
-import {SelectiveTable} from "../../components/common/Tables";
-import Button, {ButtonsWrapper} from "../../components/common/Button";
-import Step from "../../components/layout/Step"
-import {CheckBox} from "../../components/common/Inputs";
+    } from "../../../store/actions/medicalFolderDatasetActions"
+import styles from "../AddDataset.module.css"
+import FileBrowser from "../../../components/common/FileBrowser";
+import {Label} from '../../../components/common/Inputs'
+import {SelectiveTable} from "../../../components/common/Tables";
+import Button, {ButtonsWrapper} from "../../../components/common/Button";
+import Step from "../../../components/layout/Step"
+import {CheckBox} from "../../../components/common/Inputs";
 import {EuiRadio, EuiSpacer, EuiSelect} from '@elastic/eui';
 import MedicalFolderSubjectInformation from "./MedicalFolderSubjectInformation";
 import DatasetMetadata from "./MedicalFolderMetaData";
@@ -21,7 +21,7 @@ import ModalitiesToFolders from "./ModalitiesToFolders";
 import {
     setUsePreExistingDlp,
     setDLPIndex,
-    } from "../../store/actions/dataLoadingPlanActions"
+    } from "../../../store/actions/dataLoadingPlanActions"
 
 const withRouter = (Component) =>  {
     function ComponentWithRouterProp(props) {
@@ -40,7 +40,7 @@ const withRouter = (Component) =>  {
 }
 
 
-export class MedicalFolderDataset extends React.Component {
+export class Index extends React.Component {
     setDataPath = (path) => {
         this.props.setFolderPath(path)
     }
@@ -289,5 +289,5 @@ const mapDispatchToProps = (dispatch) => {
     }
 }
 
-export default connect(mapStateToProps, mapDispatchToProps)(withRouter(MedicalFolderDataset));
+export default connect(mapStateToProps, mapDispatchToProps)(withRouter(Index));
 

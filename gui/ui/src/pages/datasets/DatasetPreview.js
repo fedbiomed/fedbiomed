@@ -6,7 +6,7 @@ import {Text, Tag, TextArea} from '../../components/common/Inputs'
 import {Button, ButtonsWrapper} from '../../components/common/Button'
 import axios from 'axios';
 import Repository from "../repository";
-import MedicalFolderDatasetPreview from "./MedicalFolderDatasetPreview";
+import MedicalFolderDatasetPreview from "./medical.folder.dataset/MedicalFolderDatasetPreview";
 
 export const DatasetPreview = (props) => {
 
