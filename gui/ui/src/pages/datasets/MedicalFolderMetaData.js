@@ -55,7 +55,7 @@ const MedicalFolderMetadata = (props) => {
                         <div className={`row`}>
                             <div className="form-control">
                                 <Label>Customization name <span style={{fontSize:11}}>(min 4 character)</span> </Label>
-                                <TextArea name="desc"
+                                <Text name="desc"
                                           type="text"
                                           placeholder="Enter a name for the data loading customizations that you created."
                                           onChange={(e) => { props.setDLPDesc(e.target.value)}}
