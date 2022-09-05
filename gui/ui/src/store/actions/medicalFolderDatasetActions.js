@@ -31,17 +31,20 @@ export const setFolderPath = (path) => {
                 let data = response.data.result
                 if(data.valid){
                     dispatch({type:'RESET_MEDICAL_FOLDER'})
+                    dispatch({type:'RESET_DLP'})
                     dispatch({type: "SET_MEDICAL_FOLDER_ROOT", payload: { root_path: path.path, modality_folders: data.modalities}})
                     dispatch({type:'SET_LOADING', payload: {status: false}})
                     dispatch(checkSubDirectories(path.path))
                 }else{
                     dispatch({type:'SET_LOADING', payload: {status: false}})
                     dispatch({type:'RESET_MEDICAL_FOLDER'})
+                    dispatch({type:'RESET_DLP'})
                     dispatch({type: 'ERROR_MODAL', payload: data.message})
                 }
             }).catch(error => {
                 dispatch({type:'SET_LOADING', payload: {status: false}})
-                dispatch({type:'RESET_MEDICAL_FOLDER', payload: false})
+                dispatch({type:'RESET_MEDICAL_FOLDER'})
+                dispatch({type:'RESET_DLP'})
                 dispatch(displayError(error))
         })
 
@@ -522,7 +525,7 @@ export const getMedicalFolderPreview = (dataset_id) => {
  */
 const checkSubDirectories = (path) => {
     return (dispatch) => {
-        dispatch({type:'SET_LOADING', payload: {status: true, text: "Checkinh sub directories for MedicalFolder..."}})
+        dispatch({type:'SET_LOADING', payload: {status: true, text: "Checking sub directories for MedicalFolder..."}})
         axios.post(EP_REPOSITORY_LIST, {path: path}).then(response => {
             if(response.status !== 200){
                 dispatch({type: 'ERROR_MODAL' , payload: response.data.result.message})

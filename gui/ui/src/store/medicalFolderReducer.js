@@ -40,7 +40,10 @@ export const medicalFolderReducer = (state = initialState, action) => {
 
     switch (action.type){
         case "SET_MEDICAL_FOLDER_ROOT":
-            return {...state, medical_folder_root: action.payload.root_path, modality_folders: action.payload.modality_folders,
+            return {
+                ...state,
+                medical_folder_root: action.payload.root_path,
+                modality_folders: action.payload.modality_folders,
             }
         case "RESET_MEDICAL_FOLDER_ROOT":
             return {
