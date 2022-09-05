@@ -531,9 +531,10 @@ table.repository-table tr td .name .icon{
   background: var(--button-color);
   color: #fff;
   border-radius: 20px;
-  width: 15px;
+  width: 35px;
   text-align: center;
-font-weight: bold;
+  font-weight: bold;
+  height: 35px;
 }
 
 .modal-overlay .modal-inner .modal-header{
