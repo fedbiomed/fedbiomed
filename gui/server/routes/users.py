@@ -192,6 +192,12 @@ def reset_user_password():
     req = request.json
     user_id = req["user_id"]
 
+    user = get_jwt()
+
+    # User can not remove his account
+    if user["sub"] == user_id:
+        return error('As admin you can not remove your own account.'), 400
+
     # Auto generated password
     alphabet = string.ascii_letters + string.digits
     password = ''.join(secrets.choice(alphabet) for _ in range(12))
