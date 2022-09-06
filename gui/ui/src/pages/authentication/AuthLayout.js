@@ -1,7 +1,6 @@
 import React from 'react';
 import {EuiPage,
-        EuiPageSection,
-        EuiPageBody
+        EuiPageSection
 } from '@elastic/eui';
 
 

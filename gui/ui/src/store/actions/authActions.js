@@ -86,14 +86,6 @@ export const removeToken = (navigate) => {
  */
 export const checkIsTokenActive = () => {
     const token = getAccessToken();
-    let decoded_token
-
-    try {
-       decoded_token = JSON.parse(atob(token.split(".")[1]));
-    } catch (e) {
-       decoded_token = null
-    }
-
     return isExpired(token)
 }
 

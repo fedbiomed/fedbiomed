@@ -1,6 +1,6 @@
 
 import axios from 'axios';
-import {EP_REFRESH} from './constants';
+import {EP_REFRESH, EP_LOGIN} from './constants';
 import { getAccessToken, checkIsTokenActive, getRefreshToken }  from './store/actions/authActions';
 
 // this handler wraps axios logic request:
@@ -42,6 +42,12 @@ export const setupAxios = () => {
                 break;
 
               case 401:
+                // If endpoint is login
+                if(error.response.config.url === EP_LOGIN){
+                  reject(error)
+                  break;
+                }
+
               case 422:
                 // we should differentiate case where token has expired with case "insufficient privileged"
                 let access_token = getAccessToken();

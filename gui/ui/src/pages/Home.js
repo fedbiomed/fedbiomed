@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react'
+import React from 'react'
 import {Link} from 'react-router-dom'
 import {ReactComponent as DocIcon} from "../assets/img/doc.svg";
 import {ReactComponent as FileIcon} from "../assets/img/file.svg";

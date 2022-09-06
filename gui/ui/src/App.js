@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react'
+import React from 'react'
 import './App.css';
 import '@elastic/eui/dist/eui_theme_light.css';
 import { EuiProvider } from '@elastic/eui';

@@ -5,7 +5,6 @@ import {
     EuiToast,
     formatDate,
     EuiInMemoryTable,
-    EuiSuperSelect,
     EuiSpacer
   } from '@elastic/eui';
 

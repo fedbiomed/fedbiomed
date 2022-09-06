@@ -1,6 +1,5 @@
 import React from 'react';
 import {Link} from 'react-router-dom'
-import { useState } from 'react';
 
 const NavItem  = (props) => {
 
@@ -12,8 +11,6 @@ const NavItem  = (props) => {
             
             }
     }
-
-
 
     return (
         <div className={`nav-item ${props.active ? 'active' : ''}`} onClick={handleClick}>

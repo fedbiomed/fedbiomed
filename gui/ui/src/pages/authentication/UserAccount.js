@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React from 'react';
 import {EuiPageBody,
         EuiSpacer,
         EuiTab,
@@ -10,10 +10,9 @@ import {Outlet, useNavigate} from 'react-router-dom'
 import {useSelector, shallowEqual} from 'react-redux';
 import { useLocation } from 'react-router-dom';
 
-const UserAccount = (props) => {
+const UserAccount = () => {
 
     const userInfo = useSelector((state) => state.auth, shallowEqual)
-    const [selectedTabId, setSelectedTabId] = useState('user-info');
     const navigate = useNavigate()
     const location = useLocation()
 
@@ -60,7 +59,6 @@ const UserAccount = (props) => {
              },
     ]
     const onSelectedTabChanged = (to, id) => {
-        setSelectedTabId(id);
         navigate(to)
     };
 
@@ -71,7 +69,7 @@ const UserAccount = (props) => {
                     <EuiTab
                         key={index}
                         href={tab.href}
-                        onClick={() => onSelectedTabChanged(tab.to, tab.id)}
+                        onClick={() => onSelectedTabChanged(tab.to)}
                         isSelected={tab.isSelected}
                         disabled={tab.disabled}
                         prepend={tab.prepend}
@@ -81,6 +79,8 @@ const UserAccount = (props) => {
 
                     </EuiTab>
                 )
+            }else{
+                return null
             }
         })
 

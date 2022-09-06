@@ -170,19 +170,6 @@ const UserPasswordResetManagement = (props) => {
 
 }
 
-const UserPrivilegeManagement = (props) => {
-    const [show, setShow] = React.useState(props.show);
-    React.useEffect(() => {
-        // update local state
-        setShow(props.show)
-    }, [props.show])
-
-    return (<React.Fragment>
-                <EuiModal>
-
-                </EuiModal>
-            </React.Fragment>)
-}
 
 const UserAccountCreation = (props) => {
 
@@ -273,7 +260,6 @@ const AccountRequestManagementModal = (props) => {
 export  {
     UserManagementConfirmation,
     UserPasswordResetManagement,
-    UserPrivilegeManagement,
     UserAccountCreation,
     AccountRequestManagementModal
 };

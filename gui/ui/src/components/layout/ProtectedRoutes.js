@@ -1,6 +1,6 @@
 import React from 'react';
 import SideNav from './SideNav'
-import { Navigate, Outlet, useNavigate, NavLink} from "react-router-dom";
+import { Navigate, Outlet, useNavigate} from "react-router-dom";
 import {autoLogin, decodeToken, getAccessToken, removeToken, setUser} from "../../store/actions/authActions";
 import {useDispatch, useSelector, shallowEqual, connect} from "react-redux";
 import {
@@ -29,16 +29,16 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = (dispatch) => {
     return {
-        autoLogin: (navigate) => dispatch(autoLogin(navigate))
+        userAutoLogin: (navigate) => dispatch(autoLogin(navigate))
     }
 }
 
-export const LoginProtected = connect(mapStateToProps, mapDispatchToProps)((props) => {
+export const LoginProtected = connect(mapStateToProps, mapDispatchToProps)( (props) => {
 
     const dispatch = useDispatch()
     const navigate = useNavigate()
-
     let user = decodeToken()
+    let {userAutoLogin} = props
 
     if(!getAccessToken()){
         window.location.href = '/login'
@@ -49,8 +49,8 @@ export const LoginProtected = connect(mapStateToProps, mapDispatchToProps)((prop
     }
 
     React.useEffect(() => {
-        props.autoLogin(navigate)
-    }, [props.autoLogin])
+        userAutoLogin(navigate)
+    }, [userAutoLogin, navigate])
 
 
     if(user) {
@@ -94,7 +94,7 @@ export const AdminProtected = (props) => {
 
     const {role} = useSelector((state) => state.auth, shallowEqual)
 
-    if (role == "Admin"){
+    if (role === "Admin"){
         return props.children
     }else{
         return(
