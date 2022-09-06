@@ -1,13 +1,12 @@
 import os
-import datetime
 
-from flask import jsonify, request
 from app import app
+from db import node_database
+from flask import request
 from schemas import ListDataFolder
+from utils import error, validate_request_data, response, file_stats
 
 from . import api
-from utils import success, error, validate_json, validate_request_data, response, file_stats
-from db import database
 
 
 @api.route('/repository/list', methods=['POST'])
@@ -57,8 +56,9 @@ def list_data_path():
 
         files = files if len(files) <= 1000 else files[0:1000]
 
-        table = database.db().table_datasets()
-        query = database.query()
+        table = node_database.table_datasets()
+        query = node_database.query()
+        table.clear_cache()
 
         for file in files:
             if not file.startswith('.'):

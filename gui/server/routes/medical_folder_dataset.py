@@ -1,23 +1,23 @@
 import os
-import uuid
 import re
+import uuid
 
-from cache import cached
-from flask import jsonify, request, g
-from db import database
-from . import api
 from app import app
+from cache import cached
+from db import node_database
+from flask import request, g
 from middlewares import middleware, medical_folder_dataset, common
-
-from utils import success, error, validate_json, validate_request_data, response
 from schemas import ValidateMedicalFolderReferenceCSV, \
     ValidateMedicalFolderRoot, \
     ValidateMedicalFolderAddRequest, \
     PreviewDatasetRequest
+from utils import error, validate_request_data, response
 
 from fedbiomed.common.data import MedicalFolderController
-from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.node.dataset_manager import DatasetManager
+from . import api
+
 dataset_manager = DatasetManager()
 
 # Medical Folder Controller
@@ -26,9 +26,9 @@ mf_controller = MedicalFolderController()
 # Path to write and read the datafiles
 DATA_PATH_RW = app.config['DATA_PATH_RW']
 
-# Database table (datasets table of TinyDB) and query object
-table = database.db().table_datasets()
-query = database.query()
+# Database table (default datasets table of TinyDB) and query object
+table = node_database.table_datasets()
+query = node_database.query()
 
 
 @api.route('/datasets/medical-folder-dataset/validate-reference-column', methods=['POST'])

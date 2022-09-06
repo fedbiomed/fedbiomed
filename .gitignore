@@ -190,6 +190,7 @@ yarn-debug.log*
 yarn-error.log*
 
 package-lock.json
+yarn.lock
 # -----------------------------------------------------------
 
 ### JupyterNotebooks ###
@@ -393,11 +394,12 @@ my_model.p*
 etc/
 runs/
 var/
-config.ini
+gui/config_gui.ini
 *queue*/
 db.json
 queue_manager/
 *.ini
+!config_gui.ini
 db_client_*.json
 queue_manager_client_*
 cover/

@@ -1,14 +1,12 @@
 import os
-import uuid
 import re
-from flask import jsonify, request
+import uuid
+
+
 from app import app
-from db import database
-
-from . import api
-from utils import success, error, validate_json, validate_request_data, response
+from db import node_database
+from flask import request, current_app
 from middlewares import middleware, common
-
 from schemas import AddDataSetRequest, \
     RemoveDatasetRequest, \
     UpdateDatasetRequest, \
@@ -16,8 +14,10 @@ from schemas import AddDataSetRequest, \
     AddDefaultDatasetRequest, \
     ListDatasetRequest, \
     GetCsvData
-
+from utils import success, error, validate_request_data, response
+from flask_jwt_extended import jwt_required, get_jwt, verify_jwt_in_request
 from fedbiomed.node.dataset_manager import DatasetManager
+from . import api
 
 # Initialize Fed-BioMed DatasetManager
 dataset_manager = DatasetManager()
@@ -48,15 +48,14 @@ def list_datasets():
     """
     req = request.json
     search = req.get('search', None)
-    table = database.db().table_datasets()
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
 
     if search is not None and search != "":
         res = table.search(query.name.search(search + '+') | query.description.search(search + '+'))
     else:
         try:
             res = table.all()
-            database.close()
         except Exception as e:
             return error(str(e)), 400
 
@@ -87,17 +86,15 @@ def remove_dataset():
 
     if req['dataset_id']:
 
-        table = database.db().table_datasets()
-        query = database.query()
+        table = node_database.table_datasets()
+        query = node_database.query()
         dataset = table.get(query.dataset_id == req['dataset_id'])
 
         if dataset:
             table.remove(doc_ids=[dataset.doc_id])
-            database.close()
             return success('Dataset has been removed successfully'), 200
 
         else:
-            database.close()
             return error('Can not find specified dataset in the database'), 400
     else:
         return error('Missing `dataset_id` attribute.'), 400
@@ -130,8 +127,8 @@ def add_dataset():
             message : The message for response
 
     """
-    table = database.db().table_datasets()
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
 
     data_path_rw = app.config['DATA_PATH_RW']
     req = request.json
@@ -215,8 +212,8 @@ def update_dataset():
             message : The message for response
     """
     req = request.json
-    table = database.db().table_datasets()
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
 
     table.update({"tags": req["tags"],
                   "description": req["desc"],
@@ -250,8 +247,8 @@ def get_preview_dataset():
     """
 
     req = request.json
-    table = database.db().table_datasets()
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
     dataset = table.get(query.dataset_id == req['dataset_id'])
 
     # Extract data path where the files are saved in the local repository
@@ -307,8 +304,8 @@ def add_default_dataset():
 
     """
     req = request.json
-    table = database.db().table_datasets()
-    query = database.query()
+    table = node_database.table_datasets()
+    query = node_database.query()
     dataset = table.get(query.tags == req['tags'])
 
     if dataset:

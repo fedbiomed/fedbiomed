@@ -98,16 +98,20 @@ EOF
 
 gui       :
             Options:
-            - data-folder | --data-folder | -df  [<path>]   : Folder that data files are stored, by default script will
-                                                              look for \`data\` in Fed-BioMed directory
-            - config      | --config      | -c   [<config>] : Name of the node's config file. GUI will be configured
-                                                              based on given config file. By default, \`config_node.ini\`.
-                                                              If config file doesn't exist script will raise an error.
-            - port        | --port        | -p   [<port>]   : HTTP port that GUI will be served. Default is \`8484\`
-            - host        | --host        | -h   [<host>]   : HTTP host that GUI will be served, Default is \`localhost\`
-            - recreate    | --recreate    | -rc             : Flag that indicates, UI will be rebuilt while launching
-                                                              the GUI. Use this option if you have updated UI scripts.
-            - debug       | --debug       | -dbg            : Flag that will start Flask (Server) in debug mode.
+            - data-folder | --data-folder | -df  [<path>]       :   Folder that data files are stored, by default script will
+                                                                    look for \`data\` in Fed-BioMed directory
+            - config      | --config      | -c   [<config>]     :   Name of the node's config file. GUI will be configured
+                                                                    based on given config file. By default, \`config_node.ini\`.
+                                                                    If config file doesn't exist script will raise an error.
+            - cert        | --cert        | -ct  [<certificate>]:   Name of the certificate to use in order to enable HTTPS.
+                                                                    If cert file doesn't exist script will raise an error.
+            - key         | --primary-key | -k   [<key>]        :   Name of the private key for the SSL certificate. 
+                                                                    If the key file doesn't exist, the script will raise an error.
+            - port        | --port        | -p   [<port>]       :   HTTP port that GUI will be served. Default is \`8484\`
+            - host        | --host        | -h   [<host>]       :   HTTP host that GUI will be served, Default is \`localhost\`
+            - recreate    | --recreate    | -rc                 :   Flag that indicates, UI will be rebuilt while launching
+                                                                    the GUI. Use this option if you have updated UI scripts.
+            - debug       | --debug       | -dbg                :   Flag that will start Flask (Server) in debug mode.
 
             Commands:
             - start: Launches the Node GUI with given options.
@@ -151,7 +155,7 @@ EOF
 
         gui)
             cat <<EOF
-usage: febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | host IP_ADDRESS | port PORT | --recreate] (start)
+usage: febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | cert CERTIFICATE_NAME | key PRIVATE_KEY_NAME | host IP_ADDRESS | port PORT | --recreate] (start)
 
 Runs the fedbiomed gui
 EOF
@@ -164,7 +168,7 @@ usage: fedbiomed_run network (stop)
        fedbiomed_run researcher [ip_address IP_ADDRESS]
        fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-model-approval | disable-model-approval | allow-default-models | disable-default-models ]
                          (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-models | view-model | register-model | delete-model | update-model) PARAMS
-        febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | host IP_ADDRESS | port PORT | --recreate]
+        febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | cert CERTIFICATE_NAME | key PRIVATE_KEY_NAME | host IP_ADDRESS | port PORT | --recreate]
                          (start)
 
 Runs the fedbiomed components after properly initializing the environments.
@@ -233,17 +237,17 @@ function start_gui() {
     # Activate Fed-BioMed GUI environment
     source ${basedir}/scripts/fedbiomed_environment gui
 
-    # Install npm modules
+    # Install node modules
     echo -e "${YLW}INFO${NC}: Controlling react bundle and modules"
     cd ./gui/ui
 
     # Create bundle if there is no build directory/node_modules or recreate is active
     if  [ ! -d "$basedir/gui/ui/node_modules" ] || [ ! -d "$basedir/var/gui-build" ] || [ -n "$RECREATE" ];then
-        echo -e "${YLW}INFO${NC}: Installing npm modules"
-        npm install || exit
+        echo -e "${YLW}INFO${NC}: Installing node modules"
+        yarn install || exit
 
         echo -e "${YLW}INFO${NC}: Building Fed-BioMed GUI"
-        npm run build || exit
+        yarn run build || exit
 
         if [ -d "$basedir/var/gui-build" ];then
           rm -Rf "$basedir/var/gui-build";
@@ -264,6 +268,8 @@ function start_gui() {
           HOST="$GUI_HOST" \
           PORT="$GUI_PORT" \
           DEBUG="$GUI_DEBUG" \
+          CERTIFICATE_NAME="$CERTIFICATE_NAME" \
+          PRIVATE_KEY_NAME="$PRIVATE_KEY_NAME" \
           FLASK_ENV="development" \
           python app.py
     fi
@@ -312,6 +318,34 @@ case $1 in
                       exit 1
                   fi
                   DATA_PATH="$3"
+                  shift
+                  shift
+                  ;;
+              cert|--certificate|-ct)
+                  if [ $# -lt 3 ] ; then
+                      echo -e "${RED}ERROR${NC}: missing certificate path"
+                      exit 1
+                  fi
+                  CERTIFICATE_NAME="$3"
+                  if [ -z "${INSTALL_ONLY}" -a ! -f "etc/${CERTIFICATE_NAME}" ] ; then
+                    echo -e "${RED}ERROR${NC}: Certificate file 'etc/${CERTIFICATE_NAME}' does not exist in Fed-BioMed root directory"
+                    exit 1
+                  fi
+                  echo -e "${YLW}INFO${NC}: Using 'etc/$CERTIFICATE_NAME' as GUI node SSL certificate"
+                  shift
+                  shift
+                  ;;
+              key|--primary-key|-k)
+                  if [ $# -lt 3 ] ; then
+                      echo -e "${RED}ERROR${NC}: missing primary key path"
+                      exit 1
+                  fi
+                  PRIVATE_KEY_NAME="$3"
+                  if [ -z "${INSTALL_ONLY}" -a ! -f "etc/${PRIVATE_KEY_NAME}" ] ; then
+                    echo -e "${RED}ERROR${NC}: Private key file 'etc/${PRIVATE_KEY_NAME}' does not exist in Fed-BioMed root directory"
+                    exit 1
+                  fi
+                  echo -e "${YLW}INFO${NC}: Using 'etc/$PRIVATE_KEY_NAME' as GUI node private key for SSL certificate"
                   shift
                   shift
                   ;;

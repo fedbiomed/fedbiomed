@@ -94,7 +94,8 @@ activate_gui() {
     verbose=$1
     [[ ! -z "$verbose" ]] && echo "** Activating fedbiomed-gui environment"
     conda activate fedbiomed-gui
-    unset PYTHONPATH
+    #unset PYTHONPATH
+    export PYTHONPATH=$basedir
     [[ ! -z "$verbose" ]] && environment_info
 }
 
