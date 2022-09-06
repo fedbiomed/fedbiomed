@@ -75,7 +75,13 @@ def admin_required(func):
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
         claims = get_jwt()
-        if claims['role'] != UserRoleType.ADMIN:
+
+        user_from_db = user_table.get(query.user_id == claims["sub"])
+
+        if not user_from_db:
+            return error("Can not check user role. Please contact system provider"), 400
+
+        if claims['role'] != UserRoleType.ADMIN and user_from_db["user_role"] == UserRoleType.ADMIN:
             return error("You don't have permission to perform this action! Please contact your "
                          "local Administrator"), 403
         else:
