@@ -10,7 +10,7 @@ from fedbiomed.node.environ import environ
 from fedbiomed.common.logger import logger
 from fedbiomed.node.model_manager import ModelManager
 from fedbiomed.common.constants  import ModelApprovalStatus, ModelTypes
-from ._io import validated_path_input
+from fedbiomed.node.cli_utils._io import validated_path_input
 
 
 model_manager = ModelManager()

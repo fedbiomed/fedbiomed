@@ -5,8 +5,8 @@ import warnings
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedDatasetManagerError
 from fedbiomed.common.logger import logger
 from fedbiomed.node.dataset_manager import DatasetManager
-from ._io import validated_data_type_input, validated_path_input
-from ._medical_folder_dataset import add_medical_folder_dataset_from_cli
+from fedbiomed.node.cli_utils._io import validated_data_type_input, validated_path_input
+from fedbiomed.node.cli_utils._medical_folder_dataset import add_medical_folder_dataset_from_cli
 
 
 dataset_manager = DatasetManager()

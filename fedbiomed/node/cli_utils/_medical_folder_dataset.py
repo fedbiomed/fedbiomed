@@ -4,7 +4,7 @@ from copy import copy
 from collections import defaultdict
 from fedbiomed.common.data import DataLoadingPlan, MedicalFolderController, MedicalFolderBase, MapperBlock, \
     MedicalFolderLoadingBlockTypes
-from ._io import validated_path_input
+from fedbiomed.node.cli_utils._io import validated_path_input
 
 
 def add_medical_folder_dataset_from_cli(interactive: bool,
