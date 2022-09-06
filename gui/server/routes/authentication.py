@@ -126,13 +126,14 @@ def register():
             "request_id": request_id,
             "request_status": UserRequestStatus.NEW
         })
-        res = user_requests_table.get(query.request_id == request_id)
-        return response({
-            'request_id': res['request_id'],
-        }, 'A request has been sent to administrator for account creation'), 201
     except Exception as e:
         return error(str(e)), 400
 
+    res = user_requests_table.get(query.request_id == request_id)
+
+    return response({
+        'request_id': res['request_id'],
+    }, 'A request has been sent to administrator for account creation'), 201
 
 @api.route('/token/auth', methods=['GET'])
 @jwt_required()
@@ -202,10 +203,13 @@ def login():
 
 
 @api.route('/token/refresh', methods=['GET'])
-@jwt_required(refresh=True)  # only put `refresh` = True here, it means we are accessing api with refresh token instead of access tokens
+@jwt_required(refresh=True)
+# `refresh` = True here, it means accessing api with refresh token instead of access tokens
 def refresh_expiring_jwts():
-    """ API endpoint for refreshing JWT token. Here we are using "explicit Refreshing", as 
-    defined in `jwt-extended` documentation (https://flask-jwt-extended.readthedocs.io/en/stable/refreshing_tokens/).
+    """ API endpoint for refreshing JWT token.
+
+    Here we are using "explicit Refreshing", as defined in `jwt-extended` documentation
+    (https://flask-jwt-extended.readthedocs.io/en/stable/refreshing_tokens/).
     """
     jwt = get_jwt()
     additional_claims = {
