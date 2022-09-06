@@ -39,11 +39,11 @@ class SerializationValidation:
 
 
     Attributes:
-       _validation_scheme: an extensible set of rules to validate the DataLoadingBlock metadata.
+       validation_scheme: an extensible set of rules to validate the DataLoadingBlock metadata.
     """
 
     def __init__(self):
-        self._validation_scheme = None
+        self.validation_scheme = None
 
     def validate(self,
                  dlb_metadata: Dict,
@@ -60,7 +60,7 @@ class SerializationValidation:
             exception_type: if the validation fails.
         """
         try:
-            sc = SchemeValidator(self._validation_scheme)
+            sc = SchemeValidator(self.validation_scheme)
         except RuleError as e:
             msg = ErrorNumbers.FB614.value + f": {e}"
             logger.critical(msg)
@@ -133,7 +133,7 @@ class SerializationValidation:
     @staticmethod
     @validator_decorator
     def _loading_blocks_types_validator(loading_blocks: dict) -> Union[bool, Tuple[bool, str]]:
-        f"""Validate that loading blocks is a dict of {DataLoadingBlockTypes: str}."""
+        """Validate that loading blocks is a dict of {DataLoadingBlockTypes: str}."""
         if not isinstance(loading_blocks, dict):
             return False, f"Field loading_blocks must be of type dict, instead found {type(loading_blocks).__name__}"
         for key, value in loading_blocks.items():
@@ -148,7 +148,7 @@ class SerializationValidation:
     @staticmethod
     @validator_decorator
     def _key_paths_validator(key_paths: dict) -> Union[bool, Tuple[bool, str]]:
-        f"""Validate that key_paths is of the form {DataLoadingBlockTypes: (str, str)}."""
+        """Validate that key_paths is of the form {DataLoadingBlockTypes: (str, str)}."""
         if not isinstance(key_paths, dict):
             return False, f"Field key_paths must be of type dict, instead found {type(key_paths).__name__}"
         for key, value in key_paths.items():
@@ -209,7 +209,7 @@ class SerializationValidation:
         }
 
 
-class DataLoadingBlock(SerializationValidation, ABC):
+class DataLoadingBlock(ABC):
     """The building blocks of a DataLoadingPlan.
 
     A DataLoadingBlock describes an intermediary layer between the researcher
@@ -241,9 +241,9 @@ class DataLoadingBlock(SerializationValidation, ABC):
     """
 
     def __init__(self):
-        super().__init__()
         self.__serialization_id = 'serialized_dlb_' + str(uuid.uuid4())
-        self._validation_scheme = SerializationValidation.dlb_default_scheme()
+        self._serialization_validator = SerializationValidation()
+        self._serialization_validator.validation_scheme = SerializationValidation.dlb_default_scheme()
 
     def get_serialization_id(self):
         """Expose serialization id as read-only"""
@@ -270,7 +270,7 @@ class DataLoadingBlock(SerializationValidation, ABC):
         Returns:
             the self instance
         """
-        self.validate(load_from, FedbiomedLoadingBlockValueError)
+        self._serialization_validator.validate(load_from, FedbiomedLoadingBlockValueError)
         self.__serialization_id = load_from['dlb_id']
         return self
 
@@ -299,7 +299,7 @@ class DataLoadingBlock(SerializationValidation, ABC):
             exec(f"import {loading_block['loading_block_module']}")
             dlb = eval(f"{loading_block['loading_block_module']}.{loading_block['loading_block_class']}()")
         except Exception as e:
-            msg = ErrorNumbers.FB614 + f": could not instantiate DataLoadingBlock from the following metadata: " + \
+            msg = ErrorNumbers.FB614.value + f": could not instantiate DataLoadingBlock from the following metadata: " + \
                   f"{loading_block} because of {type(e).__name__}: {e}"
             logger.debug(msg)
             raise FedbiomedLoadingBlockError(msg)
@@ -311,7 +311,7 @@ class DataLoadingBlock(SerializationValidation, ABC):
             exec(f"import {key_module}")
             loading_block_key = eval(f"{key_module}.{key_classname}('{loading_block_key_str}')")
         except Exception as e:
-            msg = ErrorNumbers.FB615 + f"Error deserializing loading block key " + \
+            msg = ErrorNumbers.FB615.value + f"Error deserializing loading block key " + \
                   f"{loading_block_key_str} with path {key_module}.{key_classname} " + \
                   f"because of {type(e).__name__}: {e}"
             logger.debug(msg)
@@ -339,7 +339,7 @@ class MapperBlock(DataLoadingBlock):
     def __init__(self):
         super(MapperBlock, self).__init__()
         self.map = {}
-        self._validation_scheme.update(MapperBlock._extra_validation_scheme())
+        self._serialization_validator.validation_scheme.update(MapperBlock._extra_validation_scheme())
 
     def serialize(self) -> dict:
         """Serializes the class in a format similar to json.
@@ -371,7 +371,7 @@ class MapperBlock(DataLoadingBlock):
             FedbiomedLoadingBlockError: if map is not a dict or the key does not exist.
         """
         if not isinstance(self.map, dict) or key not in self.map:
-            msg = ErrorNumbers.FB614 + f"Mapper block error: no key '{key}' in mapping dictionary"
+            msg = ErrorNumbers.FB614.value + f"Mapper block error: no key '{key}' in mapping dictionary"
             logger.debug(msg)
             raise FedbiomedLoadingBlockError(msg)
         return self.map[key]
@@ -386,7 +386,7 @@ class MapperBlock(DataLoadingBlock):
         }
 
 
-class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock], SerializationValidation):
+class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
     """Customizations to the way the data is loaded and presented for training.
 
     A DataLoadingPlan is a dictionary of {name: DataLoadingBlock} pairs. Each
@@ -411,21 +411,21 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock], Serializati
 
     def __init__(self, *args, **kwargs):
         super(DataLoadingPlan, self).__init__(*args, **kwargs)
-        super(dict, self).__init__()
         self.dlp_id = 'dlp_' + str(uuid.uuid4())
         self.desc = ""
         self.target_dataset_type = DatasetTypes.NONE
-        self._validation_scheme = SerializationValidation.dlp_default_scheme()
+        self._serialization_validation = SerializationValidation()
+        self._serialization_validation.validation_scheme = SerializationValidation.dlp_default_scheme()
 
     def __setitem__(self, key: DataLoadingBlockTypes, value: DataLoadingBlock):
         """Type-check the arguments then call dict.__setitem__."""
         if not isinstance(key, DataLoadingBlockTypes):
-            msg = ErrorNumbers.FB615 + f"Key {key} is not of enum type DataLoadingBlockTypes in" + \
+            msg = ErrorNumbers.FB615.value + f"Key {key} is not of enum type DataLoadingBlockTypes in" + \
                   f" DataLoadingPlan {self}"
             logger.debug(msg)
             raise FedbiomedDataLoadingPlanValueError(msg)
         if not isinstance(value, DataLoadingBlock):
-            msg = ErrorNumbers.FB615 + f"Value {value} is not of type DataLoadingBlock in" + \
+            msg = ErrorNumbers.FB615.value + f"Value {value} is not of type DataLoadingBlock in" + \
                   f" DataLoadingPlan {self}"
             logger.debug(msg)
             raise FedbiomedDataLoadingPlanValueError(msg)
@@ -463,7 +463,7 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock], Serializati
         Returns:
             the self instance
         """
-        self.validate(serialized_dlp, FedbiomedDataLoadingPlanValueError)
+        self._serialization_validation.validate(serialized_dlp, FedbiomedDataLoadingPlanValueError)
 
         self.clear()
         self.dlp_id = serialized_dlp['dlp_id']
@@ -475,27 +475,6 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock], Serializati
             loading_block = next(filter(lambda x: x['dlb_id'] == loading_block_serialization_id,
                                         serialized_loading_blocks))
             dlb = DataLoadingBlock.instantiate_class(loading_block)
-            self[loading_block_key] = dlb.deserialize(loading_block)
-        return self
-
-    def deserialize_loading_blocks_from_mapping(self,
-                                                serialized_loading_blocks_mapping: Dict[str, dict]) -> TDataLoadingPlan:
-        """Reconstruct only the loading blocks of the Data Loading Plan
-
-        The input argument must be of the form {str: dict} where the str key is a name that will identify each loading
-        block, and the dict value is a dictionary of loading block metadata used to deserialize the loading block.
-
-        This function may be used to update an existing DataLoadingPlan by adding the deserialized loading blocks.
-
-        Args:
-            serialized_loading_blocks_mapping : a dictionary of {name: metadata} pairs
-        Returns:
-            the self instance
-        """
-
-        for loading_block_key, loading_block in serialized_loading_blocks_mapping.items():
-            exec(f"import {loading_block['loading_block_module']}")
-            dlb = eval(f"{loading_block['loading_block_module']}.{loading_block['loading_block_class']}()")
             self[loading_block_key] = dlb.deserialize(loading_block)
         return self
 
@@ -553,7 +532,7 @@ class DataLoadingPlanMixin:
     def set_dlp(self, dlp: DataLoadingPlan):
         """Sets the dlp if the target dataset type is appropriate"""
         if not isinstance(dlp, DataLoadingPlan):
-            msg = ErrorNumbers.FB615 + f"Trying to set a DataLoadingPlan but the argument is of type " + \
+            msg = ErrorNumbers.FB615.value + f"Trying to set a DataLoadingPlan but the argument is of type " + \
                   f"{type(dlp).__name__}"
             logger.debug(msg)
             raise FedbiomedDataLoadingPlanValueError(msg)
