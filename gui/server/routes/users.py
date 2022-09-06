@@ -110,17 +110,20 @@ def create_user():
             "creation_date": datetime.utcnow().ctime(),
             "user_id": user_id,
         })
-
-        res = user_table.get(query.user_id == user_id)
-
-        if res:
-            return response(res, 'User has been successfully registered!'), 201
-        else:
-            return error('Unexpected error, please try again later'), 400
-
     except Exception as e:
         return error(str(e)), 400
 
+    try:
+        res = user_table.get(query.user_id == user_id)
+    except Exception as e:
+        return error(f'Error while validating user removal status. User might be removed but this '
+                     f'status is not validated by the API. Please check user list to make sure it is deleted. '
+                     f'Error {e}'), 400
+
+    if res:
+        return response(res, 'User has been successfully registered!'), 201
+    else:
+        return error('Unexpected error, please try again later'), 400
 
 @api.route('/admin/users/remove', methods=['DELETE'])
 @jwt_required()
@@ -156,14 +159,20 @@ def remove_user():
 
     try:
         user_table.remove(where('user_id') == user_id)
-        res = user_table.get(query.user_id == user_id)
-        if not res:
-            return response({"user_id": user_id}, 'User has been successfully deleted!'), 200
-        else:
-            return error('User is not removed. Please try again or contact to system manager.'), 400
-
     except Exception as e:
         return error(str(e)), 400
+
+    try:
+        res = user_table.get(query.user_id == user_id)
+    except Exception as e:
+        return error(f'Error while validating user removal status. User might be removed but this '
+                     f'status is not validated by the API. Please check user list to make sure it is deleted. '
+                     f'Error {e}'), 400
+
+    if not res:
+        return response({"user_id": user_id}, 'User has been successfully deleted!'), 200
+    else:
+        return error('User is not removed. Please try again or contact to system manager.'), 400
 
 
 @api.route('/admin/users/reset-password', methods=['PATCH'])
@@ -205,15 +214,15 @@ def reset_user_password():
 
     try:
         res = user_table.update({"password_hash": password_hash}, query.user_id == user_id)
-        if res:
-            user = user_table.get(query.user_id == user_id)
-            return response({"password": password, "email": user["user_email"]}, 'User password has been  '
-                                                                                 'successfully updated.'), 200
-        else:
-            return error('Can not update user password. User may not be existing'), 400
-
     except Exception as e:
         return error(str(e)), 400
+
+    if res:
+        user = user_table.get(query.user_id == user_id)
+        return response({"password": password, "email": user["user_email"]}, 'User password has been '
+                                                                             'successfully updated.'), 200
+    else:
+        return error('Can not update user password. User may not be existing'), 400
 
 
 @api.route('/admin/users/change-role', methods=['PATCH'])
@@ -250,14 +259,14 @@ def change_user_role():
 
     try:
         res = user_table.update({"user_role": role}, query.user_id == user_id)
-        if res:
-            user = user_table.get(query.user_id == user_id)
-            return response({"role": role, "email": user["user_email"]}, 'User role has been successfully changed'), 200
-        else:
-            return error('Can not update user role. User may not be existing'), 400
-
     except Exception as e:
         return error(str(e)), 400
+
+    if res:
+        user = user_table.get(query.user_id == user_id)
+        return response({"role": role, "email": user["user_email"]}, 'User role has been successfully changed'), 200
+    else:
+        return error('Can not update user role. User may not be existing'), 400
 
 
 @api.route('/admin/requests/list', methods=['GET'])
