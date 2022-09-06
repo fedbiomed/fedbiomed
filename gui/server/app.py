@@ -25,7 +25,7 @@ app.config.update(config.generate_config())
 # Configure application to store JWTs in cookies. Whenever you make
 # a request to a protected endpoint, you will need to send in the
 # access or refresh JWT via a cookie or an Authorization Bearer header.
-app.config['JWT_TOKEN_LOCATION'] = ['headers', 'cookies']
+app.config['JWT_TOKEN_LOCATION'] = ['headers']
 app.config['JWT_COOKIE_SECURE'] = True
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=30)
 app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(minutes=60)
