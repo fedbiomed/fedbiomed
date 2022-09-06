@@ -50,6 +50,7 @@ assert app.config["JWT_ACCESS_TOKEN_EXPIRES"] < app.config["JWT_REFRESH_TOKEN_EX
 jwt = JWTManager(app)
 app.register_blueprint(api)
 
+
 # Routes for react build directory
 @app.route('/', defaults={'path': ''}, methods=['GET'])
 @app.route('/<path:path>')
@@ -73,37 +74,6 @@ def expired_token_callback(jwt_header, jwt_payload):
     return err, 401
 
 
-# def before_request(req=None):
-#     print(request)
-#     # redirect connections from HTTP to HTTPS
-#     print("REDIRECTION STUFF")
-#     if request.url.startswith('http://'):
-#         print("REDIRECTION")
-#         url = request.url.replace('http://', 'https://', 1).replace('080', '443', 1)
-#         return redirect(url, code=302)
-
-# functions for HTTP to HTTPS redirections (not available for debug mode)
-#------------------------------------------------------
-
-# @app.before_request
-# def before_request(req=None):
-#     if not app.config['DEBUG']:
-#         if request.scheme == 'http':
-#             return redirect(url_for(request.endpoint,
-#                                     _scheme='https',
-#                                     _external=True),
-#                             HTTPStatus.PERMANENT_REDIRECT)
-# @app.after_request
-# def set_hsts_header(response):
-#     """Adds HSTS header to each response."""
-#     # Should we add STS header?
-#     if not app.config['DEBUG']:
-#         if request.is_secure:
-#             response.headers.setdefault(
-#                 'Strict-Transport-Security', hsts_header)
-#     return response
-
-
 def hsts_header():
     """Returns the proper HSTS policy."""
     hsts_age = 100_000
@@ -117,17 +87,6 @@ def hsts_header():
 if __name__ == '__main__':
 
     # Start Flask
-
-    if not app.config['DEBUG']: 
-        if CERTIFICATE_NAME and PRIVATE_KEY_NAME:
-            context = ('../../etc/' + CERTIFICATE_NAME, '../../etc/' + PRIVATE_KEY_NAME)
-        else:
-            context = "adhoc"
-        app.run(host=app.config['HOST'],
-                port=app.config['PORT'],
-                debug=app.config['DEBUG'],
-                ssl_context=context)
-    else:
-        app.run(host=app.config['HOST'],
-                port=app.config['PORT'],
-                debug=app.config['DEBUG'])
+    app.run(host=app.config['HOST'],
+            port=app.config['PORT'],
+            debug=app.config['DEBUG'])
