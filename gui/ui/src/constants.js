@@ -1,5 +1,6 @@
 
 // API Endpoints
+export const API_ROOT                   = '/api'
 export const EP_DATASET_PREVIEW         = '/api/datasets/preview'
 export const EP_DATASETS_LIST           = '/api/datasets/list'
 export const EP_DATASET_REMOVE          = '/api/datasets/remove'
@@ -9,6 +10,33 @@ export const EP_DATASET_ADD             = '/api/datasets/add'
 export const EP_DEFAULT_DATASET_ADD     = '/api/datasets/add-default-dataset'
 export const EP_CONFIG_NODE_ENVIRON     = '/api/config/node-environ'
 export const EP_LOAD_CSV_DATA           = '/api/datasets/get-csv-data'
+
+// Authentication endpoints
+export const EP_LOGIN                   = '/api/auth/token/login'
+export const EP_AUTH                    = '/api/token/auth'
+export const EP_REFRESH                 = '/api/auth/token/refresh'
+export const EP_LOGOUT                  = '/api/token/remove'
+export const EP_REGISTER                = '/api/auth/register'
+export const EP_UPDATE_PASSWORD         = '/api/update-password'
+
+// Authentication actions
+export const LOGIN                      = 'LOGIN'
+export const REGISTER                   = 'REGISTER'
+
+// Temporary endpoints
+export const EP_PROTECTED               = '/api/protected'
+export const EP_ADMIN                   = '/api/admin'
+
+// Admin endpoints
+export const EP_REQUESTS_LIST           = '/api/admin/requests/list'
+export const EP_REQUEST_APPROVE         = '/api/admin/requests/approve'
+export const EP_REQUEST_REJECT          = '/api/admin/requests/reject'
+export const EP_LIST_USERS              = '/api/admin/users/list'
+export const EP_REMOVE_USER             = '/api/admin/users/remove'
+export const EP_CREATE_USER             = '/api/admin/users/create'
+export const EP_RESET_USER_PASSWORD     = '/api/admin/users/reset-password'
+export const EP_CHANGE_USER_ROLE        = '/api/admin/users/change-role'
+
 
 // MedicalFolder Dataset Endpoints
 export const EP_VALIDATE_MEDICAL_FOLDER_ROOT    = '/api/datasets/medical-folder-dataset/validate-root'
@@ -38,3 +66,9 @@ export const ADD_DATASET_ERROR_MESSAGES = {
 //Allowed file extensions for data loader
 export const ALLOWED_EXTENSIONS = ['.csv', '.txt']
 
+// role for authentication (User or admin)
+export const ROLE = {1: 'Admin', 2: 'User'}
+
+// account request status
+export const NEW_REQUEST = 'NEW'
+export const REJECTED_REQUEST = 'REJECTED'

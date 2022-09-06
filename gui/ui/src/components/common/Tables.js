@@ -106,7 +106,8 @@ export const TableInfo = (props) => {
                             return (
                                 <tr key={key}>
                                     <td className="title">{item}</td>
-                                    <td>{props.info[item].value.toString()}</td>
+                                    {console.log(props.info[item])}
+                                    <td>{props.mode? props.info[item].value.toString(): props.info[item]}</td>
                                 </tr>
                             )
                         }

@@ -264,3 +264,25 @@ export const datasetPreviewReducer = (state = initialStateDataSetPreview, action
             return state
     }   
 }
+
+
+//----------------------------------------------------------
+// changing password
+
+// const initialPasswordState = {
+//     new_pwd:"",
+//     error: false,
+//     message: ""
+// }
+
+
+// export const setNewPasswordWindow = (state = initialPasswordState, action) => {
+//     switch(action.type){
+//         case 'SETTING_PWD':
+//             return {
+//                 ...state,
+
+//             }
+
+//     }
+// }
