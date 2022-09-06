@@ -11,7 +11,7 @@ import {EuiTitle,
 import styles from "./Auth.module.css";
 import logo from "../../assets/img/fedbiomed-logo-small.png";
 import {Link} from "react-router-dom";
-import RegisterForm from "./RegisterFrom";
+import RegisterForm from "./RegisterForm";
 
 
 const Register = (props) => {

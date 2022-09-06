@@ -12,7 +12,7 @@ import {
 } from '@elastic/eui';
 
 import {resetPassword as resetPasswordAction} from "../../store/actions/userManagementActions";
-import RegisterFrom from "../authentication/RegisterFrom";
+import RegisterFrom from "../authentication/RegisterForm";
 
 
 
