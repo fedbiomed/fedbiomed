@@ -51,8 +51,8 @@ function App(props) {
                       <Route index element={<UserInfo/>} />
                       <Route path={"info"} element={<UserInfo/>} />
                       <Route path={"change-password"} element={<PasswordChange/>} />
-                      <Route path={"user-management"} element={<AdminProtected><UserManagement/></AdminProtected>}/>
-                      <Route path={"account-requests"} element={<AdminProtected><AccountRequestManagement/></AdminProtected>}/>
+                      <Route path={"user-management"} element={<AdminProtected redirect_to={'/user-account'}><UserManagement/></AdminProtected>}/>
+                      <Route path={"account-requests"} element={<AdminProtected redirect_to={'/user-account'}><AccountRequestManagement/></AdminProtected>}/>
                   </Route>
                   <Route path="/repository/" element={<Repository/>} />
                   <Route path="/models/" element={<Models/>} />

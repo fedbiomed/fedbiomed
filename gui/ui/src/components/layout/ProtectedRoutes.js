@@ -98,7 +98,7 @@ export const AdminProtected = (props) => {
         return props.children
     }else{
         return(
-            <Navigate to="/user-account/" />
+            <Navigate to={`${props.redirect_to ? props.redirect_to : '/'}`} />
         )
     }
 };
